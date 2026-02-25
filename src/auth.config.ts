@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
+import type { Role } from "@prisma/client";
 
 const authConfig = {
   pages: {
@@ -39,7 +40,7 @@ const authConfig = {
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub ?? "";
-        session.user.role = token.role;
+        session.user.role = token.role as Role | undefined;
       }
       return session;
     },

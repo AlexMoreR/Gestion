@@ -6,6 +6,7 @@ import {
   GalleryVerticalEnd,
   Home,
   LayoutDashboard,
+  Package,
 } from "lucide-react";
 import type { Role } from "@prisma/client";
 import { NavMain } from "@/components/nav-main";
@@ -38,6 +39,7 @@ type AppSidebarProps = {
 export function AppSidebar({ pathname, user, ...props }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
   const dashboardHref = user.role ? roleHome[user.role] : "/";
   const isAdminConfigRoute = pathname.startsWith("/admin/configuracion");
+  const isAdminProductsRoute = pathname.startsWith("/admin/productos");
 
   const navMain = [
     {
@@ -55,12 +57,24 @@ export function AppSidebar({ pathname, user, ...props }: AppSidebarProps & React
       icon: LayoutDashboard,
       isActive:
         pathname === dashboardHref ||
-        (pathname.startsWith(`${dashboardHref}/`) && !isAdminConfigRoute),
+        (pathname.startsWith(`${dashboardHref}/`) &&
+          !isAdminConfigRoute &&
+          !isAdminProductsRoute),
       items: [
         { title: "Vista general", url: dashboardHref },
       ],
     },
   ];
+
+  if (user.role === "ADMIN") {
+    navMain.push({
+      title: "Productos",
+      url: "/admin/productos",
+      icon: Package,
+      isActive: pathname.startsWith("/admin/productos"),
+      items: [{ title: "Catalogo", url: "/admin/productos" }],
+    });
+  }
 
   const teams = [
     { name: "Acme Inc", logo: GalleryVerticalEnd, plan: "Enterprise" },

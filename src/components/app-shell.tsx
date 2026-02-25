@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 type InitialUser = {
   name?: string | null;
   email?: string | null;
+  image?: string | null;
   role?: Role;
 };
 
@@ -36,6 +37,8 @@ export function AppShell({ children, initialUser }: AppShellProps) {
     ? "Inicio"
     : pathname.startsWith("/admin/configuracion")
       ? "Configuracion"
+      : pathname.startsWith("/admin/productos")
+        ? "Productos"
       : pathname.startsWith("/profile")
         ? "Perfil"
         : "Dashboard";
