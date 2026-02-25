@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f9fafb;
+  --foreground: #111827;
+  --surface: #ffffff;
+  --surface-strong: #ffffff;
+  --line: #e5e7eb;
+  --line-strong: #d1d5db;
+  --muted: #6b7280;
+  --primary: #2563eb;
+  --primary-strong: #1d4ed8;
+  --success-bg: #f0fdf4;
+  --success-line: #bbf7d0;
+  --success-fg: #166534;
+  --danger-bg: #fef2f2;
+  --danger-line: #fecaca;
+  --danger-fg: #991b1b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-poppins);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-poppins), sans-serif;
+  min-height: 100vh;
+  line-height: 1.45;
+}
+
+::selection {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.saas-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 2px 0 rgb(17 24 39 / 0.03);
+}
+
+.app-page {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+}
+
+.field-select {
+  height: 2.75rem;
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding-inline: 0.75rem;
+  font-size: 0.875rem;
+  color: #1f2937;
+  outline: none;
+  transition: border-color 120ms ease;
+}
+
+.field-select:focus {
+  border-color: var(--line-strong);
+}
+
+.status-success {
+  border-color: var(--success-line);
+  background: var(--success-bg);
+  color: var(--success-fg);
+}
+
+.status-danger {
+  border-color: var(--danger-line);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+}
