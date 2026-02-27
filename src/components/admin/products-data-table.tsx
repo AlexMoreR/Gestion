@@ -36,16 +36,40 @@ type ProductsDataTableProps = {
 
 const PAGE_SIZE = 12;
 
+function normalizeFilterText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 export function ProductsDataTable({ products, currency }: ProductsDataTableProps) {
   const [query, setQuery] = React.useState("");
+  const [categoryFilter, setCategoryFilter] = React.useState("__all__");
   const [page, setPage] = React.useState(1);
+
+  const categoryOptions = React.useMemo(() => {
+    const map = new Map<string, string>();
+
+    for (const product of products) {
+      const label = product.categoryName ?? "Sin categoria";
+      const normalized = normalizeFilterText(label);
+      if (!map.has(normalized)) {
+        map.set(normalized, label);
+      }
+    }
+
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "es"));
+  }, [products]);
 
   const filteredProducts = React.useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
     return products.filter((product) => {
-      if (!normalizedQuery) return true;
-
       const haystack = [
         product.name,
         product.code ?? "",
@@ -55,15 +79,20 @@ export function ProductsDataTable({ products, currency }: ProductsDataTableProps
         .join(" ")
         .toLowerCase();
 
-      return haystack.includes(normalizedQuery);
+      const queryMatches = !normalizedQuery || haystack.includes(normalizedQuery);
+      const categoryLabel = product.categoryName ?? "Sin categoria";
+      const normalizedCategory = normalizeFilterText(categoryLabel);
+      const categoryMatches = categoryFilter === "__all__" || categoryFilter === normalizedCategory;
+
+      return queryMatches && categoryMatches;
     });
-  }, [products, query]);
+  }, [products, query, categoryFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
 
   React.useEffect(() => {
     setPage(1);
-  }, [query]);
+  }, [query, categoryFilter]);
 
   React.useEffect(() => {
     if (page > totalPages) {
@@ -93,24 +122,52 @@ export function ProductsDataTable({ products, currency }: ProductsDataTableProps
             {filteredProducts.length} producto{filteredProducts.length === 1 ? "" : "s"} en la vista actual
           </p>
         </div>
-        <div className="relative w-full md:max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Buscar por nombre, codigo, categoria o proveedor"
-            className="h-9 pr-9 pl-9 text-sm"
-          />
-          {query ? (
-            <button
-              type="button"
-              onClick={() => setQuery("")}
-              className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-              aria-label="Limpiar busqueda"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          ) : null}
+        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center">
+          <div className="relative w-full md:w-[22rem]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar por nombre, codigo, categoria o proveedor"
+              className="h-9 pr-9 pl-9 text-sm"
+            />
+            {query ? (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Limpiar busqueda"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+          </div>
+          <select
+            value={categoryFilter}
+            onChange={(event) => setCategoryFilter(event.target.value)}
+            className="h-9 min-w-36 rounded-lg border border-[var(--line)] bg-white px-2.5 text-sm text-slate-700 outline-none transition focus:border-[var(--line-strong)]"
+            aria-label="Filtrar por categoria"
+          >
+            <option value="__all__">Todas las categorias</option>
+            {categoryOptions.map((category) => (
+              <option key={category.value} value={category.value}>
+                {category.label}
+              </option>
+            ))}
+          </select>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-9 px-2.5 text-xs"
+            onClick={() => {
+              setQuery("");
+              setCategoryFilter("__all__");
+            }}
+            disabled={!query && categoryFilter === "__all__"}
+          >
+            Limpiar filtros
+          </Button>
         </div>
       </div>
 
