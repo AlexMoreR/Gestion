@@ -14,7 +14,7 @@ import {
   Truck,
   X,
 } from "lucide-react";
-import { adminCreateProductAction } from "@/app/actions/product-actions";
+import { adminUpdateProductAction } from "@/app/actions/product-actions";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
@@ -30,36 +30,56 @@ type SupplierOption = {
   name: string;
 };
 
-type NewProductFormProps = {
+type EditProductInitialData = {
+  id: string;
+  code: string | null;
+  name: string;
+  description: string | null;
+  baseCost: number;
+  retailMarginPct: number;
+  wholesaleMarginPct: number;
+  minWholesaleQty: number;
+  categoryId: string | null;
+  supplierId: string | null;
+  imageUrls: string[];
+};
+
+type EditProductFormProps = {
   categories: CategoryOption[];
   suppliers: SupplierOption[];
   currency: SupportedCurrencyCode;
+  initialData: EditProductInitialData;
 };
 
-export function NewProductForm({ categories, suppliers, currency }: NewProductFormProps) {
-  const [name, setName] = useState("");
-  const [code, setCode] = useState("");
-  const [description, setDescription] = useState("");
-  const [baseCost, setBaseCost] = useState("0");
-  const [retailMarginPct, setRetailMarginPct] = useState("35");
-  const [wholesaleMarginPct, setWholesaleMarginPct] = useState("20");
-  const [minWholesaleQty, setMinWholesaleQty] = useState("6");
-  const [wholesaleEnabled, setWholesaleEnabled] = useState(false);
+export function EditProductForm({
+  categories,
+  suppliers,
+  currency,
+  initialData,
+}: EditProductFormProps) {
+  const [name, setName] = useState(initialData.name);
+  const [code, setCode] = useState(initialData.code ?? "");
+  const [description, setDescription] = useState(initialData.description ?? "");
+  const [baseCost, setBaseCost] = useState(initialData.baseCost.toFixed(2));
+  const [retailMarginPct, setRetailMarginPct] = useState(initialData.retailMarginPct.toFixed(2));
+  const [wholesaleMarginPct, setWholesaleMarginPct] = useState(initialData.wholesaleMarginPct.toFixed(2));
+  const [minWholesaleQty, setMinWholesaleQty] = useState(String(initialData.minWholesaleQty));
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [mainImageUrls, setMainImageUrls] = useState<string[]>([]);
+  const [newImageUrls, setNewImageUrls] = useState<string[]>([]);
+  const [existingImageUrls, setExistingImageUrls] = useState(initialData.imageUrls);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     return () => {
-      mainImageUrls.forEach((url) => URL.revokeObjectURL(url));
+      newImageUrls.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [mainImageUrls]);
+  }, [newImageUrls]);
 
   const previewPrices = useMemo(() => {
     const cost = Number(baseCost) || 0;
     const retailMargin = Number(retailMarginPct) || 0;
-    const wholesaleMargin = wholesaleEnabled ? Number(wholesaleMarginPct) || 0 : 0;
+    const wholesaleMargin = Number(wholesaleMarginPct) || 0;
 
     const retail = calculateRetailPrice(cost, retailMargin);
     const wholesale = calculateWholesalePrice(cost, wholesaleMargin);
@@ -69,10 +89,12 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
       wholesale: formatMoney(wholesale, currency),
       cost: formatMoney(cost, currency),
     };
-  }, [baseCost, retailMarginPct, wholesaleMarginPct, currency, wholesaleEnabled]);
+  }, [baseCost, retailMarginPct, wholesaleMarginPct, currency]);
 
-  const allImageUrls = useMemo(() => mainImageUrls, [mainImageUrls]);
-
+  const allImageUrls = useMemo(
+    () => [...existingImageUrls, ...newImageUrls],
+    [existingImageUrls, newImageUrls],
+  );
   const previewImageUrl = allImageUrls[0] ?? null;
 
   const syncSelectedFiles = (files: File[]) => {
@@ -86,12 +108,18 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
     input.files = transfer.files;
     setSelectedFiles(files);
 
-    mainImageUrls.forEach((url) => URL.revokeObjectURL(url));
-    setMainImageUrls(files.map((file) => URL.createObjectURL(file)));
+    newImageUrls.forEach((url) => URL.revokeObjectURL(url));
+    setNewImageUrls(files.map((file) => URL.createObjectURL(file)));
   };
 
   const removeImageAt = (index: number) => {
-    const nextFiles = selectedFiles.filter((_, i) => i !== index);
+    if (index < existingImageUrls.length) {
+      setExistingImageUrls((current) => current.filter((_, i) => i !== index));
+      return;
+    }
+
+    const newIndex = index - existingImageUrls.length;
+    const nextFiles = selectedFiles.filter((_, i) => i !== newIndex);
     syncSelectedFiles(nextFiles);
   };
 
@@ -104,14 +132,14 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
               {previewImageUrl ? (
                 <img src={previewImageUrl} alt="Vista previa" className="h-full w-full object-cover" />
               ) : (
-                <p className="text-xs text-slate-500">Primera imagen del producto</p>
+                <p className="text-xs text-slate-500">Sin imagen principal</p>
               )}
               <span className="absolute right-2 top-2 rounded-full border border-[var(--line)] bg-white/95 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                 SKU
               </span>
             </div>
             <div className="space-y-2.5 border-t border-[var(--line)] bg-white p-4">
-              <p className="text-sm font-semibold text-slate-900">{name.trim() || "Nuevo producto"}</p>
+              <p className="text-sm font-semibold text-slate-900">{name.trim() || "Producto sin nombre"}</p>
               {code.trim() ? <p className="text-xs font-medium text-slate-500">{code.trim()}</p> : null}
               {description.trim() ? (
                 <p className="line-clamp-2 text-xs text-slate-500">{description.trim()}</p>
@@ -119,34 +147,33 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
                 <p className="text-xs text-slate-400">Agrega descripcion para completar la ficha.</p>
               )}
               <p className="pt-1 text-lg font-semibold tracking-tight text-slate-900">{previewPrices.retail}</p>
-              {wholesaleEnabled ? (
-                <p className="text-xs text-slate-600">
-                  Mayorista: {previewPrices.wholesale} (min {minWholesaleQty || "1"} uds)
-                </p>
-              ) : null}
+              <p className="text-xs text-slate-600">
+                Mayorista: {previewPrices.wholesale} (min {minWholesaleQty || "1"} uds)
+              </p>
             </div>
           </div>
         </div>
 
         <Card className="space-y-3 p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Resumen comercial</p>
-            <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-[var(--line)] bg-slate-50 px-3 py-3">
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Costo</p>
+              <p className="text-sm font-semibold text-slate-800">{previewPrices.cost}</p>
+            </div>
             <div className="rounded-lg border border-[var(--line)] bg-slate-50 px-3 py-3">
               <p className="text-[11px] uppercase tracking-wide text-slate-500">Detal</p>
               <p className="text-sm font-semibold text-slate-800">{previewPrices.retail}</p>
-            </div>
-            <div className="rounded-lg border border-[var(--line)] bg-slate-50 px-3 py-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Mayor</p>
-              <p className="text-sm font-semibold text-slate-800">
-                {wholesaleEnabled ? previewPrices.wholesale : "No habilitado"}
-              </p>
             </div>
           </div>
         </Card>
       </aside>
 
       <Card className="space-y-7 p-6">
-        <form action={adminCreateProductAction} encType="multipart/form-data" className="space-y-7">
+        <form action={adminUpdateProductAction} encType="multipart/form-data" className="space-y-7">
+          <input type="hidden" name="productId" value={initialData.id} />
+          <input type="hidden" name="existingImages" value={existingImageUrls.join("\n")} />
+
           <section className="space-y-4">
             <div className="space-y-1">
               <h2 className="text-sm font-semibold text-slate-900">Producto</h2>
@@ -157,7 +184,7 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
                   <Package2 className="h-3.5 w-3.5 text-slate-500" />
                   Nombre
                 </span>
-                <Input name="name" placeholder="Ej. Camisa Oxford" required value={name} onChange={(e) => setName(e.target.value)} />
+                <Input name="name" required value={name} onChange={(e) => setName(e.target.value)} />
               </label>
               <label className="block space-y-1.5 md:col-span-2">
                 <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
@@ -201,7 +228,6 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
                     if (dropped.length === 0) {
                       return;
                     }
-
                     syncSelectedFiles([...selectedFiles, ...dropped]);
                   }}
                 >
@@ -211,7 +237,6 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
                     type="file"
                     accept="image/*"
                     multiple
-                    required
                     className="hidden"
                     onChange={(e) => {
                       const files = Array.from(e.target.files ?? []);
@@ -221,30 +246,16 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
                       syncSelectedFiles([...selectedFiles, ...files]);
                     }}
                   />
-                  {allImageUrls.length === 0 ? (
+                  <div className="flex justify-end">
                     <button
                       type="button"
-                      className="flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-[var(--line)] bg-white px-4 py-8 text-center transition hover:bg-slate-50"
+                      className="inline-flex h-8 items-center gap-1 rounded-lg border border-[var(--line)] bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                       onClick={() => fileInputRef.current?.click()}
                     >
-                      <ImagePlus className="mb-2 h-5 w-5 text-slate-500" />
-                      <span className="text-sm font-medium text-slate-700">Subir imagen</span>
-                      <span className="mt-1 text-xs text-slate-500">
-                        Arrastra y suelta o haz clic para seleccionar varias.
-                      </span>
+                      <ImagePlus className="h-3.5 w-3.5" />
+                      Agregar imagenes
                     </button>
-                  ) : (
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-[var(--line)] bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <ImagePlus className="h-3.5 w-3.5" />
-                        Agregar imagenes
-                      </button>
-                    </div>
-                  )}
+                  </div>
                   {allImageUrls.length > 0 ? (
                     <div className="flex gap-2 overflow-x-auto pb-1">
                       {allImageUrls.map((url, index) => (
@@ -267,7 +278,11 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
                         </div>
                       ))}
                     </div>
-                  ) : null}
+                  ) : (
+                    <p className="text-xs text-red-600">
+                      Debes mantener al menos una imagen para guardar el producto.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -277,15 +292,6 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
             <div className="space-y-1">
               <h2 className="text-sm font-semibold text-slate-900">Precios</h2>
             </div>
-            <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-slate-900"
-                checked={wholesaleEnabled}
-                onChange={(e) => setWholesaleEnabled(e.target.checked)}
-              />
-              Habilitar venta por mayor
-            </label>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="space-y-1.5">
                 <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
@@ -297,7 +303,6 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
                   type="number"
                   min="0.01"
                   step="0.01"
-                  placeholder="0.00"
                   required
                   value={baseCost}
                   onChange={(e) => setBaseCost(e.target.value)}
@@ -306,61 +311,48 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
               <label className="space-y-1.5">
                 <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
                   <Percent className="h-3.5 w-3.5 text-slate-500" />
-                  Detal
+                  Margen detal (%)
                 </span>
                 <Input
                   name="retailMarginPct"
                   type="number"
                   min="0"
                   step="0.01"
-                  placeholder="35"
                   required
                   value={retailMarginPct}
                   onChange={(e) => setRetailMarginPct(e.target.value)}
                 />
               </label>
-              {wholesaleEnabled ? (
-                <>
-                  <label className="space-y-1.5">
-                    <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
-                      <Percent className="h-3.5 w-3.5 text-slate-500" />
-                      Mayor
-                    </span>
-                    <Input
-                      name="wholesaleMarginPct"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="20"
-                      required
-                      value={wholesaleMarginPct}
-                      onChange={(e) => setWholesaleMarginPct(e.target.value)}
-                    />
-                  </label>
-                  <label className="space-y-1.5">
-                    <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
-                      <Boxes className="h-3.5 w-3.5 text-slate-500" />
-                      Min. unidades mayor
-                    </span>
-                    <Input
-                      name="minWholesaleQty"
-                      type="number"
-                      min="1"
-                      step="1"
-                      placeholder="6"
-                      required
-                      value={minWholesaleQty}
-                      onChange={(e) => setMinWholesaleQty(e.target.value)}
-                    />
-                  </label>
-                </>
-              ) : null}
-              {!wholesaleEnabled ? (
-                <>
-                  <input type="hidden" name="wholesaleMarginPct" value="0" />
-                  <input type="hidden" name="minWholesaleQty" value="1" />
-                </>
-              ) : null}
+              <label className="space-y-1.5">
+                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
+                  <Percent className="h-3.5 w-3.5 text-slate-500" />
+                  Margen mayor (%)
+                </span>
+                <Input
+                  name="wholesaleMarginPct"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  required
+                  value={wholesaleMarginPct}
+                  onChange={(e) => setWholesaleMarginPct(e.target.value)}
+                />
+              </label>
+              <label className="space-y-1.5">
+                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
+                  <Boxes className="h-3.5 w-3.5 text-slate-500" />
+                  Min. unidades mayor
+                </span>
+                <Input
+                  name="minWholesaleQty"
+                  type="number"
+                  min="1"
+                  step="1"
+                  required
+                  value={minWholesaleQty}
+                  onChange={(e) => setMinWholesaleQty(e.target.value)}
+                />
+              </label>
             </div>
           </section>
 
@@ -374,19 +366,14 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
                   <Hash className="h-3.5 w-3.5 text-slate-500" />
                   Codigo
                 </span>
-                <Input
-                  name="code"
-                  placeholder="Ej. CAM-001"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                />
+                <Input name="code" placeholder="Ej. CAM-001" value={code} onChange={(e) => setCode(e.target.value)} />
               </label>
               <label className="space-y-1.5">
                 <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
                   <Tag className="h-3.5 w-3.5 text-slate-500" />
                   Categoria
                 </span>
-                <select name="categoryId" className="field-select" defaultValue="">
+                <select name="categoryId" className="field-select" defaultValue={initialData.categoryId ?? ""}>
                   <option value="">Sin categoria</option>
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
@@ -400,7 +387,7 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
                   <Truck className="h-3.5 w-3.5 text-slate-500" />
                   Proveedor principal
                 </span>
-                <select name="supplierId" className="field-select" defaultValue="">
+                <select name="supplierId" className="field-select" defaultValue={initialData.supplierId ?? ""}>
                   <option value="">Sin proveedor</option>
                   {suppliers.map((supplier) => (
                     <option key={supplier.id} value={supplier.id}>
@@ -412,19 +399,22 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
             </div>
           </section>
 
-          <div className="mt-1 flex flex-wrap items-center justify-end gap-3 border-t border-[var(--line)] pt-5">
+          <div className="mt-1 flex flex-wrap items-center gap-3 border-t border-[var(--line)] pt-5">
             <Link
-              href="/admin/productos"
+              href="/admin/productos/new"
               className="inline-flex h-10 items-center justify-center rounded-lg border border-[var(--line)] bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
             >
-              Cancelar
+              Crear nuevo producto
             </Link>
-            <button
-              type="submit"
-              className="inline-flex h-10 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
-            >
-              Guardar producto
-            </button>
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
+              <button
+                type="submit"
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+                disabled={allImageUrls.length === 0}
+              >
+                Guardar cambios
+              </button>
+            </div>
           </div>
         </form>
       </Card>

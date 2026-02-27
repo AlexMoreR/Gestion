@@ -7,6 +7,7 @@ import { CreateUserModal } from "@/components/admin/create-user-modal";
 import { UsersDataTable } from "@/components/admin/users-data-table";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { getSystemCurrency } from "@/lib/system-settings";
@@ -60,16 +61,12 @@ export default async function AdminConfiguracionPage({ searchParams }: PageProps
         <CreateUserModal />
       </div>
 
-      {okMessage && (
-        <Card className="status-success py-3">
-          <p className="text-sm font-medium">{okMessage}</p>
-        </Card>
-      )}
-      {errorMessage && (
-        <Card className="status-danger py-3">
-          <p className="text-sm font-medium">{errorMessage}</p>
-        </Card>
-      )}
+      <QueryFeedbackToast
+        okMessage={okMessage}
+        errorMessage={errorMessage}
+        okTitle="Configuracion guardada"
+        errorTitle="Error de configuracion"
+      />
 
       <div className="space-y-3">
         <Card className="space-y-3">

@@ -16,6 +16,9 @@
   --danger-bg: #fef2f2;
   --danger-line: #fecaca;
   --danger-fg: #991b1b;
+  --info-bg: #eff6ff;
+  --info-line: #bfdbfe;
+  --info-fg: #1e3a8a;
 }
 
 @theme inline {
@@ -67,14 +70,40 @@ body {
   border-color: var(--line-strong);
 }
 
-.status-success {
-  border-color: var(--success-line);
-  background: var(--success-bg);
-  color: var(--success-fg);
+.app-sonner-toast {
+  border: 1px solid var(--line) !important;
+  border-radius: 0.875rem !important;
+  background: var(--surface) !important;
+  color: #0f172a !important;
+  box-shadow: 0 16px 28px -24px rgba(15, 23, 42, 0.35) !important;
 }
 
-.status-danger {
-  border-color: var(--danger-line);
-  background: var(--danger-bg);
-  color: var(--danger-fg);
+.app-sonner-success {
+  border-color: var(--success-line) !important;
+  background: linear-gradient(180deg, #f5fff8 0%, var(--success-bg) 100%) !important;
+  color: var(--success-fg) !important;
+}
+
+.app-sonner-error {
+  border-color: var(--danger-line) !important;
+  background: linear-gradient(180deg, #fff8f8 0%, var(--danger-bg) 100%) !important;
+  color: var(--danger-fg) !important;
+}
+
+.app-sonner-info {
+  border-color: var(--info-line) !important;
+  background: linear-gradient(180deg, #f7faff 0%, var(--info-bg) 100%) !important;
+  color: var(--info-fg) !important;
+}
+
+.app-sonner-title {
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+}
+
+.app-sonner-description {
+  margin-top: 0.125rem !important;
+  font-size: 0.8125rem !important;
+  opacity: 0.92 !important;
 }

@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { Fragment } from "react";
 import type { Role } from "@prisma/client";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
@@ -39,9 +40,31 @@ export function AppShell({ children, initialUser }: AppShellProps) {
       ? "Configuracion"
       : pathname.startsWith("/admin/productos")
         ? "Productos"
-      : pathname.startsWith("/profile")
-        ? "Perfil"
-        : "Dashboard";
+        : pathname.startsWith("/profile")
+          ? "Perfil"
+          : "Dashboard";
+
+  const breadcrumbItems = (() => {
+    if (pathname.startsWith("/admin/productos/new")) {
+      return [
+        { label: "Productos", href: "/admin/productos", isCurrent: false },
+        { label: "Nuevo", href: "", isCurrent: true },
+      ];
+    }
+
+    if (pathname.startsWith("/admin/productos/")) {
+      return [
+        { label: "Productos", href: "/admin/productos", isCurrent: false },
+        { label: "Producto", href: "", isCurrent: true },
+      ];
+    }
+
+    if (pathname.startsWith("/admin/productos")) {
+      return [{ label: "Productos", href: "", isCurrent: true }];
+    }
+
+    return [{ label: currentPage, href: "", isCurrent: true }];
+  })();
 
   if (user) {
     return (
@@ -67,15 +90,18 @@ export function AppShell({ children, initialUser }: AppShellProps) {
                 />
                 <Breadcrumb>
                   <BreadcrumbList>
-                    <BreadcrumbItem className="hidden md:block">
-                      <BreadcrumbLink href="#">
-                        Administrador
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator className="hidden md:block" />
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>{currentPage}</BreadcrumbPage>
-                    </BreadcrumbItem>
+                    {breadcrumbItems.map((item, index) => (
+                      <Fragment key={`${item.label}-${index}`}>
+                        <BreadcrumbItem>
+                          {item.isCurrent ? (
+                            <BreadcrumbPage>{item.label}</BreadcrumbPage>
+                          ) : (
+                            <BreadcrumbLink href={item.href}>{item.label}</BreadcrumbLink>
+                          )}
+                        </BreadcrumbItem>
+                        {index < breadcrumbItems.length - 1 ? <BreadcrumbSeparator /> : null}
+                      </Fragment>
+                    ))}
                   </BreadcrumbList>
                 </Breadcrumb>
               </div>

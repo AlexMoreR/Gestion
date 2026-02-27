@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -26,7 +27,6 @@ const createProductSchema = baseProductSchema;
 
 const updateProductSchema = baseProductSchema.extend({
   productId: z.string().trim().min(1, "Producto invalido"),
-  images: z.string().trim().min(1, "Debes agregar al menos una imagen"),
 });
 
 const deleteProductSchema = z.object({
@@ -52,15 +52,70 @@ function parseImageList(raw: string): string[] {
     .filter(Boolean);
 }
 
+function splitCsvLine(line: string): string[] {
+  const cells: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    const next = line[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      cells.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  cells.push(current.trim());
+  return cells;
+}
+
+function buildErrorRedirect(pathname: string, message: string): never {
+  redirect(`${pathname}?error=${encodeURIComponent(message)}`);
+}
+
+function resolveProductMutationError(error: unknown): string {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2002") {
+      return "El codigo del producto ya existe";
+    }
+    if (error.code === "P2003") {
+      return "Categoria o proveedor invalido";
+    }
+    if (error.code === "P2025") {
+      return "El producto ya no existe";
+    }
+  }
+
+  return "No se pudo guardar el producto";
+}
+
 function assertValidImageList(images: string[]): void {
   if (images.length === 0) {
     throw new Error("Debes agregar al menos una imagen");
   }
 
   for (const image of images) {
-    const result = z.string().url("URL de imagen invalida").safeParse(image);
-    if (!result.success) {
-      throw new Error(`URL de imagen invalida: ${image}`);
+    const isHttpUrl = z.string().url().safeParse(image).success;
+    const isLocalUploadPath =
+      image.startsWith("/") && !image.includes("..") && image.length <= 500;
+
+    if (!isHttpUrl && !isLocalUploadPath) {
+      throw new Error(`URL o ruta de imagen invalida: ${image}`);
     }
   }
 }
@@ -168,8 +223,8 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
           : undefined,
       },
     });
-  } catch {
-    redirect("/admin/productos?error=No+se+pudo+crear+el+producto+(codigo+duplicado?)");
+  } catch (error) {
+    buildErrorRedirect("/admin/productos", resolveProductMutationError(error));
   }
 
   revalidatePath("/");
@@ -180,8 +235,12 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
 export async function adminUpdateProductAction(formData: FormData): Promise<void> {
   await requireAdminSession();
 
+  const rawProductId = formData.get("productId");
+  const productId = typeof rawProductId === "string" ? rawProductId.trim() : "";
+  const redirectBase = productId ? `/admin/productos/${productId}` : "/admin/productos";
+
   const parsed = updateProductSchema.safeParse({
-    productId: formData.get("productId"),
+    productId: rawProductId,
     code: formData.get("code") || undefined,
     name: formData.get("name"),
     description: formData.get("description") || undefined,
@@ -191,18 +250,42 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
     minWholesaleQty: formData.get("minWholesaleQty"),
     categoryId: formData.get("categoryId") || undefined,
     supplierId: formData.get("supplierId") || undefined,
-    images: formData.get("images"),
   });
 
   if (!parsed.success) {
-    redirect("/admin/productos?error=Datos+invalidos");
+    redirect(`${redirectBase}?error=Datos+invalidos`);
   }
 
-  const imageList = parseImageList(parsed.data.images);
+  const existingImagesRaw = formData.get("existingImages");
+  const existingImages =
+    typeof existingImagesRaw === "string" && existingImagesRaw.trim().length > 0
+      ? parseImageList(existingImagesRaw)
+      : [];
+
   try {
-    assertValidImageList(imageList);
+    if (existingImages.length > 0) {
+      assertValidImageList(existingImages);
+    }
   } catch {
-    redirect("/admin/productos?error=Las+imagenes+deben+ser+URLs+validas");
+    redirect(`${redirectBase}?error=Las+imagenes+existentes+son+invalidas`);
+  }
+
+  const uploadedFiles = formData
+    .getAll("images")
+    .filter((item): item is File => item instanceof File && item.size > 0);
+
+  let uploadedImages: string[] = [];
+  if (uploadedFiles.length > 0) {
+    try {
+      uploadedImages = await saveUploadedImages(uploadedFiles);
+    } catch {
+      redirect(`${redirectBase}?error=Las+imagenes+subidas+son+invalidas`);
+    }
+  }
+
+  const imageList = [...existingImages, ...uploadedImages];
+  if (imageList.length === 0) {
+    redirect(`${redirectBase}?error=Debes+mantener+al+menos+una+imagen`);
   }
 
   const thumbnailUrl = imageList[0];
@@ -255,13 +338,14 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
           ]
         : []),
     ]);
-  } catch {
-    redirect("/admin/productos?error=No+se+pudo+actualizar+el+producto+(codigo+duplicado?)");
+  } catch (error) {
+    buildErrorRedirect(redirectBase, resolveProductMutationError(error));
   }
 
   revalidatePath("/");
   revalidatePath("/admin/productos");
-  redirect("/admin/productos?ok=Producto+actualizado");
+  revalidatePath(redirectBase);
+  redirect(`${redirectBase}?ok=Producto+actualizado`);
 }
 
 export async function adminDeleteProductAction(formData: FormData): Promise<void> {
@@ -282,4 +366,138 @@ export async function adminDeleteProductAction(formData: FormData): Promise<void
   revalidatePath("/");
   revalidatePath("/admin/productos");
   redirect("/admin/productos?ok=Producto+eliminado");
+}
+
+export async function adminImportProductsCsvAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size <= 0) {
+    redirect("/admin/productos?error=Selecciona+un+archivo+CSV+valido");
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    redirect("/admin/productos?error=El+CSV+supera+el+limite+de+5MB");
+  }
+
+  const text = await file.text();
+  const lines = text
+    .split(/\r?\n/g)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length <= 1) {
+    redirect("/admin/productos?error=El+CSV+no+tiene+registros");
+  }
+
+  const headers = splitCsvLine(lines[0]).map((header) =>
+    header.toLowerCase().replace(/\s+/g, ""),
+  );
+
+  const indexByHeader = new Map(headers.map((header, index) => [header, index]));
+  const nameIndex = indexByHeader.get("nombre") ?? indexByHeader.get("name");
+  if (nameIndex === undefined) {
+    redirect("/admin/productos?error=El+CSV+debe+incluir+la+columna+Nombre");
+  }
+
+  const categories = await prisma.category.findMany({ select: { id: true, name: true } });
+  const suppliers = await prisma.supplier.findMany({ select: { id: true, name: true } });
+  const categoryByName = new Map(categories.map((category) => [category.name.toLowerCase(), category.id]));
+  const supplierByName = new Map(suppliers.map((supplier) => [supplier.name.toLowerCase(), supplier.id]));
+
+  const getCell = (row: string[], ...keys: string[]) => {
+    for (const key of keys) {
+      const index = indexByHeader.get(key);
+      if (index !== undefined) {
+        return row[index]?.trim() ?? "";
+      }
+    }
+    return "";
+  };
+
+  const parseNumber = (value: string, fallback: number) => {
+    const normalized = value.replace(",", ".").trim();
+    if (!normalized) return fallback;
+    const numeric = Number(normalized);
+    return Number.isFinite(numeric) ? numeric : fallback;
+  };
+
+  let created = 0;
+  let skipped = 0;
+
+  for (let i = 1; i < lines.length; i += 1) {
+    const row = splitCsvLine(lines[i]);
+    const name = (row[nameIndex] ?? "").trim();
+    if (!name) {
+      skipped += 1;
+      continue;
+    }
+
+    const code = getCell(row, "codigo", "code") || null;
+    const description = getCell(row, "descripcion", "description") || null;
+    const baseCost = Math.max(0.01, parseNumber(getCell(row, "costo", "basecost"), 1));
+    const retailMarginPct = Math.max(
+      0,
+      parseNumber(getCell(row, "%detal", "margendetal", "retailmarginpct"), 35),
+    );
+    const wholesaleMarginPct = Math.max(
+      0,
+      parseNumber(getCell(row, "%mayor", "margenmayor", "wholesalemarginpct"), 20),
+    );
+    const minWholesaleQty = Math.max(1, Math.floor(parseNumber(getCell(row, "minmayor", "minwholesaleqty"), 6)));
+    const thumbnailUrl = getCell(row, "imagen", "thumbnailurl") || "/file.svg";
+    const categoryName = getCell(row, "categoria", "category").toLowerCase();
+    const supplierName = getCell(row, "proveedor", "supplier").toLowerCase();
+
+    const categoryId = categoryName ? categoryByName.get(categoryName) ?? null : null;
+    const supplierId = supplierName ? supplierByName.get(supplierName) ?? null : null;
+    const retailPrice = calculateRetailPrice(baseCost, retailMarginPct);
+    const wholesalePrice = calculateWholesalePrice(baseCost, wholesaleMarginPct);
+
+    try {
+      await prisma.product.create({
+        data: {
+          code,
+          name,
+          description,
+          baseCost,
+          retailMarginPct,
+          wholesaleMarginPct,
+          minWholesaleQty,
+          price: retailPrice,
+          wholesalePrice,
+          categoryId,
+          thumbnailUrl,
+          images: {
+            create: [{ url: thumbnailUrl, order: 0 }],
+          },
+          suppliers: supplierId
+            ? {
+                create: {
+                  supplierId,
+                  supplierCost: baseCost,
+                  isPreferred: true,
+                },
+              }
+            : undefined,
+        },
+      });
+      created += 1;
+    } catch {
+      skipped += 1;
+    }
+  }
+
+  revalidatePath("/");
+  revalidatePath("/admin/productos");
+
+  if (created === 0) {
+    redirect("/admin/productos?error=No+se+pudo+importar+ningun+producto");
+  }
+
+  redirect(
+    `/admin/productos?ok=${encodeURIComponent(
+      `Importacion completada: ${created} creados${skipped ? `, ${skipped} omitidos` : ""}`,
+    )}`,
+  );
 }
