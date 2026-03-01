@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
-import { ChevronsRight } from "lucide-react";
+import { ArrowLeftRight } from "lucide-react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
@@ -97,10 +97,10 @@ export function Sidebar({
           "group/sidebar fixed inset-y-0 left-0 z-40 flex h-full flex-col border-r border-[var(--line)] bg-white transition-[transform,width] duration-200 md:sticky md:top-0 md:h-screen",
           isMobile
             ? openMobile
-              ? "w-[228px] translate-x-0"
-              : "w-[228px] -translate-x-full"
+              ? "w-[212px] translate-x-0"
+              : "w-[212px] -translate-x-full"
             : openDesktop
-              ? "md:w-[228px] md:translate-x-0"
+              ? "md:w-[212px] md:translate-x-0"
               : "md:w-[64px] md:translate-x-0 md:overflow-hidden",
           className,
         )}
@@ -128,7 +128,7 @@ export function SidebarTrigger({
       )}
       {...props}
     >
-      <ChevronsRight className="h-4 w-4" />
+      <ArrowLeftRight className="h-4 w-4" />
       <span className="sr-only">Abrir menu lateral</span>
     </button>
   );
@@ -148,7 +148,7 @@ export function SidebarHeader({
   return (
     <div
       className={cn(
-        "p-3 md:p-4 group-data-[collapsible=icon]/sidebar:md:px-2",
+        "flex h-12 items-center border-b border-[var(--line)] px-3 md:px-4 group-data-[collapsible=icon]/sidebar:md:px-2",
         className,
       )}
       {...props}
