@@ -2,7 +2,20 @@
 
 import Link from "next/link";
 import * as React from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Edit3, Search, Trash2, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Boxes,
+  CircleDollarSign,
+  Edit3,
+  MoreHorizontal,
+  Search,
+  Tag,
+  Trash2,
+  Truck,
+  X,
+} from "lucide-react";
 import { adminDeleteProductAction } from "@/app/actions/product-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +45,7 @@ type ProductRow = {
 type ProductsDataTableProps = {
   products: ProductRow[];
   currency: SupportedCurrencyCode;
+  onOpenProduct?: (productId: string) => void;
 };
 
 type SortKey = "producto" | "categoria" | "proveedor" | "costo" | "detal" | "acciones";
@@ -53,19 +67,22 @@ function HeaderLabel({
   active,
   direction,
   onClick,
+  icon,
 }: {
   children: React.ReactNode;
   active: boolean;
   direction: SortDirection;
   onClick: () => void;
+  icon: React.ReactNode;
 }) {
   return (
     <button
       type="button"
-      className="inline-flex items-center gap-2 text-[15px] font-medium text-slate-600 transition hover:text-slate-900"
+      className="inline-flex items-center gap-2 text-[15px] font-normal text-slate-600 transition hover:text-slate-900"
       onClick={onClick}
       aria-label={`Ordenar por ${String(children)}`}
     >
+      <span className="text-slate-500">{icon}</span>
       {children}
       {active ? (
         direction === "asc" ? (
@@ -80,7 +97,7 @@ function HeaderLabel({
   );
 }
 
-export function ProductsDataTable({ products, currency }: ProductsDataTableProps) {
+export function ProductsDataTable({ products, currency, onOpenProduct }: ProductsDataTableProps) {
   const [query, setQuery] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState("__all__");
   const [sortKey, setSortKey] = React.useState<SortKey>("producto");
@@ -187,6 +204,17 @@ export function ProductsDataTable({ products, currency }: ProductsDataTableProps
     form?.requestSubmit();
   };
 
+  const handleOpenProduct = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    productId: string,
+  ) => {
+    if (!onOpenProduct) {
+      return;
+    }
+    event.preventDefault();
+    onOpenProduct(productId);
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex w-full flex-col gap-2 lg:flex-row lg:items-center">
@@ -216,7 +244,7 @@ export function ProductsDataTable({ products, currency }: ProductsDataTableProps
             className="h-9 min-w-40 rounded-lg border border-[var(--line)] bg-white px-2.5 text-sm text-slate-700 outline-none transition focus:border-[var(--line-strong)]"
             aria-label="Filtrar por categoria"
           >
-            <option value="__all__">Todas las categorias</option>
+            <option value="__all__">Categorias</option>
             {categoryOptions.map((category) => (
               <option key={category.value} value={category.value}>
                 {category.label}
@@ -239,138 +267,151 @@ export function ProductsDataTable({ products, currency }: ProductsDataTableProps
         </div>
       </div>
 
-      <Table className="min-w-[980px]">
-        <TableHeader>
-          <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
-            <TableHead className="normal-case tracking-normal">
-              <HeaderLabel
+      <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-white">
+        <Table className="min-w-[980px]">
+          <TableHeader>
+            <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
+              <TableHead className="normal-case tracking-normal">
+                <HeaderLabel
                 active={sortKey === "producto"}
                 direction={sortDirection}
                 onClick={() => toggleSort("producto")}
+                icon={<Boxes className="h-3.5 w-3.5" />}
               >
                 Producto
               </HeaderLabel>
             </TableHead>
             <TableHead className="normal-case tracking-normal">
-              <HeaderLabel
+                <HeaderLabel
                 active={sortKey === "categoria"}
                 direction={sortDirection}
                 onClick={() => toggleSort("categoria")}
+                icon={<Tag className="h-3.5 w-3.5" />}
               >
                 Categoria
               </HeaderLabel>
             </TableHead>
             <TableHead className="normal-case tracking-normal">
-              <HeaderLabel
+                <HeaderLabel
                 active={sortKey === "proveedor"}
                 direction={sortDirection}
                 onClick={() => toggleSort("proveedor")}
+                icon={<Truck className="h-3.5 w-3.5" />}
               >
                 Proveedor
               </HeaderLabel>
             </TableHead>
             <TableHead className="normal-case tracking-normal">
-              <HeaderLabel
+                <HeaderLabel
                 active={sortKey === "costo"}
                 direction={sortDirection}
                 onClick={() => toggleSort("costo")}
+                icon={<CircleDollarSign className="h-3.5 w-3.5" />}
               >
                 Costo
               </HeaderLabel>
             </TableHead>
             <TableHead className="normal-case tracking-normal">
-              <HeaderLabel
+                <HeaderLabel
                 active={sortKey === "detal"}
                 direction={sortDirection}
                 onClick={() => toggleSort("detal")}
+                icon={<CircleDollarSign className="h-3.5 w-3.5" />}
               >
                 Detal
               </HeaderLabel>
             </TableHead>
             <TableHead className="normal-case tracking-normal">
-              <HeaderLabel
+                <HeaderLabel
                 active={sortKey === "acciones"}
                 direction={sortDirection}
                 onClick={() => toggleSort("acciones")}
+                icon={<MoreHorizontal className="h-3.5 w-3.5" />}
               >
                 Acciones
               </HeaderLabel>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {pagedProducts.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={6} className="py-9 text-center text-slate-500">
-                No hay productos para el filtro actual.
-              </TableCell>
+              </TableHead>
             </TableRow>
-          ) : (
-            pagedProducts.map((product) => (
-              <TableRow key={product.id}>
-                <TableCell>
-                  <Link
-                    href={`/admin/productos/${product.id}`}
-                    className="group flex items-center gap-2.5 rounded-md p-1 -m-1 transition hover:bg-slate-50"
-                  >
-                    <img
-                      src={product.thumbnailUrl}
-                      alt={product.name}
-                      className="h-10 w-10 rounded-md border border-[var(--line)] object-cover"
-                    />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-900 group-hover:text-slate-700">
-                        {product.name}
-                      </p>
-                      <p className="truncate text-xs text-slate-500">
-                        {product.code ? `Codigo: ${product.code}` : "Sin codigo"}
-                      </p>
-                    </div>
-                  </Link>
-                </TableCell>
-                <TableCell className="text-sm text-slate-600">
-                  <span className="inline-flex rounded-md border border-[var(--line)] bg-slate-50 px-2 py-1 text-xs">
-                    {product.categoryName ?? "Sin categoria"}
-                  </span>
-                </TableCell>
-                <TableCell className="text-sm text-slate-600">
-                  <span className="inline-flex rounded-md border border-[var(--line)] bg-slate-50 px-2 py-1 text-xs">
-                    {product.supplierName ?? "Sin proveedor"}
-                  </span>
-                </TableCell>
-                <TableCell className="text-sm font-medium text-slate-700">
-                  {formatMoney(product.baseCost, currency)}
-                </TableCell>
-                <TableCell className="text-sm font-semibold text-slate-800">
-                  {formatMoney(product.price, currency)}
-                </TableCell>
-                <TableCell>
-                  <form id={`delete-product-${product.id}`} action={adminDeleteProductAction}>
-                    <input type="hidden" name="productId" value={product.id} />
-                  </form>
-                  <div className="flex items-center gap-1">
-                    <Button asChild type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[var(--line)]">
-                      <Link href={`/admin/productos/${product.id}`} aria-label={`Editar ${product.name}`}>
-                        <Edit3 className="h-4 w-4 text-slate-600" />
-                      </Link>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 border border-transparent text-red-600 hover:border-red-100 hover:bg-red-50 hover:text-red-700"
-                      onClick={() => handleDelete(product.id, product.name)}
-                      aria-label={`Eliminar ${product.name}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+          </TableHeader>
+          <TableBody>
+            {pagedProducts.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-9 text-center text-slate-500">
+                  No hay productos para el filtro actual.
                 </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+            ) : (
+              pagedProducts.map((product) => (
+                <TableRow key={product.id}>
+                  <TableCell>
+                    <Link
+                      href={`/admin/productos/${product.id}`}
+                      className="group flex items-center gap-2.5 rounded-md p-1 -m-1 transition hover:bg-slate-50"
+                      onClick={(event) => handleOpenProduct(event, product.id)}
+                    >
+                      <img
+                        src={product.thumbnailUrl}
+                        alt={product.name}
+                        className="h-10 w-10 rounded-md border border-[var(--line)] object-cover"
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-900 group-hover:text-slate-700">
+                          {product.name}
+                        </p>
+                        <p className="truncate text-xs text-slate-500">
+                          {product.code ? `Codigo: ${product.code}` : "Sin codigo"}
+                        </p>
+                      </div>
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-sm text-slate-600">
+                    <span className="inline-flex rounded-md border border-[var(--line)] bg-slate-50 px-2 py-1 text-xs">
+                      {product.categoryName ?? "Sin categoria"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-sm text-slate-600">
+                    <span className="inline-flex rounded-md border border-[var(--line)] bg-slate-50 px-2 py-1 text-xs">
+                      {product.supplierName ?? "Sin proveedor"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-sm font-medium text-slate-700">
+                    {formatMoney(product.baseCost, currency)}
+                  </TableCell>
+                  <TableCell className="text-sm font-semibold text-slate-800">
+                    {formatMoney(product.price, currency)}
+                  </TableCell>
+                  <TableCell>
+                    <form id={`delete-product-${product.id}`} action={adminDeleteProductAction}>
+                      <input type="hidden" name="productId" value={product.id} />
+                    </form>
+                    <div className="flex items-center gap-1">
+                      <Button asChild type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[var(--line)]">
+                        <Link
+                          href={`/admin/productos/${product.id}`}
+                          aria-label={`Editar ${product.name}`}
+                          onClick={(event) => handleOpenProduct(event, product.id)}
+                        >
+                          <Edit3 className="h-4 w-4 text-slate-600" />
+                        </Link>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 border border-transparent text-red-600 hover:border-red-100 hover:bg-red-50 hover:text-red-700"
+                        onClick={() => handleDelete(product.id, product.name)}
+                        aria-label={`Eliminar ${product.name}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-slate-500">

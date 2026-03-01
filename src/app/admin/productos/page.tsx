@@ -1,9 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Package, Plus } from "lucide-react";
 import { auth } from "@/auth";
-import { ProductImportExportControls } from "@/components/admin/product-import-export-controls";
-import { ProductsDataTable } from "@/components/admin/products-data-table";
+import { ProductsWorkspace } from "@/components/admin/products-workspace";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { prisma } from "@/lib/prisma";
 import { getSystemCurrency } from "@/lib/system-settings";
@@ -22,11 +19,14 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
-  const [products, systemCurrency] = await Promise.all([
+  const [products, categories, suppliers, systemCurrency] = await Promise.all([
     prisma.product.findMany({
       orderBy: { createdAt: "desc" },
       include: {
         category: true,
+        images: {
+          orderBy: { order: "asc" },
+        },
         suppliers: {
           where: { isPreferred: true },
           include: { supplier: true },
@@ -34,33 +34,13 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
         },
       },
     }),
+    prisma.category.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+    prisma.supplier.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
     getSystemCurrency(),
   ]);
 
   return (
     <section className="w-full space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="inline-flex items-center gap-1 text-lg font-semibold tracking-tight text-slate-900 md:text-xl">
-            <Package className="h-4 w-4 text-slate-500" />
-            <span>Productos</span>
-          </h1>
-          <p className="mt-1 text-xs text-slate-600">
-            Gestion central del catalogo con filtros, importacion y acciones rapidas.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <ProductImportExportControls />
-          <Link
-            href="/admin/productos/new"
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
-          >
-            <Plus className="h-4 w-4" />
-            Nuevo producto
-          </Link>
-        </div>
-      </div>
-
       <QueryFeedbackToast
         okMessage={okMessage}
         errorMessage={errorMessage}
@@ -68,19 +48,33 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
         errorTitle="Error en productos"
       />
 
-      <ProductsDataTable
+      <ProductsWorkspace
         currency={systemCurrency}
+        categories={categories.map((category) => ({
+          id: category.id,
+          name: category.name,
+        }))}
+        suppliers={suppliers.map((supplier) => ({
+          id: supplier.id,
+          name: supplier.name,
+        }))}
         products={products.map((product) => ({
           id: product.id,
           code: product.code,
           name: product.name,
+          description: product.description,
+          categoryId: product.categoryId,
           categoryName: product.category?.name ?? null,
+          supplierId: product.suppliers[0]?.supplier.id ?? null,
           supplierName: product.suppliers[0]?.supplier.name ?? null,
           thumbnailUrl: product.thumbnailUrl,
+          imageUrls: product.images.map((image) => image.url),
           baseCost: Number(product.baseCost),
+          retailMarginPct: Number(product.retailMarginPct),
+          wholesaleMarginPct: Number(product.wholesaleMarginPct),
+          minWholesaleQty: product.minWholesaleQty,
           price: Number(product.price),
           wholesalePrice: Number(product.wholesalePrice),
-          minWholesaleQty: product.minWholesaleQty,
         }))}
       />
     </section>

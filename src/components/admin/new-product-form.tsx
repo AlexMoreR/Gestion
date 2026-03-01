@@ -148,9 +148,6 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
       <Card className="space-y-7 p-6">
         <form action={adminCreateProductAction} encType="multipart/form-data" className="space-y-7">
           <section className="space-y-4">
-            <div className="space-y-1">
-              <h2 className="text-sm font-semibold text-slate-900">Producto</h2>
-            </div>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="space-y-1.5 md:col-span-2">
                 <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
