@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import * as React from "react";
-import { Edit3, Search, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Edit3, Search, Trash2, X } from "lucide-react";
 import { adminDeleteProductAction } from "@/app/actions/product-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,9 @@ type ProductsDataTableProps = {
   currency: SupportedCurrencyCode;
 };
 
+type SortKey = "producto" | "categoria" | "proveedor" | "costo" | "detal" | "acciones";
+type SortDirection = "asc" | "desc";
+
 const PAGE_SIZE = 12;
 
 function normalizeFilterText(value: string): string {
@@ -45,9 +48,43 @@ function normalizeFilterText(value: string): string {
     .replace(/\s+/g, " ");
 }
 
+function HeaderLabel({
+  children,
+  active,
+  direction,
+  onClick,
+}: {
+  children: React.ReactNode;
+  active: boolean;
+  direction: SortDirection;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="inline-flex items-center gap-2 text-[15px] font-medium text-slate-600 transition hover:text-slate-900"
+      onClick={onClick}
+      aria-label={`Ordenar por ${String(children)}`}
+    >
+      {children}
+      {active ? (
+        direction === "asc" ? (
+          <ArrowUp className="h-3.5 w-3.5 text-slate-700" />
+        ) : (
+          <ArrowDown className="h-3.5 w-3.5 text-slate-700" />
+        )
+      ) : (
+        <ArrowUpDown className="h-3.5 w-3.5 text-slate-500" />
+      )}
+    </button>
+  );
+}
+
 export function ProductsDataTable({ products, currency }: ProductsDataTableProps) {
   const [query, setQuery] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState("__all__");
+  const [sortKey, setSortKey] = React.useState<SortKey>("producto");
+  const [sortDirection, setSortDirection] = React.useState<SortDirection>("asc");
   const [page, setPage] = React.useState(1);
 
   const categoryOptions = React.useMemo(() => {
@@ -88,7 +125,35 @@ export function ProductsDataTable({ products, currency }: ProductsDataTableProps
     });
   }, [products, query, categoryFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
+  const sortedProducts = React.useMemo(() => {
+    const list = [...filteredProducts];
+    const directionFactor = sortDirection === "asc" ? 1 : -1;
+
+    const textCompare = (a: string, b: string) =>
+      a.localeCompare(b, "es", { sensitivity: "base" });
+
+    list.sort((a, b) => {
+      switch (sortKey) {
+        case "producto":
+        case "acciones":
+          return textCompare(a.name, b.name) * directionFactor;
+        case "categoria":
+          return textCompare(a.categoryName ?? "Sin categoria", b.categoryName ?? "Sin categoria") * directionFactor;
+        case "proveedor":
+          return textCompare(a.supplierName ?? "Sin proveedor", b.supplierName ?? "Sin proveedor") * directionFactor;
+        case "costo":
+          return (a.baseCost - b.baseCost) * directionFactor;
+        case "detal":
+          return (a.price - b.price) * directionFactor;
+        default:
+          return 0;
+      }
+    });
+
+    return list;
+  }, [filteredProducts, sortKey, sortDirection]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedProducts.length / PAGE_SIZE));
 
   React.useEffect(() => {
     setPage(1);
@@ -101,9 +166,18 @@ export function ProductsDataTable({ products, currency }: ProductsDataTableProps
   }, [page, totalPages]);
 
   const pageStart = (page - 1) * PAGE_SIZE;
-  const pagedProducts = filteredProducts.slice(pageStart, pageStart + PAGE_SIZE);
-  const rangeStart = filteredProducts.length === 0 ? 0 : pageStart + 1;
-  const rangeEnd = Math.min(pageStart + PAGE_SIZE, filteredProducts.length);
+  const pagedProducts = sortedProducts.slice(pageStart, pageStart + PAGE_SIZE);
+  const rangeStart = sortedProducts.length === 0 ? 0 : pageStart + 1;
+  const rangeEnd = Math.min(pageStart + PAGE_SIZE, sortedProducts.length);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection((value) => (value === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(key);
+    setSortDirection("asc");
+  };
 
   const handleDelete = (productId: string, productName: string) => {
     if (!window.confirm(`Eliminar "${productName}"? Esta accion no se puede deshacer.`)) {
@@ -114,38 +188,32 @@ export function ProductsDataTable({ products, currency }: ProductsDataTableProps
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-2 border-b border-[var(--line)] pb-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-slate-900">Catalogo de productos</p>
-          <p className="text-xs text-slate-500">
-            {filteredProducts.length} producto{filteredProducts.length === 1 ? "" : "s"} en la vista actual
-          </p>
-        </div>
-        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center">
-          <div className="relative w-full md:w-[22rem]">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Buscar por nombre, codigo, categoria o proveedor"
-              className="h-9 pr-9 pl-9 text-sm"
-            />
-            {query ? (
-              <button
-                type="button"
-                onClick={() => setQuery("")}
-                className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                aria-label="Limpiar busqueda"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
+    <div className="space-y-3">
+      <div className="flex w-full flex-col gap-2 lg:flex-row lg:items-center">
+        <div className="relative w-full flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Buscar por nombre, codigo, categoria o proveedor"
+            className="h-9 pr-9 pl-9 text-sm"
+          />
+          {query ? (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+              aria-label="Limpiar busqueda"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
             ) : null}
-          </div>
+        </div>
+        <div className="flex items-center gap-2 lg:ml-auto">
           <select
             value={categoryFilter}
             onChange={(event) => setCategoryFilter(event.target.value)}
-            className="h-9 min-w-36 rounded-lg border border-[var(--line)] bg-white px-2.5 text-sm text-slate-700 outline-none transition focus:border-[var(--line-strong)]"
+            className="h-9 min-w-40 rounded-lg border border-[var(--line)] bg-white px-2.5 text-sm text-slate-700 outline-none transition focus:border-[var(--line-strong)]"
             aria-label="Filtrar por categoria"
           >
             <option value="__all__">Todas las categorias</option>
@@ -159,7 +227,7 @@ export function ProductsDataTable({ products, currency }: ProductsDataTableProps
             type="button"
             variant="ghost"
             size="sm"
-            className="h-9 px-2.5 text-xs"
+            className="h-9 px-3 text-xs"
             onClick={() => {
               setQuery("");
               setCategoryFilter("__all__");
@@ -173,19 +241,67 @@ export function ProductsDataTable({ products, currency }: ProductsDataTableProps
 
       <Table className="min-w-[980px]">
         <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead className="normal-case tracking-normal">Producto</TableHead>
-            <TableHead className="normal-case tracking-normal">Categoria</TableHead>
-            <TableHead className="normal-case tracking-normal">Proveedor</TableHead>
-            <TableHead className="normal-case tracking-normal">Costo</TableHead>
-            <TableHead className="normal-case tracking-normal">Detal</TableHead>
-            <TableHead className="normal-case tracking-normal">Acciones</TableHead>
+          <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
+            <TableHead className="normal-case tracking-normal">
+              <HeaderLabel
+                active={sortKey === "producto"}
+                direction={sortDirection}
+                onClick={() => toggleSort("producto")}
+              >
+                Producto
+              </HeaderLabel>
+            </TableHead>
+            <TableHead className="normal-case tracking-normal">
+              <HeaderLabel
+                active={sortKey === "categoria"}
+                direction={sortDirection}
+                onClick={() => toggleSort("categoria")}
+              >
+                Categoria
+              </HeaderLabel>
+            </TableHead>
+            <TableHead className="normal-case tracking-normal">
+              <HeaderLabel
+                active={sortKey === "proveedor"}
+                direction={sortDirection}
+                onClick={() => toggleSort("proveedor")}
+              >
+                Proveedor
+              </HeaderLabel>
+            </TableHead>
+            <TableHead className="normal-case tracking-normal">
+              <HeaderLabel
+                active={sortKey === "costo"}
+                direction={sortDirection}
+                onClick={() => toggleSort("costo")}
+              >
+                Costo
+              </HeaderLabel>
+            </TableHead>
+            <TableHead className="normal-case tracking-normal">
+              <HeaderLabel
+                active={sortKey === "detal"}
+                direction={sortDirection}
+                onClick={() => toggleSort("detal")}
+              >
+                Detal
+              </HeaderLabel>
+            </TableHead>
+            <TableHead className="normal-case tracking-normal">
+              <HeaderLabel
+                active={sortKey === "acciones"}
+                direction={sortDirection}
+                onClick={() => toggleSort("acciones")}
+              >
+                Acciones
+              </HeaderLabel>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {pagedProducts.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="py-8 text-center text-slate-500">
+              <TableCell colSpan={6} className="py-9 text-center text-slate-500">
                 No hay productos para el filtro actual.
               </TableCell>
             </TableRow>
@@ -212,12 +328,20 @@ export function ProductsDataTable({ products, currency }: ProductsDataTableProps
                     </div>
                   </Link>
                 </TableCell>
-                <TableCell className="text-sm text-slate-600">{product.categoryName ?? "Sin categoria"}</TableCell>
-                <TableCell className="text-sm text-slate-600">{product.supplierName ?? "Sin proveedor"}</TableCell>
+                <TableCell className="text-sm text-slate-600">
+                  <span className="inline-flex rounded-md border border-[var(--line)] bg-slate-50 px-2 py-1 text-xs">
+                    {product.categoryName ?? "Sin categoria"}
+                  </span>
+                </TableCell>
+                <TableCell className="text-sm text-slate-600">
+                  <span className="inline-flex rounded-md border border-[var(--line)] bg-slate-50 px-2 py-1 text-xs">
+                    {product.supplierName ?? "Sin proveedor"}
+                  </span>
+                </TableCell>
                 <TableCell className="text-sm font-medium text-slate-700">
                   {formatMoney(product.baseCost, currency)}
                 </TableCell>
-                <TableCell className="text-sm font-medium text-slate-700">
+                <TableCell className="text-sm font-semibold text-slate-800">
                   {formatMoney(product.price, currency)}
                 </TableCell>
                 <TableCell>
@@ -225,7 +349,7 @@ export function ProductsDataTable({ products, currency }: ProductsDataTableProps
                     <input type="hidden" name="productId" value={product.id} />
                   </form>
                   <div className="flex items-center gap-1">
-                    <Button asChild type="button" variant="ghost" size="icon" className="h-8 w-8">
+                    <Button asChild type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[var(--line)]">
                       <Link href={`/admin/productos/${product.id}`} aria-label={`Editar ${product.name}`}>
                         <Edit3 className="h-4 w-4 text-slate-600" />
                       </Link>
@@ -234,7 +358,7 @@ export function ProductsDataTable({ products, currency }: ProductsDataTableProps
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-red-600 hover:text-red-700"
+                      className="h-8 w-8 border border-transparent text-red-600 hover:border-red-100 hover:bg-red-50 hover:text-red-700"
                       onClick={() => handleDelete(product.id, product.name)}
                       aria-label={`Eliminar ${product.name}`}
                     >

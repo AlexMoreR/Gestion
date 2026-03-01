@@ -2,8 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Download, FileSpreadsheet, Upload } from "lucide-react";
+import { Download, FileSpreadsheet, MoreHorizontal, Upload } from "lucide-react";
 import { adminImportProductsCsvAction } from "@/app/actions/product-actions";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function ProductImportExportControls() {
   const [openModal, setOpenModal] = useState<"import" | "export" | null>(null);
@@ -24,25 +30,27 @@ export function ProductImportExportControls() {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setOpenModal("import")}
-          className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-[var(--line)] bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-        >
-          <Upload className="h-3.5 w-3.5" />
-          Importar
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setOpenModal("export")}
-          className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-[var(--line)] bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-        >
-          <Download className="h-3.5 w-3.5" />
-          Exportar
-        </button>
-      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--line)] bg-white text-slate-700 transition hover:bg-slate-50"
+            aria-label="Opciones de importacion y exportacion"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-44">
+          <DropdownMenuItem onSelect={() => setOpenModal("import")} className="gap-2">
+            <Upload className="h-3.5 w-3.5" />
+            Importar CSV
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setOpenModal("export")} className="gap-2">
+            <Download className="h-3.5 w-3.5" />
+            Exportar CSV
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {openModal === "import" && (
         <div
