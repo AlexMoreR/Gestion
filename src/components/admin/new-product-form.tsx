@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { adminCreateProductAction } from "@/app/actions/product-actions";
+import { ProductFormStepper } from "@/components/admin/product-form-stepper";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
@@ -74,6 +75,17 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
   const allImageUrls = useMemo(() => mainImageUrls, [mainImageUrls]);
 
   const previewImageUrl = allImageUrls[0] ?? null;
+  const step1Ready = name.trim().length >= 2 && allImageUrls.length > 0;
+  const step2Ready =
+    Number(baseCost) > 0 &&
+    Number(retailMarginPct) >= 0 &&
+    (!wholesaleEnabled || (Number(wholesaleMarginPct) >= 0 && Number(minWholesaleQty) >= 1));
+  const activeStep = !step1Ready ? 1 : !step2Ready ? 2 : 3;
+  const steps = [
+    { id: 1, label: "Producto" },
+    { id: 2, label: "Precios" },
+    { id: 3, label: "Inventario" },
+  ] as const;
 
   const syncSelectedFiles = (files: File[]) => {
     const input = fileInputRef.current;
@@ -130,7 +142,7 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
 
         <Card className="space-y-3 p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Resumen comercial</p>
-            <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div className="rounded-lg border border-[var(--line)] bg-slate-50 px-3 py-3">
               <p className="text-[11px] uppercase tracking-wide text-slate-500">Detal</p>
               <p className="text-sm font-semibold text-slate-800">{previewPrices.retail}</p>
@@ -145,9 +157,15 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
         </Card>
       </aside>
 
-      <Card className="space-y-7 p-6">
+      <Card className="space-y-7 px-6 pb-6 pt-0">
+        <ProductFormStepper steps={steps} activeStep={activeStep} />
+
         <form action={adminCreateProductAction} encType="multipart/form-data" className="space-y-7">
-          <section className="space-y-4">
+          <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-5">
+            <div className="space-y-1 border-b border-[var(--line)] pb-3">
+              <h2 className="text-sm font-semibold text-slate-900">Producto</h2>
+              <p className="text-xs text-slate-500">Completa la informacion base y multimedia.</p>
+            </div>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="space-y-1.5 md:col-span-2">
                 <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
@@ -270,9 +288,10 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
             </div>
           </section>
 
-          <section className="space-y-4 rounded-xl border border-[var(--line)] p-5">
-            <div className="space-y-1">
+          <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-5">
+            <div className="space-y-1 border-b border-[var(--line)] pb-3">
               <h2 className="text-sm font-semibold text-slate-900">Precios</h2>
+              <p className="text-xs text-slate-500">Define costo y margenes de venta.</p>
             </div>
             <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
               <input
@@ -361,9 +380,10 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
             </div>
           </section>
 
-          <section className="space-y-4 rounded-xl border border-[var(--line)] p-5">
-            <div className="space-y-1">
+          <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-5">
+            <div className="space-y-1 border-b border-[var(--line)] pb-3">
               <h2 className="text-sm font-semibold text-slate-900">Inventario</h2>
+              <p className="text-xs text-slate-500">Organiza codigo, categoria y proveedor.</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="space-y-1.5">

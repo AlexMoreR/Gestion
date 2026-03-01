@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { adminUpdateProductAction } from "@/app/actions/product-actions";
+import { ProductFormStepper } from "@/components/admin/product-form-stepper";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
@@ -96,6 +97,18 @@ export function EditProductForm({
     [existingImageUrls, newImageUrls],
   );
   const previewImageUrl = allImageUrls[0] ?? null;
+  const step1Ready = name.trim().length >= 2 && allImageUrls.length > 0;
+  const step2Ready =
+    Number(baseCost) > 0 &&
+    Number(retailMarginPct) >= 0 &&
+    Number(wholesaleMarginPct) >= 0 &&
+    Number(minWholesaleQty) >= 1;
+  const activeStep = !step1Ready ? 1 : !step2Ready ? 2 : 3;
+  const steps = [
+    { id: 1, label: "Producto" },
+    { id: 2, label: "Precios" },
+    { id: 3, label: "Inventario" },
+  ] as const;
 
   const syncSelectedFiles = (files: File[]) => {
     const input = fileInputRef.current;
@@ -169,14 +182,17 @@ export function EditProductForm({
         </Card>
       </aside>
 
-      <Card className="space-y-7 p-6">
+      <Card className="space-y-7 px-6 pb-6 pt-0">
+        <ProductFormStepper steps={steps} activeStep={activeStep} />
+
         <form action={adminUpdateProductAction} encType="multipart/form-data" className="space-y-7">
           <input type="hidden" name="productId" value={initialData.id} />
           <input type="hidden" name="existingImages" value={existingImageUrls.join("\n")} />
 
-          <section className="space-y-4">
-            <div className="space-y-1">
+          <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-5">
+            <div className="space-y-1 border-b border-[var(--line)] pb-3">
               <h2 className="text-sm font-semibold text-slate-900">Producto</h2>
+              <p className="text-xs text-slate-500">Edita la informacion base y multimedia del producto.</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="space-y-1.5 md:col-span-2">
@@ -288,9 +304,10 @@ export function EditProductForm({
             </div>
           </section>
 
-          <section className="space-y-4 rounded-xl border border-[var(--line)] p-5">
-            <div className="space-y-1">
+          <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-5">
+            <div className="space-y-1 border-b border-[var(--line)] pb-3">
               <h2 className="text-sm font-semibold text-slate-900">Precios</h2>
+              <p className="text-xs text-slate-500">Ajusta costo y margenes actuales.</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="space-y-1.5">
@@ -356,9 +373,10 @@ export function EditProductForm({
             </div>
           </section>
 
-          <section className="space-y-4 rounded-xl border border-[var(--line)] p-5">
-            <div className="space-y-1">
+          <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-5">
+            <div className="space-y-1 border-b border-[var(--line)] pb-3">
               <h2 className="text-sm font-semibold text-slate-900">Inventario</h2>
+              <p className="text-xs text-slate-500">Mantiene categoria y proveedor principal.</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="space-y-1.5">
