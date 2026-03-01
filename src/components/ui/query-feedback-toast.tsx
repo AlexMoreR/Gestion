@@ -37,6 +37,14 @@ export function QueryFeedbackToast({
         description: errorMessage,
       });
     }
+
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("ok") || url.searchParams.has("error")) {
+      url.searchParams.delete("ok");
+      url.searchParams.delete("error");
+      const next = `${url.pathname}${url.search ? `?${url.searchParams.toString()}` : ""}${url.hash}`;
+      window.history.replaceState({}, "", next);
+    }
   }, [okMessage, errorMessage, okTitle, errorTitle]);
 
   return null;

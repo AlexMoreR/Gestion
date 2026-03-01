@@ -103,6 +103,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
   const [sortKey, setSortKey] = React.useState<SortKey>("producto");
   const [sortDirection, setSortDirection] = React.useState<SortDirection>("asc");
   const [page, setPage] = React.useState(1);
+  const [pendingDelete, setPendingDelete] = React.useState<{ id: string; name: string } | null>(null);
 
   const categoryOptions = React.useMemo(() => {
     const map = new Map<string, string>();
@@ -196,12 +197,13 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
     setSortDirection("asc");
   };
 
-  const handleDelete = (productId: string, productName: string) => {
-    if (!window.confirm(`Eliminar "${productName}"? Esta accion no se puede deshacer.`)) {
+  const confirmDelete = () => {
+    if (!pendingDelete) {
       return;
     }
-    const form = document.getElementById(`delete-product-${productId}`) as HTMLFormElement | null;
+    const form = document.getElementById(`delete-product-${pendingDelete.id}`) as HTMLFormElement | null;
     form?.requestSubmit();
+    setPendingDelete(null);
   };
 
   const handleOpenProduct = (
@@ -399,7 +401,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 border border-transparent text-red-600 hover:border-red-100 hover:bg-red-50 hover:text-red-700"
-                        onClick={() => handleDelete(product.id, product.name)}
+                        onClick={() => setPendingDelete({ id: product.id, name: product.name })}
                         aria-label={`Eliminar ${product.name}`}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -441,6 +443,46 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
           </Button>
         </div>
       </div>
+
+      {pendingDelete ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#11182752] px-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Confirmar eliminacion"
+          onClick={() => setPendingDelete(null)}
+        >
+          <div
+            className="saas-card w-full max-w-md rounded-xl p-5"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="space-y-1">
+              <h3 className="text-base font-semibold text-slate-900">Eliminar producto</h3>
+              <p className="text-sm text-slate-600">
+                Se eliminara <span className="font-medium text-slate-800">{pendingDelete.name}</span>. Esta accion no se puede deshacer.
+              </p>
+            </div>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPendingDelete(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="bg-red-600 text-white hover:bg-red-700"
+                onClick={confirmDelete}
+              >
+                Eliminar
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
