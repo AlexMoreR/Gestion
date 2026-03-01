@@ -201,7 +201,13 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
     if (!pendingDelete) {
       return;
     }
-    const form = document.getElementById(`delete-product-${pendingDelete.id}`) as HTMLFormElement | null;
+    const forms = document.querySelectorAll<HTMLFormElement>(
+      `form[data-delete-product-id="${pendingDelete.id}"]`,
+    );
+    const form =
+      Array.from(forms).find((candidate) => candidate.offsetParent !== null) ??
+      forms[0] ??
+      null;
     form?.requestSubmit();
     setPendingDelete(null);
   };
@@ -243,7 +249,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
           <select
             value={categoryFilter}
             onChange={(event) => setCategoryFilter(event.target.value)}
-            className="h-9 min-w-40 rounded-lg border border-[var(--line)] bg-white px-2.5 text-sm text-slate-700 outline-none transition focus:border-[var(--line-strong)]"
+            className="h-9 w-full rounded-lg border border-[var(--line)] bg-white px-2.5 text-sm text-slate-700 outline-none transition focus:border-[var(--line-strong)] sm:min-w-40 sm:w-auto"
             aria-label="Filtrar por categoria"
           >
             <option value="__all__">Categorias</option>
@@ -269,69 +275,147 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-white">
+      <div className="space-y-2 md:hidden">
+        {pagedProducts.length === 0 ? (
+          <div className="rounded-xl border border-[var(--line)] bg-white px-3 py-6 text-center text-sm text-slate-500">
+            No hay productos para el filtro actual.
+          </div>
+        ) : (
+          pagedProducts.map((product) => (
+            <article
+              key={product.id}
+              className="space-y-2.5 rounded-xl border border-[var(--line)] bg-white p-3"
+            >
+              <form data-delete-product-id={product.id} action={adminDeleteProductAction}>
+                <input type="hidden" name="productId" value={product.id} />
+              </form>
+              <div className="flex items-start justify-between gap-2">
+                <Link
+                  href={`/admin/productos/${product.id}`}
+                  className="group flex min-w-0 flex-1 items-center gap-3 rounded-md transition"
+                  onClick={(event) => handleOpenProduct(event, product.id)}
+                >
+                  <img
+                    src={product.thumbnailUrl}
+                    alt={product.name}
+                    className="h-12 w-12 shrink-0 rounded-md border border-[var(--line)] object-cover"
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-900">{product.name}</p>
+                    <p className="truncate text-xs text-slate-500">
+                      {product.code ? `Codigo: ${product.code}` : "Sin codigo"}
+                    </p>
+                    <div className="mt-1.5 flex items-center gap-3 text-[11px] leading-none text-slate-500">
+                      <span>
+                        Costo:{" "}
+                        <span className="font-semibold text-slate-700">
+                          {formatMoney(product.baseCost, currency)}
+                        </span>
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <span className="inline-flex rounded-md border border-[var(--line)] bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700">
+                        {product.categoryName ?? "Sin categoria"}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    asChild
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9"
+                  >
+                    <Link
+                      href={`/admin/productos/${product.id}`}
+                      aria-label={`Editar ${product.name}`}
+                      onClick={(event) => handleOpenProduct(event, product.id)}
+                    >
+                      <Edit3 className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                    onClick={() => setPendingDelete({ id: product.id, name: product.name })}
+                    aria-label={`Eliminar ${product.name}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-xl border border-[var(--line)] bg-white md:block">
         <Table className="min-w-[980px]">
           <TableHeader>
             <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
               <TableHead className="normal-case tracking-normal">
                 <HeaderLabel
-                active={sortKey === "producto"}
-                direction={sortDirection}
-                onClick={() => toggleSort("producto")}
-                icon={<Boxes className="h-3.5 w-3.5" />}
-              >
-                Producto
-              </HeaderLabel>
-            </TableHead>
-            <TableHead className="normal-case tracking-normal">
+                  active={sortKey === "producto"}
+                  direction={sortDirection}
+                  onClick={() => toggleSort("producto")}
+                  icon={<Boxes className="h-3.5 w-3.5" />}
+                >
+                  Producto
+                </HeaderLabel>
+              </TableHead>
+              <TableHead className="normal-case tracking-normal">
                 <HeaderLabel
-                active={sortKey === "categoria"}
-                direction={sortDirection}
-                onClick={() => toggleSort("categoria")}
-                icon={<Tag className="h-3.5 w-3.5" />}
-              >
-                Categoria
-              </HeaderLabel>
-            </TableHead>
-            <TableHead className="normal-case tracking-normal">
+                  active={sortKey === "categoria"}
+                  direction={sortDirection}
+                  onClick={() => toggleSort("categoria")}
+                  icon={<Tag className="h-3.5 w-3.5" />}
+                >
+                  Categoria
+                </HeaderLabel>
+              </TableHead>
+              <TableHead className="normal-case tracking-normal">
                 <HeaderLabel
-                active={sortKey === "proveedor"}
-                direction={sortDirection}
-                onClick={() => toggleSort("proveedor")}
-                icon={<Truck className="h-3.5 w-3.5" />}
-              >
-                Proveedor
-              </HeaderLabel>
-            </TableHead>
-            <TableHead className="normal-case tracking-normal">
+                  active={sortKey === "proveedor"}
+                  direction={sortDirection}
+                  onClick={() => toggleSort("proveedor")}
+                  icon={<Truck className="h-3.5 w-3.5" />}
+                >
+                  Proveedor
+                </HeaderLabel>
+              </TableHead>
+              <TableHead className="normal-case tracking-normal">
                 <HeaderLabel
-                active={sortKey === "costo"}
-                direction={sortDirection}
-                onClick={() => toggleSort("costo")}
-                icon={<CircleDollarSign className="h-3.5 w-3.5" />}
-              >
-                Costo
-              </HeaderLabel>
-            </TableHead>
-            <TableHead className="normal-case tracking-normal">
+                  active={sortKey === "costo"}
+                  direction={sortDirection}
+                  onClick={() => toggleSort("costo")}
+                  icon={<CircleDollarSign className="h-3.5 w-3.5" />}
+                >
+                  Costo
+                </HeaderLabel>
+              </TableHead>
+              <TableHead className="normal-case tracking-normal">
                 <HeaderLabel
-                active={sortKey === "detal"}
-                direction={sortDirection}
-                onClick={() => toggleSort("detal")}
-                icon={<CircleDollarSign className="h-3.5 w-3.5" />}
-              >
-                Detal
-              </HeaderLabel>
-            </TableHead>
-            <TableHead className="normal-case tracking-normal">
+                  active={sortKey === "detal"}
+                  direction={sortDirection}
+                  onClick={() => toggleSort("detal")}
+                  icon={<CircleDollarSign className="h-3.5 w-3.5" />}
+                >
+                  Detal
+                </HeaderLabel>
+              </TableHead>
+              <TableHead className="normal-case tracking-normal">
                 <HeaderLabel
-                active={sortKey === "acciones"}
-                direction={sortDirection}
-                onClick={() => toggleSort("acciones")}
-                icon={<MoreHorizontal className="h-3.5 w-3.5" />}
-              >
-                Acciones
-              </HeaderLabel>
+                  active={sortKey === "acciones"}
+                  direction={sortDirection}
+                  onClick={() => toggleSort("acciones")}
+                  icon={<MoreHorizontal className="h-3.5 w-3.5" />}
+                >
+                  Acciones
+                </HeaderLabel>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -348,7 +432,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                   <TableCell>
                     <Link
                       href={`/admin/productos/${product.id}`}
-                      className="group flex items-center gap-2.5 rounded-md p-1 -m-1 transition hover:bg-slate-50"
+                      className="group -m-1 flex items-center gap-2.5 rounded-md p-1 transition hover:bg-slate-50"
                       onClick={(event) => handleOpenProduct(event, product.id)}
                     >
                       <img
@@ -383,7 +467,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                     {formatMoney(product.price, currency)}
                   </TableCell>
                   <TableCell>
-                    <form id={`delete-product-${product.id}`} action={adminDeleteProductAction}>
+                    <form data-delete-product-id={product.id} action={adminDeleteProductAction}>
                       <input type="hidden" name="productId" value={product.id} />
                     </form>
                     <div className="flex items-center gap-1">
@@ -415,11 +499,11 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
         </Table>
       </div>
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-slate-500">
           Mostrando {rangeStart}-{rangeEnd} de {filteredProducts.length}
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-end sm:self-auto">
           <Button
             type="button"
             variant="ghost"
