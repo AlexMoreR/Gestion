@@ -139,27 +139,12 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
           </div>
         </div>
 
-        <Card className="space-y-3 p-4 sm:p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Resumen comercial</p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="px-1 py-1">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Detal</p>
-              <p className="text-sm font-semibold text-slate-800">{previewPrices.retail}</p>
-            </div>
-            <div className="px-1 py-1">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Mayor</p>
-              <p className="text-sm font-semibold text-slate-800">
-                {wholesaleEnabled ? previewPrices.wholesale : "No habilitado"}
-              </p>
-            </div>
-          </div>
-        </Card>
       </aside>
 
       <Card className="space-y-6 overflow-hidden px-4 pb-4 pt-0 sm:space-y-7 sm:px-6 sm:pb-6">
         <ProductFormStepper steps={steps} activeStep={activeStep} />
 
-        <form action={adminCreateProductAction} encType="multipart/form-data" className="space-y-7">
+        <form action={adminCreateProductAction} className="space-y-7">
           <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 sm:p-5">
             <div className="grid gap-4 md:grid-cols-2">
               <label className="space-y-1.5 md:col-span-2">

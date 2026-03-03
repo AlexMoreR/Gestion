@@ -166,25 +166,12 @@ export function EditProductForm({
           </div>
         </div>
 
-        <Card className="space-y-3 p-4 sm:p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Resumen comercial</p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="px-1 py-1">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Costo</p>
-              <p className="text-sm font-semibold text-slate-800">{previewPrices.cost}</p>
-            </div>
-            <div className="px-1 py-1">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">Detal</p>
-              <p className="text-sm font-semibold text-slate-800">{previewPrices.retail}</p>
-            </div>
-          </div>
-        </Card>
       </aside>
 
       <Card className="space-y-6 overflow-hidden px-4 pb-4 pt-0 sm:space-y-7 sm:px-6 sm:pb-6">
         <ProductFormStepper steps={steps} activeStep={activeStep} />
 
-        <form action={adminUpdateProductAction} encType="multipart/form-data" className="space-y-7">
+        <form action={adminUpdateProductAction} className="space-y-7">
           <input type="hidden" name="productId" value={initialData.id} />
           <input type="hidden" name="existingImages" value={existingImageUrls.join("\n")} />
 
