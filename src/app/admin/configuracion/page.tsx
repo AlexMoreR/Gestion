@@ -1,7 +1,12 @@
 import { redirect } from "next/navigation";
-import { Users } from "lucide-react";
+import { Pencil, Trash2, Users } from "lucide-react";
 import { auth } from "@/auth";
-import { adminCreateCategoryAction, adminCreateSupplierAction } from "@/app/actions/catalog-actions";
+import {
+  adminCreateCategoryAction,
+  adminCreateSupplierAction,
+  adminDeleteCategoryAction,
+  adminUpdateCategoryAction,
+} from "@/app/actions/catalog-actions";
 import { adminUpdateCurrencyAction } from "@/app/actions/settings-actions";
 import { CreateUserModal } from "@/components/admin/create-user-modal";
 import { UsersDataTable } from "@/components/admin/users-data-table";
@@ -97,10 +102,14 @@ export default async function AdminConfiguracionPage({ searchParams }: PageProps
         <div className="grid gap-3 xl:grid-cols-2">
           <Card className="space-y-3">
             <h2 className="text-sm font-semibold text-slate-900">Categorias</h2>
-            <form action={adminCreateCategoryAction} className="grid gap-2 sm:grid-cols-[1fr_auto]">
+            <form action={adminCreateCategoryAction} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
               <label className="space-y-1.5">
                 <span className="text-sm font-medium text-slate-700">Nueva categoria</span>
                 <Input name="name" placeholder="Ej. Camisas" required />
+              </label>
+              <label className="space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">Logo (opcional)</span>
+                <Input name="logo" type="file" accept="image/*" />
               </label>
               <button
                 type="submit"
@@ -116,13 +125,59 @@ export default async function AdminConfiguracionPage({ searchParams }: PageProps
                 categories.map((category) => (
                   <div
                     key={category.id}
-                    className="flex items-center justify-between rounded-lg border border-[var(--line)] bg-slate-50/70 px-3 py-2"
+                    className="space-y-3 rounded-xl border border-[var(--line)] bg-white px-3 py-3 shadow-[0_10px_18px_-16px_rgba(15,23,42,0.35)]"
                   >
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">{category.name}</p>
-                      <p className="text-xs text-slate-500">/{category.slug}</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        {category.logoUrl ? (
+                          <img
+                            src={category.logoUrl}
+                            alt={`Logo ${category.name}`}
+                            className="h-10 w-10 rounded-lg border border-[var(--line)] object-cover"
+                          />
+                        ) : (
+                          <div className="grid h-10 w-10 place-items-center rounded-lg border border-[var(--line)] bg-slate-50 text-xs font-semibold text-slate-500">
+                            {category.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{category.name}</p>
+                          <p className="text-xs text-slate-500">/{category.slug}</p>
+                        </div>
+                      </div>
+                      <p className="inline-flex rounded-full border border-[var(--line)] bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600">
+                        {category._count.products} producto(s)
+                      </p>
                     </div>
-                    <p className="text-xs text-slate-500">{category._count.products} producto(s)</p>
+
+                    <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+                      <form action={adminUpdateCategoryAction} className="flex min-w-0 items-center gap-2">
+                        <input type="hidden" name="categoryId" value={category.id} />
+                        <Input
+                          name="name"
+                          defaultValue={category.name}
+                          className="h-9 bg-white text-xs"
+                          required
+                        />
+                        <button
+                          type="submit"
+                          className="inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-lg bg-slate-900 px-3 text-xs font-medium text-white transition hover:bg-slate-700"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Editar
+                        </button>
+                      </form>
+                      <form action={adminDeleteCategoryAction}>
+                        <input type="hidden" name="categoryId" value={category.id} />
+                        <button
+                          type="submit"
+                          className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-red-200 bg-white px-3 text-xs font-medium text-red-700 transition hover:bg-red-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Eliminar
+                        </button>
+                      </form>
+                    </div>
                   </div>
                 ))
               )}

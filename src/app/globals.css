@@ -107,3 +107,21 @@ body {
   font-size: 0.8125rem !important;
   opacity: 0.92 !important;
 }
+
+@keyframes ctaFloat {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-3px) scale(1.035);
+  }
+}
+
+.cta-float {
+  animation: ctaFloat 1.35s ease-in-out infinite;
+}
+
+.cta-float-delay {
+  animation-delay: 0.18s;
+}
