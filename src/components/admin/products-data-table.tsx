@@ -302,9 +302,6 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                   />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-slate-900">{product.name}</p>
-                    <p className="truncate text-xs text-slate-500">
-                      {product.code ?? "Sin codigo"}
-                    </p>
                     <div className="mt-0.5 flex items-center justify-between gap-2">
                       <span className="inline-flex rounded-md border border-[var(--line)] bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700">
                         {product.categoryName ?? "Sin categoria"}

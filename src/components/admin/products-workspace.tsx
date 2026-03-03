@@ -106,14 +106,14 @@ export function ProductsWorkspace({
 
       {modal === "new" ? (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center bg-[#11182770] p-4 md:p-6"
+          className="fixed inset-0 z-50 flex items-stretch justify-center bg-[#11182770] p-0 sm:items-start sm:p-4 md:p-6"
           role="dialog"
           aria-modal="true"
           aria-label="Nuevo producto"
           onClick={closeModal}
         >
           <div
-            className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-xl border border-[var(--line)] bg-white p-4 md:p-5"
+            className="h-full w-full max-w-6xl overflow-y-auto overflow-x-hidden rounded-none border border-[var(--line)] bg-white p-3 sm:max-h-[92vh] sm:rounded-xl sm:p-4 md:p-5"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
@@ -134,14 +134,14 @@ export function ProductsWorkspace({
 
       {modal === "edit" && activeProduct ? (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center bg-[#11182770] p-4 md:p-6"
+          className="fixed inset-0 z-50 flex items-stretch justify-center bg-[#11182770] p-0 sm:items-start sm:p-4 md:p-6"
           role="dialog"
           aria-modal="true"
           aria-label={`Editar ${activeProduct.name}`}
           onClick={closeModal}
         >
           <div
-            className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-xl border border-[var(--line)] bg-white p-4 md:p-5"
+            className="h-full w-full max-w-6xl overflow-y-auto overflow-x-hidden rounded-none border border-[var(--line)] bg-white p-3 sm:max-h-[92vh] sm:rounded-xl sm:p-4 md:p-5"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">

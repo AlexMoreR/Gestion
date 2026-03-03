@@ -14,7 +14,7 @@ type ProductFormStepperProps = {
 
 export function ProductFormStepper({ steps, activeStep }: ProductFormStepperProps) {
   return (
-    <div className="sticky top-0 z-40 -mx-6 px-4 sm:px-6 md:top-[-1.25rem]">
+    <div className="sticky top-0 z-40 -mx-4 px-3 sm:-mx-6 sm:px-6 md:top-[-1.25rem]">
       <div className="rounded-b-xl border border-t-0 border-[var(--line)] bg-white/95 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-white/90">
         <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
           {steps.map((step, index, arr) => {
@@ -23,7 +23,7 @@ export function ProductFormStepper({ steps, activeStep }: ProductFormStepperProp
             return (
               <div
                 key={step.id}
-                className={`flex min-w-[9.5rem] flex-1 items-center gap-2 rounded-lg px-2 py-1.5 transition sm:min-w-0 ${
+                className={`flex min-w-[7.25rem] flex-1 items-center gap-2 rounded-lg px-2 py-1.5 transition sm:min-w-0 ${
                   isCurrent ? "bg-slate-50" : ""
                 }`}
               >

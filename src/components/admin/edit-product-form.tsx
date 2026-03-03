@@ -137,8 +137,8 @@ export function EditProductForm({
   };
 
   return (
-    <div className="grid gap-8 xl:grid-cols-[19rem_minmax(0,1fr)]">
-      <aside className="space-y-5 xl:sticky xl:top-8 xl:h-fit">
+    <div className="grid gap-4 xl:grid-cols-[19rem_minmax(0,1fr)] xl:gap-8">
+      <aside className="space-y-4 xl:sticky xl:top-8 xl:h-fit xl:space-y-5">
         <div className="space-y-4">
           <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-white">
             <div className="relative flex h-36 items-center justify-center bg-slate-100">
@@ -148,12 +148,11 @@ export function EditProductForm({
                 <p className="text-xs text-slate-500">Sin imagen principal</p>
               )}
               <span className="absolute right-2 top-2 rounded-full border border-[var(--line)] bg-white/95 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                SKU
+                {code.trim() || "SKU"}
               </span>
             </div>
             <div className="space-y-2.5 border-t border-[var(--line)] bg-white p-4">
               <p className="text-sm font-semibold text-slate-900">{name.trim() || "Producto sin nombre"}</p>
-              {code.trim() ? <p className="text-xs font-medium text-slate-500">{code.trim()}</p> : null}
               {description.trim() ? (
                 <p className="line-clamp-2 text-xs text-slate-500">{description.trim()}</p>
               ) : (
@@ -167,9 +166,9 @@ export function EditProductForm({
           </div>
         </div>
 
-        <Card className="space-y-3 p-6">
+        <Card className="space-y-3 p-4 sm:p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Resumen comercial</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="rounded-lg border border-[var(--line)] bg-slate-50 px-3 py-3">
               <p className="text-[11px] uppercase tracking-wide text-slate-500">Costo</p>
               <p className="text-sm font-semibold text-slate-800">{previewPrices.cost}</p>
@@ -182,14 +181,14 @@ export function EditProductForm({
         </Card>
       </aside>
 
-      <Card className="space-y-7 px-6 pb-6 pt-0">
+      <Card className="space-y-6 overflow-hidden px-4 pb-4 pt-0 sm:space-y-7 sm:px-6 sm:pb-6">
         <ProductFormStepper steps={steps} activeStep={activeStep} />
 
         <form action={adminUpdateProductAction} encType="multipart/form-data" className="space-y-7">
           <input type="hidden" name="productId" value={initialData.id} />
           <input type="hidden" name="existingImages" value={existingImageUrls.join("\n")} />
 
-          <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-5">
+          <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 sm:p-5">
             <div className="space-y-1 border-b border-[var(--line)] pb-3">
               <h2 className="text-sm font-semibold text-slate-900">Producto</h2>
               <p className="text-xs text-slate-500">Edita la informacion base y multimedia del producto.</p>
@@ -304,7 +303,7 @@ export function EditProductForm({
             </div>
           </section>
 
-          <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-5">
+          <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 sm:p-5">
             <div className="space-y-1 border-b border-[var(--line)] pb-3">
               <h2 className="text-sm font-semibold text-slate-900">Precios</h2>
               <p className="text-xs text-slate-500">Ajusta costo y margenes actuales.</p>
@@ -373,7 +372,7 @@ export function EditProductForm({
             </div>
           </section>
 
-          <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-5">
+          <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 sm:p-5">
             <div className="space-y-1 border-b border-[var(--line)] pb-3">
               <h2 className="text-sm font-semibold text-slate-900">Inventario</h2>
               <p className="text-xs text-slate-500">Mantiene categoria y proveedor principal.</p>
