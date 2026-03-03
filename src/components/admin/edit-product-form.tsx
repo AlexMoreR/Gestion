@@ -151,14 +151,14 @@ export function EditProductForm({
                 {code.trim() || "SKU"}
               </span>
             </div>
-            <div className="space-y-2.5 border-t border-[var(--line)] bg-white p-4">
+            <div className="space-y-1.5 border-t border-[var(--line)] bg-white p-3">
               <p className="text-sm font-semibold text-slate-900">{name.trim() || "Producto sin nombre"}</p>
               {description.trim() ? (
                 <p className="line-clamp-2 text-xs text-slate-500">{description.trim()}</p>
               ) : (
                 <p className="text-xs text-slate-400">Agrega descripcion para completar la ficha.</p>
               )}
-              <p className="pt-1 text-lg font-semibold tracking-tight text-slate-900">{previewPrices.retail}</p>
+              <p className="text-lg font-semibold tracking-tight text-slate-900">{previewPrices.retail}</p>
               <p className="text-xs text-slate-600">
                 Mayorista: {previewPrices.wholesale} (min {minWholesaleQty || "1"} uds)
               </p>
@@ -169,11 +169,11 @@ export function EditProductForm({
         <Card className="space-y-3 p-4 sm:p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Resumen comercial</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="rounded-lg border border-[var(--line)] bg-slate-50 px-3 py-3">
+            <div className="px-1 py-1">
               <p className="text-[11px] uppercase tracking-wide text-slate-500">Costo</p>
               <p className="text-sm font-semibold text-slate-800">{previewPrices.cost}</p>
             </div>
-            <div className="rounded-lg border border-[var(--line)] bg-slate-50 px-3 py-3">
+            <div className="px-1 py-1">
               <p className="text-[11px] uppercase tracking-wide text-slate-500">Detal</p>
               <p className="text-sm font-semibold text-slate-800">{previewPrices.retail}</p>
             </div>
@@ -189,10 +189,6 @@ export function EditProductForm({
           <input type="hidden" name="existingImages" value={existingImageUrls.join("\n")} />
 
           <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 sm:p-5">
-            <div className="space-y-1 border-b border-[var(--line)] pb-3">
-              <h2 className="text-sm font-semibold text-slate-900">Producto</h2>
-              <p className="text-xs text-slate-500">Edita la informacion base y multimedia del producto.</p>
-            </div>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="space-y-1.5 md:col-span-2">
                 <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
