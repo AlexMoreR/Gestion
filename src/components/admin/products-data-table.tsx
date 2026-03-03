@@ -303,19 +303,14 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-slate-900">{product.name}</p>
                     <p className="truncate text-xs text-slate-500">
-                      {product.code ? `Codigo: ${product.code}` : "Sin codigo"}
+                      {product.code ?? "Sin codigo"}
                     </p>
-                    <div className="mt-1.5 flex items-center gap-3 text-[11px] leading-none text-slate-500">
-                      <span>
-                        Costo:{" "}
-                        <span className="font-semibold text-slate-700">
-                          {formatMoney(product.baseCost, currency)}
-                        </span>
-                      </span>
-                    </div>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <div className="mt-0.5 flex items-center justify-between gap-2">
                       <span className="inline-flex rounded-md border border-[var(--line)] bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700">
                         {product.categoryName ?? "Sin categoria"}
+                      </span>
+                      <span className="text-[11px] leading-none font-semibold text-slate-700">
+                        {formatMoney(product.baseCost, currency)}
                       </span>
                     </div>
                   </div>
@@ -340,7 +335,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-9 w-9 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                    className="h-9 w-9 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                     onClick={() => setPendingDelete({ id: product.id, name: product.name })}
                     aria-label={`Eliminar ${product.name}`}
                   >
