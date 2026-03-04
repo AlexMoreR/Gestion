@@ -1,4 +1,3 @@
-import { auth } from "@/auth";
 import Link from "next/link";
 import { MessageCircle, ShoppingCart } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -11,8 +10,6 @@ type PageProps = {
 };
 
 export default async function HomePage({ searchParams }: PageProps) {
-  const session = await auth();
-  const role = session?.user?.role;
   const params = await searchParams;
   const query = typeof params.q === "string" ? params.q.trim() : "";
   const categoryFilter = typeof params.category === "string" ? params.category.trim() : "";
@@ -116,7 +113,6 @@ export default async function HomePage({ searchParams }: PageProps) {
                       <MessageCircle className="h-4 w-4" />
                       Cotizar ahora
                     </Link>
-                    {role ? <span className="rounded-full border border-white/20 px-2.5 py-1">Sesion {role}</span> : null}
                   </div>
                 </div>
 

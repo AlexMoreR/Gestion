@@ -1,12 +1,9 @@
 "use client";
 
 import {
-  AudioWaveform,
-  Command,
-  GalleryVerticalEnd,
-  Home,
   LayoutDashboard,
   Package,
+  Settings,
 } from "lucide-react";
 import type { Role } from "@prisma/client";
 import { NavMain } from "@/components/nav-main";
@@ -43,15 +40,6 @@ export function AppSidebar({ pathname, user, ...props }: AppSidebarProps & React
 
   const navMain = [
     {
-      title: "Inicio",
-      url: "/",
-      icon: Home,
-      isActive: pathname === "/",
-      items: [
-        { title: "Resumen", url: "/" },
-      ],
-    },
-    {
       title: "Dashboard",
       url: dashboardHref,
       icon: LayoutDashboard,
@@ -68,6 +56,14 @@ export function AppSidebar({ pathname, user, ...props }: AppSidebarProps & React
 
   if (user.role === "ADMIN") {
     navMain.push({
+      title: "Configuracion",
+      url: "/admin/configuracion",
+      icon: Settings,
+      isActive: pathname.startsWith("/admin/configuracion"),
+      items: [{ title: "Ajustes", url: "/admin/configuracion" }],
+    });
+
+    navMain.push({
       title: "Productos",
       url: "/admin/productos",
       icon: Package,
@@ -77,9 +73,7 @@ export function AppSidebar({ pathname, user, ...props }: AppSidebarProps & React
   }
 
   const teams = [
-    { name: "Acme Inc", logo: GalleryVerticalEnd, plan: "Enterprise" },
-    { name: "Acme Corp.", logo: AudioWaveform, plan: "Startup" },
-    { name: "Evil Corp.", logo: Command, plan: "Free" },
+    { name: "Inovacciones Magi", plan: "Cumpliendo suenos" },
   ];
 
   return (
