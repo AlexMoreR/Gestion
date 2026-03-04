@@ -4,10 +4,10 @@ import Link from "next/link";
 import * as React from "react";
 import {
   ArrowDown,
+  ArrowUpRight,
   ArrowUp,
   ArrowUpDown,
   CalendarDays,
-  Copy,
   Edit3,
   FileText,
   MoreHorizontal,
@@ -44,7 +44,7 @@ type QuotesDataTableProps = {
   currency: SupportedCurrencyCode;
 };
 
-type SortKey = "cotizacion" | "cliente" | "items" | "total" | "fecha" | "acciones";
+type SortKey = "cotizacion" | "cliente" | "estado" | "total" | "fecha" | "acciones";
 type SortDirection = "asc" | "desc";
 
 function statusLabel(status: QuoteStatus): string {
@@ -61,6 +61,23 @@ function statusLabel(status: QuoteStatus): string {
       return "Expirada";
     default:
       return status;
+  }
+}
+
+function statusBadgeClassName(status: QuoteStatus): string {
+  switch (status) {
+    case "DRAFT":
+      return "border-slate-200 bg-slate-100 text-slate-700";
+    case "SENT":
+      return "border-sky-200 bg-sky-50 text-sky-700";
+    case "ACCEPTED":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "REJECTED":
+      return "border-red-200 bg-red-50 text-red-700";
+    case "EXPIRED":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    default:
+      return "border-slate-200 bg-slate-100 text-slate-700";
   }
 }
 
@@ -117,8 +134,8 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
           return textCompare(a.code, b.code) * directionFactor;
         case "cliente":
           return textCompare(a.clientName, b.clientName) * directionFactor;
-        case "items":
-          return (a.itemsCount - b.itemsCount) * directionFactor;
+        case "estado":
+          return textCompare(statusLabel(a.status), statusLabel(b.status)) * directionFactor;
         case "total":
           return (a.total - b.total) * directionFactor;
         case "fecha":
@@ -183,12 +200,12 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
               </TableHead>
               <TableHead className="normal-case tracking-normal">
                 <HeaderLabel
-                  active={sortKey === "items"}
+                  active={sortKey === "estado"}
                   direction={sortDirection}
-                  onClick={() => toggleSort("items")}
+                  onClick={() => toggleSort("estado")}
                   icon={<FileText className="h-3.5 w-3.5" />}
                 >
-                  Items
+                  Estado
                 </HeaderLabel>
               </TableHead>
               <TableHead className="normal-case tracking-normal">
@@ -235,12 +252,15 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
                 <TableRow key={quote.id}>
                   <TableCell>
                     <p className="text-sm font-semibold text-slate-900">{quote.code}</p>
-                    <span className="inline-flex rounded-md border border-[var(--line)] bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700">
+                  </TableCell>
+                  <TableCell className="text-sm text-slate-700">{quote.clientName}</TableCell>
+                  <TableCell>
+                    <span
+                      className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(quote.status)}`}
+                    >
                       {statusLabel(quote.status)}
                     </span>
                   </TableCell>
-                  <TableCell className="text-sm text-slate-700">{quote.clientName}</TableCell>
-                  <TableCell className="text-sm text-slate-700">{quote.itemsCount}</TableCell>
                   <TableCell className="text-sm font-semibold text-slate-800">
                     {formatMoney(quote.total, currency)}
                   </TableCell>
@@ -251,6 +271,16 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
                       <input type="hidden" name="quoteId" value={quote.id} />
                     </form>
                     <div className="flex items-center gap-1">
+                      <Button asChild type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[var(--line)]">
+                        <Link
+                          href={`/cotizaciones/${quote.shareToken}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`Ir a cotizacion ${quote.code}`}
+                        >
+                          <ArrowUpRight className="h-4 w-4 text-slate-600" />
+                        </Link>
+                      </Button>
                       <Button asChild type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[var(--line)]">
                         <Link href={`/admin/cotizaciones/${quote.id}`} aria-label={`Editar ${quote.code}`}>
                           <Edit3 className="h-4 w-4 text-slate-600" />
@@ -265,19 +295,6 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
                         aria-label={`Eliminar ${quote.code}`}
                       >
                         <Trash2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 border border-transparent hover:border-[var(--line)]"
-                        onClick={async () => {
-                          const url = `${window.location.origin}/cotizaciones/${quote.shareToken}`;
-                          await navigator.clipboard.writeText(url);
-                        }}
-                        aria-label={`Copiar link ${quote.code}`}
-                      >
-                        <Copy className="h-4 w-4 text-slate-600" />
                       </Button>
                     </div>
                   </TableCell>
@@ -303,7 +320,9 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold text-slate-900">{quote.code}</p>
-                  <span className="inline-flex rounded-md border border-[var(--line)] bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700">
+                  <span
+                    className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(quote.status)}`}
+                  >
                     {statusLabel(quote.status)}
                   </span>
                 </div>
@@ -312,6 +331,16 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
                 <p className="text-sm font-semibold text-slate-800">{formatMoney(quote.total, currency)}</p>
               </div>
               <div className="flex items-center gap-1">
+                <Button asChild type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[var(--line)]">
+                  <Link
+                    href={`/cotizaciones/${quote.shareToken}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Ir a cotizacion ${quote.code}`}
+                  >
+                    <ArrowUpRight className="h-4 w-4 text-slate-600" />
+                  </Link>
+                </Button>
                 <Button asChild type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[var(--line)]">
                   <Link href={`/admin/cotizaciones/${quote.id}`} aria-label={`Editar ${quote.code}`}>
                     <Edit3 className="h-4 w-4 text-slate-600" />
@@ -326,19 +355,6 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
                   aria-label={`Eliminar ${quote.code}`}
                 >
                   <Trash2 className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 border border-transparent hover:border-[var(--line)]"
-                  onClick={async () => {
-                    const url = `${window.location.origin}/cotizaciones/${quote.shareToken}`;
-                    await navigator.clipboard.writeText(url);
-                  }}
-                  aria-label={`Copiar link ${quote.code}`}
-                >
-                  <Copy className="h-4 w-4 text-slate-600" />
                 </Button>
               </div>
             </article>
