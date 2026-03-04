@@ -37,6 +37,8 @@ export function AppShell({ children, initialUser }: AppShellProps) {
   const showTopMenu = pathname === "/" || pathname.startsWith("/productos");
   const currentPage = pathname === "/"
     ? "Inicio"
+    : pathname.startsWith("/admin/categorias")
+      ? "Categorias"
     : pathname.startsWith("/admin/configuracion")
       ? "Configuracion"
       : pathname.startsWith("/admin/productos")
@@ -62,6 +64,10 @@ export function AppShell({ children, initialUser }: AppShellProps) {
 
     if (pathname.startsWith("/admin/productos")) {
       return [{ label: "Productos", href: "", isCurrent: true }];
+    }
+
+    if (pathname.startsWith("/admin/categorias")) {
+      return [{ label: "Categorias", href: "", isCurrent: true }];
     }
 
     return [{ label: currentPage, href: "", isCurrent: true }];

@@ -42,6 +42,8 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar();
   const initials = (user.name?.[0] || "U").toUpperCase();
+  const rawRole = (user.role ?? "CLIENTE").toLowerCase();
+  const roleLabel = rawRole.charAt(0).toUpperCase() + rawRole.slice(1);
 
   return (
     <SidebarMenu>
@@ -50,7 +52,7 @@ export function NavUser({
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="border border-[var(--line)] bg-white text-slate-700 hover:bg-slate-100 data-[state=open]:bg-slate-100"
+              className="rounded-none border-y border-x-0 border-[var(--line)] bg-white text-slate-700 hover:bg-slate-100 data-[state=open]:bg-slate-100"
             >
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage src={user.avatar} alt={user.name} />
@@ -58,7 +60,9 @@ export function NavUser({
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]/sidebar:hidden">
                 <span className="truncate font-medium text-slate-900">{user.name}</span>
-                <span className="truncate text-xs text-slate-500">{user.email}</span>
+                <span className="text-xs  text-slate-500">
+                  {roleLabel}
+                </span>
               </div>
               <ChevronsUpDown className="ml-auto h-4 w-4 text-slate-500 group-data-[collapsible=icon]/sidebar:hidden" />
             </SidebarMenuButton>
@@ -77,7 +81,9 @@ export function NavUser({
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{user.name}</span>
-                  <span className="truncate text-xs text-slate-500">{user.email}</span>
+                  <span className="text-xs font-semibold text-slate-500">
+                    {roleLabel}
+                  </span>
                 </div>
               </div>
             </DropdownMenuLabel>

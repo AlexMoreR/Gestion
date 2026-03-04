@@ -21,8 +21,7 @@ export function TeamSwitcher({ teams }: { teams: Team[] }) {
             IM
           </span>
           <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]/sidebar:hidden">
-            <span className="truncate font-medium">{activeTeam.name}</span>
-            <span className="truncate text-xs text-slate-500">{activeTeam.plan}</span>
+            <span className="truncate text-sm">{activeTeam.name}</span>
           </div>
         </SidebarMenuButton>
       </SidebarMenuItem>
