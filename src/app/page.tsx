@@ -52,6 +52,7 @@ export default async function HomePage({ searchParams }: PageProps) {
     "Descuentos por compras al mayor",
     "Instalacion y asesoria para tu salon",
   ];
+  const heroQuoteHref = "https://wa.me/573046481994?text=Hola%20Inovacciones%20Magi%2C%20quiero%20cotizar";
   const categoriesCarousel = Array.from(
     products.reduce(
       (acc, product) => {
@@ -97,13 +98,19 @@ export default async function HomePage({ searchParams }: PageProps) {
                   <h1 className="max-w-2xl text-2xl font-semibold tracking-tight md:text-4xl">
                     Muebles de peluqueria con diseno que transforma tu salon
                   </h1>
-                  <p className="max-w-xl text-sm text-slate-200 md:text-base">
+                  <p className="max-w-xl text-xs text-slate-200 md:text-sm">
                     Sillas, estaciones y mobiliario profesional con presencia premium para clientes exigentes.
                   </p>
                   <div className="flex flex-wrap items-center gap-2 text-xs text-slate-200">
-                    <span className="rounded-full border border-white/20 px-2.5 py-1">
-                      {products.length} productos publicados
-                    </span>
+                    <Link
+                      href={heroQuoteHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-sm font-semibold text-violet-900 transition hover:bg-slate-100"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      Cotizar ahora
+                    </Link>
                     {role ? <span className="rounded-full border border-white/20 px-2.5 py-1">Sesion {role}</span> : null}
                   </div>
                 </div>
@@ -117,11 +124,11 @@ export default async function HomePage({ searchParams }: PageProps) {
                       <img
                         src={featuredProduct.thumbnailUrl}
                         alt={featuredProduct.name}
-                        className="h-36 w-full object-cover transition duration-500 group-hover:scale-[1.04] md:h-44"
+                        className="h-40 w-full bg-white object-contain p-1 transition duration-500 group-hover:scale-[1.02] md:h-48"
                       />
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent px-4 pb-3 pt-10">
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/25 to-transparent px-4 pb-3 pt-10">
                         <p className="text-[11px] uppercase tracking-[0.08em] text-white/80">Destacado</p>
-                        <p className="line-clamp-1 text-base font-semibold text-white">{featuredProduct.name}</p>
+                        <p className="line-clamp-2 text-base font-semibold leading-tight text-white">{featuredProduct.name}</p>
                         <p className="text-sm font-medium text-violet-200">
                           {formatMoney(String(featuredProduct.price), systemCurrency)}
                         </p>
@@ -141,7 +148,7 @@ export default async function HomePage({ searchParams }: PageProps) {
               {[...promoItems, ...promoItems].map((item, index) => (
                 <div
                   key={`${item}-${index}`}
-                  className="inline-flex h-11 items-center gap-2 border-r border-white/20 px-4 text-xs font-semibold text-white md:h-12 md:px-5 md:text-sm"
+                  className="inline-flex h-9 items-center gap-2 border-r border-white/20 px-3 text-[11px] font-semibold text-white md:h-10 md:px-4 md:text-xs"
                 >
                   <span className="text-white/70">•</span>
                   <span>{item}</span>
@@ -181,7 +188,6 @@ export default async function HomePage({ searchParams }: PageProps) {
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-xl font-semibold tracking-tight text-slate-900">Catalogo de tienda</h2>
-              <p className="text-xs text-slate-500">Haz clic en un producto para ver su informacion completa.</p>
             </div>
           </div>
           {query || categoryFilter ? (
@@ -227,7 +233,7 @@ export default async function HomePage({ searchParams }: PageProps) {
                     href={whatsAppHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50/40 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50 hover:text-emerald-800"
+                    className="inline-flex items-center justify-center gap-1 py-1 text-xs font-semibold text-emerald-700 transition hover:text-emerald-800"
                   >
                     <MessageCircle className="h-4 w-4" />
                     Comprar por WhatsApp

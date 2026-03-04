@@ -139,7 +139,7 @@ body {
   display: flex;
   width: max-content;
   min-width: 200%;
-  animation: promoMarquee 22s linear infinite;
+  animation: promoMarquee 36s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
