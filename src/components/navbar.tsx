@@ -47,19 +47,23 @@ export function Navbar({ initialUser }: { initialUser: InitialUser | null }) {
       : pathname === href || pathname.startsWith(`${href}/`);
   const navLinkClass = (href: string) =>
     isActiveLink(href)
-      ? "rounded-lg px-2.5 py-1 text-sm font-medium text-white bg-[var(--primary)]"
-      : "rounded-md px-2 py-1 text-sm font-medium text-slate-900 transition hover:bg-slate-100";
+      ? "rounded-full bg-violet-900 px-3 py-1.5 text-xs font-semibold text-white shadow-[0_6px_16px_-10px_rgba(76,29,149,0.9)]"
+      : "rounded-full px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-violet-50 hover:text-violet-900";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95">
-      <div className="mx-auto flex h-14 w-full items-center justify-between px-4 md:px-8">
-        <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-40 border-b border-violet-100/70 bg-gradient-to-r from-violet-50/85 via-white to-violet-50/70 backdrop-blur-md">
+      <div className="mx-auto flex h-16 w-full items-center justify-between gap-2 px-3 md:px-7">
+        <div className="flex min-w-0 items-center gap-2.5">
           <Link
             href="/"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--surface)] text-slate-900 transition hover:bg-slate-50"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-900 via-violet-800 to-fuchsia-800 text-white shadow-[0_10px_22px_-14px_rgba(91,33,182,0.95)] transition hover:scale-[1.02]"
             aria-label="Inicio"
           >
-            <span className="text-sm font-semibold leading-none text-slate-900">A</span>
+            <span className="text-sm font-bold leading-none text-white">IM</span>
+          </Link>
+          <Link href="/" className="hidden min-w-0 sm:block">
+            <p className="truncate text-sm font-semibold tracking-tight text-slate-900">Inovacciones Magi</p>
+            <p className="-mt-0.5 text-[11px] font-medium text-violet-700/80">Muebles de peluqueria</p>
           </Link>
 
           <nav className="hidden items-center gap-4 md:flex">
@@ -77,13 +81,13 @@ export function Navbar({ initialUser }: { initialUser: InitialUser | null }) {
           </nav>
         </div>
 
-        <form action="/" method="get" className="mx-3 max-w-md flex-1">
+        <form action="/" method="get" className="mx-1 max-w-xl flex-1">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-violet-500" />
             <Input
               name="q"
               placeholder="Que estas buscando?"
-              className="h-9 border-slate-200 bg-white pl-9 text-sm focus-visible:border-violet-400 focus-visible:ring-violet-200"
+              className="h-10 rounded-full border-violet-200/90 bg-white/95 pl-9 pr-4 text-sm text-slate-800 shadow-[0_10px_24px_-18px_rgba(15,23,42,0.65)] focus-visible:border-violet-500 focus-visible:ring-violet-200"
             />
           </div>
         </form>
@@ -111,16 +115,25 @@ export function Navbar({ initialUser }: { initialUser: InitialUser | null }) {
           {status === "loading" ? (
             <div className="hidden h-8 w-24 animate-pulse rounded-md bg-slate-100 sm:block" />
           ) : !user ? (
-            <Button asChild variant="ghost" size="sm" className="inline-flex items-center gap-2">
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="inline-flex h-10 items-center gap-2 rounded-full border border-violet-200 bg-white/90 px-3 text-violet-900 shadow-[0_8px_18px_-14px_rgba(91,33,182,0.95)] transition hover:border-violet-300 hover:bg-violet-50"
+            >
               <Link href="/login">
                 <UserCircle2 className="h-4 w-4 text-slate-600" />
-                Cuenta
+                <span>Cuenta</span>
               </Link>
             </Button>
           ) : (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2 px-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-10 gap-2 rounded-full border border-violet-200 bg-white/90 px-2.5 text-slate-900 shadow-[0_8px_18px_-14px_rgba(91,33,182,0.95)] transition hover:border-violet-300 hover:bg-violet-50"
+                >
                   <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-700">
                     {initials}
                   </span>
