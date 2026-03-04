@@ -86,7 +86,7 @@ export default async function HomePage({ searchParams }: PageProps) {
   );
 
   return (
-    <section className="app-page space-y-6">
+    <section className="app-page space-y-4">
       {!query ? (
         <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen">
           <Card className="relative overflow-hidden rounded-none border-0 p-0 shadow-[0_24px_60px_-42px_rgba(15,23,42,0.65)]">
@@ -135,19 +135,21 @@ export default async function HomePage({ searchParams }: PageProps) {
         </div>
       ) : null}
       {!query ? (
-        <Card className="overflow-hidden border-violet-200/70 bg-gradient-to-r from-violet-50 via-white to-violet-50 p-0">
-          <div className="promo-marquee-track">
-            {[...promoItems, ...promoItems].map((item, index) => (
-              <div
-                key={`${item}-${index}`}
-                className="inline-flex h-11 items-center gap-2 border-r border-violet-200/70 px-4 text-xs font-semibold text-violet-900 md:h-12 md:px-5 md:text-sm"
-              >
-                <span className="text-violet-500">•</span>
-                <span>{item}</span>
-              </div>
-            ))}
+        <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen">
+          <div className="overflow-hidden rounded-none border-0 bg-gradient-to-r from-violet-950 via-violet-900 to-violet-950">
+            <div className="promo-marquee-track">
+              {[...promoItems, ...promoItems].map((item, index) => (
+                <div
+                  key={`${item}-${index}`}
+                  className="inline-flex h-11 items-center gap-2 border-r border-white/20 px-4 text-xs font-semibold text-white md:h-12 md:px-5 md:text-sm"
+                >
+                  <span className="text-white/70">•</span>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </Card>
+        </div>
       ) : null}
       <div className="flex snap-x gap-2.5 overflow-x-auto pb-0.5">
         {categoriesCarousel.map((category) => (
