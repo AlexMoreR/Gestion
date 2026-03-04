@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Package,
   Settings,
+  Tag,
 } from "lucide-react";
 import type { Role } from "@prisma/client";
 import { NavMain } from "@/components/nav-main";
@@ -36,6 +37,7 @@ type AppSidebarProps = {
 export function AppSidebar({ pathname, user, ...props }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
   const dashboardHref = user.role ? roleHome[user.role] : "/";
   const isAdminConfigRoute = pathname.startsWith("/admin/configuracion");
+  const isAdminCategoriesRoute = pathname.startsWith("/admin/categorias");
   const isAdminProductsRoute = pathname.startsWith("/admin/productos");
 
   const navMain = [
@@ -47,6 +49,7 @@ export function AppSidebar({ pathname, user, ...props }: AppSidebarProps & React
         pathname === dashboardHref ||
         (pathname.startsWith(`${dashboardHref}/`) &&
           !isAdminConfigRoute &&
+          !isAdminCategoriesRoute &&
           !isAdminProductsRoute),
       items: [
         { title: "Vista general", url: dashboardHref },
@@ -69,6 +72,14 @@ export function AppSidebar({ pathname, user, ...props }: AppSidebarProps & React
       icon: Package,
       isActive: pathname.startsWith("/admin/productos"),
       items: [{ title: "Catalogo", url: "/admin/productos" }],
+    });
+
+    navMain.push({
+      title: "Categorias",
+      url: "/admin/categorias",
+      icon: Tag,
+      isActive: pathname.startsWith("/admin/categorias"),
+      items: [{ title: "Gestion", url: "/admin/categorias" }],
     });
   }
 
