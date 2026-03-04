@@ -125,3 +125,25 @@ body {
 .cta-float-delay {
   animation-delay: 0.18s;
 }
+
+@keyframes promoMarquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.promo-marquee-track {
+  display: flex;
+  width: max-content;
+  min-width: 200%;
+  animation: promoMarquee 22s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .promo-marquee-track {
+    animation: none;
+  }
+}

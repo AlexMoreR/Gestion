@@ -1,8 +1,7 @@
 import { auth } from "@/auth";
 import Link from "next/link";
-import { MessageCircle, Search, ShoppingCart } from "lucide-react";
+import { MessageCircle, ShoppingCart } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { getSystemCurrency } from "@/lib/system-settings";
@@ -16,18 +15,26 @@ export default async function HomePage({ searchParams }: PageProps) {
   const role = session?.user?.role;
   const params = await searchParams;
   const query = typeof params.q === "string" ? params.q.trim() : "";
-  const whereClause = query
-    ? {
-        OR: [
-          { name: { contains: query, mode: "insensitive" as const } },
-          { code: { contains: query, mode: "insensitive" as const } },
-          { description: { contains: query, mode: "insensitive" as const } },
-          { category: { is: { name: { contains: query, mode: "insensitive" as const } } } },
-        ],
-      }
-    : undefined;
+  const categoryFilter = typeof params.category === "string" ? params.category.trim() : "";
+  const whereClause = {
+    ...(query
+      ? {
+          OR: [
+            { name: { contains: query, mode: "insensitive" as const } },
+            { code: { contains: query, mode: "insensitive" as const } },
+            { description: { contains: query, mode: "insensitive" as const } },
+            { category: { is: { name: { contains: query, mode: "insensitive" as const } } } },
+          ],
+        }
+      : {}),
+    ...(categoryFilter
+      ? categoryFilter === "__none__"
+        ? { categoryId: null }
+        : { categoryId: categoryFilter }
+      : {}),
+  };
   const products = await prisma.product.findMany({
-    where: whereClause,
+    where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
     orderBy: { createdAt: "desc" },
     include: {
       category: true,
@@ -38,13 +45,24 @@ export default async function HomePage({ searchParams }: PageProps) {
   });
   const systemCurrency = await getSystemCurrency();
   const featuredProduct = products[0] ?? null;
-  const spotlightProducts = products.slice(1, 4);
+  const promoItems = [
+    "Combos especiales de temporada",
+    "Envio gratis en productos seleccionados",
+    "Problemas para comprar? Te ayudamos por WhatsApp",
+    "Descuentos por compras al mayor",
+    "Instalacion y asesoria para tu salon",
+  ];
   const categoriesCarousel = Array.from(
     products.reduce(
       (acc, product) => {
-        const name = product.category?.name ?? "Sin categoria";
+        if (!product.categoryId || !product.category) {
+          return acc;
+        }
+
+        const name = product.category.name;
+        const categoryId = product.categoryId;
         const categoryLogo = product.category?.logoUrl ?? null;
-        const current = acc.get(name);
+        const current = acc.get(categoryId);
         if (current) {
           current.count += 1;
           if (!current.usesLogo && categoryLogo) {
@@ -54,7 +72,8 @@ export default async function HomePage({ searchParams }: PageProps) {
           return acc;
         }
 
-        acc.set(name, {
+        acc.set(categoryId, {
+          id: categoryId,
           name,
           count: 1,
           cover: categoryLogo || product.thumbnailUrl || "/file.svg",
@@ -62,81 +81,79 @@ export default async function HomePage({ searchParams }: PageProps) {
         });
         return acc;
       },
-      new Map<string, { name: string; count: number; cover: string; usesLogo: boolean }>(),
+      new Map<string, { id: string; name: string; count: number; cover: string; usesLogo: boolean }>(),
     ).values(),
   );
 
   return (
     <section className="app-page space-y-6">
-      <Card className="relative overflow-hidden border-0 p-0 shadow-[0_24px_60px_-42px_rgba(15,23,42,0.65)]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,#a78bfa4d,transparent_40%),radial-gradient(circle_at_84%_18%,#7c3aed40,transparent_36%),linear-gradient(135deg,#1f1235_0%,#26184a_45%,#13092b_100%)]" />
-        <div className="relative grid gap-4 px-5 py-6 text-white md:grid-cols-[1.1fr_1fr] md:px-7 md:py-8">
-          <div className="space-y-4">
-            <span className="inline-flex rounded-full border border-white/20 bg-white/5 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.08em] text-white/90">
-              Inovacciones Magi
-            </span>
-            <h1 className="max-w-2xl text-3xl font-semibold tracking-tight md:text-5xl">
-              Muebles de peluqueria con diseno que transforma tu salon
-            </h1>
-            <p className="max-w-xl text-sm text-slate-200 md:text-base">
-              Sillas, estaciones y mobiliario profesional con presencia premium para clientes exigentes.
-            </p>
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-200">
-              <span className="rounded-full border border-white/20 px-2.5 py-1">
-                {products.length} productos publicados
-              </span>
-              {role ? <span className="rounded-full border border-white/20 px-2.5 py-1">Sesion {role}</span> : null}
-            </div>
-          </div>
-
-          <div className="grid gap-2.5">
-            {featuredProduct ? (
-              <Link
-                href={`/productos/${featuredProduct.id}`}
-                className="group relative block overflow-hidden rounded-2xl border border-white/15 bg-black/20"
-              >
-                <img
-                  src={featuredProduct.thumbnailUrl}
-                  alt={featuredProduct.name}
-                  className="h-44 w-full object-cover transition duration-500 group-hover:scale-[1.04] md:h-52"
-                />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent px-4 pb-3 pt-10">
-                  <p className="text-[11px] uppercase tracking-[0.08em] text-white/80">Destacado</p>
-                  <p className="line-clamp-1 text-base font-semibold text-white">{featuredProduct.name}</p>
-                  <p className="text-sm font-medium text-violet-200">
-                    {formatMoney(String(featuredProduct.price), systemCurrency)}
+      {!query ? (
+        <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen">
+          <Card className="relative overflow-hidden rounded-none border-0 p-0 shadow-[0_24px_60px_-42px_rgba(15,23,42,0.65)]">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,#a78bfa4d,transparent_40%),radial-gradient(circle_at_84%_18%,#7c3aed40,transparent_36%),linear-gradient(135deg,#1f1235_0%,#26184a_45%,#13092b_100%)]" />
+            <div className="mx-auto max-w-6xl px-4 md:px-6">
+              <div className="relative grid gap-4 py-4 text-white md:grid-cols-[1.1fr_1fr] md:py-5">
+                <div className="space-y-4">
+                  <h1 className="max-w-2xl text-2xl font-semibold tracking-tight md:text-4xl">
+                    Muebles de peluqueria con diseno que transforma tu salon
+                  </h1>
+                  <p className="max-w-xl text-sm text-slate-200 md:text-base">
+                    Sillas, estaciones y mobiliario profesional con presencia premium para clientes exigentes.
                   </p>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-200">
+                    <span className="rounded-full border border-white/20 px-2.5 py-1">
+                      {products.length} productos publicados
+                    </span>
+                    {role ? <span className="rounded-full border border-white/20 px-2.5 py-1">Sesion {role}</span> : null}
+                  </div>
                 </div>
-              </Link>
-            ) : null}
-            {spotlightProducts.length > 0 ? (
-              <div className="grid grid-cols-3 gap-2">
-                {spotlightProducts.map((item) => (
-                  <Link
-                    key={item.id}
-                    href={`/productos/${item.id}`}
-                    className="group relative overflow-hidden rounded-xl border border-white/15 bg-black/20"
-                  >
-                    <img
-                      src={item.thumbnailUrl}
-                      alt={item.name}
-                      className="h-20 w-full object-cover transition duration-500 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-1.5 pt-4">
-                      <p className="line-clamp-1 text-[11px] font-medium text-white">{item.name}</p>
-                    </div>
-                  </Link>
-                ))}
+
+                <div className="grid gap-2.5">
+                  {featuredProduct ? (
+                    <Link
+                      href={`/productos/${featuredProduct.id}`}
+                      className="group relative block overflow-hidden rounded-2xl border border-white/15 bg-black/20"
+                    >
+                      <img
+                        src={featuredProduct.thumbnailUrl}
+                        alt={featuredProduct.name}
+                        className="h-36 w-full object-cover transition duration-500 group-hover:scale-[1.04] md:h-44"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent px-4 pb-3 pt-10">
+                        <p className="text-[11px] uppercase tracking-[0.08em] text-white/80">Destacado</p>
+                        <p className="line-clamp-1 text-base font-semibold text-white">{featuredProduct.name}</p>
+                        <p className="text-sm font-medium text-violet-200">
+                          {formatMoney(String(featuredProduct.price), systemCurrency)}
+                        </p>
+                      </div>
+                    </Link>
+                  ) : null}
+                </div>
               </div>
-            ) : null}
-          </div>
+            </div>
+          </Card>
         </div>
-      </Card>
+      ) : null}
+      {!query ? (
+        <Card className="overflow-hidden border-violet-200/70 bg-gradient-to-r from-violet-50 via-white to-violet-50 p-0">
+          <div className="promo-marquee-track">
+            {[...promoItems, ...promoItems].map((item, index) => (
+              <div
+                key={`${item}-${index}`}
+                className="inline-flex h-11 items-center gap-2 border-r border-violet-200/70 px-4 text-xs font-semibold text-violet-900 md:h-12 md:px-5 md:text-sm"
+              >
+                <span className="text-violet-500">•</span>
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
       <div className="flex snap-x gap-2.5 overflow-x-auto pb-0.5">
         {categoriesCarousel.map((category) => (
           <Link
-            key={category.name}
-            href={`/?q=${encodeURIComponent(category.name)}`}
+            key={category.id}
+            href={`/?category=${encodeURIComponent(category.id)}`}
             className="group block w-24 shrink-0 snap-start transition hover:-translate-y-0.5 sm:w-28"
           >
             <div className="aspect-square overflow-hidden rounded-xl">
@@ -146,7 +163,7 @@ export default async function HomePage({ searchParams }: PageProps) {
                 className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
               />
             </div>
-            <p className="mt-1.5 text-center text-[11px] font-semibold leading-tight text-slate-900 sm:text-xs">
+            <p className="mt-1.5 break-words text-center text-[11px] font-semibold leading-tight text-slate-900 sm:text-xs">
               {category.name}
             </p>
           </Link>
@@ -164,29 +181,16 @@ export default async function HomePage({ searchParams }: PageProps) {
               <h2 className="text-xl font-semibold tracking-tight text-slate-900">Catalogo de tienda</h2>
               <p className="text-xs text-slate-500">Haz clic en un producto para ver su informacion completa.</p>
             </div>
-            <form className="relative w-full md:max-w-sm" action="/" method="get">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                name="q"
-                defaultValue={query}
-                placeholder="Buscar producto"
-                className="h-10 border-violet-200 bg-white pl-9 focus-visible:border-violet-400 focus-visible:ring-violet-200"
-              />
-            </form>
           </div>
-          {query ? (
+          {query || categoryFilter ? (
             <p className="text-xs text-slate-500">
-              Resultado para <span className="font-medium text-slate-700">"{query}"</span>: {products.length} producto(s)
+              Resultado{query ? <> para <span className="font-medium text-slate-700">"{query}"</span></> : null}
+              {categoryFilter ? " en categoria seleccionada" : ""}: {products.length} producto(s)
             </p>
           ) : null}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
           {products.map((product) => {
             const retailPrice = Number(product.price);
-            const beforeDiscountPrice = retailPrice * 1.18;
-            const hasDiscount = beforeDiscountPrice > retailPrice;
-            const discountPct = hasDiscount
-              ? Math.max(1, Math.round((1 - retailPrice / beforeDiscountPrice) * 100))
-              : 0;
             const whatsAppHref = `https://wa.me/?text=${encodeURIComponent(
               `Hola Inovacciones Magi, quiero comprar el producto: ${product.name}`,
             )}`;
@@ -210,28 +214,9 @@ export default async function HomePage({ searchParams }: PageProps) {
                     </p>
                     <h2 className="min-h-[2rem] text-[13px] font-semibold leading-4 normal-case tracking-normal text-slate-900">{product.name}</h2>
                     <div className="space-y-0.5 pt-0">
-                      {hasDiscount ? (
-                        <>
-                          <div className="flex items-center gap-1.5">
-                            <p className="text-base font-semibold text-violet-800">
-                              {formatMoney(String(retailPrice), systemCurrency)}
-                            </p>
-                            <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
-                              -{discountPct}%
-                            </span>
-                          </div>
-                          <p className="text-xs font-medium text-slate-500">
-                            Antes:{" "}
-                            <span className="text-xs text-slate-600 line-through">
-                              {formatMoney(String(beforeDiscountPrice), systemCurrency)}
-                            </span>
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-base font-semibold text-violet-800">
-                          {formatMoney(String(retailPrice), systemCurrency)}
-                        </p>
-                      )}
+                      <p className="text-base font-semibold text-violet-800">
+                        {formatMoney(String(retailPrice), systemCurrency)}
+                      </p>
                     </div>
                   </div>
                 </Link>
@@ -240,7 +225,7 @@ export default async function HomePage({ searchParams }: PageProps) {
                     href={whatsAppHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex h-9 items-center justify-center gap-1 text-xs font-semibold text-emerald-700 transition hover:text-emerald-800"
+                    className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50/40 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50 hover:text-emerald-800"
                   >
                     <MessageCircle className="h-4 w-4" />
                     Comprar por WhatsApp

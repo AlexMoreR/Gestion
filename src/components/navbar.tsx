@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+import { Fragment } from "react";
 import type { Role } from "@prisma/client";
-import { ChevronDown, Facebook, Instagram, LayoutDashboard, LogOut, Menu, MessageCircle, Search, Settings, UserCircle2 } from "lucide-react";
+import { ChevronDown, Facebook, Instagram, LayoutDashboard, LogOut, Menu, Search, Settings, UserCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -50,17 +51,34 @@ export function Navbar({ initialUser }: { initialUser: InitialUser | null }) {
       ? "rounded-full bg-violet-900 px-3 py-1.5 text-xs font-semibold text-white shadow-[0_6px_16px_-10px_rgba(76,29,149,0.9)]"
       : "rounded-full px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-violet-50 hover:text-violet-900";
   const socialLinks = [
-    {
-      label: "WhatsApp",
-      href: "https://wa.me/?text=Hola%20Inovacciones%20Magi%2C%20quiero%20informacion",
-      icon: MessageCircle,
-    },
     { label: "Instagram", href: "https://www.instagram.com", icon: Instagram },
     { label: "Facebook", href: "https://www.facebook.com", icon: Facebook },
+  ];
+  const topMenuLinks = [
+    { label: "Tiendas", href: "/" },
+    { label: "Quienes somos", href: "/" },
+    { label: "Clientes satisfechos", href: "/" },
+    { label: "Centro de ayuda", href: "/" },
+    { label: "Envios", href: "/" },
+    { label: "Ofertas", href: "/" },
+    { label: "Vende con nosotros", href: "/" },
   ];
 
   return (
     <header className="sticky top-0 z-40 border-b border-violet-100/70 bg-gradient-to-r from-violet-50/85 via-white to-violet-50/70 backdrop-blur-md">
+      <div className="border-b border-violet-100/70 bg-white/65">
+        <div className="mx-auto flex h-8 w-full items-center justify-start gap-2 overflow-x-auto whitespace-nowrap px-3 text-[11px] text-slate-600 md:justify-center md:px-7">
+          <span className="font-medium text-slate-700">Servicio al cliente +57 304-648-1994</span>
+          {topMenuLinks.map((item) => (
+            <Fragment key={item.label}>
+              <span className="text-slate-400">|</span>
+              <Link href={item.href} className="transition hover:text-violet-800">
+                {item.label}
+              </Link>
+            </Fragment>
+          ))}
+        </div>
+      </div>
       <div className="mx-auto flex h-14 w-full items-center justify-between gap-2 px-3 md:h-16 md:px-7">
         <div className="flex min-w-0 items-center gap-2.5">
           <Link
@@ -72,7 +90,7 @@ export function Navbar({ initialUser }: { initialUser: InitialUser | null }) {
           </Link>
           <Link href="/" className="hidden min-w-0 sm:block">
             <p className="truncate text-sm font-semibold tracking-tight text-slate-900">Inovacciones Magi</p>
-            <p className="-mt-0.5 text-[11px] font-medium text-violet-700/80">Muebles de peluqueria</p>
+            <p className="-mt-0.5 text-[11px] font-medium text-violet-700/80">Cumpliendo sueños</p>
           </Link>
 
           <nav className="hidden items-center gap-4 md:flex">

@@ -115,15 +115,15 @@ export function AppShell({ children, initialUser }: AppShellProps) {
     );
   }
 
-  const showTopMenu = pathname === "/";
+  const showTopMenu = pathname === "/" || pathname.startsWith("/productos");
 
   return (
     <>
       {showTopMenu ? <Navbar initialUser={null} /> : null}
       <main
         className={cn(
-          "mx-auto w-full max-w-6xl px-4 py-8 md:px-6 md:py-10",
-          showTopMenu ? "min-h-[calc(100vh-4rem)]" : "min-h-screen",
+          "mx-auto w-full max-w-6xl px-4 md:px-6",
+          showTopMenu ? "min-h-[calc(100vh-4rem)] pt-3 pb-8 md:pt-4 md:pb-10" : "min-h-screen py-8 md:py-10",
         )}
       >
         {children}
