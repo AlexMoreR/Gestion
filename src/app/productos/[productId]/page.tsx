@@ -36,7 +36,7 @@ export default async function ProductoDetallePage({ params }: PageProps) {
     ),
   );
   const whatsAppHref = `https://wa.me/?text=${encodeURIComponent(
-    `Hola Inovacciones Magi, quiero comprar el producto: ${product.name}`,
+    `Hola Innovaciones Magi, quiero comprar el producto: ${product.name}`,
   )}`;
 
   const relatedProducts = await prisma.product.findMany({

@@ -90,7 +90,7 @@ export function Navbar({ initialUser }: { initialUser: InitialUser | null }) {
             <span className="text-sm font-bold leading-none text-white">IM</span>
           </Link>
           <Link href="/" className="hidden min-w-0 sm:block">
-            <p className="truncate text-sm font-semibold tracking-tight text-slate-900">Inovacciones Magi</p>
+            <p className="truncate text-sm font-semibold tracking-tight text-slate-900">Innovaciones Magi</p>
             <p className="-mt-0.5 text-[11px] font-medium text-[var(--primary)]">Cumpliendo sueños</p>
           </Link>
 

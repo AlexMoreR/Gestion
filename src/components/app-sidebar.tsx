@@ -73,14 +73,14 @@ export function AppSidebar({ pathname, user, ...props }: AppSidebarProps & React
   }
 
   const teams = [
-    { name: "Inovacciones Magi", plan: "Cumpliendo suenos" },
+    { name: "Innovaciones Magi", plan: "Cumpliendo suenos" },
   ];
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
+
         <TeamSwitcher teams={teams} />
-      </SidebarHeader>
+
       <SidebarContent>
         <NavMain items={navMain} />
       </SidebarContent>

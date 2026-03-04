@@ -49,7 +49,7 @@ export default async function HomePage({ searchParams }: PageProps) {
     "Descuentos por compras al mayor",
     "Instalacion y asesoria para tu salon",
   ];
-  const heroQuoteHref = "https://wa.me/573046481994?text=Hola%20Inovacciones%20Magi%2C%20quiero%20cotizar";
+  const heroQuoteHref = "https://wa.me/573046481994?text=Hola%20Innovaciones%20Magi%2C%20quiero%20cotizar";
   const categoriesCarousel = Array.from(
     products.reduce(
       (acc, product) => {
@@ -206,7 +206,7 @@ export default async function HomePage({ searchParams }: PageProps) {
           {products.map((product) => {
             const retailPrice = Number(product.price);
             const whatsAppHref = `https://wa.me/?text=${encodeURIComponent(
-              `Hola Inovacciones Magi, quiero comprar el producto: ${product.name}`,
+              `Hola Innovaciones Magi, quiero comprar el producto: ${product.name}`,
             )}`;
 
             return (
