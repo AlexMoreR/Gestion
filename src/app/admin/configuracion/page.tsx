@@ -7,7 +7,7 @@ import {
   adminDeleteCategoryAction,
   adminUpdateCategoryAction,
 } from "@/app/actions/catalog-actions";
-import { adminUpdateCurrencyAction } from "@/app/actions/settings-actions";
+import { adminUpdateCurrencyAction, adminUpdatePrimaryColorAction } from "@/app/actions/settings-actions";
 import { CreateUserModal } from "@/components/admin/create-user-modal";
 import { UsersDataTable } from "@/components/admin/users-data-table";
 import { Card } from "@/components/ui/card";
@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
-import { getSystemCurrency } from "@/lib/system-settings";
+import { getSystemCurrency, getSystemPrimaryColor } from "@/lib/system-settings";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -50,6 +50,7 @@ export default async function AdminConfiguracionPage({ searchParams }: PageProps
     include: { _count: { select: { products: true } } },
   });
   const systemCurrency = await getSystemCurrency();
+  const systemPrimaryColor = await getSystemPrimaryColor();
 
   return (
     <section className="w-full space-y-5">
@@ -95,6 +96,38 @@ export default async function AdminConfiguracionPage({ searchParams }: PageProps
               className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
             >
               Guardar moneda
+            </button>
+          </form>
+        </Card>
+
+        <Card className="space-y-3">
+          <h2 className="text-sm font-semibold text-slate-900">Color primario global</h2>
+          <p className="text-xs leading-5 text-slate-600">
+            Este color se aplica a botones, links y elementos principales en login, registro, tienda y panel.
+          </p>
+          <form action={adminUpdatePrimaryColorAction} className="flex flex-wrap items-end gap-2">
+            <label className="min-w-64 flex-1 space-y-1.5">
+              <span className="text-sm font-medium text-slate-700">Color primario</span>
+              <div className="flex items-center gap-2">
+                <Input
+                  name="primaryColor"
+                  type="color"
+                  defaultValue={systemPrimaryColor}
+                  className="h-11 w-16 rounded-lg border border-[var(--line)] bg-white p-1"
+                  required
+                />
+                <Input
+                  value={systemPrimaryColor}
+                  readOnly
+                  className="h-11 flex-1 bg-slate-50 text-xs text-slate-600"
+                />
+              </div>
+            </label>
+            <button
+              type="submit"
+              className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+            >
+              Guardar color
             </button>
           </form>
         </Card>

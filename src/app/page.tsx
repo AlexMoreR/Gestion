@@ -91,7 +91,12 @@ export default async function HomePage({ searchParams }: PageProps) {
       {!query ? (
         <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen">
           <Card className="relative overflow-hidden rounded-none border-0 p-0 shadow-[0_24px_60px_-42px_rgba(15,23,42,0.65)]">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,#a78bfa4d,transparent_40%),radial-gradient(circle_at_84%_18%,#7c3aed40,transparent_36%),linear-gradient(135deg,#1f1235_0%,#26184a_45%,#13092b_100%)]" />
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: "linear-gradient(135deg, var(--primary-strong) 0%, var(--primary) 55%, var(--primary-strong) 100%)",
+              }}
+            />
             <div className="mx-auto max-w-6xl px-4 md:px-6">
               <div className="relative grid gap-4 py-4 text-white md:grid-cols-[1.1fr_1fr] md:py-5">
                 <div className="space-y-4">
@@ -106,7 +111,7 @@ export default async function HomePage({ searchParams }: PageProps) {
                       href={heroQuoteHref}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-sm font-semibold text-violet-900 transition hover:bg-slate-100"
+                      className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-sm font-semibold text-[var(--primary-strong)] transition hover:bg-slate-100"
                     >
                       <MessageCircle className="h-4 w-4" />
                       Cotizar ahora
@@ -129,7 +134,7 @@ export default async function HomePage({ searchParams }: PageProps) {
                       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/25 to-transparent px-4 pb-3 pt-10">
                         <p className="text-[11px] uppercase tracking-[0.08em] text-white/80">Destacado</p>
                         <p className="line-clamp-2 text-base font-semibold leading-tight text-white">{featuredProduct.name}</p>
-                        <p className="text-sm font-medium text-violet-200">
+                        <p className="text-sm font-medium text-white/90">
                           {formatMoney(String(featuredProduct.price), systemCurrency)}
                         </p>
                       </div>
@@ -143,7 +148,12 @@ export default async function HomePage({ searchParams }: PageProps) {
       ) : null}
       {!query ? (
         <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen">
-          <div className="overflow-hidden rounded-none border-0 bg-gradient-to-r from-violet-950 via-violet-900 to-violet-950">
+          <div
+            className="overflow-hidden rounded-none border-0"
+            style={{
+              backgroundImage: "linear-gradient(90deg, var(--primary-strong) 0%, var(--primary) 50%, var(--primary-strong) 100%)",
+            }}
+          >
             <div className="promo-marquee-track">
               {[...promoItems, ...promoItems].map((item, index) => (
                 <div
@@ -222,7 +232,7 @@ export default async function HomePage({ searchParams }: PageProps) {
                     </p>
                     <h2 className="min-h-[2rem] text-[13px] font-semibold leading-4 normal-case tracking-normal text-slate-900">{product.name}</h2>
                     <div className="space-y-0.5 pt-0">
-                      <p className="text-base font-semibold text-violet-800">
+                      <p className="text-base font-semibold text-[var(--primary-strong)]">
                         {formatMoney(String(retailPrice), systemCurrency)}
                       </p>
                     </div>
@@ -240,7 +250,7 @@ export default async function HomePage({ searchParams }: PageProps) {
                   </Link>
                   <Link
                     href={`/productos/${product.id}`}
-                    className="cta-float cta-float-delay inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-violet-800 px-2.5 text-xs font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-violet-900 hover:shadow-[0_10px_18px_-12px_rgba(91,33,182,0.95)] active:translate-y-0 active:scale-[0.98]"
+                    className="cta-float cta-float-delay inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-[var(--primary)] px-2.5 text-xs font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--primary-strong)] active:translate-y-0 active:scale-[0.98]"
                   >
                     <ShoppingCart className="h-4 w-4" />
                     Comprar

@@ -54,7 +54,7 @@ export default async function ProductoDetallePage({ params }: PageProps) {
       <div className="flex items-center justify-between">
         <Link
           href="/"
-          className="inline-flex items-center rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-sm font-medium text-violet-800 transition hover:bg-violet-50"
+          className="inline-flex items-center rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--primary-strong)] transition hover:bg-slate-50"
         >
           Volver a tienda
         </Link>
@@ -79,13 +79,13 @@ export default async function ProductoDetallePage({ params }: PageProps) {
           </div>
 
           <div className="space-y-3">
-            <div className="rounded-xl border border-violet-200 bg-gradient-to-b from-violet-50/80 to-white px-4 py-3">
+            <div className="rounded-xl border border-[var(--primary)] bg-white px-4 py-3">
               <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-500">Precio detal</p>
               <p className="mt-1 text-3xl font-semibold tracking-tight text-slate-900">
                 {formatMoney(String(product.price), currency)}
               </p>
             </div>
-            <div className="rounded-xl border border-violet-200 bg-gradient-to-b from-violet-50/40 to-white px-4 py-3">
+            <div className="rounded-xl border border-[var(--line)] bg-white px-4 py-3">
               <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-500">Precio mayorista</p>
               <p className="mt-1 text-lg font-semibold text-slate-900">
                 {formatMoney(String(product.wholesalePrice), currency)}
@@ -104,7 +104,7 @@ export default async function ProductoDetallePage({ params }: PageProps) {
               </Link>
               <button
                 type="button"
-                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-violet-800 px-4 text-sm font-semibold text-white transition hover:bg-violet-900"
+                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--primary-strong)]"
               >
                 <ShoppingCart className="h-4 w-4" />
                 Comprar
@@ -123,7 +123,7 @@ export default async function ProductoDetallePage({ params }: PageProps) {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold tracking-tight text-slate-900">Productos relacionados</h2>
-            <Link href="/" className="text-xs font-medium text-violet-700 hover:text-violet-900">
+            <Link href="/" className="text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-strong)]">
               Ver toda la tienda
             </Link>
           </div>
@@ -145,7 +145,7 @@ export default async function ProductoDetallePage({ params }: PageProps) {
                   </div>
                   <div className="space-y-1.5 px-3 py-3">
                     <p className="line-clamp-1 text-sm font-semibold text-slate-900">{item.name}</p>
-                    <p className="text-sm font-semibold text-violet-800">
+                    <p className="text-sm font-semibold text-[var(--primary-strong)]">
                       {formatMoney(String(item.price), currency)}
                     </p>
                   </div>
