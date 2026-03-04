@@ -23,6 +23,8 @@ model User {
   emailVerified DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  quotesAsClient Quote[] @relation("QuoteClient")
+  quotesCreated  Quote[] @relation("QuoteCreatedBy")
 }
 
 model Product {
@@ -43,6 +45,7 @@ model Product {
   category           Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   images             ProductImage[]
   suppliers          ProductSupplier[]
+  quoteItems         QuoteItem[]
 }
 
 model ProductImage {
@@ -76,6 +79,7 @@ model Supplier {
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
   products  ProductSupplier[]
+  quoteItems QuoteItem[]
 }
 
 model ProductSupplier {
@@ -98,4 +102,53 @@ model AppSetting {
   value     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+model Quote {
+  id          String      @id @default(cuid())
+  code        String      @unique
+  clientId    String
+  createdById String
+  status      QuoteStatus @default(DRAFT)
+  notes       String?
+  validUntil  DateTime?
+  subtotal    Decimal     @default(0) @db.Decimal(12, 2)
+  total       Decimal     @default(0) @db.Decimal(12, 2)
+  shareToken  String      @unique
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  client      User        @relation("QuoteClient", fields: [clientId], references: [id], onDelete: Restrict)
+  createdBy   User        @relation("QuoteCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  items       QuoteItem[]
+
+  @@index([clientId, createdAt])
+  @@index([createdById, createdAt])
+}
+
+model QuoteItem {
+  id         String   @id @default(cuid())
+  quoteId    String
+  productId  String
+  supplierId String?
+  quantity   Int      @default(1)
+  unitPrice  Decimal  @db.Decimal(12, 2)
+  lineTotal  Decimal  @db.Decimal(12, 2)
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  quote      Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  @@index([quoteId])
+  @@index([productId])
+  @@index([supplierId])
 }

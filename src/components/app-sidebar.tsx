@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  FileText,
   LayoutDashboard,
   Package,
   Settings,
@@ -39,6 +40,7 @@ export function AppSidebar({ pathname, user, ...props }: AppSidebarProps & React
   const isAdminConfigRoute = pathname.startsWith("/admin/configuracion");
   const isAdminCategoriesRoute = pathname.startsWith("/admin/categorias");
   const isAdminProductsRoute = pathname.startsWith("/admin/productos");
+  const isAdminQuotesRoute = pathname.startsWith("/admin/cotizaciones");
 
   const navMain = [
     {
@@ -50,7 +52,8 @@ export function AppSidebar({ pathname, user, ...props }: AppSidebarProps & React
         (pathname.startsWith(`${dashboardHref}/`) &&
           !isAdminConfigRoute &&
           !isAdminCategoriesRoute &&
-          !isAdminProductsRoute),
+          !isAdminProductsRoute &&
+          !isAdminQuotesRoute),
       items: [
         { title: "Vista general", url: dashboardHref },
       ],
@@ -80,6 +83,14 @@ export function AppSidebar({ pathname, user, ...props }: AppSidebarProps & React
       icon: Tag,
       isActive: pathname.startsWith("/admin/categorias"),
       items: [{ title: "Gestion", url: "/admin/categorias" }],
+    });
+
+    navMain.push({
+      title: "Cotizaciones",
+      url: "/admin/cotizaciones",
+      icon: FileText,
+      isActive: pathname.startsWith("/admin/cotizaciones"),
+      items: [{ title: "Listado", url: "/admin/cotizaciones" }],
     });
   }
 

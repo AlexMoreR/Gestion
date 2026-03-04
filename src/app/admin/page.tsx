@@ -22,6 +22,12 @@ export default function AdminPage() {
           >
             Gestionar productos
           </Link>
+          <Link
+            href="/admin/cotizaciones"
+            className="inline-flex rounded-lg border border-[var(--line)] bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          >
+            Gestionar cotizaciones
+          </Link>
         </div>
       </Card>
     </section>
