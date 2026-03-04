@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Users } from "lucide-react";
+import { Save, Users } from "lucide-react";
 import { auth } from "@/auth";
 import {
   adminCreateSupplierAction,
@@ -64,18 +64,8 @@ export default async function AdminConfiguracionPage({ searchParams }: PageProps
       />
 
       <section className="space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900">Sistema</h2>
-          <p className="text-xs leading-5 text-slate-600">
-            Ajusta la moneda y el color global usados en tienda, login y panel.
-          </p>
-        </div>
-        <div className="grid gap-3 xl:grid-cols-2">
+        <div className="grid gap-3">
           <Card className="space-y-3">
-            <h3 className="text-sm font-semibold text-slate-900">Moneda del sistema</h3>
-            <p className="text-xs leading-5 text-slate-600">
-              Define la moneda global para visualizar precios en catalogo y administracion.
-            </p>
             <form action={adminUpdateCurrencyAction} className="flex flex-wrap items-end gap-2">
               <label className="min-w-64 flex-1 space-y-1.5">
                 <span className="text-sm font-medium text-slate-700">Moneda activa</span>
@@ -89,18 +79,12 @@ export default async function AdminConfiguracionPage({ searchParams }: PageProps
               </label>
               <button
                 type="submit"
+                aria-label="Guardar moneda"
                 className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
               >
-                Guardar moneda
+                <Save className="h-4 w-4" />
               </button>
             </form>
-          </Card>
-
-          <Card className="space-y-3">
-            <h3 className="text-sm font-semibold text-slate-900">Color primario global</h3>
-            <p className="text-xs leading-5 text-slate-600">
-              Este color se aplica a botones, links y elementos principales en login, registro, tienda y panel.
-            </p>
             <form action={adminUpdatePrimaryColorAction} className="flex flex-wrap items-end gap-2">
               <label className="min-w-64 flex-1 space-y-1.5">
                 <span className="text-sm font-medium text-slate-700">Color primario</span>
@@ -121,9 +105,10 @@ export default async function AdminConfiguracionPage({ searchParams }: PageProps
               </label>
               <button
                 type="submit"
+                aria-label="Guardar color"
                 className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
               >
-                Guardar color
+                <Save className="h-4 w-4" />
               </button>
             </form>
           </Card>

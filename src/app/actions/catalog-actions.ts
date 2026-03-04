@@ -51,6 +51,16 @@ async function requireAdminSession(): Promise<void> {
   }
 }
 
+function getCategoryReturnTo(formData: FormData): string {
+  const raw = formData.get("returnTo");
+  if (typeof raw !== "string") {
+    return "/admin/configuracion";
+  }
+
+  const value = raw.trim();
+  return value === "/admin/categorias" ? value : "/admin/configuracion";
+}
+
 async function saveCategoryLogo(file: File | null): Promise<string | null> {
   if (!file || file.size <= 0) {
     return null;
@@ -78,18 +88,19 @@ async function saveCategoryLogo(file: File | null): Promise<string | null> {
 
 export async function adminCreateCategoryAction(formData: FormData): Promise<void> {
   await requireAdminSession();
+  const returnTo = getCategoryReturnTo(formData);
 
   const parsed = createCategorySchema.safeParse({
     name: formData.get("name"),
   });
 
   if (!parsed.success) {
-    redirect("/admin/configuracion?error=Categoria+invalida");
+    redirect(`${returnTo}?error=Categoria+invalida`);
   }
 
   const slugBase = slugifyCategory(parsed.data.name);
   if (!slugBase) {
-    redirect("/admin/configuracion?error=Categoria+invalida");
+    redirect(`${returnTo}?error=Categoria+invalida`);
   }
 
   const existingBySlug = await prisma.category.count({
@@ -107,7 +118,7 @@ export async function adminCreateCategoryAction(formData: FormData): Promise<voi
   try {
     logoUrl = await saveCategoryLogo(logoFile);
   } catch {
-    redirect("/admin/configuracion?error=Logo+de+categoria+invalido");
+    redirect(`${returnTo}?error=Logo+de+categoria+invalido`);
   }
 
   try {
@@ -119,17 +130,19 @@ export async function adminCreateCategoryAction(formData: FormData): Promise<voi
       },
     });
   } catch {
-    redirect("/admin/configuracion?error=No+se+pudo+crear+la+categoria");
+    redirect(`${returnTo}?error=No+se+pudo+crear+la+categoria`);
   }
 
+  revalidatePath(returnTo);
   revalidatePath("/admin/configuracion");
   revalidatePath("/admin/productos");
   revalidatePath("/admin/productos/new");
-  redirect("/admin/configuracion?ok=Categoria+creada");
+  redirect(`${returnTo}?ok=Categoria+creada`);
 }
 
 export async function adminUpdateCategoryAction(formData: FormData): Promise<void> {
   await requireAdminSession();
+  const returnTo = getCategoryReturnTo(formData);
 
   const parsed = updateCategorySchema.safeParse({
     categoryId: formData.get("categoryId"),
@@ -137,12 +150,22 @@ export async function adminUpdateCategoryAction(formData: FormData): Promise<voi
   });
 
   if (!parsed.success) {
-    redirect("/admin/configuracion?error=Categoria+invalida");
+    redirect(`${returnTo}?error=Categoria+invalida`);
   }
 
   const slugBase = slugifyCategory(parsed.data.name);
   if (!slugBase) {
-    redirect("/admin/configuracion?error=Categoria+invalida");
+    redirect(`${returnTo}?error=Categoria+invalida`);
+  }
+
+  const rawLogo = formData.get("logo");
+  const logoFile = rawLogo instanceof File ? rawLogo : null;
+
+  let logoUrl: string | null = null;
+  try {
+    logoUrl = await saveCategoryLogo(logoFile);
+  } catch {
+    redirect(`${returnTo}?error=Logo+de+categoria+invalido`);
   }
 
   const siblingSlugs = await prisma.category.findMany({
@@ -167,28 +190,31 @@ export async function adminUpdateCategoryAction(formData: FormData): Promise<voi
       data: {
         name: parsed.data.name,
         slug,
+        ...(logoUrl ? { logoUrl } : {}),
       },
     });
   } catch {
-    redirect("/admin/configuracion?error=No+se+pudo+actualizar+la+categoria");
+    redirect(`${returnTo}?error=No+se+pudo+actualizar+la+categoria`);
   }
 
   revalidatePath("/");
+  revalidatePath(returnTo);
   revalidatePath("/admin/configuracion");
   revalidatePath("/admin/productos");
   revalidatePath("/admin/productos/new");
-  redirect("/admin/configuracion?ok=Categoria+actualizada");
+  redirect(`${returnTo}?ok=Categoria+actualizada`);
 }
 
 export async function adminDeleteCategoryAction(formData: FormData): Promise<void> {
   await requireAdminSession();
+  const returnTo = getCategoryReturnTo(formData);
 
   const parsed = deleteCategorySchema.safeParse({
     categoryId: formData.get("categoryId"),
   });
 
   if (!parsed.success) {
-    redirect("/admin/configuracion?error=Categoria+invalida");
+    redirect(`${returnTo}?error=Categoria+invalida`);
   }
 
   try {
@@ -196,14 +222,15 @@ export async function adminDeleteCategoryAction(formData: FormData): Promise<voi
       where: { id: parsed.data.categoryId },
     });
   } catch {
-    redirect("/admin/configuracion?error=No+se+pudo+eliminar+la+categoria");
+    redirect(`${returnTo}?error=No+se+pudo+eliminar+la+categoria`);
   }
 
   revalidatePath("/");
+  revalidatePath(returnTo);
   revalidatePath("/admin/configuracion");
   revalidatePath("/admin/productos");
   revalidatePath("/admin/productos/new");
-  redirect("/admin/configuracion?ok=Categoria+eliminada");
+  redirect(`${returnTo}?ok=Categoria+eliminada`);
 }
 
 export async function adminCreateSupplierAction(formData: FormData): Promise<void> {
