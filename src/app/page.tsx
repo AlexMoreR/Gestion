@@ -132,30 +132,26 @@ export default async function HomePage({ searchParams }: PageProps) {
           </div>
         </div>
       </Card>
-      <Card className="space-y-3 rounded-2xl border-violet-100 bg-gradient-to-b from-violet-50/70 to-white p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900 md:text-base">Categoria</h2>
-          <p className="text-xs text-violet-700">Desliza</p>
-        </div>
-        <div className="flex snap-x gap-3 overflow-x-auto pb-1">
-          {categoriesCarousel.map((category) => (
-            <Link
-              key={category.name}
-              href={`/?q=${encodeURIComponent(category.name)}`}
-              className="group block w-32 shrink-0 snap-start transition hover:-translate-y-0.5"
-            >
-              <div className="aspect-square overflow-hidden rounded-2xl">
-                <img
-                  src={category.cover}
-                  alt={category.name}
-                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                />
-              </div>
-              <p className="mt-2 line-clamp-1 text-center text-xs font-semibold text-slate-900">{category.name}</p>
-            </Link>
-          ))}
-        </div>
-      </Card>
+      <div className="flex snap-x gap-2.5 overflow-x-auto pb-0.5">
+        {categoriesCarousel.map((category) => (
+          <Link
+            key={category.name}
+            href={`/?q=${encodeURIComponent(category.name)}`}
+            className="group block w-24 shrink-0 snap-start transition hover:-translate-y-0.5 sm:w-28"
+          >
+            <div className="aspect-square overflow-hidden rounded-xl">
+              <img
+                src={category.cover}
+                alt={category.name}
+                className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+              />
+            </div>
+            <p className="mt-1.5 text-center text-[11px] font-semibold leading-tight text-slate-900 sm:text-xs">
+              {category.name}
+            </p>
+          </Link>
+        ))}
+      </div>
 
       {products.length === 0 ? (
         <Card>
