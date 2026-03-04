@@ -173,7 +173,7 @@ export default async function HomePage({ searchParams }: PageProps) {
               <Input
                 name="q"
                 defaultValue={query}
-                placeholder="Buscar producto, codigo o categoria"
+                placeholder="Que estas buscando?"
                 className="h-10 border-violet-200 bg-white pl-9 focus-visible:border-violet-400 focus-visible:ring-violet-200"
               />
             </form>
@@ -183,7 +183,7 @@ export default async function HomePage({ searchParams }: PageProps) {
               Resultado para <span className="font-medium text-slate-700">"{query}"</span>: {products.length} producto(s)
             </p>
           ) : null}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
           {products.map((product) => {
             const retailPrice = Number(product.price);
             const beforeDiscountPrice = retailPrice * 1.18;
@@ -196,33 +196,29 @@ export default async function HomePage({ searchParams }: PageProps) {
             )}`;
 
             return (
-              <Card key={product.id} className="h-full overflow-hidden rounded-xl p-0 transition duration-300 hover:translate-y-[-3px] hover:shadow-[0_22px_40px_-30px_rgba(15,23,42,0.55)]">
-                <Link href={`/productos/${product.id}`} className="group block">
+              <Card key={product.id} className="flex h-full flex-col overflow-hidden rounded-xl p-0 transition duration-300 hover:translate-y-[-3px] hover:shadow-[0_22px_40px_-30px_rgba(15,23,42,0.55)]">
+                <Link href={`/productos/${product.id}`} className="group flex flex-1 flex-col">
                   <div className="relative">
                     <img
                       src={product.thumbnailUrl}
                       alt={product.name}
-                      className="h-40 w-full border-b border-[var(--line)] object-cover transition duration-500 group-hover:scale-[1.03]"
+                      className="h-52 w-full bg-white object-contain p-2 transition duration-500 group-hover:scale-[1.02]"
                     />
-                    <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/45 to-transparent" />
                     <span className="absolute right-2 top-2 rounded-full border border-white/20 bg-slate-900/85 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
                       {product.code?.trim() || "SKU"}
                     </span>
                   </div>
-                  <div className="space-y-1.5 px-3 pb-2.5 pt-2.5">
+                  <div className="flex flex-1 flex-col space-y-1.5 px-3 pb-1 pt-2.5">
                     <p className="line-clamp-1 text-xs font-medium text-slate-500">
                       {product.category?.name ?? "Sin categoria"}
                     </p>
-                    <h2 className="line-clamp-1 text-sm font-semibold text-slate-900">{product.name}</h2>
-                    <div className="space-y-0.5 pt-0.5">
+                    <h2 className="min-h-[2rem] text-[13px] font-semibold leading-4 normal-case tracking-normal text-slate-900">{product.name}</h2>
+                    <div className="space-y-0.5 pt-0">
                       {hasDiscount ? (
                         <>
                           <div className="flex items-center gap-1.5">
-                            <p className="text-xs font-medium text-slate-500">
-                              Ahora:{" "}
-                              <span className="text-base font-semibold text-violet-800">
-                                {formatMoney(String(retailPrice), systemCurrency)}
-                              </span>
+                            <p className="text-base font-semibold text-violet-800">
+                              {formatMoney(String(retailPrice), systemCurrency)}
                             </p>
                             <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
                               -{discountPct}%
@@ -243,15 +239,15 @@ export default async function HomePage({ searchParams }: PageProps) {
                     </div>
                   </div>
                 </Link>
-                <div className="grid grid-cols-1 gap-1.5 px-3 pb-3 pt-2.5">
+                <div className="grid grid-cols-1 gap-1.5 px-3 pb-3 pt-0.5">
                   <Link
                     href={whatsAppHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-2.5 text-xs font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-[0_10px_18px_-12px_rgba(5,150,105,0.9)] active:translate-y-0 active:scale-[0.98]"
+                    className="inline-flex h-9 items-center justify-center gap-1 text-xs font-semibold text-emerald-700 transition hover:text-emerald-800"
                   >
                     <MessageCircle className="h-4 w-4" />
-                    WhatsApp
+                    Comprar por WhatsApp
                   </Link>
                   <Link
                     href={`/productos/${product.id}`}

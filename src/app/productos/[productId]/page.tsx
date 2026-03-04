@@ -97,10 +97,10 @@ export default async function ProductoDetallePage({ params }: PageProps) {
                 href={whatsAppHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                className="inline-flex h-11 items-center justify-center gap-1.5 text-sm font-semibold text-emerald-700 transition hover:text-emerald-800"
               >
                 <MessageCircle className="h-4 w-4" />
-                WhatsApp
+                Comprar por WhatsApp
               </Link>
               <button
                 type="button"

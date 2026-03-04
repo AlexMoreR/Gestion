@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import type { Role } from "@prisma/client";
-import { ChevronDown, LayoutDashboard, LogOut, Menu, Settings, UserCircle2 } from "lucide-react";
+import { ChevronDown, LayoutDashboard, LogOut, Menu, Search, Settings, UserCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,12 +36,11 @@ export function Navbar({ initialUser }: { initialUser: InitialUser | null }) {
 
   const navLinks = user
     ? [
-        { label: "Inicio", href: "/" },
         ...(dashboardHref ? [{ label: "Dashboard", href: dashboardHref }] : []),
         ...(user.role === "ADMIN" ? [{ label: "Configuracion", href: "/admin/configuracion" }] : []),
         { label: "Perfil", href: "/profile" },
       ]
-    : [{ label: "Inicio", href: "/" }];
+    : [];
   const isActiveLink = (href: string) =>
     href === "/"
       ? pathname === "/"
@@ -53,7 +53,7 @@ export function Navbar({ initialUser }: { initialUser: InitialUser | null }) {
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-white/95">
       <div className="mx-auto flex h-14 w-full items-center justify-between px-4 md:px-8">
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3">
           <Link
             href="/"
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--surface)] text-slate-900 transition hover:bg-slate-50"
@@ -77,45 +77,46 @@ export function Navbar({ initialUser }: { initialUser: InitialUser | null }) {
           </nav>
         </div>
 
+        <form action="/" method="get" className="mx-3 max-w-md flex-1">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              name="q"
+              placeholder="Que estas buscando?"
+              className="h-9 border-slate-200 bg-white pl-9 text-sm focus-visible:border-violet-400 focus-visible:ring-violet-200"
+            />
+          </div>
+        </form>
+
         <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden" aria-label="Abrir menu">
-                <Menu className="h-4 w-4 text-slate-700" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52 md:hidden">
-              {navLinks.map((item) => (
-                <DropdownMenuItem key={item.href} asChild>
-                  <Link href={item.href} className={isActiveLink(item.href) ? "w-full font-medium text-slate-900" : "w-full"}>
-                    {item.label}
-                  </Link>
-                </DropdownMenuItem>
-              ))}
-              {status !== "loading" && !user && (
-                <>
-                  <DropdownMenuItem asChild>
-                    <Link href="/login" className="w-full">Login</Link>
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden" aria-label="Abrir menu">
+                  <Menu className="h-4 w-4 text-slate-700" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52 md:hidden">
+                {navLinks.map((item) => (
+                  <DropdownMenuItem key={item.href} asChild>
+                    <Link href={item.href} className={isActiveLink(item.href) ? "w-full font-medium text-slate-900" : "w-full"}>
+                      {item.label}
+                    </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/register" className="w-full">Registro</Link>
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
 
           {status === "loading" ? (
             <div className="hidden h-8 w-24 animate-pulse rounded-md bg-slate-100 sm:block" />
           ) : !user ? (
-            <div className="hidden items-center gap-2 sm:flex">
-              <Button asChild variant="outline" size="sm">
-                <Link href="/login">Login</Link>
-              </Button>
-              <Button asChild size="sm">
-                <Link href="/register">Registro</Link>
-              </Button>
-            </div>
+            <Button asChild variant="ghost" size="sm" className="inline-flex items-center gap-2">
+              <Link href="/login">
+                <UserCircle2 className="h-4 w-4 text-slate-600" />
+                Cuenta
+              </Link>
+            </Button>
           ) : (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
