@@ -84,7 +84,7 @@ export function AppSidebar({ pathname, user, ...props }: AppSidebarProps & React
       <SidebarContent>
         <NavMain items={navMain} />
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="border-t-0 !p-0">
         <NavUser
           user={{
             name: user.name ?? "Usuario",

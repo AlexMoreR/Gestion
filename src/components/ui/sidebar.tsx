@@ -227,11 +227,11 @@ export function SidebarMenuItem({
 }
 
 const sidebarMenuButtonVariants = cva(
-  "inline-flex h-10 w-full items-center gap-2.5 rounded-lg px-3 text-sm font-medium transition group-data-[collapsible=icon]/sidebar:justify-center group-data-[collapsible=icon]/sidebar:px-2",
+  "inline-flex h-9 w-full items-center gap-2.5 rounded-lg px-3 text-sm font-medium transition group-data-[collapsible=icon]/sidebar:justify-center group-data-[collapsible=icon]/sidebar:px-2",
   {
     variants: {
       size: {
-        default: "h-10",
+        default: "h-9",
         lg: "h-12",
       },
     },

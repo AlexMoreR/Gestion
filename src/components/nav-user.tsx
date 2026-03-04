@@ -46,13 +46,13 @@ export function NavUser({
   const roleLabel = rawRole.charAt(0).toUpperCase() + rawRole.slice(1);
 
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
+    <SidebarMenu className="w-full">
+      <SidebarMenuItem className="w-full">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="rounded-none border-y border-x-0 border-[var(--line)] bg-white text-slate-700 hover:bg-slate-100 data-[state=open]:bg-slate-100"
+              className="w-full rounded-none border-y border-x-0 border-[var(--line)] bg-white text-slate-700 hover:bg-slate-100 data-[state=open]:bg-slate-100"
             >
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage src={user.avatar} alt={user.name} />
@@ -64,7 +64,7 @@ export function NavUser({
                   {roleLabel}
                 </span>
               </div>
-              <ChevronsUpDown className="ml-auto h-4 w-4 text-slate-500 group-data-[collapsible=icon]/sidebar:hidden" />
+              <ChevronsUpDown className="ml-auto h-4 w-4 text-black group-data-[collapsible=icon]/sidebar:hidden" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
