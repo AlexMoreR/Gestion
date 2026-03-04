@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import type { Role } from "@prisma/client";
-import { ChevronDown, LayoutDashboard, LogOut, Menu, Search, Settings, UserCircle2 } from "lucide-react";
+import { ChevronDown, Facebook, Instagram, LayoutDashboard, LogOut, Menu, MessageCircle, Search, Settings, UserCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -49,14 +49,23 @@ export function Navbar({ initialUser }: { initialUser: InitialUser | null }) {
     isActiveLink(href)
       ? "rounded-full bg-violet-900 px-3 py-1.5 text-xs font-semibold text-white shadow-[0_6px_16px_-10px_rgba(76,29,149,0.9)]"
       : "rounded-full px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-violet-50 hover:text-violet-900";
+  const socialLinks = [
+    {
+      label: "WhatsApp",
+      href: "https://wa.me/?text=Hola%20Inovacciones%20Magi%2C%20quiero%20informacion",
+      icon: MessageCircle,
+    },
+    { label: "Instagram", href: "https://www.instagram.com", icon: Instagram },
+    { label: "Facebook", href: "https://www.facebook.com", icon: Facebook },
+  ];
 
   return (
     <header className="sticky top-0 z-40 border-b border-violet-100/70 bg-gradient-to-r from-violet-50/85 via-white to-violet-50/70 backdrop-blur-md">
-      <div className="mx-auto flex h-16 w-full items-center justify-between gap-2 px-3 md:px-7">
+      <div className="mx-auto flex h-14 w-full items-center justify-between gap-2 px-3 md:h-16 md:px-7">
         <div className="flex min-w-0 items-center gap-2.5">
           <Link
             href="/"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-900 via-violet-800 to-fuchsia-800 text-white shadow-[0_10px_22px_-14px_rgba(91,33,182,0.95)] transition hover:scale-[1.02]"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-900 via-violet-800 to-fuchsia-800 text-white shadow-[0_10px_22px_-14px_rgba(91,33,182,0.95)] transition hover:scale-[1.02] md:h-9 md:w-9"
             aria-label="Inicio"
           >
             <span className="text-sm font-bold leading-none text-white">IM</span>
@@ -82,17 +91,36 @@ export function Navbar({ initialUser }: { initialUser: InitialUser | null }) {
         </div>
 
         <form action="/" method="get" className="mx-1 max-w-xl flex-1">
-          <div className="relative">
+          <div className="relative transition-shadow duration-200 focus-within:drop-shadow-[0_8px_14px_rgba(109,40,217,0.22)]">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-violet-500" />
             <Input
               name="q"
-              placeholder="Que estas buscando?"
-              className="h-10 rounded-full border-violet-200/90 bg-white/95 pl-9 pr-4 text-sm text-slate-800 shadow-[0_10px_24px_-18px_rgba(15,23,42,0.65)] focus-visible:border-violet-500 focus-visible:ring-violet-200"
+              placeholder="Buscar producto"
+              className="h-9 rounded-full border-violet-200/90 bg-white/95 pl-9 pr-4 text-sm text-slate-800 shadow-[0_10px_24px_-18px_rgba(15,23,42,0.65)] focus-visible:h-10 focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-200 md:h-10"
             />
           </div>
         </form>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 md:gap-2">
+          <div className="flex items-center gap-1">
+            {socialLinks.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={item.label}
+                  title={item.label}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-violet-200 bg-white/90 text-violet-700 shadow-[0_8px_18px_-14px_rgba(91,33,182,0.95)] transition hover:-translate-y-0.5 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-900 md:h-9 md:w-9"
+                >
+                  <Icon className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                </Link>
+              );
+            })}
+          </div>
+
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -119,11 +147,11 @@ export function Navbar({ initialUser }: { initialUser: InitialUser | null }) {
               asChild
               variant="ghost"
               size="sm"
-              className="inline-flex h-10 items-center gap-2 rounded-full border border-violet-200 bg-white/90 px-3 text-violet-900 shadow-[0_8px_18px_-14px_rgba(91,33,182,0.95)] transition hover:border-violet-300 hover:bg-violet-50"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-violet-200 bg-white/90 p-0 text-violet-900 shadow-[0_8px_18px_-14px_rgba(91,33,182,0.95)] transition hover:border-violet-300 hover:bg-violet-50 md:h-10 md:w-auto md:gap-2 md:px-3"
             >
               <Link href="/login">
                 <UserCircle2 className="h-4 w-4 text-slate-600" />
-                <span>Cuenta</span>
+                <span className="hidden md:inline">Cuenta</span>
               </Link>
             </Button>
           ) : (
@@ -132,7 +160,7 @@ export function Navbar({ initialUser }: { initialUser: InitialUser | null }) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-10 gap-2 rounded-full border border-violet-200 bg-white/90 px-2.5 text-slate-900 shadow-[0_8px_18px_-14px_rgba(91,33,182,0.95)] transition hover:border-violet-300 hover:bg-violet-50"
+                  className="h-9 gap-2 rounded-full border border-violet-200 bg-white/90 px-2.5 text-slate-900 shadow-[0_8px_18px_-14px_rgba(91,33,182,0.95)] transition hover:border-violet-300 hover:bg-violet-50 md:h-10"
                 >
                   <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-700">
                     {initials}

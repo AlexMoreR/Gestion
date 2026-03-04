@@ -173,7 +173,7 @@ export default async function HomePage({ searchParams }: PageProps) {
               <Input
                 name="q"
                 defaultValue={query}
-                placeholder="Que estas buscando?"
+                placeholder="Buscar producto"
                 className="h-10 border-violet-200 bg-white pl-9 focus-visible:border-violet-400 focus-visible:ring-violet-200"
               />
             </form>
