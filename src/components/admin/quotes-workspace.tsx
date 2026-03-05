@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { FileText, Plus, Search, UserPlus, X } from "lucide-react";
-import { adminCreateClientQuickAction, adminCreateQuoteAction } from "@/app/actions/quote-actions";
+import { useMemo, useState, useTransition } from "react";
+import { Boxes, FileText, Link2, Plus, Search, UserRound, X } from "lucide-react";
+import { adminCreateQuoteAction, adminResolveClientAction } from "@/app/actions/quote-actions";
 import { QuotesDataTable } from "@/components/admin/quotes-data-table";
 import { Input } from "@/components/ui/input";
 import type { SupportedCurrencyCode } from "@/lib/currency";
@@ -11,6 +11,12 @@ type ClientOption = {
   id: string;
   name: string;
   email: string;
+  document: string;
+  phone: string;
+  address: string;
+  neighborhood: string;
+  department: string;
+  city: string;
 };
 
 type ProductSupplierOption = {
@@ -54,24 +60,46 @@ type QuotesWorkspaceProps = {
 
 export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesWorkspaceProps) {
   const [openModal, setOpenModal] = useState(false);
-  const [openClientModal, setOpenClientModal] = useState(false);
-  const [step, setStep] = useState<1 | 2>(1);
-  const [clientQuery, setClientQuery] = useState("");
-  const [clientId, setClientId] = useState<string>(clients[0]?.id ?? "");
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [showClientResults, setShowClientResults] = useState(false);
+  const [clientId, setClientId] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [clientDocument, setClientDocument] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  const [clientAddress, setClientAddress] = useState("");
+  const [clientNeighborhood, setClientNeighborhood] = useState("");
+  const [clientDepartment, setClientDepartment] = useState("");
+  const [clientCity, setClientCity] = useState("");
+  const [clientFormError, setClientFormError] = useState("");
   const [notes, setNotes] = useState("");
   const [validUntil, setValidUntil] = useState("");
   const [productQuery, setProductQuery] = useState("");
   const [lines, setLines] = useState<QuoteLine[]>([]);
+  const [isResolvingClient, startResolvingClient] = useTransition();
 
   const filteredClients = useMemo(() => {
-    const q = clientQuery.trim().toLowerCase();
+    const q = clientName.trim().toLowerCase();
     if (!q) {
-      return clients;
+      return clients.slice(0, 8);
     }
-    return clients.filter((client) => `${client.name} ${client.email}`.toLowerCase().includes(q));
-  }, [clients, clientQuery]);
+    return clients
+      .filter((client) =>
+        `${client.name} ${client.email} ${client.document} ${client.phone}`.toLowerCase().includes(q),
+      )
+      .slice(0, 8);
+  }, [clients, clientName]);
 
   const selectedClient = useMemo(() => clients.find((client) => client.id === clientId), [clients, clientId]);
+
+  const getClientDisplayName = (client: ClientOption): string => {
+    const byExactEmail = client.name.replace(client.email, "").trim();
+    if (byExactEmail) {
+      return byExactEmail;
+    }
+    const byRegex = client.name.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "").trim();
+    return byRegex || client.name;
+  };
 
   const filteredProducts = useMemo(() => {
     const q = productQuery.trim().toLowerCase();
@@ -124,6 +152,92 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
     setOpenModal(true);
   };
 
+  const isClientDraftComplete = useMemo(
+    () =>
+      Boolean(
+        clientName.trim() &&
+          clientDocument.trim() &&
+          clientEmail.trim() &&
+          clientPhone.trim() &&
+          clientAddress.trim() &&
+          clientNeighborhood.trim() &&
+          clientDepartment.trim() &&
+          clientCity.trim(),
+      ),
+    [
+      clientAddress,
+      clientCity,
+      clientDepartment,
+      clientDocument,
+      clientEmail,
+      clientName,
+      clientNeighborhood,
+      clientPhone,
+    ],
+  );
+
+  const isClientResolved = Boolean(clientId) || isClientDraftComplete;
+
+  const handleClientInputChange = (setter: (value: string) => void, value: string) => {
+    setter(value);
+    if (clientId) {
+      setClientId("");
+    }
+    if (clientFormError) {
+      setClientFormError("");
+    }
+  };
+
+  const applyClientSelection = (client: ClientOption) => {
+    const displayName = getClientDisplayName(client);
+    setClientId(client.id);
+    setClientName(displayName);
+    setClientDocument(client.document);
+    setClientEmail(client.email);
+    setClientPhone(client.phone);
+    setClientAddress(client.address);
+    setClientNeighborhood(client.neighborhood);
+    setClientDepartment(client.department);
+    setClientCity(client.city);
+    setShowClientResults(false);
+    setClientFormError("");
+  };
+
+  const goToProductsStep = () => {
+    if (clientId) {
+      setClientFormError("");
+      setStep(2);
+      return;
+    }
+
+    if (!isClientDraftComplete) {
+      setClientFormError("Selecciona un cliente del buscador o completa todos los campos.");
+      return;
+    }
+
+    startResolvingClient(async () => {
+      const result = await adminResolveClientAction({
+        name: clientName,
+        document: clientDocument,
+        email: clientEmail,
+        phone: clientPhone,
+        address: clientAddress,
+        neighborhood: clientNeighborhood,
+        department: clientDepartment,
+        city: clientCity,
+      });
+
+      if (!result.ok) {
+        setClientFormError(result.error);
+        return;
+      }
+
+      setClientId(result.clientId);
+      setClientFormError("");
+      setStep(2);
+    });
+  };
+
   const serializedItems = JSON.stringify(
     lines.map((line) => ({
       productId: line.productId,
@@ -171,10 +285,10 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
           >
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Nueva cotizacion</h2>
-                <p className="text-xs text-slate-500">
-                  Paso {step} de 2: {step === 1 ? "Cliente" : "Productos"}
-                </p>
+                <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-slate-900">
+                  <FileText className="h-4 w-4 text-slate-500" />
+                  <span>Nueva cotizacion</span>
+                </h2>
               </div>
               <button
                 type="button"
@@ -190,78 +304,200 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
               <input type="hidden" name="returnTo" value="/admin/cotizaciones" />
               <input type="hidden" name="items" value={serializedItems} />
               <input type="hidden" name="clientId" value={clientId} />
+              <input type="hidden" name="name" value={clientName} />
+              <input type="hidden" name="document" value={clientDocument} />
+              <input type="hidden" name="email" value={clientEmail} />
+              <input type="hidden" name="phone" value={clientPhone} />
+              <input type="hidden" name="address" value={clientAddress} />
+              <input type="hidden" name="neighborhood" value={clientNeighborhood} />
+              <input type="hidden" name="department" value={clientDepartment} />
+              <input type="hidden" name="city" value={clientCity} />
 
-              {step === 1 ? (
-                <div className="space-y-4 rounded-xl border border-[var(--line)] p-3">
-                  <p className="text-sm font-semibold text-slate-900">Cliente</p>
-
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <label className="space-y-1.5">
-                      <span className="text-sm font-medium text-slate-700">Buscar cliente existente</span>
-                      <div className="relative">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                        <Input
-                          value={clientQuery}
-                          onChange={(event) => setClientQuery(event.target.value)}
-                          className="pl-9"
-                          placeholder="Nombre o correo"
-                        />
-                      </div>
-                    </label>
-
-                    <div className="space-y-1.5">
-                      <span className="text-sm font-medium text-slate-700">Seleccionar cliente</span>
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={clientId}
-                          onChange={(event) => setClientId(event.target.value)}
-                          className="field-select"
-                          required
-                        >
-                          {filteredClients.map((client) => (
-                            <option key={client.id} value={client.id}>
-                              {client.name} - {client.email}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          onClick={() => setOpenClientModal(true)}
-                          className="inline-flex h-10 items-center gap-1 rounded-lg border border-[var(--line)] bg-white px-3 text-sm text-slate-700 transition hover:bg-slate-50"
-                        >
-                          <UserPlus className="h-4 w-4" />
-                          Nuevo
-                        </button>
-                      </div>
+              <div className="rounded-xl border border-[var(--line)] bg-slate-50/80 p-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div
+                      className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition ${
+                        step === 1
+                          ? "border-[var(--primary)] bg-[var(--primary)] text-white"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      } ${step === 1 ? "stepper-icon-zoom" : ""}`}
+                    >
+                      <UserRound className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className={`text-xs font-semibold ${step === 1 ? "text-slate-900" : "text-slate-600"}`}>Cliente</p>
                     </div>
                   </div>
 
-                  <div className="rounded-lg border border-[var(--line)] bg-slate-50 px-3 py-2 text-sm text-slate-600">
-                    {selectedClient ? (
-                      <>
-                        Cliente elegido: <span className="font-medium text-slate-800">{selectedClient.name}</span> (
-                        {selectedClient.email})
-                      </>
-                    ) : (
-                      "Selecciona un cliente para continuar."
-                    )}
+                  <div className="h-px flex-1 bg-[var(--line)]">
+                    <div
+                      className={`h-full transition ${step >= 2 ? "w-full bg-[var(--primary)]" : "w-0 bg-[var(--primary)]"}`}
+                    />
                   </div>
+
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div
+                      className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition ${
+                        step === 2
+                          ? "border-[var(--primary)] bg-[var(--primary)] text-white"
+                          : step > 2
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : "border-[var(--line)] bg-white text-slate-500"
+                      } ${step === 2 ? "stepper-icon-zoom" : ""}`}
+                    >
+                      <Boxes className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className={`text-xs font-semibold ${step === 2 ? "text-slate-900" : "text-slate-600"}`}>Productos</p>
+                    </div>
+                  </div>
+
+                  <div className="h-px flex-1 bg-[var(--line)]">
+                    <div
+                      className={`h-full transition ${step >= 3 ? "w-full bg-[var(--primary)]" : "w-0 bg-[var(--primary)]"}`}
+                    />
+                  </div>
+
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div
+                      className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition ${
+                        step === 3
+                          ? "border-[var(--primary)] bg-[var(--primary)] text-white"
+                          : "border-[var(--line)] bg-white text-slate-500"
+                      } ${step === 3 ? "stepper-icon-zoom" : ""}`}
+                    >
+                      <Link2 className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className={`text-xs font-semibold ${step === 3 ? "text-slate-900" : "text-slate-600"}`}>Generar</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {step === 1 ? (
+                <div className="space-y-4 rounded-xl border border-[var(--line)] p-3">
+                  <div className="space-y-3 rounded-lg border border-[var(--line)] p-3">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="relative block space-y-1.5">
+                        <span className="text-sm font-medium text-slate-700">Nombre y apellido</span>
+                        <Input
+                          value={clientName}
+                          onChange={(event) => handleClientInputChange(setClientName, event.target.value)}
+                          onFocus={() => setShowClientResults(true)}
+                          onBlur={() => {
+                            setTimeout(() => setShowClientResults(false), 120);
+                          }}
+                          placeholder="Ej: Ana Perez"
+                        />
+
+                        {showClientResults ? (
+                          <div className="absolute left-0 right-0 top-full z-30 mt-1.5 overflow-hidden rounded-lg border border-[var(--line)] bg-white shadow-lg">
+                            <p className="px-3 py-2 text-xs text-slate-500">Clientes</p>
+                            <div className="max-h-52 overflow-y-auto p-1.5">
+                              {filteredClients.length > 0 ? (
+                                filteredClients.map((client) => (
+                                  <button
+                                    key={client.id}
+                                    type="button"
+                                    onMouseDown={(event) => event.preventDefault()}
+                                    onClick={() => applyClientSelection(client)}
+                                    className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-sm transition hover:bg-slate-100"
+                                  >
+                                    <span className="inline-flex items-center gap-2 text-slate-800">
+                                      <UserRound className="h-3.5 w-3.5 text-slate-500" />
+                                      {getClientDisplayName(client)}
+                                    </span>
+                                    <span className="text-xs text-slate-500">{client.phone || "Sin telefono"}</span>
+                                  </button>
+                                ))
+                              ) : (
+                                <p className="px-2.5 py-2 text-xs text-slate-500">Sin resultados. Completa los campos para crear cliente.</p>
+                              )}
+                            </div>
+                          </div>
+                        ) : null}
+                      </label>
+                      <label className="block space-y-1.5">
+                        <span className="text-sm font-medium text-slate-700">Nit o cedula</span>
+                        <Input
+                          value={clientDocument}
+                          onChange={(event) => handleClientInputChange(setClientDocument, event.target.value)}
+                          placeholder="Ej: 123456789"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="block space-y-1.5">
+                        <span className="text-sm font-medium text-slate-700">Correo Electronico</span>
+                        <Input
+                          type="email"
+                          value={clientEmail}
+                          onChange={(event) => handleClientInputChange(setClientEmail, event.target.value)}
+                          placeholder="cliente@correo.com"
+                        />
+                      </label>
+                      <label className="block space-y-1.5">
+                        <span className="text-sm font-medium text-slate-700">Telefono</span>
+                        <Input
+                          value={clientPhone}
+                          onChange={(event) => handleClientInputChange(setClientPhone, event.target.value)}
+                          placeholder="Ej: 3001234567"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="block space-y-1.5">
+                        <span className="text-sm font-medium text-slate-700">Direccion</span>
+                        <Input
+                          value={clientAddress}
+                          onChange={(event) => handleClientInputChange(setClientAddress, event.target.value)}
+                          placeholder="Calle 00 # 00 - 00"
+                        />
+                      </label>
+                      <label className="block space-y-1.5">
+                        <span className="text-sm font-medium text-slate-700">Barrio</span>
+                        <Input
+                          value={clientNeighborhood}
+                          onChange={(event) => handleClientInputChange(setClientNeighborhood, event.target.value)}
+                          placeholder="Barrio"
+                        />
+                      </label>
+                      <label className="block space-y-1.5">
+                        <span className="text-sm font-medium text-slate-700">Departamento</span>
+                        <Input
+                          value={clientDepartment}
+                          onChange={(event) => handleClientInputChange(setClientDepartment, event.target.value)}
+                          placeholder="Departamento"
+                        />
+                      </label>
+                      <label className="block space-y-1.5">
+                        <span className="text-sm font-medium text-slate-700">Ciudad</span>
+                        <Input
+                          value={clientCity}
+                          onChange={(event) => handleClientInputChange(setClientCity, event.target.value)}
+                          placeholder="Ciudad"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {clientFormError ? <p className="text-xs font-medium text-red-600">{clientFormError}</p> : null}
 
                   <button
                     type="button"
-                    onClick={() => setStep(2)}
-                    disabled={!clientId}
+                    onClick={goToProductsStep}
+                    disabled={!isClientResolved || isResolvingClient}
                     className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Siguiente
+                    {isResolvingClient ? "Guardando cliente..." : "Siguiente"}
                   </button>
                 </div>
-              ) : (
+              ) : step === 2 ? (
                 <>
-                  <div className="rounded-lg border border-[var(--line)] bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                    Cliente: <span className="font-medium text-slate-900">{selectedClient?.name ?? "No seleccionado"}</span>
-                  </div>
-
                   <div className="grid gap-3 md:grid-cols-[1fr_240px]">
                     <label className="space-y-1.5">
                       <span className="text-sm font-medium text-slate-700">Notas</span>
@@ -385,11 +621,82 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                       Atras
                     </button>
                     <button
+                      type="button"
+                      onClick={() => setStep(3)}
+                      className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)] sm:w-auto"
+                      disabled={lines.length === 0}
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="rounded-lg border border-[var(--line)] bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                    Revisa los datos y genera la cotizacion para obtener el link compartible.
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm">
+                      <p className="text-xs font-medium text-slate-500">Cliente</p>
+                      <p className="font-semibold text-slate-900">
+                        {clientId ? selectedClient?.name ?? clientName : clientName}
+                      </p>
+                      <p className="text-slate-600">{clientEmail}</p>
+                    </div>
+                    <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm">
+                      <p className="text-xs font-medium text-slate-500">Valida hasta</p>
+                      <p className="font-semibold text-slate-900">{validUntil || "Sin fecha de vencimiento"}</p>
+                      <p className="text-slate-600">{lines.length} linea(s) de producto</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 rounded-xl border border-[var(--line)] p-3">
+                    <p className="text-sm font-semibold text-slate-900">Resumen de productos</p>
+                    {linesWithMeta.length === 0 ? (
+                      <p className="text-xs text-slate-500">No hay productos agregados.</p>
+                    ) : (
+                      linesWithMeta.map(({ line, product }) => (
+                        <div key={line.uid} className="flex items-center justify-between rounded-lg border border-[var(--line)] px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-slate-900">{product?.name ?? "Producto"}</p>
+                            <p className="text-xs text-slate-500">
+                              Cantidad: {line.quantity} x {line.unitPrice.toLocaleString("es-CO", { style: "currency", currency })}
+                            </p>
+                          </div>
+                          <p className="text-sm font-semibold text-slate-900">
+                            {(line.quantity * line.unitPrice).toLocaleString("es-CO", { style: "currency", currency })}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border border-[var(--line)] bg-slate-50 px-3 py-2">
+                    <span className="text-sm font-medium text-slate-700">Total cotizacion</span>
+                    <span className="text-lg font-semibold text-[var(--primary-strong)]">
+                      {quoteTotal.toLocaleString("es-CO", {
+                        style: "currency",
+                        currency,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setStep(2)}
+                      className="inline-flex h-10 items-center justify-center rounded-lg border border-[var(--line)] bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Atras
+                    </button>
+                    <button
                       type="submit"
                       className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)] sm:w-auto"
-                      disabled={!clientId || lines.length === 0}
+                      disabled={!isClientResolved || lines.length === 0}
                     >
-                      Crear cotizacion
+                      Generar cotizacion
                     </button>
                   </div>
                 </>
@@ -399,81 +706,6 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
         </div>
       ) : null}
 
-      {openClientModal ? (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-[#11182752] px-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Nuevo cliente"
-          onClick={() => setOpenClientModal(false)}
-        >
-          <div className="saas-card w-full max-w-2xl rounded-xl p-5" onClick={(event) => event.stopPropagation()}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-900">Nuevo cliente</h3>
-              <button
-                type="button"
-                onClick={() => setOpenClientModal(false)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] text-slate-600 transition hover:bg-slate-50"
-                aria-label="Cerrar"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <form action={adminCreateClientQuickAction} className="space-y-3">
-              <input type="hidden" name="returnTo" value="/admin/cotizaciones" />
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="block space-y-1.5">
-                  <span className="text-sm font-medium text-slate-700">Nombre y apellido</span>
-                  <Input name="name" placeholder="Ej: Ana Perez" required />
-                </label>
-                <label className="block space-y-1.5">
-                  <span className="text-sm font-medium text-slate-700">Nit o cedula</span>
-                  <Input name="document" placeholder="Ej: 123456789" required />
-                </label>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="block space-y-1.5">
-                  <span className="text-sm font-medium text-slate-700">Correo Electronico</span>
-                  <Input name="email" type="email" placeholder="cliente@correo.com" required />
-                </label>
-                <label className="block space-y-1.5">
-                  <span className="text-sm font-medium text-slate-700">Telefono</span>
-                  <Input name="phone" placeholder="Ej: 3001234567" required />
-                </label>
-              </div>
-
-              <label className="block space-y-1.5">
-                <span className="text-sm font-medium text-slate-700">Direccion</span>
-                <Input name="address" placeholder="Calle 00 # 00 - 00" required />
-              </label>
-
-              <div className="grid gap-3 md:grid-cols-3">
-                <label className="block space-y-1.5">
-                  <span className="text-sm font-medium text-slate-700">Barrio</span>
-                  <Input name="neighborhood" placeholder="Barrio" required />
-                </label>
-                <label className="block space-y-1.5">
-                  <span className="text-sm font-medium text-slate-700">Departamento</span>
-                  <Input name="department" placeholder="Departamento" required />
-                </label>
-                <label className="block space-y-1.5">
-                  <span className="text-sm font-medium text-slate-700">Ciudad</span>
-                  <Input name="city" placeholder="Ciudad" required />
-                </label>
-              </div>
-
-              <button
-                type="submit"
-                className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
-              >
-                Guardar cliente
-              </button>
-            </form>
-          </div>
-        </div>
-      ) : null}
     </>
   );
 }

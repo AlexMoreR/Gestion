@@ -142,8 +142,25 @@ body {
   animation: promoMarquee 36s linear infinite;
 }
 
+@keyframes stepperIconZoom {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.14);
+  }
+}
+
+.stepper-icon-zoom {
+  animation: stepperIconZoom 1.25s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .promo-marquee-track {
+    animation: none;
+  }
+  .stepper-icon-zoom {
     animation: none;
   }
 }

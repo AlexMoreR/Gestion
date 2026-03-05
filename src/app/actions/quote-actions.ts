@@ -28,7 +28,7 @@ const quoteItemSchema = z.object({
 });
 
 const createQuoteSchema = z.object({
-  clientId: z.string().trim().min(1, "Cliente invalido"),
+  clientId: z.string().trim().optional(),
   notes: z.string().trim().max(2000, "Notas demasiado largas").optional(),
   validUntil: z.string().trim().optional(),
   items: z.array(quoteItemSchema).min(1, "Debes agregar al menos un producto"),
@@ -62,6 +62,44 @@ function buildQuoteCode(index: number): string {
   return `COT-${String(index).padStart(5, "0")}`;
 }
 
+async function upsertClientFromData(data: z.infer<typeof createClientSchema>): Promise<string> {
+  const existing = await prisma.user.findUnique({ where: { email: data.email } });
+  const clientProfileData = {
+    name: data.name,
+    document: data.document,
+    phone: data.phone,
+    address: data.address,
+    neighborhood: data.neighborhood,
+    department: data.department,
+    city: data.city,
+  };
+
+  if (existing) {
+    const updated = await prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        role: "CLIENTE",
+        ...clientProfileData,
+      },
+      select: { id: true },
+    });
+    return updated.id;
+  }
+
+  const password = randomUUID().replace(/-/g, "").slice(0, 14);
+  const hashedPassword = await bcrypt.hash(password, 12);
+  const created = await prisma.user.create({
+    data: {
+      ...clientProfileData,
+      email: data.email,
+      role: Role.CLIENTE,
+      password: hashedPassword,
+    },
+    select: { id: true },
+  });
+  return created.id;
+}
+
 export async function adminCreateClientQuickAction(formData: FormData): Promise<void> {
   await requireAdminSession();
   const returnTo = getReturnTo(formData);
@@ -81,43 +119,27 @@ export async function adminCreateClientQuickAction(formData: FormData): Promise<
     redirect(`${returnTo}?error=Datos+de+cliente+invalidos`);
   }
 
-  const existing = await prisma.user.findUnique({ where: { email: parsed.data.email } });
-  const clientProfileData = {
-    name: parsed.data.name,
-    document: parsed.data.document,
-    phone: parsed.data.phone,
-    address: parsed.data.address,
-    neighborhood: parsed.data.neighborhood,
-    department: parsed.data.department,
-    city: parsed.data.city,
-  };
-
-  if (existing) {
-    await prisma.user.update({
-      where: { id: existing.id },
-      data: {
-        role: "CLIENTE",
-        ...clientProfileData,
-      },
-    });
-    revalidatePath(returnTo);
-    redirect(`${returnTo}?ok=Cliente+actualizado`);
-  }
-
-  const password = randomUUID().replace(/-/g, "").slice(0, 14);
-  const hashedPassword = await bcrypt.hash(password, 12);
-
-  await prisma.user.create({
-    data: {
-      ...clientProfileData,
-      email: parsed.data.email,
-      role: Role.CLIENTE,
-      password: hashedPassword,
-    },
-  });
+  await upsertClientFromData(parsed.data);
 
   revalidatePath(returnTo);
-  redirect(`${returnTo}?ok=Cliente+creado`);
+  redirect(`${returnTo}?ok=Cliente+guardado`);
+}
+
+export async function adminResolveClientAction(
+  input: z.infer<typeof createClientSchema>,
+): Promise<{ ok: true; clientId: string } | { ok: false; error: string }> {
+  await requireAdminSession();
+  const parsed = createClientSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Datos de cliente invalidos" };
+  }
+
+  try {
+    const clientId = await upsertClientFromData(parsed.data);
+    return { ok: true, clientId };
+  } catch {
+    return { ok: false, error: "No se pudo guardar el cliente" };
+  }
 }
 
 export async function adminCreateQuoteAction(formData: FormData): Promise<void> {
@@ -143,6 +165,37 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
 
   if (!parsed.success) {
     redirect(`${returnTo}?error=Datos+de+cotizacion+invalidos`);
+  }
+
+  let resolvedClientId = "";
+
+  const incomingClientId = parsed.data.clientId?.trim() ?? "";
+  if (incomingClientId) {
+    const existingClient = await prisma.user.findFirst({
+      where: { id: incomingClientId, role: "CLIENTE" },
+      select: { id: true },
+    });
+
+    if (!existingClient) {
+      redirect(`${returnTo}?error=Cliente+invalido`);
+    }
+    resolvedClientId = existingClient.id;
+  } else {
+    const parsedClient = createClientSchema.safeParse({
+      name: formData.get("name"),
+      document: formData.get("document"),
+      email: formData.get("email"),
+      phone: formData.get("phone"),
+      address: formData.get("address"),
+      neighborhood: formData.get("neighborhood"),
+      department: formData.get("department"),
+      city: formData.get("city"),
+    });
+
+    if (!parsedClient.success) {
+      redirect(`${returnTo}?error=Datos+de+cliente+invalidos`);
+    }
+    resolvedClientId = await upsertClientFromData(parsedClient.data);
   }
 
   const validUntilDate =
@@ -205,7 +258,7 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
       await tx.quote.create({
         data: {
           code,
-          clientId: parsed.data.clientId,
+          clientId: resolvedClientId,
           createdById,
           notes: parsed.data.notes || null,
           validUntil: validUntilDate,
