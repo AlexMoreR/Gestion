@@ -11,7 +11,13 @@ import { prisma } from "@/lib/prisma";
 
 const createClientSchema = z.object({
   name: z.string().trim().min(2, "Nombre invalido").max(120, "Nombre demasiado largo"),
+  document: z.string().trim().min(5, "Documento invalido").max(40, "Documento demasiado largo"),
   email: z.string().trim().email("Correo invalido"),
+  phone: z.string().trim().min(7, "Telefono invalido").max(30, "Telefono demasiado largo"),
+  address: z.string().trim().min(5, "Direccion invalida").max(180, "Direccion demasiado larga"),
+  neighborhood: z.string().trim().min(2, "Barrio invalido").max(120, "Barrio demasiado largo"),
+  department: z.string().trim().min(2, "Departamento invalido").max(120, "Departamento demasiado largo"),
+  city: z.string().trim().min(2, "Ciudad invalida").max(120, "Ciudad demasiado larga"),
 });
 
 const quoteItemSchema = z.object({
@@ -62,7 +68,13 @@ export async function adminCreateClientQuickAction(formData: FormData): Promise<
 
   const parsed = createClientSchema.safeParse({
     name: formData.get("name"),
+    document: formData.get("document"),
     email: formData.get("email"),
+    phone: formData.get("phone"),
+    address: formData.get("address"),
+    neighborhood: formData.get("neighborhood"),
+    department: formData.get("department"),
+    city: formData.get("city"),
   });
 
   if (!parsed.success) {
@@ -70,17 +82,26 @@ export async function adminCreateClientQuickAction(formData: FormData): Promise<
   }
 
   const existing = await prisma.user.findUnique({ where: { email: parsed.data.email } });
-  if (existing) {
-    if (existing.role !== "CLIENTE") {
-      await prisma.user.update({
-        where: { id: existing.id },
-        data: { role: "CLIENTE" },
-      });
-      revalidatePath(returnTo);
-      redirect(`${returnTo}?ok=Cliente+actualizado`);
-    }
+  const clientProfileData = {
+    name: parsed.data.name,
+    document: parsed.data.document,
+    phone: parsed.data.phone,
+    address: parsed.data.address,
+    neighborhood: parsed.data.neighborhood,
+    department: parsed.data.department,
+    city: parsed.data.city,
+  };
 
-    redirect(`${returnTo}?ok=Cliente+ya+existia`);
+  if (existing) {
+    await prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        role: "CLIENTE",
+        ...clientProfileData,
+      },
+    });
+    revalidatePath(returnTo);
+    redirect(`${returnTo}?ok=Cliente+actualizado`);
   }
 
   const password = randomUUID().replace(/-/g, "").slice(0, 14);
@@ -88,7 +109,7 @@ export async function adminCreateClientQuickAction(formData: FormData): Promise<
 
   await prisma.user.create({
     data: {
-      name: parsed.data.name,
+      ...clientProfileData,
       email: parsed.data.email,
       role: Role.CLIENTE,
       password: hashedPassword,

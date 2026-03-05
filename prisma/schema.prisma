@@ -17,6 +17,12 @@ model User {
   id            String   @id @default(cuid())
   name          String?
   email         String   @unique
+  document      String?
+  phone         String?
+  address       String?
+  neighborhood  String?
+  department    String?
+  city          String?
   password      String
   role          Role     @default(CLIENTE)
   image         String?
