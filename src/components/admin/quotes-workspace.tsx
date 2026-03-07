@@ -386,66 +386,49 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
               <input type="hidden" name="department" value={clientDepartment} />
               <input type="hidden" name="city" value={clientCity} />
 
-              <div className="rounded-xl border border-[var(--line)] bg-slate-50/80 p-3">
-                <div className="flex items-center gap-2">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <div
-                      className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition ${
-                        step === 1
-                          ? "border-[var(--primary)] bg-[var(--primary)] text-white"
-                          : "border-emerald-200 bg-emerald-50 text-emerald-700"
-                      } ${step === 1 ? "stepper-icon-zoom" : ""}`}
-                    >
-                      <UserRound className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className={`text-xs font-semibold ${step === 1 ? "text-slate-900" : "text-slate-600"}`}>Cliente</p>
+              <div>
+                <div className="grid gap-1.5 md:grid-cols-3">
+                  <div className={`rounded-lg border p-2 transition ${step >= 1 ? "border-[var(--primary)]/30 bg-[var(--primary)]/5" : "border-slate-200 bg-white"}`}>
+                    <div className="flex items-center gap-2">
+                      <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 1 ? "border-[var(--primary)] bg-[var(--primary)] text-white" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
+                        <UserRound className="h-3.5 w-3.5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Paso 1</p>
+                        <p className="text-xs font-semibold text-slate-900">Cliente</p>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="h-px flex-1 bg-[var(--line)]">
-                    <div
-                      className={`h-full transition ${step >= 2 ? "w-full bg-[var(--primary)]" : "w-0 bg-[var(--primary)]"}`}
-                    />
-                  </div>
-
-                  <div className="flex min-w-0 items-center gap-2">
-                    <div
-                      className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition ${
-                        step === 2
-                          ? "border-[var(--primary)] bg-[var(--primary)] text-white"
-                          : step > 2
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                            : "border-[var(--line)] bg-white text-slate-500"
-                      } ${step === 2 ? "stepper-icon-zoom" : ""}`}
-                    >
-                      <Boxes className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className={`text-xs font-semibold ${step === 2 ? "text-slate-900" : "text-slate-600"}`}>Productos</p>
+                  <div className={`rounded-lg border p-2 transition ${step >= 2 ? "border-[var(--primary)]/30 bg-[var(--primary)]/5" : "border-slate-200 bg-white"}`}>
+                    <div className="flex items-center gap-2">
+                      <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 2 ? "border-[var(--primary)] bg-[var(--primary)] text-white" : step > 2 ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-500"}`}>
+                        <Boxes className="h-3.5 w-3.5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Paso 2</p>
+                        <p className="text-xs font-semibold text-slate-900">Productos</p>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="h-px flex-1 bg-[var(--line)]">
-                    <div
-                      className={`h-full transition ${step >= 3 ? "w-full bg-[var(--primary)]" : "w-0 bg-[var(--primary)]"}`}
-                    />
+                  <div className={`rounded-lg border p-2 transition ${step >= 3 ? "border-[var(--primary)]/30 bg-[var(--primary)]/5" : "border-slate-200 bg-white"}`}>
+                    <div className="flex items-center gap-2">
+                      <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 3 ? "border-[var(--primary)] bg-[var(--primary)] text-white" : "border-slate-200 bg-white text-slate-500"}`}>
+                        <Link2 className="h-3.5 w-3.5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Paso 3</p>
+                        <p className="text-xs font-semibold text-slate-900">Generar</p>
+                      </div>
+                    </div>
                   </div>
+                </div>
 
-                  <div className="flex min-w-0 items-center gap-2">
-                    <div
-                      className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition ${
-                        step === 3
-                          ? "border-[var(--primary)] bg-[var(--primary)] text-white"
-                          : "border-[var(--line)] bg-white text-slate-500"
-                      } ${step === 3 ? "stepper-icon-zoom" : ""}`}
-                    >
-                      <Link2 className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className={`text-xs font-semibold ${step === 3 ? "text-slate-900" : "text-slate-600"}`}>Generar</p>
-                    </div>
-                  </div>
+                <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className={`h-full rounded-full bg-[var(--primary)] transition-all duration-300 ${step === 1 ? "w-1/3" : step === 2 ? "w-2/3" : "w-full"}`}
+                  />
                 </div>
               </div>
 
