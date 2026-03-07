@@ -86,6 +86,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
   const [draftUnitPrice, setDraftUnitPrice] = useState("");
   const [draftDescription, setDraftDescription] = useState("");
   const [productFormError, setProductFormError] = useState("");
+  const [isManualQuoteSubmit, setIsManualQuoteSubmit] = useState(false);
 
   const filteredClients = useMemo(() => {
     const q = clientName.trim().toLowerCase();
@@ -362,7 +363,17 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
               </button>
             </div>
 
-            <form action={adminCreateQuoteAction} className="space-y-4">
+            <form
+              action={adminCreateQuoteAction}
+              className="space-y-4"
+              onSubmit={(event) => {
+                if (step !== 3 || !isManualQuoteSubmit) {
+                  event.preventDefault();
+                  return;
+                }
+                setIsManualQuoteSubmit(false);
+              }}
+            >
               <input type="hidden" name="returnTo" value="/admin/cotizaciones" />
               <input type="hidden" name="items" value={serializedItems} />
               <input type="hidden" name="clientId" value={clientId} />
@@ -656,12 +667,15 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                     >
                       Atras
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setStep(3)}
-                      className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)] sm:w-auto"
-                      disabled={lines.length === 0}
-                    >
+                     <button
+                       type="button"
+                       onClick={() => {
+                         setIsManualQuoteSubmit(false);
+                         setStep(3);
+                       }}
+                       className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)] sm:w-auto"
+                       disabled={lines.length === 0}
+                     >
                       Siguiente
                     </button>
                   </div>
@@ -776,7 +790,11 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                       Atras
                     </button>
                     <button
-                      type="submit"
+                      type="button"
+                      onClick={(event) => {
+                        setIsManualQuoteSubmit(true);
+                        event.currentTarget.form?.requestSubmit();
+                      }}
                       className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)] sm:w-auto"
                       disabled={!isClientResolved || lines.length === 0}
                     >

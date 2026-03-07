@@ -62,6 +62,22 @@ function buildQuoteCode(index: number): string {
   return `COT-${String(index).padStart(5, "0")}`;
 }
 
+function isQuoteCodeUniqueError(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  );
+}
+
+function parseQuoteCodeNumber(code: string): number {
+  const match = /^COT-(\d+)$/.exec(code.trim());
+  if (!match) {
+    return 0;
+  }
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : 0;
+}
+
 async function upsertClientFromData(data: z.infer<typeof createClientSchema>): Promise<string> {
   const existing = await prisma.user.findUnique({ where: { email: data.email } });
   const clientProfileData = {
@@ -251,31 +267,47 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
 
   try {
     await prisma.$transaction(async (tx) => {
-      const count = await tx.quote.count();
-      const code = buildQuoteCode(count + 1);
-      const shareToken = randomUUID().replace(/-/g, "");
-
-      await tx.quote.create({
-        data: {
-          code,
-          clientId: resolvedClientId,
-          createdById,
-          notes: parsed.data.notes || null,
-          validUntil: validUntilDate,
-          subtotal: new Prisma.Decimal(subtotal),
-          total: new Prisma.Decimal(total),
-          shareToken,
-          items: {
-            create: normalizedItems.map((item) => ({
-              productId: item.productId,
-              supplierId: item.supplierId,
-              quantity: item.quantity,
-              unitPrice: new Prisma.Decimal(item.unitPrice),
-              lineTotal: new Prisma.Decimal(item.lineTotal),
-            })),
-          },
-        },
+      const lastQuote = await tx.quote.findFirst({
+        select: { code: true },
+        orderBy: { code: "desc" },
       });
+      const baseCodeNumber = lastQuote ? parseQuoteCodeNumber(lastQuote.code) : 0;
+      const maxCodeAttempts = 30;
+
+      for (let offset = 0; offset < maxCodeAttempts; offset += 1) {
+        const code = buildQuoteCode(baseCodeNumber + 1 + offset);
+        const shareToken = randomUUID().replace(/-/g, "");
+
+        try {
+          await tx.quote.create({
+            data: {
+              code,
+              clientId: resolvedClientId,
+              createdById,
+              notes: parsed.data.notes || null,
+              validUntil: validUntilDate,
+              subtotal: new Prisma.Decimal(subtotal),
+              total: new Prisma.Decimal(total),
+              shareToken,
+              items: {
+                create: normalizedItems.map((item) => ({
+                  productId: item.productId,
+                  supplierId: item.supplierId,
+                  quantity: item.quantity,
+                  unitPrice: new Prisma.Decimal(item.unitPrice),
+                  lineTotal: new Prisma.Decimal(item.lineTotal),
+                })),
+              },
+            },
+          });
+          return;
+        } catch (error) {
+          if (isQuoteCodeUniqueError(error) && offset < maxCodeAttempts - 1) {
+            continue;
+          }
+          throw error;
+        }
+      }
     });
   } catch {
     redirect(`${returnTo}?error=No+se+pudo+crear+la+cotizacion`);
