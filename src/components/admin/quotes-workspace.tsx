@@ -553,21 +553,29 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                   </button>
                 </div>
               ) : step === 2 ? (
-                <div className="space-y-3">
-                  <div className="flex justify-end">
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white px-3 py-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700">
+                        {lines.length} item{lines.length === 1 ? "" : "s"}
+                      </span>
+                      <span className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700">
+                        {quoteTotal.toLocaleString("es-CO", { style: "currency", currency })}
+                      </span>
+                    </div>
                     <button
                       type="button"
                       onClick={openAddProductModal}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[var(--line)] bg-white px-4 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
                     >
                       <Plus className="h-4 w-4" />
-                      Agregar
+                      Agregar producto
                     </button>
                   </div>
 
-                  <div className="overflow-hidden rounded-xl border border-[var(--line)]">
+                  <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                     <table className="w-full text-sm">
-                      <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                      <thead className="bg-slate-50/80 text-xs uppercase tracking-wide text-slate-500">
                         <tr>
                           <th className="px-3 py-2 text-left">Imagen</th>
                           <th className="px-3 py-2 text-left">Codigo</th>
@@ -583,22 +591,27 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                       <tbody>
                         {linesWithMeta.length === 0 ? (
                           <tr>
-                            <td colSpan={9} className="px-3 py-6 text-center text-sm text-slate-500">
-                              No hay productos agregados.
+                            <td colSpan={9} className="px-3 py-8 text-center text-sm text-slate-500">
+                              <div className="flex flex-col items-center gap-2">
+                                <div className="rounded-full border border-slate-200 bg-slate-50 p-2">
+                                  <Boxes className="h-4 w-4 text-slate-500" />
+                                </div>
+                                <p>No hay productos agregados.</p>
+                              </div>
                             </td>
                           </tr>
                         ) : (
                           linesWithMeta.map(({ line, product, lineTotal }) => (
-                            <tr key={line.uid} className="border-t border-[var(--line)] bg-white">
+                            <tr key={line.uid} className="border-t border-slate-200 bg-white transition hover:bg-slate-50/50">
                               <td className="px-3 py-2">
                                 {product?.thumbnailUrl ? (
                                   <img
                                     src={product.thumbnailUrl}
                                     alt={product.name}
-                                    className="h-10 w-10 rounded-md border border-[var(--line)] object-cover"
+                                    className="h-11 w-11 rounded-md border border-slate-200 object-cover"
                                   />
                                 ) : (
-                                  <div className="flex h-10 w-10 items-center justify-center rounded-md border border-[var(--line)] bg-slate-50 text-[10px] text-slate-500">
+                                  <div className="flex h-11 w-11 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-[10px] text-slate-500">
                                     Sin img
                                   </div>
                                 )}
@@ -631,7 +644,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                     </table>
                   </div>
 
-                  <div className="flex items-center justify-between rounded-lg border border-[var(--line)] bg-slate-50 px-3 py-2">
+                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white px-3 py-2.5">
                     <span className="text-sm font-medium text-slate-700">Total cotizacion</span>
                     <span className="text-lg font-semibold text-[var(--primary-strong)]">
                       {quoteTotal.toLocaleString("es-CO", {
@@ -646,7 +659,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                     <button
                       type="button"
                       onClick={() => setStep(1)}
-                      className="inline-flex h-10 items-center justify-center rounded-lg border border-[var(--line)] bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                      className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                     >
                       Atras
                     </button>
@@ -656,10 +669,10 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                          setIsManualQuoteSubmit(false);
                          setStep(3);
                        }}
-                       className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)] sm:w-auto"
-                       disabled={lines.length === 0}
-                     >
-                      Siguiente
+                        className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[var(--primary-strong)] sm:w-auto"
+                        disabled={lines.length === 0}
+                      >
+                       Siguiente
                     </button>
                   </div>
                 </div>
@@ -793,32 +806,35 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
 
       {openProductModal ? (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-[#11182766] p-3"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-[#11182770] p-3 backdrop-blur-[1px]"
           role="dialog"
           aria-modal="true"
           aria-label="Agregar producto"
           onClick={() => setOpenProductModal(false)}
         >
           <div
-            className="w-full max-w-3xl rounded-xl border border-[var(--line)] bg-white p-4"
+            className="w-full max-w-3xl rounded-2xl border border-slate-200 bg-white p-4 shadow-xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="inline-flex items-center gap-2 text-base font-semibold text-slate-900">
-                <Boxes className="h-4 w-4 text-slate-500" />
-                <span>Agregar producto</span>
-              </h3>
+              <div>
+                <h3 className="inline-flex items-center gap-2 text-base font-semibold text-slate-900">
+                  <Boxes className="h-4 w-4 text-slate-500" />
+                  <span>Agregar producto</span>
+                </h3>
+                <p className="mt-0.5 text-xs text-slate-500">Selecciona un item, ajusta precio y agrega descripcion.</p>
+              </div>
               <button
                 type="button"
                 onClick={() => setOpenProductModal(false)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--line)] text-slate-600 hover:bg-slate-50"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
                 aria-label="Cerrar modal de producto"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 md:grid-cols-2">
               <label className="relative space-y-1.5">
                 <span className="text-sm font-medium text-slate-700">Codigo</span>
                 <div className="relative">
@@ -839,7 +855,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                 </div>
 
                 {showProductResults ? (
-                  <div className="absolute left-0 right-0 top-full z-20 mt-1.5 overflow-hidden rounded-lg border border-[var(--line)] bg-white shadow-lg">
+                  <div className="absolute left-0 right-0 top-full z-20 mt-1.5 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
                     <p className="px-3 py-2 text-xs text-slate-500">Productos</p>
                     <div className="max-h-52 overflow-y-auto p-1.5">
                       {filteredProducts.length > 0 ? (
@@ -899,16 +915,16 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                 <Input value={draftLineTotal.toLocaleString("es-CO", { style: "currency", currency })} readOnly />
               </label>
 
-              <div className="grid gap-3 md:col-span-2 md:grid-cols-[7.5rem_minmax(0,1fr)] md:items-start">
+              <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 md:col-span-2 md:grid-cols-[7.5rem_minmax(0,1fr)] md:items-start">
                 <div className="flex items-start justify-start">
                   {draftProduct?.thumbnailUrl ? (
                     <img
                       src={draftProduct.thumbnailUrl}
                       alt={draftProduct.name}
-                      className="h-28 w-28 rounded-lg border border-[var(--line)] object-cover"
+                      className="h-28 w-28 rounded-lg border border-slate-200 object-cover"
                     />
                   ) : (
-                    <div className="flex h-28 w-28 items-center justify-center rounded-lg border border-[var(--line)] bg-white text-[11px] text-slate-500">
+                    <div className="flex h-28 w-28 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-[11px] text-slate-500">
                       Sin imagen
                     </div>
                   )}
@@ -920,27 +936,31 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                     value={draftDescription}
                     onChange={(event) => setDraftDescription(event.target.value)}
                     rows={3}
-                    className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[var(--line-strong)]"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[var(--line-strong)]"
                     placeholder="Descripcion del item"
                   />
                 </label>
               </div>
             </div>
 
-            {productFormError ? <p className="mt-2 text-xs font-medium text-red-600">{productFormError}</p> : null}
+            {productFormError ? (
+              <p className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                {productFormError}
+              </p>
+            ) : null}
 
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={() => setOpenProductModal(false)}
-                className="inline-flex h-10 items-center justify-center rounded-lg border border-[var(--line)] bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={addDraftProduct}
-                className="inline-flex h-10 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+                className="inline-flex h-10 items-center justify-center rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[var(--primary-strong)]"
               >
                 Agregar producto
               </button>
