@@ -434,7 +434,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
 
               {step === 1 ? (
                 <div className="space-y-4 rounded-xl border border-[var(--line)] p-3">
-                  <div className="space-y-3 rounded-lg border border-[var(--line)] p-3">
+                  <div className="space-y-3">
                     <div className="grid gap-3 md:grid-cols-2">
                       <label className="relative block space-y-1.5">
                         <span className="text-sm font-medium text-slate-700">Nombre y apellido</span>
