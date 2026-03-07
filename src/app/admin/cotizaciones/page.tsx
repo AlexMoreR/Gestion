@@ -95,6 +95,7 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
           name: product.name,
           code: product.code,
           retailPrice: Number(product.price),
+          thumbnailUrl: product.thumbnailUrl,
           suppliers: product.suppliers.map((row) => ({
             id: row.supplierId,
             name: row.supplier.name,

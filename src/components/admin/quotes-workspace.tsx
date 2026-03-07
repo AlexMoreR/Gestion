@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Boxes, FileText, Link2, Plus, Search, UserRound, X } from "lucide-react";
+import { Boxes, FileText, Link2, Plus, Search, Trash2, UserRound, X } from "lucide-react";
 import { adminCreateQuoteAction, adminResolveClientAction } from "@/app/actions/quote-actions";
 import { QuotesDataTable } from "@/components/admin/quotes-data-table";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,7 @@ type ProductOption = {
   name: string;
   code: string | null;
   retailPrice: number;
+  thumbnailUrl?: string | null;
   suppliers: ProductSupplierOption[];
 };
 
@@ -46,9 +47,10 @@ type QuoteRow = {
 type QuoteLine = {
   uid: string;
   productId: string;
-  supplierId: string;
   quantity: number;
+  color: string;
   unitPrice: number;
+  description: string;
 };
 
 type QuotesWorkspaceProps = {
@@ -72,11 +74,18 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
   const [clientDepartment, setClientDepartment] = useState("");
   const [clientCity, setClientCity] = useState("");
   const [clientFormError, setClientFormError] = useState("");
-  const [notes, setNotes] = useState("");
-  const [validUntil, setValidUntil] = useState("");
-  const [productQuery, setProductQuery] = useState("");
   const [lines, setLines] = useState<QuoteLine[]>([]);
   const [isResolvingClient, startResolvingClient] = useTransition();
+
+  const [openProductModal, setOpenProductModal] = useState(false);
+  const [showProductResults, setShowProductResults] = useState(false);
+  const [productLookup, setProductLookup] = useState("");
+  const [draftProductId, setDraftProductId] = useState("");
+  const [draftQuantity, setDraftQuantity] = useState("1");
+  const [draftColor, setDraftColor] = useState("");
+  const [draftUnitPrice, setDraftUnitPrice] = useState("");
+  const [draftDescription, setDraftDescription] = useState("");
+  const [productFormError, setProductFormError] = useState("");
 
   const filteredClients = useMemo(() => {
     const q = clientName.trim().toLowerCase();
@@ -102,50 +111,102 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
   };
 
   const filteredProducts = useMemo(() => {
-    const q = productQuery.trim().toLowerCase();
+    const q = productLookup.trim().toLowerCase();
     if (!q) {
       return products.slice(0, 8);
     }
-    return products.filter((product) => `${product.name} ${product.code ?? ""}`.toLowerCase().includes(q)).slice(0, 8);
-  }, [products, productQuery]);
+    return products
+      .filter((product) => `${product.code ?? ""} ${product.name}`.toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [products, productLookup]);
+
+  const draftProduct = useMemo(
+    () => products.find((product) => product.id === draftProductId) ?? null,
+    [products, draftProductId],
+  );
 
   const linesWithMeta = useMemo(
     () =>
       lines.map((line) => {
         const product = products.find((item) => item.id === line.productId);
-        return { line, product };
+        return { line, product, lineTotal: line.quantity * line.unitPrice };
       }),
     [lines, products],
   );
 
   const quoteTotal = useMemo(() => lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0), [lines]);
 
-  const addProductLine = (productId: string) => {
-    const product = products.find((item) => item.id === productId);
-    if (!product) {
+  const removeLine = (uid: string) => {
+    setLines((current) => current.filter((line) => line.uid !== uid));
+  };
+
+  const resetDraftProduct = () => {
+    setDraftProductId("");
+    setProductLookup("");
+    setDraftQuantity("1");
+    setDraftColor("");
+    setDraftUnitPrice("");
+    setDraftDescription("");
+    setProductFormError("");
+    setShowProductResults(false);
+  };
+
+  const openAddProductModal = () => {
+    resetDraftProduct();
+    setOpenProductModal(true);
+  };
+
+  const applyProductSelection = (product: ProductOption) => {
+    setDraftProductId(product.id);
+    setProductLookup(product.code || product.name);
+    setDraftUnitPrice(String(product.retailPrice));
+    setShowProductResults(false);
+    setProductFormError("");
+  };
+
+  const addDraftProduct = () => {
+    if (!draftProductId) {
+      setProductFormError("Selecciona un producto por codigo.");
       return;
     }
-    const defaultSupplier = product.suppliers[0]?.id ?? "";
+
+    const quantity = Number(draftQuantity || 0);
+    const unitPrice = Number(draftUnitPrice || 0);
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      setProductFormError("La cantidad debe ser mayor a 0.");
+      return;
+    }
+
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+      setProductFormError("El precio debe ser mayor a 0.");
+      return;
+    }
+
     setLines((current) => [
       ...current,
       {
         uid: crypto.randomUUID(),
-        productId: product.id,
-        supplierId: defaultSupplier,
-        quantity: 1,
-        unitPrice: product.retailPrice,
+        productId: draftProductId,
+        quantity,
+        color: draftColor.trim(),
+        unitPrice,
+        description: draftDescription.trim(),
       },
     ]);
-    setProductQuery("");
+
+    setOpenProductModal(false);
+    resetDraftProduct();
   };
 
-  const updateLine = (uid: string, update: Partial<QuoteLine>) => {
-    setLines((current) => current.map((line) => (line.uid === uid ? { ...line, ...update } : line)));
-  };
-
-  const removeLine = (uid: string) => {
-    setLines((current) => current.filter((line) => line.uid !== uid));
-  };
+  const draftLineTotal = useMemo(() => {
+    const quantity = Number(draftQuantity || 0);
+    const unitPrice = Number(draftUnitPrice || 0);
+    if (!Number.isFinite(quantity) || !Number.isFinite(unitPrice)) {
+      return 0;
+    }
+    return quantity * unitPrice;
+  }, [draftQuantity, draftUnitPrice]);
 
   const openQuoteModal = () => {
     setStep(1);
@@ -241,9 +302,10 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
   const serializedItems = JSON.stringify(
     lines.map((line) => ({
       productId: line.productId,
-      supplierId: line.supplierId || null,
+      supplierId: null,
       quantity: line.quantity,
       unitPrice: line.unitPrice,
+      notes: line.description || null,
     })),
   );
 
@@ -256,7 +318,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
             <span>Cotizaciones</span>
           </h1>
           <p className="mt-1 text-xs text-slate-600">
-            Crea cotizaciones modernas con cliente, multiples productos y proveedor por cada linea.
+            Crea cotizaciones con cliente, productos y link compartible.
           </p>
         </div>
         <button
@@ -497,108 +559,82 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                   </button>
                 </div>
               ) : step === 2 ? (
-                <>
-                  <div className="grid gap-3 md:grid-cols-[1fr_240px]">
-                    <label className="space-y-1.5">
-                      <span className="text-sm font-medium text-slate-700">Notas</span>
-                      <textarea
-                        name="notes"
-                        value={notes}
-                        onChange={(event) => setNotes(event.target.value)}
-                        rows={3}
-                        className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[var(--line-strong)]"
-                        placeholder="Condiciones, tiempos y observaciones de la cotizacion"
-                      />
-                    </label>
-                    <label className="space-y-1.5">
-                      <span className="text-sm font-medium text-slate-700">Valida hasta (opcional)</span>
-                      <Input
-                        name="validUntil"
-                        type="date"
-                        value={validUntil}
-                        onChange={(event) => setValidUntil(event.target.value)}
-                      />
-                    </label>
+                <div className="space-y-3">
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={openAddProductModal}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[var(--line)] bg-white px-4 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Agregar
+                    </button>
                   </div>
 
-                  <div className="space-y-2 rounded-xl border border-[var(--line)] p-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-slate-900">Productos</p>
-                    </div>
-                    <div className="relative">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                      <Input
-                        value={productQuery}
-                        onChange={(event) => setProductQuery(event.target.value)}
-                        className="pl-9"
-                        placeholder="Buscar producto para agregar"
-                      />
-                    </div>
-                    {productQuery ? (
-                      <div className="max-h-48 overflow-y-auto rounded-lg border border-[var(--line)] bg-white">
-                        {filteredProducts.map((product) => (
-                          <button
-                            key={product.id}
-                            type="button"
-                            onClick={() => addProductLine(product.id)}
-                            className="flex w-full items-center justify-between border-b border-[var(--line)] px-3 py-2 text-left text-sm transition hover:bg-slate-50 last:border-b-0"
-                          >
-                            <span className="font-medium text-slate-800">{product.name}</span>
-                            <span className="text-xs text-slate-500">{product.code ?? "Sin codigo"}</span>
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    <div className="space-y-2">
-                      {linesWithMeta.length === 0 ? (
-                        <p className="text-xs text-slate-500">Agrega uno o mas productos para armar la cotizacion.</p>
-                      ) : (
-                        linesWithMeta.map(({ line, product }) => (
-                          <div
-                            key={line.uid}
-                            className="grid gap-2 rounded-lg border border-[var(--line)] p-2 md:grid-cols-[1.3fr_1fr_90px_120px_auto]"
-                          >
-                            <div className="text-sm">
-                              <p className="font-medium text-slate-900">{product?.name ?? "Producto"}</p>
-                              <p className="text-xs text-slate-500">{product?.code ?? "Sin codigo"}</p>
-                            </div>
-                            <select
-                              value={line.supplierId}
-                              onChange={(event) => updateLine(line.uid, { supplierId: event.target.value })}
-                              className="h-9 rounded-lg border border-[var(--line)] bg-white px-2 text-xs text-slate-700 outline-none"
-                            >
-                              <option value="">Sin proveedor</option>
-                              {(product?.suppliers ?? []).map((supplier) => (
-                                <option key={supplier.id} value={supplier.id}>
-                                  {supplier.name}
-                                </option>
-                              ))}
-                            </select>
-                            <Input
-                              type="number"
-                              min={1}
-                              value={line.quantity}
-                              onChange={(event) => updateLine(line.uid, { quantity: Number(event.target.value || 1) })}
-                            />
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min={0.01}
-                              value={line.unitPrice}
-                              onChange={(event) => updateLine(line.uid, { unitPrice: Number(event.target.value || 0) })}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeLine(line.uid)}
-                              className="inline-flex h-9 items-center justify-center rounded-lg border border-red-200 bg-white px-2 text-xs font-medium text-red-700 transition hover:bg-red-50"
-                            >
-                              Quitar
-                            </button>
-                          </div>
-                        ))
-                      )}
-                    </div>
+                  <div className="overflow-hidden rounded-xl border border-[var(--line)]">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                        <tr>
+                          <th className="px-3 py-2 text-left">Imagen</th>
+                          <th className="px-3 py-2 text-left">Codigo</th>
+                          <th className="px-3 py-2 text-left">Producto</th>
+                          <th className="px-3 py-2 text-left">Descripcion</th>
+                          <th className="px-3 py-2 text-left">Cant</th>
+                          <th className="px-3 py-2 text-left">Color</th>
+                          <th className="px-3 py-2 text-left">Precio</th>
+                          <th className="px-3 py-2 text-left">Total</th>
+                          <th className="px-3 py-2 text-left">Accion</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {linesWithMeta.length === 0 ? (
+                          <tr>
+                            <td colSpan={9} className="px-3 py-6 text-center text-sm text-slate-500">
+                              No hay productos agregados.
+                            </td>
+                          </tr>
+                        ) : (
+                          linesWithMeta.map(({ line, product, lineTotal }) => (
+                            <tr key={line.uid} className="border-t border-[var(--line)] bg-white">
+                              <td className="px-3 py-2">
+                                {product?.thumbnailUrl ? (
+                                  <img
+                                    src={product.thumbnailUrl}
+                                    alt={product.name}
+                                    className="h-10 w-10 rounded-md border border-[var(--line)] object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-10 w-10 items-center justify-center rounded-md border border-[var(--line)] bg-slate-50 text-[10px] text-slate-500">
+                                    Sin img
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-slate-700">{product?.code || "-"}</td>
+                              <td className="px-3 py-2 text-slate-900">{product?.name || "Producto"}</td>
+                              <td className="px-3 py-2 text-slate-700">{line.description || "-"}</td>
+                              <td className="px-3 py-2 text-slate-700">{line.quantity}</td>
+                              <td className="px-3 py-2 text-slate-700">{line.color || "-"}</td>
+                              <td className="px-3 py-2 text-slate-700">
+                                {line.unitPrice.toLocaleString("es-CO", { style: "currency", currency })}
+                              </td>
+                              <td className="px-3 py-2 font-semibold text-slate-900">
+                                {lineTotal.toLocaleString("es-CO", { style: "currency", currency })}
+                              </td>
+                              <td className="px-3 py-2">
+                                <button
+                                  type="button"
+                                  onClick={() => removeLine(line.uid)}
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 text-red-600 transition hover:bg-red-50"
+                                  aria-label="Quitar producto"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   </div>
 
                   <div className="flex items-center justify-between rounded-lg border border-[var(--line)] bg-slate-50 px-3 py-2">
@@ -629,47 +665,95 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                       Siguiente
                     </button>
                   </div>
-                </>
+                </div>
               ) : (
-                <>
-                  <div className="rounded-lg border border-[var(--line)] bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                    Revisa los datos y genera la cotizacion para obtener el link compartible.
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-[var(--line)] bg-white p-3">
+                    <p className="text-sm font-semibold text-slate-900">Datos del cliente</p>
+                    <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                      <div>
+                        <p className="text-xs text-slate-500">Nombre</p>
+                        <p className="font-medium text-slate-900">{clientId ? selectedClient?.name ?? clientName : clientName}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">NIT</p>
+                        <p className="font-medium text-slate-900">{clientDocument || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Correo</p>
+                        <p className="font-medium text-slate-900">{clientEmail || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Telefono</p>
+                        <p className="font-medium text-slate-900">{clientPhone || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Direccion</p>
+                        <p className="font-medium text-slate-900">{clientAddress || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Barrio</p>
+                        <p className="font-medium text-slate-900">{clientNeighborhood || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Departamento</p>
+                        <p className="font-medium text-slate-900">{clientDepartment || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500">Ciudad</p>
+                        <p className="font-medium text-slate-900">{clientCity || "-"}</p>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm">
-                      <p className="text-xs font-medium text-slate-500">Cliente</p>
-                      <p className="font-semibold text-slate-900">
-                        {clientId ? selectedClient?.name ?? clientName : clientName}
-                      </p>
-                      <p className="text-slate-600">{clientEmail}</p>
+                  <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-white">
+                    <div className="border-b border-[var(--line)] bg-slate-50 px-3 py-2">
+                      <p className="text-sm font-semibold text-slate-900">Productos</p>
                     </div>
-                    <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm">
-                      <p className="text-xs font-medium text-slate-500">Valida hasta</p>
-                      <p className="font-semibold text-slate-900">{validUntil || "Sin fecha de vencimiento"}</p>
-                      <p className="text-slate-600">{lines.length} linea(s) de producto</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 rounded-xl border border-[var(--line)] p-3">
-                    <p className="text-sm font-semibold text-slate-900">Resumen de productos</p>
-                    {linesWithMeta.length === 0 ? (
-                      <p className="text-xs text-slate-500">No hay productos agregados.</p>
-                    ) : (
-                      linesWithMeta.map(({ line, product }) => (
-                        <div key={line.uid} className="flex items-center justify-between rounded-lg border border-[var(--line)] px-3 py-2">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-slate-900">{product?.name ?? "Producto"}</p>
-                            <p className="text-xs text-slate-500">
-                              Cantidad: {line.quantity} x {line.unitPrice.toLocaleString("es-CO", { style: "currency", currency })}
-                            </p>
-                          </div>
-                          <p className="text-sm font-semibold text-slate-900">
-                            {(line.quantity * line.unitPrice).toLocaleString("es-CO", { style: "currency", currency })}
-                          </p>
-                        </div>
-                      ))
-                    )}
+                    <table className="w-full text-sm">
+                      <thead className="bg-white text-xs uppercase tracking-wide text-slate-500">
+                        <tr>
+                          <th className="px-3 py-2 text-left">Imagen</th>
+                          <th className="px-3 py-2 text-left">Codigo</th>
+                          <th className="px-3 py-2 text-left">Producto</th>
+                          <th className="px-3 py-2 text-left">Descripcion</th>
+                          <th className="px-3 py-2 text-left">Cant</th>
+                          <th className="px-3 py-2 text-left">Color</th>
+                          <th className="px-3 py-2 text-left">Precio</th>
+                          <th className="px-3 py-2 text-left">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {linesWithMeta.map(({ line, product, lineTotal }) => (
+                          <tr key={line.uid} className="border-t border-[var(--line)]">
+                            <td className="px-3 py-2">
+                              {product?.thumbnailUrl ? (
+                                <img
+                                  src={product.thumbnailUrl}
+                                  alt={product.name}
+                                  className="h-10 w-10 rounded-md border border-[var(--line)] object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-10 w-10 items-center justify-center rounded-md border border-[var(--line)] bg-slate-50 text-[10px] text-slate-500">
+                                  Sin img
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-slate-700">{product?.code || "-"}</td>
+                            <td className="px-3 py-2 text-slate-900">{product?.name || "Producto"}</td>
+                            <td className="px-3 py-2 text-slate-700">{line.description || "-"}</td>
+                            <td className="px-3 py-2 text-slate-700">{line.quantity}</td>
+                            <td className="px-3 py-2 text-slate-700">{line.color || "-"}</td>
+                            <td className="px-3 py-2 text-slate-700">
+                              {line.unitPrice.toLocaleString("es-CO", { style: "currency", currency })}
+                            </td>
+                            <td className="px-3 py-2 font-semibold text-slate-900">
+                              {lineTotal.toLocaleString("es-CO", { style: "currency", currency })}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
 
                   <div className="flex items-center justify-between rounded-lg border border-[var(--line)] bg-slate-50 px-3 py-2">
@@ -699,9 +783,167 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                       Generar cotizacion
                     </button>
                   </div>
-                </>
+                </div>
               )}
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {openProductModal ? (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-[#11182766] p-3"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Agregar producto"
+          onClick={() => setOpenProductModal(false)}
+        >
+          <div
+            className="w-full max-w-3xl rounded-xl border border-[var(--line)] bg-white p-4"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="inline-flex items-center gap-2 text-base font-semibold text-slate-900">
+                <Boxes className="h-4 w-4 text-slate-500" />
+                <span>Agregar producto</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setOpenProductModal(false)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--line)] text-slate-600 hover:bg-slate-50"
+                aria-label="Cerrar modal de producto"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="relative space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">Codigo</span>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    value={productLookup}
+                    onChange={(event) => {
+                      setProductLookup(event.target.value);
+                      setShowProductResults(true);
+                      setDraftProductId("");
+                      setProductFormError("");
+                    }}
+                    onFocus={() => setShowProductResults(true)}
+                    onBlur={() => setTimeout(() => setShowProductResults(false), 120)}
+                    className="pl-9"
+                    placeholder="Buscar codigo o producto"
+                  />
+                </div>
+
+                {showProductResults ? (
+                  <div className="absolute left-0 right-0 top-full z-20 mt-1.5 overflow-hidden rounded-lg border border-[var(--line)] bg-white shadow-lg">
+                    <p className="px-3 py-2 text-xs text-slate-500">Productos</p>
+                    <div className="max-h-52 overflow-y-auto p-1.5">
+                      {filteredProducts.length > 0 ? (
+                        filteredProducts.map((product) => (
+                          <button
+                            key={product.id}
+                            type="button"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => applyProductSelection(product)}
+                            className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-sm transition hover:bg-slate-100"
+                          >
+                            <span className="font-medium text-slate-800">{product.code || "Sin codigo"}</span>
+                            <span className="truncate pl-2 text-xs text-slate-500">{product.name}</span>
+                          </button>
+                        ))
+                      ) : (
+                        <p className="px-2.5 py-2 text-xs text-slate-500">Sin coincidencias</p>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </label>
+
+              <label className="space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">Producto</span>
+                <Input value={draftProduct?.name || ""} readOnly placeholder="Selecciona codigo" />
+              </label>
+
+              <label className="space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">Cantidad</span>
+                <Input
+                  type="number"
+                  min={1}
+                  value={draftQuantity}
+                  onChange={(event) => setDraftQuantity(event.target.value)}
+                />
+              </label>
+
+              <label className="space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">Color</span>
+                <Input value={draftColor} onChange={(event) => setDraftColor(event.target.value)} placeholder="Color" />
+              </label>
+
+              <label className="space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">Precio</span>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={draftUnitPrice}
+                  onChange={(event) => setDraftUnitPrice(event.target.value)}
+                />
+              </label>
+
+              <label className="space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">Total</span>
+                <Input value={draftLineTotal.toLocaleString("es-CO", { style: "currency", currency })} readOnly />
+              </label>
+
+              <div className="grid gap-3 md:col-span-2 md:grid-cols-[7.5rem_minmax(0,1fr)] md:items-start">
+                <div className="flex items-start justify-start">
+                  {draftProduct?.thumbnailUrl ? (
+                    <img
+                      src={draftProduct.thumbnailUrl}
+                      alt={draftProduct.name}
+                      className="h-28 w-28 rounded-lg border border-[var(--line)] object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-28 w-28 items-center justify-center rounded-lg border border-[var(--line)] bg-white text-[11px] text-slate-500">
+                      Sin imagen
+                    </div>
+                  )}
+                </div>
+
+                <label className="space-y-1.5">
+                  <span className="text-sm font-medium text-slate-700">Descripcion</span>
+                  <textarea
+                    value={draftDescription}
+                    onChange={(event) => setDraftDescription(event.target.value)}
+                    rows={3}
+                    className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[var(--line-strong)]"
+                    placeholder="Descripcion del item"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {productFormError ? <p className="mt-2 text-xs font-medium text-red-600">{productFormError}</p> : null}
+
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setOpenProductModal(false)}
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-[var(--line)] bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={addDraftProduct}
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+              >
+                Agregar producto
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
