@@ -446,4 +446,3 @@ export default async function QuotePublicPage({ params }: PageProps) {
     </section>
   );
 }
-
