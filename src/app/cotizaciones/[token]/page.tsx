@@ -89,6 +89,21 @@ export default async function QuotePublicPage({ params }: PageProps) {
   const supportHref = `https://wa.me/573046481994?text=${encodeURIComponent(
     `Hola, necesito ayuda con la cotizacion ${quote.code}.`,
   )}`;
+  const companyInfo = {
+    date: issuedDate,
+    company: "Innovaciones Magi",
+    contact: "+57 304 648 1994",
+    cityOrigin: "Cali - Bogota",
+    fabricationAddress: "Sucursal con mejor tiempo",
+    warranty: "1 ano",
+  };
+  const clientFullName = quote.client.name || "Por confirmar";
+  const clientDocument = quote.client.document || "Por confirmar";
+  const clientEmail = quote.client.email || "Por confirmar";
+  const clientPhone = quote.client.phone || "Por confirmar";
+  const deliveryAddress = quote.client.address || "Por confirmar";
+  const clientCity = quote.client.city || "Por confirmar";
+  const clientDepartment = quote.client.department || "Por confirmar";
 
   return (
     <section className="app-page relative isolate overflow-hidden px-4 pb-8 pt-6 md:px-7 md:pb-12 md:pt-8">
@@ -97,53 +112,53 @@ export default async function QuotePublicPage({ params }: PageProps) {
       <div className="pointer-events-none absolute -right-24 top-8 -z-10 h-72 w-72 rounded-full bg-indigo-200/35 blur-3xl animate-pulse" />
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 md:gap-7">
-        <section className="relative overflow-hidden rounded-[1.6rem] border border-white/55 bg-gradient-to-br from-[#0f172a] via-[#1e3a8a] to-[#0f766e] p-5 shadow-[0_26px_70px_-34px_rgba(15,23,42,0.7)] md:p-8">
+        <section className="relative overflow-hidden rounded-[1.6rem] border border-white/55 bg-gradient-to-br from-[#0f172a] via-[#1e3a8a] to-[#0f766e] p-4 shadow-[0_26px_70px_-34px_rgba(15,23,42,0.7)] md:p-6">
           <div className="pointer-events-none absolute -left-12 -top-16 h-56 w-56 rounded-full bg-cyan-200/25 blur-3xl" />
           <div className="pointer-events-none absolute -right-20 bottom-0 h-64 w-64 rounded-full bg-emerald-200/20 blur-3xl" />
 
-          <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-            <div className="space-y-4">
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-sky-100">
+          <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+            <div className="space-y-3">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-100">
                 <Sparkles className="h-3.5 w-3.5" />
                 Quotation Viewer
               </span>
-              <div className="space-y-2.5">
-                <h1 className="text-balance text-3xl font-semibold tracking-tight text-white md:text-5xl">
+              <div className="space-y-1.5">
+                <h1 className="text-balance text-2xl font-semibold tracking-tight text-white md:text-4xl">
                   Tu Cotizacion Esta Lista
                 </h1>
-                <p className="max-w-2xl text-sm text-sky-100/90 md:text-base">
+                <p className="max-w-2xl text-xs text-sky-100/90 md:text-sm">
                   Revisa cada detalle de tu propuesta, valida costos y decide en minutos con una experiencia clara y premium.
                 </p>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="cta-float rounded-2xl border border-white/28 bg-white/14 p-3 backdrop-blur-md">
+              <div className="grid gap-2.5 sm:grid-cols-3">
+                <div className="cta-float rounded-2xl border border-white/28 bg-white/14 p-2.5 backdrop-blur-md">
                   <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Precio total</p>
-                  <p className="mt-1 text-xl font-semibold text-white md:text-2xl">{formatMoney(String(quote.total), currency)}</p>
+                  <p className="mt-1 text-lg font-semibold text-white md:text-xl">{formatMoney(String(quote.total), currency)}</p>
                 </div>
-                <div className="cta-float cta-float-delay rounded-2xl border border-white/28 bg-white/14 p-3 backdrop-blur-md">
+                <div className="cta-float cta-float-delay rounded-2xl border border-white/28 bg-white/14 p-2.5 backdrop-blur-md">
                   <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Estado</p>
                   <span className={`mt-1 inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusPillClass(quote.status)}`}>
                     {statusLabel(quote.status)}
                   </span>
                 </div>
-                <div className="rounded-2xl border border-white/28 bg-white/14 p-3 backdrop-blur-md">
+                <div className="rounded-2xl border border-white/28 bg-white/14 p-2.5 backdrop-blur-md">
                   <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Fecha de emision</p>
-                  <p className="mt-1 text-sm font-medium text-white md:text-base">{issuedDate}</p>
+                  <p className="mt-1 text-xs font-medium text-white md:text-sm">{issuedDate}</p>
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2.5 pt-1">
+              <div className="flex flex-wrap gap-2 pt-0.5">
                 <button
                   type="button"
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-slate-900 transition hover:-translate-y-0.5 hover:bg-slate-100"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-white px-4 text-xs font-semibold text-slate-900 transition hover:-translate-y-0.5 hover:bg-slate-100 md:text-sm"
                 >
                   <BadgeCheck className="h-4 w-4" />
                   Aprobar Cotizacion
                 </button>
                 <button
                   type="button"
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/35 bg-white/10 px-5 text-sm font-semibold text-white backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/20"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/35 bg-white/10 px-4 text-xs font-semibold text-white backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/20 md:text-sm"
                 >
                   <Download className="h-4 w-4" />
                   Descargar PDF
@@ -151,10 +166,10 @@ export default async function QuotePublicPage({ params }: PageProps) {
               </div>
             </div>
 
-            <aside className="rounded-2xl border border-white/28 bg-white/15 p-4 backdrop-blur-md">
-              <p className="text-xs uppercase tracking-[0.1em] text-sky-100/80">Codigo de cotizacion</p>
-              <p className="mt-1.5 text-2xl font-semibold tracking-tight text-white">{quote.code}</p>
-              <div className="mt-4 space-y-3 text-sm text-sky-100">
+            <aside className="rounded-2xl border border-white/28 bg-white/15 p-3.5 backdrop-blur-md">
+              <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Codigo de cotizacion</p>
+              <p className="mt-1 text-xl font-semibold tracking-tight text-white">{quote.code}</p>
+              <div className="mt-3 space-y-2.5 text-xs text-sky-100 md:text-sm">
                 <div className="flex items-center justify-between gap-3 border-b border-white/15 pb-2">
                   <span>Cliente</span>
                   <span className="text-right font-medium text-white">{quote.client.name || quote.client.email}</span>
@@ -170,6 +185,82 @@ export default async function QuotePublicPage({ params }: PageProps) {
               </div>
             </aside>
           </div>
+        </section>
+
+        <section className="space-y-3">
+          <article className="overflow-hidden rounded-2xl border border-slate-200/85 bg-white/92 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.45)]">
+            <div className="border-b border-slate-200/80 bg-slate-50/70 px-4 py-2.5">
+              <h2 className="text-sm font-semibold text-slate-900">Datos empresa</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-xs md:text-sm">
+                <thead className="bg-white text-[11px] uppercase tracking-[0.08em] text-slate-500">
+                  <tr>
+                    <th className="whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 text-left">Fecha</th>
+                    <th className="whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 text-left">Empresa</th>
+                    <th className="whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 text-left">Contacto</th>
+                    <th className="whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 text-left">Ciudad origen</th>
+                    <th className="whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 text-left">Direccion de fabricacion</th>
+                    <th className="whitespace-nowrap border-b border-slate-200 px-3 py-2 text-left">Garantia</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="text-slate-800">
+                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium">{companyInfo.date}</td>
+                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium">{companyInfo.company}</td>
+                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium">{companyInfo.contact}</td>
+                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium">{companyInfo.cityOrigin}</td>
+                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium">{companyInfo.fabricationAddress}</td>
+                    <td className="whitespace-nowrap px-3 py-2 font-medium">{companyInfo.warranty}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article className="overflow-hidden rounded-2xl border border-slate-200/85 bg-white/92 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.45)]">
+            <div className="border-b border-slate-200/80 bg-slate-50/70 px-4 py-2.5">
+              <h2 className="text-sm font-semibold text-slate-900">Datos del cliente</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-xs md:text-sm">
+                <thead className="bg-white text-[11px] uppercase tracking-[0.08em] text-slate-500">
+                  <tr>
+                    <th className="whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 text-left">Nombre y apellido</th>
+                    <th className="whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 text-left">NIT / C.C</th>
+                    <th className="whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 text-left">Correo electronico</th>
+                    <th className="whitespace-nowrap border-b border-slate-200 px-3 py-2 text-left">Telefono</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="text-slate-800">
+                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium">{clientFullName}</td>
+                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium">{clientDocument}</td>
+                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium">{clientEmail}</td>
+                    <td className="whitespace-nowrap px-3 py-2 font-medium">{clientPhone}</td>
+                  </tr>
+                </tbody>
+                <thead className="bg-white text-[11px] uppercase tracking-[0.08em] text-slate-500">
+                  <tr>
+                    <th className="whitespace-nowrap border-y border-r border-slate-200 px-3 py-2 text-left" colSpan={2}>
+                      Direccion de entrega
+                    </th>
+                    <th className="whitespace-nowrap border-y border-r border-slate-200 px-3 py-2 text-left">Ciudad destino</th>
+                    <th className="whitespace-nowrap border-y border-slate-200 px-3 py-2 text-left">Departamento</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="text-slate-800">
+                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium" colSpan={2}>
+                      {deliveryAddress}
+                    </td>
+                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium">{clientCity}</td>
+                    <td className="whitespace-nowrap px-3 py-2 font-medium">{clientDepartment}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
         </section>
 
         <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
