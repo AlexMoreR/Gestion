@@ -41,6 +41,15 @@ const updateQuoteMetaSchema = z.object({
   validUntil: z.string().trim().optional(),
 });
 
+const updateQuoteFullSchema = z.object({
+  quoteId: z.string().trim().min(1, "Cotizacion invalida"),
+  clientId: z.string().trim().optional(),
+  status: z.enum(["DRAFT", "SENT", "ACCEPTED", "REJECTED", "EXPIRED"]),
+  notes: z.string().trim().max(2000, "Notas demasiado largas").optional(),
+  validUntil: z.string().trim().optional(),
+  items: z.array(quoteItemSchema).min(1, "Debes agregar al menos un producto"),
+});
+
 async function requireAdminSession() {
   const session = await auth();
   if (session?.user?.role !== "ADMIN" || !session.user.id) {
@@ -346,6 +355,141 @@ export async function adminUpdateQuoteMetaAction(formData: FormData): Promise<vo
       status: parsed.data.status,
       notes: parsed.data.notes || null,
       validUntil: validUntilDate,
+    },
+  });
+
+  revalidatePath("/admin/cotizaciones");
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?ok=Cotizacion+actualizada`);
+}
+
+export async function adminUpdateQuoteFullAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const returnTo = getReturnTo(formData);
+
+  const rawItems = formData.get("items");
+  let parsedItems: unknown[] = [];
+  if (typeof rawItems === "string" && rawItems.trim()) {
+    try {
+      parsedItems = JSON.parse(rawItems) as unknown[];
+    } catch {
+      redirect(`${returnTo}?error=Productos+de+cotizacion+invalidos`);
+    }
+  }
+
+  const parsed = updateQuoteFullSchema.safeParse({
+    quoteId: formData.get("quoteId"),
+    clientId: formData.get("clientId"),
+    status: formData.get("status"),
+    notes: formData.get("notes") || undefined,
+    validUntil: formData.get("validUntil") || undefined,
+    items: parsedItems,
+  });
+
+  if (!parsed.success) {
+    redirect(`${returnTo}?error=Datos+de+cotizacion+invalidos`);
+  }
+
+  let resolvedClientId = "";
+  const incomingClientId = parsed.data.clientId?.trim() ?? "";
+
+  if (incomingClientId) {
+    const existingClient = await prisma.user.findFirst({
+      where: { id: incomingClientId, role: "CLIENTE" },
+      select: { id: true },
+    });
+
+    if (!existingClient) {
+      redirect(`${returnTo}?error=Cliente+invalido`);
+    }
+    resolvedClientId = existingClient.id;
+  } else {
+    const parsedClient = createClientSchema.safeParse({
+      name: formData.get("name"),
+      document: formData.get("document"),
+      email: formData.get("email"),
+      phone: formData.get("phone"),
+      address: formData.get("address"),
+      neighborhood: formData.get("neighborhood"),
+      department: formData.get("department"),
+      city: formData.get("city"),
+    });
+
+    if (!parsedClient.success) {
+      redirect(`${returnTo}?error=Datos+de+cliente+invalidos`);
+    }
+    resolvedClientId = await upsertClientFromData(parsedClient.data);
+  }
+
+  const validUntilDate =
+    parsed.data.validUntil && parsed.data.validUntil.length > 0 ? new Date(parsed.data.validUntil) : null;
+
+  if (validUntilDate && Number.isNaN(validUntilDate.getTime())) {
+    redirect(`${returnTo}?error=Fecha+de+validez+invalida`);
+  }
+
+  const productIds = Array.from(new Set(parsed.data.items.map((item) => item.productId)));
+  const products = await prisma.product.findMany({
+    where: { id: { in: productIds } },
+    include: {
+      suppliers: {
+        include: { supplier: true },
+      },
+    },
+  });
+
+  if (products.length !== productIds.length) {
+    redirect(`${returnTo}?error=Uno+o+mas+productos+no+existen`);
+  }
+
+  const productMap = new Map(products.map((product) => [product.id, product]));
+
+  const normalizedItems = parsed.data.items.map((item) => {
+    const product = productMap.get(item.productId);
+    if (!product) {
+      throw new Error("Producto invalido");
+    }
+    const supplierId = item.supplierId?.trim() ? item.supplierId.trim() : null;
+    if (supplierId) {
+      const allowed = product.suppliers.some((relation) => relation.supplierId === supplierId);
+      if (!allowed) {
+        throw new Error("Proveedor invalido para producto");
+      }
+    }
+    const lineTotal = Number((item.quantity * item.unitPrice).toFixed(2));
+    return {
+      productId: item.productId,
+      supplierId,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      lineTotal,
+      notes: null as string | null,
+    };
+  });
+
+  const subtotal = Number(normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2));
+  const total = subtotal;
+
+  await prisma.quote.update({
+    where: { id: parsed.data.quoteId },
+    data: {
+      clientId: resolvedClientId,
+      status: parsed.data.status,
+      notes: parsed.data.notes || null,
+      validUntil: validUntilDate,
+      subtotal: new Prisma.Decimal(subtotal),
+      total: new Prisma.Decimal(total),
+      items: {
+        deleteMany: {},
+        create: normalizedItems.map((item) => ({
+          productId: item.productId,
+          supplierId: item.supplierId,
+          quantity: item.quantity,
+          unitPrice: new Prisma.Decimal(item.unitPrice),
+          lineTotal: new Prisma.Decimal(item.lineTotal),
+          notes: item.notes,
+        })),
+      },
     },
   });
 
