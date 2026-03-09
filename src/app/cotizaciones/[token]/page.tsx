@@ -96,46 +96,38 @@ export default async function QuotePublicPage({ params }: PageProps) {
                 </h1>
               </div>
 
-              <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="cta-float-sync rounded-2xl border border-white/28 bg-white/14 p-2.5 backdrop-blur-md">
-                  <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Direccion de entrega</p>
-                  <p className="mt-1 line-clamp-2 text-xs font-medium text-white md:text-sm">{deliveryAddress}</p>
-                </div>
-                <div className="cta-float-sync rounded-2xl border border-white/28 bg-white/14 p-2.5 backdrop-blur-md">
-                  <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Ciudad</p>
-                  <p className="mt-1 line-clamp-2 text-xs font-medium text-white md:text-sm">{clientCity}</p>
-                </div>
-                <div className="cta-float-sync rounded-2xl border border-white/28 bg-white/14 p-2.5 backdrop-blur-md">
-                  <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Departamento</p>
-                  <p className="mt-1 line-clamp-2 text-xs font-medium text-white md:text-sm">{quote.client.department || "Por confirmar"}</p>
+              <div className="rounded-2xl border border-white/28 bg-white/14 p-3.5 backdrop-blur-md">
+                <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Datos cliente</p>
+                <p className="mt-1 text-xl font-semibold tracking-tight text-white">{quote.client.name || "Por confirmar"}</p>
+                <div className="mt-3 grid gap-2 text-xs text-sky-100 md:grid-cols-4 md:gap-0 md:text-sm">
+                  <div className="rounded-lg border border-white/15 p-2 md:rounded-none md:border-y-0 md:border-l-0 md:border-r md:p-0 md:pr-3">
+                    <p className="text-sky-100/80">Direccion</p>
+                    <p className="font-medium text-white">{deliveryAddress}</p>
+                  </div>
+                  <div className="rounded-lg border border-white/15 p-2 md:rounded-none md:border-y-0 md:border-l-0 md:border-r md:p-0 md:px-3">
+                    <p className="text-sky-100/80">Ciudad</p>
+                    <p className="font-medium text-white">{clientCity}</p>
+                  </div>
+                  <div className="rounded-lg border border-white/15 p-2 md:rounded-none md:border-y-0 md:border-l-0 md:border-r md:p-0 md:px-3">
+                    <p className="text-sky-100/80">Departamento</p>
+                    <p className="font-medium text-white">{quote.client.department || "Por confirmar"}</p>
+                  </div>
+                  <div className="rounded-lg border border-white/15 p-2 md:rounded-none md:border-0 md:p-0 md:pl-3">
+                    <p className="text-sky-100/80">NIT / C.C</p>
+                    <p className="font-medium text-white">{clientDocument}</p>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2 pt-0.5">
-                <button
-                  type="button"
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-white px-4 text-xs font-semibold text-slate-900 transition hover:-translate-y-0.5 hover:bg-slate-100 md:text-sm"
-                >
-                  <BadgeCheck className="h-4 w-4" />
-                  Aprobar Cotizacion
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/35 bg-white/10 px-4 text-xs font-semibold text-white backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/20 md:text-sm"
-                >
-                  <Download className="h-4 w-4" />
-                  Descargar PDF
-                </button>
-              </div>
             </div>
 
             <aside className="rounded-2xl border border-white/28 bg-white/15 p-3.5 backdrop-blur-md">
-              <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Codigo de cotizacion</p>
+              <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Datos de empresa</p>
               <p className="mt-1 text-xl font-semibold tracking-tight text-white">{quote.code}</p>
               <div className="mt-3 space-y-2.5 text-xs text-sky-100 md:text-sm">
                 <div className="flex items-center justify-between gap-3 border-b border-white/15 pb-2">
-                  <span>Cliente</span>
-                  <span className="text-right font-medium text-white">{quote.client.name || quote.client.email}</span>
+                  <span>Empresa</span>
+                  <span className="text-right font-medium text-white">{companyInfo.name}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3 border-b border-white/15 pb-2">
                   <span>Emision</span>
