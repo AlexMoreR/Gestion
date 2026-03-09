@@ -7,6 +7,8 @@ import {
   LifeBuoy,
   MessageCircleMore,
   ShieldCheck,
+  Truck,
+  Wrench,
   WalletCards,
 } from "lucide-react";
 import { formatMoney } from "@/lib/currency";
@@ -52,6 +54,12 @@ export default async function QuotePublicPage({ params }: PageProps) {
   const supportHref = `https://wa.me/573046481994?text=${encodeURIComponent(
     `Hola, necesito ayuda con la cotizacion ${quote.code}.`,
   )}`;
+  const approveHref = `https://wa.me/573046481994?text=${encodeURIComponent(
+    `Hola, deseo aprobar la cotización ${quote.code}.`,
+  )}`;
+  const changesHref = `https://wa.me/573046481994?text=${encodeURIComponent(
+    `Hola, solicito cambios para la cotización ${quote.code}.`,
+  )}`;
   const companyInfo = {
     name: "Magilus",
     nit: "900.123.456-7",
@@ -64,8 +72,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
   const clientCity = quote.client.city || "Por confirmar";
 
   return (
-    <section className="app-page px-0 pb-8 pt-6 md:px-7 md:pb-12 md:pt-8">
-
+    <section className="app-page px-0 pb-8 pt-1 md:px-7 md:pb-12 md:pt-2">
       <div className="flex w-full flex-col gap-5 md:gap-6">
         <section className="relative overflow-hidden rounded-[1.4rem] border border-white/55 bg-gradient-to-br from-[#0f172a] via-[#1e3a8a] to-[#0f766e] p-3 shadow-[0_26px_70px_-34px_rgba(15,23,42,0.7)] md:p-4">
           <div className="pointer-events-none absolute -left-12 -top-16 h-56 w-56 rounded-full bg-cyan-200/25 blur-3xl" />
@@ -73,20 +80,22 @@ export default async function QuotePublicPage({ params }: PageProps) {
 
           <div className="relative grid gap-3 lg:grid-cols-[minmax(0,1fr)_17rem]">
             <div className="space-y-2.5">
-              <div className="inline-flex items-center gap-2 px-0 py-0">
-                <span
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white"
-                  style={{ backgroundImage: "linear-gradient(135deg, var(--primary-strong), var(--primary))" }}
-                >
-                  IM
-                </span>
-                <div>
-                  <p className="text-xs font-semibold text-white">{companyInfo.name}</p>
-                  <p className="text-[11px] text-sky-100/80">NIT {companyInfo.nit}</p>
+              <div className="flex items-start justify-between gap-2">
+                <div className="inline-flex items-center gap-2 px-0 py-0">
+                  <span
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white"
+                    style={{ backgroundImage: "linear-gradient(135deg, var(--primary-strong), var(--primary))" }}
+                  >
+                    IM
+                  </span>
+                  <div>
+                    <p className="text-xs font-semibold text-white">{companyInfo.name}</p>
+                    <p className="text-[11px] text-sky-100/80">NIT {companyInfo.nit}</p>
+                  </div>
                 </div>
-                <span className="ml-1.5 text-xl font-semibold tracking-tight text-white md:text-3xl">
+                <h1 className="ml-auto text-right text-lg font-semibold tracking-tight text-white md:text-3xl">
                   Cotización
-                </span>
+                </h1>
               </div>
 
               <div className="rounded-2xl border border-white/28 bg-white/14 p-3 backdrop-blur-md">
@@ -130,6 +139,27 @@ export default async function QuotePublicPage({ params }: PageProps) {
                 </div>
               </div>
 
+              <div className="hidden flex-wrap gap-2 pt-1 md:flex">
+                <Link
+                  href={approveHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-semibold text-slate-900 transition hover:bg-slate-100 md:h-10 md:text-sm"
+                >
+                  <BadgeCheck className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                  Aprobar cotización
+                </Link>
+                <Link
+                  href={changesHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/35 bg-white/12 px-3.5 text-xs font-semibold text-white transition hover:bg-white/20 md:h-10 md:text-sm"
+                >
+                  <MessageCircleMore className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                  Solicitar cambios
+                </Link>
+              </div>
+
             </div>
 
             <aside className="rounded-2xl border border-white/28 bg-white/15 p-3 backdrop-blur-md">
@@ -154,6 +184,26 @@ export default async function QuotePublicPage({ params }: PageProps) {
                 </div>
               </div>
             </aside>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 md:hidden">
+            <Link
+              href={approveHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-semibold text-slate-900 transition hover:bg-slate-100"
+            >
+              <BadgeCheck className="h-3.5 w-3.5" />
+              Aprobar cotización
+            </Link>
+            <Link
+              href={changesHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/35 bg-white/12 px-3.5 text-xs font-semibold text-white transition hover:bg-white/20"
+            >
+              <MessageCircleMore className="h-3.5 w-3.5" />
+              Solicitar cambios
+            </Link>
           </div>
         </section>
 
@@ -282,6 +332,66 @@ export default async function QuotePublicPage({ params }: PageProps) {
             </div>
           </section>
         </div>
+
+        <section className="rounded-2xl border border-slate-200/85 bg-white/92 p-4 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] md:p-5">
+          <div className="space-y-4 text-sm leading-relaxed text-slate-700">
+            <div>
+              <p className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.08em] text-slate-900">
+                <Truck className="h-4 w-4 text-[var(--primary)]" />
+                DESPACHO DE PEDIDOS:
+              </p>
+              <p className="mt-1.5">
+                El producto se despacha por medio de una empresa aliada en el campo del transporte. Los plazos de entrega
+                pueden variar por razones ajenas como, por ejemplo: cierre de vias por derrumbes o desastres naturales,
+                fallas mecanicas en los vehiculos encargados del traslado, o que el cliente haya suministrado los datos
+                erroneamente.
+              </p>
+            </div>
+
+            <div>
+              <p className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.08em] text-slate-900">
+                <ShieldCheck className="h-4 w-4 text-[var(--primary)]" />
+                GARANTIAS POR MANIPULACION:
+              </p>
+              <p className="mt-1.5">
+                Una vez le esten haciendo entrega de su pedido debe ser revisado en presencia del auxiliar para verificar
+                su estado o notificar inmediatamente cualquier novedad a nuestra linea{" "}
+                <Link
+                  href={supportHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-[var(--primary)] underline underline-offset-2"
+                >
+                  304 6481994
+                </Link>{" "}
+                via WhatsApp para alli
+                indicarle el paso a seguir, ya que una vez firmada la guia perderia la garantia de nuestra parte y pasaria
+                a hacerle el reclamo directamente a la empresa encargada del transporte.
+              </p>
+              <p className="mt-1.5">Usted como cliente tiene 15 minutos para la verificacion de su pedido.</p>
+            </div>
+
+            <div>
+              <p className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.08em] text-slate-900">
+                <Wrench className="h-4 w-4 text-[var(--primary)]" />
+                GARANTIAS POR DEFECTOS DE FABRICACION:
+              </p>
+              <p className="mt-1.5">
+                Debe enviarnos fotos y videos a la linea{" "}
+                <Link
+                  href={supportHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-[var(--primary)] underline underline-offset-2"
+                >
+                  304 6481994
+                </Link>{" "}
+                para verificar si la falla es por defecto de fabricacion
+                y si son realmente nuestros productos.
+              </p>
+            </div>
+          </div>
+        </section>
 
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <article className="rounded-2xl border border-slate-200/85 bg-white/92 p-4 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.45)]">
