@@ -7,7 +7,6 @@ import {
   LifeBuoy,
   MessageCircleMore,
   ShieldCheck,
-  Sparkles,
   WalletCards,
 } from "lucide-react";
 import { formatMoney } from "@/lib/currency";
@@ -91,10 +90,6 @@ export default async function QuotePublicPage({ params }: PageProps) {
                 </div>
               </div>
 
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-100">
-                <Sparkles className="h-3.5 w-3.5" />
-                Quotation Viewer
-              </span>
               <div className="space-y-1.5">
                 <h1 className="text-balance text-2xl font-semibold tracking-tight text-white md:text-4xl">
                   Tu Cotizacion Esta Lista
