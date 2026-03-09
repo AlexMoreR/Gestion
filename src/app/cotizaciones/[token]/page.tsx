@@ -53,22 +53,18 @@ export default async function QuotePublicPage({ params }: PageProps) {
     `Hola, necesito ayuda con la cotizacion ${quote.code}.`,
   )}`;
   const companyInfo = {
-    name: "Innovaciones Magi",
+    name: "Magilus",
     nit: "900.123.456-7",
     cityOrigin: "Cali - Bogota",
     warranty: "1 ano",
   };
   const clientDocument = quote.client.document || "Por confirmar";
   const clientEmail = quote.client.email || "Por confirmar";
-  const clientPhone = quote.client.phone || "Por confirmar";
   const deliveryAddress = quote.client.address || "Por confirmar";
   const clientCity = quote.client.city || "Por confirmar";
 
   return (
-    <section className="app-page relative isolate overflow-hidden px-4 pb-8 pt-6 md:px-7 md:pb-12 md:pt-8">
-      <div className="pointer-events-none absolute inset-0 -z-20 bg-[radial-gradient(circle_at_top_right,#dbeafe_0%,#f8fafc_38%,#ffffff_78%)]" />
-      <div className="pointer-events-none absolute -left-20 top-24 -z-10 h-64 w-64 rounded-full bg-sky-200/40 blur-3xl animate-pulse" />
-      <div className="pointer-events-none absolute -right-24 top-8 -z-10 h-72 w-72 rounded-full bg-indigo-200/35 blur-3xl animate-pulse" />
+    <section className="app-page px-4 pb-8 pt-6 md:px-7 md:pb-12 md:pt-8">
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 md:gap-7">
         <section className="relative overflow-hidden rounded-[1.6rem] border border-white/55 bg-gradient-to-br from-[#0f172a] via-[#1e3a8a] to-[#0f766e] p-4 shadow-[0_26px_70px_-34px_rgba(15,23,42,0.7)] md:p-6">
@@ -77,7 +73,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
 
           <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
             <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-2.5 py-1.5 backdrop-blur-md">
+              <div className="inline-flex items-center gap-2 px-0 py-0">
                 <span
                   className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white"
                   style={{ backgroundImage: "linear-gradient(135deg, var(--primary-strong), var(--primary))" }}
@@ -99,22 +95,24 @@ export default async function QuotePublicPage({ params }: PageProps) {
               <div className="rounded-2xl border border-white/28 bg-white/14 p-3.5 backdrop-blur-md">
                 <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Datos cliente</p>
                 <p className="mt-1 text-xl font-semibold tracking-tight text-white">{quote.client.name || "Por confirmar"}</p>
-                <div className="mt-3 grid gap-2 text-xs text-sky-100 md:grid-cols-4 md:gap-0 md:text-sm">
-                  <div className="rounded-lg border border-white/15 p-2 md:rounded-none md:border-y-0 md:border-l-0 md:border-r md:p-0 md:pr-3">
-                    <p className="text-sky-100/80">Direccion</p>
-                    <p className="font-medium text-white">{deliveryAddress}</p>
-                  </div>
-                  <div className="rounded-lg border border-white/15 p-2 md:rounded-none md:border-y-0 md:border-l-0 md:border-r md:p-0 md:px-3">
-                    <p className="text-sky-100/80">Ciudad</p>
-                    <p className="font-medium text-white">{clientCity}</p>
-                  </div>
-                  <div className="rounded-lg border border-white/15 p-2 md:rounded-none md:border-y-0 md:border-l-0 md:border-r md:p-0 md:px-3">
-                    <p className="text-sky-100/80">Departamento</p>
-                    <p className="font-medium text-white">{quote.client.department || "Por confirmar"}</p>
-                  </div>
-                  <div className="rounded-lg border border-white/15 p-2 md:rounded-none md:border-0 md:p-0 md:pl-3">
-                    <p className="text-sky-100/80">NIT / C.C</p>
-                    <p className="font-medium text-white">{clientDocument}</p>
+                <div className="mt-3">
+                  <div className="grid grid-cols-1 gap-2 text-xs text-sky-100 sm:grid-cols-2 sm:gap-0 md:grid-cols-4 md:text-sm">
+                    <div className="rounded-lg border border-white/15 p-2 sm:rounded-none sm:border-y-0 sm:border-l-0 sm:border-r sm:p-0 sm:pr-3">
+                      <p className="text-sky-100/80">NIT / C.C</p>
+                      <p className="font-medium text-white">{clientDocument}</p>
+                    </div>
+                    <div className="rounded-lg border border-white/15 p-2 sm:rounded-none sm:border-y-0 sm:border-l-0 sm:border-r sm:p-0 sm:px-3">
+                      <p className="text-sky-100/80">Direccion entrega</p>
+                      <p className="font-medium text-white">{deliveryAddress}</p>
+                    </div>
+                    <div className="rounded-lg border border-white/15 p-2 sm:rounded-none sm:border-y-0 sm:border-l-0 sm:border-r sm:p-0 sm:px-3">
+                      <p className="text-sky-100/80">Ciudad</p>
+                      <p className="font-medium text-white">{clientCity}</p>
+                    </div>
+                    <div className="rounded-lg border border-white/15 p-2 sm:rounded-none sm:border-0 sm:p-0 sm:pl-3">
+                      <p className="text-sky-100/80">Departamento</p>
+                      <p className="font-medium text-white">{quote.client.department || "Por confirmar"}</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -288,7 +286,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                 IM
               </span>
               <div>
-                <p className="font-semibold text-slate-900">Innovaciones Magi</p>
+                <p className="font-semibold text-slate-900">Magilus</p>
                 <p className="text-xs text-slate-500">Soluciones empresariales y acompanamiento comercial</p>
               </div>
             </div>
