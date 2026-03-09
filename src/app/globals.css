@@ -122,8 +122,29 @@ body {
   animation: ctaFloat 1.35s ease-in-out infinite;
 }
 
+.cta-float-sync {
+  animation-name: ctaFloat;
+  animation-duration: 1.35s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-delay: 0s;
+  animation-fill-mode: both;
+}
+
 .cta-float-delay {
   animation-delay: 0.18s;
+}
+
+.cta-float-delay-2 {
+  animation-delay: 0.36s;
+}
+
+.cta-float-delay-3 {
+  animation-delay: 0.54s;
+}
+
+.cta-float-delay-4 {
+  animation-delay: 0.72s;
 }
 
 @keyframes promoMarquee {
@@ -164,3 +185,5 @@ body {
     animation: none;
   }
 }
+
+

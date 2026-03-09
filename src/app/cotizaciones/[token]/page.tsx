@@ -18,38 +18,6 @@ type PageProps = {
   params: Promise<{ token: string }>;
 };
 
-function statusLabel(status: string): string {
-  switch (status) {
-    case "DRAFT":
-      return "Borrador";
-    case "SENT":
-      return "Enviada";
-    case "ACCEPTED":
-      return "Aceptada";
-    case "REJECTED":
-      return "Rechazada";
-    case "EXPIRED":
-      return "Expirada";
-    default:
-      return status;
-  }
-}
-
-function statusPillClass(status: string): string {
-  switch (status) {
-    case "ACCEPTED":
-      return "border-emerald-300/70 bg-emerald-100/80 text-emerald-700";
-    case "SENT":
-      return "border-sky-300/70 bg-sky-100/80 text-sky-700";
-    case "REJECTED":
-      return "border-red-300/70 bg-red-100/80 text-red-700";
-    case "EXPIRED":
-      return "border-amber-300/70 bg-amber-100/80 text-amber-700";
-    default:
-      return "border-slate-300/70 bg-slate-100/80 text-slate-700";
-  }
-}
-
 export default async function QuotePublicPage({ params }: PageProps) {
   const { token } = await params;
 
@@ -58,7 +26,6 @@ export default async function QuotePublicPage({ params }: PageProps) {
       where: { shareToken: token },
       include: {
         client: true,
-        createdBy: true,
         items: {
           include: {
             product: true,
@@ -77,9 +44,6 @@ export default async function QuotePublicPage({ params }: PageProps) {
   const issuedDate = quote.createdAt.toLocaleDateString("es-CO", {
     dateStyle: "long",
   });
-  const validUntilDate = quote.validUntil
-    ? quote.validUntil.toLocaleDateString("es-CO", { dateStyle: "long" })
-    : "Sin fecha limite";
 
   const subtotal = Number(quote.subtotal);
   const total = Number(quote.total);
@@ -90,20 +54,14 @@ export default async function QuotePublicPage({ params }: PageProps) {
     `Hola, necesito ayuda con la cotizacion ${quote.code}.`,
   )}`;
   const companyInfo = {
-    date: issuedDate,
-    company: "Innovaciones Magi",
-    contact: "+57 304 648 1994",
     cityOrigin: "Cali - Bogota",
-    fabricationAddress: "Sucursal con mejor tiempo",
     warranty: "1 ano",
   };
-  const clientFullName = quote.client.name || "Por confirmar";
   const clientDocument = quote.client.document || "Por confirmar";
   const clientEmail = quote.client.email || "Por confirmar";
   const clientPhone = quote.client.phone || "Por confirmar";
   const deliveryAddress = quote.client.address || "Por confirmar";
   const clientCity = quote.client.city || "Por confirmar";
-  const clientDepartment = quote.client.department || "Por confirmar";
 
   return (
     <section className="app-page relative isolate overflow-hidden px-4 pb-8 pt-6 md:px-7 md:pb-12 md:pt-8">
@@ -126,25 +84,20 @@ export default async function QuotePublicPage({ params }: PageProps) {
                 <h1 className="text-balance text-2xl font-semibold tracking-tight text-white md:text-4xl">
                   Tu Cotizacion Esta Lista
                 </h1>
-                <p className="max-w-2xl text-xs text-sky-100/90 md:text-sm">
-                  Revisa cada detalle de tu propuesta, valida costos y decide en minutos con una experiencia clara y premium.
-                </p>
               </div>
 
-              <div className="grid gap-2.5 sm:grid-cols-3">
-                <div className="cta-float rounded-2xl border border-white/28 bg-white/14 p-2.5 backdrop-blur-md">
-                  <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Precio total</p>
-                  <p className="mt-1 text-lg font-semibold text-white md:text-xl">{formatMoney(String(quote.total), currency)}</p>
+              <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="cta-float-sync rounded-2xl border border-white/28 bg-white/14 p-2.5 backdrop-blur-md">
+                  <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Direccion de entrega</p>
+                  <p className="mt-1 line-clamp-2 text-xs font-medium text-white md:text-sm">{deliveryAddress}</p>
                 </div>
-                <div className="cta-float cta-float-delay rounded-2xl border border-white/28 bg-white/14 p-2.5 backdrop-blur-md">
-                  <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Estado</p>
-                  <span className={`mt-1 inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusPillClass(quote.status)}`}>
-                    {statusLabel(quote.status)}
-                  </span>
+                <div className="cta-float-sync rounded-2xl border border-white/28 bg-white/14 p-2.5 backdrop-blur-md">
+                  <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Ciudad</p>
+                  <p className="mt-1 line-clamp-2 text-xs font-medium text-white md:text-sm">{clientCity}</p>
                 </div>
-                <div className="rounded-2xl border border-white/28 bg-white/14 p-2.5 backdrop-blur-md">
-                  <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Fecha de emision</p>
-                  <p className="mt-1 text-xs font-medium text-white md:text-sm">{issuedDate}</p>
+                <div className="cta-float-sync rounded-2xl border border-white/28 bg-white/14 p-2.5 backdrop-blur-md">
+                  <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Departamento</p>
+                  <p className="mt-1 line-clamp-2 text-xs font-medium text-white md:text-sm">{quote.client.department || "Por confirmar"}</p>
                 </div>
               </div>
 
@@ -179,161 +132,24 @@ export default async function QuotePublicPage({ params }: PageProps) {
                   <span className="font-medium text-white">{issuedDate}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <span>Validez</span>
-                  <span className="font-medium text-white">{validUntilDate}</span>
+                  <span>Ciudad de origen</span>
+                  <span className="font-medium text-white">{companyInfo.cityOrigin}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-t border-white/15 pt-2">
+                  <span>Garantia</span>
+                  <span className="font-medium text-white">{companyInfo.warranty}</span>
                 </div>
               </div>
             </aside>
           </div>
         </section>
 
-        <section className="space-y-3">
-          <article className="overflow-hidden rounded-2xl border border-slate-200/85 bg-white/92 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.45)]">
-            <div className="border-b border-slate-200/80 bg-slate-50/70 px-4 py-2.5">
-              <h2 className="text-sm font-semibold text-slate-900">Datos empresa</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-xs md:text-sm">
-                <thead className="bg-white text-[11px] uppercase tracking-[0.08em] text-slate-500">
-                  <tr>
-                    <th className="whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 text-left">Fecha</th>
-                    <th className="whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 text-left">Empresa</th>
-                    <th className="whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 text-left">Contacto</th>
-                    <th className="whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 text-left">Ciudad origen</th>
-                    <th className="whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 text-left">Direccion de fabricacion</th>
-                    <th className="whitespace-nowrap border-b border-slate-200 px-3 py-2 text-left">Garantia</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="text-slate-800">
-                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium">{companyInfo.date}</td>
-                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium">{companyInfo.company}</td>
-                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium">{companyInfo.contact}</td>
-                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium">{companyInfo.cityOrigin}</td>
-                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium">{companyInfo.fabricationAddress}</td>
-                    <td className="whitespace-nowrap px-3 py-2 font-medium">{companyInfo.warranty}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </article>
-
-          <article className="overflow-hidden rounded-2xl border border-slate-200/85 bg-white/92 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.45)]">
-            <div className="border-b border-slate-200/80 bg-slate-50/70 px-4 py-2.5">
-              <h2 className="text-sm font-semibold text-slate-900">Datos del cliente</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-xs md:text-sm">
-                <thead className="bg-white text-[11px] uppercase tracking-[0.08em] text-slate-500">
-                  <tr>
-                    <th className="whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 text-left">Nombre y apellido</th>
-                    <th className="whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 text-left">NIT / C.C</th>
-                    <th className="whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 text-left">Correo electronico</th>
-                    <th className="whitespace-nowrap border-b border-slate-200 px-3 py-2 text-left">Telefono</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="text-slate-800">
-                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium">{clientFullName}</td>
-                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium">{clientDocument}</td>
-                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium">{clientEmail}</td>
-                    <td className="whitespace-nowrap px-3 py-2 font-medium">{clientPhone}</td>
-                  </tr>
-                </tbody>
-                <thead className="bg-white text-[11px] uppercase tracking-[0.08em] text-slate-500">
-                  <tr>
-                    <th className="whitespace-nowrap border-y border-r border-slate-200 px-3 py-2 text-left" colSpan={2}>
-                      Direccion de entrega
-                    </th>
-                    <th className="whitespace-nowrap border-y border-r border-slate-200 px-3 py-2 text-left">Ciudad destino</th>
-                    <th className="whitespace-nowrap border-y border-slate-200 px-3 py-2 text-left">Departamento</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="text-slate-800">
-                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium" colSpan={2}>
-                      {deliveryAddress}
-                    </td>
-                    <td className="whitespace-nowrap border-r border-slate-200 px-3 py-2 font-medium">{clientCity}</td>
-                    <td className="whitespace-nowrap px-3 py-2 font-medium">{clientDepartment}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </article>
-        </section>
-
-        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-          <article className="rounded-2xl border border-slate-200/85 bg-white/92 p-5 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] backdrop-blur-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Resumen de la cotizacion</p>
-            <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <p className="text-slate-500">Nombre del cliente</p>
-                <p className="font-semibold text-slate-900">{quote.client.name || "Cliente final"}</p>
-              </div>
-              <div>
-                <p className="text-slate-500">Empresa</p>
-                <p className="font-semibold text-slate-900">Innovaciones Magi</p>
-              </div>
-              <div>
-                <p className="text-slate-500">Numero de cotizacion</p>
-                <p className="font-semibold text-slate-900">{quote.code}</p>
-              </div>
-              <div>
-                <p className="text-slate-500">Fecha</p>
-                <p className="font-semibold text-slate-900">{issuedDate}</p>
-              </div>
-              <div>
-                <p className="text-slate-500">Validez de oferta</p>
-                <p className="font-semibold text-slate-900">{validUntilDate}</p>
-              </div>
-              <div>
-                <p className="text-slate-500">Responsable de ventas</p>
-                <p className="font-semibold text-slate-900">{quote.createdBy.name || quote.createdBy.email}</p>
-              </div>
-            </div>
-            {quote.notes ? (
-              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-sm text-slate-600">
-                {quote.notes}
-              </div>
-            ) : null}
-          </article>
-
-          <article className="rounded-2xl border border-slate-200/85 bg-white/92 p-5 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] backdrop-blur-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Resumen de costos</p>
-            <div className="mt-4 space-y-2.5 text-sm">
-              <div className="flex items-center justify-between text-slate-600">
-                <span>Subtotal</span>
-                <span className="font-medium text-slate-800">{formatMoney(String(subtotal), currency)}</span>
-              </div>
-              <div className="flex items-center justify-between text-slate-600">
-                <span>Descuentos</span>
-                <span className="font-medium text-slate-800">{formatMoney(String(discount), currency)}</span>
-              </div>
-              <div className="flex items-center justify-between text-slate-600">
-                <span>Impuestos</span>
-                <span className="font-medium text-slate-800">{formatMoney(String(taxes), currency)}</span>
-              </div>
-            </div>
-            <div className="mt-4 rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50 to-indigo-50 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
-              <p className="text-xs uppercase tracking-[0.1em] text-slate-500">Total final</p>
-              <p className="mt-1 text-3xl font-semibold tracking-tight text-slate-900">
-                {formatMoney(String(total), currency)}
-              </p>
-            </div>
-            <p className="mt-3 text-xs text-slate-500">El total final incluye costos aplicables y condiciones comerciales vigentes.</p>
-          </article>
-        </section>
-
         <section className="overflow-hidden rounded-2xl border border-slate-200/85 bg-white/92 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] backdrop-blur-sm">
-          <div className="flex items-center justify-between gap-3 border-b border-slate-200/80 bg-slate-50/70 px-4 py-3">
-            <h2 className="text-sm font-semibold text-slate-900">Servicios y productos cotizados</h2>
-            <p className="text-xs text-slate-500">{quote.items.length} items</p>
-          </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="text-xs uppercase tracking-[0.08em] text-slate-500">
                 <tr>
+                  <th className="px-4 py-3 text-left">Imagen</th>
                   <th className="px-4 py-3 text-left">Servicio / Producto</th>
                   <th className="px-4 py-3 text-left">Descripcion</th>
                   <th className="px-4 py-3 text-left">Cantidad</th>
@@ -345,6 +161,19 @@ export default async function QuotePublicPage({ params }: PageProps) {
                 {quote.items.map((item) => (
                   <tr key={item.id} className="group border-t border-slate-200/80 transition-colors hover:bg-sky-50/45">
                     <td className="px-4 py-3">
+                      {item.product.thumbnailUrl ? (
+                        <img
+                          src={item.product.thumbnailUrl}
+                          alt={item.product.name}
+                          className="h-12 w-12 rounded-lg border border-slate-200 object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-[10px] text-slate-500">
+                          Sin img
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
                       <p className="font-medium text-slate-900">{item.product.name}</p>
                       <p className="text-xs text-slate-500">{item.supplier?.name || "Sin proveedor asignado"}</p>
                     </td>
@@ -354,6 +183,29 @@ export default async function QuotePublicPage({ params }: PageProps) {
                     <td className="px-4 py-3 font-semibold text-slate-900">{formatMoney(String(item.lineTotal), currency)}</td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-2xl border border-slate-200/85 bg-white/92 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] backdrop-blur-sm">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="text-xs uppercase tracking-[0.08em] text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 text-left">Subtotal</th>
+                  <th className="px-4 py-3 text-left">Descuento</th>
+                  <th className="px-4 py-3 text-left">Valor adicional</th>
+                  <th className="px-4 py-3 text-left">Valor total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-t border-slate-200/80">
+                  <td className="px-4 py-3 font-medium text-slate-900">{formatMoney(String(subtotal), currency)}</td>
+                  <td className="px-4 py-3 font-medium text-slate-900">{formatMoney(String(discount), currency)}</td>
+                  <td className="px-4 py-3 font-medium text-slate-900">{formatMoney(String(taxes), currency)}</td>
+                  <td className="bg-slate-50/60 px-4 py-3 text-sm font-semibold text-slate-900">{formatMoney(String(total), currency)}</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -446,3 +298,5 @@ export default async function QuotePublicPage({ params }: PageProps) {
     </section>
   );
 }
+
+
