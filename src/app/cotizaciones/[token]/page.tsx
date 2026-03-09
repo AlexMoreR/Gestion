@@ -54,6 +54,8 @@ export default async function QuotePublicPage({ params }: PageProps) {
     `Hola, necesito ayuda con la cotizacion ${quote.code}.`,
   )}`;
   const companyInfo = {
+    name: "Innovaciones Magi",
+    nit: "900.123.456-7",
     cityOrigin: "Cali - Bogota",
     warranty: "1 ano",
   };
@@ -76,6 +78,19 @@ export default async function QuotePublicPage({ params }: PageProps) {
 
           <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
             <div className="space-y-3">
+              <div className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-2.5 py-1.5 backdrop-blur-md">
+                <span
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white"
+                  style={{ backgroundImage: "linear-gradient(135deg, var(--primary-strong), var(--primary))" }}
+                >
+                  IM
+                </span>
+                <div>
+                  <p className="text-xs font-semibold text-white">{companyInfo.name}</p>
+                  <p className="text-[11px] text-sky-100/80">NIT {companyInfo.nit}</p>
+                </div>
+              </div>
+
               <span className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-100">
                 <Sparkles className="h-3.5 w-3.5" />
                 Quotation Viewer
@@ -302,5 +317,4 @@ export default async function QuotePublicPage({ params }: PageProps) {
     </section>
   );
 }
-
 
