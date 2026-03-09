@@ -144,72 +144,76 @@ export default async function QuotePublicPage({ params }: PageProps) {
           </div>
         </section>
 
-        <section className="overflow-hidden rounded-2xl border border-slate-200/85 bg-white/92 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] backdrop-blur-sm">
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="text-xs uppercase tracking-[0.08em] text-slate-500">
-                <tr>
-                  <th className="px-4 py-3 text-left">Imagen</th>
-                  <th className="px-4 py-3 text-left">Servicio / Producto</th>
-                  <th className="px-4 py-3 text-left">Descripcion</th>
-                  <th className="px-4 py-3 text-left">Cantidad</th>
-                  <th className="px-4 py-3 text-left">Precio unitario</th>
-                  <th className="px-4 py-3 text-left">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {quote.items.map((item) => (
-                  <tr key={item.id} className="group border-t border-slate-200/80 transition-colors hover:bg-sky-50/45">
-                    <td className="px-4 py-3">
-                      {item.product.thumbnailUrl ? (
-                        <img
-                          src={item.product.thumbnailUrl}
-                          alt={item.product.name}
-                          className="h-12 w-12 rounded-lg border border-slate-200 object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-[10px] text-slate-500">
-                          Sin img
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-slate-900">{item.product.name}</p>
-                      <p className="text-xs text-slate-500">{item.supplier?.name || "Sin proveedor asignado"}</p>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{item.notes || "Implementacion y configuracion segun requerimiento."}</td>
-                    <td className="px-4 py-3 text-slate-700">{item.quantity}</td>
-                    <td className="px-4 py-3 text-slate-700">{formatMoney(String(item.unitPrice), currency)}</td>
-                    <td className="px-4 py-3 font-semibold text-slate-900">{formatMoney(String(item.lineTotal), currency)}</td>
+        <div className="space-y-2">
+          <section className="overflow-hidden rounded-2xl border border-slate-200/85 bg-white/92 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] backdrop-blur-sm">
+            <div className="border-b border-slate-200/80 bg-slate-50/70 px-4 py-2.5 text-center">
+              <h2 className="text-sm font-semibold text-slate-900">DATOS DEL PRODUCTO</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse text-sm">
+                <thead className="text-xs uppercase tracking-[0.08em] text-slate-500">
+                  <tr>
+                    <th className="border-b border-r border-slate-200 px-4 py-3 text-left">Imagen</th>
+                    <th className="border-b border-r border-slate-200 px-4 py-3 text-left">Servicio / Producto</th>
+                    <th className="border-b border-r border-slate-200 px-4 py-3 text-left">Descripcion</th>
+                    <th className="border-b border-r border-slate-200 px-4 py-3 text-left">CANT</th>
+                    <th className="border-b border-r border-slate-200 px-4 py-3 text-left">Precio</th>
+                    <th className="border-b border-slate-200 px-4 py-3 text-left">Subtotal</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                </thead>
+                <tbody>
+                  {quote.items.map((item) => (
+                    <tr key={item.id} className="group transition-colors hover:bg-sky-50/45">
+                      <td className="border-r border-slate-200 px-4 py-3">
+                        {item.product.thumbnailUrl ? (
+                          <img
+                            src={item.product.thumbnailUrl}
+                            alt={item.product.name}
+                            className="h-12 w-12 rounded-lg border border-slate-200 object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-[10px] text-slate-500">
+                            Sin img
+                          </div>
+                        )}
+                      </td>
+                      <td className="border-r border-slate-200 px-4 py-3">
+                        <p className="font-medium text-slate-900">{item.product.name}</p>
+                      </td>
+                      <td className="border-r border-slate-200 px-4 py-3 text-slate-600">{item.notes || "Implementacion y configuracion segun requerimiento."}</td>
+                      <td className="border-r border-slate-200 px-4 py-3 text-slate-700">{item.quantity}</td>
+                      <td className="border-r border-slate-200 px-4 py-3 text-slate-700">{formatMoney(String(item.unitPrice), currency)}</td>
+                      <td className="px-4 py-3 font-semibold text-slate-900">{formatMoney(String(item.lineTotal), currency)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-        <section className="overflow-hidden rounded-2xl border border-slate-200/85 bg-white/92 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] backdrop-blur-sm">
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="text-xs uppercase tracking-[0.08em] text-slate-500">
-                <tr>
-                  <th className="px-4 py-3 text-left">Subtotal</th>
-                  <th className="px-4 py-3 text-left">Descuento</th>
-                  <th className="px-4 py-3 text-left">Valor adicional</th>
-                  <th className="px-4 py-3 text-left">Valor total</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-t border-slate-200/80">
-                  <td className="px-4 py-3 font-medium text-slate-900">{formatMoney(String(subtotal), currency)}</td>
-                  <td className="px-4 py-3 font-medium text-slate-900">{formatMoney(String(discount), currency)}</td>
-                  <td className="px-4 py-3 font-medium text-slate-900">{formatMoney(String(taxes), currency)}</td>
-                  <td className="bg-slate-50/60 px-4 py-3 text-sm font-semibold text-slate-900">{formatMoney(String(total), currency)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
+          <section className="overflow-hidden rounded-2xl border border-slate-200/85 bg-white/92 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] backdrop-blur-sm">
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse text-sm">
+                <thead className="text-xs uppercase tracking-[0.08em] text-slate-500">
+                  <tr>
+                    <th className="border-b border-r border-slate-200 px-4 py-3 text-left">Subtotal</th>
+                    <th className="border-b border-r border-slate-200 px-4 py-3 text-left">Descuento</th>
+                    <th className="border-b border-r border-slate-200 px-4 py-3 text-left">Valor adicional</th>
+                    <th className="border-b border-slate-200 px-4 py-3 text-left">Valor total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border-r border-slate-200 px-4 py-3 font-medium text-slate-900">{formatMoney(String(subtotal), currency)}</td>
+                    <td className="border-r border-slate-200 px-4 py-3 font-medium text-slate-900">{formatMoney(String(discount), currency)}</td>
+                    <td className="border-r border-slate-200 px-4 py-3 font-medium text-slate-900">{formatMoney(String(taxes), currency)}</td>
+                    <td className="bg-slate-50/60 px-4 py-3 text-sm font-semibold text-slate-900">{formatMoney(String(total), currency)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
 
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <article className="rounded-2xl border border-slate-200/85 bg-white/92 p-4 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.45)]">
