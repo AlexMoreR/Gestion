@@ -39,9 +39,26 @@ export function RegisterForm() {
           <Input type="password" name="password" placeholder="Crea una contrasena segura" required />
         </label>
 
+        {state.message ? (
+          <p
+            className={`rounded-lg border px-3 py-2 text-sm ${
+              state.ok
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-red-200 bg-red-50 text-red-700"
+            }`}
+          >
+            {state.ok
+              ? "Cuenta creada. Revisa tu correo y confirma tu cuenta para iniciar sesion."
+              : state.message}
+          </p>
+        ) : null}
+
         <Button type="submit" className="mt-2 w-full" disabled={pending}>
           {pending ? "Creando..." : "Registrarme"}
         </Button>
+        <p className="text-xs text-slate-600">
+          Al registrarte te enviaremos un correo de confirmacion. Debes abrirlo y confirmar tu cuenta antes de iniciar sesion.
+        </p>
       </form>
       <p className="mt-5 text-center text-sm text-slate-600">
         Ya tienes cuenta?{" "}

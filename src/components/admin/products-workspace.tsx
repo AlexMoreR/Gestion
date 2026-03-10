@@ -75,8 +75,8 @@ export function ProductsWorkspace({
 
   return (
     <>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h1 className="inline-flex items-center gap-1 text-lg font-semibold tracking-tight text-slate-900 md:text-xl">
             <Package className="h-4 w-4 text-slate-500" />
             <span>Productos</span>
@@ -85,12 +85,12 @@ export function ProductsWorkspace({
             Gestion central del catalogo con filtros, importacion y acciones rapidas.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
           <ProductImportExportControls />
           <button
             type="button"
             onClick={openNewModal}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+            className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)] sm:flex-none"
           >
             <Plus className="h-4 w-4" />
             Nuevo producto

@@ -284,25 +284,25 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
           pagedProducts.map((product) => (
             <article
               key={product.id}
-              className="space-y-2.5 rounded-xl border border-[var(--line)] bg-white p-3"
+              className="rounded-xl border border-[var(--line)] bg-white p-3"
             >
               <form data-delete-product-id={product.id} action={adminDeleteProductAction}>
                 <input type="hidden" name="productId" value={product.id} />
               </form>
-              <div className="flex items-start justify-between gap-2">
+              <div className="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-start gap-2">
                 <Link
                   href={`/admin/productos/${product.id}`}
-                  className="group flex min-w-0 flex-1 items-center gap-3 rounded-md transition"
+                  className="group col-span-2 grid grid-cols-[3rem_minmax(0,1fr)] items-start gap-2 rounded-md transition"
                   onClick={(event) => handleOpenProduct(event, product.id)}
                 >
                   <img
                     src={product.thumbnailUrl}
                     alt={product.name}
-                    className="h-12 w-12 shrink-0 rounded-md border border-[var(--line)] object-cover"
+                    className="h-12 w-12 rounded-md border border-[var(--line)] object-cover"
                   />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-900">{product.name}</p>
-                    <div className="mt-0.5 flex items-center justify-between gap-2">
+                    <p className="line-clamp-2 break-words text-sm font-semibold text-slate-900">{product.name}</p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2">
                       <span className="inline-flex rounded-md border border-[var(--line)] bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700">
                         {product.categoryName ?? "Sin categoria"}
                       </span>
@@ -312,13 +312,13 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                     </div>
                   </div>
                 </Link>
-                <div className="flex shrink-0 items-center gap-1">
+                <div className="flex flex-col gap-1">
                   <Button
                     asChild
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-9 w-9"
+                    className="h-8 w-8"
                   >
                     <Link
                       href={`/admin/productos/${product.id}`}
@@ -332,7 +332,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-9 w-9 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                    className="h-8 w-8 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                     onClick={() => setPendingDelete({ id: product.id, name: product.name })}
                     aria-label={`Eliminar ${product.name}`}
                   >

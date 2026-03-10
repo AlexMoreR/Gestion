@@ -122,7 +122,16 @@ export async function registerAction(
   });
 
   try {
-    const baseUrl = (process.env.AUTH_URL || "http://localhost:3000").replace(/\/+$/, "");
+    const baseUrl = (
+      process.env.AUTH_URL ||
+      process.env.NEXTAUTH_URL ||
+      process.env.APP_URL ||
+      ""
+    ).replace(/\/+$/, "");
+    if (!baseUrl) {
+      await prisma.user.delete({ where: { id: createdUser.id } }).catch(() => null);
+      return { ok: false, message: "Falta configurar AUTH_URL para enviar el enlace de verificacion" };
+    }
     const token = createEmailVerificationToken(createdUser.id, email);
     const verificationUrl = `${baseUrl}/verify-email?token=${encodeURIComponent(token)}`;
 
@@ -137,7 +146,7 @@ export async function registerAction(
     return { ok: false, message: "No se pudo enviar el correo de verificacion" };
   }
 
-  redirect("/login?ok=Te+enviamos+un+correo+para+confirmar+tu+cuenta");
+  return { ok: true, message: "Registro creado. Revisa tu correo y confirma tu cuenta para poder iniciar sesion" };
 }
 
 export async function updateProfileAction(
