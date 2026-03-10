@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { Fragment } from "react";
@@ -81,17 +82,15 @@ export function Navbar({ initialUser }: { initialUser: InitialUser | null }) {
       </div>
       <div className="mx-auto flex h-14 w-full items-center justify-between gap-2 px-3 md:h-16 md:px-7">
         <div className="flex min-w-0 items-center gap-2.5">
-          <Link
-            href="/"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white shadow-[0_10px_22px_-14px_rgba(15,23,42,0.45)] transition hover:scale-[1.02] md:h-9 md:w-9"
-            style={{ backgroundImage: "linear-gradient(135deg, var(--primary-strong), var(--primary))" }}
-            aria-label="Inicio"
-          >
-            <span className="text-sm font-bold leading-none text-white">IM</span>
-          </Link>
-          <Link href="/" className="hidden min-w-0 sm:block">
-            <p className="truncate text-sm font-semibold tracking-tight text-slate-900">Innovaciones Magi</p>
-            <p className="-mt-0.5 text-[11px] font-medium text-[var(--primary)]">Cumpliendo sueños</p>
+          <Link href="/" className="inline-flex items-center rounded-md" aria-label="Inicio">
+            <Image
+              src="/magilus-logo.svg"
+              alt="Magilus"
+              width={260}
+              height={72}
+              className="h-12 w-auto md:h-14"
+              priority
+            />
           </Link>
 
           <nav className="hidden items-center gap-4 md:flex">
