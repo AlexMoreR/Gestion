@@ -74,12 +74,12 @@ export default async function QuotePublicPage({ params }: PageProps) {
   return (
     <section className="app-page px-0 pb-8 pt-1 md:px-7 md:pb-12 md:pt-2">
       <div className="flex w-full flex-col gap-5 md:gap-6">
-        <section className="relative overflow-hidden rounded-[1.4rem] border border-white/55 bg-gradient-to-br from-[#0f172a] via-[#1e3a8a] to-[#0f766e] p-3 shadow-[0_26px_70px_-34px_rgba(15,23,42,0.7)] md:p-4">
+        <section className="relative overflow-hidden rounded-[1.4rem] border border-white/55 bg-gradient-to-br from-[#0f172a] via-[#1e3a8a] to-[#0f766e] p-2.5 shadow-[0_26px_70px_-34px_rgba(15,23,42,0.7)] md:p-4">
           <div className="pointer-events-none absolute -left-12 -top-16 h-56 w-56 rounded-full bg-cyan-200/25 blur-3xl" />
           <div className="pointer-events-none absolute -right-20 bottom-0 h-64 w-64 rounded-full bg-emerald-200/20 blur-3xl" />
 
           <div className="relative grid gap-3 lg:grid-cols-[minmax(0,1fr)_17rem]">
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="inline-flex items-center gap-2 px-0 py-0">
                   <span
@@ -93,30 +93,30 @@ export default async function QuotePublicPage({ params }: PageProps) {
                     <p className="text-[11px] text-sky-100/80">NIT {companyInfo.nit}</p>
                   </div>
                 </div>
-                <h1 className="ml-auto text-right text-lg font-semibold tracking-tight text-white md:text-3xl">
+                <h1 className="ml-auto text-right text-base font-semibold tracking-tight text-white md:text-3xl">
                   Cotización
                 </h1>
               </div>
 
-              <div className="rounded-2xl border border-white/28 bg-white/14 p-3 backdrop-blur-md">
+              <div className="rounded-2xl border border-white/28 bg-white/14 p-2.5 backdrop-blur-md md:p-3">
                 <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Datos cliente</p>
-                <p className="mt-0.5 text-lg font-semibold tracking-tight text-white">{quote.client.name || "Por confirmar"}</p>
-                <div className="mt-2 space-y-2 text-xs text-sky-100 md:hidden">
-                  <div className="flex items-center justify-between gap-3 border-b border-white/15 pb-2">
-                    <span>NIT / C.C</span>
-                    <span className="text-right font-medium text-white">{clientDocument}</span>
+                <p className="mt-0.5 text-base font-semibold tracking-tight text-white md:text-lg">{quote.client.name || "Por confirmar"}</p>
+                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-sky-100 md:hidden">
+                  <div className="min-w-0">
+                    <span className="block text-sky-100/80">NIT / C.C</span>
+                    <span className="block truncate font-medium text-white">{clientDocument}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 border-b border-white/15 pb-2">
-                    <span>Direccion entrega</span>
-                    <span className="text-right font-medium text-white">{deliveryAddress}</span>
+                  <div className="min-w-0">
+                    <span className="block text-sky-100/80">Direccion entrega</span>
+                    <span className="block truncate font-medium text-white">{deliveryAddress}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 border-b border-white/15 pb-2">
-                    <span>Ciudad</span>
-                    <span className="font-medium text-white">{clientCity}</span>
+                  <div className="min-w-0">
+                    <span className="block text-sky-100/80">Ciudad</span>
+                    <span className="block truncate font-medium text-white">{clientCity}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span>Departamento</span>
-                    <span className="font-medium text-white">{quote.client.department || "Por confirmar"}</span>
+                  <div className="min-w-0">
+                    <span className="block text-sky-100/80">Departamento</span>
+                    <span className="block truncate font-medium text-white">{quote.client.department || "Por confirmar"}</span>
                   </div>
                 </div>
                 <div className="mt-2 hidden md:grid md:grid-cols-4 md:gap-0 md:text-sm">
@@ -139,7 +139,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                 </div>
               </div>
 
-              <div className="hidden flex-wrap gap-2 pt-1 md:flex">
+              <div className="hidden flex-wrap justify-center gap-2 pt-1 md:flex">
                 <Link
                   href={approveHref}
                   target="_blank"
@@ -147,7 +147,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                   className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-semibold text-slate-900 transition hover:bg-slate-100 md:h-10 md:text-sm"
                 >
                   <BadgeCheck className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                  Aprobar cotización
+                  Aprobar
                 </Link>
                 <Link
                   href={changesHref}
@@ -156,36 +156,36 @@ export default async function QuotePublicPage({ params }: PageProps) {
                   className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/35 bg-white/12 px-3.5 text-xs font-semibold text-white transition hover:bg-white/20 md:h-10 md:text-sm"
                 >
                   <MessageCircleMore className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                  Solicitar cambios
+                  Cambios
                 </Link>
               </div>
 
             </div>
 
-            <aside className="rounded-2xl border border-white/28 bg-white/15 p-3 backdrop-blur-md">
+            <aside className="rounded-2xl border border-white/28 bg-white/15 p-2.5 backdrop-blur-md md:p-3">
               <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Datos de empresa</p>
-              <p className="mt-0.5 text-lg font-semibold tracking-tight text-white">{quote.code}</p>
-              <div className="mt-2 space-y-2 text-xs text-sky-100 md:text-sm">
-                <div className="flex items-center justify-between gap-3 border-b border-white/15 pb-2">
-                  <span>Empresa</span>
-                  <span className="text-right font-medium text-white">{companyInfo.name}</span>
+              <p className="mt-0.5 text-base font-semibold tracking-tight text-white md:text-lg">{quote.code}</p>
+              <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-sky-100 md:block md:space-y-2 md:text-sm">
+                <div className="min-w-0 md:flex md:items-center md:justify-between md:gap-3 md:border-b md:border-white/15 md:pb-2">
+                  <span className="block text-sky-100/80 md:text-inherit">Empresa</span>
+                  <span className="block truncate font-medium text-white">{companyInfo.name}</span>
                 </div>
-                <div className="flex items-center justify-between gap-3 border-b border-white/15 pb-2">
-                  <span>Emision</span>
-                  <span className="font-medium text-white">{issuedDate}</span>
+                <div className="min-w-0 md:flex md:items-center md:justify-between md:gap-3 md:border-b md:border-white/15 md:pb-2">
+                  <span className="block text-sky-100/80 md:text-inherit">Emision</span>
+                  <span className="block truncate font-medium text-white">{issuedDate}</span>
                 </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span>Ciudad de origen</span>
-                  <span className="font-medium text-white">{companyInfo.cityOrigin}</span>
+                <div className="min-w-0 md:flex md:items-center md:justify-between md:gap-3">
+                  <span className="block text-sky-100/80 md:text-inherit">Ciudad de origen</span>
+                  <span className="block truncate font-medium text-white">{companyInfo.cityOrigin}</span>
                 </div>
-                <div className="flex items-center justify-between gap-3 border-t border-white/15 pt-2">
-                  <span>Garantia</span>
-                  <span className="font-medium text-white">{companyInfo.warranty}</span>
+                <div className="min-w-0 md:flex md:items-center md:justify-between md:gap-3 md:border-t md:border-white/15 md:pt-2">
+                  <span className="block text-sky-100/80 md:text-inherit">Garantia</span>
+                  <span className="block truncate font-medium text-white">{companyInfo.warranty}</span>
                 </div>
               </div>
             </aside>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2 md:hidden">
+          <div className="mt-3 flex flex-wrap justify-center gap-2 md:hidden">
             <Link
               href={approveHref}
               target="_blank"
@@ -193,7 +193,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-semibold text-slate-900 transition hover:bg-slate-100"
             >
               <BadgeCheck className="h-3.5 w-3.5" />
-              Aprobar cotización
+              Aprobar
             </Link>
             <Link
               href={changesHref}
@@ -202,7 +202,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/35 bg-white/12 px-3.5 text-xs font-semibold text-white transition hover:bg-white/20"
             >
               <MessageCircleMore className="h-3.5 w-3.5" />
-              Solicitar cambios
+              Cambios
             </Link>
           </div>
         </section>
@@ -232,7 +232,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                       <p className="mt-0.5 text-xs text-slate-600">{item.notes || "Implementacion y configuracion segun requerimiento."}</p>
                     </div>
                   </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                  <div className="mt-3 grid grid-cols-[0.75fr_1.15fr_1.15fr] gap-2 text-xs">
                     <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
                       <p className="text-slate-500">CANT</p>
                       <p className="font-semibold text-slate-900">{item.quantity}</p>
@@ -424,7 +424,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800"
             >
               <BadgeCheck className="h-4 w-4" />
-              Aprobar cotizacion
+              Aprobar
             </button>
             <Link
               href={supportHref}
@@ -433,7 +433,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:bg-slate-50"
             >
               <MessageCircleMore className="h-4 w-4" />
-              Solicitar cambios
+              Cambios
             </Link>
             <button
               type="button"
