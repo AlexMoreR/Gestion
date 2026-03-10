@@ -7,7 +7,8 @@ import { redirect } from "next/navigation";
 import { Role } from "@prisma/client";
 import { z } from "zod";
 import { auth, signIn, signOut } from "@/auth";
-import { sendAccountCreatedEmail } from "@/lib/mailer";
+import { createEmailVerificationToken } from "@/lib/email-verification";
+import { sendAccountCreatedEmail, sendEmailVerificationEmail } from "@/lib/mailer";
 import { prisma } from "@/lib/prisma";
 import {
   ActionState,
@@ -61,6 +62,10 @@ export async function loginAction(
     return { ok: false, message: "Credenciales invalidas" };
   }
 
+  if (user.role === "CLIENTE" && !user.emailVerified) {
+    return { ok: false, message: "Debes confirmar tu correo antes de iniciar sesion" };
+  }
+
   try {
     await signIn("credentials", {
       email,
@@ -82,12 +87,11 @@ export async function registerAction(
   formData: FormData,
 ): Promise<ActionState> {
   void prevState;
-  const session = await auth();
   const parsed = registerSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
     password: formData.get("password"),
-    role: formData.get("role"),
+    role: "CLIENTE",
   });
 
   if (!parsed.success) {
@@ -98,7 +102,7 @@ export async function registerAction(
     };
   }
 
-  const { name, email, password, role } = parsed.data;
+  const { name, email, password } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -107,28 +111,33 @@ export async function registerAction(
 
   const hashedPassword = await bcrypt.hash(password, 12);
 
-  await prisma.user.create({
+  const createdUser = await prisma.user.create({
     data: {
       name,
       email,
       password: hashedPassword,
-      role,
+      role: "CLIENTE",
     },
+    select: { id: true },
   });
 
-  if (session?.user?.role === "ADMIN") {
-    try {
-      await sendAccountCreatedEmail({
-        to: email,
-        name,
-        role,
-      });
-    } catch (error) {
-      console.error("No se pudo enviar el correo de bienvenida:", error);
-    }
+  try {
+    const baseUrl = (process.env.AUTH_URL || "http://localhost:3000").replace(/\/+$/, "");
+    const token = createEmailVerificationToken(createdUser.id, email);
+    const verificationUrl = `${baseUrl}/verify-email?token=${encodeURIComponent(token)}`;
+
+    await sendEmailVerificationEmail({
+      to: email,
+      name,
+      verificationUrl,
+    });
+  } catch (error) {
+    await prisma.user.delete({ where: { id: createdUser.id } }).catch(() => null);
+    console.error("No se pudo enviar el correo de verificacion:", error);
+    return { ok: false, message: "No se pudo enviar el correo de verificacion" };
   }
 
-  redirect("/login?registered=1");
+  redirect("/login?ok=Te+enviamos+un+correo+para+confirmar+tu+cuenta");
 }
 
 export async function updateProfileAction(
