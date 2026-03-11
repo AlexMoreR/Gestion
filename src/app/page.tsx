@@ -134,19 +134,28 @@
 					  {featuredProduct ? (
 						<Link
 						  href={`/productos/${featuredProduct.id}`}
-						  className="group relative block overflow-hidden rounded-2xl border border-white/15 bg-black/20"
+						  className="group relative overflow-hidden rounded-[28px] border border-white/12 bg-white/8 transition hover:border-white/20"
 						>
-						  <img
-							src={featuredProduct.thumbnailUrl}
-							alt={featuredProduct.name}
-							className="h-40 w-full bg-white object-contain p-1 transition duration-500 group-hover:scale-[1.02] md:h-48"
-						  />
-						  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/25 to-transparent px-4 pb-3 pt-10">
-							<p className="text-[11px] uppercase tracking-[0.08em] text-white/80">Destacado</p>
-							<p className="line-clamp-2 text-base font-semibold leading-tight text-white">{featuredProduct.name}</p>
-							<p className="text-sm font-medium text-white/90">
-							  {formatMoney(String(featuredProduct.price), systemCurrency)}
-							</p>
+						  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.18),transparent_42%),linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))]" />
+						  <div className="relative grid gap-3 p-3.5 md:grid-cols-[1fr_0.95fr] md:items-center md:gap-0 md:p-4">
+							<div className="flex flex-col justify-center md:pr-4">
+							  <p className="text-[11px] uppercase tracking-[0.18em] text-white/60">Destacado</p>
+							  <p className="mt-1.5 line-clamp-3 max-w-[15rem] text-base font-semibold leading-[1] text-white md:text-[1.55rem]">
+								{featuredProduct.name}
+							  </p>
+							  <p className="mt-2 text-sm font-semibold text-white/92 md:text-[0.95rem]">
+								{formatMoney(String(featuredProduct.price), systemCurrency)}
+							  </p>
+							</div>
+							<div className="relative flex items-center justify-center md:justify-end">
+							  <div className="absolute h-24 w-24 rounded-full bg-white/12 blur-2xl md:h-28 md:w-28" />
+							  <div className="absolute inset-x-8 bottom-2 h-8 rounded-full bg-black/25 blur-xl md:inset-x-12" />
+							  <img
+								src={featuredProduct.thumbnailUrl}
+								alt={featuredProduct.name}
+								className="relative z-10 h-32 w-full object-contain drop-shadow-[0_18px_24px_rgba(15,23,42,0.3)] transition duration-500 group-hover:scale-[1.04] md:h-40 md:max-w-[15rem]"
+							  />
+							</div>
 						  </div>
 						</Link>
 					  ) : null}
