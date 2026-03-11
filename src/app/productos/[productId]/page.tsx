@@ -1,15 +1,65 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MessageCircle, ShoppingCart } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { ProductGallery } from "@/components/store/product-gallery";
+import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
+import { buildWhatsAppProductHref, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 
 type PageProps = {
   params: Promise<{ productId: string }>;
 };
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { productId } = await params;
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    include: { category: true },
+  });
+
+  if (!product) {
+    return {
+      title: "Producto no encontrado",
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const description = sanitizeDescription(
+    product.description,
+    `${product.name} ${product.category?.name ? `de ${product.category.name} ` : ""}disponible en ${siteConfig.name}, mobiliario profesional premium para salon y barberia.`,
+  );
+  const canonical = getSiteUrl(`/productos/${product.id}`);
+  const imageUrl = product.thumbnailUrl.startsWith("http") ? product.thumbnailUrl : getSiteUrl(product.thumbnailUrl);
+
+  return {
+    title: product.name,
+    description,
+    alternates: {
+      canonical,
+    },
+    openGraph: {
+      type: "website",
+      url: canonical,
+      title: `${product.name} | ${siteConfig.name}`,
+      description,
+      images: [
+        {
+          url: imageUrl,
+          alt: product.name,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${product.name} | ${siteConfig.name}`,
+      description,
+      images: [imageUrl],
+    },
+  };
+}
 
 export default async function ProductoDetallePage({ params }: PageProps) {
   const { productId } = await params;
@@ -35,9 +85,7 @@ export default async function ProductoDetallePage({ params }: PageProps) {
         .filter(Boolean),
     ),
   );
-  const whatsAppHref = `https://wa.me/?text=${encodeURIComponent(
-    `Hola Innovaciones Magi, quiero comprar el producto: ${product.name}`,
-  )}`;
+  const whatsAppHref = buildWhatsAppProductHref(product.name);
 
   const relatedProducts = await prisma.product.findMany({
     where: {
@@ -49,8 +97,43 @@ export default async function ProductoDetallePage({ params }: PageProps) {
     include: { category: true },
   });
 
+  const productDescription = sanitizeDescription(
+    product.description,
+    `${product.name} disponible en ${siteConfig.name} para proyectos de salon, barberia y mobiliario profesional premium.`,
+  );
+  const productSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "@id": `${getSiteUrl(`/productos/${product.id}`)}#product`,
+    name: product.name,
+    description: productDescription,
+    image: gallery.map((url) => (url.startsWith("http") ? url : getSiteUrl(url))),
+    sku: product.code ?? undefined,
+    brand: {
+      "@type": "Brand",
+      name: siteConfig.name,
+    },
+    category: product.category?.name ?? "Mobiliario profesional",
+    offers: {
+      "@type": "Offer",
+      url: getSiteUrl(`/productos/${product.id}`),
+      priceCurrency: currency,
+      price: Number(product.price),
+      availability: "https://schema.org/InStock",
+      seller: {
+        "@type": "Organization",
+        name: siteConfig.name,
+      },
+    },
+  };
+
   return (
     <section className="app-page space-y-6">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
+
       <div className="flex items-center justify-between">
         <Link
           href="/"
@@ -117,6 +200,15 @@ export default async function ProductoDetallePage({ params }: PageProps) {
             ) : null}
           </div>
         </Card>
+      </div>
+
+      <div className="rounded-2xl border border-[var(--line)] bg-white px-5 py-4">
+        <h2 className="text-lg font-semibold tracking-tight text-slate-900">Detalle profesional</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          {productDescription} Esta referencia forma parte del catalogo premium de {siteConfig.name}, enfocado en
+          sillas, estaciones y mobiliario profesional para negocios que cuidan la experiencia del cliente y la imagen
+          del espacio.
+        </p>
       </div>
 
       {relatedProducts.length > 0 ? (

@@ -4,6 +4,7 @@ import { Geist_Mono, Poppins } from "next/font/google";
 import { auth } from "@/auth";
 import { AppShell } from "@/components/app-shell";
 import { Providers } from "@/components/providers";
+import { getSiteUrl, siteConfig } from "@/lib/site";
 import { getSystemPrimaryColor, getSystemPrimaryStrongColor } from "@/lib/system-settings";
 import "./globals.css";
 
@@ -19,8 +20,49 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Administrador",
-  description: "Auth con Next.js App Router, Prisma y Auth.js",
+  metadataBase: new URL(siteConfig.domain),
+  title: {
+    default: `${siteConfig.name} | Mobiliario profesional premium para salon y barberia`,
+    template: `%s | ${siteConfig.name}`,
+  },
+  description: siteConfig.description,
+  keywords: [...siteConfig.coreKeywords],
+  applicationName: siteConfig.name,
+  category: "shopping",
+  alternates: {
+    canonical: getSiteUrl("/"),
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    locale: siteConfig.locale,
+    url: getSiteUrl("/"),
+    siteName: siteConfig.name,
+    title: `${siteConfig.name} | Sillas, estaciones y mobiliario profesional premium`,
+    description: siteConfig.description,
+    images: [
+      {
+        url: getSiteUrl(siteConfig.ogImagePath),
+        alt: `${siteConfig.name} logo`,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${siteConfig.name} | Sillas, estaciones y mobiliario profesional premium`,
+    description: siteConfig.description,
+    images: [getSiteUrl(siteConfig.ogImagePath)],
+  },
 };
 
 export default async function RootLayout({
@@ -35,7 +77,7 @@ export default async function RootLayout({
   ]);
 
   return (
-    <html lang="es">
+    <html lang="es-CO">
       <body
         className={`${poppins.variable} ${geistMono.variable} antialiased`}
         style={

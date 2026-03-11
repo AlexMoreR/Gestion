@@ -95,7 +95,7 @@ export function AppSidebar({ pathname, user, ...props }: AppSidebarProps & React
   }
 
   const teams = [
-    { name: "Innovaciones Magi", plan: "Cumpliendo suenos" },
+    { name: "Magilus", plan: "Cumpliendo suenos" },
   ];
 
   return (
