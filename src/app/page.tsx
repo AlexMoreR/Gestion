@@ -49,7 +49,7 @@
 		priceLabel: formatMoney(String(product.price), systemCurrency),
 	  }));
 
-	  // ✅ CORREGIDO: Tildes y nombre de marca actualizado a Magilus
+	  // Texto ajustado para Magilus
 	  const promoItems = [
 		"Combos especiales de temporada",
 		"Envío gratis en productos seleccionados",
@@ -58,7 +58,7 @@
 		"Instalación y asesoría para tu salón",
 	  ];
 
-	  // ✅ CORREGIDO: Nombre actualizado de "Innovaciones Magi" a "Magilus"
+	  // Nombre actualizado a Magilus
 	  const heroQuoteHref = "https://wa.me/573046481994?text=Hola%20Magilus%2C%20quiero%20cotizar";
 
 	  const categoriesCarousel = Array.from(
@@ -109,15 +109,15 @@
 				<div className="mx-auto max-w-6xl px-4 md:px-6">
 				  <div className="relative py-3 text-white md:py-4">
 					<div className="grid items-center gap-4 md:grid-cols-[minmax(0,1.02fr)_minmax(300px,0.98fr)] md:gap-6">
-					  <div className="space-y-3.5 md:space-y-4">
-					  {/* ✅ CORREGIDO: Tildes en "peluquería", "diseño" y "salón" */}
-					  <h1 className="max-w-xl text-[1.65rem] font-semibold leading-[0.96] tracking-tight md:text-[3rem] md:leading-[0.94]">
+					  <div className="space-y-3.5 text-center md:space-y-4 md:text-left">
+					  {/* Hero principal */}
+					  <h1 className="mx-auto w-full max-w-none text-[1.45rem] font-semibold leading-[0.96] tracking-tight md:mx-0 md:max-w-xl md:text-[3rem] md:leading-[0.94]">
 						Remodela tu salón con el estilo que mereces.
 					  </h1>
-					  <p className="max-w-lg text-[13px] leading-5 text-white/82 md:text-base md:leading-6">
+					  <p className="mx-auto max-w-[16rem] text-[13px] leading-5 text-white/82 md:mx-0 md:max-w-lg md:text-base md:leading-6">
 						Sillas, estaciones y mobiliario profesional con presencia premium para clientes exigentes.
 					  </p>
-					  {/* ✅ MEJORADO: Dos botones en el hero */}
+					  {/* Botones del hero */}
 					  <div className="hidden flex-wrap items-center gap-2 pt-0.5 text-xs text-slate-200 md:flex">
 						<Link
 						  href={heroQuoteHref}
@@ -144,7 +144,7 @@
 
 					<div className="grid min-w-0 gap-2.5">
 					  <FeaturedProductsCarousel products={featuredProducts} />
-					  <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs text-slate-200 md:hidden">
+					  <div className="flex flex-wrap items-center justify-center gap-2 pt-0.5 text-xs text-slate-200 md:hidden">
 						<Link
 						  href={heroQuoteHref}
 						  target="_blank"
@@ -163,7 +163,7 @@
 						  <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full border border-white/12 bg-white/8">
 							<ShoppingCart className="h-3.5 w-3.5" />
 						  </span>
-						  Ver catÃ¡logo
+                          Ver catalogo
 						</Link>
 					  </div>
 					</div>
@@ -174,7 +174,7 @@
 			</div>
 		  ) : null}
 
-		  {/* ✅ CORREGIDO: Tildes en el marquee */}
+		  {/* Marquee promocional */}
 		  {!query ? (
 			<div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen">
 			  <div
@@ -198,7 +198,7 @@
 			</div>
 		  ) : null}
 
-		  {/* ✅ NUEVO: Sección de confianza */}
+		  {/* Sección de confianza */}
 		  {!query ? (
 			<div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen bg-slate-50 py-6">
 			  <div className="mx-auto max-w-6xl px-4 md:px-6">
@@ -255,7 +255,7 @@
 			  <p className="text-sm text-slate-600">No hay productos publicados todavía.</p>
 			</Card>
 		  ) : (
-			// ✅ MEJORADO: id="catalogo" para el scroll del botón "Ver catálogo"
+			// id="catalogo" para el scroll del botón "Ver catálogo"
 			<div className="space-y-3" id="catalogo">
 			  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 				<div>
@@ -271,7 +271,7 @@
 			  <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
 			  {products.map((product) => {
 				const retailPrice = Number(product.price);
-				// ✅ CORREGIDO: Nombre actualizado a "Magilus"
+				// Nombre actualizado a Magilus
 				const whatsAppHref = `https://wa.me/573046481994?text=${encodeURIComponent(
 				  `Hola Magilus, quiero comprar el producto: ${product.name}`,
 				)}`;
