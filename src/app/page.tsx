@@ -118,7 +118,7 @@
 						Sillas, estaciones y mobiliario profesional con presencia premium para clientes exigentes.
 					  </p>
 					  {/* ✅ MEJORADO: Dos botones en el hero */}
-					  <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs text-slate-200">
+					  <div className="hidden flex-wrap items-center gap-2 pt-0.5 text-xs text-slate-200 md:flex">
 						<Link
 						  href={heroQuoteHref}
 						  target="_blank"
@@ -144,6 +144,28 @@
 
 					<div className="grid min-w-0 gap-2.5">
 					  <FeaturedProductsCarousel products={featuredProducts} />
+					  <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs text-slate-200 md:hidden">
+						<Link
+						  href={heroQuoteHref}
+						  target="_blank"
+						  rel="noopener noreferrer"
+						  className="inline-flex h-9 items-center gap-2 rounded-full border border-white/14 bg-black/18 px-3.5 text-[13px] font-semibold text-white backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:border-white/22 hover:bg-black/24 active:translate-y-0"
+						>
+						  <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-white/10">
+							<MessageCircle className="h-3.5 w-3.5" />
+						  </span>
+						  Cotizar ahora
+						</Link>
+						<Link
+						  href="#catalogo"
+						  className="inline-flex h-9 items-center gap-2 rounded-full border border-white/12 bg-[linear-gradient(135deg,rgba(255,255,255,0.16),rgba(255,255,255,0.06))] px-3.5 text-[13px] font-semibold text-white/92 backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-[linear-gradient(135deg,rgba(255,255,255,0.2),rgba(255,255,255,0.08))] active:translate-y-0"
+						>
+						  <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full border border-white/12 bg-white/8">
+							<ShoppingCart className="h-3.5 w-3.5" />
+						  </span>
+						  Ver catÃ¡logo
+						</Link>
+					  </div>
 					</div>
 				  </div>
 				</div>
