@@ -156,7 +156,7 @@ export default async function HomePage({ searchParams }: PageProps) {
                   key={`${item}-${index}`}
                   className="inline-flex h-9 items-center gap-2 border-r border-white/20 px-3 text-[11px] font-semibold text-white md:h-10 md:px-4 md:text-xs"
                 >
-                  <span className="text-white/70">★</span>
+                  <span className="text-amber-300">★</span>
                   <span>{item}</span>
                 </div>
               ))}
