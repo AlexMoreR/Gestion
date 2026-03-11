@@ -60,13 +60,13 @@ export function FeaturedProductsCarousel({ products }: FeaturedProductsCarouselP
               className="group relative block w-full shrink-0 basis-full overflow-hidden rounded-[30px] border border-white/14 bg-[linear-gradient(145deg,rgba(255,255,255,0.18),rgba(255,255,255,0.06))] shadow-[0_28px_60px_-38px_rgba(15,23,42,0.8)] backdrop-blur-sm transition hover:border-white/22"
             >
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.28),transparent_32%),linear-gradient(180deg,transparent,rgba(14,4,30,0.18))]" />
-              <div className="relative grid min-h-[10rem] grid-cols-[0.78fr_1.22fr] gap-2 p-3 md:min-h-[12.5rem] md:grid-cols-[0.95fr_1.05fr] md:items-center md:gap-0 md:p-5">
-                <div className="space-y-2 pr-2 md:pr-5">
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-white/58">Destacado</p>
-                  <p className="line-clamp-2 max-w-[7rem] text-[1.05rem] font-semibold leading-[0.98] text-white md:max-w-[16rem] md:text-[2rem] md:leading-[0.95]">
+              <div className="relative grid min-h-[10rem] grid-cols-[1fr_1fr] gap-2 p-3 md:min-h-[12.5rem] md:grid-cols-[0.95fr_1.05fr] md:items-center md:gap-0 md:p-5">
+                <div className="space-y-1.5 pr-2 md:space-y-2 md:pr-5">
+                  <p className="text-[9px] uppercase tracking-[0.22em] text-white/56 md:text-[11px] md:tracking-[0.24em] md:text-white/58">Destacado</p>
+                  <p className="line-clamp-2 max-w-[8.75rem] text-[0.92rem] font-semibold leading-[0.98] text-white md:max-w-[16rem] md:text-[2rem] md:leading-[0.95]">
                     {product.name}
                   </p>
-                  <p className="text-sm font-semibold text-white/92 md:text-base">{product.priceLabel}</p>
+                  <p className="text-[0.82rem] font-semibold text-white/90 md:text-base">{product.priceLabel}</p>
                 </div>
                 <div className="relative flex items-center justify-end">
                   <div className="absolute h-20 w-20 rounded-full bg-white/14 blur-3xl md:h-40 md:w-40" />

@@ -109,12 +109,12 @@
 				<div className="mx-auto max-w-6xl px-4 md:px-6">
 				  <div className="relative py-3 text-white md:py-4">
 					<div className="grid items-center gap-4 md:grid-cols-[minmax(0,1.02fr)_minmax(300px,0.98fr)] md:gap-6">
-					  <div className="space-y-3.5 text-center md:space-y-4 md:text-left">
+					  <div className="space-y-3.5 text-left md:space-y-4">
 					  {/* Hero principal */}
-					  <h1 className="mx-auto w-full max-w-none text-[1.45rem] font-semibold leading-[0.96] tracking-tight md:mx-0 md:max-w-xl md:text-[3rem] md:leading-[0.94]">
+					  <h1 className="w-full max-w-none text-[1.45rem] font-semibold leading-[0.96] tracking-tight md:max-w-xl md:text-[3rem] md:leading-[0.94]">
 						Remodela tu salón con el estilo que mereces.
 					  </h1>
-					  <p className="mx-auto max-w-[16rem] text-[13px] leading-5 text-white/82 md:mx-0 md:max-w-lg md:text-base md:leading-6">
+					  <p className="w-full max-w-[18.5rem] text-[13px] leading-5 text-white/82 md:max-w-lg md:text-base md:leading-6">
 						Sillas, estaciones y mobiliario profesional con presencia premium para clientes exigentes.
 					  </p>
 					  {/* Botones del hero */}
