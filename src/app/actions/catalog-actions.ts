@@ -1,6 +1,6 @@
 "use server";
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
@@ -86,6 +86,21 @@ async function saveCategoryLogo(file: File | null): Promise<string | null> {
   return `/uploads/categories/${fileName}`;
 }
 
+async function deleteCategoryLogoFile(logoUrl: string | null | undefined): Promise<void> {
+  if (!logoUrl || !logoUrl.startsWith("/uploads/categories/")) {
+    return;
+  }
+
+  const normalizedPath = path.normalize(logoUrl).replace(/^(\.\.(\/|\\|$))+/, "");
+  const filePath = path.join(process.cwd(), "public", normalizedPath);
+
+  try {
+    await unlink(filePath);
+  } catch {
+    // Ignore missing files; the DB cleanup is the primary concern.
+  }
+}
+
 export async function adminCreateCategoryAction(formData: FormData): Promise<void> {
   await requireAdminSession();
   const returnTo = getCategoryReturnTo(formData);
@@ -130,6 +145,7 @@ export async function adminCreateCategoryAction(formData: FormData): Promise<voi
       },
     });
   } catch {
+    await deleteCategoryLogoFile(logoUrl);
     redirect(`${returnTo}?error=No+se+pudo+crear+la+categoria`);
   }
 
@@ -160,6 +176,14 @@ export async function adminUpdateCategoryAction(formData: FormData): Promise<voi
 
   const rawLogo = formData.get("logo");
   const logoFile = rawLogo instanceof File ? rawLogo : null;
+  const existingCategory = await prisma.category.findUnique({
+    where: { id: parsed.data.categoryId },
+    select: { logoUrl: true },
+  });
+
+  if (!existingCategory) {
+    redirect(`${returnTo}?error=Categoria+invalida`);
+  }
 
   let logoUrl: string | null = null;
   try {
@@ -194,7 +218,12 @@ export async function adminUpdateCategoryAction(formData: FormData): Promise<voi
       },
     });
   } catch {
+    await deleteCategoryLogoFile(logoUrl);
     redirect(`${returnTo}?error=No+se+pudo+actualizar+la+categoria`);
+  }
+
+  if (logoUrl && existingCategory.logoUrl && existingCategory.logoUrl !== logoUrl) {
+    await deleteCategoryLogoFile(existingCategory.logoUrl);
   }
 
   revalidatePath("/");
@@ -217,6 +246,15 @@ export async function adminDeleteCategoryAction(formData: FormData): Promise<voi
     redirect(`${returnTo}?error=Categoria+invalida`);
   }
 
+  const existingCategory = await prisma.category.findUnique({
+    where: { id: parsed.data.categoryId },
+    select: { logoUrl: true },
+  });
+
+  if (!existingCategory) {
+    redirect(`${returnTo}?error=Categoria+invalida`);
+  }
+
   try {
     await prisma.category.delete({
       where: { id: parsed.data.categoryId },
@@ -224,6 +262,8 @@ export async function adminDeleteCategoryAction(formData: FormData): Promise<voi
   } catch {
     redirect(`${returnTo}?error=No+se+pudo+eliminar+la+categoria`);
   }
+
+  await deleteCategoryLogoFile(existingCategory.logoUrl);
 
   revalidatePath("/");
   revalidatePath(returnTo);
