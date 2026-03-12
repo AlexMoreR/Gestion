@@ -304,7 +304,8 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
         </div>
       ) : null}
 
-      <div className="space-y-2">
+      {!category ? (
+        <div className="space-y-2">
         <div className="flex items-center justify-center gap-2 px-0.5 text-center">
           <span className="text-sm md:text-base">
             📱
@@ -313,29 +314,30 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
             Busca tu <strong className="font-semibold">categoria</strong>
           </h2>
         </div>
-        <div className="flex snap-x gap-2.5 overflow-x-auto pb-0.5">
-        {categoriesCarousel.map((item) => (
-          <Link
-            key={item.id}
-            href={`/${item.slug}`}
-            className="group block w-24 shrink-0 snap-start transition hover:-translate-y-0.5 sm:w-28"
-          >
-            <div className="aspect-square overflow-hidden rounded-xl">
-              <img
-                src={item.cover}
-                alt={item.name}
-                className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-              />
-            </div>
-            <p className="mt-1.5 break-words text-center text-[11px] font-semibold leading-tight text-slate-900 sm:text-xs">
-              {item.name}
-            </p>
-          </Link>
-        ))}
-      </div>
-      </div>
+          <div className="flex snap-x gap-2.5 overflow-x-auto pb-0.5">
+            {categoriesCarousel.map((item) => (
+              <Link
+                key={item.id}
+                href={`/${item.slug}`}
+                className="group block w-24 shrink-0 snap-start transition hover:-translate-y-0.5 sm:w-28"
+              >
+                <div className="aspect-square overflow-hidden rounded-xl">
+                  <img
+                    src={item.cover}
+                    alt={item.name}
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                  />
+                </div>
+                <p className="mt-1.5 break-words text-center text-[11px] font-semibold leading-tight text-slate-900 sm:text-xs">
+                  {item.name}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
-      {!normalizedQuery ? (
+      {!normalizedQuery && !category ? (
         <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen bg-slate-50 py-6">
           <div className="mx-auto max-w-6xl px-4 md:px-6">
             <div className="grid grid-cols-3 gap-4 text-center md:grid-cols-3">
@@ -371,7 +373,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
         </Card>
       ) : (
         <div className="space-y-3" id="catalogo">
-          {!normalizedQuery ? (
+          {!normalizedQuery && !category ? (
             <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--primary-strong)]">
                 {category ? category.name : "Mobiliario profesional premium"}
@@ -389,29 +391,12 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
             </div>
           ) : null}
 
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900">
-                {category ? category.name : "Catalogo de tienda"}
-              </h2>
+          {!category ? (
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold tracking-tight text-slate-900">Catalogo de tienda</h2>
+              </div>
             </div>
-          </div>
-
-          {normalizedQuery || category ? (
-            <p className="text-xs text-slate-500">
-              Resultado
-              {normalizedQuery ? (
-                <>
-                  {" "}para <span className="font-medium text-slate-700">"{normalizedQuery}"</span>
-                </>
-              ) : null}
-              {category ? (
-                <>
-                  {" "}en <span className="font-medium text-slate-700">{category.name}</span>
-                </>
-              ) : null}
-              : {products.length} producto(s)
-            </p>
           ) : null}
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
@@ -478,6 +463,49 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
               );
             })}
           </div>
+          {category ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-center gap-2 px-0.5 text-center">
+                <span className="text-sm md:text-base">📱</span>
+                <h2 className="text-sm font-normal tracking-tight text-slate-900 md:text-lg">
+                  Busca tu <strong className="font-semibold">categoria</strong>
+                </h2>
+              </div>
+              <div className="flex snap-x gap-2.5 overflow-x-auto pb-0.5">
+                {categoriesCarousel.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/${item.slug}`}
+                    className="group block w-24 shrink-0 snap-start transition hover:-translate-y-0.5 sm:w-28"
+                  >
+                    <div className="aspect-square overflow-hidden rounded-xl">
+                      <img
+                        src={item.cover}
+                        alt={item.name}
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                      />
+                    </div>
+                    <p className="mt-1.5 break-words text-center text-[11px] font-semibold leading-tight text-slate-900 sm:text-xs">
+                      {item.name}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {!normalizedQuery && category ? (
+            <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--primary-strong)]">
+                {category.name}
+              </p>
+              <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">
+                {`${category.name} para peluqueria, barberia y espacios de belleza`}
+              </h2>
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
+                {`Encuentra ${category.name.toLowerCase()} en ${siteConfig.name}, con referencias pensadas para negocios que necesitan proyectar calidad, comodidad y una imagen profesional.`}
+              </p>
+            </div>
+          ) : null}
         </div>
       )}
     </section>
