@@ -213,11 +213,11 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
             <div className="mx-auto max-w-6xl px-4 md:px-6">
               <div className="relative py-3 text-white md:py-4">
                 <div className="grid items-center gap-2.5 md:grid-cols-[minmax(0,1.02fr)_minmax(300px,0.98fr)] md:gap-6">
-                  <div className="space-y-2.5 text-left md:space-y-4">
-                    <h1 className="w-full max-w-none text-[1.18rem] font-semibold leading-[0.98] tracking-tight md:max-w-xl md:text-[3rem] md:leading-[0.94]">
+                  <div className="space-y-2.5 text-center md:space-y-4 md:text-left">
+                    <h1 className="mx-auto w-full max-w-none text-[1.18rem] font-semibold leading-[0.98] tracking-tight md:mx-0 md:max-w-xl md:text-[3rem] md:leading-[0.94]">
                       {pageHeading}
                     </h1>
-                    <p className="w-full max-w-[19.5rem] text-[13px] leading-[1.45] text-white/80 md:max-w-lg md:text-base md:leading-6">
+                    <p className="mx-auto w-full max-w-none text-[13px] leading-[1.45] text-white/80 md:mx-0 md:max-w-lg md:text-base md:leading-6">
                       {pageIntro}
                     </p>
                     <div className="hidden flex-wrap items-center gap-2 pt-0.5 text-xs text-slate-200 md:flex">
