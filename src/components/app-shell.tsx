@@ -34,7 +34,21 @@ export function AppShell({ children, initialUser }: AppShellProps) {
   const { data } = useSession();
   const pathname = usePathname();
   const user = data?.user ?? initialUser;
-  const showTopMenu = pathname === "/" || pathname.startsWith("/productos");
+  const firstSegment = pathname.split("/").filter(Boolean)[0] ?? "";
+  const reservedStoreSegments = new Set([
+    "admin",
+    "api",
+    "cliente",
+    "cotizaciones",
+    "empleado",
+    "login",
+    "profile",
+    "register",
+    "unauthorized",
+    "verify-email",
+  ]);
+  const isCategoryStorefrontPath = Boolean(firstSegment) && !reservedStoreSegments.has(firstSegment);
+  const showTopMenu = pathname === "/" || pathname.startsWith("/productos") || pathname.startsWith("/categorias") || isCategoryStorefrontPath;
   const currentPage = pathname === "/"
     ? "Inicio"
     : pathname.startsWith("/admin/cotizaciones")

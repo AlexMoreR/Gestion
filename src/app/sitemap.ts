@@ -14,6 +14,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       where: { isActive: true },
       select: {
         id: true,
+        slug: true,
         updatedAt: true,
       },
     }),
@@ -33,7 +34,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     })),
     ...categories.map((category) => ({
-      url: getSiteUrl(`/?category=${category.id}`),
+      url: getSiteUrl(`/${category.slug}`),
       lastModified: category.updatedAt,
       changeFrequency: "weekly" as const,
       priority: 0.7,
