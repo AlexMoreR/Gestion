@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Tag, X } from "lucide-react";
 import { adminCreateCategoryAction, adminUpdateCategoryAction } from "@/app/actions/catalog-actions";
 import { CategoriesDataTable } from "@/components/admin/categories-data-table";
@@ -21,25 +22,55 @@ type CategoriesWorkspaceProps = {
 export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
   const [modal, setModal] = useState<"new" | "edit" | null>(null);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const activeCategory = useMemo(
     () => categories.find((category) => category.id === activeCategoryId) ?? null,
     [categories, activeCategoryId],
   );
 
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
   const openNewModal = () => {
     setActiveCategoryId(null);
+    setPreviewUrl(null);
     setModal("new");
   };
 
   const openEditModal = (categoryId: string) => {
     setActiveCategoryId(categoryId);
+    setPreviewUrl(null);
     setModal("edit");
   };
 
   const closeModal = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewUrl(null);
     setModal(null);
     setActiveCategoryId(null);
+  };
+
+  const handleLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
+    if (!file) {
+      setPreviewUrl(null);
+      return;
+    }
+
+    setPreviewUrl(URL.createObjectURL(file));
   };
 
   return (
@@ -88,7 +119,7 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
               </button>
             </div>
 
-            <form action={adminCreateCategoryAction} className="space-y-3">
+            <form action={adminCreateCategoryAction} encType="multipart/form-data" className="space-y-3">
               <input type="hidden" name="returnTo" value="/admin/categorias" />
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium text-slate-700">Nombre</span>
@@ -96,8 +127,15 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
               </label>
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium text-slate-700">Logo (opcional)</span>
-                <Input name="logo" type="file" accept="image/*" />
+                <Input name="logo" type="file" accept="image/*" onChange={handleLogoChange} />
               </label>
+              {previewUrl ? (
+                <div className="overflow-hidden rounded-lg border border-[var(--line)] bg-slate-50">
+                  <div className="relative aspect-[4/3] w-full">
+                    <Image src={previewUrl} alt="Vista previa del logo" fill className="object-contain p-3" unoptimized />
+                  </div>
+                </div>
+              ) : null}
               <button
                 type="submit"
                 className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
@@ -133,7 +171,7 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
               </button>
             </div>
 
-            <form action={adminUpdateCategoryAction} className="space-y-3">
+            <form action={adminUpdateCategoryAction} encType="multipart/form-data" className="space-y-3">
               <input type="hidden" name="returnTo" value="/admin/categorias" />
               <input type="hidden" name="categoryId" value={activeCategory.id} />
               <label className="block space-y-1.5">
@@ -142,8 +180,21 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
               </label>
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium text-slate-700">Logo (opcional)</span>
-                <Input name="logo" type="file" accept="image/*" />
+                <Input name="logo" type="file" accept="image/*" onChange={handleLogoChange} />
               </label>
+              {previewUrl ? (
+                <div className="overflow-hidden rounded-lg border border-[var(--line)] bg-slate-50">
+                  <div className="relative aspect-[4/3] w-full">
+                    <Image src={previewUrl} alt="Vista previa del logo" fill className="object-contain p-3" unoptimized />
+                  </div>
+                </div>
+              ) : activeCategory.logoUrl ? (
+                <div className="overflow-hidden rounded-lg border border-[var(--line)] bg-slate-50">
+                  <div className="relative aspect-[4/3] w-full">
+                    <Image src={activeCategory.logoUrl} alt={`Logo actual de ${activeCategory.name}`} fill className="object-contain p-3" unoptimized />
+                  </div>
+                </div>
+              ) : null}
               <button
                 type="submit"
                 className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
