@@ -220,7 +220,8 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                     <p className="mx-auto w-full max-w-none text-[13px] leading-[1.45] text-white/80 md:mx-0 md:max-w-lg md:text-base md:leading-6">
                       {pageIntro}
                     </p>
-                    <div className="hidden flex-wrap items-center gap-2 pt-0.5 text-xs text-slate-200 md:flex">
+                    {!category ? (
+                      <div className="hidden flex-wrap items-center gap-2 pt-0.5 text-xs text-slate-200 md:flex">
                       <Link
                         href={siteConfig.whatsappHref}
                         target="_blank"
@@ -241,10 +242,12 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                         </span>
                         Ver catalogo
                       </Link>
-                    </div>
+                      </div>
+                    ) : null}
                   </div>
 
-                  <div className="grid min-w-0 gap-2 md:gap-2.5">
+                  {!category ? (
+                    <div className="grid min-w-0 gap-2 md:gap-2.5">
                     <FeaturedProductsCarousel products={featuredProducts} />
                     <div className="flex flex-wrap items-center justify-center gap-2.5 pt-0.5 text-xs text-slate-200 md:hidden">
                       <Link
@@ -268,7 +271,8 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                         Ver catalogo
                       </Link>
                     </div>
-                  </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
