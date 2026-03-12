@@ -429,7 +429,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                       <img
                         src={product.thumbnailUrl}
                         alt={product.name}
-                        className="h-52 w-full bg-white object-contain p-2 transition duration-500 group-hover:scale-[1.02]"
+                        className="h-40 w-full bg-white object-contain p-2 transition duration-500 group-hover:scale-[1.02] md:h-52"
                         loading="lazy"
                       />
                       <span className="absolute right-2 top-2 rounded-full border border-white/20 bg-slate-900/85 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
@@ -444,7 +444,6 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                       <h3 className="min-h-[2rem] text-[13px] font-semibold leading-4 normal-case tracking-normal text-slate-900">
                         {product.name}
                       </h3>
-                      <p className="line-clamp-2 text-[11px] leading-4 text-slate-500">{productSummary}</p>
                       <div className="space-y-0.5 pt-0">
                         <p className="text-base font-semibold text-[var(--primary-strong)]">
                           {formatMoney(String(retailPrice), systemCurrency)}
