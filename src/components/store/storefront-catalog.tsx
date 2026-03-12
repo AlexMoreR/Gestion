@@ -300,6 +300,37 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
         </div>
       ) : null}
 
+      <div className="space-y-2">
+        <div className="flex items-center justify-center gap-2 px-0.5 text-center">
+          <span className="text-sm md:text-base">
+            📱
+          </span>
+          <h2 className="text-sm font-normal tracking-tight text-slate-900 md:text-lg">
+            Busca tu <strong className="font-semibold">categoria</strong>
+          </h2>
+        </div>
+        <div className="flex snap-x gap-2.5 overflow-x-auto pb-0.5">
+        {categoriesCarousel.map((item) => (
+          <Link
+            key={item.id}
+            href={`/${item.slug}`}
+            className="group block w-24 shrink-0 snap-start transition hover:-translate-y-0.5 sm:w-28"
+          >
+            <div className="aspect-square overflow-hidden rounded-xl">
+              <img
+                src={item.cover}
+                alt={item.name}
+                className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+              />
+            </div>
+            <p className="mt-1.5 break-words text-center text-[11px] font-semibold leading-tight text-slate-900 sm:text-xs">
+              {item.name}
+            </p>
+          </Link>
+        ))}
+      </div>
+      </div>
+
       {!normalizedQuery ? (
         <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen bg-slate-50 py-6">
           <div className="mx-auto max-w-6xl px-4 md:px-6">
@@ -330,27 +361,6 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
         </div>
       ) : null}
 
-      <div className="flex snap-x gap-2.5 overflow-x-auto pb-0.5">
-        {categoriesCarousel.map((item) => (
-          <Link
-            key={item.id}
-            href={`/${item.slug}`}
-            className="group block w-24 shrink-0 snap-start transition hover:-translate-y-0.5 sm:w-28"
-          >
-            <div className="aspect-square overflow-hidden rounded-xl">
-              <img
-                src={item.cover}
-                alt={item.name}
-                className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-              />
-            </div>
-            <p className="mt-1.5 break-words text-center text-[11px] font-semibold leading-tight text-slate-900 sm:text-xs">
-              {item.name}
-            </p>
-          </Link>
-        ))}
-      </div>
-
       {products.length === 0 ? (
         <Card>
           <p className="text-sm text-slate-600">No hay productos publicados todavia.</p>
@@ -365,15 +375,12 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
               <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">
                 {category
                   ? `${category.name} para peluqueria, barberia y espacios de belleza`
-                  : "Sillas, estaciones y soluciones para salon, barberia y belleza con imagen de alto nivel"}
+                  : "Mobiliario profesional para peluqueria, barberia y salon de belleza"}
               </h2>
               <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
                 {category
                   ? `Encuentra ${category.name.toLowerCase()} en ${siteConfig.name}, con referencias pensadas para negocios que necesitan proyectar calidad, comodidad y una imagen profesional.`
-                  : `En ${siteConfig.name} reunimos mobiliario profesional pensado para negocios que necesitan proyectar calidad desde el primer vistazo. Encuentra sillas para salon de belleza, estaciones de trabajo, mobiliario para barberia y piezas seleccionadas para espacios que buscan una experiencia premium.`}
-              </p>
-              <p className="mt-3 text-sm text-slate-500">
-                Catalogo activo: {totalProducts} productos en {totalCategories} categorias.
+                  : `En ${siteConfig.name} encuentras sillas, estaciones y mobiliario profesional para equipar tu negocio con imagen, funcionalidad y respaldo.`}
               </p>
             </div>
           ) : null}

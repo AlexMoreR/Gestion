@@ -23,6 +23,9 @@ export function FeaturedProductsCarousel({ products }: FeaturedProductsCarouselP
   // Typography: titulares compactos y precio con números tabulares para mejorar lectura y presencia.
   // Spacing: base de 4px con respiración contenida para conservar la huella actual.
   const [activeIndex, setActiveIndex] = React.useState(0);
+  const touchStartX = React.useRef<number | null>(null);
+  const touchDeltaX = React.useRef(0);
+  const isSwiping = React.useRef(false);
 
   React.useEffect(() => {
     if (products.length < 2) {
@@ -52,18 +55,68 @@ export function FeaturedProductsCarousel({ products }: FeaturedProductsCarouselP
     setActiveIndex((current) => (current + 1) % products.length);
   };
 
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    touchStartX.current = event.touches[0]?.clientX ?? null;
+    touchDeltaX.current = 0;
+    isSwiping.current = false;
+  };
+
+  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (touchStartX.current === null) {
+      return;
+    }
+
+    touchDeltaX.current = (event.touches[0]?.clientX ?? 0) - touchStartX.current;
+
+    if (Math.abs(touchDeltaX.current) > 10) {
+      isSwiping.current = true;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX.current === null) {
+      return;
+    }
+
+    if (touchDeltaX.current <= -40) {
+      goNext();
+    } else if (touchDeltaX.current >= 40) {
+      goPrev();
+    }
+
+    touchStartX.current = null;
+    touchDeltaX.current = 0;
+    window.setTimeout(() => {
+      isSwiping.current = false;
+    }, 0);
+  };
+
+  const handleSlideClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!isSwiping.current) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
   return (
     <div className="relative min-w-0 -mx-4 w-[calc(100%+2rem)] md:mx-0 md:w-full">
       <div className="overflow-hidden rounded-none md:rounded-[30px]">
         <div
-          className="flex w-full transition-transform duration-500 ease-out"
+          className="flex w-full touch-pan-y transition-transform duration-500 ease-out"
           style={{ transform: `translateX(-${activeIndex * 100}%)` }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
         >
           {products.map((product) => (
             <Link
               key={product.id}
               href={`/productos/${product.id}`}
               className="group relative block w-full shrink-0 basis-full overflow-hidden rounded-none border border-white/12 bg-[linear-gradient(135deg,rgba(122,30,199,0.34)_0%,rgba(92,18,167,0.3)_36%,rgba(63,10,118,0.38)_100%)] shadow-[0_30px_70px_-42px_rgba(15,23,42,0.82)] transition duration-300 hover:border-white/18 md:rounded-[30px]"
+              onClick={handleSlideClick}
             >
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_18%,rgba(255,255,255,0.26),transparent_26%),radial-gradient(circle_at_82%_28%,rgba(253,216,255,0.18),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(30,6,56,0.22)_58%,rgba(9,2,26,0.38)_100%)]" />
               <div className="absolute inset-y-0 left-0 w-[58%] bg-[linear-gradient(90deg,rgba(18,4,36,0.18),transparent)]" />

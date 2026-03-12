@@ -81,9 +81,7 @@ export function ProductsWorkspace({
             <Package className="h-4 w-4 text-slate-500" />
             <span>Productos</span>
           </h1>
-          <p className="mt-1 text-xs text-slate-600">
-            Gestion central del catalogo con filtros, importacion y acciones rapidas.
-          </p>
+          <p className="mt-1 text-xs text-slate-600">Gestion de productos.</p>
         </div>
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <ProductImportExportControls />

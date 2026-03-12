@@ -81,7 +81,7 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
             <Tag className="h-4 w-4 text-slate-500" />
             <span>Categorias</span>
           </h1>
-          <p className="mt-1 text-xs text-slate-600">Gestiona categorias del catalogo con creacion rapida y edicion.</p>
+          <p className="mt-1 text-xs text-slate-600">Gestiona categorias del catalogo.</p>
         </div>
         <button
           type="button"
