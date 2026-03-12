@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Edit3, MoreHorizontal, Package, Tag, Trash2 } from "lucide-react";
 import { adminDeleteCategoryAction } from "@/app/actions/catalog-actions";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,27 @@ type CategoriesDataTableProps = {
   categories: CategoryRow[];
   onEditCategory: (categoryId: string) => void;
 };
+
+function CategoryLogo({ name, logoUrl }: { name: string; logoUrl: string | null }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (!logoUrl || hasError) {
+    return (
+      <div className="grid h-9 w-9 place-items-center rounded-md border border-[var(--line)] bg-slate-50 text-xs font-semibold text-slate-500">
+        {name.charAt(0).toUpperCase()}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={logoUrl}
+      alt={`Logo ${name}`}
+      className="h-9 w-9 rounded-md border border-[var(--line)] object-cover"
+      onError={() => setHasError(true)}
+    />
+  );
+}
 
 export function CategoriesDataTable({ categories, onEditCategory }: CategoriesDataTableProps) {
   return (
@@ -63,17 +85,7 @@ export function CategoriesDataTable({ categories, onEditCategory }: CategoriesDa
               <TableRow key={category.id}>
                 <TableCell>
                   <div className="flex items-center gap-2.5">
-                    {category.logoUrl ? (
-                      <img
-                        src={category.logoUrl}
-                        alt={`Logo ${category.name}`}
-                        className="h-9 w-9 rounded-md border border-[var(--line)] object-cover"
-                      />
-                    ) : (
-                      <div className="grid h-9 w-9 place-items-center rounded-md border border-[var(--line)] bg-slate-50 text-xs font-semibold text-slate-500">
-                        {category.name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                    <CategoryLogo name={category.name} logoUrl={category.logoUrl} />
                     <p className="text-sm font-medium text-slate-900">{category.name}</p>
                   </div>
                 </TableCell>

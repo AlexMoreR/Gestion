@@ -3,6 +3,8 @@ version: "3.9"
 services:
   magilus_app:
     image: ghcr.io/alexmorer/gestion:latest
+    volumes:
+      - magilus_uploads:/app/public/uploads
     environment:
       NODE_ENV: "production"
       AUTH_URL: "https://magilus.com"
@@ -35,3 +37,6 @@ services:
 networks:
   minha_rede:
     external: true
+
+volumes:
+  magilus_uploads:
