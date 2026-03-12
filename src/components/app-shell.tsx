@@ -44,8 +44,11 @@ export function AppShell({ children, initialUser }: AppShellProps) {
     "login",
     "profile",
     "register",
+    "robots.txt",
+    "sitemap.xml",
     "unauthorized",
     "verify-email",
+    "favicon.ico",
   ]);
   const isCategoryStorefrontPath = Boolean(firstSegment) && !reservedStoreSegments.has(firstSegment);
   const showTopMenu = pathname === "/" || pathname.startsWith("/productos") || pathname.startsWith("/categorias") || isCategoryStorefrontPath;
