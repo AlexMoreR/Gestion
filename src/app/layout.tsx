@@ -22,7 +22,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.domain),
   title: {
-    default: `${siteConfig.name} | Mobiliario profesional premium para salon y barberia`,
+    default: `${siteConfig.name} | Mobiliario profesional para peluqueria, barberia y salon de belleza`,
     template: `%s | ${siteConfig.name}`,
   },
   description: siteConfig.description,
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
     locale: siteConfig.locale,
     url: getSiteUrl("/"),
     siteName: siteConfig.name,
-    title: `${siteConfig.name} | Sillas, estaciones y mobiliario profesional premium`,
+    title: `${siteConfig.name} | Mobiliario profesional para peluqueria, barberia y salon de belleza`,
     description: siteConfig.description,
     images: [
       {
@@ -59,7 +59,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: `${siteConfig.name} | Sillas, estaciones y mobiliario profesional premium`,
+    title: `${siteConfig.name} | Mobiliario profesional para peluqueria, barberia y salon de belleza`,
     description: siteConfig.description,
     images: [getSiteUrl(siteConfig.ogImagePath)],
   },

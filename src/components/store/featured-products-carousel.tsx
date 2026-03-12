@@ -67,8 +67,8 @@ export function FeaturedProductsCarousel({ products }: FeaturedProductsCarouselP
             >
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_18%,rgba(255,255,255,0.26),transparent_26%),radial-gradient(circle_at_82%_28%,rgba(253,216,255,0.18),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(30,6,56,0.22)_58%,rgba(9,2,26,0.38)_100%)]" />
               <div className="absolute inset-y-0 left-0 w-[58%] bg-[linear-gradient(90deg,rgba(18,4,36,0.18),transparent)]" />
-              <div className="absolute inset-x-0 bottom-0 h-14 bg-[linear-gradient(180deg,transparent,rgba(14,4,30,0.28))]" />
-              <div className="relative grid min-h-[10rem] grid-cols-[1fr_1fr] gap-2 p-3 md:min-h-[12.5rem] md:grid-cols-[0.94fr_1.06fr] md:items-center md:gap-0 md:p-5">
+              <div className="absolute inset-x-0 bottom-0 h-10 bg-[linear-gradient(180deg,transparent,rgba(14,4,30,0.28))] md:h-14" />
+              <div className="relative grid min-h-[9rem] grid-cols-[1fr_1fr] gap-2 px-3 py-2 md:min-h-[12.5rem] md:grid-cols-[0.94fr_1.06fr] md:items-center md:gap-0 md:p-5">
                 <div className="flex h-full flex-col justify-between pl-2 pr-2 md:pl-0 md:pr-5">
                   <div className="space-y-1.5 md:space-y-2">
                     <p className="text-[9px] uppercase tracking-[0.24em] text-white/62 md:text-[11px] md:tracking-[0.28em]">Destacada</p>

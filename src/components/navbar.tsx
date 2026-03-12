@@ -67,7 +67,7 @@ export function Navbar({ initialUser }: { initialUser: InitialUser | null }) {
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-white/90 backdrop-blur-md">
-      <div className="border-b border-[var(--line)] bg-white/65">
+      <div className="hidden border-b border-[var(--line)] bg-white/65 md:block">
         <div className="mx-auto flex h-8 w-full items-center justify-start gap-2 overflow-x-auto whitespace-nowrap px-3 text-[11px] text-slate-600 md:justify-center md:px-7">
           <span className="font-medium text-slate-700">Servicio al cliente +57 304-648-1994</span>
           {topMenuLinks.map((item) => (

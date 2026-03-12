@@ -30,12 +30,14 @@ export async function generateStorefrontMetadata({
     ? `Resultados para ${normalizedQuery}`
     : category
       ? category.name
-      : "Sillas, estaciones y mobiliario profesional premium";
+      : {
+          absolute: `${siteConfig.name} | Mobiliario profesional para peluqueria, barberia y salon de belleza`,
+        };
   const description = normalizedQuery
     ? `Explora en ${siteConfig.name} resultados para ${normalizedQuery} en sillas, estaciones y mobiliario profesional para salon y barberia.`
     : category
       ? `Explora ${category.name.toLowerCase()} en ${siteConfig.name}, mobiliario profesional para peluqueria, salon de belleza y barberia.`
-      : "Explora sillas para salon, estaciones de belleza, mobiliario para barberia y soluciones profesionales premium para negocios exigentes.";
+      : "Magilus ofrece sillas barberas e hidraulicas, camillas, tocadores, salas de espera y mobiliario profesional para peluqueria, barberia y salon de belleza, con envio a toda Colombia.";
   const canonical = normalizedQuery
     ? getSiteUrl(
         `/?${new URLSearchParams({
@@ -45,6 +47,10 @@ export async function generateStorefrontMetadata({
     : category
       ? getSiteUrl(`/${category.slug}`)
       : getSiteUrl("/");
+  const socialTitle =
+    normalizedQuery || category
+      ? `${typeof title === "string" ? title : siteConfig.name} | ${siteConfig.name}`
+      : `${siteConfig.name} | Mobiliario profesional para peluqueria, barberia y salon de belleza`;
 
   return {
     title,
@@ -53,7 +59,7 @@ export async function generateStorefrontMetadata({
       canonical,
     },
     openGraph: {
-      title: `${title} | ${siteConfig.name}`,
+      title: socialTitle,
       description,
       url: canonical,
       images: [
@@ -64,7 +70,7 @@ export async function generateStorefrontMetadata({
       ],
     },
     twitter: {
-      title: `${title} | ${siteConfig.name}`,
+      title: socialTitle,
       description,
       images: [getSiteUrl(siteConfig.ogImagePath)],
     },
@@ -154,10 +160,10 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
 
   const pageHeading = category
     ? category.name
-    : "Sillas, estaciones y mobiliario profesional premium para elevar tu salon.";
+    : "Equipa tu peluqueria, barberia o salon de belleza";
   const pageIntro = category
     ? `Explora ${category.name.toLowerCase()} en ${siteConfig.name}, con referencias para peluqueria, salon de belleza y barberia.`
-    : "Disenado para negocios exigentes que quieren proyectar presencia, orden y confianza desde el primer vistazo.";
+    : "Sillas, camillas, tocadores y mobiliario profesional con garantia y envio a toda Colombia.";
   const collectionDescription = category
     ? `${category.name} para negocios que buscan imagen, funcionalidad y experiencia premium en cada servicio.`
     : "Catalogo de sillas, estaciones y mobiliario profesional premium para salon de belleza, barberia y espacios de alto nivel.";
@@ -208,7 +214,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
               <div className="relative py-3 text-white md:py-4">
                 <div className="grid items-center gap-2.5 md:grid-cols-[minmax(0,1.02fr)_minmax(300px,0.98fr)] md:gap-6">
                   <div className="space-y-2.5 text-left md:space-y-4">
-                    <h1 className="w-full max-w-none text-[1.36rem] font-semibold leading-[0.98] tracking-tight md:max-w-xl md:text-[3rem] md:leading-[0.94]">
+                    <h1 className="w-full max-w-none text-[1.18rem] font-semibold leading-[0.98] tracking-tight md:max-w-xl md:text-[3rem] md:leading-[0.94]">
                       {pageHeading}
                     </h1>
                     <p className="w-full max-w-[19.5rem] text-[13px] leading-[1.45] text-white/80 md:max-w-lg md:text-base md:leading-6">
