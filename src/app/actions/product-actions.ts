@@ -359,9 +359,13 @@ export async function adminDeleteProductAction(formData: FormData): Promise<void
     redirect("/admin/productos?error=Producto+invalido");
   }
 
-  await prisma.product.delete({
-    where: { id: parsed.data.productId },
-  });
+  try {
+    await prisma.product.delete({
+      where: { id: parsed.data.productId },
+    });
+  } catch (error) {
+    buildErrorRedirect("/admin/productos", resolveProductMutationError(error));
+  }
 
   revalidatePath("/");
   revalidatePath("/admin/productos");
