@@ -185,13 +185,12 @@ export function EditProductForm({
               </p>
             </div>
           </div>
+          <ProductFormStepper steps={steps} activeStep={activeStep} />
         </div>
 
       </aside>
 
       <Card className="space-y-6 overflow-hidden px-4 pb-4 pt-0 sm:space-y-7 sm:px-6 sm:pb-6">
-        <ProductFormStepper steps={steps} activeStep={activeStep} />
-
         <form action={adminUpdateProductAction} className="space-y-7">
           <input type="hidden" name="productId" value={initialData.id} />
           <input type="hidden" name="existingImages" value={existingImageUrls.join("\n")} />

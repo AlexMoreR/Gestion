@@ -28,6 +28,25 @@ type NewProductFormProps = {
   currency: SupportedCurrencyCode;
 };
 
+type NewProductDraft = {
+  name: string;
+  code: string;
+  description: string;
+  baseCost: string;
+  retailMarginPct: string;
+  retailPriceInput: string;
+  wholesaleMarginPct: string;
+  wholesalePriceInput: string;
+  minWholesaleQty: string;
+  wholesaleEnabled: boolean;
+  retailPriceDirty: boolean;
+  wholesalePriceDirty: boolean;
+  categoryId: string;
+  supplierId: string;
+};
+
+export const NEW_PRODUCT_DRAFT_KEY = "admin:new-product-draft:v1";
+
 export function NewProductForm({ categories, suppliers, currency }: NewProductFormProps) {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -41,9 +60,13 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
   const [wholesaleEnabled, setWholesaleEnabled] = useState(false);
   const [retailPriceDirty, setRetailPriceDirty] = useState(false);
   const [wholesalePriceDirty, setWholesalePriceDirty] = useState(false);
+  const [categoryId, setCategoryId] = useState("");
+  const [supplierId, setSupplierId] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [mainImageUrls, setMainImageUrls] = useState<string[]>([]);
   const [dragActive, setDragActive] = useState(false);
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -51,6 +74,78 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
       mainImageUrls.forEach((url) => URL.revokeObjectURL(url));
     };
   }, [mainImageUrls]);
+
+  useEffect(() => {
+    try {
+      const rawDraft = window.localStorage.getItem(NEW_PRODUCT_DRAFT_KEY);
+      if (!rawDraft) {
+        setDraftReady(true);
+        return;
+      }
+
+      const draft = JSON.parse(rawDraft) as Partial<NewProductDraft>;
+      setName(draft.name ?? "");
+      setCode(draft.code ?? "");
+      setDescription(draft.description ?? "");
+      setBaseCost(draft.baseCost ?? "0");
+      setRetailMarginPct(draft.retailMarginPct ?? "35");
+      setRetailPriceInput(draft.retailPriceInput ?? "0");
+      setWholesaleMarginPct(draft.wholesaleMarginPct ?? "20");
+      setWholesalePriceInput(draft.wholesalePriceInput ?? "0");
+      setMinWholesaleQty(draft.minWholesaleQty ?? "6");
+      setWholesaleEnabled(draft.wholesaleEnabled ?? false);
+      setRetailPriceDirty(draft.retailPriceDirty ?? false);
+      setWholesalePriceDirty(draft.wholesalePriceDirty ?? false);
+      setCategoryId(draft.categoryId ?? "");
+      setSupplierId(draft.supplierId ?? "");
+      setDraftRestored(true);
+    } catch {
+      window.localStorage.removeItem(NEW_PRODUCT_DRAFT_KEY);
+    } finally {
+      setDraftReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!draftReady) {
+      return;
+    }
+
+    const draft: NewProductDraft = {
+      name,
+      code,
+      description,
+      baseCost,
+      retailMarginPct,
+      retailPriceInput,
+      wholesaleMarginPct,
+      wholesalePriceInput,
+      minWholesaleQty,
+      wholesaleEnabled,
+      retailPriceDirty,
+      wholesalePriceDirty,
+      categoryId,
+      supplierId,
+    };
+
+    window.localStorage.setItem(NEW_PRODUCT_DRAFT_KEY, JSON.stringify(draft));
+  }, [
+    draftReady,
+    name,
+    code,
+    description,
+    baseCost,
+    retailMarginPct,
+    retailPriceInput,
+    wholesaleMarginPct,
+    wholesalePriceInput,
+    minWholesaleQty,
+    wholesaleEnabled,
+    retailPriceDirty,
+    wholesalePriceDirty,
+    categoryId,
+    supplierId,
+  ]);
 
   const pricing = useMemo(() => {
     const cost = Number(baseCost) || 0;
@@ -153,14 +248,18 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
               ) : null}
             </div>
           </div>
+          <ProductFormStepper steps={steps} activeStep={activeStep} />
         </div>
 
       </aside>
 
       <Card className="space-y-6 overflow-hidden px-4 pb-4 pt-0 sm:space-y-7 sm:px-6 sm:pb-6">
-        <ProductFormStepper steps={steps} activeStep={activeStep} />
-
         <form action={adminCreateProductAction} className="space-y-7">
+          {draftRestored ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+              Se restauro el ultimo borrador. Las imagenes deben seleccionarse de nuevo.
+            </div>
+          ) : null}
           <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)] sm:p-5">
             <div className="grid gap-4 md:grid-cols-2">
               <label className="space-y-1.5 md:col-span-2">
@@ -428,7 +527,7 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
               </label>
               <label className="space-y-1.5">
                 <span className="text-sm font-medium text-slate-700">🏷️ Categoria</span>
-                <select name="categoryId" className="field-select" defaultValue="">
+                <select name="categoryId" className="field-select" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
                   <option value="">Sin categoria</option>
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
@@ -439,7 +538,7 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
               </label>
               <label className="space-y-1.5 md:col-span-2">
                 <span className="text-sm font-medium text-slate-700">🚚 Proveedor principal</span>
-                <select name="supplierId" className="field-select" defaultValue="">
+                <select name="supplierId" className="field-select" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
                   <option value="">Sin proveedor</option>
                   {suppliers.map((supplier) => (
                     <option key={supplier.id} value={supplier.id}>

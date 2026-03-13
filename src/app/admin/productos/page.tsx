@@ -50,6 +50,7 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
 
       <ProductsWorkspace
         currency={systemCurrency}
+        okMessage={okMessage}
         categories={categories.map((category) => ({
           id: category.id,
           name: category.name,

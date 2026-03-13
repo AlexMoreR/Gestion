@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Package, Plus, X } from "lucide-react";
 import { EditProductForm } from "@/components/admin/edit-product-form";
-import { NewProductForm } from "@/components/admin/new-product-form";
+import { NEW_PRODUCT_DRAFT_KEY, NewProductForm } from "@/components/admin/new-product-form";
 import { ProductImportExportControls } from "@/components/admin/product-import-export-controls";
 import { ProductsDataTable } from "@/components/admin/products-data-table";
 import type { SupportedCurrencyCode } from "@/lib/currency";
@@ -42,6 +42,7 @@ type ProductsWorkspaceProps = {
   categories: CategoryOption[];
   suppliers: SupplierOption[];
   currency: SupportedCurrencyCode;
+  okMessage?: string;
 };
 
 export function ProductsWorkspace({
@@ -49,6 +50,7 @@ export function ProductsWorkspace({
   categories,
   suppliers,
   currency,
+  okMessage,
 }: ProductsWorkspaceProps) {
   const [modal, setModal] = useState<"new" | "edit" | null>(null);
   const [activeProductId, setActiveProductId] = useState<string | null>(null);
@@ -72,6 +74,12 @@ export function ProductsWorkspace({
     setModal(null);
     setActiveProductId(null);
   };
+
+  useEffect(() => {
+    if (okMessage?.includes("Producto creado")) {
+      window.localStorage.removeItem(NEW_PRODUCT_DRAFT_KEY);
+    }
+  }, [okMessage]);
 
   return (
     <>
