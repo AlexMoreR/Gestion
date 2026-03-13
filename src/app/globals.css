@@ -188,7 +188,7 @@ body {
 
 @page {
   size: A4 landscape;
-  margin: 8mm;
+  margin: 5mm;
 }
 
 @media print {
@@ -234,13 +234,13 @@ body {
   }
 
   .quote-print-stack {
-    gap: 0.5rem !important;
+    gap: 0.65rem !important;
   }
 
   .quote-print-hero-layout {
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) 18rem !important;
-    gap: 0.5rem !important;
+    grid-template-columns: minmax(0, 1fr) 20rem !important;
+    gap: 0.65rem !important;
     align-items: start !important;
   }
 
@@ -279,7 +279,7 @@ body {
     background: #fff !important;
     color: #0f172a !important;
     border-color: #d1d5db !important;
-    padding: 0.5rem !important;
+    padding: 0.7rem !important;
   }
 
   .quote-print-hero-deco,
@@ -290,7 +290,7 @@ body {
   .quote-print-panel {
     background: #fff !important;
     border-color: #d1d5db !important;
-    padding: 0.4rem 0.55rem !important;
+    padding: 0.6rem 0.8rem !important;
     border-radius: 0.8rem !important;
   }
 
@@ -302,13 +302,13 @@ body {
   }
 
   .quote-print-hero-header {
-    margin-bottom: 0.15rem !important;
+    margin-bottom: 0.3rem !important;
   }
 
   .quote-print-hero-header .h-8,
   .quote-print-hero-header .w-8 {
-    height: 1.4rem !important;
-    width: 1.4rem !important;
+    height: 1.65rem !important;
+    width: 1.65rem !important;
   }
 
   .quote-print-hero-header .rounded-lg {
@@ -323,7 +323,7 @@ body {
     text-shadow: none !important;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
-    font-size: 0.62rem !important;
+    font-size: 0.8rem !important;
     font-weight: 700 !important;
     line-height: 1 !important;
   }
@@ -375,8 +375,8 @@ body {
   .quote-print-company-grid {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 0.25rem 0.6rem !important;
-    margin-top: 0.25rem !important;
+    gap: 0.35rem 0.75rem !important;
+    margin-top: 0.35rem !important;
   }
 
   .quote-print-client-desktop,
@@ -389,7 +389,7 @@ body {
   }
 
   .quote-print-field-label {
-    font-size: 0.53rem !important;
+    font-size: 0.68rem !important;
     font-weight: 600 !important;
     line-height: 1.05 !important;
     letter-spacing: 0.03em !important;
@@ -398,10 +398,10 @@ body {
   }
 
   .quote-print-field-value {
-    margin-top: 0.02rem !important;
-    font-size: 0.74rem !important;
+    margin-top: 0.08rem !important;
+    font-size: 0.95rem !important;
     font-weight: 600 !important;
-    line-height: 1.1 !important;
+    line-height: 1.15 !important;
     color: #0f172a !important;
     word-break: break-word !important;
   }
@@ -411,7 +411,7 @@ body {
   }
 
   .quote-print-root h1 {
-    font-size: 1rem !important;
+    font-size: 1.45rem !important;
     line-height: 1.05 !important;
   }
 
@@ -425,30 +425,30 @@ body {
   }
 
   .quote-print-root .text-base {
-    font-size: 0.84rem !important;
+    font-size: 1.05rem !important;
   }
 
   .quote-print-root .text-lg {
-    font-size: 0.92rem !important;
+    font-size: 1.18rem !important;
   }
 
   .quote-print-root .text-sm {
-    font-size: 0.72rem !important;
+    font-size: 0.9rem !important;
   }
 
   .quote-print-root .text-xs {
-    font-size: 0.58rem !important;
+    font-size: 0.78rem !important;
   }
 
   .quote-print-root .text-\[11px\] {
-    font-size: 0.5rem !important;
+    font-size: 0.68rem !important;
   }
 
   .quote-print-root .mt-0\.5,
   .quote-print-root .mt-1,
   .quote-print-root .mt-2,
   .quote-print-root .mt-3 {
-    margin-top: 0.15rem !important;
+    margin-top: 0.22rem !important;
   }
 
   .quote-print-root .pt-2,
@@ -456,23 +456,23 @@ body {
   .quote-print-root .py-2,
   .quote-print-root .py-2\.5,
   .quote-print-root .py-3 {
-    padding-top: 0.2rem !important;
-    padding-bottom: 0.2rem !important;
+    padding-top: 0.3rem !important;
+    padding-bottom: 0.3rem !important;
   }
 
   .quote-print-root .px-3,
   .quote-print-root .px-4 {
-    padding-left: 0.35rem !important;
-    padding-right: 0.35rem !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
   }
 
   .quote-print-root table {
-    font-size: 10px !important;
+    font-size: 12.5px !important;
   }
 
   .quote-print-root th,
   .quote-print-root td {
-    padding: 0.35rem 0.45rem !important;
+    padding: 0.5rem 0.6rem !important;
   }
 }
 
