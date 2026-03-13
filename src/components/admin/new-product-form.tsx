@@ -112,12 +112,12 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
       <aside className="space-y-4 xl:sticky xl:top-8 xl:h-fit xl:space-y-5">
         <div className="space-y-4">
           <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-white">
-            <div className="relative flex h-36 items-center justify-center bg-slate-100">
-              {previewImageUrl ? (
-                <img src={previewImageUrl} alt="Vista previa" className="h-full w-full object-cover" />
-              ) : (
-                <p className="text-xs text-slate-500">Primera imagen del producto</p>
-              )}
+              <div className="relative flex h-52 items-center justify-center bg-slate-100">
+                {previewImageUrl ? (
+                  <img src={previewImageUrl} alt="Vista previa" className="h-full w-full object-contain" />
+                ) : (
+                  <p className="text-xs text-slate-500">Primera imagen del producto</p>
+                )}
               <span className="absolute right-2 top-2 rounded-full border border-[var(--line)] bg-white/95 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                 {code.trim() || "SKU"}
               </span>
