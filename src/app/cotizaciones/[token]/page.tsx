@@ -47,31 +47,37 @@ export default async function QuotePublicPage({ params }: PageProps) {
     dateStyle: "long",
   });
 
-  const subtotal = Number(quote.subtotal);
+  const subtotal = Number(
+    quote.items.reduce((sum, item) => sum + item.quantity * Number(item.unitPrice), 0).toFixed(2),
+  );
+  const additionalCost = Number(
+    quote.items.reduce((sum, item) => sum + parseQuoteItemMeta(item.notes).additionalCost, 0).toFixed(2),
+  );
+  const discount = Number(
+    quote.items.reduce((sum, item) => sum + parseQuoteItemMeta(item.notes).discount, 0).toFixed(2),
+  );
   const total = Number(quote.total);
-  const taxes = Math.max(total - subtotal, 0);
-  const discount = 0;
 
   const supportHref = `https://wa.me/573046481994?text=${encodeURIComponent(
-    `Hola, necesito ayuda con la cotizacion ${quote.code}.`,
+    `Hola, necesito ayuda con la cotización ${quote.code}.`,
   )}`;
   const approveHref = `https://wa.me/573046481994?text=${encodeURIComponent(
-    `Hola, deseo aprobar la cotizacion ${quote.code}.`,
+    `Hola, deseo aprobar la cotización ${quote.code}.`,
   )}`;
   const changesHref = `https://wa.me/573046481994?text=${encodeURIComponent(
-    `Hola, solicito cambios para la cotizacion ${quote.code}.`,
+    `Hola, solicito cambios para la cotización ${quote.code}.`,
   )}`;
   const companyInfo = {
     name: "Magilus",
     nit: "100.61.80.650",
-    cityOrigin: "Cali - Bogota",
-    warranty: "1 ano",
+    cityOrigin: "Cali - Bogotá",
+    warranty: "1 año",
   };
   const clientDocument = quote.client.document || "Por confirmar";
   const deliveryAddress = quote.client.address || "Por confirmar";
   const clientCity = quote.client.city || "Por confirmar";
   const getItemDescription = (notes: string | null) =>
-    parseQuoteItemMeta(notes).description || "Ninguna observacion";
+    parseQuoteItemMeta(notes).description || "Ninguna observación";
 
   return (
     <section className="app-page quote-print-root px-0 pb-8 pt-1 md:px-7 md:pb-12 md:pt-2">
@@ -96,7 +102,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                   </div>
                 </div>
                 <h1 className="ml-auto text-right text-base font-semibold tracking-tight text-white md:text-3xl">
-                  Cotizacion
+                  COTIZACIÓN
                 </h1>
               </div>
 
@@ -109,7 +115,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                     <span className="block truncate font-medium text-white">{clientDocument}</span>
                   </div>
                   <div className="min-w-0">
-                    <span className="block text-sky-100/80">Direccion entrega</span>
+                    <span className="block text-sky-100/80">Dirección de entrega</span>
                     <span className="block truncate font-medium text-white">{deliveryAddress}</span>
                   </div>
                   <div className="min-w-0">
@@ -127,7 +133,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                     <p className="font-medium text-white">{clientDocument}</p>
                   </div>
                   <div className="border-r border-white/15 px-3">
-                    <p className="text-sky-100/80">Direccion entrega</p>
+                    <p className="text-sky-100/80">Dirección de entrega</p>
                     <p className="font-medium text-white">{deliveryAddress}</p>
                   </div>
                   <div className="border-r border-white/15 px-3">
@@ -145,7 +151,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                     <p className="quote-print-field-value">{clientDocument}</p>
                   </div>
                   <div className="quote-print-field">
-                    <p className="quote-print-field-label">Direccion entrega</p>
+                    <p className="quote-print-field-label">Dirección de entrega</p>
                     <p className="quote-print-field-value">{deliveryAddress}</p>
                   </div>
                   <div className="quote-print-field">
@@ -190,7 +196,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                   <span className="block truncate font-medium text-white">{companyInfo.name}</span>
                 </div>
                 <div className="min-w-0 md:flex md:items-center md:justify-between md:gap-3 md:border-b md:border-white/15 md:pb-2">
-                  <span className="block text-sky-100/80 md:text-inherit">Emision</span>
+                  <span className="block text-sky-100/80 md:text-inherit">Emisión</span>
                   <span className="block truncate font-medium text-white">{issuedDate}</span>
                 </div>
                 <div className="min-w-0 md:flex md:items-center md:justify-between md:gap-3">
@@ -198,7 +204,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                   <span className="block truncate font-medium text-white">{companyInfo.cityOrigin}</span>
                 </div>
                 <div className="min-w-0 md:flex md:items-center md:justify-between md:gap-3 md:border-t md:border-white/15 md:pt-2">
-                  <span className="block text-sky-100/80 md:text-inherit">Garantia</span>
+                  <span className="block text-sky-100/80 md:text-inherit">Garantía</span>
                   <span className="block truncate font-medium text-white">{companyInfo.warranty}</span>
                 </div>
               </div>
@@ -208,7 +214,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                   <p className="quote-print-field-value">{companyInfo.name}</p>
                 </div>
                 <div className="quote-print-field">
-                  <p className="quote-print-field-label">Emision</p>
+                  <p className="quote-print-field-label">Emisión</p>
                   <p className="quote-print-field-value">{issuedDate}</p>
                 </div>
                 <div className="quote-print-field">
@@ -216,7 +222,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                   <p className="quote-print-field-value">{companyInfo.cityOrigin}</p>
                 </div>
                 <div className="quote-print-field">
-                  <p className="quote-print-field-label">Garantia</p>
+                  <p className="quote-print-field-label">Garantía</p>
                   <p className="quote-print-field-value">{companyInfo.warranty}</p>
                 </div>
               </div>
@@ -292,7 +298,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                   <tr>
                     <th className="border-b border-r border-slate-200 px-4 py-3 text-left">Imagen</th>
                     <th className="border-b border-r border-slate-200 px-4 py-3 text-left">Servicio / Producto</th>
-                    <th className="border-b border-r border-slate-200 px-4 py-3 text-left">Descripcion</th>
+                    <th className="border-b border-r border-slate-200 px-4 py-3 text-left">Descripción</th>
                     <th className="border-b border-r border-slate-200 px-4 py-3 text-left">CANT</th>
                     <th className="border-b border-r border-slate-200 px-4 py-3 text-left">Precio</th>
                     <th className="border-b border-slate-200 px-4 py-3 text-left">Subtotal</th>
@@ -340,7 +346,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
                 <p className="text-[11px] uppercase tracking-[0.08em] text-slate-500">Valor adicional</p>
-                <p className="mt-1 text-sm font-semibold text-slate-900">{formatMoney(String(taxes), currency)}</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{formatMoney(String(additionalCost), currency)}</p>
               </div>
               <div className="rounded-xl border border-slate-300 bg-slate-100 px-3 py-2">
                 <p className="text-[11px] uppercase tracking-[0.08em] text-slate-600">Valor total</p>
@@ -361,7 +367,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                   <tr>
                     <td className="border-r border-slate-200 px-4 py-3 font-medium text-slate-900">{formatMoney(String(subtotal), currency)}</td>
                     <td className="border-r border-slate-200 px-4 py-3 font-medium text-slate-900">{formatMoney(String(discount), currency)}</td>
-                    <td className="border-r border-slate-200 px-4 py-3 font-medium text-slate-900">{formatMoney(String(taxes), currency)}</td>
+                    <td className="border-r border-slate-200 px-4 py-3 font-medium text-slate-900">{formatMoney(String(additionalCost), currency)}</td>
                     <td className="bg-slate-50/60 px-4 py-3 text-sm font-semibold text-slate-900">{formatMoney(String(total), currency)}</td>
                   </tr>
                 </tbody>
@@ -379,20 +385,20 @@ export default async function QuotePublicPage({ params }: PageProps) {
               </p>
               <p className="mt-1.5">
                 El producto se despacha por medio de una empresa aliada en el campo del transporte. Los plazos de entrega
-                pueden variar por razones ajenas como, por ejemplo: cierre de vias por derrumbes o desastres naturales,
-                fallas mecanicas en los vehiculos encargados del traslado, o que el cliente haya suministrado los datos
-                erroneamente.
+                pueden variar por razones ajenas como, por ejemplo: cierre de vías por derrumbes o desastres naturales,
+                fallas mecánicas en los vehículos encargados del traslado, o que el cliente haya suministrado los datos
+                erróneamente.
               </p>
             </div>
 
             <div>
               <p className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.08em] text-slate-900">
                 <ShieldCheck className="h-4 w-4 text-[var(--primary)]" />
-                GARANTIAS POR MANIPULACION:
+                GARANTÍAS POR MANIPULACIÓN:
               </p>
               <p className="mt-1.5">
-                Una vez le esten haciendo entrega de su pedido debe ser revisado en presencia del auxiliar para verificar
-                su estado o notificar inmediatamente cualquier novedad a nuestra linea{" "}
+                Una vez le estén haciendo entrega de su pedido, debe ser revisado en presencia del auxiliar para verificar
+                su estado o notificar inmediatamente cualquier novedad a nuestra línea{" "}
                 <Link
                   href={supportHref}
                   target="_blank"
@@ -401,20 +407,20 @@ export default async function QuotePublicPage({ params }: PageProps) {
                 >
                   304 6481994
                 </Link>{" "}
-                via WhatsApp para alli
-                indicarle el paso a seguir, ya que una vez firmada la guia perderia la garantia de nuestra parte y pasaria
+                vía WhatsApp para allí
+                indicarle el paso a seguir, ya que una vez firmada la guía perdería la garantía de nuestra parte y pasaría
                 a hacerle el reclamo directamente a la empresa encargada del transporte.
               </p>
-              <p className="mt-1.5">Usted como cliente tiene 15 minutos para la verificacion de su pedido.</p>
+              <p className="mt-1.5">Usted, como cliente, tiene 15 minutos para la verificación de su pedido.</p>
             </div>
 
             <div>
               <p className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.08em] text-slate-900">
                 <Wrench className="h-4 w-4 text-[var(--primary)]" />
-                GARANTIAS POR DEFECTOS DE FABRICACION:
+                GARANTÍAS POR DEFECTOS DE FABRICACIÓN:
               </p>
               <p className="mt-1.5">
-                Debe enviarnos fotos y videos a la linea{" "}
+                Debe enviarnos fotos y videos a la línea{" "}
                 <Link
                   href={supportHref}
                   target="_blank"
@@ -423,7 +429,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                 >
                   304 6481994
                 </Link>{" "}
-                para verificar si la falla es por defecto de fabricacion
+                para verificar si la falla es por defecto de fabricación
                 y si son realmente nuestros productos.
               </p>
             </div>
@@ -434,11 +440,11 @@ export default async function QuotePublicPage({ params }: PageProps) {
           <article className="rounded-2xl border border-slate-200/85 bg-white/92 p-4 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.45)]">
             <LifeBuoy className="h-5 w-5 text-sky-600" />
             <p className="mt-2 text-sm font-semibold text-slate-900">Soporte incluido</p>
-            <p className="mt-1 text-xs text-slate-600">Acompanamiento de principio a fin en implementacion y dudas.</p>
+            <p className="mt-1 text-xs text-slate-600">Acompañamiento de principio a fin en implementación y dudas.</p>
           </article>
           <article className="rounded-2xl border border-slate-200/85 bg-white/92 p-4 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.45)]">
             <ShieldCheck className="h-5 w-5 text-emerald-600" />
-            <p className="mt-2 text-sm font-semibold text-slate-900">Garantia del servicio</p>
+            <p className="mt-2 text-sm font-semibold text-slate-900">Garantía del servicio</p>
             <p className="mt-1 text-xs text-slate-600">Cobertura de calidad y respaldo sobre entregables acordados.</p>
           </article>
           <article className="rounded-2xl border border-slate-200/85 bg-white/92 p-4 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.45)]">
@@ -449,7 +455,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
           <article className="rounded-2xl border border-slate-200/85 bg-white/92 p-4 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.45)]">
             <WalletCards className="h-5 w-5 text-amber-600" />
             <p className="mt-2 text-sm font-semibold text-slate-900">Forma de pago</p>
-            <p className="mt-1 text-xs text-slate-600">Pago flexible segun avance y condiciones comerciales.</p>
+            <p className="mt-1 text-xs text-slate-600">Pago flexible según avance y condiciones comerciales.</p>
           </article>
         </section>
 
@@ -491,14 +497,14 @@ export default async function QuotePublicPage({ params }: PageProps) {
           <div className="flex flex-col gap-3 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-3">
               <span
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold text-white"
+                className="quote-print-logo-mark inline-flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold text-white"
                 style={{ backgroundImage: "linear-gradient(135deg, var(--primary-strong), var(--primary))" }}
               >
-                IM
+                M
               </span>
               <div>
                 <p className="font-semibold text-slate-900">Magilus</p>
-                <p className="text-xs text-slate-500">Soluciones empresariales y acompanamiento comercial</p>
+                <p className="text-xs text-slate-500">Soluciones empresariales y acompañamiento comercial</p>
               </div>
             </div>
             <div className="grid gap-1 text-xs sm:grid-cols-2 sm:gap-x-5">
