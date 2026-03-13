@@ -706,7 +706,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                   <div className="grid gap-2 rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white p-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="rounded-lg border border-slate-200 bg-white/80 px-3 py-2">
                       <span className="text-sm font-medium text-slate-700">Subtotal</span>
-                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                      <p className="mt-1 text-lg font-medium text-slate-700">
                         {quoteSubtotal.toLocaleString("es-CO", {
                           style: "currency",
                           currency,
@@ -716,7 +716,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                     </div>
                     <div className="rounded-lg border border-slate-200 bg-white/80 px-3 py-2">
                       <span className="text-sm font-medium text-slate-700">Descuento</span>
-                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                      <p className="mt-1 text-lg font-medium text-slate-700">
                         {quoteDiscountTotal.toLocaleString("es-CO", {
                           style: "currency",
                           currency,
@@ -726,7 +726,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                     </div>
                     <div className="rounded-lg border border-slate-200 bg-white/80 px-3 py-2">
                       <span className="text-sm font-medium text-slate-700">Valor adicional</span>
-                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                      <p className="mt-1 text-lg font-medium text-slate-700">
                         {quoteAdditionalCostTotal.toLocaleString("es-CO", {
                           style: "currency",
                           currency,
@@ -734,9 +734,9 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                         })}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-[var(--primary)] bg-white px-3 py-2">
+                    <div className="rounded-lg border border-slate-200 bg-white/80 px-3 py-2">
                       <span className="text-sm font-medium text-slate-700">Total</span>
-                      <p className="mt-1 text-lg font-semibold text-[var(--primary-strong)]">
+                      <p className="mt-1 text-lg font-bold text-slate-900">
                         {quoteTotal.toLocaleString("es-CO", {
                           style: "currency",
                           currency,
@@ -860,7 +860,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                   <div className="grid gap-2 rounded-lg border border-[var(--line)] bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
                       <span className="text-sm font-medium text-slate-700">Subtotal</span>
-                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                      <p className="mt-1 text-lg font-medium text-slate-700">
                         {quoteSubtotal.toLocaleString("es-CO", {
                           style: "currency",
                           currency,
@@ -870,7 +870,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                     </div>
                     <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
                       <span className="text-sm font-medium text-slate-700">Descuento</span>
-                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                      <p className="mt-1 text-lg font-medium text-slate-700">
                         {quoteDiscountTotal.toLocaleString("es-CO", {
                           style: "currency",
                           currency,
@@ -880,7 +880,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                     </div>
                     <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
                       <span className="text-sm font-medium text-slate-700">Valor adicional</span>
-                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                      <p className="mt-1 text-lg font-medium text-slate-700">
                         {quoteAdditionalCostTotal.toLocaleString("es-CO", {
                           style: "currency",
                           currency,
@@ -888,9 +888,9 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                         })}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-[var(--primary)] bg-white px-3 py-2">
+                    <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
                       <span className="text-sm font-medium text-slate-700">Total</span>
-                      <p className="mt-1 text-lg font-semibold text-[var(--primary-strong)]">
+                      <p className="mt-1 text-lg font-bold text-slate-900">
                         {quoteTotal.toLocaleString("es-CO", {
                           style: "currency",
                           currency,
