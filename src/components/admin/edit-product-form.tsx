@@ -19,7 +19,7 @@ import { ProductFormStepper } from "@/components/admin/product-form-stepper";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
-import { calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
+import { calculateProfit, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
 
 type CategoryOption = {
   id: string;
@@ -37,6 +37,7 @@ type EditProductInitialData = {
   name: string;
   description: string | null;
   baseCost: number;
+  price: number;
   retailMarginPct: number;
   wholesaleMarginPct: number;
   minWholesaleQty: number;
@@ -58,13 +59,18 @@ export function EditProductForm({
   currency,
   initialData,
 }: EditProductFormProps) {
+  const initialSuggestedRetailPrice = calculateRetailPrice(initialData.baseCost, initialData.retailMarginPct);
   const [name, setName] = useState(initialData.name);
   const [code, setCode] = useState(initialData.code ?? "");
   const [description, setDescription] = useState(initialData.description ?? "");
   const [baseCost, setBaseCost] = useState(initialData.baseCost.toFixed(2));
   const [retailMarginPct, setRetailMarginPct] = useState(initialData.retailMarginPct.toFixed(2));
+  const [retailPriceInput, setRetailPriceInput] = useState(initialData.price.toFixed(2));
   const [wholesaleMarginPct, setWholesaleMarginPct] = useState(initialData.wholesaleMarginPct.toFixed(2));
   const [minWholesaleQty, setMinWholesaleQty] = useState(String(initialData.minWholesaleQty));
+  const [retailPriceDirty, setRetailPriceDirty] = useState(
+    () => Math.abs(initialData.price - initialSuggestedRetailPrice) > 0.009,
+  );
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [newImageUrls, setNewImageUrls] = useState<string[]>([]);
   const [existingImageUrls, setExistingImageUrls] = useState(initialData.imageUrls);
@@ -77,20 +83,29 @@ export function EditProductForm({
     };
   }, [newImageUrls]);
 
-  const previewPrices = useMemo(() => {
+  const pricing = useMemo(() => {
     const cost = Number(baseCost) || 0;
     const retailMargin = Number(retailMarginPct) || 0;
     const wholesaleMargin = Number(wholesaleMarginPct) || 0;
+    const suggestedRetail = calculateRetailPrice(cost, retailMargin);
+    const finalRetail = retailPriceDirty ? Number(retailPriceInput) || 0 : suggestedRetail;
+    const profit = calculateProfit(cost, finalRetail);
 
-    const retail = calculateRetailPrice(cost, retailMargin);
     const wholesale = calculateWholesalePrice(cost, wholesaleMargin);
 
     return {
-      retail: formatMoney(retail, currency),
+      suggestedRetail,
+      finalRetail,
+      profit,
+      retail: formatMoney(finalRetail, currency),
+      suggestedRetailLabel: formatMoney(suggestedRetail, currency),
       wholesale: formatMoney(wholesale, currency),
+      profitLabel: formatMoney(profit, currency),
       cost: formatMoney(cost, currency),
     };
-  }, [baseCost, retailMarginPct, wholesaleMarginPct, currency]);
+  }, [baseCost, retailMarginPct, retailPriceInput, retailPriceDirty, wholesaleMarginPct, currency]);
+
+  const retailPriceFieldValue = retailPriceDirty ? retailPriceInput : pricing.suggestedRetail.toFixed(2);
 
   const allImageUrls = useMemo(
     () => [...existingImageUrls, ...newImageUrls],
@@ -101,6 +116,7 @@ export function EditProductForm({
   const step2Ready =
     Number(baseCost) > 0 &&
     Number(retailMarginPct) >= 0 &&
+    pricing.finalRetail > 0 &&
     Number(wholesaleMarginPct) >= 0 &&
     Number(minWholesaleQty) >= 1;
   const activeStep = !step1Ready ? 1 : !step2Ready ? 2 : 3;
@@ -158,9 +174,9 @@ export function EditProductForm({
               ) : (
                 <p className="text-xs text-slate-400">Agrega descripcion para completar la ficha.</p>
               )}
-              <p className="text-lg font-semibold tracking-tight text-slate-900">{previewPrices.retail}</p>
+              <p className="text-lg font-semibold tracking-tight text-slate-900">{pricing.retail}</p>
               <p className="text-xs text-slate-600">
-                Mayorista: {previewPrices.wholesale} (min {minWholesaleQty || "1"} uds)
+                Mayorista: {pricing.wholesale} (min {minWholesaleQty || "1"} uds)
               </p>
             </div>
           </div>
@@ -289,7 +305,7 @@ export function EditProductForm({
           <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 sm:p-5">
             <div className="space-y-1 border-b border-[var(--line)] pb-3">
               <h2 className="text-sm font-semibold text-slate-900">Precios</h2>
-              <p className="text-xs text-slate-500">Ajusta costo y margenes actuales.</p>
+              <p className="text-xs text-slate-500">Ajusta costo, precio sugerido y precio final real del producto.</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="space-y-1.5">
@@ -320,6 +336,46 @@ export function EditProductForm({
                   required
                   value={retailMarginPct}
                   onChange={(e) => setRetailMarginPct(e.target.value)}
+                />
+              </label>
+              <label className="space-y-1.5">
+                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
+                  <CircleDollarSign className="h-3.5 w-3.5 text-slate-500" />
+                  Precio sugerido
+                </span>
+                <Input
+                  value={pricing.suggestedRetailLabel}
+                  readOnly
+                  className="bg-slate-100 text-slate-600"
+                />
+              </label>
+              <label className="space-y-1.5">
+                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
+                  <CircleDollarSign className="h-3.5 w-3.5 text-slate-500" />
+                  Precio final
+                </span>
+                <Input
+                  name="retailPrice"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  required
+                  value={retailPriceFieldValue}
+                  onChange={(e) => {
+                    setRetailPriceInput(e.target.value);
+                    setRetailPriceDirty(true);
+                  }}
+                />
+              </label>
+              <label className="space-y-1.5">
+                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
+                  <CircleDollarSign className="h-3.5 w-3.5 text-slate-500" />
+                  Ganancia
+                </span>
+                <Input
+                  value={pricing.profitLabel}
+                  readOnly
+                  className="bg-slate-100 text-slate-600"
                 />
               </label>
               <label className="space-y-1.5">

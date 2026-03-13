@@ -52,7 +52,7 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
             <span>{product.name}</span>
           </h1>
           <p className="mt-0.5 text-[13px] leading-5 text-slate-600">
-            Visualiza y edita el producto con el mismo flujo del formulario de creacion.
+            Visualiza y ajusta costo, sugerencia y precio final con el mismo flujo del formulario de creacion.
           </p>
         </div>
       </div>
@@ -68,14 +68,15 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
         categories={categories}
         suppliers={suppliers}
         currency={systemCurrency}
-        initialData={{
-          id: product.id,
-          code: product.code,
-          name: product.name,
-          description: product.description,
-          baseCost: Number(product.baseCost),
-          retailMarginPct: Number(product.retailMarginPct),
-          wholesaleMarginPct: Number(product.wholesaleMarginPct),
+          initialData={{
+            id: product.id,
+            code: product.code,
+            name: product.name,
+            description: product.description,
+            baseCost: Number(product.baseCost),
+            price: Number(product.price),
+            retailMarginPct: Number(product.retailMarginPct),
+            wholesaleMarginPct: Number(product.wholesaleMarginPct),
           minWholesaleQty: product.minWholesaleQty,
           categoryId: product.categoryId,
           supplierId: product.suppliers[0]?.supplier.id ?? null,

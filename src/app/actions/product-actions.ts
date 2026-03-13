@@ -9,7 +9,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
+import { calculateMarginPctFromPrice, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
 
 const baseProductSchema = z.object({
   code: z.string().trim().max(60, "Codigo demasiado largo").optional(),
@@ -17,6 +17,7 @@ const baseProductSchema = z.object({
   description: z.string().trim().max(4000, "Descripcion demasiado larga").optional(),
   baseCost: z.coerce.number().positive("El costo debe ser mayor que 0"),
   retailMarginPct: z.coerce.number().min(0, "El margen detal no puede ser negativo").max(1000),
+  retailPrice: z.coerce.number().positive("El precio final debe ser mayor que 0"),
   wholesaleMarginPct: z.coerce.number().min(0, "El margen mayorista no puede ser negativo").max(1000),
   minWholesaleQty: z.coerce.number().int().min(1, "Cantidad mayorista invalida").max(100000),
   categoryId: z.string().trim().optional(),
@@ -178,6 +179,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
     description: formData.get("description") || undefined,
     baseCost: formData.get("baseCost"),
     retailMarginPct: formData.get("retailMarginPct"),
+    retailPrice: formData.get("retailPrice"),
     wholesaleMarginPct: formData.get("wholesaleMarginPct"),
     minWholesaleQty: formData.get("minWholesaleQty"),
     categoryId: formData.get("categoryId") || undefined,
@@ -202,7 +204,8 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
   const thumbnailUrl = imageList[0];
   const categoryId = parseOptionalId(parsed.data.categoryId);
   const supplierId = parseOptionalId(parsed.data.supplierId);
-  const retailPrice = calculateRetailPrice(parsed.data.baseCost, parsed.data.retailMarginPct);
+  const retailPrice = parsed.data.retailPrice;
+  const effectiveRetailMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost, retailPrice);
   const wholesalePrice = calculateWholesalePrice(parsed.data.baseCost, parsed.data.wholesaleMarginPct);
 
   try {
@@ -212,7 +215,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
         code: parsed.data.code || null,
         description: parsed.data.description || null,
         baseCost: parsed.data.baseCost,
-        retailMarginPct: parsed.data.retailMarginPct,
+        retailMarginPct: effectiveRetailMarginPct,
         wholesaleMarginPct: parsed.data.wholesaleMarginPct,
         minWholesaleQty: parsed.data.minWholesaleQty,
         price: retailPrice,
@@ -259,6 +262,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
     description: formData.get("description") || undefined,
     baseCost: formData.get("baseCost"),
     retailMarginPct: formData.get("retailMarginPct"),
+    retailPrice: formData.get("retailPrice"),
     wholesaleMarginPct: formData.get("wholesaleMarginPct"),
     minWholesaleQty: formData.get("minWholesaleQty"),
     categoryId: formData.get("categoryId") || undefined,
@@ -304,7 +308,8 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
   const thumbnailUrl = imageList[0];
   const categoryId = parseOptionalId(parsed.data.categoryId);
   const supplierId = parseOptionalId(parsed.data.supplierId);
-  const retailPrice = calculateRetailPrice(parsed.data.baseCost, parsed.data.retailMarginPct);
+  const retailPrice = parsed.data.retailPrice;
+  const effectiveRetailMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost, retailPrice);
   const wholesalePrice = calculateWholesalePrice(parsed.data.baseCost, parsed.data.wholesaleMarginPct);
 
   try {
@@ -316,7 +321,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
           code: parsed.data.code || null,
           description: parsed.data.description || null,
           baseCost: parsed.data.baseCost,
-          retailMarginPct: parsed.data.retailMarginPct,
+          retailMarginPct: effectiveRetailMarginPct,
           wholesaleMarginPct: parsed.data.wholesaleMarginPct,
           minWholesaleQty: parsed.data.minWholesaleQty,
           price: retailPrice,

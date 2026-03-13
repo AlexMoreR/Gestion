@@ -25,7 +25,7 @@ export default async function AdminNuevoProductoPage() {
             <span>Nuevo producto</span>
           </h1>
           <p className="mt-0.5 text-[13px] leading-5 text-slate-600">
-            Define costo, margenes y categoria. El precio detal y mayorista se calculan automaticamente.
+            Define costo, porcentaje y precio final comercial antes de guardar el producto.
           </p>
         </div>
       </div>

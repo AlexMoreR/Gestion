@@ -163,6 +163,7 @@ export function ProductsWorkspace({
                 name: activeProduct.name,
                 description: activeProduct.description,
                 baseCost: activeProduct.baseCost,
+                price: activeProduct.price,
                 retailMarginPct: activeProduct.retailMarginPct,
                 wholesaleMarginPct: activeProduct.wholesaleMarginPct,
                 minWholesaleQty: activeProduct.minWholesaleQty,
