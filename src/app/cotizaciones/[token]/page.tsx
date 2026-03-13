@@ -63,7 +63,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
   )}`;
   const companyInfo = {
     name: "Magilus",
-    nit: "900.123.456-7",
+    nit: "100.61.80.650",
     cityOrigin: "Cali - Bogota",
     warranty: "1 ano",
   };
@@ -71,7 +71,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
   const deliveryAddress = quote.client.address || "Por confirmar";
   const clientCity = quote.client.city || "Por confirmar";
   const getItemDescription = (notes: string | null) =>
-    parseQuoteItemMeta(notes).description || "Implementacion y configuracion segun requerimiento.";
+    parseQuoteItemMeta(notes).description || "Ninguna observacion";
 
   return (
     <section className="app-page px-0 pb-8 pt-1 md:px-7 md:pb-12 md:pt-2">
