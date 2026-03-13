@@ -391,7 +391,7 @@ body {
   }
 
   .quote-print-field-label {
-    font-size: 14px !important;
+    font-size: 28px !important;
     font-weight: 600 !important;
     line-height: 1.05 !important;
     letter-spacing: 0.03em !important;
@@ -401,7 +401,7 @@ body {
 
   .quote-print-field-value {
     margin-top: 0.08rem !important;
-    font-size: 14px !important;
+    font-size: 28px !important;
     font-weight: 400 !important;
     line-height: 1.1 !important;
     color: #0f172a !important;
@@ -413,7 +413,7 @@ body {
   }
 
   .quote-print-root h1 {
-    font-size: 80px !important;
+    font-size: 28px !important;
     line-height: 1.05 !important;
   }
 
@@ -423,28 +423,28 @@ body {
   .quote-print-root td,
   .quote-print-root th,
   .quote-print-root a {
-    font-size: 22px !important;
+    font-size: 28px !important;
     line-height: 1.2 !important;
   }
 
   .quote-print-root .text-base {
-    font-size: 22px !important;
+    font-size: 28px !important;
   }
 
   .quote-print-root .text-lg {
-    font-size: 22px !important;
+    font-size: 28px !important;
   }
 
   .quote-print-root .text-sm {
-    font-size: 22px !important;
+    font-size: 28px !important;
   }
 
   .quote-print-root .text-xs {
-    font-size: 22px !important;
+    font-size: 28px !important;
   }
 
   .quote-print-root .text-\[11px\] {
-    font-size: 22px !important;
+    font-size: 28px !important;
   }
 
   .quote-print-root .mt-0\.5,
@@ -470,7 +470,7 @@ body {
   }
 
   .quote-print-root table {
-    font-size: 22px !important;
+    font-size: 28px !important;
   }
 
   .quote-print-root th,
@@ -479,13 +479,13 @@ body {
   }
 
   .quote-print-root thead th {
-    font-size: 22px !important;
+    font-size: 28px !important;
     font-weight: 700 !important;
     letter-spacing: 0.05em !important;
   }
 
   .quote-print-root tbody td {
-    font-size: 22px !important;
+    font-size: 28px !important;
     line-height: 1.18 !important;
   }
 
@@ -513,22 +513,22 @@ body {
   }
 
   .quote-print-root .border-b.border-slate-200\/80.bg-slate-50\/70 h2 {
-    font-size: 22px !important;
+    font-size: 28px !important;
     letter-spacing: 0.04em !important;
   }
 
   .quote-print-root section:not(.quote-print-hero) p,
   .quote-print-root section:not(.quote-print-hero) span,
   .quote-print-root section:not(.quote-print-hero) a {
-    font-size: 22px !important;
+    font-size: 28px !important;
   }
 
   .quote-print-root .quote-print-field-label {
-    font-size: 18px !important;
+    font-size: 28px !important;
   }
 
   .quote-print-root .quote-print-field-value {
-    font-size: 18px !important;
+    font-size: 28px !important;
     font-weight: 400 !important;
   }
 }
