@@ -188,7 +188,7 @@ body {
 
 @page {
   size: A4 landscape;
-  margin: 4mm;
+  margin: 3mm;
 }
 
 @media print {
@@ -239,7 +239,7 @@ body {
 
   .quote-print-hero-layout {
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) 21rem !important;
+    grid-template-columns: minmax(0, 1fr) 22rem !important;
     gap: 0.55rem !important;
     align-items: start !important;
   }
@@ -279,7 +279,7 @@ body {
     background: #fff !important;
     color: #0f172a !important;
     border-color: #d1d5db !important;
-    padding: 0.75rem !important;
+    padding: 0.82rem !important;
   }
 
   .quote-print-hero-deco,
@@ -290,7 +290,7 @@ body {
   .quote-print-panel {
     background: #fff !important;
     border-color: #d1d5db !important;
-    padding: 0.62rem 0.82rem !important;
+    padding: 0.72rem 0.92rem !important;
     border-radius: 0.8rem !important;
   }
 
@@ -323,7 +323,7 @@ body {
     text-shadow: none !important;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
-    font-size: 0.88rem !important;
+    font-size: 0.96rem !important;
     font-weight: 700 !important;
     line-height: 1 !important;
   }
@@ -389,7 +389,7 @@ body {
   }
 
   .quote-print-field-label {
-    font-size: 0.75rem !important;
+    font-size: 0.82rem !important;
     font-weight: 600 !important;
     line-height: 1.05 !important;
     letter-spacing: 0.03em !important;
@@ -399,7 +399,7 @@ body {
 
   .quote-print-field-value {
     margin-top: 0.08rem !important;
-    font-size: 1.05rem !important;
+    font-size: 1.14rem !important;
     font-weight: 600 !important;
     line-height: 1.1 !important;
     color: #0f172a !important;
@@ -411,7 +411,7 @@ body {
   }
 
   .quote-print-root h1 {
-    font-size: 1.6rem !important;
+    font-size: 1.78rem !important;
     line-height: 1.05 !important;
   }
 
@@ -425,23 +425,23 @@ body {
   }
 
   .quote-print-root .text-base {
-    font-size: 1.14rem !important;
+    font-size: 1.22rem !important;
   }
 
   .quote-print-root .text-lg {
-    font-size: 1.28rem !important;
+    font-size: 1.38rem !important;
   }
 
   .quote-print-root .text-sm {
-    font-size: 0.98rem !important;
+    font-size: 1.06rem !important;
   }
 
   .quote-print-root .text-xs {
-    font-size: 0.84rem !important;
+    font-size: 0.92rem !important;
   }
 
   .quote-print-root .text-\[11px\] {
-    font-size: 0.74rem !important;
+    font-size: 0.82rem !important;
   }
 
   .quote-print-root .mt-0\.5,
@@ -467,12 +467,33 @@ body {
   }
 
   .quote-print-root table {
-    font-size: 13.5px !important;
+    font-size: 15px !important;
   }
 
   .quote-print-root th,
   .quote-print-root td {
-    padding: 0.52rem 0.62rem !important;
+    padding: 0.58rem 0.72rem !important;
+  }
+
+  .quote-print-root thead th {
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.05em !important;
+  }
+
+  .quote-print-root tbody td {
+    font-size: 0.98rem !important;
+    line-height: 1.16 !important;
+  }
+
+  .quote-print-root tbody td p {
+    font-size: inherit !important;
+    line-height: inherit !important;
+  }
+
+  .quote-print-root .h-12.w-12 {
+    height: 3.6rem !important;
+    width: 3.6rem !important;
   }
 
   .quote-print-root .space-y-4 > :not([hidden]) ~ :not([hidden]) {
