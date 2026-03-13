@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import {
   BadgeCheck,
   Clock3,
-  Download,
   LifeBuoy,
   MessageCircleMore,
   ShieldCheck,
@@ -11,6 +10,7 @@ import {
   Wrench,
   WalletCards,
 } from "lucide-react";
+import { DownloadQuotePdfButton } from "@/components/quotes/download-quote-pdf-button";
 import { formatMoney } from "@/lib/currency";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
@@ -56,10 +56,10 @@ export default async function QuotePublicPage({ params }: PageProps) {
     `Hola, necesito ayuda con la cotizacion ${quote.code}.`,
   )}`;
   const approveHref = `https://wa.me/573046481994?text=${encodeURIComponent(
-    `Hola, deseo aprobar la cotización ${quote.code}.`,
+    `Hola, deseo aprobar la cotizacion ${quote.code}.`,
   )}`;
   const changesHref = `https://wa.me/573046481994?text=${encodeURIComponent(
-    `Hola, solicito cambios para la cotización ${quote.code}.`,
+    `Hola, solicito cambios para la cotizacion ${quote.code}.`,
   )}`;
   const companyInfo = {
     name: "Magilus",
@@ -74,21 +74,21 @@ export default async function QuotePublicPage({ params }: PageProps) {
     parseQuoteItemMeta(notes).description || "Ninguna observacion";
 
   return (
-    <section className="app-page px-0 pb-8 pt-1 md:px-7 md:pb-12 md:pt-2">
-      <div className="flex w-full flex-col gap-5 md:gap-6">
-        <section className="relative overflow-hidden rounded-[1.4rem] border border-white/55 bg-gradient-to-br from-[#0f172a] via-[#1e3a8a] to-[#0f766e] p-2.5 shadow-[0_26px_70px_-34px_rgba(15,23,42,0.7)] md:p-4">
-          <div className="pointer-events-none absolute -left-12 -top-16 h-56 w-56 rounded-full bg-cyan-200/25 blur-3xl" />
-          <div className="pointer-events-none absolute -right-20 bottom-0 h-64 w-64 rounded-full bg-emerald-200/20 blur-3xl" />
+    <section className="app-page quote-print-root px-0 pb-8 pt-1 md:px-7 md:pb-12 md:pt-2">
+      <div className="quote-print-stack flex w-full flex-col gap-5 md:gap-6">
+        <section className="quote-print-card quote-print-hero relative overflow-hidden rounded-[1.4rem] border border-white/55 bg-gradient-to-br from-[#0f172a] via-[#1e3a8a] to-[#0f766e] p-2.5 shadow-[0_26px_70px_-34px_rgba(15,23,42,0.7)] md:p-4">
+          <div className="quote-print-hero-deco pointer-events-none absolute -left-12 -top-16 h-56 w-56 rounded-full bg-cyan-200/25 blur-3xl" />
+          <div className="quote-print-hero-deco pointer-events-none absolute -right-20 bottom-0 h-64 w-64 rounded-full bg-emerald-200/20 blur-3xl" />
 
-          <div className="relative grid gap-3 lg:grid-cols-[minmax(0,1fr)_17rem]">
-            <div className="space-y-2">
-              <div className="flex items-start justify-between gap-2">
+          <div className="quote-print-hero-layout relative grid gap-3 lg:grid-cols-[minmax(0,1fr)_17rem]">
+            <div className="quote-print-hero-main space-y-2">
+              <div className="quote-print-hero-header flex items-start justify-between gap-2">
                 <div className="inline-flex items-center gap-2 px-0 py-0">
                   <span
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white"
+                    className="quote-print-logo-mark inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white"
                     style={{ backgroundImage: "linear-gradient(135deg, var(--primary-strong), var(--primary))" }}
                   >
-                    IM
+                    M
                   </span>
                   <div>
                     <p className="text-xs font-semibold text-white">{companyInfo.name}</p>
@@ -96,14 +96,14 @@ export default async function QuotePublicPage({ params }: PageProps) {
                   </div>
                 </div>
                 <h1 className="ml-auto text-right text-base font-semibold tracking-tight text-white md:text-3xl">
-                  Cotización
+                  Cotizacion
                 </h1>
               </div>
 
-              <div className="rounded-2xl border border-white/28 bg-white/14 p-2.5 backdrop-blur-md md:p-3">
+              <div className="quote-print-panel quote-print-client-panel rounded-2xl border border-white/28 bg-white/14 p-2.5 backdrop-blur-md md:p-3">
                 <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Datos cliente</p>
                 <p className="mt-0.5 text-base font-semibold tracking-tight text-white md:text-lg">{quote.client.name || "Por confirmar"}</p>
-                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-sky-100 md:hidden">
+                <div className="quote-print-mobile mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-sky-100 md:hidden">
                   <div className="min-w-0">
                     <span className="block text-sky-100/80">NIT / C.C</span>
                     <span className="block truncate font-medium text-white">{clientDocument}</span>
@@ -121,7 +121,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                     <span className="block truncate font-medium text-white">{quote.client.department || "Por confirmar"}</span>
                   </div>
                 </div>
-                <div className="mt-2 hidden md:grid md:grid-cols-4 md:gap-0 md:text-sm">
+                <div className="quote-print-client-desktop mt-2 hidden md:grid md:grid-cols-4 md:gap-0 md:text-sm">
                   <div className="border-r border-white/15 pr-3">
                     <p className="text-sky-100/80">NIT / C.C</p>
                     <p className="font-medium text-white">{clientDocument}</p>
@@ -139,9 +139,27 @@ export default async function QuotePublicPage({ params }: PageProps) {
                     <p className="font-medium text-white">{quote.client.department || "Por confirmar"}</p>
                   </div>
                 </div>
+                <div className="quote-print-client-grid hidden">
+                  <div className="quote-print-field">
+                    <p className="quote-print-field-label">NIT / C.C</p>
+                    <p className="quote-print-field-value">{clientDocument}</p>
+                  </div>
+                  <div className="quote-print-field">
+                    <p className="quote-print-field-label">Direccion entrega</p>
+                    <p className="quote-print-field-value">{deliveryAddress}</p>
+                  </div>
+                  <div className="quote-print-field">
+                    <p className="quote-print-field-label">Ciudad</p>
+                    <p className="quote-print-field-value">{clientCity}</p>
+                  </div>
+                  <div className="quote-print-field">
+                    <p className="quote-print-field-label">Departamento</p>
+                    <p className="quote-print-field-value">{quote.client.department || "Por confirmar"}</p>
+                  </div>
+                </div>
               </div>
 
-              <div className="hidden flex-wrap justify-center gap-2 pt-1 md:flex">
+              <div className="quote-print-hide hidden flex-wrap justify-center gap-2 pt-1 md:flex">
                 <Link
                   href={approveHref}
                   target="_blank"
@@ -161,13 +179,12 @@ export default async function QuotePublicPage({ params }: PageProps) {
                   Cambios
                 </Link>
               </div>
-
             </div>
 
-            <aside className="rounded-2xl border border-white/28 bg-white/15 p-2.5 backdrop-blur-md md:p-3">
+            <aside className="quote-print-panel quote-print-company-panel rounded-2xl border border-white/28 bg-white/15 p-2.5 backdrop-blur-md md:p-3">
               <p className="text-[11px] uppercase tracking-[0.1em] text-sky-100/80">Datos de empresa</p>
               <p className="mt-0.5 text-base font-semibold tracking-tight text-white md:text-lg">{quote.code}</p>
-              <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-sky-100 md:block md:space-y-2 md:text-sm">
+              <div className="quote-print-company-desktop mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px] text-sky-100 md:block md:space-y-2 md:text-sm">
                 <div className="min-w-0 md:flex md:items-center md:justify-between md:gap-3 md:border-b md:border-white/15 md:pb-2">
                   <span className="block text-sky-100/80 md:text-inherit">Empresa</span>
                   <span className="block truncate font-medium text-white">{companyInfo.name}</span>
@@ -185,9 +202,27 @@ export default async function QuotePublicPage({ params }: PageProps) {
                   <span className="block truncate font-medium text-white">{companyInfo.warranty}</span>
                 </div>
               </div>
+              <div className="quote-print-company-grid hidden">
+                <div className="quote-print-field">
+                  <p className="quote-print-field-label">Empresa</p>
+                  <p className="quote-print-field-value">{companyInfo.name}</p>
+                </div>
+                <div className="quote-print-field">
+                  <p className="quote-print-field-label">Emision</p>
+                  <p className="quote-print-field-value">{issuedDate}</p>
+                </div>
+                <div className="quote-print-field">
+                  <p className="quote-print-field-label">Ciudad de origen</p>
+                  <p className="quote-print-field-value">{companyInfo.cityOrigin}</p>
+                </div>
+                <div className="quote-print-field">
+                  <p className="quote-print-field-label">Garantia</p>
+                  <p className="quote-print-field-value">{companyInfo.warranty}</p>
+                </div>
+              </div>
             </aside>
           </div>
-          <div className="mt-3 flex flex-wrap justify-center gap-2 md:hidden">
+          <div className="quote-print-hide mt-3 flex flex-wrap justify-center gap-2 md:hidden">
             <Link
               href={approveHref}
               target="_blank"
@@ -210,11 +245,11 @@ export default async function QuotePublicPage({ params }: PageProps) {
         </section>
 
         <div className="space-y-2">
-          <section className="overflow-hidden rounded-2xl border border-slate-200/85 bg-white/92 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] backdrop-blur-sm">
+          <section className="quote-print-card overflow-hidden rounded-2xl border border-slate-200/85 bg-white/92 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] backdrop-blur-sm">
             <div className="border-b border-slate-200/80 bg-slate-50/70 px-4 py-2.5 text-center">
               <h2 className="text-sm font-semibold text-slate-900">DATOS DEL PRODUCTO</h2>
             </div>
-            <div className="space-y-2 p-3 md:hidden">
+            <div className="quote-print-mobile space-y-2 p-3 md:hidden">
               {quote.items.map((item) => (
                 <article key={item.id} className="rounded-xl border border-slate-200 bg-white p-3">
                   <div className="flex items-start gap-3">
@@ -251,7 +286,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                 </article>
               ))}
             </div>
-            <div className="hidden overflow-x-auto md:block">
+            <div className="quote-print-desktop hidden overflow-x-auto md:block">
               <table className="min-w-full border-collapse text-sm">
                 <thead className="text-xs uppercase tracking-[0.08em] text-slate-500">
                   <tr>
@@ -293,8 +328,8 @@ export default async function QuotePublicPage({ params }: PageProps) {
             </div>
           </section>
 
-          <section className="overflow-hidden rounded-2xl border border-slate-200/85 bg-white/92 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] backdrop-blur-sm">
-            <div className="grid grid-cols-2 gap-2 p-3 md:hidden">
+          <section className="quote-print-card overflow-hidden rounded-2xl border border-slate-200/85 bg-white/92 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] backdrop-blur-sm">
+            <div className="quote-print-mobile grid grid-cols-2 gap-2 p-3 md:hidden">
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
                 <p className="text-[11px] uppercase tracking-[0.08em] text-slate-500">Subtotal</p>
                 <p className="mt-1 text-sm font-semibold text-slate-900">{formatMoney(String(subtotal), currency)}</p>
@@ -312,7 +347,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                 <p className="mt-1 text-sm font-bold text-slate-900">{formatMoney(String(total), currency)}</p>
               </div>
             </div>
-            <div className="hidden overflow-x-auto md:block">
+            <div className="quote-print-desktop hidden overflow-x-auto md:block">
               <table className="min-w-full border-collapse text-sm">
                 <thead className="text-xs uppercase tracking-[0.08em] text-slate-500">
                   <tr>
@@ -335,7 +370,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
           </section>
         </div>
 
-        <section className="rounded-2xl border border-slate-200/85 bg-white/92 p-4 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] md:p-5">
+        <section className="quote-print-card rounded-2xl border border-slate-200/85 bg-white/92 p-4 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] md:p-5">
           <div className="space-y-4 text-sm leading-relaxed text-slate-700">
             <div>
               <p className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.08em] text-slate-900">
@@ -395,7 +430,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
           </div>
         </section>
 
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="quote-print-card quote-print-feature-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <article className="rounded-2xl border border-slate-200/85 bg-white/92 p-4 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.45)]">
             <LifeBuoy className="h-5 w-5 text-sky-600" />
             <p className="mt-2 text-sm font-semibold text-slate-900">Soporte incluido</p>
@@ -418,18 +453,20 @@ export default async function QuotePublicPage({ params }: PageProps) {
           </article>
         </section>
 
-        <section className="rounded-2xl border border-slate-200/85 bg-white/92 p-4 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] md:p-5">
+        <section className="quote-print-actions rounded-2xl border border-slate-200/85 bg-white/92 p-4 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] md:p-5">
           <h2 className="text-sm font-semibold text-slate-900">Acciones</h2>
           <div className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-            <button
-              type="button"
+            <Link
+              href={approveHref}
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800"
             >
               <BadgeCheck className="h-4 w-4" />
               Aprobar
-            </button>
+            </Link>
             <Link
-              href={supportHref}
+              href={changesHref}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:bg-slate-50"
@@ -437,13 +474,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
               <MessageCircleMore className="h-4 w-4" />
               Cambios
             </Link>
-            <button
-              type="button"
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:bg-slate-50"
-            >
-              <Download className="h-4 w-4" />
-              Descargar PDF
-            </button>
+            <DownloadQuotePdfButton className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-70" />
             <Link
               href={supportHref}
               target="_blank"
@@ -456,7 +487,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
           </div>
         </section>
 
-        <footer className="rounded-2xl border border-slate-200/85 bg-white/92 p-4 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] md:p-5">
+        <footer className="quote-print-card rounded-2xl border border-slate-200/85 bg-white/92 p-4 shadow-[0_20px_45px_-36px_rgba(15,23,42,0.45)] md:p-5">
           <div className="flex flex-col gap-3 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-3">
               <span
@@ -482,4 +513,3 @@ export default async function QuotePublicPage({ params }: PageProps) {
     </section>
   );
 }
-

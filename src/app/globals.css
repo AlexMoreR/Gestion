@@ -186,4 +186,294 @@ body {
   }
 }
 
+@page {
+  size: A4 landscape;
+  margin: 8mm;
+}
+
+@media print {
+  .admin-print-sidebar,
+  .admin-print-header {
+    display: none !important;
+  }
+
+  .admin-print-shell,
+  .admin-print-inset,
+  .admin-print-main {
+    min-height: auto !important;
+  }
+
+  .admin-print-inset,
+  .admin-print-main {
+    width: 100% !important;
+    max-width: none !important;
+    flex: 1 1 auto !important;
+  }
+
+  .admin-print-main {
+    padding: 0 !important;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  body {
+    min-height: auto;
+  }
+
+  .quote-print-root {
+    padding: 0 !important;
+  }
+
+  .quote-print-root .sticky,
+  .quote-print-root .backdrop-blur-md,
+  .quote-print-root .backdrop-blur-sm {
+    backdrop-filter: none !important;
+  }
+
+  .quote-print-stack {
+    gap: 0.5rem !important;
+  }
+
+  .quote-print-hero-layout {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 18rem !important;
+    gap: 0.5rem !important;
+    align-items: start !important;
+  }
+
+  .quote-print-hero-main {
+    display: contents !important;
+  }
+
+  .quote-print-hero-header {
+    grid-column: 1 / -1 !important;
+  }
+
+  .quote-print-client-panel {
+    grid-column: 1 !important;
+  }
+
+  .quote-print-company-panel {
+    grid-column: 2 !important;
+    align-self: stretch !important;
+    min-width: 0 !important;
+  }
+
+  .quote-print-card,
+  .quote-print-card article,
+  .quote-print-card aside,
+  .quote-print-card footer {
+    break-inside: avoid;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .quote-print-card {
+    border-color: #d1d5db !important;
+  }
+
+  .quote-print-hero {
+    background: #fff !important;
+    color: #0f172a !important;
+    border-color: #d1d5db !important;
+    padding: 0.5rem !important;
+  }
+
+  .quote-print-hero-deco,
+  .quote-print-hide {
+    display: none !important;
+  }
+
+  .quote-print-panel {
+    background: #fff !important;
+    border-color: #d1d5db !important;
+    padding: 0.4rem 0.55rem !important;
+    border-radius: 0.8rem !important;
+  }
+
+  .quote-print-hero h1,
+  .quote-print-hero h2,
+  .quote-print-hero p,
+  .quote-print-hero span {
+    color: #0f172a !important;
+  }
+
+  .quote-print-hero-header {
+    margin-bottom: 0.15rem !important;
+  }
+
+  .quote-print-hero-header .h-8,
+  .quote-print-hero-header .w-8 {
+    height: 1.4rem !important;
+    width: 1.4rem !important;
+  }
+
+  .quote-print-hero-header .rounded-lg {
+    border-radius: 0.45rem !important;
+  }
+
+  .quote-print-logo-mark {
+    background: #6d28d9 !important;
+    background-image: none !important;
+    color: #fff !important;
+    fill: #fff !important;
+    text-shadow: none !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+    font-size: 0.62rem !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+  }
+
+  .quote-print-hero .text-sky-100\/80,
+  .quote-print-hero .text-sky-100 {
+    color: #64748b !important;
+  }
+
+  .quote-print-hero .border-white\/15,
+  .quote-print-hero .border-white\/28,
+  .quote-print-hero .border-white\/35,
+  .quote-print-hero .border-white\/55 {
+    border-color: #d1d5db !important;
+  }
+
+  .quote-print-root section,
+  .quote-print-root footer {
+    margin: 0 !important;
+  }
+
+  .quote-print-root img {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .quote-print-root * {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .quote-print-actions {
+    display: none !important;
+  }
+
+  .quote-print-mobile {
+    display: none !important;
+  }
+
+  .quote-print-desktop {
+    display: block !important;
+  }
+
+  .quote-print-company-desktop {
+    display: block !important;
+  }
+
+  .quote-print-client-grid,
+  .quote-print-company-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.25rem 0.6rem !important;
+    margin-top: 0.25rem !important;
+  }
+
+  .quote-print-client-desktop,
+  .quote-print-company-desktop {
+    display: none !important;
+  }
+
+  .quote-print-field {
+    min-width: 0 !important;
+  }
+
+  .quote-print-field-label {
+    font-size: 0.53rem !important;
+    font-weight: 600 !important;
+    line-height: 1.05 !important;
+    letter-spacing: 0.03em !important;
+    text-transform: uppercase !important;
+    color: #64748b !important;
+  }
+
+  .quote-print-field-value {
+    margin-top: 0.02rem !important;
+    font-size: 0.74rem !important;
+    font-weight: 600 !important;
+    line-height: 1.1 !important;
+    color: #0f172a !important;
+    word-break: break-word !important;
+  }
+
+  .quote-print-feature-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .quote-print-root h1 {
+    font-size: 1rem !important;
+    line-height: 1.05 !important;
+  }
+
+  .quote-print-root h2,
+  .quote-print-root p,
+  .quote-print-root span,
+  .quote-print-root td,
+  .quote-print-root th,
+  .quote-print-root a {
+    line-height: 1.2 !important;
+  }
+
+  .quote-print-root .text-base {
+    font-size: 0.84rem !important;
+  }
+
+  .quote-print-root .text-lg {
+    font-size: 0.92rem !important;
+  }
+
+  .quote-print-root .text-sm {
+    font-size: 0.72rem !important;
+  }
+
+  .quote-print-root .text-xs {
+    font-size: 0.58rem !important;
+  }
+
+  .quote-print-root .text-\[11px\] {
+    font-size: 0.5rem !important;
+  }
+
+  .quote-print-root .mt-0\.5,
+  .quote-print-root .mt-1,
+  .quote-print-root .mt-2,
+  .quote-print-root .mt-3 {
+    margin-top: 0.15rem !important;
+  }
+
+  .quote-print-root .pt-2,
+  .quote-print-root .pt-3,
+  .quote-print-root .py-2,
+  .quote-print-root .py-2\.5,
+  .quote-print-root .py-3 {
+    padding-top: 0.2rem !important;
+    padding-bottom: 0.2rem !important;
+  }
+
+  .quote-print-root .px-3,
+  .quote-print-root .px-4 {
+    padding-left: 0.35rem !important;
+    padding-right: 0.35rem !important;
+  }
+
+  .quote-print-root table {
+    font-size: 10px !important;
+  }
+
+  .quote-print-root th,
+  .quote-print-root td {
+    padding: 0.35rem 0.45rem !important;
+  }
+}
+
 

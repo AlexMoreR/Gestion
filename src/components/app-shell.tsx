@@ -115,7 +115,7 @@ export function AppShell({ children, initialUser }: AppShellProps) {
   if (user) {
     return (
       <SidebarProvider>
-        <div className="flex min-h-screen">
+        <div className="admin-print-shell flex min-h-screen">
           <AppSidebar
             pathname={pathname}
             user={{
@@ -124,10 +124,10 @@ export function AppShell({ children, initialUser }: AppShellProps) {
               image: user.image,
               role: user.role,
             }}
-            className="flex"
+            className="admin-print-sidebar flex"
           />
-          <SidebarInset>
-            <header className="flex h-12 shrink-0 items-center border-b border-[var(--line)] bg-white">
+          <SidebarInset className="admin-print-inset">
+            <header className="admin-print-header flex h-12 shrink-0 items-center border-b border-[var(--line)] bg-white">
               <div className="flex items-center gap-2 px-4">
                 <SidebarTrigger className="-ml-1" />
                 <Separator
@@ -152,7 +152,7 @@ export function AppShell({ children, initialUser }: AppShellProps) {
                 </Breadcrumb>
               </div>
             </header>
-            <main className="flex flex-1 flex-col p-3 md:p-4">
+            <main className="admin-print-main flex flex-1 flex-col p-3 md:p-4">
               {children}
             </main>
           </SidebarInset>
