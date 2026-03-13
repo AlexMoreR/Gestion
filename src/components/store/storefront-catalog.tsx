@@ -376,17 +376,13 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
           {!normalizedQuery && !category ? (
             <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--primary-strong)]">
-                {category ? category.name : "Mobiliario profesional premium"}
+                Mobiliario profesional premium
               </p>
               <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">
-                {category
-                  ? `${category.name} para peluqueria, barberia y espacios de belleza`
-                  : "Mobiliario profesional para peluqueria, barberia y salon de belleza"}
+                Mobiliario profesional para peluqueria, barberia y salon de belleza
               </h2>
               <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-                {category
-                  ? `Encuentra ${category.name.toLowerCase()} en ${siteConfig.name}, con referencias pensadas para negocios que necesitan proyectar calidad, comodidad y una imagen profesional.`
-                  : `En ${siteConfig.name} encuentras sillas, estaciones y mobiliario profesional para equipar tu negocio con imagen, funcionalidad y respaldo.`}
+                {`En ${siteConfig.name} encuentras sillas, estaciones y mobiliario profesional para equipar tu negocio con imagen, funcionalidad y respaldo.`}
               </p>
             </div>
           ) : null}
@@ -446,7 +442,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                       href={whatsAppHref}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-1 py-1 text-xs font-semibold text-emerald-700 transition hover:text-emerald-800"
+                      className="inline-flex w-full items-center justify-center gap-1 py-1 text-center text-xs font-semibold text-emerald-700 transition hover:text-emerald-800"
                     >
                       <MessageCircle className="h-4 w-4" />
                       Comprar por WhatsApp
