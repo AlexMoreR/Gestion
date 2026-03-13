@@ -3,15 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlignLeft,
-  Boxes,
-  CircleDollarSign,
-  Hash,
-  ImagePlus,
-  Package2,
-  Percent,
-  Tag,
-  Truck,
   X,
 } from "lucide-react";
 import { adminUpdateProductAction } from "@/app/actions/product-actions";
@@ -38,6 +29,7 @@ type EditProductInitialData = {
   description: string | null;
   baseCost: number;
   price: number;
+  wholesalePrice: number;
   retailMarginPct: number;
   wholesaleMarginPct: number;
   minWholesaleQty: number;
@@ -67,9 +59,14 @@ export function EditProductForm({
   const [retailMarginPct, setRetailMarginPct] = useState(initialData.retailMarginPct.toFixed(2));
   const [retailPriceInput, setRetailPriceInput] = useState(initialData.price.toFixed(2));
   const [wholesaleMarginPct, setWholesaleMarginPct] = useState(initialData.wholesaleMarginPct.toFixed(2));
+  const [wholesalePriceInput, setWholesalePriceInput] = useState(initialData.wholesalePrice.toFixed(2));
   const [minWholesaleQty, setMinWholesaleQty] = useState(String(initialData.minWholesaleQty));
   const [retailPriceDirty, setRetailPriceDirty] = useState(
     () => Math.abs(initialData.price - initialSuggestedRetailPrice) > 0.009,
+  );
+  const initialSuggestedWholesalePrice = calculateWholesalePrice(initialData.baseCost, initialData.wholesaleMarginPct);
+  const [wholesalePriceDirty, setWholesalePriceDirty] = useState(
+    () => Math.abs(initialData.wholesalePrice - initialSuggestedWholesalePrice) > 0.009,
   );
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [newImageUrls, setNewImageUrls] = useState<string[]>([]);
@@ -89,23 +86,30 @@ export function EditProductForm({
     const wholesaleMargin = Number(wholesaleMarginPct) || 0;
     const suggestedRetail = calculateRetailPrice(cost, retailMargin);
     const finalRetail = retailPriceDirty ? Number(retailPriceInput) || 0 : suggestedRetail;
+    const suggestedWholesale = calculateWholesalePrice(cost, wholesaleMargin);
+    const finalWholesale = wholesalePriceDirty ? Number(wholesalePriceInput) || 0 : suggestedWholesale;
     const profit = calculateProfit(cost, finalRetail);
-
-    const wholesale = calculateWholesalePrice(cost, wholesaleMargin);
+    const wholesaleProfit = calculateProfit(cost, finalWholesale);
 
     return {
       suggestedRetail,
       finalRetail,
       profit,
+      suggestedWholesale,
+      finalWholesale,
+      wholesaleProfit,
       retail: formatMoney(finalRetail, currency),
       suggestedRetailLabel: formatMoney(suggestedRetail, currency),
-      wholesale: formatMoney(wholesale, currency),
+      wholesale: formatMoney(finalWholesale, currency),
+      suggestedWholesaleLabel: formatMoney(suggestedWholesale, currency),
+      wholesaleProfitLabel: formatMoney(wholesaleProfit, currency),
       profitLabel: formatMoney(profit, currency),
       cost: formatMoney(cost, currency),
     };
-  }, [baseCost, retailMarginPct, retailPriceInput, retailPriceDirty, wholesaleMarginPct, currency]);
+  }, [baseCost, retailMarginPct, retailPriceInput, retailPriceDirty, wholesaleMarginPct, wholesalePriceInput, wholesalePriceDirty, currency]);
 
   const retailPriceFieldValue = retailPriceDirty ? retailPriceInput : pricing.suggestedRetail.toFixed(2);
+  const wholesalePriceFieldValue = wholesalePriceDirty ? wholesalePriceInput : pricing.suggestedWholesale.toFixed(2);
 
   const allImageUrls = useMemo(
     () => [...existingImageUrls, ...newImageUrls],
@@ -118,6 +122,7 @@ export function EditProductForm({
     Number(retailMarginPct) >= 0 &&
     pricing.finalRetail > 0 &&
     Number(wholesaleMarginPct) >= 0 &&
+    pricing.finalWholesale > 0 &&
     Number(minWholesaleQty) >= 1;
   const activeStep = !step1Ready ? 1 : !step2Ready ? 2 : 3;
   const steps = [
@@ -191,34 +196,23 @@ export function EditProductForm({
           <input type="hidden" name="productId" value={initialData.id} />
           <input type="hidden" name="existingImages" value={existingImageUrls.join("\n")} />
 
-          <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 sm:p-5">
+          <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)] sm:p-5">
             <div className="grid gap-4 md:grid-cols-2">
               <label className="space-y-1.5 md:col-span-2">
-                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
-                  <Package2 className="h-3.5 w-3.5 text-slate-500" />
-                  Nombre
-                </span>
+                <span className="text-sm font-medium text-slate-700">📦 Nombre</span>
                 <Input name="name" required value={name} onChange={(e) => setName(e.target.value)} />
               </label>
               <label className="block space-y-1.5 md:col-span-2">
-                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
-                  <AlignLeft className="h-3.5 w-3.5 text-slate-500" />
-                  Descripcion
-                </span>
-                <textarea
+                <span className="text-sm font-medium text-slate-700">📝 Descripcion</span>
+                <Input
                   name="description"
-                  rows={4}
-                  className="w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[var(--line-strong)] focus:ring-2 focus:ring-[#d1d5db80]"
-                  placeholder="Descripcion corta del producto"
+                  placeholder="Descripcion del producto"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </label>
               <div className="block space-y-1.5 md:col-span-2">
-                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
-                  <ImagePlus className="h-3.5 w-3.5 text-slate-500" />
-                  Multimedia
-                </span>
+                <span className="text-sm font-medium text-slate-700">🖼️ Multimedia</span>
                 <div
                   className={`space-y-3 rounded-xl border border-dashed p-4 transition ${
                     dragActive
@@ -266,8 +260,7 @@ export function EditProductForm({
                       className="inline-flex h-8 items-center gap-1 rounded-lg border border-[var(--line)] bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                       onClick={() => fileInputRef.current?.click()}
                     >
-                      <ImagePlus className="h-3.5 w-3.5" />
-                      Agregar imagenes
+                      ➕ Agregar imagenes
                     </button>
                   </div>
                   {allImageUrls.length > 0 ? (
@@ -302,32 +295,13 @@ export function EditProductForm({
             </div>
           </section>
 
-          <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 sm:p-5">
+          <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)] sm:p-5">
             <div className="space-y-1 border-b border-[var(--line)] pb-3">
               <h2 className="text-sm font-semibold text-slate-900">Precios</h2>
-              <p className="text-xs text-slate-500">Ajusta costo, precio sugerido y precio final real del producto.</p>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="space-y-1.5">
-                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
-                  <CircleDollarSign className="h-3.5 w-3.5 text-slate-500" />
-                  Costo compra ({currency})
-                </span>
-                <Input
-                  name="baseCost"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  required
-                  value={baseCost}
-                  onChange={(e) => setBaseCost(e.target.value)}
-                />
-              </label>
-              <label className="space-y-1.5">
-                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
-                  <Percent className="h-3.5 w-3.5 text-slate-500" />
-                  Margen detal (%)
-                </span>
+            <div className="grid gap-4 md:grid-cols-12">
+              <label className="space-y-1.5 md:col-span-2">
+                <span className="text-sm font-medium text-slate-700">📈 % Detal</span>
                 <Input
                   name="retailMarginPct"
                   type="number"
@@ -338,22 +312,20 @@ export function EditProductForm({
                   onChange={(e) => setRetailMarginPct(e.target.value)}
                 />
               </label>
-              <label className="space-y-1.5">
-                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
-                  <CircleDollarSign className="h-3.5 w-3.5 text-slate-500" />
-                  Precio sugerido
-                </span>
+              <label className="space-y-1.5 md:col-span-4">
+                <span className="text-sm font-medium text-slate-700">💸 Costo compra ({currency})</span>
                 <Input
-                  value={pricing.suggestedRetailLabel}
-                  readOnly
-                  className="bg-slate-100 text-slate-600"
+                  name="baseCost"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  required
+                  value={baseCost}
+                  onChange={(e) => setBaseCost(e.target.value)}
                 />
               </label>
-              <label className="space-y-1.5">
-                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
-                  <CircleDollarSign className="h-3.5 w-3.5 text-slate-500" />
-                  Precio final
-                </span>
+              <label className="space-y-1.5 md:col-span-6">
+                <span className="text-sm font-medium text-slate-700">🏷️ Precio final</span>
                 <Input
                   name="retailPrice"
                   type="number"
@@ -367,22 +339,25 @@ export function EditProductForm({
                   }}
                 />
               </label>
-              <label className="space-y-1.5">
-                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
-                  <CircleDollarSign className="h-3.5 w-3.5 text-slate-500" />
-                  Ganancia
-                </span>
+              <label className="space-y-1.5 md:col-span-6">
+                <span className="text-sm font-medium text-slate-700">💡 Precio sugerido</span>
+                <Input
+                  value={pricing.suggestedRetailLabel}
+                  readOnly
+                  className="bg-slate-100 text-slate-600"
+                />
+              </label>
+              <label className="space-y-1.5 md:col-span-6">
+                <span className="text-sm font-medium text-slate-700">💰 Ganancia</span>
                 <Input
                   value={pricing.profitLabel}
                   readOnly
                   className="bg-slate-100 text-slate-600"
                 />
               </label>
-              <label className="space-y-1.5">
-                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
-                  <Percent className="h-3.5 w-3.5 text-slate-500" />
-                  Margen mayor (%)
-                </span>
+              <div className="md:col-span-12 border-t border-[var(--line)] pt-1" />
+              <label className="space-y-1.5 md:col-span-2">
+                <span className="text-sm font-medium text-slate-700">📦 % Mayor</span>
                 <Input
                   name="wholesaleMarginPct"
                   type="number"
@@ -393,11 +368,35 @@ export function EditProductForm({
                   onChange={(e) => setWholesaleMarginPct(e.target.value)}
                 />
               </label>
-              <label className="space-y-1.5">
-                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
-                  <Boxes className="h-3.5 w-3.5 text-slate-500" />
-                  Min. unidades mayor
-                </span>
+              <label className="space-y-1.5 md:col-span-4">
+                <span className="text-sm font-medium text-slate-700">💸 Costo compra ({currency})</span>
+                <Input value={baseCost} readOnly className="bg-slate-100 text-slate-600" />
+              </label>
+              <label className="space-y-1.5 md:col-span-6">
+                <span className="text-sm font-medium text-slate-700">🏷️ Precio final</span>
+                <Input
+                  name="wholesalePrice"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  required
+                  value={wholesalePriceFieldValue}
+                  onChange={(e) => {
+                    setWholesalePriceInput(e.target.value);
+                    setWholesalePriceDirty(true);
+                  }}
+                />
+              </label>
+              <label className="space-y-1.5 md:col-span-6">
+                <span className="text-sm font-medium text-slate-700">💡 Precio sugerido</span>
+                <Input value={pricing.suggestedWholesaleLabel} readOnly className="bg-slate-100 text-slate-600" />
+              </label>
+              <label className="space-y-1.5 md:col-span-6">
+                <span className="text-sm font-medium text-slate-700">💰 Ganancia</span>
+                <Input value={pricing.wholesaleProfitLabel} readOnly className="bg-slate-100 text-slate-600" />
+              </label>
+              <label className="space-y-1.5 md:col-span-12">
+                <span className="text-sm font-medium text-slate-700">🔢 Min. unidades mayor</span>
                 <Input
                   name="minWholesaleQty"
                   type="number"
@@ -411,24 +410,17 @@ export function EditProductForm({
             </div>
           </section>
 
-          <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 sm:p-5">
+          <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)] sm:p-5">
             <div className="space-y-1 border-b border-[var(--line)] pb-3">
               <h2 className="text-sm font-semibold text-slate-900">Inventario</h2>
-              <p className="text-xs text-slate-500">Mantiene categoria y proveedor principal.</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="space-y-1.5">
-                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
-                  <Hash className="h-3.5 w-3.5 text-slate-500" />
-                  Codigo
-                </span>
+                <span className="text-sm font-medium text-slate-700">🔤 Codigo</span>
                 <Input name="code" placeholder="Ej. CAM-001" value={code} onChange={(e) => setCode(e.target.value)} />
               </label>
               <label className="space-y-1.5">
-                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
-                  <Tag className="h-3.5 w-3.5 text-slate-500" />
-                  Categoria
-                </span>
+                <span className="text-sm font-medium text-slate-700">🏷️ Categoria</span>
                 <select name="categoryId" className="field-select" defaultValue={initialData.categoryId ?? ""}>
                   <option value="">Sin categoria</option>
                   {categories.map((category) => (
@@ -439,10 +431,7 @@ export function EditProductForm({
                 </select>
               </label>
               <label className="space-y-1.5 md:col-span-2">
-                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
-                  <Truck className="h-3.5 w-3.5 text-slate-500" />
-                  Proveedor principal
-                </span>
+                <span className="text-sm font-medium text-slate-700">🚚 Proveedor principal</span>
                 <select name="supplierId" className="field-select" defaultValue={initialData.supplierId ?? ""}>
                   <option value="">Sin proveedor</option>
                   {suppliers.map((supplier) => (

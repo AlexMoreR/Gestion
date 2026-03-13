@@ -19,6 +19,7 @@ const baseProductSchema = z.object({
   retailMarginPct: z.coerce.number().min(0, "El margen detal no puede ser negativo").max(1000),
   retailPrice: z.coerce.number().positive("El precio final debe ser mayor que 0"),
   wholesaleMarginPct: z.coerce.number().min(0, "El margen mayorista no puede ser negativo").max(1000),
+  wholesalePrice: z.coerce.number().min(0, "El precio mayorista no puede ser negativo"),
   minWholesaleQty: z.coerce.number().int().min(1, "Cantidad mayorista invalida").max(100000),
   categoryId: z.string().trim().optional(),
   supplierId: z.string().trim().optional(),
@@ -181,6 +182,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
     retailMarginPct: formData.get("retailMarginPct"),
     retailPrice: formData.get("retailPrice"),
     wholesaleMarginPct: formData.get("wholesaleMarginPct"),
+    wholesalePrice: formData.get("wholesalePrice"),
     minWholesaleQty: formData.get("minWholesaleQty"),
     categoryId: formData.get("categoryId") || undefined,
     supplierId: formData.get("supplierId") || undefined,
@@ -206,7 +208,8 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
   const supplierId = parseOptionalId(parsed.data.supplierId);
   const retailPrice = parsed.data.retailPrice;
   const effectiveRetailMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost, retailPrice);
-  const wholesalePrice = calculateWholesalePrice(parsed.data.baseCost, parsed.data.wholesaleMarginPct);
+  const wholesalePrice = parsed.data.wholesalePrice;
+  const effectiveWholesaleMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost, wholesalePrice);
 
   try {
     await prisma.product.create({
@@ -216,7 +219,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
         description: parsed.data.description || null,
         baseCost: parsed.data.baseCost,
         retailMarginPct: effectiveRetailMarginPct,
-        wholesaleMarginPct: parsed.data.wholesaleMarginPct,
+        wholesaleMarginPct: effectiveWholesaleMarginPct,
         minWholesaleQty: parsed.data.minWholesaleQty,
         price: retailPrice,
         wholesalePrice,
@@ -264,6 +267,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
     retailMarginPct: formData.get("retailMarginPct"),
     retailPrice: formData.get("retailPrice"),
     wholesaleMarginPct: formData.get("wholesaleMarginPct"),
+    wholesalePrice: formData.get("wholesalePrice"),
     minWholesaleQty: formData.get("minWholesaleQty"),
     categoryId: formData.get("categoryId") || undefined,
     supplierId: formData.get("supplierId") || undefined,
@@ -310,7 +314,8 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
   const supplierId = parseOptionalId(parsed.data.supplierId);
   const retailPrice = parsed.data.retailPrice;
   const effectiveRetailMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost, retailPrice);
-  const wholesalePrice = calculateWholesalePrice(parsed.data.baseCost, parsed.data.wholesaleMarginPct);
+  const wholesalePrice = parsed.data.wholesalePrice;
+  const effectiveWholesaleMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost, wholesalePrice);
 
   try {
     await prisma.$transaction([
@@ -322,7 +327,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
           description: parsed.data.description || null,
           baseCost: parsed.data.baseCost,
           retailMarginPct: effectiveRetailMarginPct,
-          wholesaleMarginPct: parsed.data.wholesaleMarginPct,
+          wholesaleMarginPct: effectiveWholesaleMarginPct,
           minWholesaleQty: parsed.data.minWholesaleQty,
           price: retailPrice,
           wholesalePrice,
