@@ -6,6 +6,7 @@ import { adminCreateQuoteAction, adminResolveClientAction } from "@/app/actions/
 import { QuotesDataTable } from "@/components/admin/quotes-data-table";
 import { Input } from "@/components/ui/input";
 import type { SupportedCurrencyCode } from "@/lib/currency";
+import { calculateQuoteLineTotal } from "@/lib/quote-item-meta";
 
 type ClientOption = {
   id: string;
@@ -51,6 +52,8 @@ type QuoteLine = {
   color: string;
   unitPrice: number;
   description: string;
+  additionalCost: number;
+  discount: number;
 };
 
 type QuotesWorkspaceProps = {
@@ -85,6 +88,8 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
   const [draftColor, setDraftColor] = useState("");
   const [draftUnitPrice, setDraftUnitPrice] = useState("");
   const [draftDescription, setDraftDescription] = useState("");
+  const [draftAdditionalCost, setDraftAdditionalCost] = useState("0");
+  const [draftDiscount, setDraftDiscount] = useState("0");
   const [productFormError, setProductFormError] = useState("");
   const [isManualQuoteSubmit, setIsManualQuoteSubmit] = useState(false);
 
@@ -130,12 +135,38 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
     () =>
       lines.map((line) => {
         const product = products.find((item) => item.id === line.productId);
-        return { line, product, lineTotal: line.quantity * line.unitPrice };
+        return {
+          line,
+          product,
+          lineTotal: calculateQuoteLineTotal(line.quantity, line.unitPrice, line.additionalCost, line.discount),
+        };
       }),
     [lines, products],
   );
 
-  const quoteTotal = useMemo(() => lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0), [lines]);
+  const quoteTotal = useMemo(
+    () =>
+      lines.reduce(
+        (sum, line) => sum + calculateQuoteLineTotal(line.quantity, line.unitPrice, line.additionalCost, line.discount),
+        0,
+      ),
+    [lines],
+  );
+
+  const quoteSubtotal = useMemo(
+    () => lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0),
+    [lines],
+  );
+
+  const quoteDiscountTotal = useMemo(
+    () => lines.reduce((sum, line) => sum + line.discount, 0),
+    [lines],
+  );
+
+  const quoteAdditionalCostTotal = useMemo(
+    () => lines.reduce((sum, line) => sum + line.additionalCost, 0),
+    [lines],
+  );
 
   const removeLine = (uid: string) => {
     setLines((current) => current.filter((line) => line.uid !== uid));
@@ -148,6 +179,8 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
     setDraftColor("");
     setDraftUnitPrice("");
     setDraftDescription("");
+    setDraftAdditionalCost("0");
+    setDraftDiscount("0");
     setProductFormError("");
     setShowProductResults(false);
   };
@@ -173,6 +206,8 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
 
     const quantity = Number(draftQuantity || 0);
     const unitPrice = Number(draftUnitPrice || 0);
+    const additionalCost = Number(draftAdditionalCost || 0);
+    const discount = Number(draftDiscount || 0);
 
     if (!Number.isFinite(quantity) || quantity <= 0) {
       setProductFormError("La cantidad debe ser mayor a 0.");
@@ -181,6 +216,16 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
 
     if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
       setProductFormError("El precio debe ser mayor a 0.");
+      return;
+    }
+
+    if (!Number.isFinite(additionalCost) || additionalCost < 0) {
+      setProductFormError("El costo adicional no puede ser negativo.");
+      return;
+    }
+
+    if (!Number.isFinite(discount) || discount < 0) {
+      setProductFormError("El descuento no puede ser negativo.");
       return;
     }
 
@@ -193,6 +238,8 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
         color: draftColor.trim(),
         unitPrice,
         description: draftDescription.trim(),
+        additionalCost,
+        discount,
       },
     ]);
 
@@ -203,11 +250,18 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
   const draftLineTotal = useMemo(() => {
     const quantity = Number(draftQuantity || 0);
     const unitPrice = Number(draftUnitPrice || 0);
-    if (!Number.isFinite(quantity) || !Number.isFinite(unitPrice)) {
+    const additionalCost = Number(draftAdditionalCost || 0);
+    const discount = Number(draftDiscount || 0);
+    if (
+      !Number.isFinite(quantity) ||
+      !Number.isFinite(unitPrice) ||
+      !Number.isFinite(additionalCost) ||
+      !Number.isFinite(discount)
+    ) {
       return 0;
     }
-    return quantity * unitPrice;
-  }, [draftQuantity, draftUnitPrice]);
+    return calculateQuoteLineTotal(quantity, unitPrice, additionalCost, discount);
+  }, [draftAdditionalCost, draftDiscount, draftQuantity, draftUnitPrice]);
 
   const openQuoteModal = () => {
     setStep(1);
@@ -306,6 +360,9 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
       supplierId: null,
       quantity: line.quantity,
       unitPrice: line.unitPrice,
+      color: line.color || null,
+      additionalCost: line.additionalCost,
+      discount: line.discount,
       notes: line.description || null,
     })),
   );
@@ -591,7 +648,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                       <tbody>
                         {linesWithMeta.length === 0 ? (
                           <tr>
-                            <td colSpan={9} className="px-3 py-8 text-center text-sm text-slate-500">
+                              <td colSpan={9} className="px-3 py-8 text-center text-sm text-slate-500">
                               <div className="flex flex-col items-center gap-2">
                                 <div className="rounded-full border border-slate-200 bg-slate-50 p-2">
                                   <Boxes className="h-4 w-4 text-slate-500" />
@@ -644,15 +701,47 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                     </table>
                   </div>
 
-                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white px-3 py-2.5">
-                    <span className="text-sm font-medium text-slate-700">Total cotizacion</span>
-                    <span className="text-lg font-semibold text-[var(--primary-strong)]">
-                      {quoteTotal.toLocaleString("es-CO", {
-                        style: "currency",
-                        currency,
-                        maximumFractionDigits: 2,
-                      })}
-                    </span>
+                  <div className="grid gap-2 rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white p-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-lg border border-slate-200 bg-white/80 px-3 py-2">
+                      <span className="text-sm font-medium text-slate-700">Subtotal</span>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                        {quoteSubtotal.toLocaleString("es-CO", {
+                          style: "currency",
+                          currency,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-white/80 px-3 py-2">
+                      <span className="text-sm font-medium text-slate-700">Descuento</span>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                        {quoteDiscountTotal.toLocaleString("es-CO", {
+                          style: "currency",
+                          currency,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-white/80 px-3 py-2">
+                      <span className="text-sm font-medium text-slate-700">Valor adicional</span>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                        {quoteAdditionalCostTotal.toLocaleString("es-CO", {
+                          style: "currency",
+                          currency,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-[var(--primary)] bg-white px-3 py-2">
+                      <span className="text-sm font-medium text-slate-700">Total</span>
+                      <p className="mt-1 text-lg font-semibold text-[var(--primary-strong)]">
+                        {quoteTotal.toLocaleString("es-CO", {
+                          style: "currency",
+                          currency,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
@@ -766,15 +855,47 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                     </table>
                   </div>
 
-                  <div className="flex items-center justify-between rounded-lg border border-[var(--line)] bg-slate-50 px-3 py-2">
-                    <span className="text-sm font-medium text-slate-700">Total cotizacion</span>
-                    <span className="text-lg font-semibold text-[var(--primary-strong)]">
-                      {quoteTotal.toLocaleString("es-CO", {
-                        style: "currency",
-                        currency,
-                        maximumFractionDigits: 2,
-                      })}
-                    </span>
+                  <div className="grid gap-2 rounded-lg border border-[var(--line)] bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
+                      <span className="text-sm font-medium text-slate-700">Subtotal</span>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                        {quoteSubtotal.toLocaleString("es-CO", {
+                          style: "currency",
+                          currency,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
+                      <span className="text-sm font-medium text-slate-700">Descuento</span>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                        {quoteDiscountTotal.toLocaleString("es-CO", {
+                          style: "currency",
+                          currency,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
+                      <span className="text-sm font-medium text-slate-700">Valor adicional</span>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                        {quoteAdditionalCostTotal.toLocaleString("es-CO", {
+                          style: "currency",
+                          currency,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-[var(--primary)] bg-white px-3 py-2">
+                      <span className="text-sm font-medium text-slate-700">Total</span>
+                      <p className="mt-1 text-lg font-semibold text-[var(--primary-strong)]">
+                        {quoteTotal.toLocaleString("es-CO", {
+                          style: "currency",
+                          currency,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
@@ -907,6 +1028,28 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                   step="0.01"
                   value={draftUnitPrice}
                   onChange={(event) => setDraftUnitPrice(event.target.value)}
+                />
+              </label>
+
+              <label className="space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">Costo adicional</span>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={draftAdditionalCost}
+                  onChange={(event) => setDraftAdditionalCost(event.target.value)}
+                />
+              </label>
+
+              <label className="space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">Descuento</span>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={draftDiscount}
+                  onChange={(event) => setDraftDiscount(event.target.value)}
                 />
               </label>
 

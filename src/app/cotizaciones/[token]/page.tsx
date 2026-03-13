@@ -12,6 +12,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { formatMoney } from "@/lib/currency";
+import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 import { getSystemCurrency } from "@/lib/system-settings";
 
@@ -67,9 +68,10 @@ export default async function QuotePublicPage({ params }: PageProps) {
     warranty: "1 ano",
   };
   const clientDocument = quote.client.document || "Por confirmar";
-  const clientEmail = quote.client.email || "Por confirmar";
   const deliveryAddress = quote.client.address || "Por confirmar";
   const clientCity = quote.client.city || "Por confirmar";
+  const getItemDescription = (notes: string | null) =>
+    parseQuoteItemMeta(notes).description || "Implementacion y configuracion segun requerimiento.";
 
   return (
     <section className="app-page px-0 pb-8 pt-1 md:px-7 md:pb-12 md:pt-2">
@@ -229,7 +231,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-slate-900">{item.product.name}</p>
-                      <p className="mt-0.5 text-xs text-slate-600">{item.notes || "Implementacion y configuracion segun requerimiento."}</p>
+                      <p className="mt-0.5 text-xs text-slate-600">{getItemDescription(item.notes)}</p>
                     </div>
                   </div>
                   <div className="mt-3 grid grid-cols-[0.75fr_1.15fr_1.15fr] gap-2 text-xs">
@@ -280,7 +282,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                       <td className="border-r border-slate-200 px-4 py-3">
                         <p className="font-medium text-slate-900">{item.product.name}</p>
                       </td>
-                      <td className="border-r border-slate-200 px-4 py-3 text-slate-600">{item.notes || "Implementacion y configuracion segun requerimiento."}</td>
+                      <td className="border-r border-slate-200 px-4 py-3 text-slate-600">{getItemDescription(item.notes)}</td>
                       <td className="border-r border-slate-200 px-4 py-3 text-slate-700">{item.quantity}</td>
                       <td className="border-r border-slate-200 px-4 py-3 text-slate-700">{formatMoney(String(item.unitPrice), currency)}</td>
                       <td className="px-4 py-3 font-semibold text-slate-900">{formatMoney(String(item.lineTotal), currency)}</td>

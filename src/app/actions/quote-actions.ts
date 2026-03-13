@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
+import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 
 const createClientSchema = z.object({
@@ -25,6 +26,10 @@ const quoteItemSchema = z.object({
   supplierId: z.string().trim().optional().nullable(),
   quantity: z.coerce.number().int().min(1, "Cantidad invalida").max(10000),
   unitPrice: z.coerce.number().positive("Precio invalido"),
+  color: z.string().trim().max(120, "Color demasiado largo").optional().nullable(),
+  notes: z.string().trim().max(4000, "Notas demasiado largas").optional().nullable(),
+  additionalCost: z.coerce.number().min(0, "Costo adicional invalido").optional().default(0),
+  discount: z.coerce.number().min(0, "Descuento invalido").optional().default(0),
 });
 
 const createQuoteSchema = z.object({
@@ -260,7 +265,18 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
       }
     }
 
-    const lineTotal = Number((item.quantity * item.unitPrice).toFixed(2));
+    const lineTotal = calculateQuoteLineTotal(
+      item.quantity,
+      item.unitPrice,
+      item.additionalCost ?? 0,
+      item.discount ?? 0,
+    );
+    const notes = stringifyQuoteItemMeta({
+      color: item.color ?? "",
+      description: item.notes ?? "",
+      additionalCost: item.additionalCost ?? 0,
+      discount: item.discount ?? 0,
+    });
 
     return {
       productId: item.productId,
@@ -268,6 +284,7 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       lineTotal,
+      notes,
     };
   });
 
@@ -305,6 +322,7 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
                   quantity: item.quantity,
                   unitPrice: new Prisma.Decimal(item.unitPrice),
                   lineTotal: new Prisma.Decimal(item.lineTotal),
+                  notes: item.notes,
                 })),
               },
             },
@@ -456,14 +474,25 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
         throw new Error("Proveedor invalido para producto");
       }
     }
-    const lineTotal = Number((item.quantity * item.unitPrice).toFixed(2));
+    const lineTotal = calculateQuoteLineTotal(
+      item.quantity,
+      item.unitPrice,
+      item.additionalCost ?? 0,
+      item.discount ?? 0,
+    );
+    const notes = stringifyQuoteItemMeta({
+      color: item.color ?? "",
+      description: item.notes ?? "",
+      additionalCost: item.additionalCost ?? 0,
+      discount: item.discount ?? 0,
+    });
     return {
       productId: item.productId,
       supplierId,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       lineTotal,
-      notes: null as string | null,
+      notes,
     };
   });
 

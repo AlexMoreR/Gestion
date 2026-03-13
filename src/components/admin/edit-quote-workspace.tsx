@@ -5,6 +5,7 @@ import { Boxes, FileText, Plus, Trash2, UserRound } from "lucide-react";
 import { adminUpdateQuoteFullAction } from "@/app/actions/quote-actions";
 import { Input } from "@/components/ui/input";
 import type { SupportedCurrencyCode } from "@/lib/currency";
+import { calculateQuoteLineTotal } from "@/lib/quote-item-meta";
 
 type ClientOption = {
   id: string;
@@ -31,6 +32,9 @@ type InitialLine = {
   quantity: number;
   unitPrice: number;
   description: string;
+  color: string;
+  additionalCost: number;
+  discount: number;
 };
 
 type EditQuoteData = {
@@ -59,6 +63,9 @@ type QuoteLine = {
   quantity: number;
   unitPrice: number;
   description: string;
+  color: string;
+  additionalCost: number;
+  discount: number;
 };
 
 type EditQuoteWorkspaceProps = {
@@ -89,13 +96,19 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       description: item.description,
+      color: item.color,
+      additionalCost: item.additionalCost,
+      discount: item.discount,
     })),
   );
 
   const [draftProductId, setDraftProductId] = useState("");
   const [draftQuantity, setDraftQuantity] = useState("1");
+  const [draftColor, setDraftColor] = useState("");
   const [draftUnitPrice, setDraftUnitPrice] = useState("");
   const [draftDescription, setDraftDescription] = useState("");
+  const [draftAdditionalCost, setDraftAdditionalCost] = useState("0");
+  const [draftDiscount, setDraftDiscount] = useState("0");
   const [productFormError, setProductFormError] = useState("");
 
   const clientOptions = useMemo(
@@ -112,12 +125,34 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
       lines.map((line) => ({
         line,
         product: products.find((product) => product.id === line.productId),
-        lineTotal: line.quantity * line.unitPrice,
+        lineTotal: calculateQuoteLineTotal(line.quantity, line.unitPrice, line.additionalCost, line.discount),
       })),
     [lines, products],
   );
 
-  const quoteTotal = useMemo(() => lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0), [lines]);
+  const quoteTotal = useMemo(
+    () =>
+      lines.reduce(
+        (sum, line) => sum + calculateQuoteLineTotal(line.quantity, line.unitPrice, line.additionalCost, line.discount),
+        0,
+      ),
+    [lines],
+  );
+
+  const quoteSubtotal = useMemo(
+    () => lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0),
+    [lines],
+  );
+
+  const quoteDiscountTotal = useMemo(
+    () => lines.reduce((sum, line) => sum + line.discount, 0),
+    [lines],
+  );
+
+  const quoteAdditionalCostTotal = useMemo(
+    () => lines.reduce((sum, line) => sum + line.additionalCost, 0),
+    [lines],
+  );
 
   const onSelectClient = (id: string) => {
     const selected = clientOptions.find((client) => client.id === id);
@@ -143,6 +178,8 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
     }
     const quantity = Number(draftQuantity || 0);
     const unitPrice = Number(draftUnitPrice || 0);
+    const additionalCost = Number(draftAdditionalCost || 0);
+    const discount = Number(draftDiscount || 0);
     if (!Number.isFinite(quantity) || quantity <= 0) {
       setProductFormError("La cantidad debe ser mayor a 0.");
       return;
@@ -151,14 +188,34 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
       setProductFormError("El precio debe ser mayor a 0.");
       return;
     }
+    if (!Number.isFinite(additionalCost) || additionalCost < 0) {
+      setProductFormError("El costo adicional no puede ser negativo.");
+      return;
+    }
+    if (!Number.isFinite(discount) || discount < 0) {
+      setProductFormError("El descuento no puede ser negativo.");
+      return;
+    }
     setLines((current) => [
       ...current,
-      { uid: crypto.randomUUID(), productId: draftProductId, quantity, unitPrice, description: draftDescription.trim() },
+      {
+        uid: crypto.randomUUID(),
+        productId: draftProductId,
+        quantity,
+        unitPrice,
+        description: draftDescription.trim(),
+        color: draftColor.trim(),
+        additionalCost,
+        discount,
+      },
     ]);
     setDraftProductId("");
     setDraftQuantity("1");
+    setDraftColor("");
     setDraftUnitPrice("");
     setDraftDescription("");
+    setDraftAdditionalCost("0");
+    setDraftDiscount("0");
     setProductFormError("");
   };
 
@@ -168,6 +225,9 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
       supplierId: null,
       quantity: line.quantity,
       unitPrice: line.unitPrice,
+      color: line.color || null,
+      additionalCost: line.additionalCost,
+      discount: line.discount,
       notes: line.description || null,
     })),
   );
@@ -234,10 +294,10 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
 
         {step === 2 ? (
           <div className="space-y-3 rounded-xl border border-[var(--line)] p-3">
-            <div className="grid gap-3 md:grid-cols-4">
-              <label className="space-y-1.5 block md:col-span-2">
-                <span className="text-sm font-medium text-slate-700">Producto</span>
-                <select className="field-select" value={draftProductId} onChange={(e) => {
+              <div className="grid gap-3 md:grid-cols-3">
+                <label className="space-y-1.5 block md:col-span-2">
+                  <span className="text-sm font-medium text-slate-700">Producto</span>
+                  <select className="field-select" value={draftProductId} onChange={(e) => {
                   setDraftProductId(e.target.value);
                   const product = products.find((p) => p.id === e.target.value);
                   if (product) setDraftUnitPrice(String(product.retailPrice));
@@ -249,8 +309,13 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
                 </select>
               </label>
               <label className="space-y-1.5 block"><span className="text-sm font-medium text-slate-700">Cantidad</span><Input type="number" min={1} value={draftQuantity} onChange={(e) => setDraftQuantity(e.target.value)} /></label>
-              <label className="space-y-1.5 block"><span className="text-sm font-medium text-slate-700">Precio</span><Input type="number" min={0} step="0.01" value={draftUnitPrice} onChange={(e) => setDraftUnitPrice(e.target.value)} /></label>
             </div>
+            <div className="grid gap-3 md:grid-cols-4">
+              <label className="space-y-1.5 block"><span className="text-sm font-medium text-slate-700">Color</span><Input value={draftColor} onChange={(e) => setDraftColor(e.target.value)} placeholder="Color" /></label>
+              <label className="space-y-1.5 block"><span className="text-sm font-medium text-slate-700">Precio</span><Input type="number" min={0} step="0.01" value={draftUnitPrice} onChange={(e) => setDraftUnitPrice(e.target.value)} /></label>
+              <label className="space-y-1.5 block"><span className="text-sm font-medium text-slate-700">Costo adicional</span><Input type="number" min={0} step="0.01" value={draftAdditionalCost} onChange={(e) => setDraftAdditionalCost(e.target.value)} /></label>
+              <label className="space-y-1.5 block"><span className="text-sm font-medium text-slate-700">Descuento</span><Input type="number" min={0} step="0.01" value={draftDiscount} onChange={(e) => setDraftDiscount(e.target.value)} /></label>
+              </div>
             <label className="space-y-1.5 block">
               <span className="text-sm font-medium text-slate-700">Descripcion</span>
               <Input value={draftDescription} onChange={(e) => setDraftDescription(e.target.value)} />
@@ -267,6 +332,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
                     <th className="px-3 py-2 text-left">Producto</th>
                     <th className="px-3 py-2 text-left">Descripcion</th>
                     <th className="px-3 py-2 text-left">Cant</th>
+                    <th className="px-3 py-2 text-left">Color</th>
                     <th className="px-3 py-2 text-left">Precio</th>
                     <th className="px-3 py-2 text-left">Total</th>
                     <th className="px-3 py-2 text-left">Accion</th>
@@ -278,6 +344,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
                       <td className="px-3 py-2 text-slate-900">{product?.name || "Producto"}</td>
                       <td className="px-3 py-2 text-slate-700">{line.description || "-"}</td>
                       <td className="px-3 py-2 text-slate-700">{line.quantity}</td>
+                      <td className="px-3 py-2 text-slate-700">{line.color || "-"}</td>
                       <td className="px-3 py-2 text-slate-700">{line.unitPrice.toLocaleString("es-CO", { style: "currency", currency })}</td>
                       <td className="px-3 py-2 font-semibold text-slate-900">{lineTotal.toLocaleString("es-CO", { style: "currency", currency })}</td>
                       <td className="px-3 py-2">
@@ -315,6 +382,32 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
                 <Input value={quoteTotal.toLocaleString("es-CO", { style: "currency", currency })} readOnly />
               </label>
             </div>
+            <div className="grid gap-2 rounded-lg border border-[var(--line)] bg-slate-50 p-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
+                <span className="text-sm font-medium text-slate-700">Subtotal</span>
+                <p className="mt-1 text-lg font-semibold text-slate-900">
+                  {quoteSubtotal.toLocaleString("es-CO", { style: "currency", currency })}
+                </p>
+              </div>
+              <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
+                <span className="text-sm font-medium text-slate-700">Descuento</span>
+                <p className="mt-1 text-lg font-semibold text-slate-900">
+                  {quoteDiscountTotal.toLocaleString("es-CO", { style: "currency", currency })}
+                </p>
+              </div>
+              <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
+                <span className="text-sm font-medium text-slate-700">Valor adicional</span>
+                <p className="mt-1 text-lg font-semibold text-slate-900">
+                  {quoteAdditionalCostTotal.toLocaleString("es-CO", { style: "currency", currency })}
+                </p>
+              </div>
+              <div className="rounded-lg border border-[var(--primary)] bg-white px-3 py-2">
+                <span className="text-sm font-medium text-slate-700">Total</span>
+                <p className="mt-1 text-lg font-semibold text-[var(--primary-strong)]">
+                  {quoteTotal.toLocaleString("es-CO", { style: "currency", currency })}
+                </p>
+              </div>
+            </div>
             <label className="space-y-1.5 block">
               <span className="text-sm font-medium text-slate-700">Notas</span>
               <textarea
@@ -335,4 +428,3 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
     </section>
   );
 }
-

@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { EditQuoteWorkspace } from "@/components/admin/edit-quote-workspace";
+import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 import { getSystemCurrency } from "@/lib/system-settings";
 
@@ -88,12 +89,18 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
           department: quote.client.department ?? "",
           city: quote.client.city ?? "",
         },
-        items: quote.items.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: Number(item.unitPrice),
-          description: item.notes ?? "",
-        })),
+        items: quote.items.map((item) => {
+          const meta = parseQuoteItemMeta(item.notes);
+          return {
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: Number(item.unitPrice),
+            description: meta.description,
+            color: meta.color,
+            additionalCost: meta.additionalCost,
+            discount: meta.discount,
+          };
+        }),
       }}
       clients={clients.map((client) => ({
         id: client.id,
