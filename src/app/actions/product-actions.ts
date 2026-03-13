@@ -104,6 +104,19 @@ function resolveProductMutationError(error: unknown): string {
   return "No se pudo guardar el producto";
 }
 
+function resolveProductDeleteError(error: unknown): string {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2003") {
+      return "No puedes eliminar este producto porque ya fue usado en cotizaciones";
+    }
+    if (error.code === "P2025") {
+      return "El producto ya no existe";
+    }
+  }
+
+  return "No se pudo eliminar el producto";
+}
+
 function assertValidImageList(images: string[]): void {
   if (images.length === 0) {
     throw new Error("Debes agregar al menos una imagen");
@@ -364,7 +377,7 @@ export async function adminDeleteProductAction(formData: FormData): Promise<void
       where: { id: parsed.data.productId },
     });
   } catch (error) {
-    buildErrorRedirect("/admin/productos", resolveProductMutationError(error));
+    buildErrorRedirect("/admin/productos", resolveProductDeleteError(error));
   }
 
   revalidatePath("/");

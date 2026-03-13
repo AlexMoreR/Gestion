@@ -1,8 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { LoginForm } from "@/components/auth/login-form";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { Button } from "@/components/ui/button";
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
