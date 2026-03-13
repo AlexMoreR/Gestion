@@ -296,7 +296,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
               <table className="min-w-full border-collapse text-sm">
                 <thead className="text-xs uppercase tracking-[0.08em] text-slate-500">
                   <tr>
-                    <th className="border-b border-r border-slate-200 px-4 py-3 text-left">Imagen</th>
+                    <th className="border-b border-r border-slate-200 px-4 py-3 text-left">IMG</th>
                     <th className="border-b border-r border-slate-200 px-4 py-3 text-left">Servicio / Producto</th>
                     <th className="border-b border-r border-slate-200 px-4 py-3 text-left">Descripción</th>
                     <th className="border-b border-r border-slate-200 px-4 py-3 text-left">CANT</th>
