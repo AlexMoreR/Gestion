@@ -611,25 +611,6 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                 </div>
               ) : step === 2 ? (
                 <div className="space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white px-3 py-2.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700">
-                        {lines.length} item{lines.length === 1 ? "" : "s"}
-                      </span>
-                      <span className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700">
-                        {quoteTotal.toLocaleString("es-CO", { style: "currency", currency })}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={openAddProductModal}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Agregar producto
-                    </button>
-                  </div>
-
                   <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50/80 text-xs uppercase tracking-wide text-slate-500">
@@ -649,11 +630,19 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                         {linesWithMeta.length === 0 ? (
                           <tr>
                               <td colSpan={9} className="px-3 py-8 text-center text-sm text-slate-500">
-                              <div className="flex flex-col items-center gap-2">
+                              <div className="flex flex-col items-center gap-3">
                                 <div className="rounded-full border border-slate-200 bg-slate-50 p-2">
                                   <Boxes className="h-4 w-4 text-slate-500" />
                                 </div>
                                 <p>No hay productos agregados.</p>
+                                <button
+                                  type="button"
+                                  onClick={openAddProductModal}
+                                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--primary-strong)]"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                  Agregar producto
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -700,6 +689,19 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                       </tbody>
                     </table>
                   </div>
+
+                  {linesWithMeta.length > 0 ? (
+                    <div className="flex justify-center">
+                      <button
+                        type="button"
+                        onClick={openAddProductModal}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--primary-strong)]"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Agregar producto
+                      </button>
+                    </div>
+                  ) : null}
 
                   <div className="grid gap-2 rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white p-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="rounded-lg border border-slate-200 bg-white/80 px-3 py-2">
