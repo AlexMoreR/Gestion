@@ -29,6 +29,14 @@ export const metadata: Metadata = {
   keywords: [...siteConfig.coreKeywords],
   applicationName: siteConfig.name,
   category: "shopping",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "32x32", type: "image/x-icon" },
+      { url: siteConfig.logoPath, type: "image/svg+xml" },
+    ],
+    shortcut: ["/favicon.ico"],
+    apple: [siteConfig.logoPath],
+  },
   alternates: {
     canonical: getSiteUrl("/"),
   },
