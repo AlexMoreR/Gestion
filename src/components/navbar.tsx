@@ -54,13 +54,7 @@ export function Navbar({
       adminModuleAccess?.config_permissions,
   );
 
-  const navLinks = user
-    ? [
-        ...(dashboardHref ? [{ label: "Dashboard", href: dashboardHref }] : []),
-        ...(user.role === "ADMIN" && canAccessConfig ? [{ label: "Configuracion", href: "/admin/configuracion" }] : []),
-        { label: "Perfil", href: "/profile" },
-      ]
-    : [];
+  const navLinks: Array<{ label: string; href: string }> = [];
   const isActiveLink = (href: string) =>
     href === "/"
       ? pathname === "/"
@@ -157,7 +151,7 @@ export function Navbar({
             })}
           </div>
 
-          {user ? (
+          {user && navLinks.length > 0 ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="md:hidden" aria-label="Abrir menu">
