@@ -6,6 +6,7 @@ import * as React from "react";
 
 type FeaturedProductItem = {
   id: string;
+  href: string;
   name: string;
   thumbnailUrl: string;
   priceLabel: string;
@@ -114,7 +115,7 @@ export function FeaturedProductsCarousel({ products }: FeaturedProductsCarouselP
           {products.map((product) => (
             <Link
               key={product.id}
-              href={`/productos/${product.id}`}
+              href={product.href}
               className="group relative block w-full shrink-0 basis-full overflow-hidden rounded-none border border-white/12 bg-[linear-gradient(135deg,rgba(122,30,199,0.34)_0%,rgba(92,18,167,0.3)_36%,rgba(63,10,118,0.38)_100%)] shadow-[0_30px_70px_-42px_rgba(15,23,42,0.82)] transition duration-300 hover:border-white/18 md:rounded-[30px]"
               onClick={handleSlideClick}
             >

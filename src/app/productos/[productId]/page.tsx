@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { MessageCircle, ShoppingCart } from "lucide-react";
 import { ProductGallery } from "@/components/store/product-gallery";
 import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
+import { buildProductPath, getProductIdFromRouteParam } from "@/lib/product-slugs";
 import { buildWhatsAppProductHref, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 
@@ -15,8 +16,9 @@ type PageProps = {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { productId } = await params;
+  const resolvedProductId = getProductIdFromRouteParam(productId);
   const product = await prisma.product.findUnique({
-    where: { id: productId },
+    where: { id: resolvedProductId },
     include: { category: true },
   });
 
@@ -31,7 +33,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     product.description,
     `${product.name} ${product.category?.name ? `de ${product.category.name} ` : ""}disponible en ${siteConfig.name}, mobiliario profesional premium para salon y barberia.`,
   );
-  const canonical = getSiteUrl(`/productos/${product.id}`);
+  const canonicalPath = buildProductPath(product);
+  const canonical = getSiteUrl(canonicalPath);
   const imageUrl = product.thumbnailUrl.startsWith("http") ? product.thumbnailUrl : getSiteUrl(product.thumbnailUrl);
 
   return {
@@ -63,9 +66,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ProductoDetallePage({ params }: PageProps) {
   const { productId } = await params;
+  const resolvedProductId = getProductIdFromRouteParam(productId);
   const [product, currency] = await Promise.all([
     prisma.product.findUnique({
-      where: { id: productId },
+      where: { id: resolvedProductId },
       include: {
         category: true,
         images: { orderBy: { order: "asc" } },
@@ -76,6 +80,11 @@ export default async function ProductoDetallePage({ params }: PageProps) {
 
   if (!product) {
     notFound();
+  }
+
+  const canonicalPath = buildProductPath(product);
+  if (productId !== canonicalPath.replace("/productos/", "")) {
+    permanentRedirect(canonicalPath);
   }
 
   const gallery = Array.from(
@@ -104,7 +113,7 @@ export default async function ProductoDetallePage({ params }: PageProps) {
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
-    "@id": `${getSiteUrl(`/productos/${product.id}`)}#product`,
+    "@id": `${getSiteUrl(canonicalPath)}#product`,
     name: product.name,
     description: productDescription,
     image: gallery.map((url) => (url.startsWith("http") ? url : getSiteUrl(url))),
@@ -116,7 +125,7 @@ export default async function ProductoDetallePage({ params }: PageProps) {
     category: product.category?.name ?? "Mobiliario profesional",
     offers: {
       "@type": "Offer",
-      url: getSiteUrl(`/productos/${product.id}`),
+      url: getSiteUrl(canonicalPath),
       priceCurrency: currency,
       price: Number(product.price),
       availability: "https://schema.org/InStock",
@@ -221,7 +230,7 @@ export default async function ProductoDetallePage({ params }: PageProps) {
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {relatedProducts.map((item) => (
-              <Link key={item.id} href={`/productos/${item.id}`} className="group block">
+              <Link key={item.id} href={buildProductPath(item)} className="group block">
                 <Card className="h-full overflow-hidden rounded-xl p-0 transition group-hover:translate-y-[-2px] group-hover:shadow-[0_20px_35px_-30px_rgba(15,23,42,0.45)]">
                   <div className="relative">
                     <img

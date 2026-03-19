@@ -5,6 +5,7 @@ import { FeaturedProductsCarousel } from "@/components/store/featured-products-c
 import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
+import { buildProductPath } from "@/lib/product-slugs";
 import { buildWhatsAppProductHref, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
 import { getSystemBrandName, getSystemCurrency } from "@/lib/system-settings";
 
@@ -191,6 +192,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
 
   const featuredProducts = products.slice(0, 5).map((product) => ({
     id: product.id,
+    href: buildProductPath(product),
     name: product.name,
     thumbnailUrl: product.thumbnailUrl,
     priceLabel: formatMoney(String(product.price), systemCurrency),
@@ -451,6 +453,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
             {products.map((product) => {
               const retailPrice = Number(product.price);
+              const productHref = buildProductPath(product);
               const whatsAppHref = buildWhatsAppProductHref(product.name);
               const productSummary = sanitizeDescription(
                 product.description,
@@ -462,7 +465,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                   key={product.id}
                   className="flex h-full flex-col overflow-hidden rounded-xl p-0 transition duration-300 hover:translate-y-[-3px] hover:shadow-[0_22px_40px_-30px_rgba(15,23,42,0.55)]"
                 >
-                  <Link href={`/productos/${product.id}`} className="group flex flex-1 flex-col">
+                  <Link href={productHref} className="group flex flex-1 flex-col">
                     <div className="relative">
                       <img
                         src={product.thumbnailUrl}
@@ -501,7 +504,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                       Comprar por WhatsApp
                     </Link>
                     <Link
-                      href={`/productos/${product.id}`}
+                      href={productHref}
                       className="cta-float cta-float-delay inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-[var(--primary)] px-2.5 text-xs font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--primary-strong)] active:translate-y-0 active:scale-[0.98]"
                     >
                       <ShoppingCart className="h-4 w-4" />
