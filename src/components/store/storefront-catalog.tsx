@@ -491,21 +491,21 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                         className="h-40 w-full bg-white object-contain p-2 transition duration-500 group-hover:scale-[1.02] md:h-52"
                         loading="lazy"
                       />
-                      <div className="absolute left-2 top-1 z-10 -rotate-6 rounded-md border border-rose-300 bg-[linear-gradient(135deg,#ef4444_0%,#dc2626_100%)] px-2 py-1 text-white shadow-[0_12px_20px_-14px_rgba(220,38,38,0.8)]">
-                        <span className="flex items-center gap-1 text-[8px] font-black uppercase leading-none tracking-[0.08em]">
-                          <Truck className="h-3 w-3" />
-                          Envio
-                        </span>
-                        <span className="mt-0.5 block text-[11px] font-black uppercase leading-none tracking-[0.08em]">
-                          Gratis
-                        </span>
-                      </div>
                       <span className="absolute right-2 top-2 rounded-full border border-white/20 bg-slate-900/85 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
                         {product.code?.trim() || "SKU"}
                       </span>
                     </div>
 
                     <div className="flex flex-1 flex-col space-y-1.5 px-3 pb-1 pt-2.5">
+                      <div className="w-fit rounded-md border border-[color-mix(in_srgb,var(--primary)_24%,white)] bg-[linear-gradient(135deg,var(--primary)_0%,var(--primary-strong)_100%)] px-1.5 py-1 text-white shadow-[0_12px_20px_-14px_color-mix(in_srgb,var(--primary)_70%,black)]">
+                        <span className="flex items-center gap-1 text-[7px] font-black uppercase leading-none tracking-[0.08em]">
+                          <Truck className="h-2.5 w-2.5" />
+                          Envio
+                        </span>
+                        <span className="mt-0.5 block text-[9px] font-black uppercase leading-none tracking-[0.08em]">
+                          Gratis
+                        </span>
+                      </div>
                       <p className="line-clamp-1 text-xs font-medium text-slate-500">
                         {product.category?.name ?? "Sin categoria"}
                       </p>
