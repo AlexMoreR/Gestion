@@ -13,6 +13,36 @@ type StorefrontCatalogProps = {
   categorySlug?: string;
 };
 
+const naturalCodeCollator = new Intl.Collator("es", {
+  numeric: true,
+  sensitivity: "base",
+});
+
+function compareProductsByNaturalCode(
+  a: { code: string | null; name: string },
+  b: { code: string | null; name: string },
+) {
+  const leftCode = a.code?.trim() ?? "";
+  const rightCode = b.code?.trim() ?? "";
+
+  if (leftCode && rightCode) {
+    const codeComparison = naturalCodeCollator.compare(leftCode, rightCode);
+    if (codeComparison !== 0) {
+      return codeComparison;
+    }
+  }
+
+  if (leftCode && !rightCode) {
+    return -1;
+  }
+
+  if (!leftCode && rightCode) {
+    return 1;
+  }
+
+  return naturalCodeCollator.compare(a.name, b.name);
+}
+
 export async function generateStorefrontMetadata({
   query = "",
   categorySlug,
@@ -115,7 +145,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
     getSystemBrandName(),
   ]);
 
-  const products = await prisma.product.findMany({
+  const productsResult = await prisma.product.findMany({
     where: {
       ...(normalizedQuery
         ? {
@@ -137,6 +167,11 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
       },
     },
   });
+
+  const products =
+    category && !normalizedQuery
+      ? [...productsResult].sort((left, right) => compareProductsByNaturalCode(left, right))
+      : productsResult;
 
   const featuredProducts = products.slice(0, 5).map((product) => ({
     id: product.id,
