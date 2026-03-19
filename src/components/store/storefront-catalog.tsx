@@ -470,6 +470,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
             {products.map((product) => {
               const retailPrice = Number(product.price);
+              const comparePrice = retailPrice * 1.25;
               const productHref = buildProductPath(product);
               const whatsAppHref = buildWhatsAppProductHref(product.name);
               const productSummary = sanitizeDescription(
@@ -490,6 +491,15 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                         className="h-40 w-full bg-white object-contain p-2 transition duration-500 group-hover:scale-[1.02] md:h-52"
                         loading="lazy"
                       />
+                      <div className="absolute left-2 top-1 z-10 -rotate-6 rounded-md border border-rose-300 bg-[linear-gradient(135deg,#ef4444_0%,#dc2626_100%)] px-2 py-1 text-white shadow-[0_12px_20px_-14px_rgba(220,38,38,0.8)]">
+                        <span className="flex items-center gap-1 text-[8px] font-black uppercase leading-none tracking-[0.08em]">
+                          <Truck className="h-3 w-3" />
+                          Envio
+                        </span>
+                        <span className="mt-0.5 block text-[11px] font-black uppercase leading-none tracking-[0.08em]">
+                          Gratis
+                        </span>
+                      </div>
                       <span className="absolute right-2 top-2 rounded-full border border-white/20 bg-slate-900/85 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
                         {product.code?.trim() || "SKU"}
                       </span>
@@ -502,10 +512,18 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                       <h3 className="min-h-[2rem] text-[13px] font-semibold leading-4 normal-case tracking-normal text-slate-900">
                         {product.name}
                       </h3>
-                      <div className="flex items-end justify-between gap-2 pt-0">
-                        <p className="text-lg font-bold tracking-tight text-slate-950">
-                          {formatCatalogPrice(String(retailPrice), systemCurrency)}
-                        </p>
+                      <div className="flex items-start justify-between gap-2 pt-0">
+                        <div className="space-y-0.5">
+                          <p className="text-xl font-bold tracking-tight text-slate-950">
+                            {formatCatalogPrice(String(retailPrice), systemCurrency)}
+                          </p>
+                          <p className="flex items-center gap-1 text-[12px] font-medium text-slate-500">
+                            <span className="line-through text-slate-400">
+                              {formatCatalogPrice(String(comparePrice), systemCurrency)}
+                            </span>
+                            <span className="line-through">Antes</span>
+                          </p>
+                        </div>
                         <p className="text-right text-[9px] font-semibold leading-3 text-slate-400">
                           Cualquier
                           <br />
