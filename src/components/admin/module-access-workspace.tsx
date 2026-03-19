@@ -2,7 +2,19 @@
 
 import * as React from "react";
 import { Role } from "@prisma/client";
-import { LockKeyhole, ShieldCheck, X } from "lucide-react";
+import {
+  Blocks,
+  BriefcaseBusiness,
+  LockKeyhole,
+  Package,
+  ShieldCheck,
+  Tags,
+  Truck,
+  UserCog,
+  UserRound,
+  Users,
+  X,
+} from "lucide-react";
 import { adminUpdateUserModuleAccessAction } from "@/app/actions/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -31,6 +43,22 @@ const roleLabel: Record<Role, string> = {
   CLIENTE: "Cliente",
 };
 
+const roleIconMap = {
+  ADMIN: ShieldCheck,
+  EMPLEADO: BriefcaseBusiness,
+  CLIENTE: UserRound,
+} satisfies Record<Role, React.ComponentType<{ className?: string }>>;
+
+const moduleIconMap = {
+  config_users: Users,
+  config_business: BriefcaseBusiness,
+  config_permissions: UserCog,
+  products: Package,
+  categories: Tags,
+  suppliers: Truck,
+  quotes: Blocks,
+} satisfies Record<AdminModuleKey, React.ComponentType<{ className?: string }>>;
+
 export function ModuleAccessWorkspace({ roles, modules }: ModuleAccessWorkspaceProps) {
   const [activeRole, setActiveRole] = React.useState<Role | null>(null);
 
@@ -50,31 +78,34 @@ export function ModuleAccessWorkspace({ roles, modules }: ModuleAccessWorkspaceP
   return (
     <>
       <div className="space-y-4">
-        <div className="border-b border-[var(--line)] pb-3">
-          <p className="text-sm font-semibold text-slate-900">Permisos globales por rol</p>
-          <p className="text-xs text-slate-500">
-            Define una sola configuracion por rol para todo el sistema.
-          </p>
-        </div>
-
         <div className="grid gap-3 md:grid-cols-3">
-          {roles.map((roleItem) => (
+          {roles.map((roleItem) => {
+            const RoleIcon = roleIconMap[roleItem.role];
+
+            return (
             <Card key={roleItem.role} className="space-y-4 border border-[var(--line)]">
-              <div className="space-y-1">
-                <h3 className="text-base font-semibold text-slate-900">{roleLabel[roleItem.role]}</h3>
-                <p className="text-xs text-slate-500">
-                  {roleItem.modules.length} modulo{roleItem.modules.length === 1 ? "" : "s"} activo{roleItem.modules.length === 1 ? "" : "s"}
-                </p>
+              <div className="flex items-start gap-3">
+                <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_12%,white)] text-[var(--primary)]">
+                  <RoleIcon className="h-5 w-5" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base font-semibold text-slate-900">{roleLabel[roleItem.role]}</h3>
+                  <p className="text-xs text-slate-500">
+                    {roleItem.modules.length} modulo{roleItem.modules.length === 1 ? "" : "s"} activo{roleItem.modules.length === 1 ? "" : "s"}
+                  </p>
+                </div>
               </div>
 
               <div className="flex flex-wrap gap-1.5">
                 {roleItem.modules.map((moduleKey) => {
                   const moduleItem = modules.find((item) => item.key === moduleKey);
+                  const ModuleIcon = moduleItem ? moduleIconMap[moduleItem.key] : null;
                   return moduleItem ? (
                     <span
                       key={moduleItem.key}
-                      className="inline-flex rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700"
+                      className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700"
                     >
+                      {ModuleIcon ? <ModuleIcon className="h-3.5 w-3.5" /> : null}
                       {moduleItem.label}
                     </span>
                   ) : null;
@@ -89,7 +120,7 @@ export function ModuleAccessWorkspace({ roles, modules }: ModuleAccessWorkspaceP
                 Configurar rol
               </Button>
             </Card>
-          ))}
+          )})}
         </div>
       </div>
 
@@ -144,6 +175,7 @@ export function ModuleAccessWorkspace({ roles, modules }: ModuleAccessWorkspaceP
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{group}</p>
                   <div className="grid gap-2">
                     {groupModules.map((moduleItem) => {
+                      const ModuleIcon = moduleIconMap[moduleItem.key];
                       const isChecked =
                         currentRole.modules.includes(moduleItem.key) ||
                         (currentRole.role === "ADMIN" && moduleItem.key === "config_permissions");
@@ -164,7 +196,10 @@ export function ModuleAccessWorkspace({ roles, modules }: ModuleAccessWorkspaceP
                             className="mt-1 h-4 w-4 rounded border-[var(--line)] text-[var(--primary)]"
                           />
                           <span className="space-y-0.5">
-                            <span className="block text-sm font-medium text-slate-900">{moduleItem.label}</span>
+                            <span className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                              <ModuleIcon className="h-4 w-4 text-slate-500" />
+                              {moduleItem.label}
+                            </span>
                             <span className="block text-xs text-slate-600">{moduleItem.description}</span>
                           </span>
                         </label>
