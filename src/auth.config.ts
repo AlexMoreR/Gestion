@@ -55,8 +55,8 @@ const authConfig = {
       if (session.user) {
         session.user.id = token.sub ?? "";
         session.user.role = token.role as Role | undefined;
-        session.user.name = token.name;
-        session.user.email = typeof token.email === "string" ? token.email : null;
+        session.user.name = typeof token.name === "string" ? token.name : null;
+        session.user.email = typeof token.email === "string" ? token.email : "";
         session.user.image = typeof token.picture === "string" ? token.picture : null;
       }
       return session;
