@@ -9,6 +9,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
+import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { getSystemBrandName, getSystemCurrency, getSystemPrimaryColor } from "@/lib/system-settings";
 
@@ -19,6 +20,11 @@ type PageProps = {
 export default async function AdminConfiguracionNegocioPage({ searchParams }: PageProps) {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") {
+    redirect("/unauthorized");
+  }
+
+  const canAccess = await hasAdminModuleAccess(session.user.id, session.user.role, "config_business");
+  if (!canAccess) {
     redirect("/unauthorized");
   }
 

@@ -16,6 +16,7 @@ import {
 import { Navbar } from "@/components/navbar";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import type { AdminModuleKey } from "@/lib/admin-module-access";
 import { cn } from "@/lib/utils";
 
 type InitialUser = {
@@ -29,9 +30,10 @@ type AppShellProps = {
   children: React.ReactNode;
   initialUser: InitialUser | null;
   brandName: string;
+  adminModuleAccess: Record<AdminModuleKey, boolean>;
 };
 
-export function AppShell({ children, initialUser, brandName }: AppShellProps) {
+export function AppShell({ children, initialUser, brandName, adminModuleAccess }: AppShellProps) {
   const { data } = useSession();
   const pathname = usePathname();
   const user = data?.user ?? initialUser;
@@ -84,6 +86,13 @@ export function AppShell({ children, initialUser, brandName }: AppShellProps) {
       ];
     }
 
+    if (pathname.startsWith("/admin/configuracion/permisos")) {
+      return [
+        { label: "Configuracion", href: "/admin/configuracion", isCurrent: false },
+        { label: "Control de modulos", href: "", isCurrent: true },
+      ];
+    }
+
     if (pathname.startsWith("/admin/productos/new")) {
       return [
         { label: "Productos", href: "/admin/productos", isCurrent: false },
@@ -120,7 +129,11 @@ export function AppShell({ children, initialUser, brandName }: AppShellProps) {
   if (showTopMenu) {
     return (
       <>
-        <Navbar initialUser={initialUser} brandName={brandName} />
+        <Navbar
+          initialUser={initialUser}
+          brandName={brandName}
+          adminModuleAccess={adminModuleAccess}
+        />
         <main
           className={cn(
             "mx-auto w-full max-w-6xl px-4 md:px-6",
@@ -146,6 +159,7 @@ export function AppShell({ children, initialUser, brandName }: AppShellProps) {
               role: user.role,
             }}
             brandName={brandName}
+            adminModuleAccess={adminModuleAccess}
             className="admin-print-sidebar flex"
           />
           <SidebarInset className="admin-print-inset">

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { SuppliersWorkspace } from "@/components/admin/suppliers-workspace";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
+import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -11,6 +12,11 @@ type PageProps = {
 export default async function AdminProveedoresPage({ searchParams }: PageProps) {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") {
+    redirect("/unauthorized");
+  }
+
+  const canAccess = await hasAdminModuleAccess(session.user.id, session.user.role, "suppliers");
+  if (!canAccess) {
     redirect("/unauthorized");
   }
 

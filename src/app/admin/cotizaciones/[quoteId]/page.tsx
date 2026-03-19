@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { EditQuoteWorkspace } from "@/components/admin/edit-quote-workspace";
+import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 import { getSystemCurrency } from "@/lib/system-settings";
@@ -12,6 +13,11 @@ type PageProps = {
 export default async function AdminCotizacionDetallePage({ params }: PageProps) {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") {
+    redirect("/unauthorized");
+  }
+
+  const canAccess = await hasAdminModuleAccess(session.user.id, session.user.role, "quotes");
+  if (!canAccess) {
     redirect("/unauthorized");
   }
 

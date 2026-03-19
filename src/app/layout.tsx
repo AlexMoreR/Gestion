@@ -4,6 +4,7 @@ import { Geist_Mono, Poppins } from "next/font/google";
 import { auth } from "@/auth";
 import { AppShell } from "@/components/app-shell";
 import { Providers } from "@/components/providers";
+import { getAdminModuleAccess } from "@/lib/admin-module-access";
 import { getSiteUrl, siteConfig } from "@/lib/site";
 import {
   getSystemBrandName,
@@ -88,10 +89,11 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await auth();
-  const [primaryColor, primaryStrongColor, brandName] = await Promise.all([
+  const [primaryColor, primaryStrongColor, brandName, adminModuleAccess] = await Promise.all([
     getSystemPrimaryColor(),
     getSystemPrimaryStrongColor(),
     getSystemBrandName(),
+    getAdminModuleAccess(session?.user?.id, session?.user?.role),
   ]);
 
   return (
@@ -106,7 +108,11 @@ export default async function RootLayout({
         }
       >
         <Providers session={session}>
-          <AppShell initialUser={session?.user ?? null} brandName={brandName}>
+          <AppShell
+            initialUser={session?.user ?? null}
+            brandName={brandName}
+            adminModuleAccess={adminModuleAccess}
+          >
             {children}
           </AppShell>
         </Providers>

@@ -12,6 +12,7 @@ import type { Role } from "@prisma/client";
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
 import { TeamSwitcher } from "@/components/team-switcher";
+import type { AdminModuleKey } from "@/lib/admin-module-access";
 import {
   Sidebar,
   SidebarContent,
@@ -28,6 +29,7 @@ const roleHome = {
 type AppSidebarProps = {
   pathname: string;
   brandName: string;
+  adminModuleAccess: Record<AdminModuleKey, boolean>;
   user: {
     name?: string | null;
     email?: string | null;
@@ -36,7 +38,7 @@ type AppSidebarProps = {
   };
 };
 
-export function AppSidebar({ pathname, brandName, user, ...props }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...props }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
   const dashboardHref = user.role ? roleHome[user.role] : "/";
   const isAdminConfigRoute = pathname.startsWith("/admin/configuracion");
   const isAdminCategoriesRoute = pathname.startsWith("/admin/categorias");
@@ -64,50 +66,70 @@ export function AppSidebar({ pathname, brandName, user, ...props }: AppSidebarPr
   ];
 
   if (user.role === "ADMIN") {
-    navMain.push({
-      title: "Configuracion",
-      url: "/admin/configuracion",
-      icon: Settings,
-      isActive: pathname.startsWith("/admin/configuracion"),
-      items: [{ title: "Ajustes", url: "/admin/configuracion" }],
-    });
+    const canSeeConfig =
+      adminModuleAccess.config_users ||
+      adminModuleAccess.config_business ||
+      adminModuleAccess.config_permissions;
 
-    navMain.push({
-      title: "Productos",
-      url: "/admin/productos",
-      icon: Package,
-      isActive: pathname.startsWith("/admin/productos"),
-      items: [{ title: "Catalogo", url: "/admin/productos" }],
-    });
+    if (canSeeConfig) {
+      navMain.push({
+        title: "Configuracion",
+        url: "/admin/configuracion",
+        icon: Settings,
+        isActive: pathname.startsWith("/admin/configuracion"),
+        items: [{ title: "Ajustes", url: "/admin/configuracion" }],
+      });
+    }
 
-    navMain.push({
-      title: "Categorias",
-      url: "/admin/categorias",
-      icon: Tag,
-      isActive: pathname.startsWith("/admin/categorias"),
-      items: [{ title: "Gestion", url: "/admin/categorias" }],
-    });
+    if (adminModuleAccess.products) {
+      navMain.push({
+        title: "Productos",
+        url: "/admin/productos",
+        icon: Package,
+        isActive: pathname.startsWith("/admin/productos"),
+        items: [{ title: "Catalogo", url: "/admin/productos" }],
+      });
+    }
 
-    navMain.push({
-      title: "Proveedores",
-      url: "/admin/proveedores",
-      icon: Truck,
-      isActive: pathname.startsWith("/admin/proveedores"),
-      items: [{ title: "Gestion", url: "/admin/proveedores" }],
-    });
+    if (adminModuleAccess.categories) {
+      navMain.push({
+        title: "Categorias",
+        url: "/admin/categorias",
+        icon: Tag,
+        isActive: pathname.startsWith("/admin/categorias"),
+        items: [{ title: "Gestion", url: "/admin/categorias" }],
+      });
+    }
 
-    navMain.push({
-      title: "Cotizaciones",
-      url: "/admin/cotizaciones",
-      icon: FileText,
-      isActive: pathname.startsWith("/admin/cotizaciones"),
-      items: [{ title: "Listado", url: "/admin/cotizaciones" }],
-    });
+    if (adminModuleAccess.suppliers) {
+      navMain.push({
+        title: "Proveedores",
+        url: "/admin/proveedores",
+        icon: Truck,
+        isActive: pathname.startsWith("/admin/proveedores"),
+        items: [{ title: "Gestion", url: "/admin/proveedores" }],
+      });
+    }
+
+    if (adminModuleAccess.quotes) {
+      navMain.push({
+        title: "Cotizaciones",
+        url: "/admin/cotizaciones",
+        icon: FileText,
+        isActive: pathname.startsWith("/admin/cotizaciones"),
+        items: [{ title: "Listado", url: "/admin/cotizaciones" }],
+      });
+    }
   }
 
   const teams = [
     { name: brandName, plan: "Cumpliendo suenos" },
   ];
+
+  const canAccessConfig =
+    adminModuleAccess.config_users ||
+    adminModuleAccess.config_business ||
+    adminModuleAccess.config_permissions;
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -125,6 +147,7 @@ export function AppSidebar({ pathname, brandName, user, ...props }: AppSidebarPr
             avatar: user.image ?? "",
             role: user.role,
           }}
+          canAccessConfig={canAccessConfig}
         />
       </SidebarFooter>
       <SidebarRail />

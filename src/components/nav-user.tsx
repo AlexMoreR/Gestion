@@ -32,6 +32,7 @@ import {
 
 export function NavUser({
   user,
+  canAccessConfig,
 }: {
   user: {
     name: string;
@@ -39,6 +40,7 @@ export function NavUser({
     avatar: string;
     role?: Role;
   };
+  canAccessConfig?: boolean;
 }) {
   const { isMobile } = useSidebar();
   const initials = (user.name?.[0] || "U").toUpperCase();
@@ -95,7 +97,7 @@ export function NavUser({
                   Mi perfil
                 </Link>
               </DropdownMenuItem>
-              {user.role === "ADMIN" ? (
+              {user.role === "ADMIN" && canAccessConfig ? (
                 <DropdownMenuItem asChild>
                   <Link href="/admin/configuracion" className="flex items-center gap-2">
                     <Settings className="h-4 w-4" />

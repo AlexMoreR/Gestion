@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
 
 function escapeCsvCell(value: string): string {
@@ -11,6 +12,11 @@ function escapeCsvCell(value: string): string {
 export async function GET() {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const canAccess = await hasAdminModuleAccess(session.user.id, session.user.role, "products");
+  if (!canAccess) {
     return new Response("Unauthorized", { status: 401 });
   }
 

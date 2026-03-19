@@ -2,12 +2,17 @@ import { redirect } from "next/navigation";
 import { PackagePlus } from "lucide-react";
 import { auth } from "@/auth";
 import { NewProductForm } from "@/components/admin/new-product-form";
+import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
 import { getSystemCurrency } from "@/lib/system-settings";
 
 export default async function AdminNuevoProductoPage() {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") {
+    redirect("/unauthorized");
+  }
+  const canAccess = await hasAdminModuleAccess(session.user.id, session.user.role, "products");
+  if (!canAccess) {
     redirect("/unauthorized");
   }
   const [categories, suppliers] = await Promise.all([

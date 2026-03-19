@@ -7,6 +7,12 @@ import { redirect } from "next/navigation";
 import { Role } from "@prisma/client";
 import { z } from "zod";
 import { auth, signIn, signOut } from "@/auth";
+import {
+  adminModuleDefinitions,
+  type AdminModuleKey,
+  getStoredRoleModuleAccessMap,
+  setStoredRoleModuleAccessMap,
+} from "@/lib/admin-module-access";
 import { createEmailVerificationToken } from "@/lib/email-verification";
 import { sendAccountCreatedEmail, sendEmailVerificationEmail } from "@/lib/mailer";
 import { prisma } from "@/lib/prisma";
@@ -310,6 +316,7 @@ export async function adminCreateUserAction(formData: FormData): Promise<void> {
 
   revalidatePath("/admin/configuracion");
   revalidatePath("/admin/configuracion/usuarios");
+  revalidatePath("/admin/configuracion/permisos");
   redirect("/admin/configuracion/usuarios?ok=Usuario+creado");
 }
 
@@ -351,5 +358,47 @@ export async function adminUpdateUserRoleAction(formData: FormData): Promise<voi
 
   revalidatePath("/admin/configuracion");
   revalidatePath("/admin/configuracion/usuarios");
+  revalidatePath("/admin/configuracion/permisos");
   redirect("/admin/configuracion/usuarios?ok=Rol+actualizado");
+}
+
+export async function adminUpdateUserModuleAccessAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    redirect("/admin/configuracion/permisos?error=No+autorizado");
+  }
+
+  const role = String(formData.get("role") ?? "").trim() as Role;
+  if (!["ADMIN", "EMPLEADO", "CLIENTE"].includes(role)) {
+    redirect("/admin/configuracion/permisos?error=Rol+invalido");
+  }
+
+  const validKeys = new Set<AdminModuleKey>(adminModuleDefinitions.map((item) => item.key));
+  const selectedModules = formData
+    .getAll("modules")
+    .map((item) => String(item))
+    .filter((item): item is AdminModuleKey => validKeys.has(item as AdminModuleKey));
+
+  const normalizedModules = new Set<AdminModuleKey>(selectedModules);
+
+  if (role === "ADMIN") {
+    normalizedModules.add("config_permissions");
+  }
+
+  const currentMap = await getStoredRoleModuleAccessMap();
+  currentMap[role] = Array.from(normalizedModules);
+  await setStoredRoleModuleAccessMap(currentMap);
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/configuracion");
+  revalidatePath("/admin/configuracion/permisos");
+  revalidatePath("/admin/configuracion/usuarios");
+  revalidatePath("/admin/configuracion/negocio");
+  revalidatePath("/admin/productos");
+  revalidatePath("/admin/categorias");
+  revalidatePath("/admin/proveedores");
+  revalidatePath("/admin/cotizaciones");
+  redirect("/admin/configuracion/permisos?ok=Permisos+actualizados");
 }

@@ -31,9 +31,15 @@ type InitialUser = {
 export function Navbar({
   initialUser,
   brandName,
+  adminModuleAccess,
 }: {
   initialUser: InitialUser | null;
   brandName: string;
+  adminModuleAccess?: {
+    config_users?: boolean;
+    config_business?: boolean;
+    config_permissions?: boolean;
+  };
 }) {
   const { data, status } = useSession();
   const user = data?.user ?? initialUser;
@@ -42,10 +48,16 @@ export function Navbar({
   const dashboardHref = user?.role ? roleLinks[user.role] : null;
   const initials = (user?.name ?? user?.email ?? "U").slice(0, 1).toUpperCase();
 
+  const canAccessConfig = Boolean(
+    adminModuleAccess?.config_users ||
+      adminModuleAccess?.config_business ||
+      adminModuleAccess?.config_permissions,
+  );
+
   const navLinks = user
     ? [
         ...(dashboardHref ? [{ label: "Dashboard", href: dashboardHref }] : []),
-        ...(user.role === "ADMIN" ? [{ label: "Configuracion", href: "/admin/configuracion" }] : []),
+        ...(user.role === "ADMIN" && canAccessConfig ? [{ label: "Configuracion", href: "/admin/configuracion" }] : []),
         { label: "Perfil", href: "/profile" },
       ]
     : [];
@@ -214,7 +226,7 @@ export function Navbar({
                     </Link>
                   </DropdownMenuItem>
                 )}
-                {user.role === "ADMIN" && (
+                {user.role === "ADMIN" && canAccessConfig && (
                   <DropdownMenuItem asChild>
                     <Link href="/admin/configuracion" className="flex items-center gap-2">
                       <Settings className="h-4 w-4 text-slate-500" />

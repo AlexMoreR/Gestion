@@ -5,6 +5,7 @@ import { CreateUserModal } from "@/components/admin/create-user-modal";
 import { UsersDataTable } from "@/components/admin/users-data-table";
 import { Card } from "@/components/ui/card";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
+import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -14,6 +15,11 @@ type PageProps = {
 export default async function AdminConfiguracionUsuariosPage({ searchParams }: PageProps) {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") {
+    redirect("/unauthorized");
+  }
+
+  const canAccess = await hasAdminModuleAccess(session.user.id, session.user.role, "config_users");
+  if (!canAccess) {
     redirect("/unauthorized");
   }
 
