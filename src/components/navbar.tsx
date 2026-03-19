@@ -64,8 +64,12 @@ export function Navbar({
       ? "rounded-full bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-white shadow-[0_6px_16px_-10px_rgba(15,23,42,0.35)]"
       : "rounded-full px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-[var(--primary)]";
   const socialLinks = [
-    { label: "Instagram", href: "https://www.instagram.com", icon: Instagram },
-    { label: "Facebook", href: "https://www.facebook.com", icon: Facebook },
+    {
+      label: "Instagram",
+      href: "https://www.instagram.com/magilus.co?igsh=MWc5aHV4Nnc1enJpbg==",
+      icon: Instagram,
+    },
+    { label: "Facebook", href: "https://www.facebook.com/share/1C7NgCJa1q/", icon: Facebook },
   ];
   const topMenuLinks = [
     { label: "Tiendas", href: "/" },
