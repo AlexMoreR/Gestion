@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { slugifyProductSegment } from "@/lib/product-slugs";
 import { calculateMarginPctFromPrice, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
 
 const baseProductSchema = z.object({
@@ -52,6 +53,39 @@ function parseImageList(raw: string): string[] {
     .split(/[\n,]/g)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+async function generateUniqueProductSlug(
+  name: string,
+  code?: string | null,
+  excludeProductId?: string,
+): Promise<string> {
+  const baseSlug = [slugifyProductSegment(name), code ? slugifyProductSegment(code) : ""].filter(Boolean).join("-");
+  const normalizedBaseSlug = baseSlug || "producto";
+
+  const existing = await prisma.product.findMany({
+    where: {
+      slug: {
+        startsWith: normalizedBaseSlug,
+      },
+      ...(excludeProductId ? { id: { not: excludeProductId } } : {}),
+    },
+    select: { slug: true },
+  });
+
+  const usedSlugs = new Set(existing.map((item) => item.slug));
+  if (!usedSlugs.has(normalizedBaseSlug)) {
+    return normalizedBaseSlug;
+  }
+
+  let suffix = 2;
+  let candidate = `${normalizedBaseSlug}-${suffix}`;
+  while (usedSlugs.has(candidate)) {
+    suffix += 1;
+    candidate = `${normalizedBaseSlug}-${suffix}`;
+  }
+
+  return candidate;
 }
 
 function splitCsvLine(line: string): string[] {
@@ -206,6 +240,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
   const thumbnailUrl = imageList[0];
   const categoryId = parseOptionalId(parsed.data.categoryId);
   const supplierId = parseOptionalId(parsed.data.supplierId);
+  const slug = await generateUniqueProductSlug(parsed.data.name, parsed.data.code);
   const retailPrice = parsed.data.retailPrice;
   const effectiveRetailMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost, retailPrice);
   const wholesalePrice = parsed.data.wholesalePrice;
@@ -216,6 +251,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
       data: {
         name: parsed.data.name,
         code: parsed.data.code || null,
+        slug,
         description: parsed.data.description || null,
         baseCost: parsed.data.baseCost,
         retailMarginPct: effectiveRetailMarginPct,
@@ -312,6 +348,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
   const thumbnailUrl = imageList[0];
   const categoryId = parseOptionalId(parsed.data.categoryId);
   const supplierId = parseOptionalId(parsed.data.supplierId);
+  const slug = await generateUniqueProductSlug(parsed.data.name, parsed.data.code, parsed.data.productId);
   const retailPrice = parsed.data.retailPrice;
   const effectiveRetailMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost, retailPrice);
   const wholesalePrice = parsed.data.wholesalePrice;
@@ -324,6 +361,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
         data: {
           name: parsed.data.name,
           code: parsed.data.code || null,
+          slug,
           description: parsed.data.description || null,
           baseCost: parsed.data.baseCost,
           retailMarginPct: effectiveRetailMarginPct,
@@ -478,6 +516,7 @@ export async function adminImportProductsCsvAction(formData: FormData): Promise<
 
     const categoryId = categoryName ? categoryByName.get(categoryName) ?? null : null;
     const supplierId = supplierName ? supplierByName.get(supplierName) ?? null : null;
+    const slug = await generateUniqueProductSlug(name, code);
     const retailPrice = calculateRetailPrice(baseCost, retailMarginPct);
     const wholesalePrice = calculateWholesalePrice(baseCost, wholesaleMarginPct);
 
@@ -485,6 +524,7 @@ export async function adminImportProductsCsvAction(formData: FormData): Promise<
       await prisma.product.create({
         data: {
           code,
+          slug,
           name,
           description,
           baseCost,

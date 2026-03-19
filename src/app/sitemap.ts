@@ -10,6 +10,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     prisma.product.findMany({
       select: {
         id: true,
+        slug: true,
         name: true,
         code: true,
         updatedAt: true,

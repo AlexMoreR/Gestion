@@ -17,10 +17,15 @@ type PageProps = {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { productId } = await params;
   const resolvedProductId = getProductIdFromRouteParam(productId);
-  const product = await prisma.product.findUnique({
-    where: { id: resolvedProductId },
-    include: { category: true },
-  });
+  const product =
+    (await prisma.product.findUnique({
+      where: { slug: productId },
+      include: { category: true },
+    })) ??
+    (await prisma.product.findUnique({
+      where: { id: resolvedProductId },
+      include: { category: true },
+    }));
 
   if (!product) {
     return {
@@ -68,13 +73,25 @@ export default async function ProductoDetallePage({ params }: PageProps) {
   const { productId } = await params;
   const resolvedProductId = getProductIdFromRouteParam(productId);
   const [product, currency] = await Promise.all([
-    prisma.product.findUnique({
-      where: { id: resolvedProductId },
-      include: {
-        category: true,
-        images: { orderBy: { order: "asc" } },
-      },
-    }),
+    prisma.product
+      .findUnique({
+        where: { slug: productId },
+        include: {
+          category: true,
+          images: { orderBy: { order: "asc" } },
+        },
+      })
+      .then((match) =>
+        match
+          ? match
+          : prisma.product.findUnique({
+              where: { id: resolvedProductId },
+              include: {
+                category: true,
+                images: { orderBy: { order: "asc" } },
+              },
+            }),
+      ),
     getSystemCurrency(),
   ]);
 

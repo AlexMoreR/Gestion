@@ -1,5 +1,6 @@
 type ProductSlugSource = {
   id: string;
+  slug?: string | null;
   name: string;
   code?: string | null;
 };
@@ -15,6 +16,10 @@ export function slugifyProductSegment(value: string): string {
 }
 
 export function buildProductSlug(product: ProductSlugSource): string {
+  if (product.slug?.trim()) {
+    return product.slug.trim();
+  }
+
   const nameSegment = slugifyProductSegment(product.name) || "producto";
   const codeSegment = product.code ? slugifyProductSegment(product.code) : "";
 
