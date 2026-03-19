@@ -8,6 +8,7 @@ services:
     environment:
       NODE_ENV: "production"
       AUTH_URL: "https://magilus.com"
+      NEXT_PUBLIC_SITE_URL: "https://magilus.com"
       DATABASE_URL: "${DATABASE_URL}"
       AUTH_SECRET: "${AUTH_SECRET}"
       SMTP_HOST: "${SMTP_HOST}"
