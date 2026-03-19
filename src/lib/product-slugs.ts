@@ -3,6 +3,9 @@ type ProductSlugSource = {
   slug?: string | null;
   name: string;
   code?: string | null;
+  category?: {
+    slug: string;
+  } | null;
 };
 
 export function slugifyProductSegment(value: string): string {
@@ -27,7 +30,10 @@ export function buildProductSlug(product: ProductSlugSource): string {
 }
 
 export function buildProductPath(product: ProductSlugSource): string {
-  return `/productos/${buildProductSlug(product)}`;
+  const productSlug = buildProductSlug(product);
+  const categorySlug = product.category?.slug?.trim();
+
+  return categorySlug ? `/${categorySlug}/${productSlug}` : `/productos/${productSlug}`;
 }
 
 export function getProductIdFromRouteParam(param: string): string {
