@@ -53,7 +53,18 @@ export async function generateStorefrontMetadata({
   const category = normalizedCategorySlug
     ? await prisma.category.findUnique({
         where: { slug: normalizedCategorySlug },
-        select: { name: true, slug: true },
+        select: {
+          name: true,
+          slug: true,
+          logoUrl: true,
+          products: {
+            take: 1,
+            orderBy: { createdAt: "desc" },
+            select: {
+              thumbnailUrl: true,
+            },
+          },
+        },
       })
     : null;
 
@@ -82,6 +93,10 @@ export async function generateStorefrontMetadata({
     normalizedQuery || category
       ? `${typeof title === "string" ? title : brandName} | ${brandName}`
       : `${brandName} | Mobiliario profesional para peluqueria, barberia y salon de belleza`;
+  const socialImagePath =
+    category?.logoUrl?.trim() || category?.products[0]?.thumbnailUrl?.trim() || siteConfig.ogImagePath;
+  const socialImage = socialImagePath.startsWith("http") ? socialImagePath : getSiteUrl(socialImagePath);
+  const socialImageAlt = category ? `${category.name} | ${brandName}` : brandName;
 
   return {
     title,
@@ -95,15 +110,16 @@ export async function generateStorefrontMetadata({
       url: canonical,
       images: [
         {
-          url: getSiteUrl(siteConfig.ogImagePath),
-          alt: brandName,
+          url: socialImage,
+          alt: socialImageAlt,
         },
       ],
     },
     twitter: {
+      card: "summary_large_image",
       title: socialTitle,
       description,
-      images: [getSiteUrl(siteConfig.ogImagePath)],
+      images: [socialImage],
     },
   };
 }
