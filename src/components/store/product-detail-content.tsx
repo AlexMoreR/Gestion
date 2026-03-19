@@ -3,6 +3,7 @@ import { MessageCircle, ShoppingCart } from "lucide-react";
 import { ProductGallery } from "@/components/store/product-gallery";
 import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/currency";
+import type { SupportedCurrencyCode } from "@/lib/currency";
 import { buildProductPath } from "@/lib/product-slugs";
 import { buildWhatsAppProductHref, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
 
@@ -21,7 +22,7 @@ type ProductDetailContentProps = {
     category: { name: string; slug: string } | null;
     images: Array<{ url: string }>;
   };
-  currency: string;
+  currency: SupportedCurrencyCode;
   relatedProducts: Array<{
     id: string;
     slug: string;
