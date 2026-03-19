@@ -14,6 +14,19 @@ type StorefrontCatalogProps = {
   categorySlug?: string;
 };
 
+function WhatsAppIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className={className}
+      fill="currentColor"
+    >
+      <path d="M19.05 4.94A9.9 9.9 0 0 0 12.02 2C6.53 2 2.05 6.47 2.05 11.96c0 1.76.46 3.49 1.34 5.01L2 22l5.17-1.36a9.93 9.93 0 0 0 4.84 1.24h.01c5.49 0 9.96-4.47 9.96-9.96a9.9 9.9 0 0 0-2.93-6.98Zm-7.03 15.25h-.01a8.3 8.3 0 0 1-4.23-1.16l-.3-.18-3.07.81.82-2.99-.2-.31a8.25 8.25 0 0 1-1.28-4.4c0-4.55 3.71-8.26 8.27-8.26 2.2 0 4.27.86 5.83 2.42a8.2 8.2 0 0 1 2.42 5.84c0 4.55-3.71 8.26-8.25 8.26Zm4.53-6.18c-.25-.12-1.48-.73-1.71-.81-.23-.09-.39-.12-.56.12-.17.24-.64.81-.79.98-.15.17-.29.19-.54.06-.25-.12-1.05-.39-2-1.24-.74-.66-1.24-1.47-1.39-1.72-.15-.24-.02-.37.11-.49.11-.11.25-.29.37-.43.12-.15.17-.25.25-.42.08-.17.04-.31-.02-.43-.06-.12-.56-1.35-.76-1.85-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.23.24-.87.85-.87 2.07s.89 2.41 1.02 2.57c.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.53.59.19 1.12.16 1.54.1.47-.07 1.48-.6 1.69-1.18.21-.58.21-1.08.15-1.18-.06-.1-.23-.16-.48-.29Z" />
+    </svg>
+  );
+}
+
 const naturalCodeCollator = new Intl.Collator("es", {
   numeric: true,
   sensitivity: "base",
@@ -42,6 +55,10 @@ function compareProductsByNaturalCode(
   }
 
   return naturalCodeCollator.compare(a.name, b.name);
+}
+
+function formatCatalogPrice(value: number | string, currency: Parameters<typeof formatMoney>[1]) {
+  return formatMoney(value, currency).replace(/([.,]00)(?!\d)/, "");
 }
 
 export async function generateStorefrontMetadata({
@@ -195,7 +212,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
     href: buildProductPath(product),
     name: product.name,
     thumbnailUrl: product.thumbnailUrl,
-    priceLabel: formatMoney(String(product.price), systemCurrency),
+    priceLabel: formatCatalogPrice(String(product.price), systemCurrency),
   }));
 
   const promoItems = [
@@ -485,9 +502,14 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                       <h3 className="min-h-[2rem] text-[13px] font-semibold leading-4 normal-case tracking-normal text-slate-900">
                         {product.name}
                       </h3>
-                      <div className="space-y-0.5 pt-0">
-                        <p className="text-base font-semibold text-[var(--primary-strong)]">
-                          {formatMoney(String(retailPrice), systemCurrency)}
+                      <div className="flex items-end justify-between gap-2 pt-0">
+                        <p className="text-lg font-bold tracking-tight text-slate-950">
+                          {formatCatalogPrice(String(retailPrice), systemCurrency)}
+                        </p>
+                        <p className="text-right text-[9px] font-semibold leading-3 text-slate-400">
+                          Cualquier
+                          <br />
+                          medio
                         </p>
                       </div>
                     </div>
@@ -498,17 +520,17 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                       href={whatsAppHref}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex w-full items-center justify-center gap-1 py-1 text-center text-xs font-semibold text-emerald-700 transition hover:text-emerald-800"
+                      className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 text-center text-xs font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 active:translate-y-0 active:scale-[0.98]"
                     >
-                      <MessageCircle className="h-4 w-4" />
-                      Comprar por WhatsApp
+                      Comprar por
+                      <WhatsAppIcon className="h-4 w-4" />
                     </Link>
                     <Link
                       href={productHref}
                       className="cta-float cta-float-delay inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-[var(--primary)] px-2.5 text-xs font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--primary-strong)] active:translate-y-0 active:scale-[0.98]"
                     >
-                      <ShoppingCart className="h-4 w-4" />
                       Comprar
+                      <ShoppingCart className="h-4 w-4" />
                     </Link>
                   </div>
                 </Card>
