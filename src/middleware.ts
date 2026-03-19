@@ -11,12 +11,22 @@ const roleHome = {
 } as const;
 
 const authPages = ["/login", "/register"];
+const canonicalHost = "magilus.com";
+const legacyHosts = new Set(["www.magilus.com", "magilus.com.co", "www.magilus.com.co"]);
 
 export default auth((req) => {
   const { nextUrl } = req;
   const session = req.auth;
   const pathname = nextUrl.pathname;
   const role = session?.user?.role;
+  const requestHost = req.headers.get("host")?.toLowerCase();
+
+  if (requestHost && legacyHosts.has(requestHost)) {
+    const redirectUrl = new URL(nextUrl.toString());
+    redirectUrl.protocol = "https:";
+    redirectUrl.host = canonicalHost;
+    return NextResponse.redirect(redirectUrl, 301);
+  }
 
   if (authPages.includes(pathname) && role) {
     return NextResponse.redirect(new URL(roleHome[role], nextUrl));

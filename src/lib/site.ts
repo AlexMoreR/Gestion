@@ -1,10 +1,33 @@
+const CANONICAL_SITE_URL = "https://magilus.com";
+
+function normalizeSiteDomain(value: string | undefined): string {
+  const fallback = CANONICAL_SITE_URL;
+  const normalizedValue = value?.trim().replace(/\/+$/, "");
+
+  if (!normalizedValue) {
+    return fallback;
+  }
+
+  try {
+    const parsed = new URL(normalizedValue);
+    const hostname = parsed.hostname.toLowerCase();
+
+    if (hostname === "www.magilus.com" || hostname === "magilus.com.co" || hostname === "www.magilus.com.co") {
+      return fallback;
+    }
+
+    return parsed.origin;
+  } catch {
+    return fallback;
+  }
+}
+
 export const siteConfig = {
   name: "Magilus",
   legalName: "Magilus",
   description:
     "Magilus ofrece sillas barberas e hidraulicas, camillas, tocadores, salas de espera y mobiliario profesional para peluqueria, barberia y salon de belleza, con envio a toda Colombia.",
-  domain:
-    process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "") || "https://magilus.com",
+  domain: normalizeSiteDomain(process.env.NEXT_PUBLIC_SITE_URL),
   phoneDisplay: "+57 304 648 1994",
   phoneHref: "+573046481994",
   whatsappHref:
