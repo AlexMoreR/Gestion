@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { buildWhatsAppProductHref, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
-import { getSystemCurrency } from "@/lib/system-settings";
+import { getSystemBrandName, getSystemCurrency } from "@/lib/system-settings";
 
 type StorefrontCatalogProps = {
   query?: string;
@@ -17,6 +17,7 @@ export async function generateStorefrontMetadata({
   query = "",
   categorySlug,
 }: StorefrontCatalogProps): Promise<Metadata> {
+  const brandName = await getSystemBrandName();
   const normalizedQuery = query.trim();
   const normalizedCategorySlug = categorySlug?.trim() ?? "";
   const category = normalizedCategorySlug
@@ -31,13 +32,13 @@ export async function generateStorefrontMetadata({
     : category
       ? category.name
       : {
-          absolute: `${siteConfig.name} | Mobiliario profesional para peluqueria, barberia y salon de belleza`,
+          absolute: `${brandName} | Mobiliario profesional para peluqueria, barberia y salon de belleza`,
         };
   const description = normalizedQuery
-    ? `Explora en ${siteConfig.name} resultados para ${normalizedQuery} en sillas, estaciones y mobiliario profesional para salon y barberia.`
+    ? `Explora en ${brandName} resultados para ${normalizedQuery} en sillas, estaciones y mobiliario profesional para salon y barberia.`
     : category
-      ? `Explora ${category.name.toLowerCase()} en ${siteConfig.name}, mobiliario profesional para peluqueria, salon de belleza y barberia.`
-      : "Magilus ofrece sillas barberas e hidraulicas, camillas, tocadores, salas de espera y mobiliario profesional para peluqueria, barberia y salon de belleza, con envio a toda Colombia.";
+      ? `Explora ${category.name.toLowerCase()} en ${brandName}, mobiliario profesional para peluqueria, salon de belleza y barberia.`
+      : `${brandName} ofrece sillas barberas e hidraulicas, camillas, tocadores, salas de espera y mobiliario profesional para peluqueria, barberia y salon de belleza, con envio a toda Colombia.`;
   const canonical = normalizedQuery
     ? getSiteUrl(
         `/?${new URLSearchParams({
@@ -49,8 +50,8 @@ export async function generateStorefrontMetadata({
       : getSiteUrl("/");
   const socialTitle =
     normalizedQuery || category
-      ? `${typeof title === "string" ? title : siteConfig.name} | ${siteConfig.name}`
-      : `${siteConfig.name} | Mobiliario profesional para peluqueria, barberia y salon de belleza`;
+      ? `${typeof title === "string" ? title : brandName} | ${brandName}`
+      : `${brandName} | Mobiliario profesional para peluqueria, barberia y salon de belleza`;
 
   return {
     title,
@@ -65,7 +66,7 @@ export async function generateStorefrontMetadata({
       images: [
         {
           url: getSiteUrl(siteConfig.ogImagePath),
-          alt: siteConfig.name,
+          alt: brandName,
         },
       ],
     },
@@ -80,7 +81,7 @@ export async function generateStorefrontMetadata({
 export async function StorefrontCatalog({ query = "", categorySlug }: StorefrontCatalogProps) {
   const normalizedQuery = query.trim();
   const normalizedCategorySlug = categorySlug?.trim() ?? "";
-  const [category, categoryNavItems, systemCurrency, totalProducts, totalCategories] = await Promise.all([
+  const [category, categoryNavItems, systemCurrency, totalProducts, totalCategories, brandName] = await Promise.all([
     normalizedCategorySlug
       ? prisma.category.findUnique({
           where: { slug: normalizedCategorySlug },
@@ -111,6 +112,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
     getSystemCurrency(),
     prisma.product.count(),
     prisma.category.count({ where: { isActive: true } }),
+    getSystemBrandName(),
   ]);
 
   const products = await prisma.product.findMany({
@@ -162,7 +164,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
     ? category.name
     : "Equipa tu peluqueria, barberia o salon de belleza";
   const pageIntro = category
-    ? `Explora ${category.name.toLowerCase()} en ${siteConfig.name}, con referencias para peluqueria, salon de belleza y barberia.`
+    ? `Explora ${category.name.toLowerCase()} en ${brandName}, con referencias para peluqueria, salon de belleza y barberia.`
     : "Sillas, camillas, tocadores y mobiliario profesional con garantia y envio a toda Colombia.";
   const collectionDescription = category
     ? `${category.name} para negocios que buscan imagen, funcionalidad y experiencia premium en cada servicio.`
@@ -175,18 +177,18 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
       {
         "@type": "Organization",
         "@id": `${getSiteUrl("/")}#organization`,
-        name: siteConfig.name,
-        legalName: siteConfig.legalName,
+        name: brandName,
+        legalName: brandName,
         url: getSiteUrl("/"),
         logo: getSiteUrl(siteConfig.logoPath),
-        description: siteConfig.description,
+        description: `${brandName} ofrece mobiliario profesional para peluqueria, barberia y salon de belleza.`,
         telephone: siteConfig.phoneDisplay,
       },
       {
         "@type": "CollectionPage",
         "@id": `${getSiteUrl(baseUrl)}#catalog`,
         url: getSiteUrl(baseUrl),
-        name: category ? `${category.name} | ${siteConfig.name}` : `Catalogo de ${siteConfig.name}`,
+        name: category ? `${category.name} | ${brandName}` : `Catalogo de ${brandName}`,
         description: collectionDescription,
       },
     ],
@@ -382,7 +384,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                 Mobiliario profesional para peluqueria, barberia y salon de belleza
               </h2>
               <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-                {`En ${siteConfig.name} encuentras sillas, estaciones y mobiliario profesional para equipar tu negocio con imagen, funcionalidad y respaldo.`}
+                {`En ${brandName} encuentras sillas, estaciones y mobiliario profesional para equipar tu negocio con imagen, funcionalidad y respaldo.`}
               </p>
             </div>
           ) : null}
@@ -401,7 +403,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
               const whatsAppHref = buildWhatsAppProductHref(product.name);
               const productSummary = sanitizeDescription(
                 product.description,
-                `${product.name} en ${product.category?.name ?? "mobiliario profesional"} disponible en ${siteConfig.name}.`,
+                `${product.name} en ${product.category?.name ?? "mobiliario profesional"} disponible en ${brandName}.`,
               );
 
               return (
@@ -498,7 +500,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                 {`${category.name} para peluqueria, barberia y espacios de belleza`}
               </h2>
               <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-                {`Encuentra ${category.name.toLowerCase()} en ${siteConfig.name}, con referencias pensadas para negocios que necesitan proyectar calidad, comodidad y una imagen profesional.`}
+                {`Encuentra ${category.name.toLowerCase()} en ${brandName}, con referencias pensadas para negocios que necesitan proyectar calidad, comodidad y una imagen profesional.`}
               </p>
             </div>
           ) : null}

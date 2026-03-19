@@ -1,9 +1,11 @@
 import { cache } from "react";
 import { DEFAULT_SYSTEM_CURRENCY, isSupportedCurrency, type SupportedCurrencyCode } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
+import { siteConfig } from "@/lib/site";
 
 const CURRENCY_SETTING_KEY = "currency";
 const PRIMARY_COLOR_SETTING_KEY = "primaryColor";
+const BRAND_NAME_SETTING_KEY = "brandName";
 const DEFAULT_SYSTEM_PRIMARY_COLOR = "#6d28d9";
 
 async function ensureAppSettingTable(): Promise<void> {
@@ -118,6 +120,41 @@ export async function setSystemPrimaryColor(color: string): Promise<void> {
   await prisma.$executeRaw`
     INSERT INTO "AppSetting" ("key", "value", "createdAt", "updatedAt")
     VALUES (${PRIMARY_COLOR_SETTING_KEY}, ${normalized}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ON CONFLICT ("key")
+    DO UPDATE SET
+      "value" = EXCLUDED."value",
+      "updatedAt" = CURRENT_TIMESTAMP
+  `;
+}
+
+export const getSystemBrandName = cache(async (): Promise<string> => {
+  try {
+    await ensureAppSettingTable();
+
+    const rows = await prisma.$queryRaw<Array<{ value: string }>>`
+      SELECT "value"
+      FROM "AppSetting"
+      WHERE "key" = ${BRAND_NAME_SETTING_KEY}
+      LIMIT 1
+    `;
+
+    const value = rows[0]?.value?.trim();
+    return value || siteConfig.name;
+  } catch {
+    return siteConfig.name;
+  }
+});
+
+export async function setSystemBrandName(brandName: string): Promise<void> {
+  const normalized = brandName.trim();
+  if (!normalized) {
+    throw new Error("Nombre de marca invalido");
+  }
+
+  await ensureAppSettingTable();
+  await prisma.$executeRaw`
+    INSERT INTO "AppSetting" ("key", "value", "createdAt", "updatedAt")
+    VALUES (${BRAND_NAME_SETTING_KEY}, ${normalized}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     ON CONFLICT ("key")
     DO UPDATE SET
       "value" = EXCLUDED."value",

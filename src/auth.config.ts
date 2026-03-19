@@ -33,14 +33,31 @@ const authConfig = {
 
       return true;
     },
-    jwt({ token, user }) {
-      if (user) token.role = user.role;
+    jwt({ token, user, trigger, session }) {
+      if (user) {
+        token.role = user.role;
+        token.name = user.name;
+        token.email = user.email;
+        token.picture = user.image;
+      }
+
+      if (trigger === "update" && session) {
+        if (typeof session.name === "string") token.name = session.name;
+        if (typeof session.email === "string") token.email = session.email;
+        if (typeof session.image === "string" || session.image === null) {
+          token.picture = session.image;
+        }
+      }
+
       return token;
     },
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub ?? "";
         session.user.role = token.role as Role | undefined;
+        session.user.name = token.name;
+        session.user.email = token.email;
+        session.user.image = typeof token.picture === "string" ? token.picture : null;
       }
       return session;
     },

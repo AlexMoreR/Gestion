@@ -33,6 +33,14 @@ const createSupplierSchema = z.object({
   phone: z.string().trim().max(40, "Telefono demasiado largo").optional().or(z.literal("")),
 });
 
+const updateSupplierSchema = createSupplierSchema.extend({
+  supplierId: z.string().trim().min(1, "Proveedor invalido"),
+});
+
+const deleteSupplierSchema = z.object({
+  supplierId: z.string().trim().min(1, "Proveedor invalido"),
+});
+
 function slugifyCategory(value: string): string {
   return value
     .normalize("NFD")
@@ -283,7 +291,21 @@ export async function adminCreateSupplierAction(formData: FormData): Promise<voi
   });
 
   if (!parsed.success) {
-    redirect("/admin/configuracion?error=Proveedor+invalido");
+    redirect("/admin/proveedores?error=Proveedor+invalido");
+  }
+
+  const existingSupplier = await prisma.supplier.findFirst({
+    where: {
+      name: {
+        equals: parsed.data.name,
+        mode: "insensitive",
+      },
+    },
+    select: { id: true },
+  });
+
+  if (existingSupplier) {
+    redirect("/admin/proveedores?error=Ya+existe+un+proveedor+con+ese+nombre");
   }
 
   try {
@@ -295,11 +317,102 @@ export async function adminCreateSupplierAction(formData: FormData): Promise<voi
       },
     });
   } catch {
-    redirect("/admin/configuracion?error=No+se+pudo+crear+el+proveedor");
+    redirect("/admin/proveedores?error=No+se+pudo+crear+el+proveedor");
   }
 
-  revalidatePath("/admin/configuracion");
+  revalidatePath("/admin/proveedores");
   revalidatePath("/admin/productos");
   revalidatePath("/admin/productos/new");
-  redirect("/admin/configuracion?ok=Proveedor+creado");
+  redirect("/admin/proveedores?ok=Proveedor+creado");
+}
+
+export async function adminUpdateSupplierAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+
+  const parsed = updateSupplierSchema.safeParse({
+    supplierId: formData.get("supplierId"),
+    name: formData.get("name"),
+    email: formData.get("email") ?? "",
+    phone: formData.get("phone") ?? "",
+  });
+
+  if (!parsed.success) {
+    redirect("/admin/proveedores?error=Proveedor+invalido");
+  }
+
+  const supplier = await prisma.supplier.findUnique({
+    where: { id: parsed.data.supplierId },
+    select: { id: true },
+  });
+
+  if (!supplier) {
+    redirect("/admin/proveedores?error=Proveedor+invalido");
+  }
+
+  const existingSupplier = await prisma.supplier.findFirst({
+    where: {
+      NOT: { id: parsed.data.supplierId },
+      name: {
+        equals: parsed.data.name,
+        mode: "insensitive",
+      },
+    },
+    select: { id: true },
+  });
+
+  if (existingSupplier) {
+    redirect("/admin/proveedores?error=Ya+existe+un+proveedor+con+ese+nombre");
+  }
+
+  try {
+    await prisma.supplier.update({
+      where: { id: parsed.data.supplierId },
+      data: {
+        name: parsed.data.name,
+        email: parsed.data.email || null,
+        phone: parsed.data.phone || null,
+      },
+    });
+  } catch {
+    redirect("/admin/proveedores?error=No+se+pudo+actualizar+el+proveedor");
+  }
+
+  revalidatePath("/admin/proveedores");
+  revalidatePath("/admin/productos");
+  revalidatePath("/admin/productos/new");
+  redirect("/admin/proveedores?ok=Proveedor+actualizado");
+}
+
+export async function adminDeleteSupplierAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+
+  const parsed = deleteSupplierSchema.safeParse({
+    supplierId: formData.get("supplierId"),
+  });
+
+  if (!parsed.success) {
+    redirect("/admin/proveedores?error=Proveedor+invalido");
+  }
+
+  const supplier = await prisma.supplier.findUnique({
+    where: { id: parsed.data.supplierId },
+    select: { id: true },
+  });
+
+  if (!supplier) {
+    redirect("/admin/proveedores?error=Proveedor+invalido");
+  }
+
+  try {
+    await prisma.supplier.delete({
+      where: { id: parsed.data.supplierId },
+    });
+  } catch {
+    redirect("/admin/proveedores?error=No+se+pudo+eliminar+el+proveedor");
+  }
+
+  revalidatePath("/admin/proveedores");
+  revalidatePath("/admin/productos");
+  revalidatePath("/admin/productos/new");
+  redirect("/admin/proveedores?ok=Proveedor+eliminado");
 }

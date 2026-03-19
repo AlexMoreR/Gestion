@@ -5,7 +5,11 @@ import { auth } from "@/auth";
 import { AppShell } from "@/components/app-shell";
 import { Providers } from "@/components/providers";
 import { getSiteUrl, siteConfig } from "@/lib/site";
-import { getSystemPrimaryColor, getSystemPrimaryStrongColor } from "@/lib/system-settings";
+import {
+  getSystemBrandName,
+  getSystemPrimaryColor,
+  getSystemPrimaryStrongColor,
+} from "@/lib/system-settings";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -19,59 +23,64 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteConfig.domain),
-  title: {
-    default: `${siteConfig.name} | Mobiliario profesional para peluqueria, barberia y salon de belleza`,
-    template: `%s | ${siteConfig.name}`,
-  },
-  description: siteConfig.description,
-  keywords: [...siteConfig.coreKeywords],
-  applicationName: siteConfig.name,
-  category: "shopping",
-  icons: {
-    icon: [
-      { url: "/favicon.ico", sizes: "32x32", type: "image/x-icon" },
-      { url: siteConfig.logoPath, type: "image/svg+xml" },
-    ],
-    shortcut: ["/favicon.ico"],
-    apple: [siteConfig.logoPath],
-  },
-  alternates: {
-    canonical: getSiteUrl("/"),
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
+export async function generateMetadata(): Promise<Metadata> {
+  const brandName = await getSystemBrandName();
+  const description = `${brandName} ofrece sillas barberas e hidraulicas, camillas, tocadores, salas de espera y mobiliario profesional para peluqueria, barberia y salon de belleza, con envio a toda Colombia.`;
+
+  return {
+    metadataBase: new URL(siteConfig.domain),
+    title: {
+      default: `${brandName} | Mobiliario profesional para peluqueria, barberia y salon de belleza`,
+      template: `%s | ${brandName}`,
+    },
+    description,
+    keywords: [brandName.toLowerCase(), ...siteConfig.coreKeywords.filter((keyword) => keyword !== "magilus")],
+    applicationName: brandName,
+    category: "shopping",
+    icons: {
+      icon: [
+        { url: "/favicon.ico", sizes: "32x32", type: "image/x-icon" },
+        { url: siteConfig.logoPath, type: "image/svg+xml" },
+      ],
+      shortcut: ["/favicon.ico"],
+      apple: [siteConfig.logoPath],
+    },
+    alternates: {
+      canonical: getSiteUrl("/"),
+    },
+    robots: {
       index: true,
       follow: true,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-      "max-video-preview": -1,
-    },
-  },
-  openGraph: {
-    type: "website",
-    locale: siteConfig.locale,
-    url: getSiteUrl("/"),
-    siteName: siteConfig.name,
-    title: `${siteConfig.name} | Mobiliario profesional para peluqueria, barberia y salon de belleza`,
-    description: siteConfig.description,
-    images: [
-      {
-        url: getSiteUrl(siteConfig.ogImagePath),
-        alt: `${siteConfig.name} logo`,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+        "max-video-preview": -1,
       },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: `${siteConfig.name} | Mobiliario profesional para peluqueria, barberia y salon de belleza`,
-    description: siteConfig.description,
-    images: [getSiteUrl(siteConfig.ogImagePath)],
-  },
-};
+    },
+    openGraph: {
+      type: "website",
+      locale: siteConfig.locale,
+      url: getSiteUrl("/"),
+      siteName: brandName,
+      title: `${brandName} | Mobiliario profesional para peluqueria, barberia y salon de belleza`,
+      description,
+      images: [
+        {
+          url: getSiteUrl(siteConfig.ogImagePath),
+          alt: `${brandName} logo`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${brandName} | Mobiliario profesional para peluqueria, barberia y salon de belleza`,
+      description,
+      images: [getSiteUrl(siteConfig.ogImagePath)],
+    },
+  };
+}
 
 export default async function RootLayout({
   children,
@@ -79,9 +88,10 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await auth();
-  const [primaryColor, primaryStrongColor] = await Promise.all([
+  const [primaryColor, primaryStrongColor, brandName] = await Promise.all([
     getSystemPrimaryColor(),
     getSystemPrimaryStrongColor(),
+    getSystemBrandName(),
   ]);
 
   return (
@@ -96,7 +106,9 @@ export default async function RootLayout({
         }
       >
         <Providers session={session}>
-          <AppShell initialUser={session?.user ?? null}>{children}</AppShell>
+          <AppShell initialUser={session?.user ?? null} brandName={brandName}>
+            {children}
+          </AppShell>
         </Providers>
       </body>
     </html>

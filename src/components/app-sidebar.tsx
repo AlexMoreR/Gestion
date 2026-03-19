@@ -6,6 +6,7 @@ import {
   Package,
   Settings,
   Tag,
+  Truck,
 } from "lucide-react";
 import type { Role } from "@prisma/client";
 import { NavMain } from "@/components/nav-main";
@@ -15,7 +16,6 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar";
 
@@ -27,6 +27,7 @@ const roleHome = {
 
 type AppSidebarProps = {
   pathname: string;
+  brandName: string;
   user: {
     name?: string | null;
     email?: string | null;
@@ -35,12 +36,13 @@ type AppSidebarProps = {
   };
 };
 
-export function AppSidebar({ pathname, user, ...props }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({ pathname, brandName, user, ...props }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
   const dashboardHref = user.role ? roleHome[user.role] : "/";
   const isAdminConfigRoute = pathname.startsWith("/admin/configuracion");
   const isAdminCategoriesRoute = pathname.startsWith("/admin/categorias");
   const isAdminProductsRoute = pathname.startsWith("/admin/productos");
   const isAdminQuotesRoute = pathname.startsWith("/admin/cotizaciones");
+  const isAdminSuppliersRoute = pathname.startsWith("/admin/proveedores");
 
   const navMain = [
     {
@@ -53,7 +55,8 @@ export function AppSidebar({ pathname, user, ...props }: AppSidebarProps & React
           !isAdminConfigRoute &&
           !isAdminCategoriesRoute &&
           !isAdminProductsRoute &&
-          !isAdminQuotesRoute),
+          !isAdminQuotesRoute &&
+          !isAdminSuppliersRoute),
       items: [
         { title: "Vista general", url: dashboardHref },
       ],
@@ -86,6 +89,14 @@ export function AppSidebar({ pathname, user, ...props }: AppSidebarProps & React
     });
 
     navMain.push({
+      title: "Proveedores",
+      url: "/admin/proveedores",
+      icon: Truck,
+      isActive: pathname.startsWith("/admin/proveedores"),
+      items: [{ title: "Gestion", url: "/admin/proveedores" }],
+    });
+
+    navMain.push({
       title: "Cotizaciones",
       url: "/admin/cotizaciones",
       icon: FileText,
@@ -95,7 +106,7 @@ export function AppSidebar({ pathname, user, ...props }: AppSidebarProps & React
   }
 
   const teams = [
-    { name: "Magilus", plan: "Cumpliendo suenos" },
+    { name: brandName, plan: "Cumpliendo suenos" },
   ];
 
   return (

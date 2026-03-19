@@ -28,7 +28,13 @@ type InitialUser = {
   role?: Role;
 };
 
-export function Navbar({ initialUser }: { initialUser: InitialUser | null }) {
+export function Navbar({
+  initialUser,
+  brandName,
+}: {
+  initialUser: InitialUser | null;
+  brandName: string;
+}) {
   const { data, status } = useSession();
   const user = data?.user ?? initialUser;
   const pathname = usePathname();
@@ -85,7 +91,7 @@ export function Navbar({ initialUser }: { initialUser: InitialUser | null }) {
           <Link href="/" className="inline-flex items-center rounded-md" aria-label="Inicio">
             <Image
               src="/magilus-logo.svg"
-              alt="Magilus"
+              alt={brandName}
               width={260}
               height={72}
               className="h-12 w-auto md:h-14"

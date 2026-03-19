@@ -14,6 +14,7 @@ export const registerSchema = z.object({
 
 export const profileSchema = z.object({
   name: z.string().min(2, "Nombre muy corto").max(100, "Nombre muy largo"),
+  email: z.string().email("Correo invalido"),
   image: z.union([z.string().url("URL invalida"), z.literal("")]),
 });
 
@@ -32,4 +33,9 @@ export type ActionState = {
   ok: boolean;
   message: string;
   errors?: Record<string, string[]>;
+  data?: {
+    name?: string;
+    email?: string;
+    image?: string | null;
+  };
 };

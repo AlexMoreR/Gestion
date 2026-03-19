@@ -161,6 +161,7 @@ export async function updateProfileAction(
 
   const parsed = profileSchema.safeParse({
     name: formData.get("name"),
+    email: formData.get("email"),
     image: formData.get("image"),
   });
 
@@ -172,15 +173,43 @@ export async function updateProfileAction(
     };
   }
 
-  await prisma.user.update({
+  const emailInUse = await prisma.user.findFirst({
+    where: {
+      email: parsed.data.email,
+      NOT: { id: session.user.id },
+    },
+    select: { id: true },
+  });
+
+  if (emailInUse) {
+    return { ok: false, message: "El correo ya existe" };
+  }
+
+  const updatedUser = await prisma.user.update({
     where: { id: session.user.id },
     data: {
       name: parsed.data.name,
+      email: parsed.data.email,
       image: parsed.data.image || null,
+    },
+    select: {
+      name: true,
+      email: true,
+      image: true,
     },
   });
 
-  return { ok: true, message: "Perfil actualizado" };
+  revalidatePath("/profile");
+
+  return {
+    ok: true,
+    message: "Perfil actualizado",
+    data: {
+      name: updatedUser.name ?? "",
+      email: updatedUser.email,
+      image: updatedUser.image,
+    },
+  };
 }
 
 export async function changePasswordAction(
@@ -252,14 +281,14 @@ export async function adminCreateUserAction(formData: FormData): Promise<void> {
   });
 
   if (!parsed.success) {
-    redirect("/admin/configuracion?error=Datos+invalidos");
+    redirect("/admin/configuracion/usuarios?error=Datos+invalidos");
   }
 
   const { name, email, password, role } = parsed.data;
   const existing = await prisma.user.findUnique({ where: { email } });
 
   if (existing) {
-    redirect("/admin/configuracion?error=El+correo+ya+existe");
+    redirect("/admin/configuracion/usuarios?error=El+correo+ya+existe");
   }
 
   const hashedPassword = await bcrypt.hash(password, 12);
@@ -280,7 +309,8 @@ export async function adminCreateUserAction(formData: FormData): Promise<void> {
   }
 
   revalidatePath("/admin/configuracion");
-  redirect("/admin/configuracion?ok=Usuario+creado");
+  revalidatePath("/admin/configuracion/usuarios");
+  redirect("/admin/configuracion/usuarios?ok=Usuario+creado");
 }
 
 const updateRoleSchema = z.object({
@@ -297,20 +327,20 @@ export async function adminUpdateUserRoleAction(formData: FormData): Promise<voi
   });
 
   if (!parsed.success) {
-    redirect("/admin/configuracion?error=Datos+invalidos");
+    redirect("/admin/configuracion/usuarios?error=Datos+invalidos");
   }
 
   const { userId, role } = parsed.data;
   const targetUser = await prisma.user.findUnique({ where: { id: userId } });
 
   if (!targetUser) {
-    redirect("/admin/configuracion?error=Usuario+no+encontrado");
+    redirect("/admin/configuracion/usuarios?error=Usuario+no+encontrado");
   }
 
   if (targetUser.role === "ADMIN" && role !== "ADMIN") {
     const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
     if (adminCount <= 1) {
-      redirect("/admin/configuracion?error=Debe+existir+al+menos+un+admin");
+      redirect("/admin/configuracion/usuarios?error=Debe+existir+al+menos+un+admin");
     }
   }
 
@@ -320,5 +350,6 @@ export async function adminUpdateUserRoleAction(formData: FormData): Promise<voi
   });
 
   revalidatePath("/admin/configuracion");
-  redirect("/admin/configuracion?ok=Rol+actualizado");
+  revalidatePath("/admin/configuracion/usuarios");
+  redirect("/admin/configuracion/usuarios?ok=Rol+actualizado");
 }

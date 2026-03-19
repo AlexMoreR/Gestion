@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { isSupportedCurrency, type SupportedCurrencyCode } from "@/lib/currency";
-import { setSystemCurrency, setSystemPrimaryColor } from "@/lib/system-settings";
+import { setSystemBrandName, setSystemCurrency, setSystemPrimaryColor } from "@/lib/system-settings";
 
 const updateCurrencySchema = z.object({
   currency: z
@@ -20,6 +20,10 @@ const updatePrimaryColorSchema = z.object({
     .string()
     .trim()
     .regex(/^#(?:[0-9a-fA-F]{3}){1,2}$/, "Color invalido"),
+});
+
+const updateBrandNameSchema = z.object({
+  brandName: z.string().trim().min(2, "Nombre invalido").max(80, "Nombre demasiado largo"),
 });
 
 async function requireAdminSession(): Promise<void> {
@@ -37,16 +41,17 @@ export async function adminUpdateCurrencyAction(formData: FormData): Promise<voi
   });
 
   if (!parsed.success) {
-    redirect("/admin/configuracion?error=Moneda+invalida");
+    redirect("/admin/configuracion/negocio?error=Moneda+invalida");
   }
 
   await setSystemCurrency(parsed.data.currency);
 
   revalidatePath("/");
   revalidatePath("/admin/configuracion");
+  revalidatePath("/admin/configuracion/negocio");
   revalidatePath("/admin/productos");
   revalidatePath("/admin/productos/new");
-  redirect("/admin/configuracion?ok=Moneda+actualizada");
+  redirect("/admin/configuracion/negocio?ok=Moneda+actualizada");
 }
 
 export async function adminUpdatePrimaryColorAction(formData: FormData): Promise<void> {
@@ -57,7 +62,7 @@ export async function adminUpdatePrimaryColorAction(formData: FormData): Promise
   });
 
   if (!parsed.success) {
-    redirect("/admin/configuracion?error=Color+invalido");
+    redirect("/admin/configuracion/negocio?error=Color+invalido");
   }
 
   await setSystemPrimaryColor(parsed.data.primaryColor);
@@ -67,7 +72,31 @@ export async function adminUpdatePrimaryColorAction(formData: FormData): Promise
   revalidatePath("/register");
   revalidatePath("/admin");
   revalidatePath("/admin/configuracion");
+  revalidatePath("/admin/configuracion/negocio");
   revalidatePath("/admin/productos");
   revalidatePath("/admin/productos/new");
-  redirect("/admin/configuracion?ok=Color+actualizado");
+  redirect("/admin/configuracion/negocio?ok=Color+actualizado");
+}
+
+export async function adminUpdateBrandNameAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+
+  const parsed = updateBrandNameSchema.safeParse({
+    brandName: formData.get("brandName"),
+  });
+
+  if (!parsed.success) {
+    redirect("/admin/configuracion/negocio?error=Nombre+de+marca+invalido");
+  }
+
+  await setSystemBrandName(parsed.data.brandName);
+
+  revalidatePath("/");
+  revalidatePath("/admin");
+  revalidatePath("/admin/configuracion");
+  revalidatePath("/admin/configuracion/negocio");
+  revalidatePath("/admin/productos");
+  revalidatePath("/admin/proveedores");
+  revalidatePath("/admin/categorias");
+  redirect("/admin/configuracion/negocio?ok=Marca+actualizada");
 }

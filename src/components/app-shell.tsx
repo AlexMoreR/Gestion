@@ -28,9 +28,10 @@ type InitialUser = {
 type AppShellProps = {
   children: React.ReactNode;
   initialUser: InitialUser | null;
+  brandName: string;
 };
 
-export function AppShell({ children, initialUser }: AppShellProps) {
+export function AppShell({ children, initialUser, brandName }: AppShellProps) {
   const { data } = useSession();
   const pathname = usePathname();
   const user = data?.user ?? initialUser;
@@ -58,6 +59,8 @@ export function AppShell({ children, initialUser }: AppShellProps) {
       ? "Cotizaciones"
     : pathname.startsWith("/admin/categorias")
       ? "Categorias"
+    : pathname.startsWith("/admin/proveedores")
+      ? "Proveedores"
     : pathname.startsWith("/admin/configuracion")
       ? "Configuracion"
       : pathname.startsWith("/admin/productos")
@@ -67,6 +70,20 @@ export function AppShell({ children, initialUser }: AppShellProps) {
           : "Dashboard";
 
   const breadcrumbItems = (() => {
+    if (pathname.startsWith("/admin/configuracion/usuarios")) {
+      return [
+        { label: "Configuracion", href: "/admin/configuracion", isCurrent: false },
+        { label: "Usuarios", href: "", isCurrent: true },
+      ];
+    }
+
+    if (pathname.startsWith("/admin/configuracion/negocio")) {
+      return [
+        { label: "Configuracion", href: "/admin/configuracion", isCurrent: false },
+        { label: "Configuracion negocio", href: "", isCurrent: true },
+      ];
+    }
+
     if (pathname.startsWith("/admin/productos/new")) {
       return [
         { label: "Productos", href: "/admin/productos", isCurrent: false },
@@ -89,6 +106,10 @@ export function AppShell({ children, initialUser }: AppShellProps) {
       return [{ label: "Categorias", href: "", isCurrent: true }];
     }
 
+    if (pathname.startsWith("/admin/proveedores")) {
+      return [{ label: "Proveedores", href: "", isCurrent: true }];
+    }
+
     if (pathname.startsWith("/admin/cotizaciones")) {
       return [{ label: "Cotizaciones", href: "", isCurrent: true }];
     }
@@ -99,7 +120,7 @@ export function AppShell({ children, initialUser }: AppShellProps) {
   if (showTopMenu) {
     return (
       <>
-        <Navbar initialUser={initialUser} />
+        <Navbar initialUser={initialUser} brandName={brandName} />
         <main
           className={cn(
             "mx-auto w-full max-w-6xl px-4 md:px-6",
@@ -124,6 +145,7 @@ export function AppShell({ children, initialUser }: AppShellProps) {
               image: user.image,
               role: user.role,
             }}
+            brandName={brandName}
             className="admin-print-sidebar flex"
           />
           <SidebarInset className="admin-print-inset">
