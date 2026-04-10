@@ -31,10 +31,12 @@ type InitialUser = {
 export function Navbar({
   initialUser,
   brandName,
+  storefrontLogoPath,
   adminModuleAccess,
 }: {
   initialUser: InitialUser | null;
   brandName: string;
+  storefrontLogoPath: string;
   adminModuleAccess?: {
     config_users?: boolean;
     config_business?: boolean;
@@ -100,7 +102,7 @@ export function Navbar({
         <div className="flex min-w-0 items-center gap-2.5">
           <Link href="/" className="inline-flex items-center rounded-md" aria-label="Inicio">
             <Image
-              src="/magilus-logo.svg"
+              src={storefrontLogoPath}
               alt={brandName}
               width={260}
               height={72}

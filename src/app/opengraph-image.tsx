@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { getSystemBrandName } from "@/lib/system-settings";
+import { getSystemBrandName, getSystemStorefrontHeroDescription, getSystemStorefrontHeroTitle } from "@/lib/system-settings";
 
 export const runtime = "nodejs";
 export const size = {
@@ -10,7 +10,11 @@ export const size = {
 export const contentType = "image/png";
 
 export default async function OpenGraphImage() {
-  const brandName = await getSystemBrandName();
+  const [brandName, storefrontHeroTitle, storefrontHeroDescription] = await Promise.all([
+    getSystemBrandName(),
+    getSystemStorefrontHeroTitle(),
+    getSystemStorefrontHeroDescription(),
+  ]);
 
   return new ImageResponse(
     (
@@ -107,7 +111,7 @@ export default async function OpenGraphImage() {
                   maxWidth: 680,
                 }}
               >
-                Peluqueria, barberia y salon de belleza
+                {storefrontHeroTitle}
               </div>
               <div
                 style={{
@@ -117,7 +121,7 @@ export default async function OpenGraphImage() {
                   maxWidth: 650,
                 }}
               >
-                Sillas, camillas, tocadores, salas de espera y mobiliario profesional con envio a toda Colombia.
+                {storefrontHeroDescription}
               </div>
             </div>
           </div>

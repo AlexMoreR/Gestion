@@ -10,6 +10,8 @@ import {
   getSystemBrandName,
   getSystemPrimaryColor,
   getSystemPrimaryStrongColor,
+  getSystemStorefrontHeroDescription,
+  getSystemStorefrontLogoPath,
 } from "@/lib/system-settings";
 import "./globals.css";
 
@@ -25,8 +27,12 @@ const geistMono = Geist_Mono({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
-  const brandName = await getSystemBrandName();
-  const description = `${brandName} ofrece sillas barberas e hidraulicas, camillas, tocadores, salas de espera y mobiliario profesional para peluqueria, barberia y salon de belleza, con envio a toda Colombia.`;
+  const [brandName, storefrontLogoPath, heroDescription] = await Promise.all([
+    getSystemBrandName(),
+    getSystemStorefrontLogoPath(),
+    getSystemStorefrontHeroDescription(),
+  ]);
+  const description = heroDescription;
   const socialImageUrl = getSiteUrl("/opengraph-image");
 
   return {
@@ -42,10 +48,10 @@ export async function generateMetadata(): Promise<Metadata> {
     icons: {
       icon: [
         { url: "/favicon.ico", sizes: "32x32", type: "image/x-icon" },
-        { url: siteConfig.logoPath, type: "image/svg+xml" },
+        { url: storefrontLogoPath },
       ],
       shortcut: ["/favicon.ico"],
-      apple: [siteConfig.logoPath],
+      apple: [storefrontLogoPath],
     },
     alternates: {
       canonical: getSiteUrl("/"),
@@ -90,10 +96,11 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await auth();
-  const [primaryColor, primaryStrongColor, brandName, adminModuleAccess] = await Promise.all([
+  const [primaryColor, primaryStrongColor, brandName, storefrontLogoPath, adminModuleAccess] = await Promise.all([
     getSystemPrimaryColor(),
     getSystemPrimaryStrongColor(),
     getSystemBrandName(),
+    getSystemStorefrontLogoPath(),
     getAdminModuleAccess(session?.user?.id, session?.user?.role),
   ]);
 
@@ -112,6 +119,7 @@ export default async function RootLayout({
           <AppShell
             initialUser={session?.user ?? null}
             brandName={brandName}
+            storefrontLogoPath={storefrontLogoPath}
             adminModuleAccess={adminModuleAccess}
           >
             {children}

@@ -7,7 +7,13 @@ import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { buildProductPath } from "@/lib/product-slugs";
 import { buildWhatsAppProductHref, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
-import { getSystemBrandName, getSystemCurrency } from "@/lib/system-settings";
+import {
+  getSystemBrandName,
+  getSystemCurrency,
+  getSystemStorefrontHeroDescription,
+  getSystemStorefrontHeroTitle,
+  getSystemStorefrontLogoPath,
+} from "@/lib/system-settings";
 
 type StorefrontCatalogProps = {
   query?: string;
@@ -65,7 +71,10 @@ export async function generateStorefrontMetadata({
   query = "",
   categorySlug,
 }: StorefrontCatalogProps): Promise<Metadata> {
-  const brandName = await getSystemBrandName();
+  const [brandName, storefrontHeroDescription] = await Promise.all([
+    getSystemBrandName(),
+    getSystemStorefrontHeroDescription(),
+  ]);
   const normalizedQuery = query.trim();
   const normalizedCategorySlug = categorySlug?.trim() ?? "";
   const category = normalizedCategorySlug
@@ -107,7 +116,7 @@ export async function generateStorefrontMetadata({
       ? category.seoDescription?.trim() ||
         category.description?.trim() ||
         `Explora ${category.name.toLowerCase()} en ${brandName}, mobiliario profesional para peluqueria, salon de belleza y barberia.`
-      : `${brandName} ofrece sillas barberas e hidraulicas, camillas, tocadores, salas de espera y mobiliario profesional para peluqueria, barberia y salon de belleza, con envio a toda Colombia.`;
+      : storefrontHeroDescription;
   const canonical = normalizedQuery
     ? getSiteUrl(
         `/?${new URLSearchParams({
@@ -163,7 +172,17 @@ export async function generateStorefrontMetadata({
 export async function StorefrontCatalog({ query = "", categorySlug }: StorefrontCatalogProps) {
   const normalizedQuery = query.trim();
   const normalizedCategorySlug = categorySlug?.trim() ?? "";
-  const [category, categoryNavItems, systemCurrency, totalProducts, totalCategories, brandName] = await Promise.all([
+  const [
+    category,
+    categoryNavItems,
+    systemCurrency,
+    totalProducts,
+    totalCategories,
+    brandName,
+    storefrontLogoPath,
+    storefrontHeroTitle,
+    storefrontHeroDescription,
+  ] = await Promise.all([
     normalizedCategorySlug
       ? prisma.category.findUnique({
           where: { slug: normalizedCategorySlug },
@@ -196,6 +215,9 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
     prisma.product.count(),
     prisma.category.count({ where: { isActive: true } }),
     getSystemBrandName(),
+    getSystemStorefrontLogoPath(),
+    getSystemStorefrontHeroTitle(),
+    getSystemStorefrontHeroDescription(),
   ]);
 
   const productsResult = await prisma.product.findMany({
@@ -251,11 +273,11 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
 
   const pageHeading = category
     ? category.name
-    : "Equipa tu peluqueria, barberia o salon de belleza";
+    : storefrontHeroTitle;
   const pageIntro = category
     ? category.description?.trim() ||
       `Explora ${category.name.toLowerCase()} en ${brandName}, con referencias para peluqueria, salon de belleza y barberia.`
-    : "Sillas, camillas, tocadores y mobiliario profesional con garantia y envio a toda Colombia.";
+    : storefrontHeroDescription;
   const collectionDescription = category
     ? category.description?.trim() ||
       `${category.name} para negocios que buscan imagen, funcionalidad y experiencia premium en cada servicio.`
@@ -271,7 +293,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
         name: brandName,
         legalName: brandName,
         url: getSiteUrl("/"),
-        logo: getSiteUrl(siteConfig.logoPath),
+        logo: getSiteUrl(storefrontLogoPath),
         description: `${brandName} ofrece mobiliario profesional para peluqueria, barberia y salon de belleza.`,
         telephone: siteConfig.phoneDisplay,
       },

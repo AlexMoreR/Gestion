@@ -6,7 +6,14 @@ import { siteConfig } from "@/lib/site";
 const CURRENCY_SETTING_KEY = "currency";
 const PRIMARY_COLOR_SETTING_KEY = "primaryColor";
 const BRAND_NAME_SETTING_KEY = "brandName";
+const STOREFRONT_LOGO_PATH_SETTING_KEY = "storefrontLogoPath";
+const STOREFRONT_HERO_TITLE_SETTING_KEY = "storefrontHeroTitle";
+const STOREFRONT_HERO_DESCRIPTION_SETTING_KEY = "storefrontHeroDescription";
 const DEFAULT_SYSTEM_PRIMARY_COLOR = "#6d28d9";
+const DEFAULT_STOREFRONT_LOGO_PATH = siteConfig.logoPath;
+const DEFAULT_STOREFRONT_HERO_TITLE = "Equipa tu peluqueria, barberia o salon de belleza";
+const DEFAULT_STOREFRONT_HERO_DESCRIPTION =
+  "Sillas, camillas, tocadores y mobiliario profesional con garantia y envio a toda Colombia.";
 
 async function ensureAppSettingTable(): Promise<void> {
   await prisma.$executeRawUnsafe(`
@@ -19,18 +26,35 @@ async function ensureAppSettingTable(): Promise<void> {
   `);
 }
 
+async function getAppSettingValue(key: string): Promise<string | null> {
+  await ensureAppSettingTable();
+
+  const rows = await prisma.$queryRaw<Array<{ value: string }>>`
+    SELECT "value"
+    FROM "AppSetting"
+    WHERE "key" = ${key}
+    LIMIT 1
+  `;
+
+  const value = rows[0]?.value;
+  return typeof value === "string" ? value : null;
+}
+
+async function setAppSettingValue(key: string, value: string): Promise<void> {
+  await ensureAppSettingTable();
+  await prisma.$executeRaw`
+    INSERT INTO "AppSetting" ("key", "value", "createdAt", "updatedAt")
+    VALUES (${key}, ${value}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ON CONFLICT ("key")
+    DO UPDATE SET
+      "value" = EXCLUDED."value",
+      "updatedAt" = CURRENT_TIMESTAMP
+  `;
+}
+
 export const getSystemCurrency = cache(async (): Promise<SupportedCurrencyCode> => {
   try {
-    await ensureAppSettingTable();
-
-    const rows = await prisma.$queryRaw<Array<{ value: string }>>`
-      SELECT "value"
-      FROM "AppSetting"
-      WHERE "key" = ${CURRENCY_SETTING_KEY}
-      LIMIT 1
-    `;
-
-    const value = rows[0]?.value;
+    const value = await getAppSettingValue(CURRENCY_SETTING_KEY);
     if (value && isSupportedCurrency(value)) {
       return value;
     }
@@ -42,15 +66,7 @@ export const getSystemCurrency = cache(async (): Promise<SupportedCurrencyCode> 
 });
 
 export async function setSystemCurrency(currency: SupportedCurrencyCode): Promise<void> {
-  await ensureAppSettingTable();
-  await prisma.$executeRaw`
-    INSERT INTO "AppSetting" ("key", "value", "createdAt", "updatedAt")
-    VALUES (${CURRENCY_SETTING_KEY}, ${currency}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-    ON CONFLICT ("key")
-    DO UPDATE SET
-      "value" = EXCLUDED."value",
-      "updatedAt" = CURRENT_TIMESTAMP
-  `;
+  await setAppSettingValue(CURRENCY_SETTING_KEY, currency);
 }
 
 function normalizeHexColor(value: string | null | undefined): string | null {
@@ -90,16 +106,7 @@ function darkenHexColor(hex: string, amount = 0.14): string {
 
 export const getSystemPrimaryColor = cache(async (): Promise<string> => {
   try {
-    await ensureAppSettingTable();
-
-    const rows = await prisma.$queryRaw<Array<{ value: string }>>`
-      SELECT "value"
-      FROM "AppSetting"
-      WHERE "key" = ${PRIMARY_COLOR_SETTING_KEY}
-      LIMIT 1
-    `;
-
-    return normalizeHexColor(rows[0]?.value) ?? DEFAULT_SYSTEM_PRIMARY_COLOR;
+    return normalizeHexColor(await getAppSettingValue(PRIMARY_COLOR_SETTING_KEY)) ?? DEFAULT_SYSTEM_PRIMARY_COLOR;
   } catch {
     return DEFAULT_SYSTEM_PRIMARY_COLOR;
   }
@@ -116,29 +123,12 @@ export async function setSystemPrimaryColor(color: string): Promise<void> {
     throw new Error("Color primario invalido");
   }
 
-  await ensureAppSettingTable();
-  await prisma.$executeRaw`
-    INSERT INTO "AppSetting" ("key", "value", "createdAt", "updatedAt")
-    VALUES (${PRIMARY_COLOR_SETTING_KEY}, ${normalized}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-    ON CONFLICT ("key")
-    DO UPDATE SET
-      "value" = EXCLUDED."value",
-      "updatedAt" = CURRENT_TIMESTAMP
-  `;
+  await setAppSettingValue(PRIMARY_COLOR_SETTING_KEY, normalized);
 }
 
 export const getSystemBrandName = cache(async (): Promise<string> => {
   try {
-    await ensureAppSettingTable();
-
-    const rows = await prisma.$queryRaw<Array<{ value: string }>>`
-      SELECT "value"
-      FROM "AppSetting"
-      WHERE "key" = ${BRAND_NAME_SETTING_KEY}
-      LIMIT 1
-    `;
-
-    const value = rows[0]?.value?.trim();
+    const value = (await getAppSettingValue(BRAND_NAME_SETTING_KEY))?.trim();
     return value || siteConfig.name;
   } catch {
     return siteConfig.name;
@@ -151,13 +141,59 @@ export async function setSystemBrandName(brandName: string): Promise<void> {
     throw new Error("Nombre de marca invalido");
   }
 
-  await ensureAppSettingTable();
-  await prisma.$executeRaw`
-    INSERT INTO "AppSetting" ("key", "value", "createdAt", "updatedAt")
-    VALUES (${BRAND_NAME_SETTING_KEY}, ${normalized}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-    ON CONFLICT ("key")
-    DO UPDATE SET
-      "value" = EXCLUDED."value",
-      "updatedAt" = CURRENT_TIMESTAMP
-  `;
+  await setAppSettingValue(BRAND_NAME_SETTING_KEY, normalized);
+}
+
+export const getSystemStorefrontLogoPath = cache(async (): Promise<string> => {
+  try {
+    const value = (await getAppSettingValue(STOREFRONT_LOGO_PATH_SETTING_KEY))?.trim();
+    return value || DEFAULT_STOREFRONT_LOGO_PATH;
+  } catch {
+    return DEFAULT_STOREFRONT_LOGO_PATH;
+  }
+});
+
+export async function setSystemStorefrontLogoPath(logoPath: string): Promise<void> {
+  const normalized = logoPath.trim();
+  if (!normalized.startsWith("/")) {
+    throw new Error("Logo principal invalido");
+  }
+
+  await setAppSettingValue(STOREFRONT_LOGO_PATH_SETTING_KEY, normalized);
+}
+
+export const getSystemStorefrontHeroTitle = cache(async (): Promise<string> => {
+  try {
+    const value = (await getAppSettingValue(STOREFRONT_HERO_TITLE_SETTING_KEY))?.trim();
+    return value || DEFAULT_STOREFRONT_HERO_TITLE;
+  } catch {
+    return DEFAULT_STOREFRONT_HERO_TITLE;
+  }
+});
+
+export async function setSystemStorefrontHeroTitle(title: string): Promise<void> {
+  const normalized = title.trim();
+  if (!normalized) {
+    throw new Error("Titulo principal invalido");
+  }
+
+  await setAppSettingValue(STOREFRONT_HERO_TITLE_SETTING_KEY, normalized);
+}
+
+export const getSystemStorefrontHeroDescription = cache(async (): Promise<string> => {
+  try {
+    const value = (await getAppSettingValue(STOREFRONT_HERO_DESCRIPTION_SETTING_KEY))?.trim();
+    return value || DEFAULT_STOREFRONT_HERO_DESCRIPTION;
+  } catch {
+    return DEFAULT_STOREFRONT_HERO_DESCRIPTION;
+  }
+});
+
+export async function setSystemStorefrontHeroDescription(description: string): Promise<void> {
+  const normalized = description.trim();
+  if (!normalized) {
+    throw new Error("Descripcion principal invalida");
+  }
+
+  await setAppSettingValue(STOREFRONT_HERO_DESCRIPTION_SETTING_KEY, normalized);
 }

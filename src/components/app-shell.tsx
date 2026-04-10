@@ -30,10 +30,11 @@ type AppShellProps = {
   children: React.ReactNode;
   initialUser: InitialUser | null;
   brandName: string;
+  storefrontLogoPath: string;
   adminModuleAccess: Record<AdminModuleKey, boolean>;
 };
 
-export function AppShell({ children, initialUser, brandName, adminModuleAccess }: AppShellProps) {
+export function AppShell({ children, initialUser, brandName, storefrontLogoPath, adminModuleAccess }: AppShellProps) {
   const { data } = useSession();
   const pathname = usePathname();
   const user = data?.user ?? initialUser;
@@ -132,6 +133,7 @@ export function AppShell({ children, initialUser, brandName, adminModuleAccess }
         <Navbar
           initialUser={initialUser}
           brandName={brandName}
+          storefrontLogoPath={storefrontLogoPath}
           adminModuleAccess={adminModuleAccess}
         />
         <main

@@ -1,17 +1,27 @@
 import { redirect } from "next/navigation";
+import Image from "next/image";
 import { Save, Settings } from "lucide-react";
 import { auth } from "@/auth";
 import {
   adminUpdateBrandNameAction,
   adminUpdateCurrencyAction,
   adminUpdatePrimaryColorAction,
+  adminUpdateStorefrontHeroAction,
+  adminUpdateStorefrontLogoAction,
 } from "@/app/actions/settings-actions";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
-import { getSystemBrandName, getSystemCurrency, getSystemPrimaryColor } from "@/lib/system-settings";
+import {
+  getSystemBrandName,
+  getSystemCurrency,
+  getSystemPrimaryColor,
+  getSystemStorefrontHeroDescription,
+  getSystemStorefrontHeroTitle,
+  getSystemStorefrontLogoPath,
+} from "@/lib/system-settings";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -32,10 +42,20 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
-  const [systemCurrency, systemPrimaryColor, systemBrandName] = await Promise.all([
+  const [
+    systemCurrency,
+    systemPrimaryColor,
+    systemBrandName,
+    storefrontLogoPath,
+    storefrontHeroTitle,
+    storefrontHeroDescription,
+  ] = await Promise.all([
     getSystemCurrency(),
     getSystemPrimaryColor(),
     getSystemBrandName(),
+    getSystemStorefrontLogoPath(),
+    getSystemStorefrontHeroTitle(),
+    getSystemStorefrontHeroDescription(),
   ]);
 
   return (
@@ -124,6 +144,88 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
             <Save className="h-4 w-4" />
           </button>
         </form>
+      </Card>
+
+      <Card className="space-y-5">
+        <div className="space-y-1">
+          <h2 className="text-sm font-semibold text-slate-900">Portada del sitio</h2>
+          <p className="text-xs text-slate-600">
+            Define el logo y el mensaje principal que se muestra en la pagina inicial del catalogo.
+          </p>
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-dashed border-[var(--line)] bg-slate-50/80 p-4">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Logo actual</p>
+              <div className="relative mt-3 flex min-h-40 items-center justify-center overflow-hidden rounded-2xl border border-white bg-white p-4 shadow-sm">
+                <Image
+                  src={storefrontLogoPath}
+                  alt={`Logo principal de ${systemBrandName}`}
+                  width={280}
+                  height={96}
+                  className="h-auto max-h-24 w-auto max-w-full object-contain"
+                  unoptimized
+                />
+              </div>
+            </div>
+
+            <form action={adminUpdateStorefrontLogoAction} className="space-y-3 rounded-2xl border border-[var(--line)] p-4">
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">Cambiar logo principal</span>
+                <Input name="logo" type="file" accept="image/*" className="h-11 pt-2.5" required />
+              </label>
+              <p className="text-xs text-slate-500">Usa PNG, JPG, WEBP o SVG. Recomendado: fondo transparente y menos de 2 MB.</p>
+              <button
+                type="submit"
+                aria-label="Guardar logo principal"
+                className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+              >
+                <Save className="h-4 w-4" />
+              </button>
+            </form>
+          </div>
+
+          <form action={adminUpdateStorefrontHeroAction} className="space-y-4 rounded-2xl border border-[var(--line)] p-4">
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium text-slate-700">Titulo principal del home</span>
+              <Input
+                name="heroTitle"
+                defaultValue={storefrontHeroTitle}
+                placeholder="Mensaje principal de la portada"
+                className="h-11"
+                required
+              />
+            </label>
+
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium text-slate-700">Descripcion principal del home</span>
+              <textarea
+                name="heroDescription"
+                defaultValue={storefrontHeroDescription}
+                placeholder="Texto de apoyo que acompana el titulo principal"
+                className="min-h-28 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 transition focus-visible:border-[var(--line-strong)] focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d1d5db80]"
+                required
+              />
+            </label>
+
+            <div className="rounded-2xl border border-dashed border-[var(--line)] bg-slate-50/70 p-4">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Vista previa</p>
+              <div className="mt-3 space-y-2 rounded-2xl bg-[linear-gradient(135deg,var(--primary-strong)_0%,var(--primary)_55%,var(--primary-strong)_100%)] p-5 text-white shadow-[0_22px_40px_-30px_rgba(15,23,42,0.55)]">
+                <p className="max-w-xl text-xl font-semibold tracking-tight">{storefrontHeroTitle}</p>
+                <p className="max-w-2xl text-sm leading-6 text-white/82">{storefrontHeroDescription}</p>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              aria-label="Guardar portada"
+              className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+            >
+              <Save className="h-4 w-4" />
+            </button>
+          </form>
+        </div>
       </Card>
     </section>
   );

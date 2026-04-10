@@ -1,12 +1,11 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { AuthError } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Role } from "@prisma/client";
 import { z } from "zod";
-import { auth, signIn, signOut } from "@/auth";
+import { auth, signOut } from "@/auth";
 import {
   adminModuleDefinitions,
   type AdminModuleKey,
@@ -39,11 +38,7 @@ async function requireAdminSession(): Promise<void> {
   }
 }
 
-export async function loginAction(
-  prevState: ActionState = defaultState,
-  formData: FormData,
-): Promise<ActionState> {
-  void prevState;
+export async function loginAction(formData: FormData): Promise<ActionState & { redirectTo?: string }> {
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
@@ -72,20 +67,7 @@ export async function loginAction(
     return { ok: false, message: "Debes confirmar tu correo antes de iniciar sesion" };
   }
 
-  try {
-    await signIn("credentials", {
-      email,
-      password,
-      redirectTo: roleRedirect[user.role],
-    });
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return { ok: false, message: "No se pudo iniciar sesion" };
-    }
-    throw error;
-  }
-
-  return { ok: true, message: "Sesion iniciada" };
+  return { ok: true, message: "Sesion iniciada", redirectTo: roleRedirect[user.role] };
 }
 
 export async function registerAction(
