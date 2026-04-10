@@ -6,13 +6,14 @@ import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { buildProductPath } from "@/lib/product-slugs";
-import { buildWhatsAppProductHref, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
+import { buildWhatsAppCatalogHref, buildWhatsAppProductHref, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
 import {
   getSystemBrandName,
   getSystemCurrency,
   getSystemStorefrontHeroDescription,
   getSystemStorefrontHeroTitle,
   getSystemStorefrontLogoPath,
+  getSystemStorefrontPromoItems,
 } from "@/lib/system-settings";
 
 type StorefrontCatalogProps = {
@@ -182,6 +183,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
     storefrontLogoPath,
     storefrontHeroTitle,
     storefrontHeroDescription,
+    storefrontPromoItems,
   ] = await Promise.all([
     normalizedCategorySlug
       ? prisma.category.findUnique({
@@ -218,6 +220,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
     getSystemStorefrontLogoPath(),
     getSystemStorefrontHeroTitle(),
     getSystemStorefrontHeroDescription(),
+    getSystemStorefrontPromoItems(),
   ]);
 
   const productsResult = await prisma.product.findMany({
@@ -256,13 +259,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
     priceLabel: formatCatalogPrice(String(product.price), systemCurrency),
   }));
 
-  const promoItems = [
-    "Combos especiales de temporada",
-    "Envio gratis en productos seleccionados",
-    "Te ayudamos por WhatsApp a elegir tu mobiliario",
-    "Descuentos por compras al por mayor",
-    "Instalacion y asesoria para tu salon",
-  ];
+  const promoItems = storefrontPromoItems;
 
   const categoriesCarousel = categoryNavItems.map((item) => ({
     id: item.id,
@@ -283,6 +280,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
       `${category.name} para negocios que buscan imagen, funcionalidad y experiencia premium en cada servicio.`
     : "Catalogo de sillas, estaciones y mobiliario profesional premium para salon de belleza, barberia y espacios de alto nivel.";
   const baseUrl = category ? `/${category.slug}` : "/";
+  const storefrontWhatsAppHref = buildWhatsAppCatalogHref(brandName);
 
   const storefrontSchema = {
     "@context": "https://schema.org",
@@ -338,7 +336,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                     {!category ? (
                       <div className="hidden flex-wrap items-center gap-2 pt-0.5 text-xs text-slate-200 md:flex">
                       <Link
-                        href={siteConfig.whatsappHref}
+                        href={storefrontWhatsAppHref}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex h-9 items-center gap-2 rounded-full border border-white/14 bg-black/18 px-3.5 text-[13px] font-semibold text-white backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:border-white/22 hover:bg-black/24 active:translate-y-0 md:h-10 md:px-4.5"
@@ -366,7 +364,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                     <FeaturedProductsCarousel products={featuredProducts} />
                     <div className="flex flex-wrap items-center justify-center gap-2.5 pt-0.5 text-xs text-slate-200 md:hidden">
                       <Link
-                        href={siteConfig.whatsappHref}
+                        href={storefrontWhatsAppHref}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex h-9 items-center gap-2 rounded-full border border-white/12 bg-black/14 px-3.5 text-[13px] font-semibold text-white/95 backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:border-white/18 hover:bg-black/22 active:translate-y-0"
@@ -515,7 +513,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
               const retailPrice = Number(product.price);
               const comparePrice = retailPrice * 1.25;
               const productHref = buildProductPath(product);
-              const whatsAppHref = buildWhatsAppProductHref(product.name);
+              const whatsAppHref = buildWhatsAppProductHref(product.name, brandName);
               const productSummary = sanitizeDescription(
                 product.description,
                 `${product.name} en ${product.category?.name ?? "mobiliario profesional"} disponible en ${brandName}.`,

@@ -16,6 +16,7 @@ import {
   setSystemStorefrontHeroDescription,
   setSystemStorefrontHeroTitle,
   setSystemStorefrontLogoPath,
+  setSystemStorefrontPromoItems,
 } from "@/lib/system-settings";
 
 const updateCurrencySchema = z.object({
@@ -40,6 +41,25 @@ const updateBrandNameSchema = z.object({
 const updateStorefrontHeroSchema = z.object({
   heroTitle: z.string().trim().min(8, "Titulo invalido").max(120, "Titulo demasiado largo"),
   heroDescription: z.string().trim().min(12, "Descripcion invalida").max(220, "Descripcion demasiado larga"),
+});
+
+const updateStorefrontPromoItemsSchema = z.object({
+  promoItems: z
+    .string()
+    .transform((value, ctx) => {
+      try {
+        return JSON.parse(value);
+      } catch {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Mensajes promocionales invalidos" });
+        return z.NEVER;
+      }
+    })
+    .pipe(
+      z
+        .array(z.string().trim().min(2, "Mensaje muy corto").max(120, "Mensaje demasiado largo"))
+        .min(1, "Agrega al menos un mensaje")
+        .max(12, "Maximo 12 mensajes"),
+    ),
 });
 
 async function requireAdminSession(): Promise<void> {
@@ -176,6 +196,23 @@ export async function adminUpdateStorefrontHeroAction(formData: FormData): Promi
 
   revalidateBusinessSurfaces();
   redirect("/admin/configuracion/negocio?ok=Portada+actualizada");
+}
+
+export async function adminUpdateStorefrontPromoItemsAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+
+  const parsed = updateStorefrontPromoItemsSchema.safeParse({
+    promoItems: formData.get("promoItems"),
+  });
+
+  if (!parsed.success) {
+    redirect("/admin/configuracion/negocio?error=Mensajes+promocionales+invalidos");
+  }
+
+  await setSystemStorefrontPromoItems(parsed.data.promoItems);
+
+  revalidateBusinessSurfaces();
+  redirect("/admin/configuracion/negocio?ok=Franja+promocional+actualizada");
 }
 
 export async function adminUpdateStorefrontLogoAction(formData: FormData): Promise<void> {

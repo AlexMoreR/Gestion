@@ -6,6 +6,7 @@ import { formatMoney } from "@/lib/currency";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { buildProductPath } from "@/lib/product-slugs";
 import { buildWhatsAppProductHref, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
+import { getSystemBrandName } from "@/lib/system-settings";
 
 type ProductDetailContentProps = {
   product: {
@@ -35,11 +36,12 @@ type ProductDetailContentProps = {
   }>;
 };
 
-export function ProductDetailContent({
+export async function ProductDetailContent({
   product,
   currency,
   relatedProducts,
 }: ProductDetailContentProps) {
+  const brandName = await getSystemBrandName();
   const gallery = Array.from(
     new Set(
       [product.thumbnailUrl, ...product.images.map((item) => item.url)]
@@ -47,10 +49,10 @@ export function ProductDetailContent({
         .filter(Boolean),
     ),
   );
-  const whatsAppHref = buildWhatsAppProductHref(product.name);
+  const whatsAppHref = buildWhatsAppProductHref(product.name, brandName);
   const productDescription = sanitizeDescription(
     product.seoDescription || product.description,
-    `${product.name} disponible en ${siteConfig.name} para proyectos de salon, barberia y mobiliario profesional premium.`,
+    `${product.name} disponible en ${brandName} para proyectos de salon, barberia y mobiliario profesional premium.`,
   );
   const canonicalPath = buildProductPath(product);
   const productSchema = {
@@ -61,10 +63,10 @@ export function ProductDetailContent({
     description: productDescription,
     image: gallery.map((url) => (url.startsWith("http") ? url : getSiteUrl(url))),
     sku: product.code ?? undefined,
-    brand: {
-      "@type": "Brand",
-      name: siteConfig.name,
-    },
+      brand: {
+        "@type": "Brand",
+        name: brandName,
+      },
     category: product.category?.name ?? "Mobiliario profesional",
     offers: {
       "@type": "Offer",
@@ -72,10 +74,10 @@ export function ProductDetailContent({
       priceCurrency: currency,
       price: Number(product.price),
       availability: "https://schema.org/InStock",
-      seller: {
-        "@type": "Organization",
-        name: siteConfig.name,
-      },
+        seller: {
+          "@type": "Organization",
+          name: brandName,
+        },
     },
   };
 

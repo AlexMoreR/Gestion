@@ -52,10 +52,16 @@ export function getSiteUrl(path = ""): string {
   return new URL(path, `${siteConfig.domain}/`).toString();
 }
 
-export function buildWhatsAppProductHref(productName: string): string {
-  return `https://wa.me/${siteConfig.phoneHref.replace("+", "")}?text=${encodeURIComponent(
-    `Hola ${siteConfig.name}, quiero comprar el producto: ${productName}`,
-  )}`;
+export function buildWhatsAppHref(message: string): string {
+  return `https://wa.me/${siteConfig.phoneHref.replace("+", "")}?text=${encodeURIComponent(message)}`;
+}
+
+export function buildWhatsAppCatalogHref(brandName: string): string {
+  return buildWhatsAppHref(`Hola ${brandName}, quiero cotizar mobiliario profesional`);
+}
+
+export function buildWhatsAppProductHref(productName: string, brandName: string = siteConfig.name): string {
+  return buildWhatsAppHref(`Hola ${brandName}, quiero comprar el producto: ${productName}`);
 }
 
 export function sanitizeDescription(value: string | null | undefined, fallback: string): string {

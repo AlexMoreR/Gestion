@@ -9,11 +9,19 @@ const BRAND_NAME_SETTING_KEY = "brandName";
 const STOREFRONT_LOGO_PATH_SETTING_KEY = "storefrontLogoPath";
 const STOREFRONT_HERO_TITLE_SETTING_KEY = "storefrontHeroTitle";
 const STOREFRONT_HERO_DESCRIPTION_SETTING_KEY = "storefrontHeroDescription";
+const STOREFRONT_PROMO_ITEMS_SETTING_KEY = "storefrontPromoItems";
 const DEFAULT_SYSTEM_PRIMARY_COLOR = "#6d28d9";
 const DEFAULT_STOREFRONT_LOGO_PATH = siteConfig.logoPath;
 const DEFAULT_STOREFRONT_HERO_TITLE = "Equipa tu peluqueria, barberia o salon de belleza";
 const DEFAULT_STOREFRONT_HERO_DESCRIPTION =
   "Sillas, camillas, tocadores y mobiliario profesional con garantia y envio a toda Colombia.";
+const DEFAULT_STOREFRONT_PROMO_ITEMS = [
+  "Combos especiales de temporada",
+  "Envio gratis en productos seleccionados",
+  "Te ayudamos por WhatsApp a elegir tu mobiliario",
+  "Descuentos por compras al por mayor",
+  "Instalacion y asesoria para tu salon",
+] as const;
 
 async function ensureAppSettingTable(): Promise<void> {
   await prisma.$executeRawUnsafe(`
@@ -196,4 +204,37 @@ export async function setSystemStorefrontHeroDescription(description: string): P
   }
 
   await setAppSettingValue(STOREFRONT_HERO_DESCRIPTION_SETTING_KEY, normalized);
+}
+
+export const getSystemStorefrontPromoItems = cache(async (): Promise<string[]> => {
+  try {
+    const raw = await getAppSettingValue(STOREFRONT_PROMO_ITEMS_SETTING_KEY);
+    if (!raw) {
+      return [...DEFAULT_STOREFRONT_PROMO_ITEMS];
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [...DEFAULT_STOREFRONT_PROMO_ITEMS];
+    }
+
+    const items = parsed
+      .filter((value): value is string => typeof value === "string")
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .slice(0, 12);
+
+    return items.length > 0 ? items : [...DEFAULT_STOREFRONT_PROMO_ITEMS];
+  } catch {
+    return [...DEFAULT_STOREFRONT_PROMO_ITEMS];
+  }
+});
+
+export async function setSystemStorefrontPromoItems(items: string[]): Promise<void> {
+  const normalized = items.map((item) => item.trim()).filter(Boolean).slice(0, 12);
+  if (normalized.length === 0) {
+    throw new Error("Mensajes promocionales invalidos");
+  }
+
+  await setAppSettingValue(STOREFRONT_PROMO_ITEMS_SETTING_KEY, JSON.stringify(normalized));
 }

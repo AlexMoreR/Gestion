@@ -8,7 +8,9 @@ import {
   adminUpdatePrimaryColorAction,
   adminUpdateStorefrontHeroAction,
   adminUpdateStorefrontLogoAction,
+  adminUpdateStorefrontPromoItemsAction,
 } from "@/app/actions/settings-actions";
+import { StorefrontPromoItemsForm } from "@/components/admin/storefront-promo-items-form";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
@@ -21,6 +23,7 @@ import {
   getSystemStorefrontHeroDescription,
   getSystemStorefrontHeroTitle,
   getSystemStorefrontLogoPath,
+  getSystemStorefrontPromoItems,
 } from "@/lib/system-settings";
 
 type PageProps = {
@@ -49,6 +52,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
     storefrontLogoPath,
     storefrontHeroTitle,
     storefrontHeroDescription,
+    storefrontPromoItems,
   ] = await Promise.all([
     getSystemCurrency(),
     getSystemPrimaryColor(),
@@ -56,6 +60,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
     getSystemStorefrontLogoPath(),
     getSystemStorefrontHeroTitle(),
     getSystemStorefrontHeroDescription(),
+    getSystemStorefrontPromoItems(),
   ]);
 
   return (
@@ -78,45 +83,47 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
       </div>
 
       <Card className="space-y-3">
-        <form action={adminUpdateBrandNameAction} className="flex flex-wrap items-end gap-2">
-          <label className="min-w-64 flex-1 space-y-1.5">
-            <span className="text-sm font-medium text-slate-700">Nombre de la marca</span>
-            <Input
-              name="brandName"
-              defaultValue={systemBrandName}
-              placeholder="Nombre comercial"
-              className="h-11"
-              required
-            />
-          </label>
-          <button
-            type="submit"
-            aria-label="Guardar marca"
-            className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
-          >
-            <Save className="h-4 w-4" />
-          </button>
-        </form>
+        <div className="grid gap-3 xl:grid-cols-2">
+          <form action={adminUpdateBrandNameAction} className="flex flex-wrap items-end gap-2">
+            <label className="min-w-64 flex-1 space-y-1.5">
+              <span className="text-sm font-medium text-slate-700">Nombre de la marca</span>
+              <Input
+                name="brandName"
+                defaultValue={systemBrandName}
+                placeholder="Nombre comercial"
+                className="h-11"
+                required
+              />
+            </label>
+            <button
+              type="submit"
+              aria-label="Guardar marca"
+              className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+            >
+              <Save className="h-4 w-4" />
+            </button>
+          </form>
 
-        <form action={adminUpdateCurrencyAction} className="flex flex-wrap items-end gap-2">
-          <label className="min-w-64 flex-1 space-y-1.5">
-            <span className="text-sm font-medium text-slate-700">Moneda activa</span>
-            <select name="currency" defaultValue={systemCurrency} className="field-select" required>
-              {SUPPORTED_CURRENCIES.map((currency) => (
-                <option key={currency.code} value={currency.code}>
-                  {currency.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="submit"
-            aria-label="Guardar moneda"
-            className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
-          >
-            <Save className="h-4 w-4" />
-          </button>
-        </form>
+          <form action={adminUpdateCurrencyAction} className="flex flex-wrap items-end gap-2">
+            <label className="min-w-64 flex-1 space-y-1.5">
+              <span className="text-sm font-medium text-slate-700">Moneda activa</span>
+              <select name="currency" defaultValue={systemCurrency} className="field-select" required>
+                {SUPPORTED_CURRENCIES.map((currency) => (
+                  <option key={currency.code} value={currency.code}>
+                    {currency.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              aria-label="Guardar moneda"
+              className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+            >
+              <Save className="h-4 w-4" />
+            </button>
+          </form>
+        </div>
 
         <form action={adminUpdatePrimaryColorAction} className="flex flex-wrap items-end gap-2">
           <label className="min-w-64 flex-1 space-y-1.5">
@@ -146,87 +153,100 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
         </form>
       </Card>
 
-      <Card className="space-y-5">
-        <div className="space-y-1">
-          <h2 className="text-sm font-semibold text-slate-900">Portada del sitio</h2>
-          <p className="text-xs text-slate-600">
-            Define el logo y el mensaje principal que se muestra en la pagina inicial del catalogo.
-          </p>
+      <Card className="overflow-hidden border border-slate-200/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(255,255,255,1))] p-0 shadow-[0_30px_70px_-48px_rgba(15,23,42,0.35)]">
+        <div className="border-b border-slate-200/80 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.92),rgba(248,250,252,0.7)_46%,transparent_72%),linear-gradient(135deg,rgba(255,255,255,0.88),rgba(248,250,252,0.9))] px-5 py-4 md:px-6">
+          <h2 className="text-sm font-semibold tracking-tight text-slate-900">Portada del sitio</h2>
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <div className="space-y-3">
-            <div className="rounded-2xl border border-dashed border-[var(--line)] bg-slate-50/80 p-4">
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Logo actual</p>
-              <div className="relative mt-3 flex min-h-40 items-center justify-center overflow-hidden rounded-2xl border border-white bg-white p-4 shadow-sm">
-                <Image
-                  src={storefrontLogoPath}
-                  alt={`Logo principal de ${systemBrandName}`}
-                  width={280}
-                  height={96}
-                  className="h-auto max-h-24 w-auto max-w-full object-contain"
-                  unoptimized
-                />
+        <div className="grid gap-5 p-5 md:p-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+          <div className="space-y-4">
+            <form
+              action={adminUpdateStorefrontLogoAction}
+              className="space-y-4 rounded-[1.6rem] border border-slate-200/80 bg-white/90 p-4 shadow-[0_18px_38px_-34px_rgba(15,23,42,0.28)]"
+            >
+              <div>
+                <label
+                  htmlFor="storefront-logo-input"
+                  className="group relative mt-4 flex min-h-48 cursor-pointer items-center justify-center overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.96),rgba(248,250,252,0.9)_60%,rgba(241,245,249,0.88))] p-5 shadow-[0_18px_38px_-30px_rgba(15,23,42,0.35)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_22px_44px_-30px_rgba(15,23,42,0.38)]"
+                >
+                  <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-slate-300/70 to-transparent" />
+                  <Image
+                    src={storefrontLogoPath}
+                    alt={`Logo principal de ${systemBrandName}`}
+                    width={280}
+                    height={96}
+                    className="relative h-auto max-h-28 w-auto max-w-full object-contain drop-shadow-[0_14px_24px_rgba(15,23,42,0.1)] transition group-hover:scale-[1.02]"
+                    unoptimized
+                  />
+                </label>
               </div>
-            </div>
 
-            <form action={adminUpdateStorefrontLogoAction} className="space-y-3 rounded-2xl border border-[var(--line)] p-4">
-              <label className="block space-y-1.5">
-                <span className="text-sm font-medium text-slate-700">Cambiar logo principal</span>
-                <Input name="logo" type="file" accept="image/*" className="h-11 pt-2.5" required />
+              <label className="sr-only" htmlFor="storefront-logo-input">
+                Seleccionar logo principal
               </label>
-              <p className="text-xs text-slate-500">Usa PNG, JPG, WEBP o SVG. Recomendado: fondo transparente y menos de 2 MB.</p>
+              <Input
+                id="storefront-logo-input"
+                name="logo"
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                required
+              />
               <button
                 type="submit"
                 aria-label="Guardar logo principal"
-                className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+                className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[linear-gradient(135deg,var(--primary-strong),var(--primary))] px-4 text-sm font-semibold text-white shadow-[0_16px_30px_-18px_var(--primary)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_36px_-18px_var(--primary)]"
               >
                 <Save className="h-4 w-4" />
               </button>
             </form>
           </div>
 
-          <form action={adminUpdateStorefrontHeroAction} className="space-y-4 rounded-2xl border border-[var(--line)] p-4">
-            <label className="block space-y-1.5">
-              <span className="text-sm font-medium text-slate-700">Titulo principal del home</span>
+          <form
+            action={adminUpdateStorefrontHeroAction}
+            className="space-y-5 rounded-[1.75rem] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.9))] p-5 shadow-[0_24px_50px_-38px_rgba(15,23,42,0.3)]"
+          >
+            <div className="grid gap-5">
+              <label className="block space-y-2">
+                <span className="text-sm font-semibold text-slate-800">Titulo principal del home</span>
               <Input
                 name="heroTitle"
                 defaultValue={storefrontHeroTitle}
                 placeholder="Mensaje principal de la portada"
-                className="h-11"
+                className="h-12 rounded-xl border-slate-200 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]"
                 required
               />
-            </label>
+              </label>
 
-            <label className="block space-y-1.5">
-              <span className="text-sm font-medium text-slate-700">Descripcion principal del home</span>
+              <label className="block space-y-2">
+                <span className="text-sm font-semibold text-slate-800">Descripcion principal del home</span>
               <textarea
                 name="heroDescription"
                 defaultValue={storefrontHeroDescription}
                 placeholder="Texto de apoyo que acompana el titulo principal"
-                className="min-h-28 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 transition focus-visible:border-[var(--line-strong)] focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d1d5db80]"
+                className="min-h-24 w-full rounded-[1.1rem] border border-slate-200 bg-white px-2 py-3 text-sm text-slate-800 placeholder:text-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] transition focus-visible:border-[var(--line-strong)] focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d1d5db80]"
                 required
               />
-            </label>
-
-            <div className="rounded-2xl border border-dashed border-[var(--line)] bg-slate-50/70 p-4">
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">Vista previa</p>
-              <div className="mt-3 space-y-2 rounded-2xl bg-[linear-gradient(135deg,var(--primary-strong)_0%,var(--primary)_55%,var(--primary-strong)_100%)] p-5 text-white shadow-[0_22px_40px_-30px_rgba(15,23,42,0.55)]">
-                <p className="max-w-xl text-xl font-semibold tracking-tight">{storefrontHeroTitle}</p>
-                <p className="max-w-2xl text-sm leading-6 text-white/82">{storefrontHeroDescription}</p>
-              </div>
+              </label>
             </div>
 
-            <button
-              type="submit"
-              aria-label="Guardar portada"
-              className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
-            >
-              <Save className="h-4 w-4" />
-            </button>
+            <div className="flex items-center justify-end pt-2">
+              <button
+                type="submit"
+                aria-label="Guardar portada"
+                className="inline-flex h-11 min-w-28 items-center justify-center rounded-xl bg-[linear-gradient(135deg,var(--primary-strong),var(--primary))] px-5 text-sm font-semibold text-white shadow-[0_16px_30px_-18px_var(--primary)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_36px_-18px_var(--primary)]"
+              >
+                <Save className="h-4 w-4" />
+              </button>
+            </div>
           </form>
         </div>
       </Card>
+
+      <StorefrontPromoItemsForm
+        action={adminUpdateStorefrontPromoItemsAction}
+        initialItems={storefrontPromoItems}
+      />
     </section>
   );
 }
