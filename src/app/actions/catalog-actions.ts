@@ -11,11 +11,17 @@ import { prisma } from "@/lib/prisma";
 
 const createCategorySchema = z.object({
   name: z.string().trim().min(2, "Nombre invalido").max(80, "Nombre demasiado largo"),
+  description: z.string().trim().max(3000, "Descripcion demasiado larga").optional().or(z.literal("")),
+  seoTitle: z.string().trim().max(70, "SEO title demasiado largo").optional().or(z.literal("")),
+  seoDescription: z.string().trim().max(180, "SEO description demasiado largo").optional().or(z.literal("")),
 });
 
 const updateCategorySchema = z.object({
   categoryId: z.string().trim().min(1, "Categoria invalida"),
   name: z.string().trim().min(2, "Nombre invalido").max(80, "Nombre demasiado largo"),
+  description: z.string().trim().max(3000, "Descripcion demasiado larga").optional().or(z.literal("")),
+  seoTitle: z.string().trim().max(70, "SEO title demasiado largo").optional().or(z.literal("")),
+  seoDescription: z.string().trim().max(180, "SEO description demasiado largo").optional().or(z.literal("")),
 });
 
 const deleteCategorySchema = z.object({
@@ -115,6 +121,9 @@ export async function adminCreateCategoryAction(formData: FormData): Promise<voi
 
   const parsed = createCategorySchema.safeParse({
     name: formData.get("name"),
+    description: formData.get("description") ?? "",
+    seoTitle: formData.get("seoTitle") ?? "",
+    seoDescription: formData.get("seoDescription") ?? "",
   });
 
   if (!parsed.success) {
@@ -146,11 +155,14 @@ export async function adminCreateCategoryAction(formData: FormData): Promise<voi
 
   try {
     await prisma.category.create({
-      data: {
-        name: parsed.data.name,
-        slug,
-        logoUrl,
-      },
+        data: {
+          name: parsed.data.name,
+          slug,
+          description: parsed.data.description || null,
+          seoTitle: parsed.data.seoTitle || null,
+          seoDescription: parsed.data.seoDescription || null,
+          logoUrl,
+        },
     });
   } catch {
     await deleteCategoryLogoFile(logoUrl);
@@ -171,6 +183,9 @@ export async function adminUpdateCategoryAction(formData: FormData): Promise<voi
   const parsed = updateCategorySchema.safeParse({
     categoryId: formData.get("categoryId"),
     name: formData.get("name"),
+    description: formData.get("description") ?? "",
+    seoTitle: formData.get("seoTitle") ?? "",
+    seoDescription: formData.get("seoDescription") ?? "",
   });
 
   if (!parsed.success) {
@@ -219,11 +234,14 @@ export async function adminUpdateCategoryAction(formData: FormData): Promise<voi
   try {
     await prisma.category.update({
       where: { id: parsed.data.categoryId },
-      data: {
-        name: parsed.data.name,
-        slug,
-        ...(logoUrl ? { logoUrl } : {}),
-      },
+        data: {
+          name: parsed.data.name,
+          slug,
+          description: parsed.data.description || null,
+          seoTitle: parsed.data.seoTitle || null,
+          seoDescription: parsed.data.seoDescription || null,
+          ...(logoUrl ? { logoUrl } : {}),
+        },
     });
   } catch {
     await deleteCategoryLogoFile(logoUrl);

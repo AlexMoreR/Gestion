@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const description = sanitizeDescription(
-    product.description,
+    product.seoDescription || product.description,
     `${product.name} ${product.category?.name ? `de ${product.category.name} ` : ""}disponible en ${siteConfig.name}, mobiliario profesional premium para salon y barberia.`,
   );
   const canonicalPath = buildProductPath(product);
@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const imageUrl = product.thumbnailUrl.startsWith("http") ? product.thumbnailUrl : getSiteUrl(product.thumbnailUrl);
 
   return {
-    title: product.name,
+    title: product.seoTitle?.trim() || product.name,
     description,
     alternates: {
       canonical,

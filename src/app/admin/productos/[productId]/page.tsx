@@ -79,6 +79,8 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
             code: product.code,
             name: product.name,
             description: product.description,
+            seoTitle: product.seoTitle,
+            seoDescription: product.seoDescription,
             baseCost: Number(product.baseCost),
             price: Number(product.price),
             wholesalePrice: Number(product.wholesalePrice),

@@ -39,6 +39,8 @@ model Product {
   slug               String            @unique
   name               String
   description        String?
+  seoTitle           String?
+  seoDescription     String?
   price              Decimal           @db.Decimal(10, 2)
   baseCost           Decimal           @default(0) @db.Decimal(10, 2)
   retailMarginPct    Decimal           @default(0) @db.Decimal(6, 2)
@@ -70,6 +72,9 @@ model Category {
   id        String    @id @default(cuid())
   name      String    @unique
   slug      String    @unique
+  description String?
+  seoTitle  String?
+  seoDescription String?
   logoUrl   String?
   isActive  Boolean   @default(true)
   createdAt DateTime  @default(now())

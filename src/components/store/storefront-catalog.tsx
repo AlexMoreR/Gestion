@@ -74,6 +74,14 @@ export async function generateStorefrontMetadata({
         select: {
           name: true,
           slug: true,
+          description: true,
+          seoTitle: true,
+          seoDescription: true,
+          _count: {
+            select: {
+              products: true,
+            },
+          },
           logoUrl: true,
           products: {
             take: 1,
@@ -89,14 +97,16 @@ export async function generateStorefrontMetadata({
   const title = normalizedQuery
     ? `Resultados para ${normalizedQuery}`
     : category
-      ? category.name
+      ? category.seoTitle?.trim() || category.name
       : {
           absolute: `${brandName} | Mobiliario profesional para peluqueria, barberia y salon de belleza`,
         };
   const description = normalizedQuery
     ? `Explora en ${brandName} resultados para ${normalizedQuery} en sillas, estaciones y mobiliario profesional para salon y barberia.`
     : category
-      ? `Explora ${category.name.toLowerCase()} en ${brandName}, mobiliario profesional para peluqueria, salon de belleza y barberia.`
+      ? category.seoDescription?.trim() ||
+        category.description?.trim() ||
+        `Explora ${category.name.toLowerCase()} en ${brandName}, mobiliario profesional para peluqueria, salon de belleza y barberia.`
       : `${brandName} ofrece sillas barberas e hidraulicas, camillas, tocadores, salas de espera y mobiliario profesional para peluqueria, barberia y salon de belleza, con envio a toda Colombia.`;
   const canonical = normalizedQuery
     ? getSiteUrl(
@@ -139,6 +149,14 @@ export async function generateStorefrontMetadata({
       description,
       images: [socialImage],
     },
+    ...(category && category._count.products === 0
+      ? {
+          robots: {
+            index: false,
+            follow: true,
+          },
+        }
+      : {}),
   };
 }
 
@@ -149,12 +167,13 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
     normalizedCategorySlug
       ? prisma.category.findUnique({
           where: { slug: normalizedCategorySlug },
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        })
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          description: true,
+        },
+      })
       : Promise.resolve(null),
     prisma.category.findMany({
       where: { isActive: true },
@@ -234,10 +253,12 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
     ? category.name
     : "Equipa tu peluqueria, barberia o salon de belleza";
   const pageIntro = category
-    ? `Explora ${category.name.toLowerCase()} en ${brandName}, con referencias para peluqueria, salon de belleza y barberia.`
+    ? category.description?.trim() ||
+      `Explora ${category.name.toLowerCase()} en ${brandName}, con referencias para peluqueria, salon de belleza y barberia.`
     : "Sillas, camillas, tocadores y mobiliario profesional con garantia y envio a toda Colombia.";
   const collectionDescription = category
-    ? `${category.name} para negocios que buscan imagen, funcionalidad y experiencia premium en cada servicio.`
+    ? category.description?.trim() ||
+      `${category.name} para negocios que buscan imagen, funcionalidad y experiencia premium en cada servicio.`
     : "Catalogo de sillas, estaciones y mobiliario profesional premium para salon de belleza, barberia y espacios de alto nivel.";
   const baseUrl = category ? `/${category.slug}` : "/";
 
@@ -594,7 +615,8 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                 {`${category.name} para peluqueria, barberia y espacios de belleza`}
               </h2>
               <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-                {`Encuentra ${category.name.toLowerCase()} en ${brandName}, con referencias pensadas para negocios que necesitan proyectar calidad, comodidad y una imagen profesional.`}
+                {category.description?.trim() ||
+                  `Encuentra ${category.name.toLowerCase()} en ${brandName}, con referencias pensadas para negocios que necesitan proyectar calidad, comodidad y una imagen profesional.`}
               </p>
             </div>
           ) : null}

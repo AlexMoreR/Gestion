@@ -14,6 +14,7 @@ type ProductDetailContentProps = {
     name: string;
     code: string | null;
     description: string | null;
+    seoDescription: string | null;
     price: unknown;
     wholesalePrice: unknown;
     minWholesaleQty: number;
@@ -48,7 +49,7 @@ export function ProductDetailContent({
   );
   const whatsAppHref = buildWhatsAppProductHref(product.name);
   const productDescription = sanitizeDescription(
-    product.description,
+    product.seoDescription || product.description,
     `${product.name} disponible en ${siteConfig.name} para proyectos de salon, barberia y mobiliario profesional premium.`,
   );
   const canonicalPath = buildProductPath(product);
@@ -105,8 +106,8 @@ export function ProductDetailContent({
         <Card className="space-y-4 rounded-2xl">
           <div className="space-y-2 border-b border-[var(--line)] pb-4">
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">{product.name}</h1>
-            {product.description ? (
-              <p className="text-sm leading-6 text-slate-600">{product.description}</p>
+            {product.description || product.seoDescription ? (
+              <p className="text-sm leading-6 text-slate-600">{product.description || product.seoDescription}</p>
             ) : (
               <p className="text-sm text-slate-500">Este producto no tiene descripcion disponible.</p>
             )}

@@ -27,6 +27,8 @@ type EditProductInitialData = {
   code: string | null;
   name: string;
   description: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
   baseCost: number;
   price: number;
   wholesalePrice: number;
@@ -55,6 +57,8 @@ export function EditProductForm({
   const [name, setName] = useState(initialData.name);
   const [code, setCode] = useState(initialData.code ?? "");
   const [description, setDescription] = useState(initialData.description ?? "");
+  const [seoTitle, setSeoTitle] = useState(initialData.seoTitle ?? "");
+  const [seoDescription, setSeoDescription] = useState(initialData.seoDescription ?? "");
   const [baseCost, setBaseCost] = useState(initialData.baseCost.toFixed(2));
   const [retailMarginPct, setRetailMarginPct] = useState(initialData.retailMarginPct.toFixed(2));
   const [retailPriceInput, setRetailPriceInput] = useState(initialData.price.toFixed(2));
@@ -208,6 +212,28 @@ export function EditProductForm({
                   placeholder="Descripcion del producto"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                />
+              </label>
+              <label className="block space-y-1.5 md:col-span-2">
+                <span className="text-sm font-medium text-slate-700">SEO title</span>
+                <Input
+                  name="seoTitle"
+                  placeholder="Ej. Silla hidraulica para peluqueria | Magilus"
+                  maxLength={70}
+                  value={seoTitle}
+                  onChange={(e) => setSeoTitle(e.target.value)}
+                />
+              </label>
+              <label className="block space-y-1.5 md:col-span-2">
+                <span className="text-sm font-medium text-slate-700">SEO description</span>
+                <textarea
+                  name="seoDescription"
+                  rows={3}
+                  maxLength={180}
+                  value={seoDescription}
+                  onChange={(e) => setSeoDescription(e.target.value)}
+                  className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[var(--primary)]"
+                  placeholder="Resumen breve y persuasivo para Google."
                 />
               </label>
               <div className="block space-y-1.5 md:col-span-2">

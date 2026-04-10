@@ -11,6 +11,9 @@ type CategoryRow = {
   id: string;
   name: string;
   slug: string;
+  description: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
   logoUrl: string | null;
   productsCount: number;
 };
@@ -129,6 +132,29 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
                 <span className="text-sm font-medium text-slate-700">Logo (opcional)</span>
                 <Input name="logo" type="file" accept="image/*" onChange={handleLogoChange} />
               </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">Descripcion de categoria</span>
+                <textarea
+                  name="description"
+                  rows={4}
+                  className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[var(--primary)]"
+                  placeholder="Texto unico para presentar esta categoria en la pagina publica."
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">SEO title</span>
+                <Input name="seoTitle" placeholder="Ej. Camillas para peluqueria | Magilus" maxLength={70} />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">SEO description</span>
+                <textarea
+                  name="seoDescription"
+                  rows={3}
+                  maxLength={180}
+                  className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[var(--primary)]"
+                  placeholder="Resumen para Google con enfoque comercial y palabras clave."
+                />
+              </label>
               {previewUrl ? (
                 <div className="overflow-hidden rounded-lg border border-[var(--line)] bg-slate-50">
                   <div className="relative aspect-[4/3] w-full">
@@ -181,6 +207,36 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium text-slate-700">Logo (opcional)</span>
                 <Input name="logo" type="file" accept="image/*" onChange={handleLogoChange} />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">Descripcion de categoria</span>
+                <textarea
+                  name="description"
+                  rows={4}
+                  defaultValue={activeCategory.description ?? ""}
+                  className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[var(--primary)]"
+                  placeholder="Texto unico para presentar esta categoria en la pagina publica."
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">SEO title</span>
+                <Input
+                  name="seoTitle"
+                  defaultValue={activeCategory.seoTitle ?? ""}
+                  placeholder="Ej. Camillas para peluqueria | Magilus"
+                  maxLength={70}
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">SEO description</span>
+                <textarea
+                  name="seoDescription"
+                  rows={3}
+                  maxLength={180}
+                  defaultValue={activeCategory.seoDescription ?? ""}
+                  className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[var(--primary)]"
+                  placeholder="Resumen para Google con enfoque comercial y palabras clave."
+                />
               </label>
               {previewUrl ? (
                 <div className="overflow-hidden rounded-lg border border-[var(--line)] bg-slate-50">

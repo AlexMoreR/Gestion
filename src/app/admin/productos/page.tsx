@@ -70,6 +70,8 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
           code: product.code,
           name: product.name,
           description: product.description,
+          seoTitle: product.seoTitle,
+          seoDescription: product.seoDescription,
           categoryId: product.categoryId,
           categoryName: product.category?.name ?? null,
           supplierId: product.suppliers[0]?.supplier.id ?? null,

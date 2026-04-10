@@ -32,6 +32,8 @@ type NewProductDraft = {
   name: string;
   code: string;
   description: string;
+  seoTitle: string;
+  seoDescription: string;
   baseCost: string;
   retailMarginPct: string;
   retailPriceInput: string;
@@ -51,6 +53,8 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [description, setDescription] = useState("");
+  const [seoTitle, setSeoTitle] = useState("");
+  const [seoDescription, setSeoDescription] = useState("");
   const [baseCost, setBaseCost] = useState("0");
   const [retailMarginPct, setRetailMarginPct] = useState("35");
   const [retailPriceInput, setRetailPriceInput] = useState("0");
@@ -87,6 +91,8 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
       setName(draft.name ?? "");
       setCode(draft.code ?? "");
       setDescription(draft.description ?? "");
+      setSeoTitle(draft.seoTitle ?? "");
+      setSeoDescription(draft.seoDescription ?? "");
       setBaseCost(draft.baseCost ?? "0");
       setRetailMarginPct(draft.retailMarginPct ?? "35");
       setRetailPriceInput(draft.retailPriceInput ?? "0");
@@ -115,6 +121,8 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
       name,
       code,
       description,
+      seoTitle,
+      seoDescription,
       baseCost,
       retailMarginPct,
       retailPriceInput,
@@ -134,6 +142,8 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
     name,
     code,
     description,
+    seoTitle,
+    seoDescription,
     baseCost,
     retailMarginPct,
     retailPriceInput,
@@ -273,6 +283,28 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
                   placeholder="Descripcion del producto"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                />
+              </label>
+              <label className="block space-y-1.5 md:col-span-2">
+                <span className="text-sm font-medium text-slate-700">SEO title</span>
+                <Input
+                  name="seoTitle"
+                  placeholder="Ej. Silla hidraulica para peluqueria | Magilus"
+                  maxLength={70}
+                  value={seoTitle}
+                  onChange={(e) => setSeoTitle(e.target.value)}
+                />
+              </label>
+              <label className="block space-y-1.5 md:col-span-2">
+                <span className="text-sm font-medium text-slate-700">SEO description</span>
+                <textarea
+                  name="seoDescription"
+                  rows={3}
+                  maxLength={180}
+                  value={seoDescription}
+                  onChange={(e) => setSeoDescription(e.target.value)}
+                  className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[var(--primary)]"
+                  placeholder="Resumen breve y persuasivo para Google."
                 />
               </label>
               <div className="block space-y-1.5 md:col-span-2">

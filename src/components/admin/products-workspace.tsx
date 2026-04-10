@@ -23,6 +23,8 @@ type ProductWorkspaceRow = {
   code: string | null;
   name: string;
   description: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
   categoryId: string | null;
   categoryName: string | null;
   supplierId: string | null;
@@ -170,6 +172,8 @@ export function ProductsWorkspace({
                 code: activeProduct.code,
                 name: activeProduct.name,
                 description: activeProduct.description,
+                seoTitle: activeProduct.seoTitle,
+                seoDescription: activeProduct.seoDescription,
                 baseCost: activeProduct.baseCost,
                 price: activeProduct.price,
                 wholesalePrice: activeProduct.wholesalePrice,
