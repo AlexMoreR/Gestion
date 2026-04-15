@@ -38,6 +38,10 @@ const deleteProductSchema = z.object({
   productId: z.string().trim().min(1, "Producto invalido"),
 });
 
+const PRODUCT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const PRODUCT_IMAGES_TOTAL_MAX_BYTES = 15 * 1024 * 1024;
+const PRODUCT_IMPORT_CSV_MAX_BYTES = 5 * 1024 * 1024;
+
 async function requireAdminSession(): Promise<void> {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") {
@@ -176,6 +180,11 @@ async function saveUploadedImages(files: File[]): Promise<string[]> {
     throw new Error("Debes subir al menos una imagen");
   }
 
+  const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+  if (totalBytes > PRODUCT_IMAGES_TOTAL_MAX_BYTES) {
+    throw new Error("Las imagenes superan el limite total permitido");
+  }
+
   const uploadDir = path.join(process.cwd(), "public", "uploads", "products");
   await mkdir(uploadDir, { recursive: true });
 
@@ -190,7 +199,7 @@ async function saveUploadedImages(files: File[]): Promise<string[]> {
       throw new Error("Archivo de imagen vacio");
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > PRODUCT_IMAGE_MAX_BYTES) {
       throw new Error("Cada imagen debe pesar maximo 5MB");
     }
 
@@ -451,7 +460,7 @@ export async function adminImportProductsCsvAction(formData: FormData): Promise<
     redirect("/admin/productos?error=Selecciona+un+archivo+CSV+valido");
   }
 
-  if (file.size > 5 * 1024 * 1024) {
+  if (file.size > PRODUCT_IMPORT_CSV_MAX_BYTES) {
     redirect("/admin/productos?error=El+CSV+supera+el+limite+de+5MB");
   }
 
