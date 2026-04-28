@@ -45,6 +45,9 @@ export async function generateMetadata(): Promise<Metadata> {
     keywords: [brandName.toLowerCase(), ...siteConfig.coreKeywords.filter((keyword) => keyword !== "magilus")],
     applicationName: brandName,
     category: "shopping",
+    verification: {
+      google: "2EMj69XiBfiLqnhIVRUaEhFbiNZ3t7V5piUczJabv3c",
+    },
     icons: {
       icon: [
         { url: "/favicon.ico", sizes: "32x32", type: "image/x-icon" },
