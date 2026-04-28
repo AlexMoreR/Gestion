@@ -54,6 +54,10 @@ export function EditProductForm({
   initialData,
 }: EditProductFormProps) {
   const initialSuggestedRetailPrice = calculateRetailPrice(initialData.baseCost, initialData.retailMarginPct);
+  const initialWholesaleEnabled =
+    initialData.wholesalePrice > 0 ||
+    initialData.wholesaleMarginPct > 0 ||
+    initialData.minWholesaleQty > 1;
   const [name, setName] = useState(initialData.name);
   const [code, setCode] = useState(initialData.code ?? "");
   const [description, setDescription] = useState(initialData.description ?? "");
@@ -62,6 +66,7 @@ export function EditProductForm({
   const [baseCost, setBaseCost] = useState(initialData.baseCost.toFixed(2));
   const [retailMarginPct, setRetailMarginPct] = useState(initialData.retailMarginPct.toFixed(2));
   const [retailPriceInput, setRetailPriceInput] = useState(initialData.price.toFixed(2));
+  const [wholesaleEnabled, setWholesaleEnabled] = useState(() => initialWholesaleEnabled);
   const [wholesaleMarginPct, setWholesaleMarginPct] = useState(initialData.wholesaleMarginPct.toFixed(2));
   const [wholesalePriceInput, setWholesalePriceInput] = useState(initialData.wholesalePrice.toFixed(2));
   const [minWholesaleQty, setMinWholesaleQty] = useState(String(initialData.minWholesaleQty));
@@ -87,11 +92,15 @@ export function EditProductForm({
   const pricing = useMemo(() => {
     const cost = Number(baseCost) || 0;
     const retailMargin = Number(retailMarginPct) || 0;
-    const wholesaleMargin = Number(wholesaleMarginPct) || 0;
+    const wholesaleMargin = wholesaleEnabled ? Number(wholesaleMarginPct) || 0 : 0;
     const suggestedRetail = calculateRetailPrice(cost, retailMargin);
     const finalRetail = retailPriceDirty ? Number(retailPriceInput) || 0 : suggestedRetail;
     const suggestedWholesale = calculateWholesalePrice(cost, wholesaleMargin);
-    const finalWholesale = wholesalePriceDirty ? Number(wholesalePriceInput) || 0 : suggestedWholesale;
+    const finalWholesale = wholesaleEnabled
+      ? wholesalePriceDirty
+        ? Number(wholesalePriceInput) || 0
+        : suggestedWholesale
+      : 0;
     const profit = calculateProfit(cost, finalRetail);
     const wholesaleProfit = calculateProfit(cost, finalWholesale);
 
@@ -110,7 +119,17 @@ export function EditProductForm({
       profitLabel: formatMoney(profit, currency),
       cost: formatMoney(cost, currency),
     };
-  }, [baseCost, retailMarginPct, retailPriceInput, retailPriceDirty, wholesaleMarginPct, wholesalePriceInput, wholesalePriceDirty, currency]);
+  }, [
+    baseCost,
+    retailMarginPct,
+    retailPriceInput,
+    retailPriceDirty,
+    wholesaleMarginPct,
+    wholesalePriceInput,
+    wholesalePriceDirty,
+    currency,
+    wholesaleEnabled,
+  ]);
 
   const retailPriceFieldValue = retailPriceDirty ? retailPriceInput : pricing.suggestedRetail.toFixed(2);
   const wholesalePriceFieldValue = wholesalePriceDirty ? wholesalePriceInput : pricing.suggestedWholesale.toFixed(2);
@@ -125,9 +144,8 @@ export function EditProductForm({
     Number(baseCost) > 0 &&
     Number(retailMarginPct) >= 0 &&
     pricing.finalRetail > 0 &&
-    Number(wholesaleMarginPct) >= 0 &&
-    pricing.finalWholesale > 0 &&
-    Number(minWholesaleQty) >= 1;
+    (!wholesaleEnabled ||
+      (Number(wholesaleMarginPct) >= 0 && pricing.finalWholesale > 0 && Number(minWholesaleQty) >= 1));
   const activeStep = !step1Ready ? 1 : !step2Ready ? 2 : 3;
   const steps = [
     { id: 1, label: "Producto" },
@@ -184,9 +202,11 @@ export function EditProductForm({
                 <p className="text-xs text-slate-400">Agrega descripcion para completar la ficha.</p>
               )}
               <p className="text-lg font-semibold tracking-tight text-slate-900">{pricing.retail}</p>
-              <p className="text-xs text-slate-600">
-                Mayorista: {pricing.wholesale} (min {minWholesaleQty || "1"} uds)
-              </p>
+              {wholesaleEnabled ? (
+                <p className="text-xs text-slate-600">
+                  Mayorista: {pricing.wholesale} (min {minWholesaleQty || "1"} uds)
+                </p>
+              ) : null}
             </div>
           </div>
           <ProductFormStepper steps={steps} activeStep={activeStep} />
@@ -324,6 +344,15 @@ export function EditProductForm({
             <div className="space-y-1 border-b border-[var(--line)] pb-3">
               <h2 className="text-sm font-semibold text-slate-900">Precios</h2>
             </div>
+            <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-slate-900"
+                checked={wholesaleEnabled}
+                onChange={(e) => setWholesaleEnabled(e.target.checked)}
+              />
+              Habilitar venta por mayor
+            </label>
             <div className="grid gap-4 md:grid-cols-12">
               <label className="space-y-1.5 md:col-span-2">
                 <span className="text-sm font-medium text-slate-700">📈 % Detal</span>
@@ -380,58 +409,68 @@ export function EditProductForm({
                   className="bg-slate-100 text-slate-600"
                 />
               </label>
-              <div className="md:col-span-12 border-t border-[var(--line)] pt-1" />
-              <label className="space-y-1.5 md:col-span-2">
-                <span className="text-sm font-medium text-slate-700">📦 % Mayor</span>
-                <Input
-                  name="wholesaleMarginPct"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  required
-                  value={wholesaleMarginPct}
-                  onChange={(e) => setWholesaleMarginPct(e.target.value)}
-                />
-              </label>
-              <label className="space-y-1.5 md:col-span-4">
-                <span className="text-sm font-medium text-slate-700">💸 Costo compra ({currency})</span>
-                <Input value={baseCost} readOnly className="bg-slate-100 text-slate-600" />
-              </label>
-              <label className="space-y-1.5 md:col-span-6">
-                <span className="text-sm font-medium text-slate-700">🏷️ Precio final</span>
-                <Input
-                  name="wholesalePrice"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  required
-                  value={wholesalePriceFieldValue}
-                  onChange={(e) => {
-                    setWholesalePriceInput(e.target.value);
-                    setWholesalePriceDirty(true);
-                  }}
-                />
-              </label>
-              <label className="space-y-1.5 md:col-span-6">
-                <span className="text-sm font-medium text-slate-700">💡 Precio sugerido</span>
-                <Input value={pricing.suggestedWholesaleLabel} readOnly className="bg-slate-100 text-slate-600" />
-              </label>
-              <label className="space-y-1.5 md:col-span-6">
-                <span className="text-sm font-medium text-slate-700">💰 Ganancia</span>
-                <Input value={pricing.wholesaleProfitLabel} readOnly className="bg-slate-100 text-slate-600" />
-              </label>
-              <label className="space-y-1.5 md:col-span-12">
-                <span className="text-sm font-medium text-slate-700">🔢 Min. unidades mayor</span>
-                <Input
-                  name="minWholesaleQty"
-                  type="number"
-                  min="1"
-                  step="1"
-                  required
-                  value={minWholesaleQty}
-                  onChange={(e) => setMinWholesaleQty(e.target.value)}
-                />
-              </label>
+              {wholesaleEnabled ? (
+                <>
+                  <div className="md:col-span-12 border-t border-[var(--line)] pt-1" />
+                  <label className="space-y-1.5 md:col-span-2">
+                    <span className="text-sm font-medium text-slate-700">?? % Mayor</span>
+                    <Input
+                      name="wholesaleMarginPct"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      required
+                      value={wholesaleMarginPct}
+                      onChange={(e) => setWholesaleMarginPct(e.target.value)}
+                    />
+                  </label>
+                  <label className="space-y-1.5 md:col-span-4">
+                    <span className="text-sm font-medium text-slate-700">?? Costo compra ({currency})</span>
+                    <Input value={baseCost} readOnly className="bg-slate-100 text-slate-600" />
+                  </label>
+                  <label className="space-y-1.5 md:col-span-6">
+                    <span className="text-sm font-medium text-slate-700">??? Precio final</span>
+                    <Input
+                      name="wholesalePrice"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      required
+                      value={wholesalePriceFieldValue}
+                      onChange={(e) => {
+                        setWholesalePriceInput(e.target.value);
+                        setWholesalePriceDirty(true);
+                      }}
+                    />
+                  </label>
+                  <label className="space-y-1.5 md:col-span-6">
+                    <span className="text-sm font-medium text-slate-700">?? Precio sugerido</span>
+                    <Input value={pricing.suggestedWholesaleLabel} readOnly className="bg-slate-100 text-slate-600" />
+                  </label>
+                  <label className="space-y-1.5 md:col-span-6">
+                    <span className="text-sm font-medium text-slate-700">?? Ganancia</span>
+                    <Input value={pricing.wholesaleProfitLabel} readOnly className="bg-slate-100 text-slate-600" />
+                  </label>
+                  <label className="space-y-1.5 md:col-span-12">
+                    <span className="text-sm font-medium text-slate-700">?? Min. unidades mayor</span>
+                    <Input
+                      name="minWholesaleQty"
+                      type="number"
+                      min="1"
+                      step="1"
+                      required
+                      value={minWholesaleQty}
+                      onChange={(e) => setMinWholesaleQty(e.target.value)}
+                    />
+                  </label>
+                </>
+              ) : (
+                <>
+                  <input type="hidden" name="wholesaleMarginPct" value="0" />
+                  <input type="hidden" name="wholesalePrice" value="0" />
+                  <input type="hidden" name="minWholesaleQty" value="1" />
+                </>
+              )}
             </div>
           </section>
 

@@ -5,8 +5,8 @@ import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/currency";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { buildProductPath } from "@/lib/product-slugs";
-import { buildWhatsAppProductHref, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
-import { getSystemBrandName } from "@/lib/system-settings";
+import { getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
+import { buildSystemWhatsAppHref, getSystemBrandName } from "@/lib/system-settings";
 
 type ProductDetailContentProps = {
   product: {
@@ -49,7 +49,7 @@ export async function ProductDetailContent({
         .filter(Boolean),
     ),
   );
-  const whatsAppHref = buildWhatsAppProductHref(product.name, brandName);
+  const whatsAppHref = await buildSystemWhatsAppHref(`Hola ${brandName}, quiero comprar el producto: ${product.name}`);
   const productDescription = sanitizeDescription(
     product.seoDescription || product.description,
     `${product.name} disponible en ${brandName} para proyectos de salon, barberia y mobiliario profesional premium.`,

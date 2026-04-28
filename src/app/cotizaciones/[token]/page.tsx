@@ -14,7 +14,12 @@ import { DownloadQuotePdfButton } from "@/components/quotes/download-quote-pdf-b
 import { formatMoney } from "@/lib/currency";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
-import { getSystemCurrency } from "@/lib/system-settings";
+import {
+  buildSystemWhatsAppHref,
+  getSystemCurrency,
+  getSystemWhatsAppPhoneDisplay,
+  getSystemWhatsAppPhoneHref,
+} from "@/lib/system-settings";
 
 type PageProps = {
   params: Promise<{ token: string }>;
@@ -23,7 +28,7 @@ type PageProps = {
 export default async function QuotePublicPage({ params }: PageProps) {
   const { token } = await params;
 
-  const [quote, currency] = await Promise.all([
+  const [quote, currency, whatsAppPhoneDisplay, whatsAppPhoneHref] = await Promise.all([
     prisma.quote.findUnique({
       where: { shareToken: token },
       include: {
@@ -37,6 +42,8 @@ export default async function QuotePublicPage({ params }: PageProps) {
       },
     }),
     getSystemCurrency(),
+    getSystemWhatsAppPhoneDisplay(),
+    getSystemWhatsAppPhoneHref(),
   ]);
 
   if (!quote) {
@@ -67,6 +74,12 @@ export default async function QuotePublicPage({ params }: PageProps) {
   const changesHref = `https://wa.me/573046481994?text=${encodeURIComponent(
     `Hola, solicito cambios para la cotización ${quote.code}.`,
   )}`;
+  const dynamicSupportHref = await buildSystemWhatsAppHref(`Hola, necesito ayuda con la cotización ${quote.code}.`);
+  const dynamicApproveHref = await buildSystemWhatsAppHref(`Hola, deseo aprobar la cotización ${quote.code}.`);
+  const dynamicChangesHref = await buildSystemWhatsAppHref(`Hola, solicito cambios para la cotización ${quote.code}.`);
+  void supportHref;
+  void approveHref;
+  void changesHref;
   const companyInfo = {
     name: "Magilus",
     nit: "100.61.80.650",
@@ -167,7 +180,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
 
               <div className="quote-print-hide hidden flex-wrap justify-center gap-2 pt-1 md:flex">
                 <Link
-                  href={approveHref}
+                  href={dynamicApproveHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-semibold text-slate-900 transition hover:bg-slate-100 md:h-10 md:text-sm"
@@ -176,7 +189,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                   Aprobar
                 </Link>
                 <Link
-                  href={changesHref}
+                  href={dynamicChangesHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/35 bg-white/12 px-3.5 text-xs font-semibold text-white transition hover:bg-white/20 md:h-10 md:text-sm"
@@ -230,7 +243,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
           </div>
           <div className="quote-print-hide mt-3 flex flex-wrap justify-center gap-2 md:hidden">
             <Link
-              href={approveHref}
+              href={dynamicApproveHref}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-semibold text-slate-900 transition hover:bg-slate-100"
@@ -239,7 +252,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
               Aprobar
             </Link>
             <Link
-              href={changesHref}
+              href={dynamicChangesHref}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/35 bg-white/12 px-3.5 text-xs font-semibold text-white transition hover:bg-white/20"
@@ -400,12 +413,12 @@ export default async function QuotePublicPage({ params }: PageProps) {
                 Una vez le estén haciendo entrega de su pedido, debe ser revisado en presencia del auxiliar para verificar
                 su estado o notificar inmediatamente cualquier novedad a nuestra línea{" "}
                 <Link
-                  href={supportHref}
+                  href={dynamicSupportHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-semibold text-[var(--primary)] underline underline-offset-2"
                 >
-                  304 6481994
+                  {whatsAppPhoneDisplay}
                 </Link>{" "}
                 vía WhatsApp para allí
                 indicarle el paso a seguir, ya que una vez firmada la guía perdería la garantía de nuestra parte y pasaría
@@ -422,12 +435,12 @@ export default async function QuotePublicPage({ params }: PageProps) {
               <p className="mt-1.5">
                 Debe enviarnos fotos y videos a la línea{" "}
                 <Link
-                  href={supportHref}
+                  href={dynamicSupportHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-semibold text-[var(--primary)] underline underline-offset-2"
                 >
-                  304 6481994
+                  {whatsAppPhoneDisplay}
                 </Link>{" "}
                 para verificar si la falla es por defecto de fabricación
                 y si son realmente nuestros productos.
@@ -463,7 +476,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
           <h2 className="text-sm font-semibold text-slate-900">Acciones</h2>
           <div className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
             <Link
-              href={approveHref}
+              href={dynamicApproveHref}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800"
@@ -472,7 +485,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
               Aprobar
             </Link>
             <Link
-              href={changesHref}
+              href={dynamicChangesHref}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:bg-slate-50"
@@ -482,7 +495,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
             </Link>
             <DownloadQuotePdfButton className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-70" />
             <Link
-              href={supportHref}
+              href={dynamicSupportHref}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 text-sm font-semibold text-sky-700 transition hover:-translate-y-0.5 hover:bg-sky-100"
@@ -508,9 +521,9 @@ export default async function QuotePublicPage({ params }: PageProps) {
               </div>
             </div>
             <div className="grid gap-1 text-xs sm:grid-cols-2 sm:gap-x-5">
-              <p>Contacto: +57 304 648 1994</p>
+              <p>Contacto: {whatsAppPhoneDisplay}</p>
               <p>Correo: comercial@innovacionesmagi.com</p>
-              <p>WhatsApp: wa.me/573046481994</p>
+              <p>WhatsApp: wa.me/{whatsAppPhoneHref}</p>
               <p>Sitio web: innovacionesmagi.com</p>
             </div>
           </div>

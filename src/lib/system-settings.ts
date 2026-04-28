@@ -6,11 +6,13 @@ import { siteConfig } from "@/lib/site";
 const CURRENCY_SETTING_KEY = "currency";
 const PRIMARY_COLOR_SETTING_KEY = "primaryColor";
 const BRAND_NAME_SETTING_KEY = "brandName";
+const WHATSAPP_PHONE_SETTING_KEY = "whatsAppPhone";
 const STOREFRONT_LOGO_PATH_SETTING_KEY = "storefrontLogoPath";
 const STOREFRONT_HERO_TITLE_SETTING_KEY = "storefrontHeroTitle";
 const STOREFRONT_HERO_DESCRIPTION_SETTING_KEY = "storefrontHeroDescription";
 const STOREFRONT_PROMO_ITEMS_SETTING_KEY = "storefrontPromoItems";
 const DEFAULT_SYSTEM_PRIMARY_COLOR = "#6d28d9";
+const DEFAULT_SYSTEM_WHATSAPP_PHONE = siteConfig.phoneDisplay;
 const DEFAULT_STOREFRONT_LOGO_PATH = siteConfig.logoPath;
 const DEFAULT_STOREFRONT_HERO_TITLE = "Equipa tu peluqueria, barberia o salon de belleza";
 const DEFAULT_STOREFRONT_HERO_DESCRIPTION =
@@ -150,6 +152,60 @@ export async function setSystemBrandName(brandName: string): Promise<void> {
   }
 
   await setAppSettingValue(BRAND_NAME_SETTING_KEY, normalized);
+}
+
+function normalizeWhatsAppPhone(value: string | null | undefined): string | null {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  if (!/^[+\d\s()-]+$/.test(normalized)) {
+    return null;
+  }
+
+  const digits = normalized.replace(/\D/g, "");
+  if (digits.length < 7 || digits.length > 15) {
+    return null;
+  }
+
+  return normalized;
+}
+
+function normalizeWhatsAppPhoneDigits(value: string | null | undefined): string | null {
+  const normalized = normalizeWhatsAppPhone(value);
+  if (!normalized) {
+    return null;
+  }
+
+  return normalized.replace(/\D/g, "");
+}
+
+export const getSystemWhatsAppPhoneDisplay = cache(async (): Promise<string> => {
+  try {
+    return normalizeWhatsAppPhone(await getAppSettingValue(WHATSAPP_PHONE_SETTING_KEY)) ?? DEFAULT_SYSTEM_WHATSAPP_PHONE;
+  } catch {
+    return DEFAULT_SYSTEM_WHATSAPP_PHONE;
+  }
+});
+
+export const getSystemWhatsAppPhoneHref = cache(async (): Promise<string> => {
+  const phone = await getSystemWhatsAppPhoneDisplay();
+  return normalizeWhatsAppPhoneDigits(phone) ?? siteConfig.phoneHref.replace("+", "");
+});
+
+export async function setSystemWhatsAppPhone(phone: string): Promise<void> {
+  const normalized = normalizeWhatsAppPhone(phone);
+  if (!normalized) {
+    throw new Error("WhatsApp invalido");
+  }
+
+  await setAppSettingValue(WHATSAPP_PHONE_SETTING_KEY, normalized);
+}
+
+export async function buildSystemWhatsAppHref(message: string): Promise<string> {
+  const phoneHref = await getSystemWhatsAppPhoneHref();
+  return `https://wa.me/${phoneHref}?text=${encodeURIComponent(message)}`;
 }
 
 export const getSystemStorefrontLogoPath = cache(async (): Promise<string> => {

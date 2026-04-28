@@ -9,6 +9,7 @@ import {
   adminUpdateStorefrontHeroAction,
   adminUpdateStorefrontLogoAction,
   adminUpdateStorefrontPromoItemsAction,
+  adminUpdateWhatsAppPhoneAction,
 } from "@/app/actions/settings-actions";
 import { StorefrontPromoItemsForm } from "@/components/admin/storefront-promo-items-form";
 import { Card } from "@/components/ui/card";
@@ -24,6 +25,7 @@ import {
   getSystemStorefrontHeroTitle,
   getSystemStorefrontLogoPath,
   getSystemStorefrontPromoItems,
+  getSystemWhatsAppPhoneDisplay,
 } from "@/lib/system-settings";
 
 type PageProps = {
@@ -49,6 +51,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
     systemCurrency,
     systemPrimaryColor,
     systemBrandName,
+    systemWhatsAppPhone,
     storefrontLogoPath,
     storefrontHeroTitle,
     storefrontHeroDescription,
@@ -57,6 +60,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
     getSystemCurrency(),
     getSystemPrimaryColor(),
     getSystemBrandName(),
+    getSystemWhatsAppPhoneDisplay(),
     getSystemStorefrontLogoPath(),
     getSystemStorefrontHeroTitle(),
     getSystemStorefrontHeroDescription(),
@@ -124,6 +128,26 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
             </button>
           </form>
         </div>
+
+        <form action={adminUpdateWhatsAppPhoneAction} className="flex flex-wrap items-end gap-2">
+          <label className="min-w-64 flex-1 space-y-1.5">
+            <span className="text-sm font-medium text-slate-700">Numero de WhatsApp</span>
+            <Input
+              name="whatsappPhone"
+              defaultValue={systemWhatsAppPhone}
+              placeholder="+57 300 123 4567"
+              className="h-11"
+              required
+            />
+          </label>
+          <button
+            type="submit"
+            aria-label="Guardar WhatsApp"
+            className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+          >
+            <Save className="h-4 w-4" />
+          </button>
+        </form>
 
         <form action={adminUpdatePrimaryColorAction} className="flex flex-wrap items-end gap-2">
           <label className="min-w-64 flex-1 space-y-1.5">

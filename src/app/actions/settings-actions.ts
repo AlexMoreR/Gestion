@@ -17,6 +17,7 @@ import {
   setSystemStorefrontHeroTitle,
   setSystemStorefrontLogoPath,
   setSystemStorefrontPromoItems,
+  setSystemWhatsAppPhone,
 } from "@/lib/system-settings";
 
 const updateCurrencySchema = z.object({
@@ -36,6 +37,15 @@ const updatePrimaryColorSchema = z.object({
 
 const updateBrandNameSchema = z.object({
   brandName: z.string().trim().min(2, "Nombre invalido").max(80, "Nombre demasiado largo"),
+});
+
+const updateWhatsAppPhoneSchema = z.object({
+  whatsappPhone: z
+    .string()
+    .trim()
+    .min(7, "WhatsApp invalido")
+    .max(24, "WhatsApp demasiado largo")
+    .regex(/^[+\d\s()-]+$/, "WhatsApp invalido"),
 });
 
 const updateStorefrontHeroSchema = z.object({
@@ -175,6 +185,24 @@ export async function adminUpdateBrandNameAction(formData: FormData): Promise<vo
   revalidatePath("/admin/proveedores");
   revalidatePath("/admin/categorias");
   redirect("/admin/configuracion/negocio?ok=Marca+actualizada");
+}
+
+export async function adminUpdateWhatsAppPhoneAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+
+  const parsed = updateWhatsAppPhoneSchema.safeParse({
+    whatsappPhone: formData.get("whatsappPhone"),
+  });
+
+  if (!parsed.success) {
+    redirect("/admin/configuracion/negocio?error=Numero+de+WhatsApp+invalido");
+  }
+
+  await setSystemWhatsAppPhone(parsed.data.whatsappPhone);
+
+  revalidateBusinessSurfaces();
+  revalidatePath("/admin/cotizaciones");
+  redirect("/admin/configuracion/negocio?ok=WhatsApp+actualizado");
 }
 
 export async function adminUpdateStorefrontHeroAction(formData: FormData): Promise<void> {
