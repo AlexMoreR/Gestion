@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
-import { siteConfig } from "./src/lib/site";
 
-const siteHostname = new URL(siteConfig.domain).hostname;
+const CANONICAL_SITE_URL = "https://magilus.com";
+const siteHostname = new URL(process.env.NEXT_PUBLIC_SITE_URL || CANONICAL_SITE_URL).hostname;
 
 const nextConfig: NextConfig = {
   images: {
