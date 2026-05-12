@@ -4,6 +4,7 @@ import { ProductsWorkspace } from "@/components/admin/products-workspace";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
+import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 
 type PageProps = {
@@ -76,8 +77,8 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
           categoryName: product.category?.name ?? null,
           supplierId: product.suppliers[0]?.supplier.id ?? null,
           supplierName: product.suppliers[0]?.supplier.name ?? null,
-          thumbnailUrl: product.thumbnailUrl,
-          imageUrls: product.images.map((image) => image.url),
+          thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
+          imageUrls: product.images.map((image) => getPublicAssetUrl(image.url)),
           baseCost: Number(product.baseCost),
           retailMarginPct: Number(product.retailMarginPct),
           wholesaleMarginPct: Number(product.wholesaleMarginPct),

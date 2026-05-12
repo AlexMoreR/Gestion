@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { getPublicAssetUrl } from "@/lib/site";
 
 type ProductGalleryProps = {
   name: string;
@@ -9,7 +10,15 @@ type ProductGalleryProps = {
 
 export function ProductGallery({ name, images }: ProductGalleryProps) {
   const gallery = useMemo(
-    () => Array.from(new Set(images.map((value) => value.trim()).filter(Boolean))),
+    () =>
+      Array.from(
+        new Set(
+          images
+            .map((value) => value.trim())
+            .filter(Boolean)
+            .map((value) => getPublicAssetUrl(value)),
+        ),
+      ),
     [images],
   );
   const [activeIndex, setActiveIndex] = useState(0);

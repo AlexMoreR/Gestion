@@ -52,6 +52,20 @@ export function getSiteUrl(path = ""): string {
   return new URL(path, `${siteConfig.domain}/`).toString();
 }
 
+export function getPublicAssetUrl(path = ""): string {
+  const normalizedPath = path.trim();
+
+  if (!normalizedPath) {
+    return getSiteUrl("/");
+  }
+
+  if (/^https?:\/\//i.test(normalizedPath)) {
+    return normalizedPath;
+  }
+
+  return getSiteUrl(normalizedPath.startsWith("/") ? normalizedPath : `/${normalizedPath}`);
+}
+
 export function buildWhatsAppHref(message: string): string {
   return `https://wa.me/${siteConfig.phoneHref.replace("+", "")}?text=${encodeURIComponent(message)}`;
 }

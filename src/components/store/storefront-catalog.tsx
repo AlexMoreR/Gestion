@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { buildProductPath } from "@/lib/product-slugs";
-import { getSiteUrl, siteConfig } from "@/lib/site";
+import { getPublicAssetUrl, getSiteUrl, siteConfig } from "@/lib/site";
 import {
   buildSystemWhatsAppHref,
   getSystemBrandName,
@@ -259,7 +259,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
     id: product.id,
     href: buildProductPath(product),
     name: product.name,
-    thumbnailUrl: product.thumbnailUrl,
+    thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
     priceLabel: formatCatalogPrice(String(product.price), systemCurrency),
   }));
 
@@ -269,7 +269,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
     id: item.id,
     name: item.name,
     slug: item.slug,
-    cover: item.logoUrl || item.products[0]?.thumbnailUrl || "/file.svg",
+    cover: getPublicAssetUrl(item.logoUrl || item.products[0]?.thumbnailUrl || "/file.svg"),
   }));
 
   const pageHeading = category
@@ -537,7 +537,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                   <Link href={productHref} className="group flex flex-1 flex-col">
                     <div className="relative">
                       <img
-                        src={product.thumbnailUrl}
+                        src={getPublicAssetUrl(product.thumbnailUrl)}
                         alt={product.name}
                         className="h-40 w-full bg-white object-contain p-2 transition duration-500 group-hover:scale-[1.02] md:h-52"
                         loading="lazy"

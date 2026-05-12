@@ -3,7 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { ProductDetailContent } from "@/components/store/product-detail-content";
 import { prisma } from "@/lib/prisma";
 import { buildProductPath } from "@/lib/product-slugs";
-import { getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
+import { getPublicAssetUrl, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 
 type PageProps = {
@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   );
   const canonicalPath = buildProductPath(product);
   const canonical = getSiteUrl(canonicalPath);
-  const imageUrl = product.thumbnailUrl.startsWith("http") ? product.thumbnailUrl : getSiteUrl(product.thumbnailUrl);
+  const imageUrl = getPublicAssetUrl(product.thumbnailUrl);
 
   return {
     title: product.seoTitle?.trim() || product.name,

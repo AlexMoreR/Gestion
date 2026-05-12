@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
+import { getPublicAssetUrl } from "@/lib/site";
 
 function escapeCsvCell(value: string): string {
   if (value.includes(",") || value.includes('"') || value.includes("\n")) {
@@ -57,7 +58,7 @@ export async function GET() {
       String(product.minWholesaleQty),
       product.category?.name ?? "",
       preferredSupplier,
-      product.thumbnailUrl,
+      getPublicAssetUrl(product.thumbnailUrl),
     ]
       .map((cell) => escapeCsvCell(cell))
       .join(",");

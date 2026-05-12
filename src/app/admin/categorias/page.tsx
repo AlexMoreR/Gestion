@@ -4,6 +4,7 @@ import { CategoriesWorkspace } from "@/components/admin/categories-workspace";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
+import { getPublicAssetUrl } from "@/lib/site";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -46,7 +47,7 @@ export default async function AdminCategoriasPage({ searchParams }: PageProps) {
           description: category.description,
           seoTitle: category.seoTitle,
           seoDescription: category.seoDescription,
-          logoUrl: category.logoUrl,
+          logoUrl: category.logoUrl ? getPublicAssetUrl(category.logoUrl) : null,
           productsCount: category._count.products,
         }))}
       />

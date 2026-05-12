@@ -15,6 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { getPublicAssetUrl } from "@/lib/site";
 
 const roleLinks = {
   ADMIN: "/admin",
@@ -102,7 +103,7 @@ export function Navbar({
         <div className="flex min-w-0 items-center gap-2.5">
           <Link href="/" className="inline-flex items-center rounded-md" aria-label="Inicio">
             <Image
-              src={storefrontLogoPath}
+              src={getPublicAssetUrl(storefrontLogoPath)}
               alt={brandName}
               width={260}
               height={72}

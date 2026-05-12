@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
+import { getPublicAssetUrl } from "@/lib/site";
 import {
   getSystemBrandName,
   getSystemCurrency,
@@ -195,7 +196,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
                 >
                   <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-slate-300/70 to-transparent" />
                   <Image
-                    src={storefrontLogoPath}
+                    src={getPublicAssetUrl(storefrontLogoPath)}
                     alt={`Logo principal de ${systemBrandName}`}
                     width={280}
                     height={96}

@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { AppShell } from "@/components/app-shell";
 import { Providers } from "@/components/providers";
 import { getAdminModuleAccess } from "@/lib/admin-module-access";
-import { getSiteUrl, siteConfig } from "@/lib/site";
+import { getPublicAssetUrl, getSiteUrl, siteConfig } from "@/lib/site";
 import {
   getSystemBrandName,
   getSystemPrimaryColor,
@@ -51,10 +51,10 @@ export async function generateMetadata(): Promise<Metadata> {
     icons: {
       icon: [
         { url: "/favicon.ico", sizes: "32x32", type: "image/x-icon" },
-        { url: storefrontLogoPath },
+        { url: getPublicAssetUrl(storefrontLogoPath) },
       ],
       shortcut: ["/favicon.ico"],
-      apple: [storefrontLogoPath],
+      apple: [getPublicAssetUrl(storefrontLogoPath)],
     },
     alternates: {
       canonical: getSiteUrl("/"),

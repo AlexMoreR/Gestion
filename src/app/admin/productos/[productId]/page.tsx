@@ -5,6 +5,7 @@ import { EditProductForm } from "@/components/admin/edit-product-form";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
+import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 
 type PageProps = {
@@ -89,7 +90,7 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
           minWholesaleQty: product.minWholesaleQty,
           categoryId: product.categoryId,
           supplierId: product.suppliers[0]?.supplier.id ?? null,
-          imageUrls: product.images.map((image) => image.url),
+          imageUrls: product.images.map((image) => getPublicAssetUrl(image.url)),
         }}
       />
     </section>

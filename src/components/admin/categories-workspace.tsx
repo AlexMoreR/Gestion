@@ -6,6 +6,7 @@ import { Plus, Tag, X } from "lucide-react";
 import { adminCreateCategoryAction, adminUpdateCategoryAction } from "@/app/actions/catalog-actions";
 import { CategoriesDataTable } from "@/components/admin/categories-data-table";
 import { Input } from "@/components/ui/input";
+import { getPublicAssetUrl } from "@/lib/site";
 
 type CategoryRow = {
   id: string;
@@ -244,10 +245,10 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
                     <Image src={previewUrl} alt="Vista previa del logo" fill className="object-contain p-3" unoptimized />
                   </div>
                 </div>
-              ) : activeCategory.logoUrl ? (
+                  ) : activeCategory.logoUrl ? (
                 <div className="overflow-hidden rounded-lg border border-[var(--line)] bg-slate-50">
                   <div className="relative aspect-[4/3] w-full">
-                    <Image src={activeCategory.logoUrl} alt={`Logo actual de ${activeCategory.name}`} fill className="object-contain p-3" unoptimized />
+                    <Image src={getPublicAssetUrl(activeCategory.logoUrl)} alt={`Logo actual de ${activeCategory.name}`} fill className="object-contain p-3" unoptimized />
                   </div>
                 </div>
               ) : null}

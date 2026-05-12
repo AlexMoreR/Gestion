@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { getPublicAssetUrl } from "@/lib/site";
 
 type CategoryRow = {
   id: string;
@@ -39,7 +40,7 @@ function CategoryLogo({ name, logoUrl }: { name: string; logoUrl: string | null 
 
   return (
     <img
-      src={logoUrl}
+      src={getPublicAssetUrl(logoUrl)}
       alt={`Logo ${name}`}
       className="h-9 w-9 rounded-md border border-[var(--line)] object-cover"
       onError={() => setHasError(true)}

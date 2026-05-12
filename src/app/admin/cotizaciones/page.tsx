@@ -4,6 +4,7 @@ import { QuotesWorkspace } from "@/components/admin/quotes-workspace";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
+import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 
 type PageProps = {
@@ -101,7 +102,7 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
           name: product.name,
           code: product.code,
           retailPrice: Number(product.price),
-          thumbnailUrl: product.thumbnailUrl,
+          thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
           suppliers: product.suppliers.map((row) => ({
             id: row.supplierId,
             name: row.supplier.name,

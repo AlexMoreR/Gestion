@@ -14,6 +14,7 @@ import { DownloadQuotePdfButton } from "@/components/quotes/download-quote-pdf-b
 import { formatMoney } from "@/lib/currency";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
+import { getPublicAssetUrl } from "@/lib/site";
 import {
   buildSystemWhatsAppHref,
   getSystemCurrency,
@@ -274,7 +275,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                   <div className="flex items-start gap-3">
                     {item.product.thumbnailUrl ? (
                       <img
-                        src={item.product.thumbnailUrl}
+                        src={getPublicAssetUrl(item.product.thumbnailUrl)}
                         alt={item.product.name}
                         className="h-12 w-12 rounded-lg border border-slate-200 object-cover"
                       />
@@ -323,7 +324,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                       <td className="border-r border-slate-200 px-4 py-3">
                         {item.product.thumbnailUrl ? (
                           <img
-                            src={item.product.thumbnailUrl}
+                            src={getPublicAssetUrl(item.product.thumbnailUrl)}
                             alt={item.product.name}
                             className="h-12 w-12 rounded-lg border border-slate-200 object-cover"
                           />

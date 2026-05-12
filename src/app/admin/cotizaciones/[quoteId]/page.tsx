@@ -4,6 +4,7 @@ import { EditQuoteWorkspace } from "@/components/admin/edit-quote-workspace";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
+import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 
 type PageProps = {
@@ -124,7 +125,7 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
         name: product.name,
         code: product.code,
         retailPrice: Number(product.price),
-        thumbnailUrl: product.thumbnailUrl,
+        thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
       }))}
       currency={currency}
     />

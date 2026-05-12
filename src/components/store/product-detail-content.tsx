@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/currency";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { buildProductPath } from "@/lib/product-slugs";
-import { getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
+import { getPublicAssetUrl, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
 import { buildSystemWhatsAppHref, getSystemBrandName } from "@/lib/system-settings";
 
 type ProductDetailContentProps = {
@@ -61,7 +61,7 @@ export async function ProductDetailContent({
     "@id": `${getSiteUrl(canonicalPath)}#product`,
     name: product.name,
     description: productDescription,
-    image: gallery.map((url) => (url.startsWith("http") ? url : getSiteUrl(url))),
+    image: gallery.map((url) => getPublicAssetUrl(url)),
     sku: product.code ?? undefined,
       brand: {
         "@type": "Brand",
@@ -178,11 +178,11 @@ export async function ProductDetailContent({
               <Link key={item.id} href={buildProductPath(item)} className="group block">
                 <Card className="h-full overflow-hidden rounded-xl p-0 transition group-hover:translate-y-[-2px] group-hover:shadow-[0_20px_35px_-30px_rgba(15,23,42,0.45)]">
                   <div className="relative">
-                    <img
-                      src={item.thumbnailUrl}
-                      alt={item.name}
-                      className="h-36 w-full object-cover transition duration-500 group-hover:scale-[1.03]"
-                    />
+                      <img
+                        src={getPublicAssetUrl(item.thumbnailUrl)}
+                        alt={item.name}
+                        className="h-36 w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                      />
                     {item.category?.name ? (
                       <span className="absolute left-2 top-2 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-medium text-slate-700">
                         {item.category.name}
