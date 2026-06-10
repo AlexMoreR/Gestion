@@ -382,7 +382,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
         <button
           type="button"
           onClick={openQuoteModal}
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[(--primary)] px-3 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
         >
           <Plus className="h-4 w-4" />
           Nueva cotizacion
@@ -400,7 +400,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
           onClick={() => setOpenModal(false)}
         >
           <div
-            className="h-full w-full max-w-6xl overflow-y-auto overflow-x-hidden rounded-none border border-[var(--line)] bg-white p-3 sm:max-h-[92vh] sm:rounded-xl sm:p-4 md:p-5"
+            className="h-full w-full max-w-6xl overflow-y-auto overflow-x-hidden rounded-none border border-[(--line)] bg-white p-3 sm:max-h-[92vh] sm:rounded-xl sm:p-4 md:p-5"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
@@ -413,7 +413,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
               <button
                 type="button"
                 onClick={() => setOpenModal(false)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] text-slate-600 transition hover:bg-slate-50"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[(--line)] text-slate-600 transition hover:bg-slate-50"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
@@ -445,9 +445,9 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
 
               <div>
                 <div className="grid gap-1.5 md:grid-cols-3">
-                  <div className={`rounded-lg border p-2 transition ${step >= 1 ? "border-[var(--primary)]/30 bg-[var(--primary)]/5" : "border-slate-200 bg-white"}`}>
+                  <div className={`rounded-lg border p-2 transition ${step >= 1 ? "border-[(--primary)]/30 bg-[(--primary)]/5" : "border-slate-200 bg-white"}`}>
                     <div className="flex items-center gap-2">
-                      <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 1 ? "border-[var(--primary)] bg-[var(--primary)] text-white" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
+                      <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 1 ? "border-[(--primary)] bg-[(--primary)] text-white" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
                         <UserRound className="h-3.5 w-3.5" />
                       </div>
                       <div>
@@ -457,9 +457,9 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                     </div>
                   </div>
 
-                  <div className={`rounded-lg border p-2 transition ${step >= 2 ? "border-[var(--primary)]/30 bg-[var(--primary)]/5" : "border-slate-200 bg-white"}`}>
+                  <div className={`rounded-lg border p-2 transition ${step >= 2 ? "border-[(--primary)]/30 bg-[(--primary)]/5" : "border-slate-200 bg-white"}`}>
                     <div className="flex items-center gap-2">
-                      <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 2 ? "border-[var(--primary)] bg-[var(--primary)] text-white" : step > 2 ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-500"}`}>
+                      <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 2 ? "border-[(--primary)] bg-[(--primary)] text-white" : step > 2 ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-500"}`}>
                         <Boxes className="h-3.5 w-3.5" />
                       </div>
                       <div>
@@ -469,9 +469,9 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                     </div>
                   </div>
 
-                  <div className={`rounded-lg border p-2 transition ${step >= 3 ? "border-[var(--primary)]/30 bg-[var(--primary)]/5" : "border-slate-200 bg-white"}`}>
+                  <div className={`rounded-lg border p-2 transition ${step >= 3 ? "border-[(--primary)]/30 bg-[(--primary)]/5" : "border-slate-200 bg-white"}`}>
                     <div className="flex items-center gap-2">
-                      <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 3 ? "border-[var(--primary)] bg-[var(--primary)] text-white" : "border-slate-200 bg-white text-slate-500"}`}>
+                      <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 3 ? "border-[(--primary)] bg-[(--primary)] text-white" : "border-slate-200 bg-white text-slate-500"}`}>
                         <Link2 className="h-3.5 w-3.5" />
                       </div>
                       <div>
@@ -484,13 +484,13 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
 
                 <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-200">
                   <div
-                    className={`h-full rounded-full bg-[var(--primary)] transition-all duration-300 ${step === 1 ? "w-1/3" : step === 2 ? "w-2/3" : "w-full"}`}
+                    className={`h-full rounded-full bg-[(--primary)] transition-all duration-300 ${step === 1 ? "w-1/3" : step === 2 ? "w-2/3" : "w-full"}`}
                   />
                 </div>
               </div>
 
               {step === 1 ? (
-                <div className="space-y-4 rounded-xl border border-[var(--line)] p-3">
+                <div className="space-y-4 rounded-xl border border-[(--line)] p-3">
                   <div className="space-y-3">
                     <div className="grid gap-3 md:grid-cols-2">
                       <label className="relative block space-y-1.5">
@@ -506,7 +506,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                         />
 
                         {showClientResults ? (
-                          <div className="absolute left-0 right-0 top-full z-30 mt-1.5 overflow-hidden rounded-lg border border-[var(--line)] bg-white shadow-lg">
+                          <div className="absolute left-0 right-0 top-full z-30 mt-1.5 overflow-hidden rounded-lg border border-[(--line)] bg-white shadow-lg">
                             <p className="px-3 py-2 text-xs text-slate-500">Clientes</p>
                             <div className="max-h-52 overflow-y-auto p-1.5">
                               {filteredClients.length > 0 ? (
@@ -604,7 +604,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                     type="button"
                     onClick={goToProductsStep}
                     disabled={!isClientResolved || isResolvingClient}
-                    className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isResolvingClient ? "Guardando cliente..." : "Siguiente"}
                   </button>
@@ -638,7 +638,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                                 <button
                                   type="button"
                                   onClick={openAddProductModal}
-                                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--primary-strong)]"
+                                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[(--primary)] px-4 text-sm font-semibold text-white transition hover:bg-[(--primary-strong)]"
                                 >
                                   <Plus className="h-4 w-4" />
                                   Agregar producto
@@ -695,7 +695,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                       <button
                         type="button"
                         onClick={openAddProductModal}
-                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--primary-strong)]"
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[(--primary)] px-4 text-sm font-semibold text-white transition hover:bg-[(--primary-strong)]"
                       >
                         <Plus className="h-4 w-4" />
                         Agregar producto
@@ -760,7 +760,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                          setIsManualQuoteSubmit(false);
                          setStep(3);
                        }}
-                        className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[var(--primary-strong)] sm:w-auto"
+                        className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-[(--primary)] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[(--primary-strong)] sm:w-auto"
                         disabled={lines.length === 0}
                       >
                        Siguiente
@@ -769,7 +769,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="rounded-xl border border-[var(--line)] bg-white p-3">
+                  <div className="rounded-xl border border-[(--line)] bg-white p-3">
                     <p className="text-sm font-semibold text-slate-900">Datos del cliente</p>
                     <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
                       <div>
@@ -807,8 +807,8 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                     </div>
                   </div>
 
-                  <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-white">
-                    <div className="border-b border-[var(--line)] bg-slate-50 px-3 py-2">
+                  <div className="overflow-hidden rounded-xl border border-[(--line)] bg-white">
+                    <div className="border-b border-[(--line)] bg-slate-50 px-3 py-2">
                       <p className="text-sm font-semibold text-slate-900">Productos</p>
                     </div>
                     <table className="w-full text-sm">
@@ -826,16 +826,16 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                       </thead>
                       <tbody>
                         {linesWithMeta.map(({ line, product, lineTotal }) => (
-                          <tr key={line.uid} className="border-t border-[var(--line)]">
+                          <tr key={line.uid} className="border-t border-[(--line)]">
                             <td className="px-3 py-2">
                               {product?.thumbnailUrl ? (
                                 <img
                                   src={product.thumbnailUrl}
                                   alt={product.name}
-                                  className="h-10 w-10 rounded-md border border-[var(--line)] object-cover"
+                                  className="h-10 w-10 rounded-md border border-[(--line)] object-cover"
                                 />
                               ) : (
-                                <div className="flex h-10 w-10 items-center justify-center rounded-md border border-[var(--line)] bg-slate-50 text-[10px] text-slate-500">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-md border border-[(--line)] bg-slate-50 text-[10px] text-slate-500">
                                   Sin img
                                 </div>
                               )}
@@ -857,8 +857,8 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                     </table>
                   </div>
 
-                  <div className="grid gap-2 rounded-lg border border-[var(--line)] bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
+                  <div className="grid gap-2 rounded-lg border border-[(--line)] bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-lg border border-[(--line)] bg-white px-3 py-2">
                       <span className="text-sm font-medium text-slate-700">Subtotal</span>
                       <p className="mt-1 text-lg font-medium text-slate-700">
                         {quoteSubtotal.toLocaleString("es-CO", {
@@ -868,7 +868,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                         })}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
+                    <div className="rounded-lg border border-[(--line)] bg-white px-3 py-2">
                       <span className="text-sm font-medium text-slate-700">Descuento</span>
                       <p className="mt-1 text-lg font-medium text-slate-700">
                         {quoteDiscountTotal.toLocaleString("es-CO", {
@@ -878,7 +878,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                         })}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
+                    <div className="rounded-lg border border-[(--line)] bg-white px-3 py-2">
                       <span className="text-sm font-medium text-slate-700">Valor adicional</span>
                       <p className="mt-1 text-lg font-medium text-slate-700">
                         {quoteAdditionalCostTotal.toLocaleString("es-CO", {
@@ -888,7 +888,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                         })}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
+                    <div className="rounded-lg border border-[(--line)] bg-white px-3 py-2">
                       <span className="text-sm font-medium text-slate-700">Total</span>
                       <p className="mt-1 text-lg font-bold text-slate-900">
                         {quoteTotal.toLocaleString("es-CO", {
@@ -904,7 +904,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                     <button
                       type="button"
                       onClick={() => setStep(2)}
-                      className="inline-flex h-10 items-center justify-center rounded-lg border border-[var(--line)] bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                      className="inline-flex h-10 items-center justify-center rounded-lg border border-[(--line)] bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                     >
                       Atras
                     </button>
@@ -914,7 +914,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                         setIsManualQuoteSubmit(true);
                         event.currentTarget.form?.requestSubmit();
                       }}
-                      className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)] sm:w-auto"
+                      className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)] sm:w-auto"
                       disabled={!isClientResolved || lines.length === 0}
                     >
                       Generar cotizacion
@@ -1081,7 +1081,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                     value={draftDescription}
                     onChange={(event) => setDraftDescription(event.target.value)}
                     rows={3}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[var(--line-strong)]"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[(--line-strong)]"
                     placeholder="Descripcion del item"
                   />
                 </label>
@@ -1105,7 +1105,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
               <button
                 type="button"
                 onClick={addDraftProduct}
-                className="inline-flex h-10 items-center justify-center rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[var(--primary-strong)]"
+                className="inline-flex h-10 items-center justify-center rounded-xl bg-[(--primary)] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[(--primary-strong)]"
               >
                 Agregar producto
               </button>

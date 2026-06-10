@@ -165,7 +165,7 @@ export function AppShell({ children, initialUser, brandName, storefrontLogoPath,
             className="admin-print-sidebar"
           />
           <SidebarInset className="admin-print-inset">
-            <header className="admin-print-header flex h-12 shrink-0 items-center border-b border-[var(--line)] bg-white">
+            <header className="admin-print-header flex h-12 shrink-0 items-center border-b border-[(--line)] bg-white">
               <div className="flex items-center gap-2 px-4">
                 <SidebarTrigger className="-ml-1" />
                 <Separator

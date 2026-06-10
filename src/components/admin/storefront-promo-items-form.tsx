@@ -41,7 +41,7 @@ export function StorefrontPromoItemsForm({ action, initialItems }: StorefrontPro
   }
 
   return (
-    <form action={action} className="space-y-4 rounded-2xl border border-[var(--line)] p-4">
+    <form action={action} className="space-y-4 rounded-2xl border border-[(--line)] p-4">
       <div className="space-y-1">
         <h3 className="text-sm font-semibold text-slate-900">Franja promocional</h3>
       </div>
@@ -61,7 +61,7 @@ export function StorefrontPromoItemsForm({ action, initialItems }: StorefrontPro
               type="button"
               onClick={() => removeItem(index)}
               aria-label={`Eliminar mensaje ${index + 1}`}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--line)] bg-white text-slate-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[(--line)] bg-white text-slate-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -74,7 +74,7 @@ export function StorefrontPromoItemsForm({ action, initialItems }: StorefrontPro
           type="button"
           onClick={addItem}
           disabled={items.length >= 12}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[var(--line)] bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[(--line)] bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-[(--primary)] hover:text-[(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Plus className="h-4 w-4" />
           Agregar texto
@@ -82,7 +82,7 @@ export function StorefrontPromoItemsForm({ action, initialItems }: StorefrontPro
         <button
           type="submit"
           aria-label="Guardar franja promocional"
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+          className="inline-flex h-11 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
         >
           <Save className="h-4 w-4" />
         </button>

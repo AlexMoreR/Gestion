@@ -52,7 +52,7 @@ export function BreadcrumbPage({
   return (
     <span
       aria-current="page"
-      className={cn("font-normal text-[var(--primary)]", className)}
+      className={cn("font-normal text-[(--primary)]", className)}
       {...props}
     />
   );

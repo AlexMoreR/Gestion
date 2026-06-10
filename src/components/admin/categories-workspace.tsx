@@ -90,7 +90,7 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
         <button
           type="button"
           onClick={openNewModal}
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[(--primary)] px-3 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
         >
           <Plus className="h-4 w-4" />
           Nueva categoria
@@ -116,7 +116,7 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
               <button
                 type="button"
                 onClick={closeModal}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] text-slate-600 transition hover:bg-slate-50"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[(--line)] text-slate-600 transition hover:bg-slate-50"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
@@ -138,7 +138,7 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
                 <textarea
                   name="description"
                   rows={4}
-                  className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[var(--primary)]"
+                  className="w-full rounded-lg border border-[(--line)] bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[(--primary)]"
                   placeholder="Texto unico para presentar esta categoria en la pagina publica."
                 />
               </label>
@@ -152,12 +152,12 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
                   name="seoDescription"
                   rows={3}
                   maxLength={180}
-                  className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[var(--primary)]"
+                  className="w-full rounded-lg border border-[(--line)] bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[(--primary)]"
                   placeholder="Resumen para Google con enfoque comercial y palabras clave."
                 />
               </label>
               {previewUrl ? (
-                <div className="overflow-hidden rounded-lg border border-[var(--line)] bg-slate-50">
+                <div className="overflow-hidden rounded-lg border border-[(--line)] bg-slate-50">
                   <div className="relative aspect-[4/3] w-full">
                     <Image src={previewUrl} alt="Vista previa del logo" fill className="object-contain p-3" unoptimized />
                   </div>
@@ -165,7 +165,7 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
               ) : null}
               <button
                 type="submit"
-                className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+                className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
               >
                 Guardar categoria
               </button>
@@ -191,7 +191,7 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
               <button
                 type="button"
                 onClick={closeModal}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] text-slate-600 transition hover:bg-slate-50"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[(--line)] text-slate-600 transition hover:bg-slate-50"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
@@ -215,7 +215,7 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
                   name="description"
                   rows={4}
                   defaultValue={activeCategory.description ?? ""}
-                  className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[var(--primary)]"
+                  className="w-full rounded-lg border border-[(--line)] bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[(--primary)]"
                   placeholder="Texto unico para presentar esta categoria en la pagina publica."
                 />
               </label>
@@ -235,18 +235,18 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
                   rows={3}
                   maxLength={180}
                   defaultValue={activeCategory.seoDescription ?? ""}
-                  className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[var(--primary)]"
+                  className="w-full rounded-lg border border-[(--line)] bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[(--primary)]"
                   placeholder="Resumen para Google con enfoque comercial y palabras clave."
                 />
               </label>
               {previewUrl ? (
-                <div className="overflow-hidden rounded-lg border border-[var(--line)] bg-slate-50">
+                <div className="overflow-hidden rounded-lg border border-[(--line)] bg-slate-50">
                   <div className="relative aspect-[4/3] w-full">
                     <Image src={previewUrl} alt="Vista previa del logo" fill className="object-contain p-3" unoptimized />
                   </div>
                 </div>
                   ) : activeCategory.logoUrl ? (
-                <div className="overflow-hidden rounded-lg border border-[var(--line)] bg-slate-50">
+                <div className="overflow-hidden rounded-lg border border-[(--line)] bg-slate-50">
                   <div className="relative aspect-[4/3] w-full">
                     <Image src={getPublicAssetUrl(activeCategory.logoUrl)} alt={`Logo actual de ${activeCategory.name}`} fill className="object-contain p-3" unoptimized />
                   </div>
@@ -254,7 +254,7 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
               ) : null}
               <button
                 type="submit"
-                className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+                className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
               >
                 Guardar cambios
               </button>

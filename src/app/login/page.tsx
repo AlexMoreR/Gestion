@@ -30,7 +30,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
         errorTitle="No se pudo completar"
       />
       <div className="mx-auto w-full max-w-md space-y-4">
-        <Button asChild variant="outline" size="sm" className="gap-2">
+        <Button variant="outline" size="sm" className="gap-2">
           <Link href="/">
             <ArrowLeft className="h-4 w-4" />
             Volver

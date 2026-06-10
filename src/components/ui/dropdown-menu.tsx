@@ -30,7 +30,7 @@ function DropdownMenuContent({
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 min-w-[10rem] overflow-hidden rounded-lg border border-[var(--line)] bg-white p-1 shadow-[0_8px_20px_-16px_rgba(17,24,39,0.18)]",
+          "z-50 min-w-[10rem] overflow-hidden rounded-lg border border-[(--line)] bg-white p-1 shadow-[0_8px_20px_-16px_rgba(17,24,39,0.18)]",
           className,
         )}
         {...props}
@@ -72,7 +72,7 @@ function DropdownMenuSeparator({
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Separator>) {
   return (
     <DropdownMenuPrimitive.Separator
-      className={cn("my-1 h-px bg-[var(--line)]", className)}
+      className={cn("my-1 h-px bg-[(--line)]", className)}
       {...props}
     />
   );

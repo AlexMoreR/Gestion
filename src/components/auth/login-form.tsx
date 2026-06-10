@@ -70,7 +70,7 @@ export function LoginForm() {
       </form>
       <p className="mt-5 text-center text-sm text-slate-600">
         No tienes cuenta?{" "}
-        <Link href="/register" className="font-semibold text-[var(--primary)] hover:text-[var(--primary-strong)]">
+        <Link href="/register" className="font-semibold text-[(--primary)] hover:text-[(--primary-strong)]">
           Registrate
         </Link>
       </p>

@@ -25,7 +25,7 @@ export function CreateUserModal() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-lg bg-[var(--primary)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+        className="rounded-lg bg-[(--primary)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
       >
         Crear usuario
       </button>
@@ -49,7 +49,7 @@ export function CreateUserModal() {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-lg border border-[var(--line)] px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                className="rounded-lg border border-[(--line)] px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
               >
                 Cerrar
               </button>
@@ -82,7 +82,7 @@ export function CreateUserModal() {
               </label>
               <button
                 type="submit"
-                className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+                className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
               >
                 Guardar usuario
               </button>

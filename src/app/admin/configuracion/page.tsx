@@ -25,8 +25,8 @@ export default async function AdminConfiguracionPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         {moduleAccess.config_users ? (
           <Link href="/admin/configuracion/usuarios" className="group">
-            <Card className="h-full space-y-3 border border-[var(--line)] transition hover:border-[var(--primary)] hover:shadow-lg">
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_12%,white)] text-[var(--primary)]">
+            <Card className="h-full space-y-3 border border-[(--line)] transition hover:border-[(--primary)] hover:shadow-lg">
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_12%,white)] text-[(--primary)]">
                 <Users className="h-5 w-5" />
               </div>
               <div className="space-y-1">
@@ -41,8 +41,8 @@ export default async function AdminConfiguracionPage() {
 
         {moduleAccess.config_business ? (
           <Link href="/admin/configuracion/negocio" className="group">
-            <Card className="h-full space-y-3 border border-[var(--line)] transition hover:border-[var(--primary)] hover:shadow-lg">
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_12%,white)] text-[var(--primary)]">
+            <Card className="h-full space-y-3 border border-[(--line)] transition hover:border-[(--primary)] hover:shadow-lg">
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_12%,white)] text-[(--primary)]">
                 <Settings className="h-5 w-5" />
               </div>
               <div className="space-y-1">
@@ -57,8 +57,8 @@ export default async function AdminConfiguracionPage() {
 
         {moduleAccess.config_permissions ? (
           <Link href="/admin/configuracion/permisos" className="group">
-            <Card className="h-full space-y-3 border border-[var(--line)] transition hover:border-[var(--primary)] hover:shadow-lg">
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_12%,white)] text-[var(--primary)]">
+            <Card className="h-full space-y-3 border border-[(--line)] transition hover:border-[(--primary)] hover:shadow-lg">
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_12%,white)] text-[(--primary)]">
                 <LockKeyhole className="h-5 w-5" />
               </div>
               <div className="space-y-1">

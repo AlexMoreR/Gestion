@@ -23,7 +23,7 @@ export default async function AdminPage() {
           {(moduleAccess.config_users || moduleAccess.config_business || moduleAccess.config_permissions) ? (
             <Link
               href="/admin/configuracion"
-              className="inline-flex rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
+              className="inline-flex rounded-lg bg-[(--primary)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
             >
               Ir a configuracion
             </Link>
@@ -31,7 +31,7 @@ export default async function AdminPage() {
           {moduleAccess.products ? (
             <Link
               href="/admin/productos"
-              className="inline-flex rounded-lg border border-[var(--line)] bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              className="inline-flex rounded-lg border border-[(--line)] bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
             >
               Gestionar productos
             </Link>
@@ -39,7 +39,7 @@ export default async function AdminPage() {
           {moduleAccess.quotes ? (
             <Link
               href="/admin/cotizaciones"
-              className="inline-flex rounded-lg border border-[var(--line)] bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              className="inline-flex rounded-lg border border-[(--line)] bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
             >
               Gestionar cotizaciones
             </Link>

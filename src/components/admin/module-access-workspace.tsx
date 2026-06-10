@@ -83,9 +83,9 @@ export function ModuleAccessWorkspace({ roles, modules }: ModuleAccessWorkspaceP
             const RoleIcon = roleIconMap[roleItem.role];
 
             return (
-            <Card key={roleItem.role} className="space-y-4 border border-[var(--line)]">
+            <Card key={roleItem.role} className="space-y-4 border border-[(--line)]">
               <div className="flex items-start gap-3">
-                <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_12%,white)] text-[var(--primary)]">
+                <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_12%,white)] text-[(--primary)]">
                   <RoleIcon className="h-5 w-5" />
                 </div>
                 <div className="space-y-1">
@@ -185,7 +185,7 @@ export function ModuleAccessWorkspace({ roles, modules }: ModuleAccessWorkspaceP
                       return (
                         <label
                           key={moduleItem.key}
-                          className="flex items-start gap-3 rounded-lg border border-[var(--line)] bg-slate-50/60 px-3 py-3"
+                          className="flex items-start gap-3 rounded-lg border border-[(--line)] bg-slate-50/60 px-3 py-3"
                         >
                           <input
                             type="checkbox"
@@ -193,7 +193,7 @@ export function ModuleAccessWorkspace({ roles, modules }: ModuleAccessWorkspaceP
                             value={moduleItem.key}
                             defaultChecked={isChecked}
                             disabled={isDisabled}
-                            className="mt-1 h-4 w-4 rounded border-[var(--line)] text-[var(--primary)]"
+                            className="mt-1 h-4 w-4 rounded border-[(--line)] text-[(--primary)]"
                           />
                           <span className="space-y-0.5">
                             <span className="flex items-center gap-2 text-sm font-medium text-slate-900">

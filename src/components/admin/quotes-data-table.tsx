@@ -174,7 +174,7 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
 
   return (
     <div className="space-y-3">
-      <div className="hidden overflow-hidden rounded-xl border border-[var(--line)] bg-white md:block">
+      <div className="hidden overflow-hidden rounded-xl border border-[(--line)] bg-white md:block">
         <Table className="min-w-[900px]">
           <TableHeader>
             <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
@@ -271,7 +271,7 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
                       <input type="hidden" name="quoteId" value={quote.id} />
                     </form>
                     <div className="flex items-center gap-1">
-                      <Button asChild type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[var(--line)]">
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[(--line)]">
                         <Link
                           href={`/cotizaciones/${quote.shareToken}`}
                           target="_blank"
@@ -281,7 +281,7 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
                           <ArrowUpRight className="h-4 w-4 text-slate-600" />
                         </Link>
                       </Button>
-                      <Button asChild type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[var(--line)]">
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[(--line)]">
                         <Link href={`/admin/cotizaciones/${quote.id}`} aria-label={`Editar ${quote.code}`}>
                           <Edit3 className="h-4 w-4 text-slate-600" />
                         </Link>
@@ -307,12 +307,12 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
 
       <div className="space-y-2 md:hidden">
         {sortedQuotes.length === 0 ? (
-          <div className="rounded-xl border border-[var(--line)] bg-white px-3 py-6 text-center text-sm text-slate-500">
+          <div className="rounded-xl border border-[(--line)] bg-white px-3 py-6 text-center text-sm text-slate-500">
             Aun no hay cotizaciones.
           </div>
         ) : (
           sortedQuotes.map((quote) => (
-            <article key={quote.id} className="space-y-2.5 rounded-xl border border-[var(--line)] bg-white p-3">
+            <article key={quote.id} className="space-y-2.5 rounded-xl border border-[(--line)] bg-white p-3">
               <form data-delete-quote-id={quote.id} action={adminDeleteQuoteAction}>
                 <input type="hidden" name="returnTo" value="/admin/cotizaciones" />
                 <input type="hidden" name="quoteId" value={quote.id} />
@@ -331,7 +331,7 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
                 <p className="text-sm font-semibold text-slate-800">{formatMoney(quote.total, currency)}</p>
               </div>
               <div className="flex items-center gap-1">
-                <Button asChild type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[var(--line)]">
+                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[(--line)]">
                   <Link
                     href={`/cotizaciones/${quote.shareToken}`}
                     target="_blank"
@@ -341,7 +341,7 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
                     <ArrowUpRight className="h-4 w-4 text-slate-600" />
                   </Link>
                 </Button>
-                <Button asChild type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[var(--line)]">
+                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[(--line)]">
                   <Link href={`/admin/cotizaciones/${quote.id}`} aria-label={`Editar ${quote.code}`}>
                     <Edit3 className="h-4 w-4 text-slate-600" />
                   </Link>
