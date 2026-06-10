@@ -17,6 +17,7 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar";
 
@@ -133,13 +134,13 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
 
   return (
     <Sidebar collapsible="icon" {...props}>
-
+      <SidebarHeader className="p-1.5">
         <TeamSwitcher teams={teams} />
-
+      </SidebarHeader>
       <SidebarContent>
         <NavMain items={navMain} />
       </SidebarContent>
-      <SidebarFooter className="border-t-0 !p-0">
+      <SidebarFooter className="p-1.5">
         <NavUser
           user={{
             name: user.name ?? "Usuario",

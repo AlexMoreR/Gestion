@@ -48,25 +48,25 @@ export function NavUser({
   const roleLabel = rawRole.charAt(0).toUpperCase() + rawRole.slice(1);
 
   return (
-    <SidebarMenu className="w-full">
-      <SidebarMenuItem className="w-full">
+    <SidebarMenu>
+      <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="w-full rounded-none border-y border-x-0 border-[var(--line)] bg-white text-slate-700 hover:bg-slate-100 data-[state=open]:bg-slate-100"
+              className="p-1.5 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <Avatar className="h-8 w-8 rounded-lg">
+              <Avatar className="size-8 rounded-lg">
                 <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg bg-slate-200 text-slate-700">{initials}</AvatarFallback>
+                <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
               </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]/sidebar:hidden">
-                <span className="truncate font-medium text-slate-900">{user.name}</span>
-                <span className="text-xs  text-slate-500">
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-medium">{user.name}</span>
+                <span className="truncate text-xs text-muted-foreground">
                   {roleLabel}
                 </span>
               </div>
-              <ChevronsUpDown className="ml-auto h-4 w-4 text-black group-data-[collapsible=icon]/sidebar:hidden" />
+              <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent

@@ -21,12 +21,12 @@ export function TeamSwitcher({ teams }: { teams: Team[] }) {
       <SidebarMenuItem>
         <SidebarMenuButton size="lg">
           <span
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-sm font-bold text-white"
+            className="inline-flex aspect-square size-8 shrink-0 items-center justify-center rounded-md text-sm font-bold text-white"
             style={{ backgroundImage: "linear-gradient(135deg, var(--primary-strong), var(--primary))" }}
           >
             {initials}
           </span>
-          <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]/sidebar:hidden">
+          <div className="grid flex-1 text-left text-sm leading-tight">
             <span className="truncate text-sm">{activeTeam.name}</span>
           </div>
         </SidebarMenuButton>
