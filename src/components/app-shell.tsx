@@ -151,8 +151,7 @@ export function AppShell({ children, initialUser, brandName, storefrontLogoPath,
 
   if (user) {
     return (
-      <SidebarProvider>
-        <div className="admin-print-shell flex min-h-screen" suppressHydrationWarning>
+      <SidebarProvider className="admin-print-shell" suppressHydrationWarning>
           <AppSidebar
             pathname={pathname}
             user={{
@@ -163,7 +162,7 @@ export function AppShell({ children, initialUser, brandName, storefrontLogoPath,
             }}
             brandName={brandName}
             adminModuleAccess={adminModuleAccess}
-            className="admin-print-sidebar flex"
+            className="admin-print-sidebar"
           />
           <SidebarInset className="admin-print-inset">
             <header className="admin-print-header flex h-12 shrink-0 items-center border-b border-[var(--line)] bg-white">
@@ -195,7 +194,6 @@ export function AppShell({ children, initialUser, brandName, storefrontLogoPath,
               {children}
             </main>
           </SidebarInset>
-        </div>
       </SidebarProvider>
     );
   }
