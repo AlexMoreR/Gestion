@@ -114,11 +114,32 @@ export default async function QuotePublicPage({ params }: PageProps) {
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Button size="lg" className="bg-white text-slate-900 hover:bg-slate-100">
-                <Link href={dynamicApproveHref} target="_blank"><BadgeCheck className="mr-2 h-5 w-5" /> Aprobar</Link>
+              <Button
+                size="lg"
+                className="flex-row w-full bg-white text-slate-900 hover:bg-slate-100"
+              >
+                <Link
+                  href={dynamicApproveHref}
+                  target="_blank"
+                  className="flex w-full items-center justify-center"
+                >
+                  <BadgeCheck className="mr-2 h-5 w-5" />
+                  Aprobar
+                </Link>
               </Button>
-              <Button size="lg" variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/20">
-                <Link href={dynamicChangesHref} target="_blank"><MessageCircleMore className="mr-2 h-5 w-5" /> Cambios</Link>
+
+              <Button
+                size="lg"
+                className="flex-row w-full border-white/30 bg-white/10 text-white hover:bg-white/20"
+              >
+                <Link
+                  href={dynamicChangesHref}
+                  target="_blank"
+                  className="flex w-full items-center justify-center"
+                >
+                  <MessageCircleMore className="mr-2 h-5 w-5" />
+                  Cambios
+                </Link>
               </Button>
             </div>
           </div>
@@ -246,14 +267,41 @@ export default async function QuotePublicPage({ params }: PageProps) {
         <Card className="w-full max-w-2xl border-none bg-white/80 backdrop-blur-md shadow-2xl p-2 rounded-2xl">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <Button className="rounded-xl h-12 font-bold bg-slate-900 hover:bg-slate-800">
-              <Link href={dynamicApproveHref} target="_blank"><BadgeCheck className="mr-2 h-5 w-5" /> Aprobar</Link>
+              <Link
+                href={dynamicApproveHref}
+                target="_blank"
+                className="flex h-full w-full items-center justify-center"
+              >
+                <BadgeCheck className="mr-2 h-5 w-5" />
+                Aprobar
+              </Link>
             </Button>
+
             <Button variant="outline" className="rounded-xl h-12 font-bold border-slate-200">
-              <Link href={dynamicChangesHref} target="_blank"><MessageCircleMore className="mr-2 h-5 w-5" /> Cambios</Link>
+              <Link
+                href={dynamicChangesHref}
+                target="_blank"
+                className="flex h-full w-full items-center justify-center"
+              >
+                <MessageCircleMore className="mr-2 h-5 w-5" />
+                Cambios
+              </Link>
             </Button>
-            <DownloadQuotePdfButton className="rounded-xl h-12 font-bold border-slate-200 flex items-center justify-center bg-white" />
-            <Button variant="secondary" className="rounded-xl h-12 font-bold bg-sky-100 text-sky-700 hover:bg-sky-200 border-none">
-              <Link href={dynamicSupportHref} target="_blank"><LifeBuoy className="mr-2 h-5 w-5" /> Asesor</Link>
+
+            <DownloadQuotePdfButton className="rounded-xl h-12 font-bold border-slate-200 flex items-center justify-center" />
+
+            <Button
+              variant="secondary"
+              className="rounded-xl h-12 font-bold bg-sky-100 text-sky-700 hover:bg-sky-200 border-none"
+            >
+              <Link
+                href={dynamicSupportHref}
+                target="_blank"
+                className="flex h-full w-full items-center justify-center"
+              >
+                <LifeBuoy className="mr-2 h-5 w-5" />
+                Asesor
+              </Link>
             </Button>
           </div>
         </Card>

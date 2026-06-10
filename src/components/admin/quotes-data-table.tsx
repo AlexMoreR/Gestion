@@ -97,7 +97,7 @@ function HeaderLabel({
   return (
     <Button
       type="button"
-      className="inline-flex items-center gap-2 text-[15px] font-normal text-slate-600 transition hover:text-slate-900"
+      variant={"ghost"}
       onClick={onClick}
       aria-label={`Ordenar por ${String(children)}`}
     >

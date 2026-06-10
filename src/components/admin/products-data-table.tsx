@@ -78,7 +78,7 @@ function HeaderLabel({
   return (
     <Button
       type="button"
-      className="inline-flex items-center gap-2 text-[15px] font-normal text-slate-600 transition hover:text-slate-900"
+      variant={"ghost"}
       onClick={onClick}
       aria-label={`Ordenar por ${String(children)}`}
     >
@@ -243,7 +243,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
             >
               <X className="h-3.5 w-3.5" />
             </Button>
-            ) : null}
+          ) : null}
         </div>
         <div className="flex items-center gap-2 lg:ml-auto">
           <select

@@ -260,13 +260,19 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
         <input type="hidden" name="notes" value={notes} />
 
         <div className="grid gap-1.5 md:grid-cols-3">
-          <Button type="button" onClick={() => setStep(1)} className={`rounded-lg border p-2 text-left ${step === 1 ? "border-[(--primary)]/40 bg-[(--primary)]/5" : "border-slate-200"}`}>
+          <Button variant={"outline"} type="button" onClick={() => setStep(1)}
+            // className={`rounded-lg border p-2 text-left ${step === 1 ? "border-[(--primary)]/40 bg-[(--primary)]/5" : "border-slate-200"}`}
+          >
             <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-800"><UserRound className="h-3.5 w-3.5" />Cliente</span>
           </Button>
-          <Button type="button" onClick={() => setStep(2)} className={`rounded-lg border p-2 text-left ${step === 2 ? "border-[(--primary)]/40 bg-[(--primary)]/5" : "border-slate-200"}`}>
+          <Button variant={"outline"} type="button" onClick={() => setStep(2)}
+            // className={`rounded-lg border p-2 text-left ${step === 2 ? "border-[(--primary)]/40 bg-[(--primary)]/5" : "border-slate-200"}`}
+          >
             <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-800"><Boxes className="h-3.5 w-3.5" />Productos</span>
           </Button>
-          <Button type="button" onClick={() => setStep(3)} className={`rounded-lg border p-2 text-left ${step === 3 ? "border-[(--primary)]/40 bg-[(--primary)]/5" : "border-slate-200"}`}>
+          <Button variant={"outline"} type="button" onClick={() => setStep(3)}
+            // className={`rounded-lg border p-2 text-left ${step === 3 ? "border-[(--primary)]/40 bg-[(--primary)]/5" : "border-slate-200"}`}
+          >
             <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-800"><FileText className="h-3.5 w-3.5" />Finalizar</span>
           </Button>
         </div>
@@ -295,10 +301,10 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
 
         {step === 2 ? (
           <div className="space-y-3 rounded-xl border border-[(--line)] p-3">
-              <div className="grid gap-3 md:grid-cols-3">
-                <label className="space-y-1.5 block md:col-span-2">
-                  <span className="text-sm font-medium text-slate-700">Producto</span>
-                  <select className="field-select" value={draftProductId} onChange={(e) => {
+            <div className="grid gap-3 md:grid-cols-3">
+              <label className="space-y-1.5 block md:col-span-2">
+                <span className="text-sm font-medium text-slate-700">Producto</span>
+                <select className="field-select" value={draftProductId} onChange={(e) => {
                   setDraftProductId(e.target.value);
                   const product = products.find((p) => p.id === e.target.value);
                   if (product) setDraftUnitPrice(String(product.retailPrice));
@@ -316,7 +322,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
               <label className="space-y-1.5 block"><span className="text-sm font-medium text-slate-700">Precio</span><Input type="number" min={0} step="0.01" value={draftUnitPrice} onChange={(e) => setDraftUnitPrice(e.target.value)} /></label>
               <label className="space-y-1.5 block"><span className="text-sm font-medium text-slate-700">Costo adicional</span><Input type="number" min={0} step="0.01" value={draftAdditionalCost} onChange={(e) => setDraftAdditionalCost(e.target.value)} /></label>
               <label className="space-y-1.5 block"><span className="text-sm font-medium text-slate-700">Descuento</span><Input type="number" min={0} step="0.01" value={draftDiscount} onChange={(e) => setDraftDiscount(e.target.value)} /></label>
-              </div>
+            </div>
             <label className="space-y-1.5 block">
               <span className="text-sm font-medium text-slate-700">Descripcion</span>
               <Input value={draftDescription} onChange={(e) => setDraftDescription(e.target.value)} />
