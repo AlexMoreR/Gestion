@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Plus, Save, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "../ui/button";
 
 type StorefrontPromoItemsFormProps = {
   action: (formData: FormData) => void | Promise<void>;
@@ -57,20 +58,20 @@ export function StorefrontPromoItemsForm({ action, initialItems }: StorefrontPro
               placeholder={`Mensaje promocional ${index + 1}`}
               className="h-11"
             />
-            <button
+            <Button
               type="button"
               onClick={() => removeItem(index)}
               aria-label={`Eliminar mensaje ${index + 1}`}
               className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[(--line)] bg-white text-slate-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
             >
               <Trash2 className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         ))}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
+        <Button
           type="button"
           onClick={addItem}
           disabled={items.length >= 12}
@@ -78,14 +79,14 @@ export function StorefrontPromoItemsForm({ action, initialItems }: StorefrontPro
         >
           <Plus className="h-4 w-4" />
           Agregar texto
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
           aria-label="Guardar franja promocional"
           className="inline-flex h-11 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
         >
           <Save className="h-4 w-4" />
-        </button>
+        </Button>
       </div>
     </form>
   );

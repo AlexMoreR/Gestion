@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Download } from "lucide-react";
+import { Button } from "../ui/button";
 
 type DownloadQuotePdfButtonProps = {
   className?: string;
@@ -20,7 +21,7 @@ export function DownloadQuotePdfButton({ className }: DownloadQuotePdfButtonProp
   };
 
   return (
-    <button
+    <Button
       type="button"
       onClick={handleClick}
       disabled={isPrinting}
@@ -28,6 +29,6 @@ export function DownloadQuotePdfButton({ className }: DownloadQuotePdfButtonProp
     >
       <Download className="h-4 w-4" />
       {isPrinting ? "Preparando PDF..." : "Descargar PDF"}
-    </button>
+    </Button>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { getPublicAssetUrl } from "@/lib/site";
+import { Button } from "../ui/button";
 
 type ProductGalleryProps = {
   name: string;
@@ -55,7 +56,7 @@ export function ProductGallery({ name, images }: ProductGalleryProps) {
           {gallery.map((url, index) => {
             const active = index === activeIndex;
             return (
-              <button
+              <Button
                 key={`${url}-${index}`}
                 type="button"
                 onClick={() => setActiveIndex(index)}
@@ -67,7 +68,7 @@ export function ProductGallery({ name, images }: ProductGalleryProps) {
                 aria-label={`Ver imagen ${index + 1}`}
               >
                 <img src={url} alt={`${name} imagen ${index + 1}`} className="h-full w-full object-cover" />
-              </button>
+              </Button>
             );
           })}
           </div>

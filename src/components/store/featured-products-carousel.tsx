@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as React from "react";
+import { Button } from "../ui/button";
 
 type FeaturedProductItem = {
   id: string;
@@ -156,27 +157,27 @@ export function FeaturedProductsCarousel({ products }: FeaturedProductsCarouselP
       {products.length > 1 ? (
         <>
           <div className="pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2 items-center justify-between px-1 md:px-2">
-            <button
+            <Button
               type="button"
               onClick={goPrev}
               className="pointer-events-auto inline-flex h-7 w-7 -translate-x-2 items-center justify-center rounded-full border border-white/10 bg-[rgba(24,8,44,0.42)] text-white/84 backdrop-blur-md transition duration-200 hover:border-white/16 hover:bg-[rgba(16,5,31,0.58)] md:h-9 md:w-9 md:-translate-x-4"
               aria-label="Producto destacado anterior"
             >
               <ChevronLeft className="h-3.5 w-3.5 md:h-4 md:w-4" />
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={goNext}
               className="pointer-events-auto inline-flex h-7 w-7 translate-x-2 items-center justify-center rounded-full border border-white/10 bg-[rgba(24,8,44,0.42)] text-white/84 backdrop-blur-md transition duration-200 hover:border-white/16 hover:bg-[rgba(16,5,31,0.58)] md:h-9 md:w-9 md:translate-x-4"
               aria-label="Siguiente producto destacado"
             >
               <ChevronRight className="h-3.5 w-3.5 md:h-4 md:w-4" />
-            </button>
+            </Button>
           </div>
 
           <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1.5 md:bottom-3 md:gap-2">
             {products.map((product, index) => (
-              <button
+              <Button
                 key={product.id}
                 type="button"
                 onClick={() => goTo(index)}

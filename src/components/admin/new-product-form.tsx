@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { calculateProfit, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
+import { Button } from "../ui/button";
 
 type CategoryOption = {
   id: string;
@@ -353,7 +354,7 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
                     }}
                   />
                   {allImageUrls.length === 0 ? (
-                    <button
+                    <Button
                       type="button"
                       className="flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-[(--line)] bg-white px-4 py-8 text-center transition hover:bg-slate-50"
                       onClick={() => fileInputRef.current?.click()}
@@ -363,16 +364,16 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
                       <span className="mt-1 text-xs text-slate-500">
                         Arrastra y suelta o haz clic para seleccionar varias.
                       </span>
-                    </button>
+                    </Button>
                   ) : (
                     <div className="flex justify-end">
-                      <button
+                      <Button
                         type="button"
                         className="inline-flex h-8 items-center gap-1 rounded-lg border border-[(--line)] bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                         onClick={() => fileInputRef.current?.click()}
                       >
                         ➕ Agregar imagenes
-                      </button>
+                      </Button>
                     </div>
                   )}
                   {allImageUrls.length > 0 ? (
@@ -383,7 +384,7 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
                           className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-[(--line)] bg-slate-100"
                         >
                           <img src={url} alt={`Imagen ${index + 1}`} className="h-full w-full object-cover" />
-                          <button
+                          <Button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -393,7 +394,7 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
                             aria-label={`Eliminar imagen ${index + 1}`}
                           >
                             <X className="h-3 w-3" />
-                          </button>
+                          </Button>
                         </div>
                       ))}
                     </div>
@@ -589,12 +590,12 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
             >
               Cancelar
             </Link>
-            <button
+            <Button
               type="submit"
               className="inline-flex h-10 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
             >
               Guardar producto
-            </button>
+            </Button>
           </div>
         </form>
       </Card>

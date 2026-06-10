@@ -7,6 +7,7 @@ import type { SupportedCurrencyCode } from "@/lib/currency";
 import { buildProductPath } from "@/lib/product-slugs";
 import { getPublicAssetUrl, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
 import { buildSystemWhatsAppHref, getSystemBrandName } from "@/lib/system-settings";
+import { Button } from "../ui/button";
 
 type ProductDetailContentProps = {
   product: {
@@ -139,13 +140,13 @@ export async function ProductDetailContent({
                 <MessageCircle className="h-4 w-4" />
                 Comprar por WhatsApp
               </Link>
-              <button
+              <Button
                 type="button"
                 className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-[(--primary)] px-4 text-sm font-semibold text-white transition hover:bg-[(--primary-strong)]"
               >
                 <ShoppingCart className="h-4 w-4" />
                 Comprar
-              </button>
+              </Button>
             </div>
             {product.code ? (
               <p className="text-xs text-slate-500">

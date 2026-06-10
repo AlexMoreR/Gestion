@@ -58,7 +58,7 @@ function HeaderLabel({
   icon: React.ReactNode;
 }) {
   return (
-    <button
+    <Button
       type="button"
       className="inline-flex items-center gap-2 text-[15px] font-normal text-slate-600 transition hover:text-slate-900"
       onClick={onClick}
@@ -75,7 +75,7 @@ function HeaderLabel({
       ) : (
         <ArrowUpDown className="h-3.5 w-3.5 text-slate-500" />
       )}
-    </button>
+    </Button>
   );
 }
 
@@ -172,14 +172,14 @@ export function SuppliersDataTable({ suppliers, onEditSupplier }: SuppliersDataT
             className="h-9 pr-9 pl-9 text-sm"
           />
           {query ? (
-            <button
+            <Button
               type="button"
               onClick={() => setQuery("")}
               className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
               aria-label="Limpiar busqueda"
             >
               <X className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           ) : null}
         </div>
         <div className="flex items-center gap-2 lg:ml-auto">

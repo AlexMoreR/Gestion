@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { adminCreateUserAction } from "@/app/actions/auth-actions";
 import { Input } from "@/components/ui/input";
+import { Button } from "../ui/button";
 
 export function CreateUserModal() {
   const [open, setOpen] = useState(false);
@@ -22,13 +23,13 @@ export function CreateUserModal() {
 
   return (
     <>
-      <button
+      <Button
         type="button"
         onClick={() => setOpen(true)}
         className="rounded-lg bg-[(--primary)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
       >
         Crear usuario
-      </button>
+      </Button>
 
       {open && (
         <div
@@ -46,13 +47,13 @@ export function CreateUserModal() {
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Crear usuario</h2>
               </div>
-              <button
+              <Button
                 type="button"
                 onClick={() => setOpen(false)}
                 className="rounded-lg border border-[(--line)] px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
               >
                 Cerrar
-              </button>
+              </Button>
             </div>
 
             <form action={adminCreateUserAction} className="space-y-3">
@@ -80,12 +81,12 @@ export function CreateUserModal() {
                   <option value="CLIENTE">CLIENTE</option>
                 </select>
               </label>
-              <button
+              <Button
                 type="submit"
                 className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
               >
                 Guardar usuario
-              </button>
+              </Button>
             </form>
           </div>
         </div>

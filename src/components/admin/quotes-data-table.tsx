@@ -95,7 +95,7 @@ function HeaderLabel({
   icon: React.ReactNode;
 }) {
   return (
-    <button
+    <Button
       type="button"
       className="inline-flex items-center gap-2 text-[15px] font-normal text-slate-600 transition hover:text-slate-900"
       onClick={onClick}
@@ -112,7 +112,7 @@ function HeaderLabel({
       ) : (
         <ArrowUpDown className="h-3.5 w-3.5 text-slate-500" />
       )}
-    </button>
+    </Button>
   );
 }
 

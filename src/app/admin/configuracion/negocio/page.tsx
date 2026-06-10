@@ -28,6 +28,7 @@ import {
   getSystemStorefrontPromoItems,
   getSystemWhatsAppPhoneDisplay,
 } from "@/lib/system-settings";
+import { Button } from "@/components/ui/button";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -100,13 +101,13 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
                 required
               />
             </label>
-            <button
+            <Button
               type="submit"
               aria-label="Guardar marca"
-              className="inline-flex h-11 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
+              // className="inline-flex h-11 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
             >
               <Save className="h-4 w-4" />
-            </button>
+            </Button>
           </form>
 
           <form action={adminUpdateCurrencyAction} className="flex flex-wrap items-end gap-2">
@@ -120,13 +121,13 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
                 ))}
               </select>
             </label>
-            <button
+            <Button
               type="submit"
               aria-label="Guardar moneda"
-              className="inline-flex h-11 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
+              // className="inline-flex h-11 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
             >
               <Save className="h-4 w-4" />
-            </button>
+            </Button>
           </form>
         </div>
 
@@ -141,13 +142,13 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
               required
             />
           </label>
-          <button
+          <Button
             type="submit"
             aria-label="Guardar WhatsApp"
-            className="inline-flex h-11 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
+            // className="inline-flex h-11 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
           >
             <Save className="h-4 w-4" />
-          </button>
+          </Button>
         </form>
 
         <form action={adminUpdatePrimaryColorAction} className="flex flex-wrap items-end gap-2">
@@ -168,13 +169,13 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
               />
             </div>
           </label>
-          <button
+          <Button
             type="submit"
             aria-label="Guardar color"
-            className="inline-flex h-11 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
+            // className="inline-flex h-11 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
           >
             <Save className="h-4 w-4" />
-          </button>
+          </Button>
         </form>
       </Card>
 
@@ -217,13 +218,13 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
                 className="sr-only"
                 required
               />
-              <button
+              <Button
                 type="submit"
                 aria-label="Guardar logo principal"
-                className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[linear-gradient(135deg,var(--primary-strong),var(--primary))] px-4 text-sm font-semibold text-white shadow-[0_16px_30px_-18px_var(--primary)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_36px_-18px_var(--primary)]"
+                // className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[linear-gradient(135deg,var(--primary-strong),var(--primary))] px-4 text-sm font-semibold text-white shadow-[0_16px_30px_-18px_var(--primary)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_36px_-18px_var(--primary)]"
               >
                 <Save className="h-4 w-4" />
-              </button>
+              </Button>
             </form>
           </div>
 
@@ -256,13 +257,13 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
             </div>
 
             <div className="flex items-center justify-end pt-2">
-              <button
+              <Button
                 type="submit"
                 aria-label="Guardar portada"
-                className="inline-flex h-11 min-w-28 items-center justify-center rounded-xl bg-[linear-gradient(135deg,var(--primary-strong),var(--primary))] px-5 text-sm font-semibold text-white shadow-[0_16px_30px_-18px_var(--primary)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_36px_-18px_var(--primary)]"
+                // className="inline-flex h-11 min-w-28 items-center justify-center rounded-xl bg-[linear-gradient(135deg,var(--primary-strong),var(--primary))] px-5 text-sm font-semibold text-white shadow-[0_16px_30px_-18px_var(--primary)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_36px_-18px_var(--primary)]"
               >
                 <Save className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
           </form>
         </div>

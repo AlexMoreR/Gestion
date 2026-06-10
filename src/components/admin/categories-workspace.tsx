@@ -7,6 +7,7 @@ import { adminCreateCategoryAction, adminUpdateCategoryAction } from "@/app/acti
 import { CategoriesDataTable } from "@/components/admin/categories-data-table";
 import { Input } from "@/components/ui/input";
 import { getPublicAssetUrl } from "@/lib/site";
+import { Button } from "../ui/button";
 
 type CategoryRow = {
   id: string;
@@ -87,14 +88,14 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
           </h1>
           <p className="mt-1 text-xs text-slate-600">Gestiona categorias del catalogo.</p>
         </div>
-        <button
+        <Button
           type="button"
           onClick={openNewModal}
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[(--primary)] px-3 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
+          // className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[(--primary)] px-3 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
         >
           <Plus className="h-4 w-4" />
           Nueva categoria
-        </button>
+        </Button>
       </div>
 
       <CategoriesDataTable categories={categories} onEditCategory={openEditModal} />
@@ -113,14 +114,14 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">Nueva categoria</h2>
-              <button
+              <Button
                 type="button"
                 onClick={closeModal}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[(--line)] text-slate-600 transition hover:bg-slate-50"
+                // className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[(--line)] text-slate-600 transition hover:bg-slate-50"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
 
             <form action={adminCreateCategoryAction} encType="multipart/form-data" className="space-y-3">
@@ -163,12 +164,12 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
                   </div>
                 </div>
               ) : null}
-              <button
+              <Button
                 type="submit"
-                className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
+                // className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
               >
                 Guardar categoria
-              </button>
+              </Button>
             </form>
           </div>
         </div>
@@ -188,14 +189,14 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">Editar categoria</h2>
-              <button
+              <Button
                 type="button"
                 onClick={closeModal}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[(--line)] text-slate-600 transition hover:bg-slate-50"
+                // className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[(--line)] text-slate-600 transition hover:bg-slate-50"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
 
             <form action={adminUpdateCategoryAction} encType="multipart/form-data" className="space-y-3">
@@ -252,12 +253,12 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
                   </div>
                 </div>
               ) : null}
-              <button
+              <Button
                 type="submit"
-                className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
+                // className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
               >
                 Guardar cambios
-              </button>
+              </Button>
             </form>
           </div>
         </div>

@@ -7,6 +7,7 @@ import { NEW_PRODUCT_DRAFT_KEY, NewProductForm } from "@/components/admin/new-pr
 import { ProductImportExportControls } from "@/components/admin/product-import-export-controls";
 import { ProductsDataTable } from "@/components/admin/products-data-table";
 import type { SupportedCurrencyCode } from "@/lib/currency";
+import { Button } from "../ui/button";
 
 type CategoryOption = {
   id: string;
@@ -95,14 +96,14 @@ export function ProductsWorkspace({
         </div>
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <ProductImportExportControls />
-          <button
+          <Button
             type="button"
             onClick={openNewModal}
             className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[(--primary)] px-3 text-sm font-medium text-white transition hover:bg-[(--primary-strong)] sm:flex-none"
           >
             <Plus className="h-4 w-4" />
             Nuevo producto
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -126,14 +127,14 @@ export function ProductsWorkspace({
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">Nuevo producto</h2>
-              <button
+              <Button
                 type="button"
                 onClick={closeModal}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[(--line)] text-slate-600 transition hover:bg-slate-50"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
             <NewProductForm categories={categories} suppliers={suppliers} currency={currency} />
           </div>
@@ -154,14 +155,14 @@ export function ProductsWorkspace({
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">{activeProduct.name}</h2>
-              <button
+              <Button
                 type="button"
                 onClick={closeModal}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[(--line)] text-slate-600 transition hover:bg-slate-50"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
             <EditProductForm
               categories={categories}

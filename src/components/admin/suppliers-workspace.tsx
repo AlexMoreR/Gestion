@@ -9,6 +9,7 @@ import {
 import { SuppliersDataTable } from "@/components/admin/suppliers-data-table";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "../ui/button";
 
 type SupplierRow = {
   id: string;
@@ -58,14 +59,14 @@ export function SuppliersWorkspace({ suppliers }: SuppliersWorkspaceProps) {
             Crea, edita y elimina proveedores del catalogo.
           </p>
         </div>
-        <button
+        <Button
           type="button"
           onClick={openNewModal}
           className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[(--primary)] px-3 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
         >
           <Plus className="h-4 w-4" />
           Nuevo proveedor
-        </button>
+        </Button>
       </div>
 
       <SuppliersDataTable suppliers={suppliers} onEditSupplier={openEditModal} />
@@ -84,14 +85,14 @@ export function SuppliersWorkspace({ suppliers }: SuppliersWorkspaceProps) {
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">Nuevo proveedor</h2>
-              <button
+              <Button
                 type="button"
                 onClick={closeModal}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[(--line)] text-slate-600 transition hover:bg-slate-50"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
 
             <form action={adminCreateSupplierAction} className="space-y-3">
@@ -109,12 +110,12 @@ export function SuppliersWorkspace({ suppliers }: SuppliersWorkspaceProps) {
                   <Input name="phone" placeholder="+57 300..." />
                 </label>
               </div>
-              <button
+              <Button
                 type="submit"
                 className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
               >
                 Guardar proveedor
-              </button>
+              </Button>
             </form>
           </Card>
         </div>
@@ -134,14 +135,14 @@ export function SuppliersWorkspace({ suppliers }: SuppliersWorkspaceProps) {
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">Editar proveedor</h2>
-              <button
+              <Button
                 type="button"
                 onClick={closeModal}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[(--line)] text-slate-600 transition hover:bg-slate-50"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
 
             <form action={adminUpdateSupplierAction} className="space-y-3">
@@ -169,12 +170,12 @@ export function SuppliersWorkspace({ suppliers }: SuppliersWorkspaceProps) {
                   />
                 </label>
               </div>
-              <button
+              <Button
                 type="submit"
                 className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
               >
                 Guardar cambios
-              </button>
+              </Button>
             </form>
           </Card>
         </div>

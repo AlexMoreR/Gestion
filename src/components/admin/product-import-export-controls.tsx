@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "../ui/button";
 
 export function ProductImportExportControls() {
   const [openModal, setOpenModal] = useState<"import" | "export" | null>(null);
@@ -32,13 +33,13 @@ export function ProductImportExportControls() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button
+          <Button
             type="button"
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[(--line)] bg-white text-slate-700 transition hover:bg-slate-50"
             aria-label="Opciones de importacion y exportacion"
           >
             <MoreHorizontal className="h-4 w-4" />
-          </button>
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-44">
           <DropdownMenuItem onSelect={() => setOpenModal("import")} className="gap-2">
@@ -71,13 +72,13 @@ export function ProductImportExportControls() {
                   Sube un archivo CSV para crear productos en lote.
                 </p>
               </div>
-              <button
+              <Button
                 type="button"
                 onClick={() => setOpenModal(null)}
                 className="rounded-lg border border-[(--line)] px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
               >
                 Cerrar
-              </button>
+              </Button>
             </div>
 
             <div className="rounded-lg border border-[(--line)] bg-slate-50 px-3 py-2.5">
@@ -103,14 +104,14 @@ export function ProductImportExportControls() {
                 }}
               />
 
-              <button
+              <Button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="inline-flex h-10 w-full items-center justify-center gap-1 rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
               >
                 <FileSpreadsheet className="h-4 w-4" />
                 Importar por CSV
-              </button>
+              </Button>
             </form>
           </div>
         </div>
@@ -135,13 +136,13 @@ export function ProductImportExportControls() {
                   Descarga tu catalogo actual en CSV para respaldo o edicion masiva.
                 </p>
               </div>
-              <button
+              <Button
                 type="button"
                 onClick={() => setOpenModal(null)}
                 className="rounded-lg border border-[(--line)] px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
               >
                 Cerrar
-              </button>
+              </Button>
             </div>
 
             <Link

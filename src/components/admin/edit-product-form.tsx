@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { calculateProfit, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
+import { Button } from "../ui/button";
 
 type CategoryOption = {
   id: string;
@@ -184,12 +185,12 @@ export function EditProductForm({
       <aside className="space-y-4 xl:sticky xl:top-8 xl:h-fit xl:space-y-5">
         <div className="space-y-4">
           <div className="overflow-hidden rounded-xl border border-[(--line)] bg-white">
-              <div className="relative flex h-52 items-center justify-center bg-slate-100">
-                {previewImageUrl ? (
-                  <img src={previewImageUrl} alt="Vista previa" className="h-full w-full object-contain" />
-                ) : (
-                  <p className="text-xs text-slate-500">Sin imagen principal</p>
-                )}
+            <div className="relative flex h-52 items-center justify-center bg-slate-100">
+              {previewImageUrl ? (
+                <img src={previewImageUrl} alt="Vista previa" className="h-full w-full object-contain" />
+              ) : (
+                <p className="text-xs text-slate-500">Sin imagen principal</p>
+              )}
               <span className="absolute right-2 top-2 rounded-full border border-[(--line)] bg-white/95 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                 {code.trim() || "SKU"}
               </span>
@@ -259,11 +260,10 @@ export function EditProductForm({
               <div className="block space-y-1.5 md:col-span-2">
                 <span className="text-sm font-medium text-slate-700">🖼️ Multimedia</span>
                 <div
-                  className={`space-y-3 rounded-xl border border-dashed p-4 transition ${
-                    dragActive
+                  className={`space-y-3 rounded-xl border border-dashed p-4 transition ${dragActive
                       ? "border-slate-400 bg-slate-100/80"
                       : "border-[(--line-strong)] bg-slate-50/60"
-                  }`}
+                    }`}
                   onDragOver={(e) => {
                     e.preventDefault();
                     setDragActive(true);
@@ -300,13 +300,13 @@ export function EditProductForm({
                     }}
                   />
                   <div className="flex justify-end">
-                    <button
+                    <Button
                       type="button"
                       className="inline-flex h-8 items-center gap-1 rounded-lg border border-[(--line)] bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                       onClick={() => fileInputRef.current?.click()}
                     >
-                      ➕ Agregar imagenes
-                    </button>
+                      Agregar imagenes
+                    </Button>
                   </div>
                   {allImageUrls.length > 0 ? (
                     <div className="flex gap-2 overflow-x-auto pb-1">
@@ -316,7 +316,7 @@ export function EditProductForm({
                           className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-[(--line)] bg-slate-100"
                         >
                           <img src={url} alt={`Imagen ${index + 1}`} className="h-full w-full object-cover" />
-                          <button
+                          <Button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -326,7 +326,7 @@ export function EditProductForm({
                             aria-label={`Eliminar imagen ${index + 1}`}
                           >
                             <X className="h-3 w-3" />
-                          </button>
+                          </Button>
                         </div>
                       ))}
                     </div>
@@ -516,13 +516,13 @@ export function EditProductForm({
               Crear nuevo producto
             </Link>
             <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
-              <button
+              <Button
                 type="submit"
-                className="inline-flex h-10 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
+                // className="inline-flex h-10 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
                 disabled={allImageUrls.length === 0}
               >
                 Guardar cambios
-              </button>
+              </Button>
             </div>
           </div>
         </form>

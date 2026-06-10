@@ -110,14 +110,14 @@ export function UsersDataTable({ users }: UsersDataTableProps) {
             className="h-9 pr-9 pl-9 text-sm"
           />
           {query ? (
-            <button
+            <Button
               type="button"
               onClick={() => setQuery("")}
               className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
               aria-label="Limpiar busqueda"
             >
               <X className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           ) : null}
         </div>
       </div>

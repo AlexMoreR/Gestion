@@ -7,6 +7,7 @@ import { QuotesDataTable } from "@/components/admin/quotes-data-table";
 import { Input } from "@/components/ui/input";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { calculateQuoteLineTotal } from "@/lib/quote-item-meta";
+import { Button } from "../ui/button";
 
 type ClientOption = {
   id: string;
@@ -272,13 +273,13 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
     () =>
       Boolean(
         clientName.trim() &&
-          clientDocument.trim() &&
-          clientEmail.trim() &&
-          clientPhone.trim() &&
-          clientAddress.trim() &&
-          clientNeighborhood.trim() &&
-          clientDepartment.trim() &&
-          clientCity.trim(),
+        clientDocument.trim() &&
+        clientEmail.trim() &&
+        clientPhone.trim() &&
+        clientAddress.trim() &&
+        clientNeighborhood.trim() &&
+        clientDepartment.trim() &&
+        clientCity.trim(),
       ),
     [
       clientAddress,
@@ -379,14 +380,13 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
             Crea cotizaciones con cliente, productos y link compartible.
           </p>
         </div>
-        <button
+        <Button
           type="button"
           onClick={openQuoteModal}
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[(--primary)] px-3 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
         >
           <Plus className="h-4 w-4" />
           Nueva cotizacion
-        </button>
+        </Button>
       </div>
 
       <QuotesDataTable quotes={quotes} currency={currency} />
@@ -410,14 +410,14 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                   <span>Nueva cotizacion</span>
                 </h2>
               </div>
-              <button
+              <Button
                 type="button"
                 onClick={() => setOpenModal(false)}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[(--line)] text-slate-600 transition hover:bg-slate-50"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
 
             <form
@@ -511,7 +511,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                             <div className="max-h-52 overflow-y-auto p-1.5">
                               {filteredClients.length > 0 ? (
                                 filteredClients.map((client) => (
-                                  <button
+                                  <Button
                                     key={client.id}
                                     type="button"
                                     onMouseDown={(event) => event.preventDefault()}
@@ -523,7 +523,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                                       {getClientDisplayName(client)}
                                     </span>
                                     <span className="text-xs text-slate-500">{client.phone || "Sin telefono"}</span>
-                                  </button>
+                                  </Button>
                                 ))
                               ) : (
                                 <p className="px-2.5 py-2 text-xs text-slate-500">Sin resultados. Completa los campos para crear cliente.</p>
@@ -600,14 +600,14 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
 
                   {clientFormError ? <p className="text-xs font-medium text-red-600">{clientFormError}</p> : null}
 
-                  <button
+                  <Button
                     type="button"
                     onClick={goToProductsStep}
                     disabled={!isClientResolved || isResolvingClient}
                     className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isResolvingClient ? "Guardando cliente..." : "Siguiente"}
-                  </button>
+                  </Button>
                 </div>
               ) : step === 2 ? (
                 <div className="space-y-4">
@@ -629,20 +629,20 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                       <tbody>
                         {linesWithMeta.length === 0 ? (
                           <tr>
-                              <td colSpan={9} className="px-3 py-8 text-center text-sm text-slate-500">
+                            <td colSpan={9} className="px-3 py-8 text-center text-sm text-slate-500">
                               <div className="flex flex-col items-center gap-3">
                                 <div className="rounded-full border border-slate-200 bg-slate-50 p-2">
                                   <Boxes className="h-4 w-4 text-slate-500" />
                                 </div>
                                 <p>No hay productos agregados.</p>
-                                <button
+                                <Button
                                   type="button"
                                   onClick={openAddProductModal}
                                   className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[(--primary)] px-4 text-sm font-semibold text-white transition hover:bg-[(--primary-strong)]"
                                 >
                                   <Plus className="h-4 w-4" />
                                   Agregar producto
-                                </button>
+                                </Button>
                               </div>
                             </td>
                           </tr>
@@ -674,14 +674,14 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                                 {lineTotal.toLocaleString("es-CO", { style: "currency", currency })}
                               </td>
                               <td className="px-3 py-2">
-                                <button
+                                <Button
                                   type="button"
                                   onClick={() => removeLine(line.uid)}
                                   className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 text-red-600 transition hover:bg-red-50"
                                   aria-label="Quitar producto"
                                 >
                                   <Trash2 className="h-4 w-4" />
-                                </button>
+                                </Button>
                               </td>
                             </tr>
                           ))
@@ -692,14 +692,14 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
 
                   {linesWithMeta.length > 0 ? (
                     <div className="flex justify-center">
-                      <button
+                      <Button
                         type="button"
                         onClick={openAddProductModal}
                         className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[(--primary)] px-4 text-sm font-semibold text-white transition hover:bg-[(--primary-strong)]"
                       >
                         <Plus className="h-4 w-4" />
                         Agregar producto
-                      </button>
+                      </Button>
                     </div>
                   ) : null}
 
@@ -747,24 +747,24 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                   </div>
 
                   <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
-                    <button
+                    <Button
                       type="button"
                       onClick={() => setStep(1)}
                       className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                     >
                       Atras
-                    </button>
-                     <button
-                       type="button"
-                       onClick={() => {
-                         setIsManualQuoteSubmit(false);
-                         setStep(3);
-                       }}
-                        className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-[(--primary)] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[(--primary-strong)] sm:w-auto"
-                        disabled={lines.length === 0}
-                      >
-                       Siguiente
-                    </button>
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setIsManualQuoteSubmit(false);
+                        setStep(3);
+                      }}
+                      className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-[(--primary)] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[(--primary-strong)] sm:w-auto"
+                      disabled={lines.length === 0}
+                    >
+                      Siguiente
+                    </Button>
                   </div>
                 </div>
               ) : (
@@ -901,14 +901,14 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                   </div>
 
                   <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
-                    <button
+                    <Button
                       type="button"
                       onClick={() => setStep(2)}
                       className="inline-flex h-10 items-center justify-center rounded-lg border border-[(--line)] bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                     >
                       Atras
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
                       onClick={(event) => {
                         setIsManualQuoteSubmit(true);
@@ -918,7 +918,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                       disabled={!isClientResolved || lines.length === 0}
                     >
                       Generar cotizacion
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -947,14 +947,14 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                 </h3>
                 <p className="mt-0.5 text-xs text-slate-500">Selecciona un item, ajusta precio y agrega descripcion.</p>
               </div>
-              <button
+              <Button
                 type="button"
                 onClick={() => setOpenProductModal(false)}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
                 aria-label="Cerrar modal de producto"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
 
             <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 md:grid-cols-2">
@@ -983,7 +983,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                     <div className="max-h-52 overflow-y-auto p-1.5">
                       {filteredProducts.length > 0 ? (
                         filteredProducts.map((product) => (
-                          <button
+                          <Button
                             key={product.id}
                             type="button"
                             onMouseDown={(event) => event.preventDefault()}
@@ -992,7 +992,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
                           >
                             <span className="font-medium text-slate-800">{product.code || "Sin codigo"}</span>
                             <span className="truncate pl-2 text-xs text-slate-500">{product.name}</span>
-                          </button>
+                          </Button>
                         ))
                       ) : (
                         <p className="px-2.5 py-2 text-xs text-slate-500">Sin coincidencias</p>
@@ -1095,20 +1095,20 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
             ) : null}
 
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <button
+              <Button
                 type="button"
                 onClick={() => setOpenProductModal(false)}
                 className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
               >
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={addDraftProduct}
                 className="inline-flex h-10 items-center justify-center rounded-xl bg-[(--primary)] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[(--primary-strong)]"
               >
                 Agregar producto
-              </button>
+              </Button>
             </div>
           </div>
         </div>
