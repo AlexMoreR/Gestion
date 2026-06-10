@@ -108,8 +108,9 @@ export default async function RootLayout({
   ]);
 
   return (
-    <html lang="es-CO">
+    <html lang="es-CO" suppressHydrationWarning>
       <body
+        suppressHydrationWarning
         className={`${poppins.variable} ${geistMono.variable} antialiased`}
         style={
           {

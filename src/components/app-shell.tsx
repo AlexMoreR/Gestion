@@ -137,6 +137,7 @@ export function AppShell({ children, initialUser, brandName, storefrontLogoPath,
           adminModuleAccess={adminModuleAccess}
         />
         <main
+          suppressHydrationWarning
           className={cn(
             "mx-auto w-full max-w-6xl px-4 md:px-6",
             "min-h-[calc(100vh-4rem)] pt-3 pb-8 md:pt-4 md:pb-10",
@@ -151,7 +152,7 @@ export function AppShell({ children, initialUser, brandName, storefrontLogoPath,
   if (user) {
     return (
       <SidebarProvider>
-        <div className="admin-print-shell flex min-h-screen">
+        <div className="admin-print-shell flex min-h-screen" suppressHydrationWarning>
           <AppSidebar
             pathname={pathname}
             user={{
@@ -202,6 +203,7 @@ export function AppShell({ children, initialUser, brandName, storefrontLogoPath,
   return (
     <>
       <main
+        suppressHydrationWarning
         className={cn(
           "mx-auto w-full max-w-6xl px-4 md:px-6",
           "min-h-screen py-8 md:py-10",
