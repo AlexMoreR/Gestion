@@ -26,6 +26,7 @@
     "nodemailer": "^7.0.13",
     "pg": "^8.18.0",
     "prisma": "^7.4.1",
+    "puppeteer": "^25.1.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "shadcn": "^4.7.0",

@@ -95,9 +95,9 @@ export default async function QuotePublicPage({ params }: PageProps) {
   const clientCity = quote.client.city || "Por confirmar";
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 p-4 md:p-8">
+    <main className="flex flex-col gap-4">
       {/* Header / Hero Section */}
-      <Card className="overflow-hidden border-none bg-gradient-to-br from-slate-900 via-blue-900 to-teal-900 text-white shadow-2xl">
+      <Card className="overflow-hidden border-none bg-linear-to-br from-slate-900 via-blue-900 to-teal-900 text-white shadow-2xl">
         <CardContent className="p-6 md:p-10">
           <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
             <div className="space-y-4">
@@ -113,7 +113,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
                 <p className="text-lg font-medium text-blue-200">{quote.code}</p>
               </div>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3 print:hidden">
               <Button
                 size="lg"
                 className="flex-row w-full bg-white text-slate-900 hover:bg-slate-100"
@@ -263,7 +263,7 @@ export default async function QuotePublicPage({ params }: PageProps) {
       </div>
 
       {/* Action Footer */}
-      <div className="sticky bottom-6 flex flex-col items-center gap-4">
+      <div className="sticky bottom-6 flex flex-col items-center gap-4 print:hidden">
         <Card className="w-full max-w-2xl border-none bg-white/80 backdrop-blur-md shadow-2xl p-2 rounded-2xl">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <Button className="rounded-xl h-12 font-bold bg-slate-900 hover:bg-slate-800">
@@ -287,8 +287,9 @@ export default async function QuotePublicPage({ params }: PageProps) {
                 Cambios
               </Link>
             </Button>
-
-            <DownloadQuotePdfButton className="rounded-xl h-12 font-bold border-slate-200 flex items-center justify-center" />
+            <DownloadQuotePdfButton
+              quoteToken={token}
+              className="rounded-xl h-12 font-bold border-slate-200 flex items-center justify-center" />
 
             <Button
               variant="secondary"
