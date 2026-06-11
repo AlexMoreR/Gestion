@@ -3,6 +3,7 @@
 import Link from "next/link";
 import * as React from "react";
 import {
+  BadgeDollarSign,
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
@@ -41,6 +42,8 @@ type SaleRow = {
   quoteCode: string;
   clientName: string;
   total: number;
+  downPaymentAmount: number;
+  remainingBalance: number;
   status: SaleStatus;
   createdAt: string;
   invoiceToken: string;
@@ -53,7 +56,7 @@ type SalesDataTableProps = {
   currency: SupportedCurrencyCode;
 };
 
-type SortKey = "sale" | "quote" | "client" | "status" | "total" | "created";
+type SortKey = "sale" | "quote" | "client" | "status" | "total" | "downPayment" | "remaining" | "created";
 type SortDirection = "asc" | "desc";
 
 function statusLabel(status: SaleStatus): string {
@@ -195,6 +198,10 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
           return textCompare(statusLabel(a.status), statusLabel(b.status)) * directionFactor;
         case "total":
           return (a.total - b.total) * directionFactor;
+        case "downPayment":
+          return (a.downPaymentAmount - b.downPaymentAmount) * directionFactor;
+        case "remaining":
+          return (a.remainingBalance - b.remainingBalance) * directionFactor;
         case "created":
           return textCompare(a.createdAt, b.createdAt) * directionFactor;
         default:
@@ -272,6 +279,26 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
               </TableHead>
               <TableHead className="normal-case tracking-normal">
                 <HeaderLabel
+                  active={sortKey === "downPayment"}
+                  direction={sortDirection}
+                  onClick={() => toggleSort("downPayment")}
+                  icon={<ReceiptText className="h-3.5 w-3.5" />}
+                >
+                  Abono
+                </HeaderLabel>
+              </TableHead>
+              <TableHead className="normal-case tracking-normal">
+                <HeaderLabel
+                  active={sortKey === "remaining"}
+                  direction={sortDirection}
+                  onClick={() => toggleSort("remaining")}
+                  icon={<BadgeDollarSign className="h-3.5 w-3.5" />}
+                >
+                  Restante
+                </HeaderLabel>
+              </TableHead>
+              <TableHead className="normal-case tracking-normal">
+                <HeaderLabel
                   active={sortKey === "created"}
                   direction={sortDirection}
                   onClick={() => toggleSort("created")}
@@ -288,7 +315,7 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
           <TableBody>
             {sortedSales.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-9 text-center text-muted-foreground">
+                <TableCell colSpan={9} className="py-9 text-center text-muted-foreground">
                   No sales records yet.
                 </TableCell>
               </TableRow>
@@ -307,6 +334,12 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
                   </TableCell>
                   <TableCell className="text-sm font-semibold text-foreground">
                     {formatMoney(sale.total, currency)}
+                  </TableCell>
+                  <TableCell className="text-sm font-semibold text-foreground">
+                    {formatMoney(sale.downPaymentAmount, currency)}
+                  </TableCell>
+                  <TableCell className="text-sm font-semibold text-foreground">
+                    {formatMoney(sale.remainingBalance, currency)}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{sale.createdAt}</TableCell>
                   <TableCell>
@@ -340,6 +373,10 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
                 <p className="text-sm text-foreground">{sale.clientName}</p>
                 <p className="text-xs text-muted-foreground">{sale.createdAt}</p>
                 <p className="text-sm font-semibold text-foreground">{formatMoney(sale.total, currency)}</p>
+                <p className="text-xs text-muted-foreground">
+                  Abono: {formatMoney(sale.downPaymentAmount, currency)} · Restante:{" "}
+                  {formatMoney(sale.remainingBalance, currency)}
+                </p>
                 <p className="text-xs text-muted-foreground">{getReceiptLabel(sale.paymentReceiptType)}</p>
               </div>
               <div className="flex items-center justify-end">

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import * as React from "react";
 import {
   ArrowDown,
@@ -43,6 +44,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { toast } from "sonner";
+import { useFormStatus } from "react-dom";
 
 type QuoteStatus = "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED";
 
@@ -181,11 +184,38 @@ function RowActions({
   );
 }
 
+function SaleSubmitButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <div className="space-y-2">
+      <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90" disabled={pending}>
+        {pending ? "Creating sale..." : "Create sale"}
+      </Button>
+      {pending ? (
+        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+          <div className="h-full w-2/3 animate-pulse rounded-full bg-primary" />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
   const [sortKey, setSortKey] = React.useState<SortKey>("cotizacion");
   const [sortDirection, setSortDirection] = React.useState<SortDirection>("desc");
   const [pendingDelete, setPendingDelete] = React.useState<{ id: string; code: string } | null>(null);
   const [pendingSale, setPendingSale] = React.useState<QuoteRow | null>(null);
+  const [downPaymentAmount, setDownPaymentAmount] = React.useState("");
+  const saleLoadingToastRef = useRef<string | number | null>(null);
+
+  useEffect(() => {
+    if (!pendingSale && saleLoadingToastRef.current) {
+      toast.dismiss(saleLoadingToastRef.current);
+      saleLoadingToastRef.current = null;
+      setDownPaymentAmount("");
+    }
+  }, [pendingSale]);
 
   const sortedQuotes = React.useMemo(() => {
     const list = [...quotes];
@@ -236,6 +266,15 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
       null;
     form?.requestSubmit();
     setPendingDelete(null);
+  };
+
+  const openSaleSheet = (quote: QuoteRow) => {
+    setPendingSale(quote);
+    setDownPaymentAmount(quote.total.toFixed(2));
+  };
+
+  const handleSaleSubmit = () => {
+    saleLoadingToastRef.current = toast.loading("Creating sale...");
   };
 
   return (
@@ -333,7 +372,7 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
                       <RowActions
                         quote={quote}
                         onDelete={() => setPendingDelete({ id: quote.id, code: quote.code })}
-                        onSendToSales={() => setPendingSale(quote)}
+                        onSendToSales={() => openSaleSheet(quote)}
                       />
                     </div>
                   </TableCell>
@@ -373,7 +412,7 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
                 <RowActions
                   quote={quote}
                   onDelete={() => setPendingDelete({ id: quote.id, code: quote.code })}
-                  onSendToSales={() => setPendingSale(quote)}
+                  onSendToSales={() => openSaleSheet(quote)}
                 />
               </div>
             </article>
@@ -441,9 +480,29 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
             action={adminCreateSaleFromQuoteAction}
             encType="multipart/form-data"
             className="flex h-full flex-col gap-5 p-4"
+            onSubmit={handleSaleSubmit}
           >
             <input type="hidden" name="returnTo" value="/admin/cotizaciones" />
             <input type="hidden" name="quoteId" value={pendingSale?.id ?? ""} />
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="downPaymentAmount">
+                Monto del abono
+              </label>
+              <Input
+                id="downPaymentAmount"
+                name="downPaymentAmount"
+                type="number"
+                min="0.01"
+                step="0.01"
+                required
+                value={downPaymentAmount}
+                onChange={(event) => setDownPaymentAmount(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Este valor es obligatorio antes de crear la venta.
+              </p>
+            </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground" htmlFor="paymentReceipt">
@@ -467,6 +526,28 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
               <p className="mt-1">
                 {pendingSale?.clientName ?? "Select a quote"} will be moved to Sales once the receipt is submitted.
               </p>
+              <div className="mt-3 grid gap-3 text-sm sm:grid-cols-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">Capital</p>
+                  <p className="font-semibold text-foreground">
+                    {pendingSale ? formatMoney(pendingSale.total, currency) : "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Abono</p>
+                  <p className="font-semibold text-foreground">
+                    {downPaymentAmount ? formatMoney(Number(downPaymentAmount), currency) : "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Restante</p>
+                  <p className="font-semibold text-foreground">
+                    {pendingSale
+                      ? formatMoney(Math.max(pendingSale.total - Number(downPaymentAmount || 0), 0), currency)
+                      : "-"}
+                  </p>
+                </div>
+              </div>
             </div>
 
             <SheetFooter className="border-t border-border px-0 pt-4">
@@ -474,9 +555,7 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
                 <Button type="button" variant="outline" onClick={() => setPendingSale(null)}>
                   Cancelar
                 </Button>
-                <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90">
-                  Crear venta
-                </Button>
+                <SaleSubmitButton />
               </div>
             </SheetFooter>
           </form>

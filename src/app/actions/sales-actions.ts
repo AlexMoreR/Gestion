@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 
 const createSaleSchema = z.object({
   quoteId: z.string().trim().min(1, "Quote is invalid"),
+  downPaymentAmount: z.coerce.number().positive("Down payment is required"),
 });
 
 const PAYMENT_RECEIPT_MAX_BYTES = 12 * 1024 * 1024;
@@ -115,6 +116,7 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
 
   const parsed = createSaleSchema.safeParse({
     quoteId: formData.get("quoteId"),
+    downPaymentAmount: formData.get("downPaymentAmount"),
   });
 
   if (!parsed.success) {
@@ -143,6 +145,10 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
     redirect(`${returnTo}?error=This+quote+has+already+been+sent+to+sales`);
   }
 
+  if (parsed.data.downPaymentAmount > Number(quote.total)) {
+    redirect(`${returnTo}?error=Down+payment+cannot+exceed+the+sale+total`);
+  }
+
   const savedReceipt = await savePaymentReceipt(receipt, quote.code);
 
   try {
@@ -157,6 +163,7 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
           clientId: quote.clientId,
           createdById,
           status: "ACTIVE",
+          downPaymentAmount: parsed.data.downPaymentAmount,
           paymentReceiptUrl: savedReceipt.url,
           paymentReceiptName: savedReceipt.name,
           paymentReceiptType: savedReceipt.type,

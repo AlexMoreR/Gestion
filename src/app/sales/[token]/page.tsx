@@ -99,6 +99,10 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
   const clientDocument = sale.client.document || "Pending";
   const clientCity = sale.client.city || "Pending";
   const deliveryAddress = sale.client.address || "Pending";
+  const capital = Number(sale.total);
+  const downPayment = Number(sale.downPaymentAmount);
+  const remainingBalance = Math.max(capital - downPayment, 0);
+  const paymentProgress = capital > 0 ? Math.min((downPayment / capital) * 100, 100) : 0;
 
   return (
     <main className={isPdf ? "flex flex-col gap-4 bg-white p-4 text-slate-900" : "mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 md:px-6"}>
@@ -176,22 +180,41 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
               Invoice Summary
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p className="text-xs text-muted-foreground">Quote</p>
-              <p className="font-medium text-foreground">{sale.quote.code}</p>
+          <CardContent className="space-y-4 text-sm">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs text-muted-foreground">Quote</p>
+                <p className="font-medium text-foreground">{sale.quote.code}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Receipt</p>
+                <p className="font-medium text-foreground">{receiptIsImage ? "Image" : "PDF"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Capital</p>
+                <p className="font-medium text-foreground">{formatMoney(capital, currency)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Down payment</p>
+                <p className="font-medium text-foreground">{formatMoney(downPayment, currency)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Remaining</p>
+                <p className="font-semibold text-foreground">{formatMoney(remainingBalance, currency)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total</p>
+                <p className="font-semibold text-foreground">{formatMoney(capital, currency)}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Receipt</p>
-              <p className="font-medium text-foreground">{receiptIsImage ? "Image" : "PDF"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Subtotal</p>
-              <p className="font-medium text-foreground">{formatMoney(Number(sale.subtotal), currency)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Total</p>
-              <p className="font-semibold text-foreground">{formatMoney(Number(sale.total), currency)}</p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Payment progress</span>
+                <span>{paymentProgress.toFixed(0)}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${paymentProgress}%` }} />
+              </div>
             </div>
           </CardContent>
         </Card>

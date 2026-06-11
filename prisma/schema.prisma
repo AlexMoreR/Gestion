@@ -163,6 +163,7 @@ model Sale {
   clientId             String
   createdById          String
   status               SaleStatus  @default(ACTIVE)
+  downPaymentAmount    Decimal     @default(0) @db.Decimal(12, 2)
   paymentReceiptUrl    String
   paymentReceiptName   String
   paymentReceiptType   String
