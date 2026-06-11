@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
         const host = req.headers.get("host");
         // Se recomienda usar una variable de entorno NEXT_PUBLIC_APP_URL para producción
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}//${host}`;
-        const targetUrl = `${baseUrl}/cotizaciones/${token}`;
+        const targetUrl = `${baseUrl}/cotizaciones/${token}?pdf=true`;
 
         const pdfBuffer = await generateQuotePdf(targetUrl);
         const arrayBuffer = new Uint8Array(pdfBuffer).buffer;

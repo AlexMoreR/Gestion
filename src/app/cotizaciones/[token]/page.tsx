@@ -33,14 +33,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
-  TableBody, TableCell, TableHead, TableHeader, TableRow
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 
 type PageProps = {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{
-    pdf?: string;
-  }>;
+  searchParams: Promise<{ pdf?: string }>;
 };
 
 export default async function QuotePublicPage({ params, searchParams }: PageProps) {
@@ -66,28 +68,32 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
     getSystemWhatsAppPhoneHref(),
   ]);
 
-  if (!quote) {
-    notFound();
-  }
+  if (!quote) notFound();
 
-  const issuedDate = quote.createdAt.toLocaleDateString("es-CO", {
-    dateStyle: "long",
-  });
+  const issuedDate = quote.createdAt.toLocaleDateString("es-CO", { dateStyle: "long" });
 
-  // Centralizamos el parseo de items para mayor eficiencia
   const itemsWithMeta = quote.items.map((item) => ({
     ...item,
     meta: parseQuoteItemMeta(item.notes),
   }));
 
-  const subtotal = itemsWithMeta.reduce((sum, item) => sum + item.quantity * Number(item.unitPrice), 0);
+  const subtotal = itemsWithMeta.reduce(
+    (sum, item) => sum + item.quantity * Number(item.unitPrice),
+    0
+  );
   const additionalCost = itemsWithMeta.reduce((sum, item) => sum + item.meta.additionalCost, 0);
   const discount = itemsWithMeta.reduce((sum, item) => sum + item.meta.discount, 0);
   const total = Number(quote.total);
 
-  const dynamicSupportHref = await buildSystemWhatsAppHref(`Hola, necesito ayuda con la cotización ${quote.code}.`);
-  const dynamicApproveHref = await buildSystemWhatsAppHref(`Hola, deseo aprobar la cotización ${quote.code}.`);
-  const dynamicChangesHref = await buildSystemWhatsAppHref(`Hola, solicito cambios para la cotización ${quote.code}.`);
+  const dynamicSupportHref = await buildSystemWhatsAppHref(
+    `Hola, necesito ayuda con la cotización ${quote.code}.`
+  );
+  const dynamicApproveHref = await buildSystemWhatsAppHref(
+    `Hola, deseo aprobar la cotización ${quote.code}.`
+  );
+  const dynamicChangesHref = await buildSystemWhatsAppHref(
+    `Hola, solicito cambios para la cotización ${quote.code}.`
+  );
 
   const companyInfo = {
     name: "Magilus",
@@ -100,362 +106,569 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
   const clientCity = quote.client.city || "Por confirmar";
 
   return (
-    <main className="flex flex-col gap-4">
-      {/* Header / Hero Section */}
-      <Card
+    /**
+     * PDF layout: single column, compact, no shadows, no gradients.
+     * Web layout: padded container, full visual treatment.
+     *
+     * Strategy: one JSX tree, differentiated with:
+     *   - `isPdf` prop for structural differences (e.g. table vs cards)
+     *   - `print:` Tailwind utilities for style differences within the same element
+     */
+    <main
+      className={
+        isPdf
+          ? "flex flex-col gap-2 p-4 bg-white text-slate-900 text-[11px]"
+          : "flex flex-col gap-4 pb-32"
+      }
+    >
+      {/* ─── HEADER ──────────────────────────────────────────────────── */}
+      <div
         className={
           isPdf
-            ? "overflow-hidden border border-slate-300 bg-white text-slate-900 shadow-none"
-            : "overflow-hidden border-none bg-linear-to-br from-slate-900 via-blue-900 to-teal-900 text-white shadow-2xl"
+            ? "flex items-start justify-between border border-slate-300 rounded-lg p-3"
+            : "flex flex-row justify-between items-center overflow-hidden rounded-2xl bg-linear-to-br from-slate-900 via-blue-950 to-teal-900 text-white shadow-2xl p-6 md:p-10"
         }
       >
-        <CardContent
-          className={
-            isPdf
-              ? "p-3"
-              : "p-6 md:p-10"
-          }
-        >
-          <div
-            className={
-              isPdf
-                ? "flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-bold"
-                : "flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-2xl font-bold"
-            }
-          >
-            <div className={isPdf ? "space-y-1" : "space-y-4"}>
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-2xl font-bold">M</div>
-                <div>
-                  <h2 className="text-xl font-bold tracking-tight">Magilus</h2>
-                  <p className="text-sm text-blue-100/70">NIT {companyInfo.nit}</p>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <h1
-                  className={
-                    isPdf
-                      ? "text-2xl font-bold tracking-tight"
-                      : "text-3xl md:text-5xl font-extrabold tracking-tighter"
-                  }
-                >
-                  COTIZACIÓN
-                </h1>
-                <p
-                  className={
-                    isPdf
-                      ? "text-sm text-slate-500"
-                      : "text-lg font-medium text-blue-200"
-                  }
-                >
-                  {quote.code}
-                </p>
-              </div>
+        {/* Brand + Quote number */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <div
+              className={
+                isPdf
+                  ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-white text-sm font-black"
+                  : "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-white text-2xl font-black"
+              }
+            >
+              M
             </div>
-            <div className="flex flex-wrap gap-3 print:hidden">
-              <Button
-                size="lg"
-                className="flex-row w-full bg-white text-slate-900 hover:bg-slate-100"
+            
+            <div>
+              <p
+                className={
+                  isPdf
+                    ? "text-sm font-bold text-slate-900"
+                    : "text-xl font-bold text-white tracking-tight"
+                }
               >
-                <Link
-                  href={dynamicApproveHref}
-                  target="_blank"
-                  className="flex w-full items-center justify-center"
-                >
-                  <BadgeCheck className="mr-2 h-5 w-5" />
-                  Aprobar
-                </Link>
-              </Button>
-
-              <Button
-                size="lg"
-                className="flex-row w-full border-white/30 bg-white/10 text-white hover:bg-white/20"
-              >
-                <Link
-                  href={dynamicChangesHref}
-                  target="_blank"
-                  className="flex w-full items-center justify-center"
-                >
-                  <MessageCircleMore className="mr-2 h-5 w-5" />
-                  Cambios
-                </Link>
-              </Button>
+                Magilus
+              </p>
+              <p className={isPdf ? "text-[9px] text-slate-500" : "text-xs text-blue-200/70"}>
+                NIT {companyInfo.nit}
+              </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Info Grid */}
+          <div>
+            <p
+              className={
+                isPdf
+                  ? "text-xs font-bold tracking-widest text-slate-500 uppercase"
+                  : "text-sm font-semibold tracking-widest text-blue-300 uppercase"
+              }
+            >
+              Cotización
+            </p>
+            <h1
+              className={
+                isPdf
+                  ? "text-xl font-extrabold tracking-tight text-slate-900"
+                  : "text-4xl md:text-5xl font-extrabold tracking-tighter text-white"
+              }
+            >
+              {quote.code}
+            </h1>
+          </div>
+        </div>
+
+        {/* CTA buttons — only in web mode */}
+        {!isPdf && (
+          <div className="hidden md:flex flex-col gap-2 min-w-[160px]">
+            <Button size="lg" className="w-full bg-white text-slate-900 hover:bg-slate-100" >
+              <Link href={dynamicApproveHref} target="_blank">
+                <BadgeCheck className="mr-2 h-5 w-5" />
+              </Link>
+                Aprobar
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="w-full border-white/30 bg-white/10 text-white hover:bg-white/20"
+            >
+              <Link href={dynamicChangesHref} target="_blank">
+                <MessageCircleMore className="mr-2 h-5 w-5" />
+              </Link>
+                Cambios
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* ─── CLIENT + COMPANY INFO ───────────────────────────────────── */}
       {isPdf ? (
-        <Card className="border-slate-300 shadow-none">
-          <CardContent className="p-0">
-            <table className="w-full text-[10px]">
-              <tbody>
-                <tr>
-                  <td className="border p-2 font-semibold">Cliente</td>
-                  <td className="border p-2">{quote.client.name}</td>
-                  <td className="border p-2 font-semibold">Fecha</td>
-                  <td className="border p-2">{issuedDate}</td>
-                </tr>
-
-                <tr>
-                  <td className="border p-2 font-semibold">Documento</td>
-                  <td className="border p-2">{clientDocument}</td>
-                  <td className="border p-2 font-semibold">Garantía</td>
-                  <td className="border p-2">{companyInfo.warranty}</td>
-                </tr>
-
-                <tr>
-                  <td className="border p-2 font-semibold">Ciudad</td>
-                  <td className="border p-2">{clientCity}</td>
-                  <td className="border p-2 font-semibold">Vigencia</td>
-                  <td className="border p-2">15 días</td>
-                </tr>
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+        /* PDF: compact 2-col table */
+        <table className="w-full border-collapse text-[10px]">
+          <tbody>
+            <tr>
+              <td className="border border-slate-200 bg-slate-50 p-2 font-semibold w-1/4">Cliente</td>
+              <td className="border border-slate-200 p-2 w-1/4">{quote.client.name}</td>
+              <td className="border border-slate-200 bg-slate-50 p-2 font-semibold w-1/4">Fecha emisión</td>
+              <td className="border border-slate-200 p-2 w-1/4">{issuedDate}</td>
+            </tr>
+            <tr>
+              <td className="border border-slate-200 bg-slate-50 p-2 font-semibold">Documento</td>
+              <td className="border border-slate-200 p-2">{clientDocument}</td>
+              <td className="border border-slate-200 bg-slate-50 p-2 font-semibold">Garantía</td>
+              <td className="border border-slate-200 p-2">{companyInfo.warranty}</td>
+            </tr>
+            <tr>
+              <td className="border border-slate-200 bg-slate-50 p-2 font-semibold">Ciudad</td>
+              <td className="border border-slate-200 p-2">{clientCity}</td>
+              <td className="border border-slate-200 bg-slate-50 p-2 font-semibold">Vigencia</td>
+              <td className="border border-slate-200 p-2">15 días</td>
+            </tr>
+            <tr>
+              <td className="border border-slate-200 bg-slate-50 p-2 font-semibold">Dirección</td>
+              <td className="border border-slate-200 p-2" colSpan={3}>{deliveryAddress}</td>
+            </tr>
+          </tbody>
+        </table>
       ) : (
-        <>
-          <Card className={`border-slate-200/60 ${isPdf ? "space-y-1 p-3" : "space-y-3"}`}>
-            <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-sm text-slate-500 uppercase tracking-widest"><User className="h-4 w-4" /> Información del Cliente</CardTitle></CardHeader>
+        /* Web: two side-by-side cards */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card className="border-slate-200/60">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-xs text-slate-400 uppercase tracking-widest">
+                <User className="h-3.5 w-3.5" /> Cliente
+              </CardTitle>
+            </CardHeader>
             <CardContent className="space-y-3">
-              <div><p className="text-xl font-bold text-slate-900">{quote.client.name || "Por confirmar"}</p><p className="text-sm font-medium text-slate-500">{clientDocument}</p></div>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><p className="text-slate-400">Ciudad</p><p className="font-semibold">{clientCity}</p></div>
-                <div><p className="text-slate-400">Dirección</p><p className="font-semibold truncate">{deliveryAddress}</p></div>
+              <div>
+                <p className="text-xl font-bold text-slate-900">
+                  {quote.client.name || "Por confirmar"}
+                </p>
+                <p className="text-sm text-slate-500">{clientDocument}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-slate-400 text-xs">Ciudad</p>
+                  <p className="font-semibold">{clientCity}</p>
+                </div>
+                <div>
+                  <p className="text-slate-400 text-xs">Dirección</p>
+                  <p className="font-semibold truncate">{deliveryAddress}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className={`border-slate-200/60 ${isPdf ? "space-y-1 p-3" : "space-y-3"}`}>
-            <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-sm text-slate-500 uppercase tracking-widest"><Building2 className="h-4 w-4" /> Detalles de la Empresa</CardTitle></CardHeader>
-            <CardContent className="grid grid-cols-2 gap-4 text-sm">
-              <div><p className="text-slate-400 flex items-center gap-1"><Calendar className="h-3" /> Emisión</p><p className="font-semibold">{issuedDate}</p></div>
-              <div><p className="text-slate-400 flex items-center gap-1"><MapPin className="h-3" /> Origen</p><p className="font-semibold">{companyInfo.cityOrigin}</p></div>
-              <div><p className="text-slate-400 flex items-center gap-1"><ShieldCheck className="h-3" /> Garantía</p><p className="font-semibold">{companyInfo.warranty}</p></div>
-              <div><Badge variant="secondary" className="mt-1">Válida por 15 días</Badge></div>
+          <Card className="border-slate-200/60">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-xs text-slate-400 uppercase tracking-widest">
+                <Building2 className="h-3.5 w-3.5" /> Empresa
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-slate-400 text-xs flex items-center gap-1">
+                  <Calendar className="h-3 w-3" /> Emisión
+                </p>
+                <p className="font-semibold">{issuedDate}</p>
+              </div>
+              <div>
+                <p className="text-slate-400 text-xs flex items-center gap-1">
+                  <MapPin className="h-3 w-3" /> Origen
+                </p>
+                <p className="font-semibold">{companyInfo.cityOrigin}</p>
+              </div>
+              <div>
+                <p className="text-slate-400 text-xs flex items-center gap-1">
+                  <ShieldCheck className="h-3 w-3" /> Garantía
+                </p>
+                <p className="font-semibold">{companyInfo.warranty}</p>
+              </div>
+              <div className="flex items-end">
+                <Badge variant="secondary" className="text-xs">Válida 15 días</Badge>
+              </div>
             </CardContent>
           </Card>
-        </>
+        </div>
       )}
 
-      {/* Items Table */}
+      {/* ─── ITEMS TABLE ─────────────────────────────────────────────── */}
       <Card
         className={
           isPdf
             ? "border-slate-300 shadow-none overflow-hidden"
-            : "border-slate-200/60 shadow-lg overflow-hidden"
+            : "border-slate-200/60 shadow-sm overflow-hidden"
         }
       >
-        <CardHeader className="bg-slate-50/50 border-b"><CardTitle className="text-center text-sm font-bold text-slate-700">DESGLOSE DE PRODUCTOS</CardTitle></CardHeader>
+        <CardHeader
+          className={
+            isPdf
+              ? "border-b border-slate-200 bg-slate-50 py-2 px-3"
+              : "border-b bg-slate-50/50 py-3"
+          }
+        >
+          <CardTitle
+            className={
+              isPdf
+                ? "text-center text-[10px] font-bold tracking-widest text-slate-600 uppercase"
+                : "text-center text-xs font-bold tracking-widest text-slate-500 uppercase"
+            }
+          >
+            Desglose de Productos
+          </CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table className={isPdf ? "text-[10px]" : ""}>
-              <TableHeader>
-                <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
-                  <TableHead className="w[80px]">ITEM</TableHead>
-                  <TableHead>PRODUCTO</TableHead>
-                  <TableHead className="hidden md:table-cell print:table-cell">DESCRIPCIÓN</TableHead>
-                  <TableHead className="text-center">CANT</TableHead>
-                  <TableHead className="text-right">UNITARIO</TableHead>
-                  <TableHead className="text-right">TOTAL</TableHead>
+          <Table className={isPdf ? "text-[9.5px]" : "text-sm"}>
+            <TableHeader>
+              <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
+                <TableHead className={isPdf ? "py-1 px-2 w-6" : "w-10"}>#</TableHead>
+                <TableHead className={isPdf ? "py-1 px-2" : ""}>Producto</TableHead>
+                <TableHead
+                  className={
+                    isPdf
+                      ? "py-1 px-2"
+                      : "hidden md:table-cell print:table-cell"
+                  }
+                >
+                  Descripción
+                </TableHead>
+                <TableHead className={isPdf ? "py-1 px-2 text-center" : "text-center"}>
+                  Cant.
+                </TableHead>
+                <TableHead className={isPdf ? "py-1 px-2 text-right" : "text-right"}>
+                  Unitario
+                </TableHead>
+                <TableHead className={isPdf ? "py-1 px-2 text-right" : "text-right"}>
+                  Total
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {itemsWithMeta.map((item, idx) => (
+                <TableRow key={item.id} className="transition-colors">
+                  <TableCell
+                    className={
+                      isPdf
+                        ? "py-1 px-2 text-slate-400 font-medium"
+                        : "text-slate-400 font-medium"
+                    }
+                  >
+                    {String(idx + 1).padStart(2, "0")}
+                  </TableCell>
+                  <TableCell className={isPdf ? "py-1 px-2" : ""}>
+                    <div className="flex items-center gap-2">
+                      {!isPdf && item.product.thumbnailUrl && (
+                        <img
+                          src={getPublicAssetUrl(item.product.thumbnailUrl)}
+                          alt={item.product.name}
+                          className="h-9 w-9 rounded-md object-cover border shrink-0"
+                        />
+                      )}
+                      <p className="font-semibold text-slate-900 leading-tight">
+                        {item.product.name}
+                      </p>
+                    </div>
+                  </TableCell>
+                  <TableCell
+                    className={
+                      isPdf
+                        ? "py-1 px-2 text-slate-500 max-w-[160px]"
+                        : "hidden md:table-cell print:table-cell text-slate-500"
+                    }
+                  >
+                    <span className={isPdf ? "line-clamp-2" : ""}>
+                      {item.meta.description || "—"}
+                    </span>
+                  </TableCell>
+                  <TableCell
+                    className={
+                      isPdf
+                        ? "py-1 px-2 text-center font-bold"
+                        : "text-center font-bold text-slate-700"
+                    }
+                  >
+                    {item.quantity}
+                  </TableCell>
+                  <TableCell
+                    className={
+                      isPdf
+                        ? "py-1 px-2 text-right whitespace-nowrap"
+                        : "text-right whitespace-nowrap text-slate-600"
+                    }
+                  >
+                    {formatMoney(String(item.unitPrice), currency)}
+                  </TableCell>
+                  <TableCell
+                    className={
+                      isPdf
+                        ? "py-1 px-2 text-right font-bold whitespace-nowrap"
+                        : "text-right font-bold text-slate-900 whitespace-nowrap"
+                    }
+                  >
+                    {formatMoney(String(item.lineTotal), currency)}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {itemsWithMeta.map((item, idx) => (
-                  <TableRow key={item.id} className="group transition-colors">
-                    <TableCell className="font-medium text-slate-400">{String(idx + 1).padStart(2, '0')}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        {!isPdf && item.product.thumbnailUrl && (
-                          <img
-                            src={getPublicAssetUrl(item.product.thumbnailUrl)}
-                            alt={item.product.name}
-                            className="h-10 w-10 rounded-md object-cover border"
-                          />
-                        )}
-                        <p className="font-semibold text-slate-900">{item.product.name}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell print:table-cell text-slate-500 max-w[200px] truncate">
-                      {isPdf
-                        ? (item.meta.description || "Ninguna observación").slice(0, 60)
-                        : item.meta.description || "Ninguna observación"}
-                    </TableCell>
-                    <TableCell className="text-center font-bold text-slate-700">{item.quantity}</TableCell>
-                    <TableCell className="text-right whitespace-nowrap">{formatMoney(String(item.unitPrice), currency)}</TableCell>
-                    <TableCell className="text-right font-bold text-slate-900 whitespace-nowrap">{formatMoney(String(item.lineTotal), currency)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 
-      {/* Totals Section */}
+      {/* ─── TOTALS + OBSERVATIONS ───────────────────────────────────── */}
       <div
         className={
           isPdf
-            ? "flex gap-3"
-            : "flex flex-col md:flex-row gap-6"
+            ? "flex gap-3 items-start"
+            : "flex flex-col md:flex-row gap-4 items-start"
         }
       >
+        {/* Observations */}
         <div className="flex-1">
-          <Card className="h-full border-slate-200/60 bg-slate-50/30">
-            <CardHeader className="pb-2"><CardTitle className="text-xs text-slate-500 uppercase tracking-tighter">Observaciones generales</CardTitle></CardHeader>
-            <CardContent
-              className={
-                isPdf
-                  ? "text-[10px] leading-tight italic p-2"
-                  : "text-sm text-slate-600 leading-relaxed italic"
-              }
-            >
-              "Esta cotización refleja los requerimientos técnicos discutidos. Los precios están sujetos a cambios según disponibilidad de inventario."
+          <Card
+            className={
+              isPdf
+                ? "border-slate-200 shadow-none h-full"
+                : "border-slate-200/60 bg-slate-50/30 h-full"
+            }
+          >
+            <CardHeader className={isPdf ? "py-1.5 px-3 pb-1" : "pb-2"}>
+              <CardTitle
+                className={
+                  isPdf
+                    ? "text-[9px] font-bold uppercase tracking-widest text-slate-500"
+                    : "text-xs text-slate-400 uppercase tracking-widest font-semibold"
+                }
+              >
+                Observaciones
+              </CardTitle>
+            </CardHeader>
+            <CardContent className={isPdf ? "px-3 py-1 text-[9.5px] italic text-slate-600 leading-snug" : "text-sm text-slate-600 italic leading-relaxed"}>
+              Esta cotización refleja los requerimientos técnicos discutidos. Los precios están
+              sujetos a cambios según disponibilidad de inventario.
             </CardContent>
           </Card>
         </div>
-        <div className="w-full md:w-80 space-y-2">
-          <div className="flex justify-between p-2 text-sm"><span>Subtotal</span><span className="font-medium">{formatMoney(String(subtotal), currency)}</span></div>
-          {discount > 0 && <div className="flex justify-between p-2 text-sm text-emerald-600"><span>Descuento</span><span>-{formatMoney(String(discount), currency)}</span></div>}
-          {additionalCost > 0 && <div className="flex justify-between p-2 text-sm"><span>Cargos adicionales</span><span>{formatMoney(String(additionalCost), currency)}</span></div>}
+
+        {/* Totals breakdown */}
+        <div className={isPdf ? "w-52 shrink-0 space-y-0.5" : "w-full md:w-72 space-y-1"}>
           <div
             className={
               isPdf
-                ? "flex justify-between border border-slate-300 bg-slate-100 p-3 font-bold"
-                : "flex justify-between rounded-xl bg-slate-900 p-4 text-white shadow-xl"
+                ? "flex justify-between text-[10px] px-2 py-1"
+                : "flex justify-between px-3 py-2 text-sm"
             }
           >
-            <span className="text-lg font-bold">Total Final</span>
-            <span className="text-xl font-black">{formatMoney(String(total), currency)}</span>
+            <span className="text-slate-500">Subtotal</span>
+            <span className="font-medium">{formatMoney(String(subtotal), currency)}</span>
+          </div>
+
+          {discount > 0 && (
+            <div
+              className={
+                isPdf
+                  ? "flex justify-between text-[10px] px-2 py-1 text-emerald-700"
+                  : "flex justify-between px-3 py-2 text-sm text-emerald-600"
+              }
+            >
+              <span>Descuento</span>
+              <span>−{formatMoney(String(discount), currency)}</span>
+            </div>
+          )}
+
+          {additionalCost > 0 && (
+            <div
+              className={
+                isPdf
+                  ? "flex justify-between text-[10px] px-2 py-1"
+                  : "flex justify-between px-3 py-2 text-sm"
+              }
+            >
+              <span className="text-slate-500">Cargos adicionales</span>
+              <span className="font-medium">{formatMoney(String(additionalCost), currency)}</span>
+            </div>
+          )}
+
+          <div
+            className={
+              isPdf
+                ? "flex justify-between border border-slate-300 bg-slate-100 px-3 py-2 font-bold text-[11px]"
+                : "flex justify-between rounded-xl bg-slate-900 px-4 py-3 text-white shadow-lg mt-1"
+            }
+          >
+            <span className={isPdf ? "font-bold" : "font-bold text-base"}>Total Final</span>
+            <span className={isPdf ? "font-black" : "font-black text-lg"}>
+              {formatMoney(String(total), currency)}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Policies Section */}
+      {/* ─── POLICIES ────────────────────────────────────────────────── */}
       {isPdf ? (
+        /* PDF: compact single card */
         <Card className="border-slate-300 shadow-none">
-          <CardHeader>
-            <CardTitle className="text-sm">
+          <CardHeader className="py-1.5 px-3 pb-1">
+            <CardTitle className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
               Condiciones Comerciales
             </CardTitle>
           </CardHeader>
-
-          <CardContent className="text-[10px] leading-relaxed space-y-1">
-            <p>• Vigencia de la oferta: 15 días.</p>
-            <p>• Garantía: 1 año.</p>
-            <p>• Revisar mercancía al recibirla.</p>
-            <p>• Reportar novedades dentro de los primeros 15 minutos.</p>
-            <p>
-              • Para garantías comunicarse al WhatsApp:
-              {" "}
-              {whatsAppPhoneDisplay}
-            </p>
+          <CardContent className="px-3 py-1.5 text-[9px] leading-relaxed text-slate-600 space-y-0.5">
+            <p>• Vigencia de la oferta: 15 días desde la fecha de emisión.</p>
+            <p>• Garantía de {companyInfo.warranty} por defectos de fabricación.</p>
+            <p>• Revisar la mercancía en presencia del auxiliar al momento de la entrega.</p>
+            <p>• Reportar cualquier novedad dentro de los primeros 15 minutos de recibir el pedido.</p>
+            <p>• Garantías y soporte: WhatsApp {whatsAppPhoneDisplay}</p>
           </CardContent>
         </Card>
       ) : (
-        <>
-          <Card className="bg-white/50 border-slate-100"><CardContent className="p-4 space-y-2"><Truck className="h-6 w-6 text-primary" /><h3 className="font-bold text-slate-900">Despacho</h3><p className="text-xs text-slate-500 leading-relaxed">El producto se despacha por medio de una empresa aliada en el campo del transporte. Los plazos de entrega pueden variar por razones ajenas como, por ejemplo: cierre de vías por derrumbes o desastres naturales, fallas mecánicas en los vehículos encargados del traslado, o que el cliente haya suministrado los datos erróneamente.</p></CardContent></Card>
-          <Card className="bg-white/50 border-slate-100"><CardContent className="p-4 space-y-2"><ShieldCheck className="h-6 w-6 text-emerald-600" /><h3 className="font-bold text-slate-900">Garantías por Manipulación</h3><p className="text-xs text-slate-500 leading-relaxed">Una vez le estén haciendo entrega de su pedido, debe ser revisado en presencia del auxiliar para verificar su estado o notificar inmediatamente cualquier novedad a nuestra línea <Link href={dynamicSupportHref} target="_blank" rel="noopener noreferrer" className="font-semibold text-[var(--primary)] underline underline-offset-2">{whatsAppPhoneDisplay}</Link> vía WhatsApp para allí indicarle el paso a seguir, ya que una vez firmada la guía perdería la garantía de nuestra parte y pasaría a hacerle el reclamo directamente a la empresa encargada del transporte. Usted, como cliente, tiene 15 minutos para la verificación de su pedido.</p></CardContent></Card>
-          <Card className="bg-white/50 border-slate-100"><CardContent className="p-4 space-y-2"><Wrench className="h-6 w-6 text-amber-600" /><h3 className="font-bold text-slate-900">Garantías por Defectos de Fabricación</h3><p className="text-xs text-slate-500 leading-relaxed">Debe enviarnos fotos y videos a la línea <Link href={dynamicSupportHref} target="_blank" rel="noopener noreferrer" className="font-semibold text-[var(--primary)] underline underline-offset-2">{whatsAppPhoneDisplay}</Link> para verificar si la falla es por defecto de fabricación y si son realmente nuestros productos.</p></CardContent></Card>
-        </>
-      )}
-
-      {/* Feature Grid Section */}
-      {!isPdf && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="rounded-2xl border border-slate-200/85 bg-white/92 p-4 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.45)]">
-            <LifeBuoy className="h-5 w-5 text-sky-600" />
-            <p className="mt-2 text-sm font-semibold text-slate-900">Soporte incluido</p>
-            <p className="mt-1 text-xs text-slate-600">Acompañamiento de principio a fin en implementación y dudas.</p>
+        /* Web: three policy cards in a row */
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card className="bg-white/50 border-slate-100">
+            <CardContent className="p-4 space-y-2">
+              <Truck className="h-5 w-5 text-primary" />
+              <h3 className="font-bold text-sm text-slate-900">Despacho</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                El producto se despacha por medio de una empresa aliada en transporte. Los plazos
+                pueden variar por razones ajenas: cierres de vía, fallas mecánicas o datos
+                incorrectos suministrados por el cliente.
+              </p>
+            </CardContent>
           </Card>
-          <Card className="rounded-2xl border border-slate-200/85 bg-white/92 p-4 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.45)]">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-            <p className="mt-2 text-sm font-semibold text-slate-900">Garantía del servicio</p>
-            <p className="mt-1 text-xs text-slate-600">Cobertura de calidad y respaldo sobre entregables acordados.</p>
+          <Card className="bg-white/50 border-slate-100">
+            <CardContent className="p-4 space-y-2">
+              <ShieldCheck className="h-5 w-5 text-emerald-600" />
+              <h3 className="font-bold text-sm text-slate-900">Garantías por Manipulación</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Revise el pedido en presencia del auxiliar. Reporte novedades dentro de los primeros
+                15 minutos al{" "}
+                <Link
+                  href={dynamicSupportHref}
+                  target="_blank"
+                  className="font-semibold text-primary underline underline-offset-2"
+                >
+                  {whatsAppPhoneDisplay}
+                </Link>
+                . Firmar la guía sin revisión libera a Magilus de responsabilidad.
+              </p>
+            </CardContent>
           </Card>
-          <Card className="rounded-2xl border border-slate-200/85 bg-white/92 p-4 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.45)]">
-            <Clock3 className="h-5 w-5 text-indigo-600" />
-            <p className="mt-2 text-sm font-semibold text-slate-900">Tiempo de entrega</p>
-            <p className="mt-1 text-xs text-slate-600">Cronograma proyectado y seguimiento transparente por etapa.</p>
-          </Card>
-          <Card className="rounded-2xl border border-slate-200/85 bg-white/92 p-4 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.45)]">
-            <CreditCard className="h-5 w-5 text-amber-600" />
-            <p className="mt-2 text-sm font-semibold text-slate-900">Forma de pago</p>
-            <p className="mt-1 text-xs text-slate-600">Pago flexible según avance y condiciones comerciales.</p>
+          <Card className="bg-white/50 border-slate-100">
+            <CardContent className="p-4 space-y-2">
+              <Wrench className="h-5 w-5 text-amber-600" />
+              <h3 className="font-bold text-sm text-slate-900">Defectos de Fabricación</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Envíe fotos y videos al{" "}
+                <Link
+                  href={dynamicSupportHref}
+                  target="_blank"
+                  className="font-semibold text-primary underline underline-offset-2"
+                >
+                  {whatsAppPhoneDisplay}
+                </Link>{" "}
+                para verificar si aplica garantía. La cobertura es válida solo sobre productos
+                originales Magilus.
+              </p>
+            </CardContent>
           </Card>
         </div>
       )}
 
-      {/* Action Footer */}
-      <div className="sticky bottom-6 flex flex-col items-center gap-4 print:hidden">
-        <Card className="w-full max-w-2xl border-none bg-white/80 backdrop-blur-md shadow-2xl p-2 rounded-2xl">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <Button className="rounded-xl h-12 font-bold bg-slate-900 hover:bg-slate-800">
-              <Link
-                href={dynamicApproveHref}
-                target="_blank"
-                className="flex h-full w-full items-center justify-center"
-              >
-                <BadgeCheck className="mr-2 h-5 w-5" />
-                Aprobar
-              </Link>
-            </Button>
-
-            <Button variant="outline" className="rounded-xl h-12 font-bold border-slate-200">
-              <Link
-                href={dynamicChangesHref}
-                target="_blank"
-                className="flex h-full w-full items-center justify-center"
-              >
-                <MessageCircleMore className="mr-2 h-5 w-5" />
-                Cambios
-              </Link>
-            </Button>
-            <DownloadQuotePdfButton
-              quoteToken={token}
-              className="rounded-xl h-12 font-bold border-slate-200 flex items-center justify-center" />
-
-            <Button
-              variant="secondary"
-              className="rounded-xl h-12 font-bold bg-sky-100 text-sky-700 hover:bg-sky-200 border-none"
+      {/* ─── FEATURE GRID (web only) ─────────────────────────────────── */}
+      {!isPdf && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            {
+              icon: <LifeBuoy className="h-5 w-5 text-sky-600" />,
+              title: "Soporte incluido",
+              desc: "Acompañamiento de principio a fin en implementación y dudas.",
+            },
+            {
+              icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />,
+              title: "Garantía del servicio",
+              desc: "Cobertura de calidad y respaldo sobre entregables acordados.",
+            },
+            {
+              icon: <Clock3 className="h-5 w-5 text-indigo-600" />,
+              title: "Tiempo de entrega",
+              desc: "Cronograma proyectado y seguimiento transparente por etapa.",
+            },
+            {
+              icon: <CreditCard className="h-5 w-5 text-amber-600" />,
+              title: "Forma de pago",
+              desc: "Pago flexible según avance y condiciones comerciales.",
+            },
+          ].map(({ icon, title, desc }) => (
+            <Card
+              key={title}
+              className="rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.4)]"
             >
-              <Link
-                href={dynamicSupportHref}
-                target="_blank"
-                className="flex h-full w-full items-center justify-center"
-              >
-                <LifeBuoy className="mr-2 h-5 w-5" />
-                Asesor
-              </Link>
-            </Button>
-          </div>
-        </Card>
-      </div>
+              {icon}
+              <p className="mt-2 text-sm font-semibold text-slate-900">{title}</p>
+              <p className="mt-1 text-xs text-slate-500 leading-relaxed">{desc}</p>
+            </Card>
+          ))}
+        </div>
+      )}
 
-      {/* Brand Footer */}
+      {/* ─── STICKY ACTION FOOTER (web only) ────────────────────────── */}
+      {!isPdf && (
+        <div className="fixed bottom-4 left-0 right-0 flex justify-center px-4 print:hidden z-50">
+          <Card className="w-full max-w-lg border-none bg-white/90 backdrop-blur-md shadow-2xl p-2 rounded-2xl">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <Button
+                className="rounded-xl h-11 font-bold bg-slate-900 hover:bg-slate-800 text-xs"
+              >
+                <Link href={dynamicApproveHref} target="_blank" className="flex items-center justify-center">
+                  <BadgeCheck className="mr-1.5 h-4 w-4" />
+                  Aprobar
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-xl h-11 font-bold border-slate-200 text-xs"
+              >
+                <Link href={dynamicChangesHref} target="_blank" className="flex items-center justify-center">
+                  <MessageCircleMore className="mr-1.5 h-4 w-4" />
+                  Cambios
+                </Link>
+              </Button>
+              <DownloadQuotePdfButton
+                quoteToken={token}
+                className="rounded-xl h-11 font-bold border-slate-200 text-xs flex items-center justify-center"
+              />
+              <Button
+                variant="secondary"
+                className="rounded-xl h-11 font-bold bg-sky-50 text-sky-700 hover:bg-sky-100 border-none text-xs"
+              >
+                <Link href={dynamicSupportHref} target="_blank" className="flex items-center justify-center">
+                  <LifeBuoy className="mr-1.5 h-4 w-4" />
+                  Asesor
+                </Link>
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ─── FOOTER ──────────────────────────────────────────────────── */}
       {isPdf ? (
-        <footer className="border-t pt-2 text-center text-[8px] text-slate-500">
+        <footer className="border-t border-slate-200 pt-2 text-center text-[8px] text-slate-400">
           Magilus · {whatsAppPhoneDisplay} · comercial@innovacionesmagi.com · innovacionesmagi.com
         </footer>
       ) : (
-        <footer
-          className={
-            isPdf
-              ? "pt-3 text-center text-[9px]"
-              : "pt-8 text-center space-y-4"
-          }
-        >
+        <footer className="pt-6 pb-2 text-center space-y-3">
           <div className="flex items-center justify-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-xs">M</div>
+            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-white font-black text-sm">
+              M
+            </div>
             <span className="font-bold tracking-tight text-slate-900">Magilus</span>
           </div>
-          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-[10px] text-slate-400 font-medium uppercase tracking-widest">
-            <span>Contacto: {whatsAppPhoneDisplay}</span>
-            <span>Correo: comercial@innovacionesmagi.com</span>
-            <span>WhatsApp: wa.me/{whatsAppPhoneHref}</span>
-            <span>Web: innovacionesmagi.com</span>
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-1.5 text-[10px] text-slate-400 font-medium uppercase tracking-widest">
+            <span>Tel: {whatsAppPhoneDisplay}</span>
+            <span>comercial@innovacionesmagi.com</span>
+            <span>innovacionesmagi.com</span>
           </div>
         </footer>
       )}

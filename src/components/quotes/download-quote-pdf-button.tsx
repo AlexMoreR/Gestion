@@ -15,13 +15,7 @@ export function DownloadQuotePdfButton({ className, quoteToken }: DownloadQuoteP
   const handleDownloadPdf = async () => {
     setIsGenerating(true);
     try {
-      // Llama a tu ruta API para generar el PDF
-      // const response = await fetch(`/api/generate-quote-pdf?token=${quoteToken}`);
-      // if (!response.ok) {
-      //   throw new Error("Failed to generate PDF");
-      // }
-
-      const response = await fetch(`/api/generate-quote-pdf?token=${quoteToken}?pdf=true`);
+      const response = await fetch(`/api/generate-quote-pdf?token=${quoteToken}`);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -54,7 +48,7 @@ export function DownloadQuotePdfButton({ className, quoteToken }: DownloadQuoteP
       className={className}
     >
       <Download className="h-4 w-4" />
-      {isGenerating ? "Generando PDF..." : "Descargar PDF"}
+      {isGenerating ? "Generando..." : "Descargar"}
     </Button>
   );
 }
