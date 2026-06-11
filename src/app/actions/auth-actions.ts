@@ -382,5 +382,6 @@ export async function adminUpdateUserModuleAccessAction(formData: FormData): Pro
   revalidatePath("/admin/categorias");
   revalidatePath("/admin/proveedores");
   revalidatePath("/admin/cotizaciones");
+  revalidatePath("/admin/ventas");
   redirect("/admin/configuracion/permisos?ok=Permisos+actualizados");
 }

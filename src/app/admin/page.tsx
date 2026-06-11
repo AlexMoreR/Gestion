@@ -45,6 +45,14 @@ export default async function AdminPage() {
                 Gestionar cotizaciones
               </Link>
             ) : null}
+            {moduleAccess.sales ? (
+              <Link
+                href="/admin/ventas"
+                className="inline-flex rounded-lg border border-[(--line)] bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                Gestionar ventas
+              </Link>
+            ) : null}
           </div>
         </CardContent>
       </Card>

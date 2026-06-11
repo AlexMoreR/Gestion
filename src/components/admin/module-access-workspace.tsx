@@ -4,6 +4,7 @@ import * as React from "react";
 import { Role } from "@prisma/client";
 import {
   Blocks,
+  BadgeDollarSign,
   BriefcaseBusiness,
   LockKeyhole,
   Package,
@@ -57,6 +58,7 @@ const moduleIconMap = {
   categories: Tags,
   suppliers: Truck,
   quotes: Blocks,
+  sales: BadgeDollarSign,
 } satisfies Record<AdminModuleKey, React.ComponentType<{ className?: string }>>;
 
 export function ModuleAccessWorkspace({ roles, modules }: ModuleAccessWorkspaceProps) {

@@ -44,6 +44,7 @@ type QuoteRow = {
   status: "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED";
   createdAt: string;
   shareToken: string;
+  hasSale: boolean;
 };
 
 type QuoteLine = {

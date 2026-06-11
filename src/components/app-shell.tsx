@@ -57,7 +57,13 @@ export function AppShell({ children, initialUser, brandName, storefrontLogoPath,
     "favicon.ico",
   ]);
   const isCategoryStorefrontPath = Boolean(firstSegment) && !reservedStoreSegments.has(firstSegment);
-  const showTopMenu = pathname === "/" || pathname.startsWith("/productos") || pathname.startsWith("/categorias") || isCategoryStorefrontPath;
+  const showTopMenu =
+    pathname === "/" ||
+    pathname.startsWith("/productos") ||
+    pathname.startsWith("/categorias") ||
+    pathname.startsWith("/cotizaciones") ||
+    pathname.startsWith("/sales") ||
+    isCategoryStorefrontPath;
   const currentPage = pathname === "/"
     ? "Inicio"
     : pathname.startsWith("/admin/cotizaciones")
@@ -66,6 +72,10 @@ export function AppShell({ children, initialUser, brandName, storefrontLogoPath,
       ? "Categorias"
     : pathname.startsWith("/admin/proveedores")
       ? "Proveedores"
+    : pathname.startsWith("/admin/ventas")
+      ? "Ventas"
+    : pathname.startsWith("/sales")
+      ? "Sales"
     : pathname.startsWith("/admin/configuracion")
       ? "Configuracion"
       : pathname.startsWith("/admin/productos")
@@ -120,6 +130,14 @@ export function AppShell({ children, initialUser, brandName, storefrontLogoPath,
 
     if (pathname.startsWith("/admin/proveedores")) {
       return [{ label: "Proveedores", href: "", isCurrent: true }];
+    }
+
+    if (pathname.startsWith("/admin/ventas")) {
+      return [{ label: "Ventas", href: "", isCurrent: true }];
+    }
+
+    if (pathname.startsWith("/sales")) {
+      return [{ label: "Sales", href: "", isCurrent: true }];
     }
 
     if (pathname.startsWith("/admin/cotizaciones")) {

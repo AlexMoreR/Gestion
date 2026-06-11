@@ -130,7 +130,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
         }
       >
         {/* Brand + Quote number */}
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-row justify-between w-full gap-3">
           <div className="flex items-center gap-3">
             <div
               className={
@@ -141,7 +141,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
             >
               M
             </div>
-            
+
             <div>
               <p
                 className={
@@ -172,35 +172,13 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
               className={
                 isPdf
                   ? "text-xl font-extrabold tracking-tight text-slate-900"
-                  : "text-4xl md:text-5xl font-extrabold tracking-tighter text-white"
+                  : "max-w-full break-all text-2xl font-extrabold leading-none tracking-tighter text-white sm:break-normal sm:text-3xl md:text-5xl"
               }
             >
               {quote.code}
             </h1>
           </div>
         </div>
-
-        {/* CTA buttons — only in web mode */}
-        {!isPdf && (
-          <div className="hidden md:flex flex-col gap-2 min-w-[160px]">
-            <Button size="lg" className="w-full bg-white text-slate-900 hover:bg-slate-100" >
-              <Link href={dynamicApproveHref} target="_blank">
-                <BadgeCheck className="mr-2 h-5 w-5" />
-              </Link>
-                Aprobar
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="w-full border-white/30 bg-white/10 text-white hover:bg-white/20"
-            >
-              <Link href={dynamicChangesHref} target="_blank">
-                <MessageCircleMore className="mr-2 h-5 w-5" />
-              </Link>
-                Cambios
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* ─── CLIENT + COMPANY INFO ───────────────────────────────────── */}
@@ -320,99 +298,92 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Table className={isPdf ? "text-[9.5px]" : "text-sm"}>
-            <TableHeader>
-              <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
-                <TableHead className={isPdf ? "py-1 px-2 w-6" : "w-10"}>#</TableHead>
-                <TableHead className={isPdf ? "py-1 px-2" : ""}>Producto</TableHead>
-                <TableHead
-                  className={
-                    isPdf
-                      ? "py-1 px-2"
-                      : "hidden md:table-cell print:table-cell"
-                  }
-                >
-                  Descripción
-                </TableHead>
-                <TableHead className={isPdf ? "py-1 px-2 text-center" : "text-center"}>
-                  Cant.
-                </TableHead>
-                <TableHead className={isPdf ? "py-1 px-2 text-right" : "text-right"}>
-                  Unitario
-                </TableHead>
-                <TableHead className={isPdf ? "py-1 px-2 text-right" : "text-right"}>
-                  Total
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {itemsWithMeta.map((item, idx) => (
-                <TableRow key={item.id} className="transition-colors">
-                  <TableCell
-                    className={
-                      isPdf
-                        ? "py-1 px-2 text-slate-400 font-medium"
-                        : "text-slate-400 font-medium"
-                    }
-                  >
-                    {String(idx + 1).padStart(2, "0")}
-                  </TableCell>
-                  <TableCell className={isPdf ? "py-1 px-2" : ""}>
-                    <div className="flex items-center gap-2">
-                      {!isPdf && item.product.thumbnailUrl && (
-                        <img
-                          src={getPublicAssetUrl(item.product.thumbnailUrl)}
-                          alt={item.product.name}
-                          className="h-9 w-9 rounded-md object-cover border shrink-0"
-                        />
-                      )}
-                      <p className="font-semibold text-slate-900 leading-tight">
-                        {item.product.name}
-                      </p>
-                    </div>
-                  </TableCell>
-                  <TableCell
-                    className={
-                      isPdf
-                        ? "py-1 px-2 text-slate-500 max-w-[160px]"
-                        : "hidden md:table-cell print:table-cell text-slate-500"
-                    }
-                  >
-                    <span className={isPdf ? "line-clamp-2" : ""}>
-                      {item.meta.description || "—"}
-                    </span>
-                  </TableCell>
-                  <TableCell
-                    className={
-                      isPdf
-                        ? "py-1 px-2 text-center font-bold"
-                        : "text-center font-bold text-slate-700"
-                    }
-                  >
-                    {item.quantity}
-                  </TableCell>
-                  <TableCell
-                    className={
-                      isPdf
-                        ? "py-1 px-2 text-right whitespace-nowrap"
-                        : "text-right whitespace-nowrap text-slate-600"
-                    }
-                  >
-                    {formatMoney(String(item.unitPrice), currency)}
-                  </TableCell>
-                  <TableCell
-                    className={
-                      isPdf
-                        ? "py-1 px-2 text-right font-bold whitespace-nowrap"
-                        : "text-right font-bold text-slate-900 whitespace-nowrap"
-                    }
-                  >
-                    {formatMoney(String(item.lineTotal), currency)}
-                  </TableCell>
+          {/* overflow-x-auto solo aplica en web; en PDF la tabla siempre cabe en A4 */}
+          <div className={isPdf ? undefined : "-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0"}>
+            <Table className={isPdf ? "text-[9.5px]" : "min-w-[760px] text-sm"}>
+              <TableHeader>
+                <TableRow className="bg-slate-50/50 hover:bg-slate-50/50 whitespace-nowrap">
+                  <TableHead className={isPdf ? "py-1 px-2 w-6" : "w-10"}>#</TableHead>
+                  <TableHead className={isPdf ? "py-1 px-2" : ""}>Producto</TableHead>
+                  <TableHead className={isPdf ? "py-1 px-2" : "text-slate-500"}>
+                    Descripción
+                  </TableHead>
+                  <TableHead className={isPdf ? "py-1 px-2 text-center" : "text-center"}>
+                    Cant.
+                  </TableHead>
+                  <TableHead className={isPdf ? "py-1 px-2 text-right" : "text-right"}>
+                    Unitario
+                  </TableHead>
+                  <TableHead className={isPdf ? "py-1 px-2 text-right" : "text-right"}>
+                    Total
+                  </TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {itemsWithMeta.map((item, idx) => (
+                  <TableRow key={item.id} className="transition-colors">
+                    <TableCell
+                      className={
+                        isPdf ? "py-1 px-2 text-slate-400 font-medium" : "text-slate-400 font-medium"
+                      }
+                    >
+                      {String(idx + 1).padStart(2, "0")}
+                    </TableCell>
+                    <TableCell className={isPdf ? "py-1 px-2" : ""}>
+                      <div className="flex items-center gap-2">
+                        {item.product.thumbnailUrl && (
+                          <img
+                            src={getPublicAssetUrl(item.product.thumbnailUrl)}
+                            alt={item.product.name}
+                            className="h-9 w-9 rounded-md object-cover border shrink-0"
+                          />
+                        )}
+                        <p className="font-semibold text-slate-900 leading-tight">
+                          {item.product.name}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell
+                      className={
+                        isPdf
+                          ? "py-1 px-2 text-slate-500 max-w-[160px]"
+                          : "text-slate-500 max-w-[240px]"
+                      }
+                    >
+                      <span className={isPdf ? "line-clamp-2" : "line-clamp-2"}>
+                        {item.meta.description || "—"}
+                      </span>
+                    </TableCell>
+                    <TableCell
+                      className={
+                        isPdf ? "py-1 px-2 text-center font-bold" : "text-center font-bold text-slate-700"
+                      }
+                    >
+                      {item.quantity}
+                    </TableCell>
+                    <TableCell
+                      className={
+                        isPdf
+                          ? "py-1 px-2 text-right whitespace-nowrap"
+                          : "text-right whitespace-nowrap text-slate-600"
+                      }
+                    >
+                      {formatMoney(String(item.unitPrice), currency)}
+                    </TableCell>
+                    <TableCell
+                      className={
+                        isPdf
+                          ? "py-1 px-2 text-right font-bold whitespace-nowrap"
+                          : "text-right font-bold text-slate-900 whitespace-nowrap"
+                      }
+                    >
+                      {formatMoney(String(item.lineTotal), currency)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 

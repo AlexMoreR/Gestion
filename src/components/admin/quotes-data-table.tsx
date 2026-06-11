@@ -15,9 +15,10 @@ import {
   Trash2,
   User2,
 } from "lucide-react";
-import { toast } from "sonner";
 import { adminDeleteQuoteAction } from "@/app/actions/quote-actions";
+import { adminCreateSaleFromQuoteAction } from "@/app/actions/sales-actions";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +26,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Table,
   TableBody,
@@ -46,6 +55,7 @@ type QuoteRow = {
   status: QuoteStatus;
   createdAt: string;
   shareToken: string;
+  hasSale: boolean;
 };
 
 type QuotesDataTableProps = {
@@ -125,7 +135,15 @@ function HeaderLabel({
   );
 }
 
-function RowActions({ quote, onDelete }: { quote: QuoteRow; onDelete: () => void }) {
+function RowActions({
+  quote,
+  onDelete,
+  onSendToSales,
+}: {
+  quote: QuoteRow;
+  onDelete: () => void;
+  onSendToSales: () => void;
+}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -146,9 +164,9 @@ function RowActions({ quote, onDelete }: { quote: QuoteRow; onDelete: () => void
             Editar
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => toast.info("Enviar a Ventas estara disponible proximamente.")}>
+        <DropdownMenuItem onClick={onSendToSales} disabled={quote.hasSale}>
           <ShoppingCart className="mr-2 h-4 w-4" />
-          Enviar a Ventas
+          {quote.hasSale ? "Enviado a ventas" : "Enviar a ventas"}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -167,6 +185,7 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
   const [sortKey, setSortKey] = React.useState<SortKey>("cotizacion");
   const [sortDirection, setSortDirection] = React.useState<SortDirection>("desc");
   const [pendingDelete, setPendingDelete] = React.useState<{ id: string; code: string } | null>(null);
+  const [pendingSale, setPendingSale] = React.useState<QuoteRow | null>(null);
 
   const sortedQuotes = React.useMemo(() => {
     const list = [...quotes];
@@ -314,6 +333,7 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
                       <RowActions
                         quote={quote}
                         onDelete={() => setPendingDelete({ id: quote.id, code: quote.code })}
+                        onSendToSales={() => setPendingSale(quote)}
                       />
                     </div>
                   </TableCell>
@@ -353,6 +373,7 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
                 <RowActions
                   quote={quote}
                   onDelete={() => setPendingDelete({ id: quote.id, code: quote.code })}
+                  onSendToSales={() => setPendingSale(quote)}
                 />
               </div>
             </article>
@@ -399,6 +420,68 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
           </div>
         </div>
       ) : null}
+
+      <Sheet
+        open={Boolean(pendingSale)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingSale(null);
+          }
+        }}
+      >
+        <SheetContent side="right" className="w-full sm:max-w-lg">
+          <SheetHeader className="border-b border-border">
+            <SheetTitle>Enviar a ventas</SheetTitle>
+            <SheetDescription>
+              Adjunte el recibo de pago antes de convertir {pendingSale?.code ?? "the quote"} en un registro de venta.
+            </SheetDescription>
+          </SheetHeader>
+
+          <form
+            action={adminCreateSaleFromQuoteAction}
+            encType="multipart/form-data"
+            className="flex h-full flex-col gap-5 p-4"
+          >
+            <input type="hidden" name="returnTo" value="/admin/cotizaciones" />
+            <input type="hidden" name="quoteId" value={pendingSale?.id ?? ""} />
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="paymentReceipt">
+                Comprobante de pago
+              </label>
+              <Input
+                id="paymentReceipt"
+                name="paymentReceipt"
+                type="file"
+                accept="image/*,application/pdf"
+                required
+                className="cursor-pointer"
+              />
+              <p className="text-xs text-muted-foreground">
+                Archivos admitidos: imágenes o PDF. Este archivo será visible en el módulo de ventas.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">{pendingSale?.code ?? "Quote"}</p>
+              <p className="mt-1">
+                {pendingSale?.clientName ?? "Select a quote"} will be moved to Sales once the receipt is submitted.
+              </p>
+            </div>
+
+            <SheetFooter className="border-t border-border px-0 pt-4">
+              <div className="flex items-center justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setPendingSale(null)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90">
+                  Crear venta
+                </Button>
+              </div>
+            </SheetFooter>
+          </form>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

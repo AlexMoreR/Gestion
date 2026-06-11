@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BadgeDollarSign,
   FileText,
   LayoutDashboard,
   Package,
@@ -45,6 +46,7 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
   const isAdminCategoriesRoute = pathname.startsWith("/admin/categorias");
   const isAdminProductsRoute = pathname.startsWith("/admin/productos");
   const isAdminQuotesRoute = pathname.startsWith("/admin/cotizaciones");
+  const isAdminSalesRoute = pathname.startsWith("/admin/ventas");
   const isAdminSuppliersRoute = pathname.startsWith("/admin/proveedores");
 
   const navMain = [
@@ -59,6 +61,7 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
           !isAdminCategoriesRoute &&
           !isAdminProductsRoute &&
           !isAdminQuotesRoute &&
+          !isAdminSalesRoute &&
           !isAdminSuppliersRoute),
       items: [
         { title: "Vista general", url: dashboardHref },
@@ -119,6 +122,16 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
         icon: FileText,
         isActive: pathname.startsWith("/admin/cotizaciones"),
         items: [{ title: "Listado", url: "/admin/cotizaciones" }],
+      });
+    }
+
+    if (adminModuleAccess.sales) {
+      navMain.push({
+        title: "Ventas",
+        url: "/admin/ventas",
+        icon: BadgeDollarSign,
+        isActive: pathname.startsWith("/admin/ventas"),
+        items: [{ title: "Listado", url: "/admin/ventas" }],
       });
     }
   }

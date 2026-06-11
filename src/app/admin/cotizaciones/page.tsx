@@ -32,6 +32,7 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
       include: {
         client: true,
         items: true,
+        sale: true,
       },
       take: 200,
     }),
@@ -85,6 +86,7 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
           status: quote.status,
           createdAt: quote.createdAt.toLocaleDateString("es-CO"),
           shareToken: quote.shareToken,
+          hasSale: Boolean(quote.sale),
         }))}
         clients={clients.map((client) => ({
           id: client.id,

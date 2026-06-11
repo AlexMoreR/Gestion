@@ -53,6 +53,13 @@ export const adminModuleDefinitions = [
     path: "/admin/cotizaciones",
     group: "Comercial",
   },
+  {
+    key: "sales",
+    label: "Ventas",
+    description: "Gestiona ventas, comprobantes e invoices.",
+    path: "/admin/ventas",
+    group: "Comercial",
+  },
 ] as const;
 
 export type AdminModuleKey = (typeof adminModuleDefinitions)[number]["key"];

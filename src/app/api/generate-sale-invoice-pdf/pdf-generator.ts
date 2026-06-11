@@ -1,6 +1,6 @@
 import puppeteer from "puppeteer";
 
-export async function generateQuotePdf(targetUrl: string): Promise<Buffer> {
+export async function generateSaleInvoicePdf(targetUrl: string): Promise<Buffer> {
   let browser;
 
   try {
@@ -37,15 +37,15 @@ export async function generateQuotePdf(targetUrl: string): Promise<Buffer> {
 
     await page.addStyleTag({
       content: `
-    @page {
-      size: A4;
-      margin: 6mm;
-    }
+        @page {
+          size: A4;
+          margin: 6mm;
+        }
 
-    html {
-      zoom: 0.90;
-    }
-  `,
+        html {
+          zoom: 0.9;
+        }
+      `,
     });
 
     const pdf = await page.pdf({

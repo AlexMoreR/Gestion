@@ -31,6 +31,8 @@ model User {
   updatedAt     DateTime @updatedAt
   quotesAsClient Quote[] @relation("QuoteClient")
   quotesCreated  Quote[] @relation("QuoteCreatedBy")
+  salesAsClient  Sale[]   @relation("SaleClient")
+  salesCreated   Sale[]   @relation("SaleCreatedBy")
 }
 
 model Product {
@@ -140,6 +142,38 @@ model Quote {
   client      User        @relation("QuoteClient", fields: [clientId], references: [id], onDelete: Restrict)
   createdBy   User        @relation("QuoteCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   items       QuoteItem[]
+  sale        Sale?
+
+  @@index([clientId, createdAt])
+  @@index([createdById, createdAt])
+}
+
+enum SaleStatus {
+  DRAFT
+  ACTIVE
+  INVOICED
+  COMPLETED
+  CANCELLED
+}
+
+model Sale {
+  id                   String      @id @default(cuid())
+  code                 String      @unique
+  quoteId              String      @unique
+  clientId             String
+  createdById          String
+  status               SaleStatus  @default(ACTIVE)
+  paymentReceiptUrl    String
+  paymentReceiptName   String
+  paymentReceiptType   String
+  invoiceToken         String      @unique
+  subtotal             Decimal     @default(0) @db.Decimal(12, 2)
+  total                Decimal     @default(0) @db.Decimal(12, 2)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  quote                Quote       @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  client               User        @relation("SaleClient", fields: [clientId], references: [id], onDelete: Restrict)
+  createdBy            User        @relation("SaleCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([clientId, createdAt])
   @@index([createdById, createdAt])
