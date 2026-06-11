@@ -21,7 +21,7 @@ export function DownloadQuotePdfButton({ className, quoteToken }: DownloadQuoteP
       //   throw new Error("Failed to generate PDF");
       // }
 
-      const response = await fetch(`/api/generate-quote-pdf?token=${quoteToken}`);
+      const response = await fetch(`/api/generate-quote-pdf?token=${quoteToken}?pdf=true`);
 
       if (!response.ok) {
         const errorText = await response.text();

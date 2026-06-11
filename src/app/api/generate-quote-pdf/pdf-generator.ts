@@ -18,14 +18,28 @@ export async function generateQuotePdf(targetUrl: string): Promise<Buffer> {
 
     await page.emulateMediaType("print");
 
+    await page.addStyleTag({
+      content: `
+    @page {
+      size: A4;
+      margin: 6mm;
+    }
+
+    html {
+      zoom: 0.90;
+    }
+  `,
+    });
+
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
+      preferCSSPageSize: true,
       margin: {
-        top: "15mm",
-        bottom: "15mm",
-        left: "10mm",
-        right: "10mm",
+        top: "8mm",
+        bottom: "8mm",
+        left: "8mm",
+        right: "8mm",
       },
     });
 
