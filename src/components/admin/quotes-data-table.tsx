@@ -11,11 +11,20 @@ import {
   Edit3,
   FileText,
   MoreHorizontal,
+  ShoppingCart,
   Trash2,
   User2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { adminDeleteQuoteAction } from "@/app/actions/quote-actions";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -113,6 +122,44 @@ function HeaderLabel({
         <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
       )}
     </Button>
+  );
+}
+
+function RowActions({ quote, onDelete }: { quote: QuoteRow; onDelete: () => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones ${quote.code}`}>
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem asChild>
+          <Link href={`/cotizaciones/${quote.shareToken}`} target="_blank" rel="noopener noreferrer">
+            <ArrowUpRight className="mr-2 h-4 w-4" />
+            Abrir
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href={`/admin/cotizaciones/${quote.id}`}>
+            <Edit3 className="mr-2 h-4 w-4" />
+            Editar
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => toast.info("Enviar a Ventas estara disponible proximamente.")}>
+          <ShoppingCart className="mr-2 h-4 w-4" />
+          Enviar a Ventas
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={onDelete}
+          className="text-destructive hover:text-destructive focus:text-destructive"
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Eliminar
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -229,14 +276,7 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
                 </HeaderLabel>
               </TableHead>
               <TableHead className="normal-case tracking-normal">
-                <HeaderLabel
-                  active={sortKey === "acciones"}
-                  direction={sortDirection}
-                  onClick={() => toggleSort("acciones")}
-                  icon={<MoreHorizontal className="h-3.5 w-3.5" />}
-                >
-                  Acciones
-                </HeaderLabel>
+                <span className="sr-only">Acciones</span>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -270,32 +310,11 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
                       <input type="hidden" name="returnTo" value="/admin/cotizaciones" />
                       <input type="hidden" name="quoteId" value={quote.id} />
                     </form>
-                    <div className="flex items-center gap-1">
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-border">
-                        <Link
-                          href={`/cotizaciones/${quote.shareToken}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={`Ir a cotizacion ${quote.code}`}
-                        >
-                          <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-                        </Link>
-                      </Button>
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-border">
-                        <Link href={`/admin/cotizaciones/${quote.id}`} aria-label={`Editar ${quote.code}`}>
-                          <Edit3 className="h-4 w-4 text-muted-foreground" />
-                        </Link>
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 border border-transparent text-destructive hover:bg-destructive/10"
-                        onClick={() => setPendingDelete({ id: quote.id, code: quote.code })}
-                        aria-label={`Eliminar ${quote.code}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    <div className="flex items-center">
+                      <RowActions
+                        quote={quote}
+                        onDelete={() => setPendingDelete({ id: quote.id, code: quote.code })}
+                      />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -330,32 +349,11 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
                 <p className="text-xs text-muted-foreground">{quote.createdAt}</p>
                 <p className="text-sm font-semibold text-foreground">{formatMoney(quote.total, currency)}</p>
               </div>
-              <div className="flex items-center gap-1">
-                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-border">
-                  <Link
-                    href={`/cotizaciones/${quote.shareToken}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Ir a cotizacion ${quote.code}`}
-                  >
-                    <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-                  </Link>
-                </Button>
-                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-border">
-                  <Link href={`/admin/cotizaciones/${quote.id}`} aria-label={`Editar ${quote.code}`}>
-                    <Edit3 className="h-4 w-4 text-muted-foreground" />
-                  </Link>
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 border border-transparent text-destructive hover:bg-destructive/10"
-                  onClick={() => setPendingDelete({ id: quote.id, code: quote.code })}
-                  aria-label={`Eliminar ${quote.code}`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+              <div className="flex items-center justify-end">
+                <RowActions
+                  quote={quote}
+                  onDelete={() => setPendingDelete({ id: quote.id, code: quote.code })}
+                />
               </div>
             </article>
           ))

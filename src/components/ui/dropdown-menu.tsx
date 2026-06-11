@@ -30,7 +30,7 @@ function DropdownMenuContent({
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 min-w-[10rem] overflow-hidden rounded-lg border border-[(--line)] bg-white p-1 shadow-[0_8px_20px_-16px_rgba(17,24,39,0.18)]",
+          "z-50 min-w-[10rem] overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md",
           className,
         )}
         {...props}
@@ -46,7 +46,7 @@ function DropdownMenuItem({
   return (
     <DropdownMenuPrimitive.Item
       className={cn(
-        "relative flex cursor-default select-none items-center rounded-lg px-2 py-2 text-sm text-slate-700 outline-none transition hover:bg-slate-50 focus:bg-slate-50 focus:text-slate-900 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "relative flex cursor-default select-none items-center rounded-lg px-2 py-2 text-sm text-popover-foreground outline-none transition hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
         className,
       )}
       {...props}
@@ -60,7 +60,7 @@ function DropdownMenuLabel({
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Label>) {
   return (
     <DropdownMenuPrimitive.Label
-      className={cn("px-2 py-1.5 text-sm font-medium text-slate-900", className)}
+      className={cn("px-2 py-1.5 text-sm font-medium text-popover-foreground", className)}
       {...props}
     />
   );
@@ -72,7 +72,7 @@ function DropdownMenuSeparator({
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Separator>) {
   return (
     <DropdownMenuPrimitive.Separator
-      className={cn("my-1 h-px bg-[(--line)]", className)}
+      className={cn("my-1 h-px bg-border", className)}
       {...props}
     />
   );
