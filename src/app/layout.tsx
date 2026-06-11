@@ -119,6 +119,12 @@ export default async function RootLayout({
           } as CSSProperties
         }
       >
+        <script
+          // Aplica el tema guardado antes de pintar para evitar el parpadeo de color
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');if(!t){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}var r=document.documentElement;r.classList.toggle('dark',t==='dark');r.style.colorScheme=t;}catch(e){}})();`,
+          }}
+        />
         <Providers session={session}>
           <AppShell
             initialUser={session?.user ?? null}

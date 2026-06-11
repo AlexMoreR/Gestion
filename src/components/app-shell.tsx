@@ -13,7 +13,9 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { ModeToggle } from "@/components/mode-toggle";
 import { Navbar } from "@/components/navbar";
+import { NotificationBell } from "@/components/notification-bell";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import type { AdminModuleKey } from "@/lib/admin-module-access";
@@ -165,7 +167,7 @@ export function AppShell({ children, initialUser, brandName, storefrontLogoPath,
             className="admin-print-sidebar"
           />
           <SidebarInset className="admin-print-inset">
-            <header className="admin-print-header flex h-12 shrink-0 items-center border-b border-[(--line)] bg-white">
+            <header className="admin-print-header flex h-12 shrink-0 items-center justify-between border-b border-[(--line)] bg-background">
               <div className="flex items-center gap-2 px-4">
                 <SidebarTrigger className="-ml-1" />
                 <Separator
@@ -188,6 +190,10 @@ export function AppShell({ children, initialUser, brandName, storefrontLogoPath,
                     ))}
                   </BreadcrumbList>
                 </Breadcrumb>
+              </div>
+              <div className="flex items-center gap-1 px-4">
+                <NotificationBell />
+                <ModeToggle />
               </div>
             </header>
             <main className="admin-print-main flex flex-1 flex-col p-3 md:p-4">

@@ -67,17 +67,17 @@ function statusLabel(status: QuoteStatus): string {
 function statusBadgeClassName(status: QuoteStatus): string {
   switch (status) {
     case "DRAFT":
-      return "border-slate-200 bg-slate-100 text-slate-700";
+      return "border-border bg-muted text-muted-foreground";
     case "SENT":
-      return "border-sky-200 bg-sky-50 text-sky-700";
+      return "border-sky-500/30 bg-sky-500/15 text-sky-600 dark:text-sky-400";
     case "ACCEPTED":
-      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+      return "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400";
     case "REJECTED":
-      return "border-red-200 bg-red-50 text-red-700";
+      return "border-destructive/30 bg-destructive/10 text-destructive";
     case "EXPIRED":
-      return "border-amber-200 bg-amber-50 text-amber-700";
+      return "border-amber-500/30 bg-amber-500/15 text-amber-600 dark:text-amber-400";
     default:
-      return "border-slate-200 bg-slate-100 text-slate-700";
+      return "border-border bg-muted text-muted-foreground";
   }
 }
 
@@ -101,16 +101,16 @@ function HeaderLabel({
       onClick={onClick}
       aria-label={`Ordenar por ${String(children)}`}
     >
-      <span className="text-slate-500">{icon}</span>
+      <span className="text-muted-foreground">{icon}</span>
       {children}
       {active ? (
         direction === "asc" ? (
-          <ArrowUp className="h-3.5 w-3.5 text-slate-700" />
+          <ArrowUp className="h-3.5 w-3.5 text-foreground" />
         ) : (
-          <ArrowDown className="h-3.5 w-3.5 text-slate-700" />
+          <ArrowDown className="h-3.5 w-3.5 text-foreground" />
         )
       ) : (
-        <ArrowUpDown className="h-3.5 w-3.5 text-slate-500" />
+        <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
       )}
     </Button>
   );
@@ -174,10 +174,10 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
 
   return (
     <div className="space-y-3">
-      <div className="hidden overflow-hidden rounded-xl border border-[(--line)] bg-white md:block">
+      <div className="hidden overflow-hidden rounded-xl border border-border bg-card md:block">
         <Table className="min-w-[900px]">
           <TableHeader>
-            <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
               <TableHead className="normal-case tracking-normal">
                 <HeaderLabel
                   active={sortKey === "cotizacion"}
@@ -243,7 +243,7 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
           <TableBody>
             {sortedQuotes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-9 text-center text-slate-500">
+                <TableCell colSpan={6} className="py-9 text-center text-muted-foreground">
                   Aun no hay cotizaciones.
                 </TableCell>
               </TableRow>
@@ -251,9 +251,9 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
               sortedQuotes.map((quote) => (
                 <TableRow key={quote.id}>
                   <TableCell>
-                    <p className="text-sm font-semibold text-slate-900">{quote.code}</p>
+                    <p className="text-sm font-semibold text-foreground">{quote.code}</p>
                   </TableCell>
-                  <TableCell className="text-sm text-slate-700">{quote.clientName}</TableCell>
+                  <TableCell className="text-sm text-foreground">{quote.clientName}</TableCell>
                   <TableCell>
                     <span
                       className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(quote.status)}`}
@@ -261,36 +261,36 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
                       {statusLabel(quote.status)}
                     </span>
                   </TableCell>
-                  <TableCell className="text-sm font-semibold text-slate-800">
+                  <TableCell className="text-sm font-semibold text-foreground">
                     {formatMoney(quote.total, currency)}
                   </TableCell>
-                  <TableCell className="text-xs text-slate-500">{quote.createdAt}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{quote.createdAt}</TableCell>
                   <TableCell>
                     <form data-delete-quote-id={quote.id} action={adminDeleteQuoteAction}>
                       <input type="hidden" name="returnTo" value="/admin/cotizaciones" />
                       <input type="hidden" name="quoteId" value={quote.id} />
                     </form>
                     <div className="flex items-center gap-1">
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[(--line)]">
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-border">
                         <Link
                           href={`/cotizaciones/${quote.shareToken}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label={`Ir a cotizacion ${quote.code}`}
                         >
-                          <ArrowUpRight className="h-4 w-4 text-slate-600" />
+                          <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
                         </Link>
                       </Button>
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[(--line)]">
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-border">
                         <Link href={`/admin/cotizaciones/${quote.id}`} aria-label={`Editar ${quote.code}`}>
-                          <Edit3 className="h-4 w-4 text-slate-600" />
+                          <Edit3 className="h-4 w-4 text-muted-foreground" />
                         </Link>
                       </Button>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 border border-transparent text-red-600 hover:border-red-100 hover:bg-red-50 hover:text-red-700"
+                        className="h-8 w-8 border border-transparent text-destructive hover:bg-destructive/10"
                         onClick={() => setPendingDelete({ id: quote.id, code: quote.code })}
                         aria-label={`Eliminar ${quote.code}`}
                       >
@@ -307,50 +307,50 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
 
       <div className="space-y-2 md:hidden">
         {sortedQuotes.length === 0 ? (
-          <div className="rounded-xl border border-[(--line)] bg-white px-3 py-6 text-center text-sm text-slate-500">
+          <div className="rounded-xl border border-border bg-card px-3 py-6 text-center text-sm text-muted-foreground">
             Aun no hay cotizaciones.
           </div>
         ) : (
           sortedQuotes.map((quote) => (
-            <article key={quote.id} className="space-y-2.5 rounded-xl border border-[(--line)] bg-white p-3">
+            <article key={quote.id} className="space-y-2.5 rounded-xl border border-border bg-card p-3">
               <form data-delete-quote-id={quote.id} action={adminDeleteQuoteAction}>
                 <input type="hidden" name="returnTo" value="/admin/cotizaciones" />
                 <input type="hidden" name="quoteId" value={quote.id} />
               </form>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-slate-900">{quote.code}</p>
+                  <p className="text-sm font-semibold text-foreground">{quote.code}</p>
                   <span
                     className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(quote.status)}`}
                   >
                     {statusLabel(quote.status)}
                   </span>
                 </div>
-                <p className="text-sm text-slate-700">{quote.clientName}</p>
-                <p className="text-xs text-slate-500">{quote.createdAt}</p>
-                <p className="text-sm font-semibold text-slate-800">{formatMoney(quote.total, currency)}</p>
+                <p className="text-sm text-foreground">{quote.clientName}</p>
+                <p className="text-xs text-muted-foreground">{quote.createdAt}</p>
+                <p className="text-sm font-semibold text-foreground">{formatMoney(quote.total, currency)}</p>
               </div>
               <div className="flex items-center gap-1">
-                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[(--line)]">
+                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-border">
                   <Link
                     href={`/cotizaciones/${quote.shareToken}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={`Ir a cotizacion ${quote.code}`}
                   >
-                    <ArrowUpRight className="h-4 w-4 text-slate-600" />
+                    <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
                   </Link>
                 </Button>
-                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[(--line)]">
+                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-border">
                   <Link href={`/admin/cotizaciones/${quote.id}`} aria-label={`Editar ${quote.code}`}>
-                    <Edit3 className="h-4 w-4 text-slate-600" />
+                    <Edit3 className="h-4 w-4 text-muted-foreground" />
                   </Link>
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 border border-transparent text-red-600 hover:border-red-100 hover:bg-red-50 hover:text-red-700"
+                  className="h-8 w-8 border border-transparent text-destructive hover:bg-destructive/10"
                   onClick={() => setPendingDelete({ id: quote.id, code: quote.code })}
                   aria-label={`Eliminar ${quote.code}`}
                 >
@@ -364,20 +364,20 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
 
       {pendingDelete ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#11182752] px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
           role="dialog"
           aria-modal="true"
           aria-label="Confirmar eliminacion"
           onClick={() => setPendingDelete(null)}
         >
           <div
-            className="saas-card w-full max-w-md rounded-xl p-5"
+            className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-lg"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="space-y-1">
-              <h3 className="text-base font-semibold text-slate-900">Eliminar cotizacion</h3>
-              <p className="text-sm text-slate-600">
-                Se eliminara <span className="font-medium text-slate-800">{pendingDelete.code}</span>. Esta accion no se puede deshacer.
+              <h3 className="text-base font-semibold text-foreground">Eliminar cotizacion</h3>
+              <p className="text-sm text-muted-foreground">
+                Se eliminara <span className="font-medium text-foreground">{pendingDelete.code}</span>. Esta accion no se puede deshacer.
               </p>
             </div>
             <div className="mt-5 flex items-center justify-end gap-2">
@@ -392,7 +392,7 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
               <Button
                 type="button"
                 size="sm"
-                className="bg-red-600 text-white hover:bg-red-700"
+                className="bg-destructive text-white hover:bg-destructive/90"
                 onClick={confirmDelete}
               >
                 Eliminar
