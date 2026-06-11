@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LockKeyhole, Settings, Users } from "lucide-react";
 import { auth } from "@/auth";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { getAdminModuleAccess } from "@/lib/admin-module-access";
 
 export default async function AdminConfiguracionPage() {
@@ -26,15 +26,17 @@ export default async function AdminConfiguracionPage() {
         {moduleAccess.config_users ? (
           <Link href="/admin/configuracion/usuarios" className="group">
             <Card className="h-full space-y-3 border border-[(--line)] transition hover:border-[(--primary)] hover:shadow-lg">
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_12%,white)] text-[(--primary)]">
-                <Users className="h-5 w-5" />
-              </div>
-              <div className="space-y-1">
-                <h2 className="text-base font-semibold text-slate-900">Usuarios</h2>
-                <p className="text-sm text-slate-600">
-                  Crea cuentas y administra roles y accesos.
-                </p>
-              </div>
+              <CardContent>
+                <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_12%,white)] text-[(--primary)]">
+                  <Users className="h-5 w-5" />
+                </div>
+                <div className="space-y-1">
+                  <h2 className="text-base font-semibold text-slate-900">Usuarios</h2>
+                  <p className="text-sm text-slate-600">
+                    Crea cuentas y administra roles y accesos.
+                  </p>
+                </div>
+              </CardContent>
             </Card>
           </Link>
         ) : null}
@@ -42,15 +44,17 @@ export default async function AdminConfiguracionPage() {
         {moduleAccess.config_business ? (
           <Link href="/admin/configuracion/negocio" className="group">
             <Card className="h-full space-y-3 border border-[(--line)] transition hover:border-[(--primary)] hover:shadow-lg">
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_12%,white)] text-[(--primary)]">
-                <Settings className="h-5 w-5" />
-              </div>
-              <div className="space-y-1">
-                <h2 className="text-base font-semibold text-slate-900">Configuracion negocio</h2>
-                <p className="text-sm text-slate-600">
-                  Ajusta moneda activa, color primario y preferencias generales.
-                </p>
-              </div>
+              <CardContent>
+                <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_12%,white)] text-[(--primary)]">
+                  <Settings className="h-5 w-5" />
+                </div>
+                <div className="space-y-1">
+                  <h2 className="text-base font-semibold text-slate-900">Configuracion negocio</h2>
+                  <p className="text-sm text-slate-600">
+                    Ajusta moneda activa, color primario y preferencias generales.
+                  </p>
+                </div>
+              </CardContent>
             </Card>
           </Link>
         ) : null}
@@ -58,15 +62,17 @@ export default async function AdminConfiguracionPage() {
         {moduleAccess.config_permissions ? (
           <Link href="/admin/configuracion/permisos" className="group">
             <Card className="h-full space-y-3 border border-[(--line)] transition hover:border-[(--primary)] hover:shadow-lg">
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_12%,white)] text-[(--primary)]">
-                <LockKeyhole className="h-5 w-5" />
-              </div>
-              <div className="space-y-1">
-                <h2 className="text-base font-semibold text-slate-900">Control de modulos</h2>
-                <p className="text-sm text-slate-600">
-                  Oculta y restringe modulos administrativos por usuario.
-                </p>
-              </div>
+              <CardContent>
+                <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_12%,white)] text-[(--primary)]">
+                  <LockKeyhole className="h-5 w-5" />
+                </div>
+                <div className="space-y-1">
+                  <h2 className="text-base font-semibold text-slate-900">Control de modulos</h2>
+                  <p className="text-sm text-slate-600">
+                    Oculta y restringe modulos administrativos por usuario.
+                  </p>
+                </div>
+              </CardContent>
             </Card>
           </Link>
         ) : null}
@@ -74,7 +80,9 @@ export default async function AdminConfiguracionPage() {
 
       {!moduleAccess.config_users && !moduleAccess.config_business && !moduleAccess.config_permissions ? (
         <Card className="text-sm text-slate-600">
-          No tienes apartados habilitados dentro de configuracion.
+          <CardContent>
+            No tienes apartados habilitados dentro de configuracion.
+          </CardContent>
         </Card>
       ) : null}
     </section>

@@ -3,7 +3,7 @@ import { Users } from "lucide-react";
 import { auth } from "@/auth";
 import { CreateUserModal } from "@/components/admin/create-user-modal";
 import { UsersDataTable } from "@/components/admin/users-data-table";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
@@ -61,7 +61,9 @@ export default async function AdminConfiguracionUsuariosPage({ searchParams }: P
       </div>
 
       <Card className="space-y-4">
-        <UsersDataTable users={users} />
+        <CardContent>
+          <UsersDataTable users={users} />
+        </CardContent>
       </Card>
     </section>
   );
