@@ -54,7 +54,7 @@ export function DownloadSaleInvoicePdfButton({ className, invoiceToken }: Downlo
     <div className="space-y-2">
       <Button type="button" onClick={handleDownloadPdf} disabled={isGenerating} className={className}>
       <Download className="h-4 w-4" />
-      {isGenerating ? "Generating..." : "Download PDF"}
+      {isGenerating ? "Generando..." : "Descargar PDF"}
       </Button>
       {isGenerating ? (
         <div className="h-1.5 overflow-hidden rounded-full bg-muted">

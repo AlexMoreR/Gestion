@@ -113,6 +113,7 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
   const downPayment = Number(sale.downPaymentAmount);
   const remainingBalance = Math.max(capital - downPayment, 0);
   const paymentProgress = capital > 0 ? Math.min((downPayment / capital) * 100, 100) : 0;
+  const hasBalance = downPayment > 0 || remainingBalance > 0;
 
   return (
     <main className={isPdf ? "flex flex-col gap-4 bg-white p-4 text-[#1A1A2E]" : "mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 md:px-6"}>
@@ -225,6 +226,22 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
                     {formatMoney(Number(sale.total), currency)}
                   </td>
                 </tr>
+                {hasBalance && (
+                  <>
+                    <tr>
+                      <td className="p-2 text-right text-slate-500 font-bold uppercase text-[10px]">Abono</td>
+                      <td className="p-2 text-right font-semibold text-[#1A1A2E]">
+                        {formatMoney(downPayment, currency)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="p-2 text-right text-slate-500 font-bold uppercase text-[10px]">Saldo pendiente</td>
+                      <td className="p-2 text-right font-semibold text-[#1A1A2E]">
+                        {formatMoney(remainingBalance, currency)}
+                      </td>
+                    </tr>
+                  </>
+                )}
               </tbody>
             </table>
           </section>
@@ -267,7 +284,7 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
 
             <div className={isPdf ? "flex flex-col items-end gap-2 text-[10px] text-slate-500" : "flex flex-col items-start gap-3 md:items-end"}>
               <div className="space-y-1 text-sm">
-                <p className="text-muted-foreground">Created at</p>
+                <p className="text-muted-foreground">Fecha</p>
                 <p className="font-semibold text-foreground">{issuedDate}</p>
               </div>
             </div>
@@ -282,20 +299,35 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-xs uppercase tracking-[0.26em] text-muted-foreground">
                   <User className="h-3.5 w-3.5" />
-                  Client
+                  Cliente
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
-                <p className={"text-xl font-semibold text-foreground"}>{clientName}</p>
-                <p className={"text-sm text-muted-foreground"}>{clientDocument}</p>
-                <div className="grid grid-cols-2 gap-3 text-sm">
+              <CardContent className="space-y-4 text-sm">
+                <div className="space-y-1">
+                  <p className="text-xl font-semibold text-foreground">{clientName}</p>
+                  <p className="text-muted-foreground">{clientDocument || "N/A"}</p>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs text-muted-foreground">City</p>
-                    <p className="font-medium text-foreground">{clientCity}</p>
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Ciudad</p>
+                    <p className="mt-1 font-medium text-foreground">{clientCity || "Not registered"}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Address</p>
-                    <p className="font-medium text-foreground">{deliveryAddress}</p>
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Direccion</p>
+                    <p className="mt-1 font-medium text-foreground">{deliveryAddress || "Not registered"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Cotizaacion ref</p>
+                    <p className="mt-1 font-medium text-foreground">{sale.quote.code}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Email</p>
+                    <p className="mt-1 font-medium text-foreground">{sale.client.email}</p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Contacto</p>
+                    <p className="mt-1 font-medium text-foreground">{sale.client.phone || "N/A"}</p>
                   </div>
                 </div>
               </CardContent>
@@ -305,17 +337,17 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-xs uppercase tracking-[0.26em] text-muted-foreground">
                   <BadgeDollarSign className="h-3.5 w-3.5" />
-                  Invoice Summary
+                  Resumen  de la factura
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 text-sm">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <p className="text-xs text-muted-foreground">Quote</p>
+                    <p className="text-xs text-muted-foreground">Cotizacion</p>
                     <p className="font-medium text-foreground">{sale.quote.code}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Receipt</p>
+                    <p className="text-xs text-muted-foreground">Comprobante</p>
                     <p className="font-medium text-foreground">{receiptIsImage ? "Image" : "PDF"}</p>
                   </div>
                   <div>
@@ -323,11 +355,11 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
                     <p className="font-medium text-foreground">{formatMoney(capital, currency)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Down payment</p>
+                    <p className="text-xs text-muted-foreground">Deposito</p>
                     <p className="font-medium text-foreground">{formatMoney(downPayment, currency)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Remaining</p>
+                    <p className="text-xs text-muted-foreground">Restante</p>
                     <p className="font-semibold text-foreground">{formatMoney(remainingBalance, currency)}</p>
                   </div>
                   <div>
@@ -337,13 +369,29 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Payment progress</span>
+                    <span>Progreso de pago</span>
                     <span>{paymentProgress.toFixed(0)}%</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-muted">
                     <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${paymentProgress}%` }} />
                   </div>
                 </div>
+                {hasBalance ? (
+                  <div className="grid gap-3 rounded-2xl border border-border bg-muted/30 p-4 sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Abono</p>
+                      <p className="mt-1 text-lg font-semibold text-foreground">
+                        {formatMoney(downPayment, currency)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Saldo pendiente</p>
+                      <p className="mt-1 text-lg font-semibold text-foreground">
+                        {formatMoney(remainingBalance, currency)}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           </section>
@@ -354,7 +402,7 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <FileText className="h-4 w-4 text-primary" />
-                  Invoice lines
+                  Factura
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
@@ -391,7 +439,7 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <FileDown className="h-4 w-4 text-primary" />
-                    Download
+                    Descargar
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -403,7 +451,7 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
                     className={buttonVariants({ variant: "outline", className: "w-full" })}
                   >
                     <ReceiptText className="h-4 w-4" />
-                    Open receipt
+                    Ver comprobante
                   </a>
                 </CardContent>
               </Card>
