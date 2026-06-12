@@ -8,6 +8,9 @@ import {
   Package, 
   FileText, 
   ShoppingCart, 
+  ClipboardList,
+  Factory,
+  Truck,
   LayoutDashboard,
   ArrowRight
 } from "lucide-react";
@@ -61,6 +64,36 @@ export default async function AdminPage() {
       show: moduleAccess.sales,
       color: "text-emerald-600",
       bgColor: "bg-emerald-100"
+    },
+    {
+      id: "orders",
+      title: "Ordenes",
+      description: "Alinea ventas con ejecucion operativa y trazabilidad.",
+      href: "/admin/ordenes",
+      icon: ClipboardList,
+      show: moduleAccess.orders,
+      color: "text-slate-700",
+      bgColor: "bg-slate-100"
+    },
+    {
+      id: "production",
+      title: "Produccion",
+      description: "Gestiona trabajos de fabricacion y avances.",
+      href: "/admin/produccion",
+      icon: Factory,
+      show: moduleAccess.production,
+      color: "text-amber-700",
+      bgColor: "bg-amber-100"
+    },
+    {
+      id: "dispatches",
+      title: "Despachos",
+      description: "Controla salidas, guias y entregas.",
+      href: "/admin/despachos",
+      icon: Truck,
+      show: moduleAccess.dispatches,
+      color: "text-blue-700",
+      bgColor: "bg-blue-100"
     }
   ];
 

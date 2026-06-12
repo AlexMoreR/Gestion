@@ -16,6 +16,7 @@ import {
   ReceiptText,
   User2,
 } from "lucide-react";
+import { adminCreateOrderFromSaleAction } from "@/app/actions/orders-actions";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -49,6 +50,7 @@ type SaleRow = {
   invoiceToken: string;
   paymentReceiptUrl: string;
   paymentReceiptType: string;
+  hasOrder: boolean;
 };
 
 type SalesDataTableProps = {
@@ -62,15 +64,15 @@ type SortDirection = "asc" | "desc";
 function statusLabel(status: SaleStatus): string {
   switch (status) {
     case "DRAFT":
-      return "Draft";
+      return "Borrador";
     case "ACTIVE":
-      return "Active";
+      return "Activa";
     case "INVOICED":
-      return "Invoiced";
+      return "Facturada";
     case "COMPLETED":
-      return "Completed";
+      return "Finalizada";
     case "CANCELLED":
-      return "Cancelled";
+      return "Cancelada";
     default:
       return status;
   }
@@ -95,14 +97,14 @@ function statusBadgeClassName(status: SaleStatus): string {
 
 function getReceiptLabel(receiptType: string): string {
   if (receiptType.startsWith("image/")) {
-    return "Receipt image";
+    return "Imagen del comprobante";
   }
 
   if (receiptType === "application/pdf") {
-    return "Receipt PDF";
+    return "Comprobante PDF";
   }
 
-  return "Receipt";
+  return "Comprobante";
 }
 
 function HeaderLabel({
@@ -119,7 +121,7 @@ function HeaderLabel({
   icon: React.ReactNode;
 }) {
   return (
-    <Button type="button" variant="ghost" onClick={onClick} aria-label={`Sort by ${String(children)}`}>
+    <Button type="button" variant="ghost" onClick={onClick} aria-label={`Ordenar por ${String(children)}`}>
       <span className="text-muted-foreground">{icon}</span>
       {children}
       {active ? (
@@ -139,7 +141,7 @@ function RowActions({ sale }: { sale: SaleRow }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Actions ${sale.code}`}>
+        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones ${sale.code}`}>
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
@@ -158,8 +160,18 @@ function RowActions({ sale }: { sale: SaleRow }) {
             rel="noreferrer"
           >
             <Download className="mr-2 h-4 w-4" />
-            Download PDF
+            Descargar PDF
           </a>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            const form = document.querySelector<HTMLFormElement>(`form[data-create-order-sale-id="${sale.id}"]`);
+            form?.requestSubmit();
+          }}
+          disabled={sale.hasOrder}
+        >
+          <FileText className="mr-2 h-4 w-4" />
+          {sale.hasOrder ? "Orden creada" : "Crear orden"}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
@@ -308,7 +320,7 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
                 </HeaderLabel>
               </TableHead>
               <TableHead className="normal-case tracking-normal">
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">Acciones</span>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -316,7 +328,7 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
             {sortedSales.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9} className="py-9 text-center text-muted-foreground">
-                  No sales records yet.
+                  Aun no hay ventas.
                 </TableCell>
               </TableRow>
             ) : (
@@ -343,6 +355,10 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{sale.createdAt}</TableCell>
                   <TableCell>
+                    <form data-create-order-sale-id={sale.id} action={adminCreateOrderFromSaleAction}>
+                      <input type="hidden" name="returnTo" value="/admin/ventas" />
+                      <input type="hidden" name="saleId" value={sale.id} />
+                    </form>
                     <div className="flex items-center">
                       <RowActions sale={sale} />
                     </div>
@@ -357,7 +373,7 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
       <div className="space-y-2 md:hidden">
         {sortedSales.length === 0 ? (
           <div className="rounded-xl border border-border bg-card px-3 py-6 text-center text-sm text-muted-foreground">
-            No sales records yet.
+            Aun no hay ventas.
           </div>
         ) : (
           sortedSales.map((sale) => (
@@ -380,6 +396,10 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
                 <p className="text-xs text-muted-foreground">{getReceiptLabel(sale.paymentReceiptType)}</p>
               </div>
               <div className="flex items-center justify-end">
+                <form data-create-order-sale-id={sale.id} action={adminCreateOrderFromSaleAction}>
+                  <input type="hidden" name="returnTo" value="/admin/ventas" />
+                  <input type="hidden" name="saleId" value={sale.id} />
+                </form>
                 <RowActions sale={sale} />
               </div>
             </article>

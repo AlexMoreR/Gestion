@@ -6,6 +6,8 @@ import {
   Blocks,
   BadgeDollarSign,
   BriefcaseBusiness,
+  ClipboardList,
+  Factory,
   LockKeyhole,
   Package,
   ShieldCheck,
@@ -59,6 +61,9 @@ const moduleIconMap = {
   suppliers: Truck,
   quotes: Blocks,
   sales: BadgeDollarSign,
+  orders: ClipboardList,
+  production: Factory,
+  dispatches: Truck,
 } satisfies Record<AdminModuleKey, React.ComponentType<{ className?: string }>>;
 
 export function ModuleAccessWorkspace({ roles, modules }: ModuleAccessWorkspaceProps) {

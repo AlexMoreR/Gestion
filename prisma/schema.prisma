@@ -33,6 +33,13 @@ model User {
   quotesCreated  Quote[] @relation("QuoteCreatedBy")
   salesAsClient  Sale[]   @relation("SaleClient")
   salesCreated   Sale[]   @relation("SaleCreatedBy")
+  ordersAsClient Order[]  @relation("OrderClient")
+  ordersCreated  Order[]  @relation("OrderCreatedBy")
+  ordersAssigned Order[]  @relation("OrderAssignedTo")
+  productionJobsAssigned ProductionJob[] @relation("ProductionJobAssignedTo")
+  productionJobsCreated  ProductionJob[]  @relation("ProductionJobCreatedBy")
+  dispatchesCreated Dispatch[] @relation("DispatchCreatedBy")
+  orderStatusChanges OrderStatusHistory[] @relation("OrderStatusHistoryChangedBy")
 }
 
 model Product {
@@ -49,6 +56,7 @@ model Product {
   wholesaleMarginPct Decimal           @default(0) @db.Decimal(6, 2)
   wholesalePrice     Decimal           @default(0) @db.Decimal(10, 2)
   minWholesaleQty    Int               @default(6)
+  fulfillmentMode    ProductFulfillmentMode @default(STOCK)
   categoryId         String?
   thumbnailUrl       String
   createdAt          DateTime          @default(now())
@@ -57,6 +65,7 @@ model Product {
   images             ProductImage[]
   suppliers          ProductSupplier[]
   quoteItems         QuoteItem[]
+  orderItems         OrderItem[]
 }
 
 model ProductImage {
@@ -143,6 +152,7 @@ model Quote {
   createdBy   User        @relation("QuoteCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   items       QuoteItem[]
   sale        Sale?
+  orders      Order[]
 
   @@index([clientId, createdAt])
   @@index([createdById, createdAt])
@@ -175,6 +185,7 @@ model Sale {
   quote                Quote       @relation(fields: [quoteId], references: [id], onDelete: Restrict)
   client               User        @relation("SaleClient", fields: [clientId], references: [id], onDelete: Restrict)
   createdBy            User        @relation("SaleCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  order                Order?
 
   @@index([clientId, createdAt])
   @@index([createdById, createdAt])
@@ -194,8 +205,176 @@ model QuoteItem {
   quote      Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   product    Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
   supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  orderItems OrderItem[]
 
   @@index([quoteId])
   @@index([productId])
   @@index([supplierId])
+}
+
+enum ProductFulfillmentMode {
+  STOCK
+  MANUFACTURE
+  MIXED
+}
+
+enum OrderStatus {
+  DRAFT
+  RELEASED
+  IN_PRODUCTION
+  READY_FOR_DISPATCH
+  DISPATCHED
+  COMPLETED
+  CANCELLED
+}
+
+enum ProductionJobStatus {
+  PENDING
+  IN_PROGRESS
+  PAUSED
+  DONE
+  CANCELLED
+}
+
+enum DispatchStatus {
+  PENDING
+  PACKING
+  SHIPPED
+  DELIVERED
+  RETURNED
+  CANCELLED
+}
+
+model Order {
+  id                String      @id @default(cuid())
+  code              String      @unique
+  saleId            String      @unique
+  quoteId           String
+  clientId          String
+  createdById       String
+  assignedToId      String?
+  status            OrderStatus @default(DRAFT)
+  notes             String?
+  internalNotes     String?
+  committedAt       DateTime?
+  releasedAt        DateTime?
+  completedAt       DateTime?
+  subtotal          Decimal     @default(0) @db.Decimal(12, 2)
+  total             Decimal     @default(0) @db.Decimal(12, 2)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  sale              Sale        @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  quote             Quote       @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  client            User        @relation("OrderClient", fields: [clientId], references: [id], onDelete: Restrict)
+  createdBy         User        @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  assignedTo        User?       @relation("OrderAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  items             OrderItem[]
+  productionJobs    ProductionJob[]
+  dispatches        Dispatch[]
+  history           OrderStatusHistory[]
+
+  @@index([clientId, createdAt])
+  @@index([createdById, createdAt])
+  @@index([assignedToId, createdAt])
+  @@index([quoteId, createdAt])
+}
+
+model OrderItem {
+  id               String               @id @default(cuid())
+  orderId          String
+  quoteItemId      String?              @unique
+  productId        String
+  quantity         Int
+  unitPrice        Decimal              @db.Decimal(12, 2)
+  lineTotal        Decimal              @db.Decimal(12, 2)
+  fulfillmentMode  ProductFulfillmentMode
+  notes            String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  order            Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  quoteItem        QuoteItem?           @relation(fields: [quoteItemId], references: [id], onDelete: SetNull)
+  product          Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productionJobs   ProductionJob[]
+  dispatchItems    DispatchItem[]
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model ProductionJob {
+  id            String               @id @default(cuid())
+  code          String               @unique
+  orderId       String
+  orderItemId   String?
+  status        ProductionJobStatus  @default(PENDING)
+  quantity      Int
+  notes         String?
+  dueDate       DateTime?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  assignedToId  String?
+  createdById   String
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  order         Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem     OrderItem?           @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  assignedTo    User?                @relation("ProductionJobAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy     User                 @relation("ProductionJobCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([orderItemId])
+  @@index([assignedToId, createdAt])
+}
+
+model Dispatch {
+  id            String          @id @default(cuid())
+  code          String          @unique
+  orderId       String
+  status        DispatchStatus  @default(PENDING)
+  carrierName   String?
+  trackingNumber String?
+  shippingAddress String?
+  notes         String?
+  packedAt      DateTime?
+  shippedAt     DateTime?
+  deliveredAt   DateTime?
+  createdById   String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  order         Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdBy     User            @relation("DispatchCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  items         DispatchItem[]
+
+  @@index([orderId])
+  @@index([createdById, createdAt])
+}
+
+model DispatchItem {
+  id           String      @id @default(cuid())
+  dispatchId   String
+  orderItemId  String
+  quantity     Int
+  notes        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  dispatch     Dispatch    @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+  orderItem    OrderItem   @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+
+  @@index([dispatchId])
+  @@index([orderItemId])
+}
+
+model OrderStatusHistory {
+  id          String      @id @default(cuid())
+  orderId     String
+  fromStatus  OrderStatus?
+  toStatus    OrderStatus
+  note        String?
+  changedById String
+  createdAt   DateTime    @default(now())
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changedBy   User        @relation("OrderStatusHistoryChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
+
+  @@index([orderId, createdAt])
+  @@index([changedById, createdAt])
 }

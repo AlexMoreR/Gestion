@@ -2,7 +2,9 @@
 
 import {
   BadgeDollarSign,
+  ClipboardList,
   FileText,
+  Factory,
   LayoutDashboard,
   Package,
   Settings,
@@ -47,6 +49,9 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
   const isAdminProductsRoute = pathname.startsWith("/admin/productos");
   const isAdminQuotesRoute = pathname.startsWith("/admin/cotizaciones");
   const isAdminSalesRoute = pathname.startsWith("/admin/ventas");
+  const isAdminOrdersRoute = pathname.startsWith("/admin/ordenes");
+  const isAdminProductionRoute = pathname.startsWith("/admin/produccion");
+  const isAdminDispatchesRoute = pathname.startsWith("/admin/despachos");
   const isAdminSuppliersRoute = pathname.startsWith("/admin/proveedores");
 
   const navMain = [
@@ -60,9 +65,12 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
           !isAdminConfigRoute &&
           !isAdminCategoriesRoute &&
           !isAdminProductsRoute &&
-          !isAdminQuotesRoute &&
-          !isAdminSalesRoute &&
-          !isAdminSuppliersRoute),
+        !isAdminQuotesRoute &&
+        !isAdminSalesRoute &&
+        !isAdminOrdersRoute &&
+        !isAdminProductionRoute &&
+        !isAdminDispatchesRoute &&
+        !isAdminSuppliersRoute),
       items: [
         { title: "Vista general", url: dashboardHref },
       ],
@@ -132,6 +140,36 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
         icon: BadgeDollarSign,
         isActive: pathname.startsWith("/admin/ventas"),
         items: [{ title: "Listado", url: "/admin/ventas" }],
+      });
+    }
+
+    if (adminModuleAccess.orders) {
+      navMain.push({
+        title: "Ordenes",
+        url: "/admin/ordenes",
+        icon: ClipboardList,
+        isActive: pathname.startsWith("/admin/ordenes"),
+        items: [{ title: "Listado", url: "/admin/ordenes" }],
+      });
+    }
+
+    if (adminModuleAccess.production) {
+      navMain.push({
+        title: "Produccion",
+        url: "/admin/produccion",
+        icon: Factory,
+        isActive: pathname.startsWith("/admin/produccion"),
+        items: [{ title: "Trabajo", url: "/admin/produccion" }],
+      });
+    }
+
+    if (adminModuleAccess.dispatches) {
+      navMain.push({
+        title: "Despachos",
+        url: "/admin/despachos",
+        icon: Truck,
+        isActive: pathname.startsWith("/admin/despachos"),
+        items: [{ title: "Salida", url: "/admin/despachos" }],
       });
     }
   }

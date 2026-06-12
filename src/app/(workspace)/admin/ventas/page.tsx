@@ -31,6 +31,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
       include: {
         client: true,
         quote: true,
+        order: true,
       },
       take: 200,
     }),
@@ -67,8 +68,8 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
       <QueryFeedbackToast
         okMessage={okMessage}
         errorMessage={errorMessage}
-        okTitle="Sales updated"
-        errorTitle="Sales error"
+        okTitle="Ventas actualizadas"
+        errorTitle="Error en ventas"
       />
 
       <SalesWorkspace
@@ -87,6 +88,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
           invoiceToken: sale.invoiceToken,
           paymentReceiptUrl: sale.paymentReceiptUrl,
           paymentReceiptType: sale.paymentReceiptType,
+          hasOrder: Boolean(sale.order),
         }))}
       />
     </section>

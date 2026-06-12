@@ -1,0 +1,215 @@
+import Link from "next/link";
+import { ArrowUpRight, ClipboardList, MoreHorizontal, ShoppingCart } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { getOrderStatusBadgeClassName, getOrderStatusLabel } from "@/lib/orders";
+
+type OrderRow = {
+  id: string;
+  code: string;
+  saleCode: string;
+  clientName: string;
+  assignedToName: string | null;
+  total: number;
+  status: "DRAFT" | "RELEASED" | "IN_PRODUCTION" | "READY_FOR_DISPATCH" | "DISPATCHED" | "COMPLETED" | "CANCELLED";
+  createdAt: string;
+};
+
+type OrdersWorkspaceProps = {
+  orders: OrderRow[];
+  currency: SupportedCurrencyCode;
+  stats: {
+    ordersCount: number;
+    activeCount: number;
+    productionCount: number;
+    readyToDispatchCount: number;
+    completedCount: number;
+  };
+};
+
+function RowActions({ order }: { order: OrderRow }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones ${order.code}`}>
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem asChild>
+          <Link href={`/admin/ordenes/${order.id}`}>
+            <ArrowUpRight className="mr-2 h-4 w-4" />
+            Abrir
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href={`/admin/ventas`}>
+            <ShoppingCart className="mr-2 h-4 w-4" />
+            Ver ventas
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href={`/admin/ordenes/${order.id}`}>
+            <ArrowUpRight className="mr-2 h-4 w-4" />
+            Detalle
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export function OrdersWorkspace({ orders, currency, stats }: OrdersWorkspaceProps) {
+  return (
+    <section className="space-y-4">
+      <Card className="border-border bg-card/95">
+        <CardContent className="space-y-2">
+          <div className="flex flex-row items-center gap-2">
+            <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <ClipboardList className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-lg font-semibold tracking-tight text-foreground md:text-xl">Ordenes</h1>
+              <p className="text-sm text-muted-foreground">
+                Controla la ejecucion de ventas, fabricacion y despachos desde un solo flujo.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <Card className="border-border bg-card/95">
+          <CardContent className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Ordenes</p>
+            <p className="text-2xl font-semibold text-foreground">{stats.ordersCount}</p>
+            <p className="text-xs text-muted-foreground">Total registradas</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border bg-card/95">
+          <CardContent className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Activas</p>
+            <p className="text-2xl font-semibold text-foreground">{stats.activeCount}</p>
+            <p className="text-xs text-muted-foreground">No cerradas ni canceladas</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border bg-card/95">
+          <CardContent className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Produccion</p>
+            <p className="text-2xl font-semibold text-foreground">{stats.productionCount}</p>
+            <p className="text-xs text-muted-foreground">En ejecucion</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border bg-card/95">
+          <CardContent className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Listas</p>
+            <p className="text-2xl font-semibold text-foreground">{stats.readyToDispatchCount}</p>
+            <p className="text-xs text-muted-foreground">Pendientes de salida</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border bg-card/95">
+          <CardContent className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Cerradas</p>
+            <p className="text-2xl font-semibold text-foreground">{stats.completedCount}</p>
+            <p className="text-xs text-muted-foreground">Entregadas o finalizadas</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <Table className="min-w-[980px]">
+          <TableHeader>
+            <TableRow className="bg-muted/50 hover:bg-muted/50">
+              <TableHead>Orden</TableHead>
+              <TableHead>Venta</TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Responsable</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Total</TableHead>
+              <TableHead>Fecha</TableHead>
+              <TableHead className="sr-only">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {orders.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="py-9 text-center text-muted-foreground">
+                  Aun no hay ordenes.
+                </TableCell>
+              </TableRow>
+            ) : (
+              orders.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">{order.code}</p>
+                      <p className="text-xs text-muted-foreground">Venta relacionada</p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-foreground">{order.saleCode}</TableCell>
+                  <TableCell className="text-sm text-foreground">{order.clientName}</TableCell>
+                  <TableCell className="text-sm text-foreground">{order.assignedToName ?? "Sin asignar"}</TableCell>
+                  <TableCell>
+                    <span
+                      className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${getOrderStatusBadgeClassName(order.status)}`}
+                    >
+                      {getOrderStatusLabel(order.status)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-sm font-semibold text-foreground">
+                    {formatMoney(order.total, currency)}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{order.createdAt}</TableCell>
+                  <TableCell>
+                    <RowActions order={order} />
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="space-y-2 md:hidden">
+        {orders.length === 0 ? (
+          <div className="rounded-xl border border-border bg-card px-3 py-6 text-center text-sm text-muted-foreground">
+            Aun no hay ordenes.
+          </div>
+        ) : (
+          orders.map((order) => (
+            <article key={order.id} className="space-y-2.5 rounded-xl border border-border bg-card p-3">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-foreground">{order.code}</p>
+                  <span
+                    className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${getOrderStatusBadgeClassName(order.status)}`}
+                  >
+                    {getOrderStatusLabel(order.status)}
+                  </span>
+                </div>
+                <p className="text-sm text-foreground">{order.saleCode}</p>
+                <p className="text-sm text-foreground">{order.clientName}</p>
+                <p className="text-xs text-muted-foreground">{order.assignedToName ?? "Sin asignar"}</p>
+                <p className="text-sm font-semibold text-foreground">{formatMoney(order.total, currency)}</p>
+                <p className="text-xs text-muted-foreground">{order.createdAt}</p>
+              </div>
+              <div className="flex items-center justify-end">
+                <RowActions order={order} />
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}

@@ -60,6 +60,27 @@ export const adminModuleDefinitions = [
     path: "/admin/ventas",
     group: "Comercial",
   },
+  {
+    key: "orders",
+    label: "Ordenes",
+    description: "Gestiona ordenes de cumplimiento y trazabilidad.",
+    path: "/admin/ordenes",
+    group: "Operaciones",
+  },
+  {
+    key: "production",
+    label: "Produccion",
+    description: "Controla los trabajos de fabricacion.",
+    path: "/admin/produccion",
+    group: "Operaciones",
+  },
+  {
+    key: "dispatches",
+    label: "Despachos",
+    description: "Administra salidas, guias y entregas.",
+    path: "/admin/despachos",
+    group: "Operaciones",
+  },
 ] as const;
 
 export type AdminModuleKey = (typeof adminModuleDefinitions)[number]["key"];
