@@ -25,4 +25,4 @@ COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node prisma/check-product-columns.js && npm run start"]
+CMD ["sh", "-c", "npx prisma db push && node prisma/check-product-columns.js && npm run start"]
