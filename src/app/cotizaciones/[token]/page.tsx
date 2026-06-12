@@ -117,7 +117,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
     <main
       className={
         isPdf
-          ? "flex flex-col gap-2 p-4 bg-white text-slate-900 text-[11px]"
+          ? "flex flex-col gap-3 p-4 bg-white text-slate-900 text-[13px]"
           : "flex flex-col gap-4 pb-32"
       }
     >
@@ -135,7 +135,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
             <div
               className={
                 isPdf
-                  ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-white text-sm font-black"
+                  ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white text-base font-black"
                   : "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-white text-2xl font-black"
               }
             >
@@ -146,13 +146,13 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
               <p
                 className={
                   isPdf
-                    ? "text-sm font-bold text-slate-900"
+                    ? "text-base font-bold text-slate-900"
                     : "text-xl font-bold text-white tracking-tight"
                 }
               >
                 Magilus
               </p>
-              <p className={isPdf ? "text-[9px] text-slate-500" : "text-xs text-blue-200/70"}>
+              <p className={isPdf ? "text-[11px] text-slate-500" : "text-xs text-blue-200/70"}>
                 NIT {companyInfo.nit}
               </p>
             </div>
@@ -162,7 +162,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
             <p
               className={
                 isPdf
-                  ? "text-xs font-bold tracking-widest text-slate-500 uppercase"
+                  ? "text-sm font-bold tracking-widest text-slate-500 uppercase"
                   : "text-sm font-semibold tracking-widest text-blue-300 uppercase"
               }
             >
@@ -171,7 +171,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
             <h1
               className={
                 isPdf
-                  ? "text-xl font-extrabold tracking-tight text-slate-900"
+                  ? "text-lg font-extrabold tracking-tight text-slate-900"
                   : "max-w-full break-all text-2xl font-extrabold leading-none tracking-tighter text-white sm:break-normal sm:text-3xl md:text-5xl"
               }
             >
@@ -184,7 +184,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
       {/* ─── CLIENT + COMPANY INFO ───────────────────────────────────── */}
       {isPdf ? (
         /* PDF: compact 2-col table */
-        <table className="w-full border-collapse text-[10px]">
+        <table className="w-full border-collapse text-[12px]">
           <tbody>
             <tr>
               <td className="border border-slate-200 bg-slate-50 p-2 font-semibold w-1/4">Cliente</td>
@@ -290,7 +290,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
           <CardTitle
             className={
               isPdf
-                ? "text-center text-[10px] font-bold tracking-widest text-slate-600 uppercase"
+                ? "text-center text-[12px] font-bold tracking-widest text-slate-600 uppercase"
                 : "text-center text-xs font-bold tracking-widest text-slate-500 uppercase"
             }
           >
@@ -300,7 +300,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
         <CardContent className="p-0">
           {/* overflow-x-auto solo aplica en web; en PDF la tabla siempre cabe en A4 */}
           <div className={isPdf ? undefined : "-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0"}>
-            <Table className={isPdf ? "text-[9.5px]" : "min-w-[760px] text-sm"}>
+            <Table className={isPdf ? "text-[11.5px]" : "min-w-[760px] text-sm"}>
               <TableHeader>
                 <TableRow className="bg-slate-50/50 hover:bg-slate-50/50 whitespace-nowrap">
                   <TableHead className={isPdf ? "py-1 px-2 w-6" : "w-10"}>#</TableHead>
@@ -408,14 +408,14 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
               <CardTitle
                 className={
                   isPdf
-                    ? "text-[9px] font-bold uppercase tracking-widest text-slate-500"
+                    ? "text-[11px] font-bold uppercase tracking-widest text-slate-500"
                     : "text-xs text-slate-400 uppercase tracking-widest font-semibold"
                 }
               >
                 Observaciones
               </CardTitle>
             </CardHeader>
-            <CardContent className={isPdf ? "px-3 py-1 text-[9.5px] italic text-slate-600 leading-snug" : "text-sm text-slate-600 italic leading-relaxed"}>
+            <CardContent className={isPdf ? "px-3 py-1 text-[11.5px] italic text-slate-600 leading-snug" : "text-sm text-slate-600 italic leading-relaxed"}>
               Esta cotización refleja los requerimientos técnicos discutidos. Los precios están
               sujetos a cambios según disponibilidad de inventario.
             </CardContent>
@@ -423,11 +423,11 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
         </div>
 
         {/* Totals breakdown */}
-        <div className={isPdf ? "w-52 shrink-0 space-y-0.5" : "w-full md:w-72 space-y-1"}>
+        <div className={isPdf ? "w-60 shrink-0 space-y-0.5" : "w-full md:w-72 space-y-1"}>
           <div
             className={
               isPdf
-                ? "flex justify-between text-[10px] px-2 py-1"
+                ? "flex justify-between text-[12px] px-2 py-1"
                 : "flex justify-between px-3 py-2 text-sm"
             }
           >
@@ -439,7 +439,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
             <div
               className={
                 isPdf
-                  ? "flex justify-between text-[10px] px-2 py-1 text-emerald-700"
+                  ? "flex justify-between text-[12px] px-2 py-1 text-emerald-700"
                   : "flex justify-between px-3 py-2 text-sm text-emerald-600"
               }
             >
@@ -452,7 +452,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
             <div
               className={
                 isPdf
-                  ? "flex justify-between text-[10px] px-2 py-1"
+                  ? "flex justify-between text-[12px] px-2 py-1"
                   : "flex justify-between px-3 py-2 text-sm"
               }
             >
@@ -464,7 +464,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
           <div
             className={
               isPdf
-                ? "flex justify-between border border-slate-300 bg-slate-100 px-3 py-2 font-bold text-[11px]"
+                ? "flex justify-between border border-slate-300 bg-slate-100 px-3 py-2 font-bold text-[13px]"
                 : "flex justify-between rounded-xl bg-slate-900 px-4 py-3 text-white shadow-lg mt-1"
             }
           >
@@ -481,11 +481,11 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
         /* PDF: compact single card */
         <Card className="border-slate-300 shadow-none">
           <CardHeader className="py-1.5 px-3 pb-1">
-            <CardTitle className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+            <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
               Condiciones Comerciales
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-3 py-1.5 text-[9px] leading-relaxed text-slate-600 space-y-0.5">
+          <CardContent className="px-3 py-1.5 text-[11px] leading-relaxed text-slate-600 space-y-0.5">
             <p>• Vigencia de la oferta: 15 días desde la fecha de emisión.</p>
             <p>• Garantía de {companyInfo.warranty} por defectos de fabricación.</p>
             <p>• Revisar la mercancía en presencia del auxiliar al momento de la entrega.</p>
@@ -625,7 +625,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
 
       {/* ─── FOOTER ──────────────────────────────────────────────────── */}
       {isPdf ? (
-        <footer className="border-t border-slate-200 pt-2 text-center text-[8px] text-slate-400">
+        <footer className="border-t border-slate-200 pt-2 text-center text-[10px] text-slate-400">
           Magilus · {whatsAppPhoneDisplay} · comercial@innovacionesmagi.com · innovacionesmagi.com
         </footer>
       ) : (

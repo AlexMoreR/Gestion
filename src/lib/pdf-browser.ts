@@ -1,6 +1,5 @@
 import { existsSync } from "node:fs";
-import { type LaunchOptions } from "puppeteer";
-import chromium from "@sparticuz/chromium";
+import puppeteer, { type LaunchOptions } from "puppeteer";
 
 function getEnvExecutablePath(): string | undefined {
   const candidates = [
@@ -43,7 +42,11 @@ export async function getPdfBrowserLaunchOptions(): Promise<LaunchOptions> {
     };
   }
 
+  // Serverless Linux (e.g. AWS Lambda / Vercel): use the @sparticuz/chromium
+  // binary. Loaded dynamically so it is never bundled or resolved on local
+  // Windows/Mac builds, where Puppeteer's own Chromium is used instead.
   if (process.platform === "linux") {
+    const { default: chromium } = await import("@sparticuz/chromium");
     return {
       executablePath: await chromium.executablePath(),
       headless: true,
@@ -51,9 +54,10 @@ export async function getPdfBrowserLaunchOptions(): Promise<LaunchOptions> {
     };
   }
 
+  // Local dev (Windows/Mac): use the Chromium that Puppeteer downloaded.
   return {
-    executablePath: await chromium.executablePath(),
+    executablePath: await puppeteer.executablePath(),
     headless: true,
-    args: [...chromium.args, "--disable-dev-shm-usage"],
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
   };
 }
