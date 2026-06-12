@@ -1,4 +1,5 @@
-import puppeteer, { type LaunchOptions } from "puppeteer";
+import { existsSync } from "node:fs";
+import { type LaunchOptions } from "puppeteer";
 import chromium from "@sparticuz/chromium";
 
 function getEnvExecutablePath(): string | undefined {
@@ -11,14 +12,34 @@ function getEnvExecutablePath(): string | undefined {
   return candidates[0];
 }
 
+function getSystemExecutablePath(): string | undefined {
+  const candidates = [
+    "/usr/bin/chromium-browser",
+    "/usr/bin/chromium",
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/google-chrome",
+  ];
+
+  return candidates.find((path) => existsSync(path));
+}
+
 export async function getPdfBrowserLaunchOptions(): Promise<LaunchOptions> {
+  const systemExecutablePath = getSystemExecutablePath();
+  if (systemExecutablePath) {
+    return {
+      executablePath: systemExecutablePath,
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    };
+  }
+
   const envExecutablePath = getEnvExecutablePath();
 
   if (envExecutablePath) {
     return {
       executablePath: envExecutablePath,
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
     };
   }
 
@@ -26,13 +47,13 @@ export async function getPdfBrowserLaunchOptions(): Promise<LaunchOptions> {
     return {
       executablePath: await chromium.executablePath(),
       headless: true,
-      args: chromium.args,
+      args: [...chromium.args, "--disable-dev-shm-usage"],
     };
   }
 
   return {
-    executablePath: await puppeteer.executablePath(),
+    executablePath: await chromium.executablePath(),
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    args: [...chromium.args, "--disable-dev-shm-usage"],
   };
 }

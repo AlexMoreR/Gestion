@@ -15,6 +15,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
+
 COPY package*.json ./
 COPY prisma ./prisma
 COPY --from=builder /app/node_modules ./node_modules
