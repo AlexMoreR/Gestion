@@ -1,5 +1,8 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
+# puppeteer's bundled Chromium is a glibc build and won't run on alpine (musl);
+# we use the system chromium in the runner instead, so skip the download.
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 COPY package*.json ./
 RUN npm ci
 
@@ -16,6 +19,7 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 COPY package*.json ./
 COPY prisma ./prisma
