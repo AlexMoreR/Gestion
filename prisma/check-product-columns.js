@@ -1,69 +1,65 @@
-// Diagnostic: print the REAL columns of every table involved in the failing
-// storefront product query, and reproduce the relation SELECTs with raw SQL so
-// Postgres reports the actual missing column by name (Prisma's driver adapter
-// hides it as "(not available)"). Runs at container startup; read-only.
+// Diagnostic: reproduce the EXACT failing storefront query with the real
+// Prisma client + pg adapter, capture the SQL Prisma generates, and dump the
+// full error.meta (which Prisma hides as "(not available)" / "[Object]" in the
+// app logs). Runs at container startup; read-only.
 const { Pool } = require("pg");
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const connectionString = process.env.DATABASE_URL;
 
-const EXPECTED = {
-  Product: [
-    "id", "code", "slug", "name", "description", "seoTitle", "seoDescription",
-    "price", "baseCost", "retailMarginPct", "wholesaleMarginPct", "wholesalePrice",
-    "minWholesaleQty", "categoryId", "thumbnailUrl", "createdAt", "updatedAt",
-  ],
-  Category: [
-    "id", "name", "slug", "description", "seoTitle", "seoDescription", "logoUrl",
-    "isActive", "createdAt", "updatedAt",
-  ],
-  ProductImage: ["id", "productId", "url", "order", "createdAt"],
-  Supplier: ["id", "name", "email", "phone", "isActive", "createdAt", "updatedAt"],
-  ProductSupplier: [
-    "productId", "supplierId", "supplierSku", "supplierCost", "isPreferred",
-    "createdAt", "updatedAt",
-  ],
-};
-
-async function listColumns(table) {
-  const { rows } = await pool.query(
-    "select column_name from information_schema.columns where table_schema = 'public' and table_name = $1 order by ordinal_position",
-    [table],
-  );
-  return rows.map((r) => r.column_name);
-}
-
-async function tryQuery(label, sql) {
-  try {
-    await pool.query(sql);
-    console.log(`[probe] ${label}: OK`);
-  } catch (err) {
-    console.log(`[probe] ${label}: FAILED -> ${err.message}`);
+async function dumpColumns(pool) {
+  for (const table of ["Product", "Category", "ProductImage"]) {
+    const { rows } = await pool.query(
+      "select column_name from information_schema.columns where table_schema='public' and table_name=$1 order by ordinal_position",
+      [table],
+    );
+    console.log(`[${table}] columns: ${rows.map((r) => r.column_name).join(", ")}`);
   }
 }
 
 (async () => {
-  try {
-    console.log("==================== DB DIAGNOSTIC ====================");
-    for (const [table, expected] of Object.entries(EXPECTED)) {
-      const cols = await listColumns(table);
-      if (cols.length === 0) {
-        console.log(`[${table}] TABLE NOT FOUND`);
-        continue;
-      }
-      const missing = expected.filter((c) => !cols.includes(c));
-      console.log(`[${table}] columns: ${cols.join(", ")}`);
-      console.log(`[${table}] MISSING: ${missing.length ? missing.join(", ") : "(none)"}`);
-    }
+  console.log("==================== DB DIAGNOSTIC ====================");
 
-    // Reproduce the relation SELECTs Prisma runs for the storefront query.
-    console.log("---- reproducing storefront relation queries ----");
-    await tryQuery("Product scalars", 'SELECT "id","code","slug","name","description","seoTitle","seoDescription","price","baseCost","retailMarginPct","wholesaleMarginPct","wholesalePrice","minWholesaleQty","categoryId","thumbnailUrl","createdAt","updatedAt" FROM "Product" ORDER BY "createdAt" DESC LIMIT 4');
-    await tryQuery("Category scalars", 'SELECT "id","name","slug","description","seoTitle","seoDescription","logoUrl","isActive","createdAt","updatedAt" FROM "Category" LIMIT 4');
-    await tryQuery("ProductImage scalars", 'SELECT "id","productId","url","order","createdAt" FROM "ProductImage" ORDER BY "order" ASC LIMIT 4');
-    console.log("======================================================");
-  } catch (err) {
-    console.error("DB DIAGNOSTIC error:", err.message);
-  } finally {
-    await pool.end();
+  // 1) Patch the pool so we can see the SQL Prisma actually sends.
+  const pool = new Pool({ connectionString });
+  const originalQuery = pool.query.bind(pool);
+  let lastSql = null;
+  pool.query = (...args) => {
+    const text = typeof args[0] === "string" ? args[0] : args[0] && args[0].text;
+    if (text && !String(text).includes("information_schema")) lastSql = text;
+    return originalQuery(...args);
+  };
+
+  try {
+    await dumpColumns(pool);
+  } catch (e) {
+    console.log("column dump error:", e.message);
   }
+
+  // 2) Reproduce the exact storefront query with the real Prisma client.
+  try {
+    const { PrismaClient } = require("@prisma/client");
+    const { PrismaPg } = require("@prisma/adapter-pg");
+    const adapter = new PrismaPg(pool);
+    const prisma = new PrismaClient({ adapter, log: ["error"] });
+
+    console.log("---- running real prisma.product.findMany ----");
+    try {
+      const rows = await prisma.product.findMany({
+        orderBy: { createdAt: "desc" },
+        include: { category: true, images: { orderBy: { order: "asc" } } },
+      });
+      console.log(`[prisma] findMany OK (${rows.length} rows)`);
+    } catch (e) {
+      console.log("[prisma] findMany FAILED:", e.message);
+      console.log("[prisma] code:", e.code);
+      console.log("[prisma] meta:", JSON.stringify(e.meta));
+      console.log("[prisma] last SQL Prisma sent:", lastSql);
+    }
+    await prisma.$disconnect();
+  } catch (e) {
+    console.log("could not load prisma client:", e.message);
+  }
+
+  console.log("======================================================");
+  await pool.end();
 })();
