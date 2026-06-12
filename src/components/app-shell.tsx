@@ -14,12 +14,10 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { ModeToggle } from "@/components/mode-toggle";
-import { Navbar } from "@/components/navbar";
 import { NotificationBell } from "@/components/notification-bell";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import type { AdminModuleKey } from "@/lib/admin-module-access";
-import { cn } from "@/lib/utils";
 
 type InitialUser = {
   name?: string | null;
@@ -32,57 +30,34 @@ type AppShellProps = {
   children: React.ReactNode;
   initialUser: InitialUser | null;
   brandName: string;
-  storefrontLogoPath: string;
   adminModuleAccess: Record<AdminModuleKey, boolean>;
 };
 
-export function AppShell({ children, initialUser, brandName, storefrontLogoPath, adminModuleAccess }: AppShellProps) {
+export function AppShell({ children, initialUser, brandName, adminModuleAccess }: AppShellProps) {
   const { data } = useSession();
   const pathname = usePathname();
   const user = data?.user ?? initialUser;
-  const firstSegment = pathname.split("/").filter(Boolean)[0] ?? "";
-  const reservedStoreSegments = new Set([
-    "admin",
-    "api",
-    "cliente",
-    "cotizaciones",
-    "empleado",
-    "login",
-    "profile",
-    "register",
-    "robots.txt",
-    "sitemap.xml",
-    "unauthorized",
-    "verify-email",
-    "favicon.ico",
-  ]);
-  const isCategoryStorefrontPath = Boolean(firstSegment) && !reservedStoreSegments.has(firstSegment);
-  const showTopMenu =
-    pathname === "/" ||
-    pathname.startsWith("/productos") ||
-    pathname.startsWith("/categorias") ||
-    pathname.startsWith("/cotizaciones") ||
-    pathname.startsWith("/sales") ||
-    isCategoryStorefrontPath;
   const currentPage = pathname === "/"
     ? "Inicio"
     : pathname.startsWith("/admin/cotizaciones")
       ? "Cotizaciones"
-    : pathname.startsWith("/admin/categorias")
-      ? "Categorias"
-    : pathname.startsWith("/admin/proveedores")
-      ? "Proveedores"
-    : pathname.startsWith("/admin/ventas")
-      ? "Ventas"
-    : pathname.startsWith("/sales")
-      ? "Sales"
-    : pathname.startsWith("/admin/configuracion")
-      ? "Configuracion"
-      : pathname.startsWith("/admin/productos")
-        ? "Productos"
-        : pathname.startsWith("/profile")
-          ? "Perfil"
-          : "Dashboard";
+      : pathname.startsWith("/admin/categorias")
+        ? "Categorias"
+        : pathname.startsWith("/admin/proveedores")
+          ? "Proveedores"
+          : pathname.startsWith("/admin/ventas")
+            ? "Ventas"
+            : pathname.startsWith("/admin/configuracion")
+              ? "Configuracion"
+              : pathname.startsWith("/admin/productos")
+                ? "Productos"
+                : pathname.startsWith("/profile")
+                  ? "Perfil"
+                  : pathname.startsWith("/cliente")
+                    ? "Cliente"
+                    : pathname.startsWith("/empleado")
+                      ? "Empleado"
+                      : "Dashboard";
 
   const breadcrumbItems = (() => {
     if (pathname.startsWith("/admin/configuracion/usuarios")) {
@@ -147,92 +122,65 @@ export function AppShell({ children, initialUser, brandName, storefrontLogoPath,
     return [{ label: currentPage, href: "", isCurrent: true }];
   })();
 
-  if (showTopMenu) {
-    return (
-      <>
-        <Navbar
-          initialUser={initialUser}
-          brandName={brandName}
-          storefrontLogoPath={storefrontLogoPath}
-          adminModuleAccess={adminModuleAccess}
-        />
-        <main
-          suppressHydrationWarning
-          className={cn(
-            "mx-auto w-full max-w-6xl px-4 md:px-6",
-            "min-h-[calc(100vh-4rem)] pt-3 pb-8 md:pt-4 md:pb-10",
-          )}
-        >
-          {children}
-        </main>
-      </>
-    );
-  }
-
   if (user) {
     return (
       <SidebarProvider className="admin-print-shell" suppressHydrationWarning>
-          <AppSidebar
-            pathname={pathname}
-            user={{
-              name: user.name,
-              email: user.email,
-              image: user.image,
-              role: user.role,
-            }}
-            brandName={brandName}
-            adminModuleAccess={adminModuleAccess}
-            className="admin-print-sidebar"
-          />
-          <SidebarInset className="admin-print-inset">
-            <header className="admin-print-header flex h-12 shrink-0 items-center justify-between border-b border-[(--line)] bg-background">
-              <div className="flex items-center gap-2 px-4">
-                <SidebarTrigger className="-ml-1" />
-                <Separator
-                  orientation="vertical"
-                  className="mr-2 h-4"
-                />
-                <Breadcrumb>
-                  <BreadcrumbList>
-                    {breadcrumbItems.map((item, index) => (
-                      <Fragment key={`${item.label}-${index}`}>
-                        <BreadcrumbItem>
-                          {item.isCurrent ? (
-                            <BreadcrumbPage>{item.label}</BreadcrumbPage>
-                          ) : (
-                            <BreadcrumbLink href={item.href}>{item.label}</BreadcrumbLink>
-                          )}
-                        </BreadcrumbItem>
-                        {index < breadcrumbItems.length - 1 ? <BreadcrumbSeparator /> : null}
-                      </Fragment>
-                    ))}
-                  </BreadcrumbList>
-                </Breadcrumb>
-              </div>
-              <div className="flex items-center gap-1 px-4">
-                <NotificationBell />
-                <ModeToggle />
-              </div>
-            </header>
-            <main className="admin-print-main flex flex-1 flex-col p-3 md:p-4">
-              {children}
-            </main>
-          </SidebarInset>
+        <AppSidebar
+          pathname={pathname}
+          user={{
+            name: user.name,
+            email: user.email,
+            image: user.image,
+            role: user.role,
+          }}
+          brandName={brandName}
+          adminModuleAccess={adminModuleAccess}
+          className="admin-print-sidebar"
+        />
+        <SidebarInset className="admin-print-inset">
+          <header className="admin-print-header flex h-12 shrink-0 items-center justify-between border-b border-[(--line)] bg-background">
+            <div className="flex items-center gap-2 px-4">
+              <SidebarTrigger className="-ml-1" />
+              <Separator
+                orientation="vertical"
+                className="mr-2 h-4"
+              />
+              <Breadcrumb>
+                <BreadcrumbList>
+                  {breadcrumbItems.map((item, index) => (
+                    <Fragment key={`${item.label}-${index}`}>
+                      <BreadcrumbItem>
+                        {item.isCurrent ? (
+                          <BreadcrumbPage>{item.label}</BreadcrumbPage>
+                        ) : (
+                          <BreadcrumbLink href={item.href}>{item.label}</BreadcrumbLink>
+                        )}
+                      </BreadcrumbItem>
+                      {index < breadcrumbItems.length - 1 ? <BreadcrumbSeparator /> : null}
+                    </Fragment>
+                  ))}
+                </BreadcrumbList>
+              </Breadcrumb>
+            </div>
+            <div className="flex items-center gap-1 px-4">
+              <NotificationBell />
+              <ModeToggle />
+            </div>
+          </header>
+          <main className="admin-print-main flex flex-1 flex-col p-3 md:p-4">
+            {children}
+          </main>
+        </SidebarInset>
       </SidebarProvider>
     );
   }
 
   return (
-    <>
-      <main
-        suppressHydrationWarning
-        className={cn(
-          "mx-auto w-full max-w-6xl px-4 md:px-6",
-          "min-h-screen py-8 md:py-10",
-        )}
-      >
-        {children}
-      </main>
-    </>
+    <main
+      suppressHydrationWarning
+      className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-8 md:px-6 md:py-10"
+    >
+      {children}
+    </main>
   );
 }

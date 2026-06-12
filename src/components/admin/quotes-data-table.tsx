@@ -213,7 +213,6 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
     if (!pendingSale && saleLoadingToastRef.current) {
       toast.dismiss(saleLoadingToastRef.current);
       saleLoadingToastRef.current = null;
-      setDownPaymentAmount("");
     }
   }, [pendingSale]);
 
@@ -465,6 +464,7 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
         onOpenChange={(open) => {
           if (!open) {
             setPendingSale(null);
+            setDownPaymentAmount("");
           }
         }}
       >
@@ -552,7 +552,14 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
 
             <SheetFooter className="border-t border-border px-0 pt-4">
               <div className="flex items-center justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setPendingSale(null)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setPendingSale(null);
+                    setDownPaymentAmount("");
+                  }}
+                >
                   Cancelar
                 </Button>
                 <SaleSubmitButton />

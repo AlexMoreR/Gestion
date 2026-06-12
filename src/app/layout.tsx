@@ -2,9 +2,7 @@ import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import { Geist_Mono, Poppins } from "next/font/google";
 import { auth } from "@/auth";
-import { AppShell } from "@/components/app-shell";
 import { Providers } from "@/components/providers";
-import { getAdminModuleAccess } from "@/lib/admin-module-access";
 import { getPublicAssetUrl, getSiteUrl, siteConfig } from "@/lib/site";
 import {
   getSystemBrandName,
@@ -99,12 +97,9 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await auth();
-  const [primaryColor, primaryStrongColor, brandName, storefrontLogoPath, adminModuleAccess] = await Promise.all([
+  const [primaryColor, primaryStrongColor] = await Promise.all([
     getSystemPrimaryColor(),
     getSystemPrimaryStrongColor(),
-    getSystemBrandName(),
-    getSystemStorefrontLogoPath(),
-    getAdminModuleAccess(session?.user?.id, session?.user?.role),
   ]);
 
   return (
@@ -125,16 +120,7 @@ export default async function RootLayout({
             __html: `(function(){try{var t=localStorage.getItem('theme');if(!t){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}var r=document.documentElement;r.classList.toggle('dark',t==='dark');r.style.colorScheme=t;}catch(e){}})();`,
           }}
         />
-        <Providers session={session}>
-          <AppShell
-            initialUser={session?.user ?? null}
-            brandName={brandName}
-            storefrontLogoPath={storefrontLogoPath}
-            adminModuleAccess={adminModuleAccess}
-          >
-            {children}
-          </AppShell>
-        </Providers>
+        <Providers session={session}>{children}</Providers>
       </body>
     </html>
   );

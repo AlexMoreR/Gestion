@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { permanentRedirect } from "next/navigation";
-import { StorefrontCatalog, generateStorefrontMetadata } from "@/components/store/storefront-catalog";
+import { generateStorefrontMetadata } from "@/components/store/storefront-catalog";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {

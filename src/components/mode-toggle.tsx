@@ -1,11 +1,20 @@
 "use client";
 
 import { Moon, Sun } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "theme";
+
+function getInitialTheme(): "light" | "dark" {
+  if (typeof window === "undefined") {
+    return "light";
+  }
+
+  const stored = window.localStorage.getItem(STORAGE_KEY) as "light" | "dark" | null;
+  return stored ?? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+}
 
 function applyTheme(theme: "light" | "dark") {
   const root = document.documentElement;
@@ -14,15 +23,7 @@ function applyTheme(theme: "light" | "dark") {
 }
 
 export function ModeToggle({ className }: { className?: string }) {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY) as "light" | "dark" | null;
-    const initial = stored ?? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    setTheme(initial);
-    setMounted(true);
-  }, []);
+  const [theme, setTheme] = useState<"light" | "dark">(getInitialTheme);
 
   function toggle() {
     const next = theme === "dark" ? "light" : "dark";
@@ -40,9 +41,9 @@ export function ModeToggle({ className }: { className?: string }) {
       aria-label={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
       title={theme === "dark" ? "Modo claro" : "Modo oscuro"}
       className={cn("relative text-muted-foreground hover:text-foreground", className)}
+      suppressHydrationWarning
     >
-      {/* Renderizado tras montar para evitar desajuste de hidratacion */}
-      {mounted && theme === "dark" ? <Sun className="size-[1.15rem]" /> : <Moon className="size-[1.15rem]" />}
+      {theme === "dark" ? <Sun className="size-[1.15rem]" /> : <Moon className="size-[1.15rem]" />}
     </Button>
   );
 }
