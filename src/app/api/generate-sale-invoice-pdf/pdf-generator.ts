@@ -1,13 +1,11 @@
 import puppeteer from "puppeteer";
+import { getPdfBrowserLaunchOptions } from "@/lib/pdf-browser";
 
 export async function generateSaleInvoicePdf(targetUrl: string): Promise<Buffer> {
   let browser;
 
   try {
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
+    browser = await puppeteer.launch(await getPdfBrowserLaunchOptions());
 
     const page = await browser.newPage();
 
