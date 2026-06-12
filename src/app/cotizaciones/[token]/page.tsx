@@ -158,25 +158,32 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
             </div>
           </div>
 
-          <div>
-            <p
-              className={
-                isPdf
-                  ? "text-sm font-bold tracking-widest text-slate-500 uppercase"
-                  : "text-sm font-semibold tracking-widest text-blue-300 uppercase"
-              }
-            >
-              Cotización
-            </p>
-            <h1
-              className={
-                isPdf
-                  ? "text-lg font-extrabold tracking-tight text-slate-900"
-                  : "max-w-full break-all text-2xl font-extrabold leading-none tracking-tighter text-white sm:break-normal sm:text-3xl md:text-5xl"
-              }
-            >
-              {quote.code}
-            </h1>
+          <div className={isPdf ? "text-right" : undefined}>
+            <div className={isPdf ? "flex items-baseline justify-end gap-2" : undefined}>
+              <p
+                className={
+                  isPdf
+                    ? "text-base font-bold tracking-widest text-slate-700 uppercase"
+                    : "text-sm font-semibold tracking-widest text-blue-300 uppercase"
+                }
+              >
+                Cotización
+              </p>
+              <h1
+                className={
+                  isPdf
+                    ? "text-base font-bold tracking-tight text-slate-400"
+                    : "max-w-full break-all text-2xl font-extrabold leading-none tracking-tighter text-white sm:break-normal sm:text-3xl md:text-5xl"
+                }
+              >
+                {quote.code}
+              </h1>
+            </div>
+            {isPdf && (
+              <p className="text-[11px] font-semibold tracking-wide text-slate-500">
+                {companyInfo.cityOrigin}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -338,9 +345,16 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                             className="h-9 w-9 rounded-md object-cover border shrink-0"
                           />
                         )}
-                        <p className="font-semibold text-slate-900 leading-tight">
-                          {item.product.name}
-                        </p>
+                        <div className="leading-tight">
+                          <p className="font-semibold text-slate-900">
+                            {item.product.name}
+                          </p>
+                          {item.product.code && (
+                            <p className={isPdf ? "text-[10px] text-slate-400" : "text-xs text-slate-400"}>
+                              {item.product.code}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell

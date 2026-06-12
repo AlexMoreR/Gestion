@@ -41,7 +41,7 @@ export async function generateQuotePdf(targetUrl: string): Promise<Buffer> {
     }
 
     html {
-      zoom: 1.05;
+      zoom: 1.15;
     }
   `,
     });
