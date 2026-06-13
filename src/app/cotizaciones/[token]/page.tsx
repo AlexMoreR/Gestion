@@ -21,6 +21,7 @@ import { DownloadQuotePdfButton } from "@/components/quotes/download-quote-pdf-b
 import { formatMoney } from "@/lib/currency";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
+import { getPublicAssetUrl } from "@/lib/site";
 import {
   buildSystemWhatsAppHref,
   getSystemCurrency,
@@ -284,7 +285,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
             <Table
               className={
                 isPdf
-                  ? "border-collapse text-[11.5px] [&_td]:border [&_td]:border-black [&_th]:border [&_th]:border-black"
+                  ? "border-collapse text-[11.5px] [&_td]:border [&_td]:border-[0.25px] [&_td]:border-black [&_th]:border [&_th]:border-[0.25px] [&_th]:border-black"
                   : "min-w-[760px] border-collapse text-sm [&_td]:border [&_td]:border-black [&_td]:py-1.5 [&_td]:px-2 [&_th]:border [&_th]:border-black"
               }
             >
@@ -374,41 +375,79 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
             </Table>
       </div>
 
-      {/* ─── TOTALS + OBSERVATIONS ───────────────────────────────────── */}
-      <div
-        className={
-          isPdf
-            ? "flex gap-3 items-start"
-            : "flex flex-col md:flex-row gap-4 items-start"
-        }
-      >
-        {/* Observations */}
-        <div className="flex-1">
-          <Card
-            className={
-              isPdf
-                ? "border-slate-200 shadow-none h-full"
-                : "border-slate-200/60 bg-slate-50/30 h-full"
-            }
-          >
-            <CardHeader className={isPdf ? "py-1.5 px-3 pb-1" : "pb-2"}>
-              <CardTitle
+      {/* ─── OBSERVATIONS (table, mismo diseño que productos) ────────── */}
+      <div className={isPdf ? undefined : "overflow-x-auto md:mx-0"}>
+        <Table
+          className={
+            isPdf
+              ? "border-collapse text-[11.5px] [&_td]:border [&_td]:border-[0.25px] [&_td]:border-black [&_th]:border [&_th]:border-[0.25px] [&_th]:border-black"
+              : "min-w-[760px] border-collapse text-sm [&_td]:border [&_td]:border-black [&_td]:py-1.5 [&_td]:px-2 [&_th]:border [&_th]:border-black"
+          }
+        >
+          <TableHeader>
+            <TableRow>
+              <TableHead
+                colSpan={3}
                 className={
                   isPdf
-                    ? "text-[11px] font-bold uppercase tracking-widest text-slate-500"
-                    : "text-xs text-slate-400 uppercase tracking-widest font-semibold"
+                    ? "py-1.5 px-2 text-center font-bold uppercase tracking-widest text-slate-900"
+                    : "text-center font-bold uppercase tracking-widest text-slate-900"
                 }
               >
                 Observaciones
-              </CardTitle>
-            </CardHeader>
-            <CardContent className={isPdf ? "px-3 py-1 text-[11.5px] italic text-slate-600 leading-snug" : "text-sm text-slate-600 italic leading-relaxed"}>
-              Esta cotización refleja los requerimientos técnicos discutidos. Los precios están
-              sujetos a cambios según disponibilidad de inventario.
-            </CardContent>
-          </Card>
-        </div>
+              </TableHead>
+            </TableRow>
+            <TableRow className="bg-zinc-200 hover:bg-zinc-200 [&>th]:font-bold [&>th]:text-zinc-900">
+              <TableHead className={isPdf ? "py-1 px-2 w-12 text-center" : "w-24 text-center"}>
+                Imagen
+              </TableHead>
+              <TableHead className={isPdf ? "py-1 px-2" : ""}>Producto</TableHead>
+              <TableHead className={isPdf ? "py-1 px-2" : ""}>Observación</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {itemsWithMeta.map((item) => (
+              <TableRow key={item.id} className="transition-colors">
+                <TableCell className={isPdf ? "py-1 px-2 text-center" : "text-center"}>
+                  {item.product.thumbnailUrl ? (
+                    <img
+                      src={getPublicAssetUrl(item.product.thumbnailUrl)}
+                      alt={item.product.name}
+                      className={
+                        isPdf
+                          ? "h-8 w-8 rounded object-cover border mx-auto"
+                          : "h-12 w-12 rounded object-cover border mx-auto"
+                      }
+                    />
+                  ) : (
+                    "—"
+                  )}
+                </TableCell>
+                <TableCell className={isPdf ? "py-1 px-2" : ""}>
+                  <div className="leading-tight">
+                    <p className="font-semibold text-slate-900">{item.product.name}</p>
+                    {item.product.code && (
+                      <p className={isPdf ? "text-[10px] text-slate-400" : "text-xs text-slate-400"}>
+                        {item.product.code}
+                      </p>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className={isPdf ? "py-1 px-2" : ""}>
+                  {item.product.description?.trim() ? (
+                    <span className="text-slate-900">{item.product.description}</span>
+                  ) : (
+                    <span className="italic text-slate-400">(No hay ninguna observación)</span>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
 
+      {/* ─── TOTALS ──────────────────────────────────────────────────── */}
+      <div className="flex justify-end">
         {/* Totals breakdown */}
         <div className={isPdf ? "w-60 shrink-0 space-y-0.5" : "w-full md:w-72 space-y-1"}>
           <div
