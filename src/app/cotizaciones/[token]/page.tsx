@@ -285,7 +285,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
             <Table
               className={
                 isPdf
-                  ? "border-collapse text-[11.5px] [&_td]:border [&_td]:border-[0.25px] [&_td]:border-black [&_th]:border [&_th]:border-[0.25px] [&_th]:border-black"
+                  ? "border-collapse text-[11.5px] [&_td]:border [&_td]:border-[0.5px] [&_td]:border-slate-400 [&_th]:border [&_th]:border-[0.5px] [&_th]:border-slate-400"
                   : "min-w-[760px] border-collapse text-sm [&_td]:border [&_td]:border-black [&_td]:py-1.5 [&_td]:px-2 [&_th]:border [&_th]:border-black"
               }
             >
@@ -295,14 +295,14 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                     colSpan={5}
                     className={
                       isPdf
-                        ? "py-1.5 px-2 text-center font-bold uppercase tracking-widest text-slate-900"
-                        : "text-center font-bold uppercase tracking-widest text-slate-900"
+                        ? "py-1.5 px-2 text-center font-bold tracking-widest text-slate-900"
+                        : "text-center font-bold tracking-widest text-slate-900"
                     }
                   >
-                    Datos de Producto
+                    Datos de producto
                   </TableHead>
                 </TableRow>
-                <TableRow className="bg-zinc-200 hover:bg-zinc-200 [&>th]:font-bold [&>th]:text-zinc-900">
+                <TableRow className="bg-zinc-200 hover:bg-zinc-200 [&>th]:font-bold [&>th]:normal-case [&>th]:text-zinc-900">
                   <TableHead className={isPdf ? "py-1 px-2 text-center w-10" : "text-center w-16"}>
                     Cant
                   </TableHead>
@@ -380,7 +380,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
         <Table
           className={
             isPdf
-              ? "border-collapse text-[11.5px] [&_td]:border [&_td]:border-[0.25px] [&_td]:border-black [&_th]:border [&_th]:border-[0.25px] [&_th]:border-black"
+              ? "border-collapse text-[11.5px] [&_td]:border [&_td]:border-[0.5px] [&_td]:border-slate-400 [&_th]:border [&_th]:border-[0.5px] [&_th]:border-slate-400"
               : "min-w-[760px] border-collapse text-sm [&_td]:border [&_td]:border-black [&_td]:py-1.5 [&_td]:px-2 [&_th]:border [&_th]:border-black"
           }
         >
@@ -390,14 +390,14 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                 colSpan={3}
                 className={
                   isPdf
-                    ? "py-1.5 px-2 text-center font-bold uppercase tracking-widest text-slate-900"
-                    : "text-center font-bold uppercase tracking-widest text-slate-900"
+                    ? "py-1.5 px-2 text-center font-bold tracking-widest text-slate-900"
+                    : "text-center font-bold tracking-widest text-slate-900"
                 }
               >
                 Observaciones
               </TableHead>
             </TableRow>
-            <TableRow className="bg-zinc-200 hover:bg-zinc-200 [&>th]:font-bold [&>th]:text-zinc-900">
+            <TableRow className="bg-zinc-200 hover:bg-zinc-200 [&>th]:font-bold [&>th]:normal-case [&>th]:text-zinc-900">
               <TableHead className={isPdf ? "py-1 px-2 w-12 text-center" : "w-24 text-center"}>
                 Imagen
               </TableHead>
