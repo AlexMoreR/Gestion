@@ -126,7 +126,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
         className={
           isPdf
             ? "flex items-start justify-between border border-slate-300 rounded-lg p-3"
-            : "flex flex-row justify-between items-center overflow-hidden rounded-xl border border-slate-200/60 bg-card text-card-foreground shadow-sm p-6 md:p-8"
+            : "flex flex-row justify-between items-center overflow-hidden rounded-xl border border-slate-200/60 bg-card text-card-foreground shadow-sm p-4"
         }
       >
         {/* Brand + Quote number */}
@@ -159,12 +159,12 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
           </div>
 
           <div className={isPdf ? "text-right" : "text-right"}>
-            <div className={isPdf ? "flex items-baseline justify-end gap-2" : undefined}>
+            <div className="flex items-baseline justify-end gap-2">
               <p
                 className={
                   isPdf
                     ? "text-base font-bold tracking-widest text-slate-700 uppercase"
-                    : "text-sm font-semibold tracking-widest text-slate-400 uppercase"
+                    : "text-2xl font-bold tracking-tight text-slate-900 uppercase"
                 }
               >
                 Cotización
@@ -173,115 +173,54 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                 className={
                   isPdf
                     ? "text-base font-bold tracking-tight text-slate-400"
-                    : "max-w-full break-all text-2xl font-extrabold leading-none tracking-tighter text-slate-900 sm:break-normal sm:text-3xl md:text-4xl"
+                    : "max-w-full break-all text-2xl font-extrabold tracking-tight text-slate-400"
                 }
               >
                 {quote.code}
               </h1>
             </div>
-            {isPdf && (
+            {isPdf ? (
               <p className="text-[11px] font-semibold tracking-wide text-slate-500">
                 {companyInfo.cityOrigin}
               </p>
+            ) : (
+              <div className="flex items-center justify-end gap-1.5 text-sm font-semibold text-slate-500">
+                <Building2 className="h-4 w-4" /> {companyInfo.cityOrigin}
+              </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* ─── CLIENT + COMPANY INFO ───────────────────────────────────── */}
-      {isPdf ? (
-        /* PDF: compact 2-col table */
-        <table className="w-full border-collapse text-[12px]">
-          <tbody>
-            <tr>
-              <td className="border border-slate-200 bg-slate-50 p-2 font-semibold w-1/4">Cliente</td>
-              <td className="border border-slate-200 p-2 w-1/4">{quote.client.name}</td>
-              <td className="border border-slate-200 bg-slate-50 p-2 font-semibold w-1/4">Fecha emisión</td>
-              <td className="border border-slate-200 p-2 w-1/4">{issuedDate}</td>
-            </tr>
-            <tr>
-              <td className="border border-slate-200 bg-slate-50 p-2 font-semibold">Documento</td>
-              <td className="border border-slate-200 p-2">{clientDocument}</td>
-              <td className="border border-slate-200 bg-slate-50 p-2 font-semibold">Garantía</td>
-              <td className="border border-slate-200 p-2">{companyInfo.warranty}</td>
-            </tr>
-            <tr>
-              <td className="border border-slate-200 bg-slate-50 p-2 font-semibold">Ciudad</td>
-              <td className="border border-slate-200 p-2">{clientCity}</td>
-              <td className="border border-slate-200 bg-slate-50 p-2 font-semibold">Vigencia</td>
-              <td className="border border-slate-200 p-2">15 días</td>
-            </tr>
-            <tr>
-              <td className="border border-slate-200 bg-slate-50 p-2 font-semibold">Dirección</td>
-              <td className="border border-slate-200 p-2" colSpan={3}>{deliveryAddress}</td>
-            </tr>
-          </tbody>
-        </table>
-      ) : (
-        /* Web: two side-by-side cards */
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="border-slate-200/60">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-xs text-slate-400 uppercase tracking-widest">
-                <User className="h-3.5 w-3.5" /> Cliente
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="text-xl font-bold text-slate-900">
-                  {quote.client.name || "Por confirmar"}
-                </p>
-                <p className="text-sm text-slate-500">{clientDocument}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-slate-400 text-xs">Ciudad</p>
-                  <p className="font-semibold">{clientCity}</p>
-                </div>
-                <div>
-                  <p className="text-slate-400 text-xs">Dirección</p>
-                  <p className="font-semibold truncate">{deliveryAddress}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-slate-200/60">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-xs text-slate-400 uppercase tracking-widest">
-                <Building2 className="h-3.5 w-3.5" /> Empresa
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-slate-400 text-xs flex items-center gap-1">
-                  <Calendar className="h-3 w-3" /> Emisión
-                </p>
-                <p className="font-semibold">{issuedDate}</p>
-              </div>
-              <div>
-                <p className="text-slate-400 text-xs flex items-center gap-1">
-                  <MapPin className="h-3 w-3" /> Origen
-                </p>
-                <p className="font-semibold">{companyInfo.cityOrigin}</p>
-              </div>
-              <div>
-                <p className="text-slate-400 text-xs flex items-center gap-1">
-                  <ShieldCheck className="h-3 w-3" /> Garantía
-                </p>
-                <p className="font-semibold">{companyInfo.warranty}</p>
-              </div>
-              <div className="flex items-end">
-                <Badge variant="secondary" className="text-xs">Válida 15 días</Badge>
-              </div>
-            </CardContent>
-          </Card>
+      {/* ─── CLIENT + DESTINO (mismo diseño en web y PDF) ────────────── */}
+      <div className={isPdf ? "grid grid-cols-2 gap-3" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
+        <div className={isPdf ? "rounded-xl border border-slate-200 bg-white p-3" : "rounded-xl border border-slate-200 bg-white p-4 shadow-sm"}>
+          <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+            <User className="h-4 w-4" /> Cliente
+          </div>
+          <p className="text-xs font-semibold text-slate-900">
+            {quote.client.name || "Por confirmar"}
+          </p>
+          <p className="text-xs text-slate-500">CC/NIT: {clientDocument}</p>
+          <p className="text-xs text-slate-500">Teléfono: {quote.client.phone || "Por confirmar"}</p>
         </div>
-      )}
+
+        <div className={isPdf ? "rounded-xl border border-slate-200 bg-white p-3" : "rounded-xl border border-slate-200 bg-white p-4 shadow-sm"}>
+          <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+            <MapPin className="h-4 w-4" /> Destino
+          </div>
+          <p className="text-xs text-slate-500">Ciudad: {clientCity}</p>
+          <p className="text-xs text-slate-500">Dirección: {deliveryAddress}</p>
+          <p className="text-xs text-slate-500">Referencia: {quote.client.neighborhood || "Por confirmar"}</p>
+        </div>
+      </div>
 
       {/* ─── ITEMS TABLE ─────────────────────────────────────────────── */}
+      <h2 className={isPdf ? "text-center text-[13px] font-bold uppercase tracking-widest text-slate-900" : "text-center text-base font-bold uppercase tracking-widest text-slate-900"}>
+        Datos de producto
+      </h2>
       {/* overflow-x-auto solo aplica en web; en PDF la tabla siempre cabe en A4 */}
-      <div className={isPdf ? undefined : "overflow-x-auto md:mx-0"}>
+      <div className={isPdf ? "-mt-2" : "-mt-3 overflow-x-auto md:mx-0"}>
             <Table
               className={
                 isPdf
@@ -290,19 +229,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
               }
             >
               <TableHeader>
-                <TableRow>
-                  <TableHead
-                    colSpan={5}
-                    className={
-                      isPdf
-                        ? "py-1.5 px-2 text-center font-bold tracking-widest text-slate-900"
-                        : "text-center font-bold tracking-widest text-slate-900"
-                    }
-                  >
-                    Datos de producto
-                  </TableHead>
-                </TableRow>
-                <TableRow className="bg-zinc-200 hover:bg-zinc-200 [&>th]:font-bold [&>th]:normal-case [&>th]:text-zinc-900">
+                <TableRow className="bg-zinc-200 hover:bg-zinc-200 [&>th]:h-auto [&>th]:py-1 [&>th]:font-bold [&>th]:text-zinc-900">
                   <TableHead className={isPdf ? "py-1 px-2 text-center w-10" : "text-center w-16"}>
                     Cant
                   </TableHead>
@@ -376,7 +303,10 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
       </div>
 
       {/* ─── OBSERVATIONS (table, mismo diseño que productos) ────────── */}
-      <div className={isPdf ? undefined : "overflow-x-auto md:mx-0"}>
+      <h2 className={isPdf ? "text-center text-[13px] font-bold uppercase tracking-widest text-slate-900" : "text-center text-base font-bold uppercase tracking-widest text-slate-900"}>
+        Observaciones
+      </h2>
+      <div className={isPdf ? "-mt-2" : "-mt-3 overflow-x-auto md:mx-0"}>
         <Table
           className={
             isPdf
@@ -385,19 +315,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
           }
         >
           <TableHeader>
-            <TableRow>
-              <TableHead
-                colSpan={3}
-                className={
-                  isPdf
-                    ? "py-1.5 px-2 text-center font-bold tracking-widest text-slate-900"
-                    : "text-center font-bold tracking-widest text-slate-900"
-                }
-              >
-                Observaciones
-              </TableHead>
-            </TableRow>
-            <TableRow className="bg-zinc-200 hover:bg-zinc-200 [&>th]:font-bold [&>th]:normal-case [&>th]:text-zinc-900">
+            <TableRow className="bg-zinc-200 hover:bg-zinc-200 [&>th]:h-auto [&>th]:py-1 [&>th]:font-bold [&>th]:text-zinc-900">
               <TableHead className={isPdf ? "py-1 px-2 w-12 text-center" : "w-24 text-center"}>
                 Imagen
               </TableHead>
@@ -408,7 +326,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
           <TableBody>
             {itemsWithMeta.map((item) => (
               <TableRow key={item.id} className="transition-colors">
-                <TableCell className={isPdf ? "py-1 px-2 text-center" : "text-center"}>
+                <TableCell className={isPdf ? "p-0 text-center" : "text-center"}>
                   {item.product.thumbnailUrl ? (
                     <img
                       src={getPublicAssetUrl(item.product.thumbnailUrl)}
