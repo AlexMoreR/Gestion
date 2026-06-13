@@ -117,7 +117,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
     <main
       className={
         isPdf
-          ? "flex flex-col gap-3 p-4 bg-white text-slate-900 text-[13px]"
+          ? "flex flex-col gap-3 p-1 bg-white text-slate-900 text-[13px]"
           : "flex flex-col gap-4 pb-32"
       }
     >
@@ -379,18 +379,16 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
             <span className="font-medium">{formatMoney(String(subtotal), currency)}</span>
           </div>
 
-          {discount > 0 && (
-            <div
-              className={
-                isPdf
-                  ? "flex justify-between text-[12px] px-2 py-1 text-emerald-700"
-                  : "flex justify-between px-3 py-2 text-sm text-emerald-600"
-              }
-            >
-              <span>Descuento</span>
-              <span>−{formatMoney(String(discount), currency)}</span>
-            </div>
-          )}
+          <div
+            className={
+              isPdf
+                ? "flex justify-between text-[12px] px-2 py-1"
+                : "flex justify-between px-3 py-2 text-sm"
+            }
+          >
+            <span className="text-slate-500">Descuento</span>
+            <span className="font-medium">{discount > 0 ? "−" : ""}{formatMoney(String(discount), currency)}</span>
+          </div>
 
           {additionalCost > 0 && (
             <div
@@ -421,29 +419,14 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
       </div>
 
       {/* ─── POLICIES ────────────────────────────────────────────────── */}
-      {isPdf ? (
-        /* PDF: compact single card */
-        <Card className="border-slate-300 shadow-none">
-          <CardHeader className="py-1.5 px-3 pb-1">
-            <CardTitle className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
-              Condiciones Comerciales
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-3 py-1.5 text-[11px] leading-relaxed text-slate-600 space-y-0.5">
-            <p>• Vigencia de la oferta: 15 días desde la fecha de emisión.</p>
-            <p>• Garantía de {companyInfo.warranty} por defectos de fabricación.</p>
-            <p>• Revisar la mercancía en presencia del auxiliar al momento de la entrega.</p>
-            <p>• Reportar cualquier novedad dentro de los primeros 15 minutos de recibir el pedido.</p>
-            <p>• Garantías y soporte: WhatsApp {whatsAppPhoneDisplay}</p>
-          </CardContent>
-        </Card>
-      ) : (
-        /* Web: three policy cards in a row */
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Tres tarjetas de políticas (web y PDF) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="bg-white/50 border-slate-100">
             <CardContent className="p-4 space-y-2">
-              <Truck className="h-5 w-5 text-primary" />
-              <h3 className="font-bold text-sm text-slate-900">Despacho</h3>
+              <div className="flex items-center gap-2">
+                <Truck className="h-5 w-5 text-primary shrink-0" />
+                <h3 className={isPdf ? "font-bold text-[11px] text-slate-900" : "font-bold text-sm text-slate-900"}>Despacho</h3>
+              </div>
               <p className="text-xs text-slate-500 leading-relaxed">
                 El producto se despacha por medio de una empresa aliada en transporte. Los plazos
                 pueden variar por razones ajenas: cierres de vía, fallas mecánicas o datos
@@ -453,8 +436,10 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
           </Card>
           <Card className="bg-white/50 border-slate-100">
             <CardContent className="p-4 space-y-2">
-              <ShieldCheck className="h-5 w-5 text-emerald-600" />
-              <h3 className="font-bold text-sm text-slate-900">Garantías por Manipulación</h3>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
+                <h3 className={isPdf ? "font-bold text-[11px] text-slate-900" : "font-bold text-sm text-slate-900"}>Garantías por Manipulación</h3>
+              </div>
               <p className="text-xs text-slate-500 leading-relaxed">
                 Revise el pedido en presencia del auxiliar. Reporte novedades dentro de los primeros
                 15 minutos al{" "}
@@ -471,8 +456,10 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
           </Card>
           <Card className="bg-white/50 border-slate-100">
             <CardContent className="p-4 space-y-2">
-              <Wrench className="h-5 w-5 text-amber-600" />
-              <h3 className="font-bold text-sm text-slate-900">Defectos de Fabricación</h3>
+              <div className="flex items-center gap-2">
+                <Wrench className="h-5 w-5 text-amber-600 shrink-0" />
+                <h3 className={isPdf ? "font-bold text-[11px] text-slate-900" : "font-bold text-sm text-slate-900"}>Defectos de Fabricación</h3>
+              </div>
               <p className="text-xs text-slate-500 leading-relaxed">
                 Envíe fotos y videos al{" "}
                 <Link
@@ -488,7 +475,6 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
             </CardContent>
           </Card>
         </div>
-      )}
 
       {/* ─── FEATURE GRID (web only) ─────────────────────────────────── */}
       {!isPdf && (
@@ -519,8 +505,10 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
               key={title}
               className="rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-[0_16px_34px_-30px_rgba(15,23,42,0.4)]"
             >
-              {icon}
-              <p className="mt-2 text-sm font-semibold text-slate-900">{title}</p>
+              <div className="flex items-center gap-2">
+                <span className="shrink-0">{icon}</span>
+                <p className="text-sm font-semibold text-slate-900">{title}</p>
+              </div>
               <p className="mt-1 text-xs text-slate-500 leading-relaxed">{desc}</p>
             </Card>
           ))}
@@ -570,7 +558,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
       {/* ─── FOOTER ──────────────────────────────────────────────────── */}
       {isPdf ? (
         <footer className="border-t border-slate-200 pt-2 text-center text-[10px] text-slate-400">
-          Magilus · {whatsAppPhoneDisplay} · comercial@innovacionesmagi.com · innovacionesmagi.com
+          Magilus · {whatsAppPhoneDisplay} · comercial@magilus.com · magilus.com
         </footer>
       ) : (
         <footer className="pt-6 pb-2 text-center space-y-3">
@@ -582,8 +570,8 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
           </div>
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-1.5 text-[10px] text-slate-400 font-medium uppercase tracking-widest">
             <span>Tel: {whatsAppPhoneDisplay}</span>
-            <span>comercial@innovacionesmagi.com</span>
-            <span>innovacionesmagi.com</span>
+            <span>comercial@magilus.com</span>
+            <span>magilus.com</span>
           </div>
         </footer>
       )}

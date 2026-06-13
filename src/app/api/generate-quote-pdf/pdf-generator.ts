@@ -37,7 +37,7 @@ export async function generateQuotePdf(targetUrl: string): Promise<Buffer> {
       content: `
     @page {
       size: A4;
-      margin: 6mm;
+      margin: 4mm;
     }
 
     html {
@@ -51,10 +51,10 @@ export async function generateQuotePdf(targetUrl: string): Promise<Buffer> {
       printBackground: true,
       preferCSSPageSize: true,
       margin: {
-        top: "8mm",
-        bottom: "8mm",
-        left: "8mm",
-        right: "8mm",
+        top: "5mm",
+        bottom: "5mm",
+        left: "5mm",
+        right: "5mm",
       },
     });
 
