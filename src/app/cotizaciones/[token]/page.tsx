@@ -118,7 +118,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
       className={
         isPdf
           ? "flex flex-col gap-3 p-1 bg-white text-slate-900 text-[13px]"
-          : "flex flex-col gap-4 pb-32"
+          : "flex flex-col gap-4 p-4 pb-32"
       }
     >
       {/* ─── HEADER ──────────────────────────────────────────────────── */}
