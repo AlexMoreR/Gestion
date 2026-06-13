@@ -21,7 +21,6 @@ import { DownloadQuotePdfButton } from "@/components/quotes/download-quote-pdf-b
 import { formatMoney } from "@/lib/currency";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
-import { getPublicAssetUrl } from "@/lib/site";
 import {
   buildSystemWhatsAppHref,
   getSystemCurrency,
@@ -126,11 +125,11 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
         className={
           isPdf
             ? "flex items-start justify-between border border-slate-300 rounded-lg p-3"
-            : "flex flex-row justify-between items-center overflow-hidden rounded-2xl bg-linear-to-br from-slate-900 via-blue-950 to-teal-900 text-white shadow-2xl p-6 md:p-10"
+            : "flex flex-row justify-between items-center overflow-hidden rounded-xl border border-slate-200/60 bg-card text-card-foreground shadow-sm p-6 md:p-8"
         }
       >
         {/* Brand + Quote number */}
-        <div className="flex flex-row justify-between w-full gap-3">
+        <div className="flex flex-row justify-between items-center w-full gap-3">
           <div className="flex items-center gap-3">
             <div
               className={
@@ -147,24 +146,24 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                 className={
                   isPdf
                     ? "text-base font-bold text-slate-900"
-                    : "text-xl font-bold text-white tracking-tight"
+                    : "text-xl font-bold text-slate-900 tracking-tight"
                 }
               >
                 Magilus
               </p>
-              <p className={isPdf ? "text-[11px] text-slate-500" : "text-xs text-blue-200/70"}>
+              <p className={isPdf ? "text-[11px] text-slate-500" : "text-xs text-slate-500"}>
                 NIT {companyInfo.nit}
               </p>
             </div>
           </div>
 
-          <div className={isPdf ? "text-right" : undefined}>
+          <div className={isPdf ? "text-right" : "text-right"}>
             <div className={isPdf ? "flex items-baseline justify-end gap-2" : undefined}>
               <p
                 className={
                   isPdf
                     ? "text-base font-bold tracking-widest text-slate-700 uppercase"
-                    : "text-sm font-semibold tracking-widest text-blue-300 uppercase"
+                    : "text-sm font-semibold tracking-widest text-slate-400 uppercase"
                 }
               >
                 Cotización
@@ -173,7 +172,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                 className={
                   isPdf
                     ? "text-base font-bold tracking-tight text-slate-400"
-                    : "max-w-full break-all text-2xl font-extrabold leading-none tracking-tighter text-white sm:break-normal sm:text-3xl md:text-5xl"
+                    : "max-w-full break-all text-2xl font-extrabold leading-none tracking-tighter text-slate-900 sm:break-normal sm:text-3xl md:text-4xl"
                 }
               >
                 {quote.code}
@@ -280,43 +279,35 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
       )}
 
       {/* ─── ITEMS TABLE ─────────────────────────────────────────────── */}
-      <Card
-        className={
-          isPdf
-            ? "border-slate-300 shadow-none overflow-hidden"
-            : "border-slate-200/60 shadow-sm overflow-hidden"
-        }
-      >
-        <CardHeader
-          className={
-            isPdf
-              ? "border-b border-slate-200 bg-slate-50 py-2 px-3"
-              : "border-b bg-slate-50/50 py-3"
-          }
-        >
-          <CardTitle
-            className={
-              isPdf
-                ? "text-center text-[12px] font-bold tracking-widest text-slate-600 uppercase"
-                : "text-center text-xs font-bold tracking-widest text-slate-500 uppercase"
-            }
-          >
-            Desglose de Productos
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {/* overflow-x-auto solo aplica en web; en PDF la tabla siempre cabe en A4 */}
-          <div className={isPdf ? undefined : "-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0"}>
-            <Table className={isPdf ? "text-[11.5px]" : "min-w-[760px] text-sm"}>
+      {/* overflow-x-auto solo aplica en web; en PDF la tabla siempre cabe en A4 */}
+      <div className={isPdf ? undefined : "overflow-x-auto md:mx-0"}>
+            <Table
+              className={
+                isPdf
+                  ? "border-collapse text-[11.5px] [&_td]:border [&_td]:border-black [&_th]:border [&_th]:border-black"
+                  : "min-w-[760px] border-collapse text-sm [&_td]:border [&_td]:border-black [&_td]:py-1.5 [&_td]:px-2 [&_th]:border [&_th]:border-black"
+              }
+            >
               <TableHeader>
-                <TableRow className="bg-slate-50/50 hover:bg-slate-50/50 whitespace-nowrap">
-                  <TableHead className={isPdf ? "py-1 px-2 w-6" : "w-10"}>#</TableHead>
-                  <TableHead className={isPdf ? "py-1 px-2" : ""}>Producto</TableHead>
-                  <TableHead className={isPdf ? "py-1 px-2" : "text-slate-500"}>
-                    Descripción
+                <TableRow>
+                  <TableHead
+                    colSpan={5}
+                    className={
+                      isPdf
+                        ? "py-1.5 px-2 text-center font-bold uppercase tracking-widest text-slate-900"
+                        : "text-center font-bold uppercase tracking-widest text-slate-900"
+                    }
+                  >
+                    Datos de Producto
                   </TableHead>
-                  <TableHead className={isPdf ? "py-1 px-2 text-center" : "text-center"}>
-                    Cant.
+                </TableRow>
+                <TableRow className="bg-zinc-200 hover:bg-zinc-200 [&>th]:font-bold [&>th]:text-zinc-900">
+                  <TableHead className={isPdf ? "py-1 px-2 text-center w-10" : "text-center w-16"}>
+                    Cant
+                  </TableHead>
+                  <TableHead className={isPdf ? "py-1 px-2" : ""}>Producto</TableHead>
+                  <TableHead className={isPdf ? "py-1 px-2" : ""}>
+                    Descripción
                   </TableHead>
                   <TableHead className={isPdf ? "py-1 px-2 text-right" : "text-right"}>
                     Unitario
@@ -327,53 +318,37 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {itemsWithMeta.map((item, idx) => (
+                {itemsWithMeta.map((item) => (
                   <TableRow key={item.id} className="transition-colors">
-                    <TableCell
-                      className={
-                        isPdf ? "py-1 px-2 text-slate-400 font-medium" : "text-slate-400 font-medium"
-                      }
-                    >
-                      {String(idx + 1).padStart(2, "0")}
-                    </TableCell>
-                    <TableCell className={isPdf ? "py-1 px-2" : ""}>
-                      <div className="flex items-center gap-2">
-                        {item.product.thumbnailUrl && (
-                          <img
-                            src={getPublicAssetUrl(item.product.thumbnailUrl)}
-                            alt={item.product.name}
-                            className="h-9 w-9 rounded-md object-cover border shrink-0"
-                          />
-                        )}
-                        <div className="leading-tight">
-                          <p className="font-semibold text-slate-900">
-                            {item.product.name}
-                          </p>
-                          {item.product.code && (
-                            <p className={isPdf ? "text-[10px] text-slate-400" : "text-xs text-slate-400"}>
-                              {item.product.code}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell
-                      className={
-                        isPdf
-                          ? "py-1 px-2 text-slate-500 max-w-[160px]"
-                          : "text-slate-500 max-w-[240px]"
-                      }
-                    >
-                      <span className={isPdf ? "line-clamp-2" : "line-clamp-2"}>
-                        {item.meta.description || "—"}
-                      </span>
-                    </TableCell>
                     <TableCell
                       className={
                         isPdf ? "py-1 px-2 text-center font-bold" : "text-center font-bold text-slate-700"
                       }
                     >
                       {item.quantity}
+                    </TableCell>
+                    <TableCell className={isPdf ? "py-1 px-2" : ""}>
+                      <div className="leading-tight">
+                        <p className="font-semibold text-slate-900">
+                          {item.product.name}
+                        </p>
+                        {item.product.code && (
+                          <p className={isPdf ? "text-[10px] text-slate-400" : "text-xs text-slate-400"}>
+                            {item.product.code}
+                          </p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell
+                      className={
+                        isPdf
+                          ? "py-1 px-2 text-slate-900 max-w-[160px]"
+                          : "text-slate-900 max-w-[240px]"
+                      }
+                    >
+                      <span className={isPdf ? "line-clamp-2" : "line-clamp-2"}>
+                        {item.meta.description || "—"}
+                      </span>
                     </TableCell>
                     <TableCell
                       className={
@@ -397,9 +372,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                 ))}
               </TableBody>
             </Table>
-          </div>
-        </CardContent>
-      </Card>
+      </div>
 
       {/* ─── TOTALS + OBSERVATIONS ───────────────────────────────────── */}
       <div
