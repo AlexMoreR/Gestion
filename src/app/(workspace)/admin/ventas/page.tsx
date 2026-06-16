@@ -3,8 +3,20 @@ import { auth } from "@/auth";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { SalesWorkspace } from "@/components/admin/sales-workspace";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
+import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { getSystemCurrency } from "@/lib/system-settings";
+
+type SaleWithDiscountFields = {
+  grossTotal?: unknown;
+  discountAmount?: unknown;
+  quote: {
+    total: unknown;
+  };
+  salePayments?: Array<{
+    amount: unknown;
+  }>;
+};
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -32,6 +44,9 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
         client: true,
         quote: true,
         order: true,
+        salePayments: {
+          orderBy: { sortOrder: "asc" },
+        },
       },
       take: 200,
     }),
@@ -40,11 +55,18 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
 
   const stats = sales.reduce(
     (acc, sale) => {
+      const saleWithDiscount = sale as SaleWithDiscountFields;
+      const grossTotal = Number(saleWithDiscount.grossTotal ?? sale.quote.total);
+      const discountAmount = Number(saleWithDiscount.discountAmount ?? 0);
       const capital = Number(sale.total);
-      const downPayment = Number(sale.downPaymentAmount);
+      const downPayment = Array.isArray(saleWithDiscount.salePayments)
+        ? saleWithDiscount.salePayments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0)
+        : Number(sale.downPaymentAmount);
       const remaining = Math.max(capital - downPayment, 0);
 
       acc.salesCount += 1;
+      acc.grossTotal += grossTotal;
+      acc.discountTotal += discountAmount;
       acc.capitalTotal += capital;
       acc.downPaymentTotal += downPayment;
       acc.remainingTotal += remaining;
@@ -56,12 +78,16 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
     },
     {
       salesCount: 0,
+      grossTotal: 0,
+      discountTotal: 0,
       capitalTotal: 0,
       downPaymentTotal: 0,
       remainingTotal: 0,
       paidSalesCount: 0,
     },
   );
+
+  const format = (value: number) => formatMoney(value, currency);
 
   return (
     <section className="w-full space-y-4">
@@ -74,15 +100,24 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
 
       <SalesWorkspace
         currency={currency}
-        stats={stats}
         sales={sales.map((sale) => ({
           id: sale.id,
           code: sale.code,
           quoteCode: sale.quote.code,
           clientName: sale.client.name || sale.client.email,
           total: Number(sale.total),
-          downPaymentAmount: Number(sale.downPaymentAmount),
-          remainingBalance: Math.max(Number(sale.total) - Number(sale.downPaymentAmount), 0),
+          grossTotal: Number((sale as SaleWithDiscountFields).grossTotal ?? sale.quote.total),
+          discountAmount: Number((sale as SaleWithDiscountFields).discountAmount ?? 0),
+          downPaymentAmount: Array.isArray((sale as SaleWithDiscountFields).salePayments)
+            ? (sale as SaleWithDiscountFields).salePayments!.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0)
+            : Number(sale.downPaymentAmount),
+          remainingBalance: Math.max(
+            Number(sale.total) -
+              (Array.isArray((sale as SaleWithDiscountFields).salePayments)
+                ? (sale as SaleWithDiscountFields).salePayments!.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0)
+                : Number(sale.downPaymentAmount)),
+            0,
+          ),
           status: sale.status,
           createdAt: sale.createdAt.toLocaleDateString("es-CO"),
           invoiceToken: sale.invoiceToken,
@@ -90,6 +125,15 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
           paymentReceiptType: sale.paymentReceiptType,
           hasOrder: Boolean(sale.order),
         }))}
+        stats={{
+          salesCount: stats.salesCount,
+          grossTotal: format(stats.grossTotal),
+          discountTotal: format(stats.discountTotal),
+          capitalTotal: format(stats.capitalTotal),
+          downPaymentTotal: format(stats.downPaymentTotal),
+          remainingTotal: format(stats.remainingTotal),
+          paidSalesCount: stats.paidSalesCount,
+        }}
       />
     </section>
   );

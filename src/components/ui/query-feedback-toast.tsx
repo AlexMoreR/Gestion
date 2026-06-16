@@ -26,6 +26,8 @@ export function QueryFeedbackToast({
 
     lastKeyRef.current = key;
 
+    toast.dismiss();
+
     if (okMessage) {
       toast.success(okTitle, {
         description: okMessage,

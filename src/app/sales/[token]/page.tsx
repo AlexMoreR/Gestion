@@ -24,6 +24,95 @@ import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { prisma } from "@/lib/prisma";
 
+type SaleWithDiscountFields = {
+  grossTotal?: unknown;
+  discountAmount?: unknown;
+  salePayments?: Array<{
+    amount?: unknown;
+    paymentMethod?: unknown;
+    note?: unknown;
+    receiptUrl?: unknown;
+    receiptName?: unknown;
+    receiptType?: unknown;
+  }>;
+  paymentReceipts?: unknown;
+  quote: {
+    total: unknown;
+  };
+};
+
+type SaleReceiptSummary = {
+  amount: number;
+  paymentMethod: string;
+  note: string | null;
+  receiptUrl: string | null;
+  receiptName: string | null;
+  receiptType: string | null;
+};
+
+function parseSaleReceipts(raw: unknown): SaleReceiptSummary[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return raw
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+
+      const candidate = item as Partial<SaleReceiptSummary> & { amount?: unknown };
+      const amount = Number(candidate.amount ?? 0);
+      const paymentMethod = typeof candidate.paymentMethod === "string" ? candidate.paymentMethod : "";
+      const note = typeof candidate.note === "string" && candidate.note.trim() ? candidate.note.trim() : null;
+      const receiptUrl = typeof candidate.receiptUrl === "string" && candidate.receiptUrl.trim() ? candidate.receiptUrl.trim() : null;
+      const receiptName = typeof candidate.receiptName === "string" && candidate.receiptName.trim() ? candidate.receiptName.trim() : null;
+      const receiptType = typeof candidate.receiptType === "string" && candidate.receiptType.trim() ? candidate.receiptType.trim() : null;
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return null;
+      }
+
+      return {
+        amount,
+        paymentMethod,
+        note,
+        receiptUrl,
+        receiptName,
+        receiptType,
+      };
+    })
+    .filter((item): item is SaleReceiptSummary => Boolean(item));
+}
+
+function extractSaleReceipts(sale: SaleWithDiscountFields): SaleReceiptSummary[] {
+  if (Array.isArray(sale.salePayments) && sale.salePayments.length > 0) {
+    return sale.salePayments
+      .map((item) => {
+        const amount = Number(item.amount ?? 0);
+        const paymentMethod = typeof item.paymentMethod === "string" ? item.paymentMethod : "";
+        const note = typeof item.note === "string" && item.note.trim() ? item.note.trim() : null;
+        const receiptUrl = typeof item.receiptUrl === "string" && item.receiptUrl.trim() ? item.receiptUrl.trim() : null;
+        const receiptName = typeof item.receiptName === "string" && item.receiptName.trim() ? item.receiptName.trim() : null;
+        const receiptType = typeof item.receiptType === "string" && item.receiptType.trim() ? item.receiptType.trim() : null;
+
+        if (!Number.isFinite(amount) || amount <= 0) {
+          return null;
+        }
+
+        return {
+          amount,
+          paymentMethod,
+          note,
+          receiptUrl,
+          receiptName,
+          receiptType,
+        };
+      })
+      .filter((item): item is SaleReceiptSummary => Boolean(item));
+  }
+
+  return parseSaleReceipts(sale.paymentReceipts);
+}
+
 type PageProps = {
   params: Promise<{ token: string }>;
   searchParams: Promise<{ pdf?: string }>;
@@ -93,6 +182,9 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
             },
           },
         },
+        salePayments: {
+          orderBy: { sortOrder: "asc" },
+        },
       },
     }),
     getSystemCurrency(),
@@ -102,18 +194,21 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
     notFound();
   }
 
-  const receiptUrl = getPublicAssetUrl(sale.paymentReceiptUrl);
-  const receiptIsImage = sale.paymentReceiptType?.startsWith("image/");
+  const receiptUrl = sale.paymentReceiptUrl ? getPublicAssetUrl(sale.paymentReceiptUrl) : "";
   const issuedDate = sale.createdAt.toLocaleDateString("es-CO", { dateStyle: "long" });
   const clientName = sale.client.name || sale.client.email;
   const clientDocument = sale.client.document || "";
   const clientCity = sale.client.city || "";
   const deliveryAddress = sale.client.address || "";
+  const saleWithDiscount = sale as SaleWithDiscountFields;
+  const grossTotal = Number(saleWithDiscount.grossTotal ?? sale.quote.total);
+  const discountAmount = Number(saleWithDiscount.discountAmount ?? 0);
   const capital = Number(sale.total);
   const downPayment = Number(sale.downPaymentAmount);
   const remainingBalance = Math.max(capital - downPayment, 0);
   const paymentProgress = capital > 0 ? Math.min((downPayment / capital) * 100, 100) : 0;
   const hasBalance = downPayment > 0 || remainingBalance > 0;
+  const receiptSummary = extractSaleReceipts(saleWithDiscount);
 
   return (
     <main className={isPdf ? "flex flex-col gap-4 bg-white p-4 text-[#1A1A2E]" : "mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 md:px-6"}>
@@ -220,6 +315,18 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
                     <td className="border border-slate-200 p-2 text-right">{formatMoney(Number(sale.subtotal), currency)}</td>
                   </tr>
                 )}
+                {discountAmount > 0 && (
+                  <tr>
+                    <td className="border border-slate-200 bg-slate-50 p-2 font-semibold text-right">Descuento</td>
+                    <td className="border border-slate-200 p-2 text-right">- {formatMoney(discountAmount, currency)}</td>
+                  </tr>
+                )}
+                {grossTotal !== capital && (
+                  <tr>
+                    <td className="border border-slate-200 bg-slate-50 p-2 font-semibold text-right">Valor bruto</td>
+                    <td className="border border-slate-200 p-2 text-right">{formatMoney(grossTotal, currency)}</td>
+                  </tr>
+                )}
                 <tr>
                   <td className="p-3 text-right text-slate-500 font-bold uppercase text-[10px]">Total a Pagar</td>
                   <td className="p-3 text-right text-xl font-black text-[#1A1A2E] border-l border-slate-200 bg-slate-50">
@@ -247,6 +354,34 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
           </section>
 
           {/* FOOTER GARANTÍA Y RESPALDO */}
+          {receiptSummary.length > 0 ? (
+            <section className="rounded-lg border border-slate-200 overflow-hidden">
+              <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+                <h3 className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Detalle de abonos</h3>
+              </div>
+              <table className="w-full border-collapse text-[11px]">
+                <thead>
+                  <tr className="bg-white">
+                    <th className="border-b border-slate-200 p-2 text-left text-slate-700 font-semibold">#</th>
+                    <th className="border-b border-slate-200 p-2 text-left text-slate-700 font-semibold">Metodo</th>
+                    <th className="border-b border-slate-200 p-2 text-left text-slate-700 font-semibold">Comprobante</th>
+                    <th className="border-b border-slate-200 p-2 text-right text-slate-700 font-semibold">Monto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {receiptSummary.map((receipt, index) => (
+                    <tr key={`${receipt.paymentMethod}-${index}`} className="border-b border-slate-100">
+                      <td className="p-2">{index + 1}</td>
+                      <td className="p-2">{receipt.paymentMethod || "N/A"}</td>
+                      <td className="p-2">{receipt.receiptName || "Sin comprobante"}</td>
+                      <td className="p-2 text-right font-semibold">{formatMoney(receipt.amount, currency)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          ) : null}
+
           <footer className="mt-auto pt-8 border-t border-slate-100">
             <div className="rounded-xl bg-[#F4F4F6] p-6 text-center">
               <p className="text-[11px] leading-relaxed text-slate-600 mb-4 italic">
@@ -337,36 +472,35 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-xs uppercase tracking-[0.26em] text-muted-foreground">
                   <BadgeDollarSign className="h-3.5 w-3.5" />
-                  Resumen  de la factura
+                  Resumen de la factura
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 text-sm">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Cotizacion</p>
-                    <p className="font-medium text-foreground">{sale.quote.code}</p>
+                <div className="space-y-2 rounded-2xl border border-border bg-muted/20 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Capital bruto</span>
+                    <span className="font-medium text-foreground">{formatMoney(grossTotal, currency)}</span>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Comprobante</p>
-                    <p className="font-medium text-foreground">{receiptIsImage ? "Image" : "PDF"}</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Descuento</span>
+                    <span className="font-medium text-foreground">
+                      {discountAmount > 0 ? `- ${formatMoney(discountAmount, currency)}` : formatMoney(0, currency)}
+                    </span>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Capital</p>
-                    <p className="font-medium text-foreground">{formatMoney(capital, currency)}</p>
+                  <div className="flex items-center justify-between gap-3 border-t border-border pt-2">
+                    <span className="font-medium text-foreground">Capital neto</span>
+                    <span className="font-semibold text-foreground">{formatMoney(capital, currency)}</span>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Deposito</p>
-                    <p className="font-medium text-foreground">{formatMoney(downPayment, currency)}</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Abonos</span>
+                    <span className="font-medium text-foreground">{formatMoney(downPayment, currency)}</span>
                   </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Restante</p>
-                    <p className="font-semibold text-foreground">{formatMoney(remainingBalance, currency)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Total</p>
-                    <p className="font-semibold text-foreground">{formatMoney(capital, currency)}</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Saldo pendiente</span>
+                    <span className="font-semibold text-foreground">{formatMoney(remainingBalance, currency)}</span>
                   </div>
                 </div>
+
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>Progreso de pago</span>
@@ -379,19 +513,87 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
                 {hasBalance ? (
                   <div className="grid gap-3 rounded-2xl border border-border bg-muted/30 p-4 sm:grid-cols-2">
                     <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Abono</p>
-                      <p className="mt-1 text-lg font-semibold text-foreground">
-                        {formatMoney(downPayment, currency)}
-                      </p>
+                      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Abono actual</p>
+                      <p className="mt-1 text-lg font-semibold text-foreground">{formatMoney(downPayment, currency)}</p>
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Saldo pendiente</p>
-                      <p className="mt-1 text-lg font-semibold text-foreground">
-                        {formatMoney(remainingBalance, currency)}
-                      </p>
+                      <p className="mt-1 text-lg font-semibold text-foreground">{formatMoney(remainingBalance, currency)}</p>
                     </div>
                   </div>
                 ) : null}
+
+                {receiptSummary.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Abonos registrados</p>
+                    <div className="overflow-hidden rounded-2xl border border-border">
+                      <div className="divide-y divide-border">
+                        {receiptSummary.map((receipt, index) => (
+                          <div key={`${receipt.paymentMethod}-${index}`} className="grid gap-2 bg-card p-3 text-sm sm:grid-cols-[auto_1fr_auto] sm:items-center">
+                            <div className="font-medium text-foreground">#{index + 1}</div>
+                            <div className="min-w-0 space-y-0.5">
+                              <p className="font-medium text-foreground">
+                                {receipt.paymentMethod || "Metodo no informado"}
+                                {receipt.note ? ` · ${receipt.note}` : ""}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {receipt.receiptName || "Sin comprobante"} {receipt.receiptType ? `· ${receipt.receiptType}` : ""}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-start gap-1 sm:items-end">
+                              <p className="font-semibold text-foreground">{formatMoney(receipt.amount, currency)}</p>
+                              {receipt.receiptUrl ? (
+                                <a
+                                  href={getPublicAssetUrl(receipt.receiptUrl)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-xs text-primary underline-offset-4 hover:underline"
+                                >
+                                  Ver comprobante
+                                </a>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Sin archivo</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+
+            <Card className="border-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-xs uppercase tracking-[0.26em] text-muted-foreground">
+                  <ReceiptText className="h-3.5 w-3.5" />
+                  Secuencia de abonos
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                {receiptSummary.length > 0 ? (
+                  receiptSummary.map((receipt, index) => (
+                    <div key={`${receipt.paymentMethod}-${index}`} className="rounded-2xl border border-border bg-muted/20 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-semibold text-foreground">Abono #{index + 1}</p>
+                        <p className="font-semibold text-foreground">{formatMoney(receipt.amount, currency)}</p>
+                      </div>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        <p className="text-xs text-muted-foreground">
+                          Metodo: <span className="font-medium text-foreground">{receipt.paymentMethod || "N/A"}</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Comprobante:{" "}
+                          <span className="font-medium text-foreground">{receipt.receiptName || "Sin comprobante"}</span>
+                        </p>
+                      </div>
+                      {receipt.note ? <p className="mt-2 text-xs text-muted-foreground">{receipt.note}</p> : null}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">No hay abonos registrados.</p>
+                )}
               </CardContent>
             </Card>
           </section>
@@ -444,15 +646,17 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <DownloadSaleInvoicePdfButton invoiceToken={sale.invoiceToken} className="w-full" />
-                  <a
-                    href={receiptUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={buttonVariants({ variant: "outline", className: "w-full" })}
-                  >
-                    <ReceiptText className="h-4 w-4" />
-                    Ver comprobante
-                  </a>
+                  {receiptUrl ? (
+                    <a
+                      href={receiptUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={buttonVariants({ variant: "outline", className: "w-full" })}
+                    >
+                      <ReceiptText className="h-4 w-4" />
+                      Ver comprobante
+                    </a>
+                  ) : null}
                 </CardContent>
               </Card>
             </div>

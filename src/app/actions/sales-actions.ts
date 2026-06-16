@@ -10,12 +10,22 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
+type PaymentMethod = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "OTRO";
+
 const createSaleSchema = z.object({
   quoteId: z.string().trim().min(1, "Quote is invalid"),
-  downPaymentAmount: z.coerce.number().positive("Down payment is required"),
+  discountAmount: z.coerce.number().min(0, "Discount cannot be negative").default(0),
 });
 
 const PAYMENT_RECEIPT_MAX_BYTES = 12 * 1024 * 1024;
+const ALLOWED_RECEIPT_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+]);
+const ALLOWED_RECEIPT_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".pdf"]);
+const ALLOWED_PAYMENT_METHODS = new Set<PaymentMethod>(["EFECTIVO", "TARJETA", "TRANSFERENCIA", "OTRO"]);
 
 async function requireAdminSession(): Promise<string> {
   const session = await auth();
@@ -36,6 +46,11 @@ function getReturnTo(formData: FormData): string {
   return value || "/admin/cotizaciones";
 }
 
+function redirectWithError(returnTo: string, message: string): never {
+  const query = new URLSearchParams({ error: message }).toString();
+  redirect(`${returnTo}?${query}`);
+}
+
 function buildSaleCode(index: number): string {
   return `SAL-${String(index).padStart(5, "0")}`;
 }
@@ -50,33 +65,75 @@ function parseSaleCodeNumber(code: string): number {
   return Number.isFinite(value) ? value : 0;
 }
 
-async function savePaymentReceipt(file: File, saleCode: string): Promise<{ url: string; name: string; type: string }> {
+function getReceiptExtension(file: File): string {
+  const fromName = path.extname(file.name).toLowerCase();
+  if (fromName) {
+    return fromName;
+  }
+
+  if (file.type === "application/pdf") {
+    return ".pdf";
+  }
+
+  if (file.type === "image/jpeg") {
+    return ".jpg";
+  }
+
+  if (file.type === "image/png") {
+    return ".png";
+  }
+
+  if (file.type === "image/webp") {
+    return ".webp";
+  }
+
+  return "";
+}
+
+function validateReceiptFile(file: File): string | null {
   if (!(file instanceof File) || file.size <= 0) {
-    throw new Error("Invalid payment receipt file");
+    return "No se pudo leer uno de los archivos adjuntos.";
   }
 
   if (file.size > PAYMENT_RECEIPT_MAX_BYTES) {
-    throw new Error("Payment receipt is too large");
+    return `El archivo ${file.name} supera el limite de 12 MB.`;
   }
 
-  const allowedType =
-    file.type.startsWith("image/") ||
-    file.type === "application/pdf";
+  const extension = getReceiptExtension(file);
+  const hasAllowedMime = ALLOWED_RECEIPT_MIME_TYPES.has(file.type);
+  const hasAllowedExtension = ALLOWED_RECEIPT_EXTENSIONS.has(extension);
 
-  if (!allowedType) {
-    throw new Error("Unsupported payment receipt format");
+  if (!hasAllowedMime && !hasAllowedExtension) {
+    return `El archivo ${file.name} no es compatible. Solo se aceptan JPG, PNG, WEBP o PDF.`;
+  }
+
+  return null;
+}
+
+function parsePaymentMethod(rawValue: FormDataEntryValue | null): PaymentMethod | null {
+  if (typeof rawValue !== "string") {
+    return null;
+  }
+
+  const value = rawValue.trim().toUpperCase() as PaymentMethod;
+  return ALLOWED_PAYMENT_METHODS.has(value) ? value : null;
+}
+
+async function savePaymentReceipt(
+  file: File,
+  saleCode: string,
+  index: number,
+): Promise<{ url: string; name: string; type: string }> {
+  const validationError = validateReceiptFile(file);
+  if (validationError) {
+    throw new Error(validationError);
   }
 
   const uploadDir = path.join(process.cwd(), "public", "uploads", "sales", "receipts");
   await mkdir(uploadDir, { recursive: true });
 
-  const extensionFromType =
-    file.type === "application/pdf"
-      ? ".pdf"
-      : path.extname(file.name).toLowerCase() || ".png";
-
-  const safeExtension = extensionFromType.length <= 8 ? extensionFromType : ".png";
-  const fileName = `${saleCode.toLowerCase()}-${Date.now()}-${randomUUID()}${safeExtension}`;
+  const extension = getReceiptExtension(file) || ".png";
+  const fileName = `${saleCode.toLowerCase()}-${String(index + 1).padStart(2, "0")}-${Date.now()}-${randomUUID()}${extension}`;
   const filePath = path.join(uploadDir, fileName);
   const buffer = Buffer.from(await file.arrayBuffer());
 
@@ -84,9 +141,24 @@ async function savePaymentReceipt(file: File, saleCode: string): Promise<{ url: 
 
   return {
     url: `/uploads/sales/receipts/${fileName}`,
-    name: file.name.trim() || fileName,
-    type: file.type || "application/octet-stream",
+    name: normalizeReceiptName(file.name, fileName),
+    type: file.type || (extension === ".pdf" ? "application/pdf" : "application/octet-stream"),
   };
+}
+
+type SalePaymentReceipt = {
+  amount: number;
+  paymentMethod: PaymentMethod;
+  note: string | null;
+  receiptUrl: string | null;
+  receiptName: string | null;
+  receiptType: string | null;
+  size: number;
+};
+
+function normalizeReceiptName(name: string, fallback: string): string {
+  const value = name.trim();
+  return value || fallback;
 }
 
 async function getNextSaleCode(tx: Prisma.TransactionClient): Promise<string> {
@@ -116,16 +188,11 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
 
   const parsed = createSaleSchema.safeParse({
     quoteId: formData.get("quoteId"),
-    downPaymentAmount: formData.get("downPaymentAmount"),
+    discountAmount: formData.get("discountAmount"),
   });
 
   if (!parsed.success) {
-    redirect(`${returnTo}?error=Invalid+quote`);
-  }
-
-  const receipt = formData.get("paymentReceipt");
-  if (!(receipt instanceof File) || receipt.size <= 0) {
-    redirect(`${returnTo}?error=Payment+receipt+is+required`);
+    redirectWithError(returnTo, "Cotizacion invalida");
   }
 
   const quote = await prisma.quote.findUnique({
@@ -138,23 +205,113 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
   });
 
   if (!quote) {
-    redirect(`${returnTo}?error=Quote+not+found`);
+    redirectWithError(returnTo, "No se encontro la cotizacion");
   }
 
   if (quote.sale) {
-    redirect(`${returnTo}?error=This+quote+has+already+been+sent+to+sales`);
+    redirectWithError(returnTo, "Esta cotizacion ya fue enviada a ventas");
   }
 
-  if (parsed.data.downPaymentAmount > Number(quote.total)) {
-    redirect(`${returnTo}?error=Down+payment+cannot+exceed+the+sale+total`);
+  const grossTotal = Number(quote.total);
+  const discountAmount = parsed.data.discountAmount ?? 0;
+  if (discountAmount >= grossTotal) {
+    redirectWithError(returnTo, "El descuento debe ser menor al total de la cotizacion");
   }
 
-  const savedReceipt = await savePaymentReceipt(receipt, quote.code);
+  const netTotal = Math.max(grossTotal - discountAmount, 0);
+  const amountEntries = formData.getAll("paymentReceiptAmounts");
+  const receiptEntries = formData.getAll("paymentReceipts");
+  const receiptMethodEntries = formData.getAll("paymentReceiptMethods");
+  const receiptNoteEntries = formData.getAll("paymentReceiptNotes");
+
+  if (amountEntries.length === 0) {
+    redirectWithError(returnTo, "Debes registrar al menos un abono");
+  }
+
+  if (
+    amountEntries.length !== receiptMethodEntries.length ||
+    amountEntries.length !== receiptNoteEntries.length ||
+    amountEntries.length !== receiptEntries.length
+  ) {
+    redirectWithError(returnTo, "Faltan datos de uno o mas abonos");
+  }
+
+  const installments = amountEntries.map((amountEntry, index) => {
+    const amount = typeof amountEntry === "string" ? Number(amountEntry) : Number.NaN;
+    if (!Number.isFinite(amount) || amount <= 0) {
+      redirectWithError(returnTo, "Cada abono necesita un monto valido");
+    }
+
+    const paymentMethod = parsePaymentMethod(receiptMethodEntries[index]);
+    if (!paymentMethod) {
+      redirectWithError(returnTo, "Cada abono necesita un medio de pago");
+    }
+
+    const noteValue = receiptNoteEntries[index];
+    const note = typeof noteValue === "string" ? noteValue.trim() : "";
+    const fileEntry = receiptEntries[index];
+    const file = fileEntry instanceof File && fileEntry.size > 0 ? fileEntry : null;
+
+    if (paymentMethod !== "EFECTIVO" && !file) {
+      redirectWithError(returnTo, "Los abonos que no sean en efectivo deben incluir comprobante");
+    }
+
+    if (file) {
+      const validationError = validateReceiptFile(file);
+      if (validationError) {
+        redirectWithError(returnTo, validationError);
+      }
+    }
+
+    return {
+      amount,
+      paymentMethod,
+      note: note || null,
+      file,
+    };
+  });
+
+  const totalDownPayment = installments.reduce((sum, installment) => sum + installment.amount, 0);
+  if (totalDownPayment <= 0) {
+    redirectWithError(returnTo, "Debes registrar al menos un abono valido");
+  }
+
+  if (totalDownPayment > netTotal) {
+    redirectWithError(returnTo, "La suma de los abonos no puede superar el total real de la venta");
+  }
+
+  const savedReceipts = await Promise.all(
+    installments.map(async ({ amount, paymentMethod, note, file }, index) => {
+      if (!file) {
+        return {
+          amount,
+          paymentMethod,
+          note,
+          receiptUrl: null,
+          receiptName: null,
+          receiptType: null,
+          size: 0,
+        } satisfies SalePaymentReceipt;
+      }
+
+      const savedReceipt = await savePaymentReceipt(file, quote.code, index);
+      return {
+        amount,
+        paymentMethod,
+        note,
+        receiptUrl: savedReceipt.url,
+        receiptName: savedReceipt.name,
+        receiptType: savedReceipt.type,
+        size: file.size,
+      } satisfies SalePaymentReceipt;
+    }),
+  );
 
   try {
     await prisma.$transaction(async (tx) => {
       const saleCode = await getNextSaleCode(tx);
       invoiceToken = randomUUID().replace(/-/g, "");
+      const primaryReceipt = savedReceipts.find((receipt) => Boolean(receipt.receiptUrl)) ?? savedReceipts[0];
 
       await tx.sale.create({
         data: {
@@ -163,14 +320,28 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
           clientId: quote.clientId,
           createdById,
           status: "ACTIVE",
-          downPaymentAmount: parsed.data.downPaymentAmount,
-          paymentReceiptUrl: savedReceipt.url,
-          paymentReceiptName: savedReceipt.name,
-          paymentReceiptType: savedReceipt.type,
+          downPaymentAmount: totalDownPayment,
+          grossTotal,
+          discountAmount,
+          paymentReceiptUrl: primaryReceipt?.receiptUrl ?? "",
+          paymentReceiptName: primaryReceipt?.receiptName ?? "",
+          paymentReceiptType: primaryReceipt?.receiptType ?? "",
+          salePayments: {
+            create: savedReceipts.map((receipt, index) => ({
+              amount: receipt.amount,
+              paymentMethod: receipt.paymentMethod,
+              note: receipt.note,
+              receiptUrl: receipt.receiptUrl,
+              receiptName: receipt.receiptName,
+              receiptType: receipt.receiptType,
+              sortOrder: index,
+            })),
+          },
+          paymentReceipts: savedReceipts,
           invoiceToken,
           subtotal: quote.subtotal,
-          total: quote.total,
-        },
+          total: netTotal,
+        } satisfies Prisma.SaleUncheckedCreateInput,
       });
 
       await tx.quote.update({
@@ -180,11 +351,11 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      redirect(`${returnTo}?error=This+quote+has+already+been+sent+to+sales`);
+      redirectWithError(returnTo, "Esta cotizacion ya fue enviada a ventas");
     }
 
     console.error("Failed to create sale:", error);
-    redirect(`${returnTo}?error=Could+not+create+sales+record`);
+    redirectWithError(returnTo, "No se pudo crear el registro de venta");
   }
 
   revalidatePath("/admin/cotizaciones");
@@ -192,5 +363,5 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
   if (invoiceToken) {
     revalidatePath(`/sales/${invoiceToken}`);
   }
-  redirect(`${returnTo}?ok=Sale+created`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Venta creada" }).toString()}`);
 }

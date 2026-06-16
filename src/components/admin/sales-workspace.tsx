@@ -12,6 +12,8 @@ type SaleRow = {
   quoteCode: string;
   clientName: string;
   total: number;
+  grossTotal: number;
+  discountAmount: number;
   downPaymentAmount: number;
   remainingBalance: number;
   status: "DRAFT" | "ACTIVE" | "INVOICED" | "COMPLETED" | "CANCELLED";
@@ -27,9 +29,11 @@ type SalesWorkspaceProps = {
   currency: SupportedCurrencyCode;
   stats: {
     salesCount: number;
-    capitalTotal: number;
-    downPaymentTotal: number;
-    remainingTotal: number;
+    grossTotal: string;
+    discountTotal: string;
+    capitalTotal: string;
+    downPaymentTotal: string;
+    remainingTotal: string;
     paidSalesCount: number;
   };
 };
@@ -60,29 +64,35 @@ export function SalesWorkspace({ sales, currency, stats }: SalesWorkspaceProps) 
           </CardContent>
         </Card>
         <Card className="border-border bg-card/95">
-          <CardContent className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Capital</p>
-            <p className="text-2xl font-semibold text-foreground">
-              {stats.capitalTotal.toLocaleString("es-CO", { style: "currency", currency })}
-            </p>
-            <p className="text-xs text-muted-foreground">Valor bruto de ventas</p>
+          <CardContent className="space-y-3">
+            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Resumen financiero</p>
+            <div className="space-y-1.5 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Capital bruto</span>
+                <span className="font-medium text-foreground">{stats.grossTotal}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Descuentos</span>
+                <span className="font-medium text-foreground">{stats.discountTotal}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3 border-t border-border pt-1.5">
+                <span className="font-medium text-foreground">Capital neto</span>
+                <span className="font-semibold text-foreground">{stats.capitalTotal}</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
         <Card className="border-border bg-card/95">
           <CardContent className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Abonos</p>
-            <p className="text-2xl font-semibold text-foreground">
-              {stats.downPaymentTotal.toLocaleString("es-CO", { style: "currency", currency })}
-            </p>
+            <p className="text-2xl font-semibold text-foreground">{stats.downPaymentTotal}</p>
             <p className="text-xs text-muted-foreground">Pagos recibidos</p>
           </CardContent>
         </Card>
         <Card className="border-border bg-card/95">
           <CardContent className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Saldo</p>
-            <p className="text-2xl font-semibold text-foreground">
-              {stats.remainingTotal.toLocaleString("es-CO", { style: "currency", currency })}
-            </p>
+            <p className="text-2xl font-semibold text-foreground">{stats.remainingTotal}</p>
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">Ventas pagadas</p>
               <Badge variant="outline">{stats.paidSalesCount}</Badge>

@@ -394,14 +394,14 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
 
       {openModal ? (
         <div
-          className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/50 p-0 sm:items-start sm:p-4 md:p-6"
+          className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/50"
           role="dialog"
           aria-modal="true"
           aria-label="Nueva cotizacion"
           onClick={() => setOpenModal(false)}
         >
           <div
-            className="h-full w-full max-w-6xl overflow-y-auto overflow-x-hidden rounded-none border border-border bg-card p-3 sm:max-h-[92vh] sm:rounded-xl sm:p-4 md:p-5"
+            className="relative flex min-h-[100dvh] w-full max-w-6xl flex-col overflow-y-auto overflow-x-hidden rounded-none border border-border bg-card p-3 sm:mx-auto sm:min-h-0 sm:max-h-[92vh] sm:rounded-xl sm:p-4 md:p-5"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">

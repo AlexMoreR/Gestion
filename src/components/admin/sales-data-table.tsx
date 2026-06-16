@@ -174,16 +174,23 @@ function RowActions({ sale }: { sale: SaleRow }) {
           {sale.hasOrder ? "Orden creada" : "Crear orden"}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <a href={sale.paymentReceiptUrl} target="_blank" rel="noreferrer">
-            {sale.paymentReceiptType.startsWith("image/") ? (
-              <ImageIcon className="mr-2 h-4 w-4" />
-            ) : (
-              <ReceiptText className="mr-2 h-4 w-4" />
-            )}
-            Ver comprobante
-          </a>
-        </DropdownMenuItem>
+        {sale.paymentReceiptUrl ? (
+          <DropdownMenuItem asChild>
+            <a href={sale.paymentReceiptUrl} target="_blank" rel="noreferrer">
+              {sale.paymentReceiptType.startsWith("image/") ? (
+                <ImageIcon className="mr-2 h-4 w-4" />
+              ) : (
+                <ReceiptText className="mr-2 h-4 w-4" />
+              )}
+              Ver comprobante
+            </a>
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem disabled>
+            <ReceiptText className="mr-2 h-4 w-4" />
+            Sin comprobante
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
