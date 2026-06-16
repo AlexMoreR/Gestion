@@ -260,20 +260,14 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
         <input type="hidden" name="notes" value={notes} />
 
         <div className="grid gap-1.5 md:grid-cols-3">
-          <Button variant={"outline"} type="button" onClick={() => setStep(1)}
-            // className={`rounded-lg border p-2 text-left ${step === 1 ? "border-[(--primary)]/40 bg-[(--primary)]/5" : "border-slate-200"}`}
-          >
-            <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-800"><UserRound className="h-3.5 w-3.5" />Cliente</span>
+          <Button variant={step === 1 ? "default" : "outline"} size="lg" type="button" onClick={() => setStep(1)}>
+            <span className="inline-flex items-center gap-2 text-xs font-semibold"><UserRound className="h-3.5 w-3.5" />Cliente</span>
           </Button>
-          <Button variant={"outline"} type="button" onClick={() => setStep(2)}
-            // className={`rounded-lg border p-2 text-left ${step === 2 ? "border-[(--primary)]/40 bg-[(--primary)]/5" : "border-slate-200"}`}
-          >
-            <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-800"><Boxes className="h-3.5 w-3.5" />Productos</span>
+          <Button variant={step === 2 ? "default" : "outline"} size="lg" type="button" onClick={() => setStep(2)}>
+            <span className="inline-flex items-center gap-2 text-xs font-semibold"><Boxes className="h-3.5 w-3.5" />Productos</span>
           </Button>
-          <Button variant={"outline"} type="button" onClick={() => setStep(3)}
-            // className={`rounded-lg border p-2 text-left ${step === 3 ? "border-[(--primary)]/40 bg-[(--primary)]/5" : "border-slate-200"}`}
-          >
-            <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-800"><FileText className="h-3.5 w-3.5" />Finalizar</span>
+          <Button variant={step === 3 ? "default" : "outline"} size="lg" type="button" onClick={() => setStep(3)}>
+            <span className="inline-flex items-center gap-2 text-xs font-semibold"><FileText className="h-3.5 w-3.5" />Finalizar</span>
           </Button>
         </div>
 
@@ -327,7 +321,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
               <span className="text-sm font-medium text-slate-700">Descripcion</span>
               <Input value={draftDescription} onChange={(e) => setDraftDescription(e.target.value)} />
             </label>
-            <Button type="button" onClick={addDraftProduct} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[(--primary)] px-3 text-sm font-medium text-white">
+            <Button type="button" size="lg" onClick={addDraftProduct}>
               <Plus className="h-4 w-4" />Agregar producto
             </Button>
             {productFormError ? <p className="text-xs font-medium text-red-600">{productFormError}</p> : null}
@@ -355,7 +349,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
                       <td className="px-3 py-2 text-slate-700">{line.unitPrice.toLocaleString("es-CO", { style: "currency", currency })}</td>
                       <td className="px-3 py-2 font-semibold text-slate-900">{lineTotal.toLocaleString("es-CO", { style: "currency", currency })}</td>
                       <td className="px-3 py-2">
-                        <Button type="button" onClick={() => setLines((current) => current.filter((item) => item.uid !== line.uid))} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 text-red-600 hover:bg-red-50">
+                        <Button variant="ghost" size="icon" type="button" onClick={() => setLines((current) => current.filter((item) => item.uid !== line.uid))} className="text-red-600 hover:bg-red-50 hover:text-red-700">
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </td>
@@ -425,7 +419,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
               />
             </label>
             <div className="flex justify-end">
-              <Button type="submit" className="inline-flex h-10 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white hover:bg-[(--primary-strong)]">
+              <Button type="submit" size="lg">
                 Guardar cambios
               </Button>
             </div>
