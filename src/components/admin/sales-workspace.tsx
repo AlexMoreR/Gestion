@@ -21,6 +21,14 @@ type SaleRow = {
   invoiceToken: string;
   paymentReceiptUrl: string;
   paymentReceiptType: string;
+  salePayments: Array<{
+    amount: number;
+    paymentMethod: string;
+    note: string | null;
+    receiptUrl: string | null;
+    receiptName: string | null;
+    receiptType: string | null;
+  }>;
   hasOrder: boolean;
 };
 

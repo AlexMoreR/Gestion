@@ -15,6 +15,8 @@ import {
   MoreHorizontal,
   ReceiptText,
   User2,
+  Eye,
+  FileCheck2,
 } from "lucide-react";
 import { adminCreateOrderFromSaleAction } from "@/app/actions/orders-actions";
 import { Button } from "@/components/ui/button";
@@ -26,6 +28,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   Table,
   TableBody,
   TableCell,
@@ -36,6 +45,15 @@ import {
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 
 type SaleStatus = "DRAFT" | "ACTIVE" | "INVOICED" | "COMPLETED" | "CANCELLED";
+
+type SalePaymentRow = {
+  amount: number;
+  paymentMethod: string;
+  note: string | null;
+  receiptUrl: string | null;
+  receiptName: string | null;
+  receiptType: string | null;
+};
 
 type SaleRow = {
   id: string;
@@ -50,6 +68,7 @@ type SaleRow = {
   invoiceToken: string;
   paymentReceiptUrl: string;
   paymentReceiptType: string;
+  salePayments: SalePaymentRow[];
   hasOrder: boolean;
 };
 
@@ -107,6 +126,21 @@ function getReceiptLabel(receiptType: string): string {
   return "Comprobante";
 }
 
+function getPaymentMethodLabel(paymentMethod: string): string {
+  switch (paymentMethod) {
+    case "EFECTIVO":
+      return "Efectivo";
+    case "TARJETA":
+      return "Tarjeta";
+    case "TRANSFERENCIA":
+      return "Transferencia";
+    case "OTRO":
+      return "Otro";
+    default:
+      return paymentMethod || "N/A";
+  }
+}
+
 function HeaderLabel({
   children,
   active,
@@ -137,7 +171,19 @@ function HeaderLabel({
   );
 }
 
-function RowActions({ sale }: { sale: SaleRow }) {
+function RowActions({
+  sale,
+  currency,
+  onViewReceipts,
+}: {
+  sale: SaleRow;
+  currency: SupportedCurrencyCode;
+  onViewReceipts: () => void;
+}) {
+  const hasReceipts =
+    sale.salePayments.length > 0 ||
+    Boolean(sale.paymentReceiptUrl);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -174,31 +220,116 @@ function RowActions({ sale }: { sale: SaleRow }) {
           {sale.hasOrder ? "Orden creada" : "Crear orden"}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        {sale.paymentReceiptUrl ? (
-          <DropdownMenuItem asChild>
-            <a href={sale.paymentReceiptUrl} target="_blank" rel="noreferrer">
-              {sale.paymentReceiptType.startsWith("image/") ? (
-                <ImageIcon className="mr-2 h-4 w-4" />
-              ) : (
-                <ReceiptText className="mr-2 h-4 w-4" />
-              )}
-              Ver comprobante
-            </a>
-          </DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem disabled>
-            <ReceiptText className="mr-2 h-4 w-4" />
-            Sin comprobante
-          </DropdownMenuItem>
-        )}
+        <DropdownMenuItem onClick={onViewReceipts} disabled={!hasReceipts}>
+          <Eye className="mr-2 h-4 w-4" />
+          {hasReceipts ? "Ver comprobantes" : "Sin comprobantes"}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+function SaleReceiptsSheet({
+  sale,
+  currency,
+  open,
+  onOpenChange,
+}: {
+  sale: SaleRow | null;
+  currency: SupportedCurrencyCode;
+  open: boolean;
+  onOpenChange: (value: boolean) => void;
+}) {
+  const receipts = sale
+    ? sale.salePayments.length > 0
+      ? sale.salePayments
+      : sale.paymentReceiptUrl
+        ? [
+            {
+              amount: sale.downPaymentAmount,
+              paymentMethod: "N/A",
+              note: null,
+              receiptUrl: sale.paymentReceiptUrl,
+              receiptName: "Comprobante principal",
+              receiptType: sale.paymentReceiptType,
+            },
+          ]
+        : []
+    : [];
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-md">
+        <SheetHeader className="border-b border-border pb-4">
+          <SheetTitle>Comprobantes de pago</SheetTitle>
+          <SheetDescription>
+            {sale ? `Venta ${sale.code} · ${sale.quoteCode}` : "Lista de comprobantes asociados a la venta."}
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-4 pt-2">
+          {sale ? (
+            <>
+              <div className="rounded-2xl border border-border bg-muted/20 p-3 text-sm">
+                <p className="font-semibold text-foreground">{sale.clientName}</p>
+                <p className="text-muted-foreground">Abonos registrados: {receipts.length}</p>
+              </div>
+
+              {receipts.length > 0 ? (
+                <div className="space-y-2">
+                  {receipts.map((receipt, index) => (
+                    <div key={`${receipt.receiptUrl ?? index}-${index}`} className="rounded-2xl border border-border bg-background p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 space-y-1">
+                          <p className="text-sm font-semibold text-foreground">Abono #{index + 1}</p>
+                          <p className="text-xs text-muted-foreground">{getPaymentMethodLabel(receipt.paymentMethod)}</p>
+                        </div>
+                        <p className="text-sm font-semibold text-foreground">{formatMoney(receipt.amount, currency)}</p>
+                      </div>
+                      {receipt.note ? <p className="mt-2 text-xs text-muted-foreground">{receipt.note}</p> : null}
+                      <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-2">
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground">
+                            {receipt.receiptName || "Sin comprobante"}
+                          </p>
+                          {receipt.receiptType ? (
+                            <p className="text-xs text-muted-foreground">{getReceiptLabel(receipt.receiptType)}</p>
+                          ) : null}
+                        </div>
+                        {receipt.receiptUrl ? (
+                          <a
+                            href={receipt.receiptUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                          >
+                            <FileCheck2 className="h-3.5 w-3.5" />
+                            Abrir
+                          </a>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Sin archivo</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-sm text-muted-foreground">
+                  Esta venta todavía no tiene comprobantes asociados.
+                </div>
+              )}
+            </>
+          ) : null}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
 export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
   const [sortKey, setSortKey] = React.useState<SortKey>("created");
   const [sortDirection, setSortDirection] = React.useState<SortDirection>("desc");
+  const [selectedSale, setSelectedSale] = React.useState<SaleRow | null>(null);
 
   const sortedSales = React.useMemo(() => {
     const list = [...sales];
@@ -242,6 +373,17 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
 
   return (
     <div className="space-y-3">
+      <SaleReceiptsSheet
+        sale={selectedSale}
+        currency={currency}
+        open={Boolean(selectedSale)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedSale(null);
+          }
+        }}
+      />
+
       <div className="hidden overflow-hidden rounded-xl border border-border bg-card md:block">
         <Table className="min-w-[980px]">
           <TableHeader>
@@ -367,7 +509,7 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
                       <input type="hidden" name="saleId" value={sale.id} />
                     </form>
                     <div className="flex items-center">
-                      <RowActions sale={sale} />
+                      <RowActions sale={sale} currency={currency} onViewReceipts={() => setSelectedSale(sale)} />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -407,7 +549,7 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
                   <input type="hidden" name="returnTo" value="/admin/ventas" />
                   <input type="hidden" name="saleId" value={sale.id} />
                 </form>
-                <RowActions sale={sale} />
+                <RowActions sale={sale} currency={currency} onViewReceipts={() => setSelectedSale(sale)} />
               </div>
             </article>
           ))

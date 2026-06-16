@@ -15,6 +15,11 @@ type SaleWithDiscountFields = {
   };
   salePayments?: Array<{
     amount: unknown;
+    paymentMethod?: unknown;
+    note?: unknown;
+    receiptUrl?: unknown;
+    receiptName?: unknown;
+    receiptType?: unknown;
   }>;
 };
 
@@ -123,6 +128,16 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
           invoiceToken: sale.invoiceToken,
           paymentReceiptUrl: sale.paymentReceiptUrl,
           paymentReceiptType: sale.paymentReceiptType,
+          salePayments: Array.isArray((sale as SaleWithDiscountFields).salePayments)
+            ? (sale as SaleWithDiscountFields).salePayments!.map((payment) => ({
+                amount: Number(payment.amount ?? 0),
+                paymentMethod: typeof payment.paymentMethod === "string" ? payment.paymentMethod : "",
+                note: typeof payment.note === "string" && payment.note.trim() ? payment.note.trim() : null,
+                receiptUrl: typeof payment.receiptUrl === "string" && payment.receiptUrl.trim() ? payment.receiptUrl.trim() : null,
+                receiptName: typeof payment.receiptName === "string" && payment.receiptName.trim() ? payment.receiptName.trim() : null,
+                receiptType: typeof payment.receiptType === "string" && payment.receiptType.trim() ? payment.receiptType.trim() : null,
+              }))
+            : [],
           hasOrder: Boolean(sale.order),
         }))}
         stats={{
