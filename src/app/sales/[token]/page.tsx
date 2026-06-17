@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 import {
-  BadgeDollarSign,
+  Calendar,
   FileDown,
-  FileText,
   MapPin,
   ReceiptText,
   User,
@@ -20,6 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatMoney } from "@/lib/currency";
+import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { prisma } from "@/lib/prisma";
@@ -34,6 +34,7 @@ type SaleWithDiscountFields = {
     receiptUrl?: unknown;
     receiptName?: unknown;
     receiptType?: unknown;
+    createdAt?: unknown;
   }>;
   paymentReceipts?: unknown;
   quote: {
@@ -48,7 +49,30 @@ type SaleReceiptSummary = {
   receiptUrl: string | null;
   receiptName: string | null;
   receiptType: string | null;
+  paidAt: string | null;
 };
+
+const INVOICE_NUMBER_OFFSET = 100;
+
+function formatInvoiceNumber(code: string): string {
+  const raw = code.split("-")[1] ?? code;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    return raw;
+  }
+  return String(parsed + INVOICE_NUMBER_OFFSET).padStart(5, "0");
+}
+
+function formatReceiptDate(value: unknown): string | null {
+  if (value instanceof Date) {
+    return value.toLocaleDateString("es-CO", { dateStyle: "long" });
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toLocaleDateString("es-CO", { dateStyle: "long" });
+  }
+  return null;
+}
 
 function parseSaleReceipts(raw: unknown): SaleReceiptSummary[] {
   if (!Array.isArray(raw)) {
@@ -78,6 +102,7 @@ function parseSaleReceipts(raw: unknown): SaleReceiptSummary[] {
         receiptUrl,
         receiptName,
         receiptType,
+        paidAt: null as string | null,
       };
     })
     .filter((item): item is SaleReceiptSummary => Boolean(item));
@@ -105,6 +130,7 @@ function extractSaleReceipts(sale: SaleWithDiscountFields): SaleReceiptSummary[]
           receiptUrl,
           receiptName,
           receiptType,
+          paidAt: formatReceiptDate(item.createdAt),
         };
       })
       .filter((item): item is SaleReceiptSummary => Boolean(item));
@@ -200,307 +226,381 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
   const clientDocument = sale.client.document || "";
   const clientCity = sale.client.city || "";
   const deliveryAddress = sale.client.address || "";
+  const itemsWithMeta = sale.quote.items.map((item) => ({
+    ...item,
+    meta: parseQuoteItemMeta(item.notes),
+  }));
   const saleWithDiscount = sale as SaleWithDiscountFields;
   const grossTotal = Number(saleWithDiscount.grossTotal ?? sale.quote.total);
   const discountAmount = Number(saleWithDiscount.discountAmount ?? 0);
   const capital = Number(sale.total);
-  const downPayment = Number(sale.downPaymentAmount);
+  const receiptSummary = extractSaleReceipts(saleWithDiscount);
+  const downPayment = receiptSummary.length > 0
+    ? receiptSummary.reduce((sum, receipt) => sum + receipt.amount, 0)
+    : Number(sale.downPaymentAmount);
   const remainingBalance = Math.max(capital - downPayment, 0);
   const paymentProgress = capital > 0 ? Math.min((downPayment / capital) * 100, 100) : 0;
   const hasBalance = downPayment > 0 || remainingBalance > 0;
-  const receiptSummary = extractSaleReceipts(saleWithDiscount);
+
+  let runningPaid = 0;
+  const receiptsLedger = receiptSummary.map((receipt) => {
+    runningPaid += receipt.amount;
+    return {
+      ...receipt,
+      pending: Math.max(capital - runningPaid, 0),
+    };
+  });
 
   return (
-    <main className={isPdf ? "flex flex-col gap-4 bg-white p-4 text-[#1A1A2E]" : "mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 md:px-6"}>
+    <main className={isPdf ? "flex flex-col gap-3 p-1 bg-white text-slate-900 text-[13px]" : "mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 md:px-6"}>
       {isPdf ? (
         <>
-          {/* HEADER DE FACTURA */}
-          <header className="flex items-center justify-between border-b-2 border-[#5B1FA8] pb-6 mb-2">
-            <div className="flex items-center gap-4">
-              <img
-                src="/magilus-logo.svg"
-                alt="Magilus Logo"
-                className="h-12 w-auto object-contain"
-              />
-              <div className="border-l pl-4 border-slate-200">
-                <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#5B1FA8] leading-none mb-1">
-                  Factura
-                </p>
-                <h1 className="text-1xl font-black tracking-tight text-[#1A1A2E]">
-                  N° {sale.code.split("-")[1]}
-                </h1>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] uppercase text-slate-400 font-bold mb-1">Fecha</p>
-              <p className="text-sm font-bold text-[#1A1A2E]">{issuedDate}</p>
-            </div>
-          </header>
-
-          {/* DATOS DEL CLIENTE */}
-          <section className="rounded-lg border border-slate-200 overflow-hidden">
-            <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-              <h3 className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Información del Cliente</h3>
-            </div>
-            <table className="w-full text-xs border-collapse">
-              <tbody>
-                <tr className="border-b border-slate-100">
-                  <td className="p-3 w-1/2">
-                    <p className="text-[9px] uppercase text-slate-400 font-bold leading-none mb-1">Nombre / Razón Social</p>
-                    <p className="font-bold text-sm leading-none">{clientName}</p>
-                  </td>
-                  <td className="p-3 w-1/2">
-                    <p className="text-[9px] uppercase text-slate-400 font-bold leading-none mb-1">Identificación</p>
-                    <p className="font-medium leading-none">{clientDocument || "N/A"}</p>
-                  </td>
-                </tr>
-                <tr className="border-b border-slate-100">
-                  <td className="p-3">
-                    <p className="text-[9px] uppercase text-slate-400 font-bold leading-none mb-1">Ubicación</p>
-                    <p className="leading-tight">{clientCity || "Ciudad no registrada"}{deliveryAddress && deliveryAddress !== "sin confirmar" ? ` - ${deliveryAddress}` : ""}</p>
-                  </td>
-                  <td className="p-3">
-                    <p className="text-[9px] uppercase text-slate-400 font-bold leading-none mb-1">Referencia Cotización</p>
-                    <p className="font-bold text-[#5B1FA8] leading-none uppercase">{sale.quote.code}</p>
-                  </td>
-                </tr>
-                <tr>
-                  <td className="p-3">
-                    <p className="text-[9px] uppercase text-slate-400 font-bold leading-none mb-1">Correo Electrónico</p>
-                    <p className="leading-none">{sale.client.email}</p>
-                  </td>
-                  <td className="p-3">
-                    <p className="text-[9px] uppercase text-slate-400 font-bold leading-none mb-1">Contacto</p>
-                    <p className="leading-none">{sale.client.phone || "N/A"}</p>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </section>
-
-          {/* TABLA DE PRODUCTOS */}
-          <section>
-            <table className="w-full border-collapse text-[11px]">
-              <thead>
-                <tr className="bg-slate-50">
-                  <th className="border border-slate-200 p-2 text-left text-slate-700 font-semibold">Producto</th>
-                  <th className="border border-slate-200 p-2 text-left text-slate-700 font-semibold">Cant.</th>
-                  <th className="border border-slate-200 p-2 text-left text-slate-700 font-semibold">Precio unitario</th>
-                  <th className="border border-slate-200 p-2 text-right text-slate-700 font-semibold">Total línea</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sale.quote.items.map((item) => (
-                  <tr key={item.id} className="border-b border-slate-200">
-                    <td className="p-2">
-                      <div className="font-medium text-[#1A1A2E]">{item.product.name}</div>
-                      <div className="text-[9px] text-slate-500">{item.product.code ?? item.product.slug}</div>
-                    </td>
-                    <td className="p-2">{item.quantity}</td>
-                    <td className="p-2">{formatMoney(Number(item.unitPrice), currency)}</td>
-                    <td className="p-2 text-right text-sm font-bold text-[#1A1A2E]">{formatMoney(Number(item.lineTotal), currency)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-
-          {/* TOTALES */}
-          <section className="flex justify-end">
-            <table className="w-64 border-collapse text-[11px]">
-              <tbody>
-                {Number(sale.subtotal) !== Number(sale.total) && (
-                  <tr>
-                    <td className="border border-slate-200 bg-slate-50 p-2 font-semibold text-right">Subtotal</td>
-                    <td className="border border-slate-200 p-2 text-right">{formatMoney(Number(sale.subtotal), currency)}</td>
-                  </tr>
-                )}
-                {discountAmount > 0 && (
-                  <tr>
-                    <td className="border border-slate-200 bg-slate-50 p-2 font-semibold text-right">Descuento</td>
-                    <td className="border border-slate-200 p-2 text-right">- {formatMoney(discountAmount, currency)}</td>
-                  </tr>
-                )}
-                {grossTotal !== capital && (
-                  <tr>
-                    <td className="border border-slate-200 bg-slate-50 p-2 font-semibold text-right">Valor bruto</td>
-                    <td className="border border-slate-200 p-2 text-right">{formatMoney(grossTotal, currency)}</td>
-                  </tr>
-                )}
-                <tr>
-                  <td className="p-3 text-right text-slate-500 font-bold uppercase text-[10px]">Total a Pagar</td>
-                  <td className="p-3 text-right text-xl font-black text-[#1A1A2E] border-l border-slate-200 bg-slate-50">
-                    {formatMoney(Number(sale.total), currency)}
-                  </td>
-                </tr>
-                {hasBalance && (
-                  <>
-                    <tr>
-                      <td className="p-2 text-right text-slate-500 font-bold uppercase text-[10px]">Abono</td>
-                      <td className="p-2 text-right font-semibold text-[#1A1A2E]">
-                        {formatMoney(downPayment, currency)}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 text-right text-slate-500 font-bold uppercase text-[10px]">Saldo pendiente</td>
-                      <td className="p-2 text-right font-semibold text-[#1A1A2E]">
-                        {formatMoney(remainingBalance, currency)}
-                      </td>
-                    </tr>
-                  </>
-                )}
-              </tbody>
-            </table>
-          </section>
-
-          {/* FOOTER GARANTÍA Y RESPALDO */}
-          {receiptSummary.length > 0 ? (
-            <section className="rounded-lg border border-slate-200 overflow-hidden">
-              <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-                <h3 className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Detalle de abonos</h3>
-              </div>
-              <table className="w-full border-collapse text-[11px]">
-                <thead>
-                  <tr className="bg-white">
-                    <th className="border-b border-slate-200 p-2 text-left text-slate-700 font-semibold">#</th>
-                    <th className="border-b border-slate-200 p-2 text-left text-slate-700 font-semibold">Metodo</th>
-                    <th className="border-b border-slate-200 p-2 text-left text-slate-700 font-semibold">Comprobante</th>
-                    <th className="border-b border-slate-200 p-2 text-right text-slate-700 font-semibold">Monto</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {receiptSummary.map((receipt, index) => (
-                    <tr key={`${receipt.paymentMethod}-${index}`} className="border-b border-slate-100">
-                      <td className="p-2">{index + 1}</td>
-                      <td className="p-2">{receipt.paymentMethod || "N/A"}</td>
-                      <td className="p-2">{receipt.receiptName || "Sin comprobante"}</td>
-                      <td className="p-2 text-right font-semibold">{formatMoney(receipt.amount, currency)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
-          ) : null}
-
-          <footer className="mt-auto pt-8 border-t border-slate-100">
-            <div className="rounded-xl bg-[#F4F4F6] p-6 text-center">
-              <p className="text-[11px] leading-relaxed text-slate-600 mb-4 italic">
-                &quot;Debe enviarnos fotos, videos a la línea <span className="font-bold text-[#1A1A2E]">573046481994</span> para verificar si la falla es por defecto de fabricación y si son realmente nuestros productos.&quot;
-              </p>
-              <p className="text-[10px] font-black text-[#5B1FA8] uppercase tracking-wider mb-2">
-                GRACIAS POR PREFERIRNOS Y ESPERAMOS PODER SER PARTE DE TU PROYECTO CONTANDO SIEMPRE CON NUESTRO RESPALDO Y ASESORIA.
-              </p>
-              <a href="https://magilus.com/" className="text-xs font-bold text-[#1A1A2E] underline">magilus.com</a>
-            </div>
-          </footer>
-        </>
-      ) : (
-        <section
-          className={
-            "overflow-hidden rounded-3xl border border-border bg-card text-card-foreground shadow-sm"
-          }
-        >
-          <div className={"grid gap-6 p-6 md:grid-cols-[1.3fr_0.7fr] md:p-8"}>
-            <div className="space-y-4">
+          {/* ─── HEADER ─── */}
+          <div className="flex items-start justify-between border border-slate-300 rounded-lg p-3">
+            <div className="flex flex-row justify-between items-center w-full gap-3">
               <div className="flex items-center gap-3">
-                <div className={"flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-2xl font-black text-primary-foreground"}>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white text-base font-black">
                   M
                 </div>
                 <div>
-                  <p className={"text-xs font-semibold uppercase tracking-[0.28em] text-primary"}>
-                    Factura
-                  </p>
-                  <h1 className={"text-1xl font-black tracking-tight text-foreground md:text-2xl"}>
-                    N° {sale.code.split("-")[1]}
-                  </h1>
+                  <p className="text-base font-bold text-slate-900">Magilus</p>
+                  <p className="text-[11px] text-slate-500">NIT 100.61.80.650</p>
                 </div>
               </div>
-            </div>
 
-            <div className={isPdf ? "flex flex-col items-end gap-2 text-[10px] text-slate-500" : "flex flex-col items-start gap-3 md:items-end"}>
-              <div className="space-y-1 text-sm">
-                <p className="text-muted-foreground">Fecha</p>
-                <p className="font-semibold text-foreground">{issuedDate}</p>
+              <div className="text-right">
+                <div className="flex items-baseline justify-end gap-2">
+                  <p className="text-base font-bold tracking-widest text-slate-700 uppercase">Factura</p>
+                  <h1 className="text-base font-bold tracking-tight text-slate-400">
+                    N° {formatInvoiceNumber(sale.code)}
+                  </h1>
+                </div>
+                <p className="text-[11px] font-semibold tracking-wide text-slate-500">{issuedDate}</p>
               </div>
             </div>
           </div>
-        </section>
+
+          {/* ─── CLIENTE + DESTINO ─── */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-slate-200 bg-white p-3">
+              <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+                <User className="h-4 w-4" /> Cliente
+              </div>
+              <p className="text-xs font-semibold text-slate-900">{clientName}</p>
+              <p className="text-xs text-slate-500">CC/NIT: {clientDocument || "Por confirmar"}</p>
+              <p className="text-xs text-slate-500">Teléfono: {sale.client.phone || "Por confirmar"}</p>
+              <p className="text-xs text-slate-500 break-all">Email: {sale.client.email}</p>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-3">
+              <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+                <MapPin className="h-4 w-4" /> Destino
+              </div>
+              <p className="text-xs text-slate-500">Ciudad: {clientCity || "Por confirmar"}</p>
+              <p className="text-xs text-slate-500">Dirección: {deliveryAddress || "Por confirmar"}</p>
+              <p className="text-xs text-slate-500">Referencia: {sale.client.neighborhood || "Por confirmar"}</p>
+              <p className="text-xs text-slate-500">Cotización ref: {sale.quote.code}</p>
+            </div>
+          </div>
+
+          {/* ─── DATOS DE PRODUCTO ─── */}
+          <h2 className="text-center text-[13px] font-bold uppercase tracking-widest text-slate-900">
+            Datos de producto
+          </h2>
+          <div className="-mt-2">
+            <Table className="border-collapse text-[11.5px] [&_td]:border [&_td]:border-[0.5px] [&_td]:border-slate-400 [&_th]:border [&_th]:border-[0.5px] [&_th]:border-slate-400">
+              <TableHeader>
+                <TableRow className="bg-zinc-200 hover:bg-zinc-200 [&>th]:h-auto [&>th]:py-1 [&>th]:font-bold [&>th]:text-zinc-900">
+                  <TableHead className="py-1 px-2 text-center w-10">Cant</TableHead>
+                  <TableHead className="py-1 px-2">Producto</TableHead>
+                  <TableHead className="py-1 px-2">Descripción</TableHead>
+                  <TableHead className="py-1 px-2 text-right">Unitario</TableHead>
+                  <TableHead className="py-1 px-2 text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {itemsWithMeta.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="py-1 px-2 text-center font-bold">{item.quantity}</TableCell>
+                    <TableCell className="py-1 px-2">
+                      <div className="leading-tight">
+                        <p className="font-semibold text-slate-900">{item.product.name}</p>
+                        {item.product.code && (
+                          <p className="text-[10px] text-slate-400">{item.product.code}</p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-1 px-2 text-slate-900 max-w-[160px]">
+                      <span className="line-clamp-2">{item.meta.description || "—"}</span>
+                    </TableCell>
+                    <TableCell className="py-1 px-2 text-right whitespace-nowrap">
+                      {formatMoney(Number(item.unitPrice), currency)}
+                    </TableCell>
+                    <TableCell className="py-1 px-2 text-right font-bold whitespace-nowrap">
+                      {formatMoney(Number(item.lineTotal), currency)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* ─── DETALLES DE ABONO ─── */}
+          {receiptsLedger.length > 0 ? (
+            <>
+              <h2 className="text-center text-[13px] font-bold uppercase tracking-widest text-slate-900">
+                Detalles de abono
+              </h2>
+              <div className="-mt-2">
+                <Table className="border-collapse text-[11.5px] [&_td]:border [&_td]:border-[0.5px] [&_td]:border-slate-400 [&_th]:border [&_th]:border-[0.5px] [&_th]:border-slate-400">
+                  <TableHeader>
+                    <TableRow className="bg-zinc-200 hover:bg-zinc-200 [&>th]:h-auto [&>th]:py-1 [&>th]:font-bold [&>th]:text-zinc-900">
+                      <TableHead className="py-1 px-2">Fecha</TableHead>
+                      <TableHead className="py-1 px-2">Tipo</TableHead>
+                      <TableHead className="py-1 px-2 text-right">Abono</TableHead>
+                      <TableHead className="py-1 px-2 text-center">Comprobante</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {receiptsLedger.map((receipt, index) => (
+                      <TableRow key={`${receipt.paymentMethod}-${index}`}>
+                        <TableCell className="py-1 px-2 whitespace-nowrap">{receipt.paidAt || "—"}</TableCell>
+                        <TableCell className="py-1 px-2">{receipt.paymentMethod || "N/A"}</TableCell>
+                        <TableCell className="py-1 px-2 text-right font-semibold whitespace-nowrap">
+                          {formatMoney(receipt.amount, currency)}
+                        </TableCell>
+                        <TableCell className="py-1 px-2 text-center">
+                          {receipt.receiptUrl && !(receipt.receiptType && receipt.receiptType.includes("pdf")) ? (
+                            <img
+                              src={getPublicAssetUrl(receipt.receiptUrl)}
+                              alt={receipt.receiptName || "Comprobante"}
+                              className="mx-auto h-14 w-14 rounded border border-slate-300 object-cover"
+                            />
+                          ) : receipt.receiptUrl ? (
+                            receipt.receiptName || "Comprobante PDF"
+                          ) : (
+                            "Sin comprobante"
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          ) : null}
+
+          {/* ─── TOTALES ─── */}
+          <div className="flex justify-end">
+            <div className="w-60 shrink-0 space-y-0.5">
+              {Number(sale.subtotal) !== Number(sale.total) && (
+                <div className="flex justify-between text-[12px] px-2 py-1">
+                  <span className="text-slate-500">Subtotal</span>
+                  <span className="font-medium">{formatMoney(Number(sale.subtotal), currency)}</span>
+                </div>
+              )}
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-[12px] px-2 py-1">
+                  <span className="text-slate-500">Descuento</span>
+                  <span className="font-medium">- {formatMoney(discountAmount, currency)}</span>
+                </div>
+              )}
+              {hasBalance && (
+                <>
+                  <div className="flex justify-between text-[12px] px-2 py-1">
+                    <span className="text-slate-500">Abono</span>
+                    <span className="font-medium">{formatMoney(downPayment, currency)}</span>
+                  </div>
+                  <div className="flex justify-between text-[12px] px-2 py-1">
+                    <span className="text-slate-500">Saldo pendiente</span>
+                    <span className="font-medium">{formatMoney(remainingBalance, currency)}</span>
+                  </div>
+                </>
+              )}
+              <div className="flex justify-between border border-slate-300 bg-slate-100 px-3 py-2 font-bold text-[13px]">
+                <span className="font-bold uppercase">Total</span>
+                <span className="font-black">{formatMoney(capital, currency)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ─── FOOTER ─── */}
+          <footer className="border-t border-slate-200 pt-2 text-center text-[10px] text-slate-400">
+            Magilus · comercial@magilus.com · magilus.com
+          </footer>
+        </>
+      ) : (
+        <div className="flex flex-row justify-between items-center overflow-hidden rounded-xl border border-slate-200/60 bg-card text-card-foreground shadow-sm p-4">
+          <div className="flex flex-row justify-between items-center w-full gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-white text-2xl font-black">
+                M
+              </div>
+              <div>
+                <p className="text-xl font-bold text-slate-900 tracking-tight">Magilus</p>
+                <p className="text-xs text-slate-500">NIT 100.61.80.650</p>
+              </div>
+            </div>
+
+            <div className="text-right">
+              <div className="flex items-baseline justify-end gap-2">
+                <p className="text-2xl font-bold tracking-tight text-slate-900 uppercase">
+                  Factura
+                </p>
+                <h1 className="max-w-full break-all text-2xl font-extrabold tracking-tight text-slate-400">
+                  N° {formatInvoiceNumber(sale.code)}
+                </h1>
+              </div>
+              <div className="flex items-center justify-end gap-1.5 text-sm font-semibold text-slate-500">
+                <Calendar className="h-4 w-4" /> {issuedDate}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {!isPdf && (
         <>
-          <section className={"grid gap-4 md:grid-cols-2"}>
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+                <User className="h-4 w-4" /> Cliente
+              </div>
+              <p className="text-xs font-semibold text-slate-900">{clientName}</p>
+              <p className="text-xs text-slate-500">CC/NIT: {clientDocument || "Por confirmar"}</p>
+              <p className="text-xs text-slate-500">Teléfono: {sale.client.phone || "Por confirmar"}</p>
+              <p className="text-xs text-slate-500 break-all">Email: {sale.client.email}</p>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+                <MapPin className="h-4 w-4" /> Destino
+              </div>
+              <p className="text-xs text-slate-500">Ciudad: {clientCity || "Por confirmar"}</p>
+              <p className="text-xs text-slate-500">Dirección: {deliveryAddress || "Por confirmar"}</p>
+              <p className="text-xs text-slate-500">Referencia: {sale.client.neighborhood || "Por confirmar"}</p>
+              <p className="text-xs text-slate-500">Cotización ref: {sale.quote.code}</p>
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-center text-base font-bold uppercase tracking-widest text-slate-900">
+              Datos de producto
+            </h2>
+            <div className="overflow-x-auto md:mx-0">
+              <Table className="min-w-[760px] border-collapse text-sm [&_td]:border [&_td]:border-black [&_td]:py-1.5 [&_td]:px-2 [&_th]:border [&_th]:border-black">
+                <TableHeader>
+                  <TableRow className="bg-zinc-200 hover:bg-zinc-200 [&>th]:h-auto [&>th]:py-1 [&>th]:font-bold [&>th]:text-zinc-900">
+                    <TableHead className="text-center w-16">Cant</TableHead>
+                    <TableHead>Producto</TableHead>
+                    <TableHead>Descripción</TableHead>
+                    <TableHead className="text-right">Unitario</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {itemsWithMeta.map((item) => (
+                    <TableRow key={item.id} className="transition-colors">
+                      <TableCell className="text-center font-bold text-slate-700">
+                        {item.quantity}
+                      </TableCell>
+                      <TableCell>
+                        <div className="leading-tight">
+                          <p className="font-semibold text-slate-900">{item.product.name}</p>
+                          {item.product.code && (
+                            <p className="text-xs text-slate-400">{item.product.code}</p>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-slate-900 max-w-[240px]">
+                        <span className="line-clamp-2">{item.meta.description || "—"}</span>
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap text-slate-600">
+                        {formatMoney(Number(item.unitPrice), currency)}
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-slate-900 whitespace-nowrap">
+                        {formatMoney(Number(item.lineTotal), currency)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-center text-base font-bold uppercase tracking-widest text-slate-900">
+              Detalles de abono
+            </h2>
+            <div className="overflow-x-auto md:mx-0">
+              <Table className="min-w-[760px] border-collapse text-sm [&_td]:border [&_td]:border-black [&_td]:py-1.5 [&_td]:px-2 [&_th]:border [&_th]:border-black">
+                <TableHeader>
+                  <TableRow className="bg-zinc-200 hover:bg-zinc-200 [&>th]:h-auto [&>th]:py-1 [&>th]:font-bold [&>th]:text-zinc-900">
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead className="text-right">Abono</TableHead>
+                    <TableHead className="text-center">Foto del comprobante</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {receiptsLedger.length > 0 ? (
+                    receiptsLedger.map((receipt, index) => (
+                      <TableRow key={`${receipt.paymentMethod}-${index}`} className="transition-colors">
+                        <TableCell className="whitespace-nowrap text-slate-900">
+                          {receipt.paidAt || "—"}
+                        </TableCell>
+                        <TableCell className="text-slate-900">
+                          {receipt.paymentMethod || "N/A"}
+                        </TableCell>
+                        <TableCell className="text-right whitespace-nowrap font-semibold text-slate-900">
+                          {formatMoney(receipt.amount, currency)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {receipt.receiptUrl ? (
+                            receipt.receiptType && receipt.receiptType.includes("pdf") ? (
+                              <a
+                                href={getPublicAssetUrl(receipt.receiptUrl)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-semibold text-primary underline underline-offset-2"
+                              >
+                                Ver PDF
+                              </a>
+                            ) : (
+                              <a
+                                href={getPublicAssetUrl(receipt.receiptUrl)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-block"
+                              >
+                                <img
+                                  src={getPublicAssetUrl(receipt.receiptUrl)}
+                                  alt={receipt.receiptName || "Comprobante"}
+                                  className="mx-auto h-16 w-16 rounded border border-slate-300 object-cover"
+                                />
+                              </a>
+                            )
+                          ) : (
+                            <span className="text-slate-400">Sin comprobante</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-slate-400">
+                        No hay recibos registrados.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </section>
+
+          <section>
             <Card className="border-border">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-xs uppercase tracking-[0.26em] text-muted-foreground">
-                  <User className="h-3.5 w-3.5" />
-                  Cliente
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm">
-                <div className="space-y-1">
-                  <p className="text-xl font-semibold text-foreground">{clientName}</p>
-                  <p className="text-muted-foreground">{clientDocument || "N/A"}</p>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Ciudad</p>
-                    <p className="mt-1 font-medium text-foreground">{clientCity || "Not registered"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Direccion</p>
-                    <p className="mt-1 font-medium text-foreground">{deliveryAddress || "Not registered"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Cotizaacion ref</p>
-                    <p className="mt-1 font-medium text-foreground">{sale.quote.code}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Email</p>
-                    <p className="mt-1 font-medium text-foreground">{sale.client.email}</p>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Contacto</p>
-                    <p className="mt-1 font-medium text-foreground">{sale.client.phone || "N/A"}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-xs uppercase tracking-[0.26em] text-muted-foreground">
-                  <BadgeDollarSign className="h-3.5 w-3.5" />
-                  Resumen de la factura
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 text-sm">
-                <div className="space-y-2 rounded-2xl border border-border bg-muted/20 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">Capital bruto</span>
-                    <span className="font-medium text-foreground">{formatMoney(grossTotal, currency)}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">Descuento</span>
-                    <span className="font-medium text-foreground">
-                      {discountAmount > 0 ? `- ${formatMoney(discountAmount, currency)}` : formatMoney(0, currency)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 border-t border-border pt-2">
-                    <span className="font-medium text-foreground">Capital neto</span>
-                    <span className="font-semibold text-foreground">{formatMoney(capital, currency)}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">Abonos</span>
-                    <span className="font-medium text-foreground">{formatMoney(downPayment, currency)}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">Saldo pendiente</span>
-                    <span className="font-semibold text-foreground">{formatMoney(remainingBalance, currency)}</span>
-                  </div>
-                </div>
-
+              <CardContent className="space-y-4 pt-6 text-sm">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>Progreso de pago</span>
@@ -511,155 +611,48 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
                   </div>
                 </div>
                 {hasBalance ? (
-                  <div className="grid gap-3 rounded-2xl border border-border bg-muted/30 p-4 sm:grid-cols-2">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Abono actual</p>
-                      <p className="mt-1 text-lg font-semibold text-foreground">{formatMoney(downPayment, currency)}</p>
-                    </div>
+                  <div className="grid gap-3 p-0 sm:grid-cols-3">
                     <div>
                       <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Saldo pendiente</p>
                       <p className="mt-1 text-lg font-semibold text-foreground">{formatMoney(remainingBalance, currency)}</p>
                     </div>
-                  </div>
-                ) : null}
-
-                {receiptSummary.length > 0 ? (
-                  <div className="space-y-2">
-                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Abonos registrados</p>
-                    <div className="overflow-hidden rounded-2xl border border-border">
-                      <div className="divide-y divide-border">
-                        {receiptSummary.map((receipt, index) => (
-                          <div key={`${receipt.paymentMethod}-${index}`} className="grid gap-2 bg-card p-3 text-sm sm:grid-cols-[auto_1fr_auto] sm:items-center">
-                            <div className="font-medium text-foreground">#{index + 1}</div>
-                            <div className="min-w-0 space-y-0.5">
-                              <p className="font-medium text-foreground">
-                                {receipt.paymentMethod || "Metodo no informado"}
-                                {receipt.note ? ` · ${receipt.note}` : ""}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {receipt.receiptName || "Sin comprobante"} {receipt.receiptType ? `· ${receipt.receiptType}` : ""}
-                              </p>
-                            </div>
-                            <div className="flex flex-col items-start gap-1 sm:items-end">
-                              <p className="font-semibold text-foreground">{formatMoney(receipt.amount, currency)}</p>
-                              {receipt.receiptUrl ? (
-                                <a
-                                  href={getPublicAssetUrl(receipt.receiptUrl)}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-xs text-primary underline-offset-4 hover:underline"
-                                >
-                                  Ver comprobante
-                                </a>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">Sin archivo</span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Abono</p>
+                      <p className="mt-1 text-lg font-semibold text-foreground">{formatMoney(downPayment, currency)}</p>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 bg-slate-100 px-4 py-3">
+                      <span className="font-bold uppercase text-slate-900">Total</span>
+                      <span className="text-lg font-bold text-slate-900">{formatMoney(capital, currency)}</span>
                     </div>
                   </div>
                 ) : null}
-              </CardContent>
-            </Card>
-
-            <Card className="border-border">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-xs uppercase tracking-[0.26em] text-muted-foreground">
-                  <ReceiptText className="h-3.5 w-3.5" />
-                  Secuencia de abonos
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                {receiptSummary.length > 0 ? (
-                  receiptSummary.map((receipt, index) => (
-                    <div key={`${receipt.paymentMethod}-${index}`} className="rounded-2xl border border-border bg-muted/20 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-semibold text-foreground">Abono #{index + 1}</p>
-                        <p className="font-semibold text-foreground">{formatMoney(receipt.amount, currency)}</p>
-                      </div>
-                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                        <p className="text-xs text-muted-foreground">
-                          Metodo: <span className="font-medium text-foreground">{receipt.paymentMethod || "N/A"}</span>
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Comprobante:{" "}
-                          <span className="font-medium text-foreground">{receipt.receiptName || "Sin comprobante"}</span>
-                        </p>
-                      </div>
-                      {receipt.note ? <p className="mt-2 text-xs text-muted-foreground">{receipt.note}</p> : null}
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">No hay abonos registrados.</p>
-                )}
               </CardContent>
             </Card>
           </section>
 
-
-          <section className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
+          <section>
             <Card className="border-border">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <FileText className="h-4 w-4 text-primary" />
-                  Factura
+                  <FileDown className="h-4 w-4 text-primary" />
+                  Descargar
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/40 hover:bg-muted/40">
-                      <TableHead>Product</TableHead>
-                      <TableHead>Qty</TableHead>
-                      <TableHead>Unit</TableHead>
-                      <TableHead className="text-right">Line total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sale.quote.items.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>
-                          <div className="space-y-0.5">
-                            <p className="font-medium text-foreground">{item.product.name}</p>
-                            <p className="text-xs text-muted-foreground">{item.product.code ?? item.product.slug}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>{item.quantity}</TableCell>
-                        <TableCell>{formatMoney(Number(item.unitPrice), currency)}</TableCell>
-                        <TableCell className="text-right font-semibold">{formatMoney(Number(item.lineTotal), currency)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <CardContent className="space-y-3 sm:flex sm:gap-3 sm:space-y-0">
+                <DownloadSaleInvoicePdfButton invoiceToken={sale.invoiceToken} className="w-full sm:w-auto" />
+                {receiptUrl ? (
+                  <a
+                    href={receiptUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={buttonVariants({ variant: "outline", className: "w-full sm:w-auto" })}
+                  >
+                    <ReceiptText className="h-4 w-4" />
+                    Ver comprobante
+                  </a>
+                ) : null}
               </CardContent>
             </Card>
-
-            <div className="space-y-4">
-              <Card className="border-border">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <FileDown className="h-4 w-4 text-primary" />
-                    Descargar
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <DownloadSaleInvoicePdfButton invoiceToken={sale.invoiceToken} className="w-full" />
-                  {receiptUrl ? (
-                    <a
-                      href={receiptUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={buttonVariants({ variant: "outline", className: "w-full" })}
-                    >
-                      <ReceiptText className="h-4 w-4" />
-                      Ver comprobante
-                    </a>
-                  ) : null}
-                </CardContent>
-              </Card>
-            </div>
           </section>
         </>
       )}

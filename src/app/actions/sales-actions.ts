@@ -365,3 +365,106 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
   }
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Venta creada" }).toString()}`);
 }
+
+const addSalePaymentSchema = z.object({
+  saleId: z.string().trim().min(1, "Venta invalida"),
+  amount: z.coerce.number().positive("El monto del abono debe ser mayor a cero"),
+});
+
+export async function adminAddSalePaymentAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const returnTo = getReturnTo(formData);
+
+  const parsed = addSalePaymentSchema.safeParse({
+    saleId: formData.get("saleId"),
+    amount: formData.get("amount"),
+  });
+
+  if (!parsed.success) {
+    redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos del abono invalidos");
+  }
+
+  const paymentMethod = parsePaymentMethod(formData.get("paymentMethod"));
+  if (!paymentMethod) {
+    redirectWithError(returnTo, "Selecciona un medio de pago valido");
+  }
+
+  const noteValue = formData.get("note");
+  const note = typeof noteValue === "string" ? noteValue.trim() : "";
+
+  const fileEntry = formData.get("receipt");
+  const file = fileEntry instanceof File && fileEntry.size > 0 ? fileEntry : null;
+
+  if (paymentMethod !== "EFECTIVO" && !file) {
+    redirectWithError(returnTo, "Los abonos que no sean en efectivo deben incluir comprobante");
+  }
+
+  if (file) {
+    const validationError = validateReceiptFile(file);
+    if (validationError) {
+      redirectWithError(returnTo, validationError);
+    }
+  }
+
+  const sale = await prisma.sale.findUnique({
+    where: { id: parsed.data.saleId },
+    include: { salePayments: true },
+  });
+
+  if (!sale) {
+    redirectWithError(returnTo, "No se encontro la venta");
+  }
+
+  if (sale.status === "CANCELLED") {
+    redirectWithError(returnTo, "No se pueden registrar abonos en una venta cancelada");
+  }
+
+  const capital = Number(sale.total);
+  const alreadyPaid = sale.salePayments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+  const remaining = Math.max(capital - alreadyPaid, 0);
+
+  if (parsed.data.amount > remaining + 0.0001) {
+    redirectWithError(returnTo, "El abono supera el saldo pendiente de la venta");
+  }
+
+  const nextSortOrder = sale.salePayments.reduce((max, payment) => Math.max(max, payment.sortOrder + 1), sale.salePayments.length);
+
+  let savedReceipt: { url: string; name: string; type: string } | null = null;
+  if (file) {
+    savedReceipt = await savePaymentReceipt(file, sale.code, nextSortOrder);
+  }
+
+  const newTotalPaid = alreadyPaid + parsed.data.amount;
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.salePayment.create({
+        data: {
+          saleId: sale.id,
+          amount: parsed.data.amount,
+          paymentMethod,
+          note: note || null,
+          receiptUrl: savedReceipt?.url ?? null,
+          receiptName: savedReceipt?.name ?? null,
+          receiptType: savedReceipt?.type ?? null,
+          sortOrder: nextSortOrder,
+        },
+      });
+
+      await tx.sale.update({
+        where: { id: sale.id },
+        data: {
+          downPaymentAmount: newTotalPaid,
+          status: newTotalPaid >= capital && sale.status === "ACTIVE" ? "INVOICED" : sale.status,
+        },
+      });
+    });
+  } catch (error) {
+    console.error("Failed to add sale payment:", error);
+    redirectWithError(returnTo, "No se pudo registrar el abono");
+  }
+
+  revalidatePath("/admin/ventas");
+  revalidatePath(`/sales/${sale.invoiceToken}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Abono registrado" }).toString()}`);
+}

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import * as React from "react";
 import {
-  BadgeDollarSign,
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
@@ -13,11 +12,13 @@ import {
   FileText,
   Image as ImageIcon,
   MoreHorizontal,
+  PlusCircle,
   ReceiptText,
   User2,
   Eye,
   FileCheck2,
 } from "lucide-react";
+import { adminAddSalePaymentAction } from "@/app/actions/sales-actions";
 import { adminCreateOrderFromSaleAction } from "@/app/actions/orders-actions";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,6 +54,7 @@ type SalePaymentRow = {
   receiptUrl: string | null;
   receiptName: string | null;
   receiptType: string | null;
+  paidAt: string | null;
 };
 
 type SaleRow = {
@@ -175,14 +177,17 @@ function RowActions({
   sale,
   currency,
   onViewReceipts,
+  onAddPayment,
 }: {
   sale: SaleRow;
   currency: SupportedCurrencyCode;
   onViewReceipts: () => void;
+  onAddPayment: () => void;
 }) {
   const hasReceipts =
     sale.salePayments.length > 0 ||
     Boolean(sale.paymentReceiptUrl);
+  const canAddPayment = sale.status !== "CANCELLED" && sale.remainingBalance > 0;
 
   return (
     <DropdownMenu>
@@ -192,6 +197,11 @@ function RowActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onAddPayment} disabled={!canAddPayment}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          {canAddPayment ? "Registrar abono" : "Venta saldada"}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link href={`/sales/${sale.invoiceToken}`}>
             <ArrowUpRight className="mr-2 h-4 w-4" />
@@ -252,6 +262,7 @@ function SaleReceiptsSheet({
               receiptUrl: sale.paymentReceiptUrl,
               receiptName: "Comprobante principal",
               receiptType: sale.paymentReceiptType,
+              paidAt: null,
             },
           ]
         : []
@@ -283,6 +294,9 @@ function SaleReceiptsSheet({
                         <div className="min-w-0 space-y-1">
                           <p className="text-sm font-semibold text-foreground">Abono #{index + 1}</p>
                           <p className="text-xs text-muted-foreground">{getPaymentMethodLabel(receipt.paymentMethod)}</p>
+                          {receipt.paidAt ? (
+                            <p className="text-xs text-muted-foreground">{receipt.paidAt}</p>
+                          ) : null}
                         </div>
                         <p className="text-sm font-semibold text-foreground">{formatMoney(receipt.amount, currency)}</p>
                       </div>
@@ -326,10 +340,126 @@ function SaleReceiptsSheet({
   );
 }
 
+function AddSalePaymentSheet({
+  sale,
+  currency,
+  open,
+  onOpenChange,
+}: {
+  sale: SaleRow | null;
+  currency: SupportedCurrencyCode;
+  open: boolean;
+  onOpenChange: (value: boolean) => void;
+}) {
+  const inputClass =
+    "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-md">
+        <SheetHeader className="border-b border-border pb-4">
+          <SheetTitle>Registrar abono</SheetTitle>
+          <SheetDescription>
+            {sale ? `Venta ${sale.code} · ${sale.clientName}` : "Registra un nuevo abono para la venta."}
+          </SheetDescription>
+        </SheetHeader>
+
+        {sale ? (
+          <form
+            action={adminAddSalePaymentAction}
+            className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-6 pt-3"
+          >
+            <input type="hidden" name="returnTo" value="/admin/ventas" />
+            <input type="hidden" name="saleId" value={sale.id} />
+
+            <div className="grid grid-cols-2 gap-3 rounded-2xl border border-border bg-muted/20 p-3 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground">Total venta</p>
+                <p className="font-semibold text-foreground">{formatMoney(sale.total, currency)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Saldo pendiente</p>
+                <p className="font-semibold text-foreground">{formatMoney(sale.remainingBalance, currency)}</p>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="add-payment-amount" className="text-sm font-medium text-foreground">
+                Monto del abono
+              </label>
+              <input
+                id="add-payment-amount"
+                name="amount"
+                type="number"
+                min="0.01"
+                max={sale.remainingBalance}
+                step="0.01"
+                required
+                className={inputClass}
+                placeholder="0.00"
+              />
+              <p className="text-xs text-muted-foreground">
+                Maximo {formatMoney(sale.remainingBalance, currency)}
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="add-payment-method" className="text-sm font-medium text-foreground">
+                Medio de pago
+              </label>
+              <select id="add-payment-method" name="paymentMethod" required defaultValue="EFECTIVO" className={inputClass}>
+                <option value="EFECTIVO">Efectivo</option>
+                <option value="TARJETA">Tarjeta</option>
+                <option value="TRANSFERENCIA">Transferencia</option>
+                <option value="OTRO">Otro</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="add-payment-receipt" className="text-sm font-medium text-foreground">
+                Comprobante
+              </label>
+              <input
+                id="add-payment-receipt"
+                name="receipt"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                className={inputClass}
+              />
+              <p className="text-xs text-muted-foreground">
+                Obligatorio si el pago no es en efectivo. JPG, PNG, WEBP o PDF (max 12 MB).
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="add-payment-note" className="text-sm font-medium text-foreground">
+                Nota (opcional)
+              </label>
+              <textarea
+                id="add-payment-note"
+                name="note"
+                rows={2}
+                className={inputClass}
+                placeholder="Observaciones del abono"
+              />
+            </div>
+
+            <Button type="submit" className="w-full">
+              <PlusCircle className="h-4 w-4" />
+              Guardar abono
+            </Button>
+          </form>
+        ) : null}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
   const [sortKey, setSortKey] = React.useState<SortKey>("created");
   const [sortDirection, setSortDirection] = React.useState<SortDirection>("desc");
   const [selectedSale, setSelectedSale] = React.useState<SaleRow | null>(null);
+  const [paymentSale, setPaymentSale] = React.useState<SaleRow | null>(null);
 
   const sortedSales = React.useMemo(() => {
     const list = [...sales];
@@ -380,6 +510,17 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
         onOpenChange={(open) => {
           if (!open) {
             setSelectedSale(null);
+          }
+        }}
+      />
+
+      <AddSalePaymentSheet
+        sale={paymentSale}
+        currency={currency}
+        open={Boolean(paymentSale)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPaymentSale(null);
           }
         }}
       />
@@ -450,16 +591,6 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
               </TableHead>
               <TableHead className="normal-case tracking-normal">
                 <HeaderLabel
-                  active={sortKey === "remaining"}
-                  direction={sortDirection}
-                  onClick={() => toggleSort("remaining")}
-                  icon={<BadgeDollarSign className="h-3.5 w-3.5" />}
-                >
-                  Restante
-                </HeaderLabel>
-              </TableHead>
-              <TableHead className="normal-case tracking-normal">
-                <HeaderLabel
                   active={sortKey === "created"}
                   direction={sortDirection}
                   onClick={() => toggleSort("created")}
@@ -476,7 +607,7 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
           <TableBody>
             {sortedSales.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="py-9 text-center text-muted-foreground">
+                <TableCell colSpan={8} className="py-9 text-center text-muted-foreground">
                   Aun no hay ventas.
                 </TableCell>
               </TableRow>
@@ -499,9 +630,6 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
                   <TableCell className="text-sm font-semibold text-foreground">
                     {formatMoney(sale.downPaymentAmount, currency)}
                   </TableCell>
-                  <TableCell className="text-sm font-semibold text-foreground">
-                    {formatMoney(sale.remainingBalance, currency)}
-                  </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{sale.createdAt}</TableCell>
                   <TableCell>
                     <form data-create-order-sale-id={sale.id} action={adminCreateOrderFromSaleAction}>
@@ -509,7 +637,12 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
                       <input type="hidden" name="saleId" value={sale.id} />
                     </form>
                     <div className="flex items-center">
-                      <RowActions sale={sale} currency={currency} onViewReceipts={() => setSelectedSale(sale)} />
+                      <RowActions
+                        sale={sale}
+                        currency={currency}
+                        onViewReceipts={() => setSelectedSale(sale)}
+                        onAddPayment={() => setPaymentSale(sale)}
+                      />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -539,8 +672,7 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
                 <p className="text-xs text-muted-foreground">{sale.createdAt}</p>
                 <p className="text-sm font-semibold text-foreground">{formatMoney(sale.total, currency)}</p>
                 <p className="text-xs text-muted-foreground">
-                  Abono: {formatMoney(sale.downPaymentAmount, currency)} · Restante:{" "}
-                  {formatMoney(sale.remainingBalance, currency)}
+                  Abono: {formatMoney(sale.downPaymentAmount, currency)}
                 </p>
                 <p className="text-xs text-muted-foreground">{getReceiptLabel(sale.paymentReceiptType)}</p>
               </div>
@@ -549,7 +681,12 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
                   <input type="hidden" name="returnTo" value="/admin/ventas" />
                   <input type="hidden" name="saleId" value={sale.id} />
                 </form>
-                <RowActions sale={sale} currency={currency} onViewReceipts={() => setSelectedSale(sale)} />
+                <RowActions
+                  sale={sale}
+                  currency={currency}
+                  onViewReceipts={() => setSelectedSale(sale)}
+                  onAddPayment={() => setPaymentSale(sale)}
+                />
               </div>
             </article>
           ))

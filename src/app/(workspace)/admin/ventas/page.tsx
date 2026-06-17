@@ -20,8 +20,20 @@ type SaleWithDiscountFields = {
     receiptUrl?: unknown;
     receiptName?: unknown;
     receiptType?: unknown;
+    createdAt?: unknown;
   }>;
 };
+
+function formatPaymentDate(value: unknown): string | null {
+  if (value instanceof Date) {
+    return value.toLocaleDateString("es-CO");
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toLocaleDateString("es-CO");
+  }
+  return null;
+}
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -136,6 +148,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
                 receiptUrl: typeof payment.receiptUrl === "string" && payment.receiptUrl.trim() ? payment.receiptUrl.trim() : null,
                 receiptName: typeof payment.receiptName === "string" && payment.receiptName.trim() ? payment.receiptName.trim() : null,
                 receiptType: typeof payment.receiptType === "string" && payment.receiptType.trim() ? payment.receiptType.trim() : null,
+                paidAt: formatPaymentDate(payment.createdAt),
               }))
             : [],
           hasOrder: Boolean(sale.order),

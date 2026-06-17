@@ -390,10 +390,17 @@ function AttachmentCard({
   const kind = getAttachmentKind(attachment.file);
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={`group flex w-full gap-3 rounded-xl border p-3 text-left transition-colors ${
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      className={`group flex w-full cursor-pointer gap-3 rounded-xl border p-3 text-left transition-colors ${
         active ? "border-ring bg-muted/60 shadow-sm" : "border-border bg-background hover:bg-muted/30"
       }`}
     >
@@ -432,7 +439,7 @@ function AttachmentCard({
           ) : null}
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -842,10 +849,17 @@ function SaleInstallmentCard({
   const hasFile = Boolean(installment.file);
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={`group flex w-full gap-3 rounded-xl border p-3 text-left transition-colors ${
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      className={`group flex w-full cursor-pointer gap-3 rounded-xl border p-3 text-left transition-colors ${
         active ? "border-ring bg-muted/60 shadow-sm" : "border-border bg-background hover:bg-muted/30"
       }`}
     >
@@ -880,7 +894,7 @@ function SaleInstallmentCard({
         {installment.note ? <p className="text-xs text-muted-foreground">{installment.note}</p> : null}
         {errors && errors.length > 0 ? <p className="text-xs text-destructive">{errors.join(" Â· ")}</p> : null}
       </div>
-    </button>
+    </div>
   );
 }
 

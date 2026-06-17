@@ -28,6 +28,7 @@ type SaleRow = {
     receiptUrl: string | null;
     receiptName: string | null;
     receiptType: string | null;
+    paidAt: string | null;
   }>;
   hasOrder: boolean;
 };
@@ -63,31 +64,12 @@ export function SalesWorkspace({ sales, currency, stats }: SalesWorkspaceProps) 
         </CardContent>
       </Card>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <Card className="border-border bg-card/95">
           <CardContent className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Ventas</p>
             <p className="text-2xl font-semibold text-foreground">{stats.salesCount}</p>
             <p className="text-xs text-muted-foreground">Ventas registradas</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border bg-card/95">
-          <CardContent className="space-y-3">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Resumen financiero</p>
-            <div className="space-y-1.5 text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Capital bruto</span>
-                <span className="font-medium text-foreground">{stats.grossTotal}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Descuentos</span>
-                <span className="font-medium text-foreground">{stats.discountTotal}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3 border-t border-border pt-1.5">
-                <span className="font-medium text-foreground">Capital neto</span>
-                <span className="font-semibold text-foreground">{stats.capitalTotal}</span>
-              </div>
-            </div>
           </CardContent>
         </Card>
         <Card className="border-border bg-card/95">
