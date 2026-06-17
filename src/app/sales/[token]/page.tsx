@@ -233,7 +233,10 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
   const saleWithDiscount = sale as SaleWithDiscountFields;
   const grossTotal = Number(saleWithDiscount.grossTotal ?? sale.quote.total);
   const discountAmount = Number(saleWithDiscount.discountAmount ?? 0);
-  const capital = Number(sale.total);
+  // El total se calcula sumando los productos mostrados para que siempre
+  // coincida con la tabla, aunque la cotizacion se haya editado.
+  const itemsTotal = itemsWithMeta.reduce((sum, item) => sum + Number(item.lineTotal), 0);
+  const capital = itemsTotal;
   const receiptSummary = extractSaleReceipts(saleWithDiscount);
   const downPayment = receiptSummary.length > 0
     ? receiptSummary.reduce((sum, receipt) => sum + receipt.amount, 0)
@@ -390,38 +393,38 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
             </>
           ) : null}
 
-          {/* ─── TOTALES ─── */}
-          <div className="flex justify-end">
-            <div className="w-60 shrink-0 space-y-0.5">
-              {Number(sale.subtotal) !== Number(sale.total) && (
-                <div className="flex justify-between text-[12px] px-2 py-1">
-                  <span className="text-slate-500">Subtotal</span>
-                  <span className="font-medium">{formatMoney(Number(sale.subtotal), currency)}</span>
-                </div>
-              )}
-              {discountAmount > 0 && (
-                <div className="flex justify-between text-[12px] px-2 py-1">
-                  <span className="text-slate-500">Descuento</span>
-                  <span className="font-medium">- {formatMoney(discountAmount, currency)}</span>
-                </div>
-              )}
-              {hasBalance && (
-                <>
-                  <div className="flex justify-between text-[12px] px-2 py-1">
-                    <span className="text-slate-500">Abono</span>
-                    <span className="font-medium">{formatMoney(downPayment, currency)}</span>
-                  </div>
-                  <div className="flex justify-between text-[12px] px-2 py-1">
-                    <span className="text-slate-500">Saldo pendiente</span>
-                    <span className="font-medium">{formatMoney(remainingBalance, currency)}</span>
-                  </div>
-                </>
-              )}
-              <div className="flex justify-between border border-slate-300 bg-slate-100 px-3 py-2 font-bold text-[13px]">
-                <span className="font-bold uppercase">Total</span>
-                <span className="font-black">{formatMoney(capital, currency)}</span>
-              </div>
+          {/* ─── PROGRESO DE PAGO ─── */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[11px] text-slate-500">
+              <span>Progreso de pago</span>
+              <span>{paymentProgress.toFixed(0)}%</span>
             </div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full rounded-full bg-primary" style={{ width: `${paymentProgress}%` }} />
+            </div>
+          </div>
+
+          {/* ─── TOTALES (en fila) ─── */}
+          <div className="flex border border-slate-300 text-[12px]">
+            <div className="flex-1 px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-slate-500">Abono</p>
+              <p className="font-semibold text-slate-900">{formatMoney(downPayment, currency)}</p>
+            </div>
+            <div className="flex-1 border-l border-slate-300 px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-slate-500">Saldo pendiente</p>
+              <p className="font-semibold text-slate-900">{formatMoney(remainingBalance, currency)}</p>
+            </div>
+            <div className="flex-1 border-l border-slate-300 bg-zinc-200 px-3 py-2">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-900">Total</p>
+              <p className="font-black text-slate-900">{formatMoney(capital, currency)}</p>
+            </div>
+          </div>
+
+          {/* ─── BARRA DE AGRADECIMIENTO ─── */}
+          <div className="bg-zinc-100 px-4 py-3 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-900">
+              Gracias por preferirnos y esperamos poder ser parte de tu proyecto contando siempre con nuestro respaldo y asesoria
+            </p>
           </div>
 
           {/* ─── FOOTER ─── */}
@@ -653,6 +656,12 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
                 ) : null}
               </CardContent>
             </Card>
+          </section>
+
+          <section className="rounded-xl bg-zinc-100 px-6 py-4 text-center">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-900">
+              Gracias por preferirnos y esperamos poder ser parte de tu proyecto contando siempre con nuestro respaldo y asesoria
+            </p>
           </section>
         </>
       )}
