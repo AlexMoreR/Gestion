@@ -10,6 +10,7 @@ import {
   ShoppingCart, 
   ClipboardList,
   Factory,
+  Landmark,
   Truck,
   LayoutDashboard,
   ArrowRight
@@ -64,6 +65,16 @@ export default async function AdminPage() {
       show: moduleAccess.sales,
       color: "text-emerald-600",
       bgColor: "bg-emerald-100"
+    },
+    {
+      id: "balances",
+      title: "Balances",
+      description: "Calcula rentabilidad, costos de envio y pagos a proveedores.",
+      href: "/admin/balances",
+      icon: Landmark,
+      show: moduleAccess.balances,
+      color: "text-cyan-700",
+      bgColor: "bg-cyan-100"
     },
     {
       id: "orders",

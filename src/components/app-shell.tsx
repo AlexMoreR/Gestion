@@ -42,15 +42,17 @@ export function AppShell({ children, initialUser, brandName, adminModuleAccess }
     : pathname.startsWith("/admin/cotizaciones")
       ? "Cotizaciones"
       : pathname.startsWith("/admin/categorias")
-        ? "Categorias"
-        : pathname.startsWith("/admin/proveedores")
-          ? "Proveedores"
-          : pathname.startsWith("/admin/ventas")
-            ? "Ventas"
-            : pathname.startsWith("/admin/configuracion")
-              ? "Configuracion"
-              : pathname.startsWith("/admin/productos")
-                ? "Productos"
+          ? "Categorias"
+          : pathname.startsWith("/admin/proveedores")
+            ? "Proveedores"
+            : pathname.startsWith("/admin/ventas")
+              ? "Ventas"
+              : pathname.startsWith("/admin/balances")
+                ? "Balances"
+              : pathname.startsWith("/admin/configuracion")
+                ? "Configuracion"
+                : pathname.startsWith("/admin/productos")
+                  ? "Productos"
                 : pathname.startsWith("/profile")
                   ? "Perfil"
                   : pathname.startsWith("/cliente")
@@ -109,6 +111,10 @@ export function AppShell({ children, initialUser, brandName, adminModuleAccess }
 
     if (pathname.startsWith("/admin/ventas")) {
       return [{ label: "Ventas", href: "", isCurrent: true }];
+    }
+
+    if (pathname.startsWith("/admin/balances")) {
+      return [{ label: "Balances", href: "", isCurrent: true }];
     }
 
     if (pathname.startsWith("/sales")) {

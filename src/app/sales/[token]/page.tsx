@@ -235,14 +235,15 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
   const paymentProgress = capital > 0 ? Math.min((downPayment / capital) * 100, 100) : 0;
   const hasBalance = downPayment > 0 || remainingBalance > 0;
 
-  let runningPaid = 0;
-  const receiptsLedger = receiptSummary.map((receipt) => {
-    runningPaid += receipt.amount;
-    return {
+  const receiptsLedger = receiptSummary.reduce<Array<(typeof receiptSummary)[number] & { pending: number }>>((acc, receipt) => {
+    const previousPending = acc.length > 0 ? acc[acc.length - 1].pending : capital;
+    const pending = Math.max(previousPending - receipt.amount, 0);
+    acc.push({
       ...receipt,
-      pending: Math.max(capital - runningPaid, 0),
-    };
-  });
+      pending,
+    });
+    return acc;
+  }, []);
 
   return (
     <main className={isPdf ? "flex flex-col gap-3 p-1 bg-white text-slate-900 text-[13px]" : "mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 md:px-6"}>

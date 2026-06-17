@@ -61,6 +61,13 @@ export const adminModuleDefinitions = [
     group: "Comercial",
   },
   {
+    key: "balances",
+    label: "Balances",
+    description: "Controla rentabilidad, pagos y costos logistico-financieros.",
+    path: "/admin/balances",
+    group: "Comercial",
+  },
+  {
     key: "orders",
     label: "Ordenes",
     description: "Gestiona ordenes de cumplimiento y trazabilidad.",

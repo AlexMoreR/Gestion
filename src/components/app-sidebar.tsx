@@ -5,6 +5,7 @@ import {
   ClipboardList,
   FileText,
   Factory,
+  Landmark,
   LayoutDashboard,
   Package,
   Settings,
@@ -49,6 +50,7 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
   const isAdminProductsRoute = pathname.startsWith("/admin/productos");
   const isAdminQuotesRoute = pathname.startsWith("/admin/cotizaciones");
   const isAdminSalesRoute = pathname.startsWith("/admin/ventas");
+  const isAdminBalancesRoute = pathname.startsWith("/admin/balances");
   const isAdminOrdersRoute = pathname.startsWith("/admin/ordenes");
   const isAdminProductionRoute = pathname.startsWith("/admin/produccion");
   const isAdminDispatchesRoute = pathname.startsWith("/admin/despachos");
@@ -67,6 +69,7 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
           !isAdminProductsRoute &&
         !isAdminQuotesRoute &&
         !isAdminSalesRoute &&
+        !isAdminBalancesRoute &&
         !isAdminOrdersRoute &&
         !isAdminProductionRoute &&
         !isAdminDispatchesRoute &&
@@ -140,6 +143,16 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
         icon: BadgeDollarSign,
         isActive: pathname.startsWith("/admin/ventas"),
         items: [{ title: "Listado", url: "/admin/ventas" }],
+      });
+    }
+
+    if (adminModuleAccess.balances) {
+      navMain.push({
+        title: "Balances",
+        url: "/admin/balances",
+        icon: Landmark,
+        isActive: pathname.startsWith("/admin/balances"),
+        items: [{ title: "Rentabilidad", url: "/admin/balances" }],
       });
     }
 
