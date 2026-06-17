@@ -555,6 +555,13 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
         </div>
       )}
 
+      {/* ─── BARRA DE AGRADECIMIENTO ─────────────────────────────────── */}
+      <div className={isPdf ? "bg-zinc-100 px-4 py-3 text-center" : "rounded-xl bg-zinc-100 px-6 py-4 text-center"}>
+        <p className={isPdf ? "text-[10px] font-bold uppercase tracking-wide text-slate-900" : "text-xs font-bold uppercase tracking-wide text-slate-900"}>
+          Gracias por preferirnos y esperamos poder ser parte de tu proyecto contando siempre con nuestro respaldo y asesoria
+        </p>
+      </div>
+
       {/* ─── FOOTER ──────────────────────────────────────────────────── */}
       {isPdf ? (
         <footer className="border-t border-slate-200 pt-2 text-center text-[10px] text-slate-400">
