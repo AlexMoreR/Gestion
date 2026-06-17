@@ -14,6 +14,7 @@ type SaleWithDiscountFields = {
     total: unknown;
   };
   salePayments?: Array<{
+    id?: unknown;
     amount: unknown;
     paymentMethod?: unknown;
     note?: unknown;
@@ -142,6 +143,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
           paymentReceiptType: sale.paymentReceiptType,
           salePayments: Array.isArray((sale as SaleWithDiscountFields).salePayments)
             ? (sale as SaleWithDiscountFields).salePayments!.map((payment) => ({
+                id: typeof payment.id === "string" ? payment.id : "",
                 amount: Number(payment.amount ?? 0),
                 paymentMethod: typeof payment.paymentMethod === "string" ? payment.paymentMethod : "",
                 note: typeof payment.note === "string" && payment.note.trim() ? payment.note.trim() : null,

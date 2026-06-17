@@ -427,6 +427,21 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
     redirectWithError(returnTo, "El abono supera el saldo pendiente de la venta");
   }
 
+  // Evita abonos duplicados por doble/triple clic: si ya existe un abono identico
+  // (mismo monto y medio de pago) creado hace muy poco, se ignora el repetido.
+  const DUPLICATE_WINDOW_MS = 20_000;
+  const now = Date.now();
+  const hasRecentDuplicate = sale.salePayments.some(
+    (payment) =>
+      Number(payment.amount ?? 0) === parsed.data.amount &&
+      payment.paymentMethod === paymentMethod &&
+      payment.createdAt instanceof Date &&
+      now - payment.createdAt.getTime() < DUPLICATE_WINDOW_MS,
+  );
+  if (hasRecentDuplicate) {
+    redirect(`${returnTo}?${new URLSearchParams({ ok: "Abono registrado" }).toString()}`);
+  }
+
   const nextSortOrder = sale.salePayments.reduce((max, payment) => Math.max(max, payment.sortOrder + 1), sale.salePayments.length);
 
   let savedReceipt: { url: string; name: string; type: string } | null = null;
@@ -467,4 +482,59 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
   revalidatePath("/admin/ventas");
   revalidatePath(`/sales/${sale.invoiceToken}`);
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Abono registrado" }).toString()}`);
+}
+
+const deleteSalePaymentSchema = z.object({
+  paymentId: z.string().trim().min(1, "Abono invalido"),
+});
+
+export async function adminDeleteSalePaymentAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const returnTo = getReturnTo(formData);
+
+  const parsed = deleteSalePaymentSchema.safeParse({
+    paymentId: formData.get("paymentId"),
+  });
+
+  if (!parsed.success) {
+    redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Abono invalido");
+  }
+
+  const payment = await prisma.salePayment.findUnique({
+    where: { id: parsed.data.paymentId },
+    include: { sale: { include: { salePayments: true } } },
+  });
+
+  if (!payment) {
+    redirectWithError(returnTo, "No se encontro el abono");
+  }
+
+  const sale = payment.sale;
+  const capital = Number(sale.total);
+  const newTotalPaid = sale.salePayments
+    .filter((item) => item.id !== payment.id)
+    .reduce((sum, item) => sum + Number(item.amount ?? 0), 0);
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.salePayment.delete({ where: { id: payment.id } });
+
+      await tx.sale.update({
+        where: { id: sale.id },
+        data: {
+          downPaymentAmount: newTotalPaid,
+          // Si la venta estaba marcada como facturada por estar pagada y ahora
+          // queda saldo pendiente, se regresa a activa.
+          status: sale.status === "INVOICED" && newTotalPaid < capital ? "ACTIVE" : sale.status,
+        },
+      });
+    });
+  } catch (error) {
+    console.error("Failed to delete sale payment:", error);
+    redirectWithError(returnTo, "No se pudo eliminar el abono");
+  }
+
+  revalidatePath("/admin/ventas");
+  revalidatePath(`/sales/${sale.invoiceToken}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Abono eliminado" }).toString()}`);
 }

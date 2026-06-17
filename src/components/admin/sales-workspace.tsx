@@ -22,6 +22,7 @@ type SaleRow = {
   paymentReceiptUrl: string;
   paymentReceiptType: string;
   salePayments: Array<{
+    id: string;
     amount: number;
     paymentMethod: string;
     note: string | null;

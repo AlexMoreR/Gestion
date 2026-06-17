@@ -17,8 +17,10 @@ import {
   User2,
   Eye,
   FileCheck2,
+  Trash2,
 } from "lucide-react";
-import { adminAddSalePaymentAction } from "@/app/actions/sales-actions";
+import { useFormStatus } from "react-dom";
+import { adminAddSalePaymentAction, adminDeleteSalePaymentAction } from "@/app/actions/sales-actions";
 import { adminCreateOrderFromSaleAction } from "@/app/actions/orders-actions";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,6 +50,7 @@ import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 type SaleStatus = "DRAFT" | "ACTIVE" | "INVOICED" | "COMPLETED" | "CANCELLED";
 
 type SalePaymentRow = {
+  id: string;
   amount: number;
   paymentMethod: string;
   note: string | null;
@@ -340,6 +343,31 @@ function SaleReceiptsSheet({
   );
 }
 
+function SavePaymentButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" className="w-full" disabled={pending}>
+      <PlusCircle className="h-4 w-4" />
+      {pending ? "Guardando..." : "Guardar abono"}
+    </Button>
+  );
+}
+
+function DeletePaymentButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+      aria-label="Eliminar abono"
+      title="Eliminar abono"
+    >
+      <Trash2 className="h-4 w-4" />
+    </button>
+  );
+}
+
 function AddSalePaymentSheet({
   sale,
   currency,
@@ -444,11 +472,44 @@ function AddSalePaymentSheet({
               />
             </div>
 
-            <Button type="submit" className="w-full">
-              <PlusCircle className="h-4 w-4" />
-              Guardar abono
-            </Button>
+            <SavePaymentButton />
           </form>
+        ) : null}
+
+        {sale && sale.salePayments.length > 0 ? (
+          <div className="space-y-2 border-t border-border px-4 pb-6 pt-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Abonos registrados
+            </p>
+            <div className="space-y-2">
+              {sale.salePayments.map((payment, index) => (
+                <div
+                  key={payment.id || index}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground">
+                      {formatMoney(payment.amount, currency)}
+                      <span className="ml-2 text-xs font-normal text-muted-foreground">
+                        {getPaymentMethodLabel(payment.paymentMethod)}
+                      </span>
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {payment.paidAt || "Sin fecha"}
+                      {payment.note ? ` · ${payment.note}` : ""}
+                    </p>
+                  </div>
+                  {payment.id ? (
+                    <form action={adminDeleteSalePaymentAction}>
+                      <input type="hidden" name="returnTo" value="/admin/ventas" />
+                      <input type="hidden" name="paymentId" value={payment.id} />
+                      <DeletePaymentButton />
+                    </form>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
         ) : null}
       </SheetContent>
     </Sheet>
