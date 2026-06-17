@@ -35,6 +35,9 @@ type OrderDispatchManagerProps = {
   allItemsPaymentSet: boolean;
   allItemsHavePhotos: boolean;
   activeDispatch: ActiveDispatch | null;
+  display?: "card" | "button";
+  buttonLabel?: string;
+  buttonClassName?: string;
 };
 
 export function OrderDispatchManager({
@@ -47,52 +50,14 @@ export function OrderDispatchManager({
   allItemsPaymentSet,
   allItemsHavePhotos,
   activeDispatch,
+  display = "card",
+  buttonLabel = "Despachar orden",
+  buttonClassName,
 }: OrderDispatchManagerProps) {
   const [open, setOpen] = useState(false);
   const [shippingMode, setShippingMode] = useState<"PAY_NOW" | "PAY_LATER">("PAY_LATER");
 
-  return (
-    <Card className="border-border bg-card/95">
-      <CardHeader>
-        <CardTitle>Despacho</CardTitle>
-        <CardDescription>
-          Crea la salida de la orden: transportadora, costo de envio y comprobante.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {activeDispatch ? (
-          <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground">
-            Ya existe un despacho activo:{" "}
-            <span className="font-medium text-foreground">{activeDispatch.code}</span>
-            {activeDispatch.carrierName ? ` - ${activeDispatch.carrierName}` : ""}
-            {activeDispatch.trackingNumber ? ` - Guia ${activeDispatch.trackingNumber}` : ""}
-          </div>
-        ) : (
-          <>
-            {!canDispatch ? (
-              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-400">
-                Antes de despachar, en cada item (boton Fabricar/Recoger):
-                <ul className="ml-4 list-disc">
-                  {!allItemsConfirmed ? <li>Confirma el proveedor y costo de todos los items.</li> : null}
-                  {!allItemsPaymentSet ? <li>Registra el pago al proveedor (recibo o pagar luego).</li> : null}
-                  {!allItemsHavePhotos ? <li>Sube al menos una foto del producto terminado por cada item.</li> : null}
-                </ul>
-              </div>
-            ) : null}
-            <Button
-              type="button"
-              className="w-full"
-              disabled={!canDispatch}
-              onClick={() => setOpen(true)}
-            >
-              <Truck className="h-4 w-4" />
-              Despachar orden
-            </Button>
-          </>
-        )}
-      </CardContent>
-
-      {open ? (
+  const modal = open ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-[#11182752] px-4"
           role="dialog"
@@ -216,7 +181,66 @@ export function OrderDispatchManager({
             </form>
           </Card>
         </div>
-      ) : null}
+      ) : null;
+
+  if (display === "button") {
+    return (
+      <>
+        <Button
+          type="button"
+          className={buttonClassName}
+          disabled={!canDispatch || Boolean(activeDispatch)}
+          onClick={() => setOpen(true)}
+        >
+          <Truck className="h-4 w-4" />
+          {buttonLabel}
+        </Button>
+        {modal}
+      </>
+    );
+  }
+
+  return (
+    <Card className="border-border bg-card/95">
+      <CardHeader>
+        <CardTitle>Despacho</CardTitle>
+        <CardDescription>
+          Crea la salida de la orden: transportadora, costo de envio y comprobante.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {activeDispatch ? (
+          <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground">
+            Ya existe un despacho activo:{" "}
+            <span className="font-medium text-foreground">{activeDispatch.code}</span>
+            {activeDispatch.carrierName ? ` - ${activeDispatch.carrierName}` : ""}
+            {activeDispatch.trackingNumber ? ` - Guia ${activeDispatch.trackingNumber}` : ""}
+          </div>
+        ) : (
+          <>
+            {!canDispatch ? (
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-400">
+                Antes de despachar, en cada item (boton Fabricar/Recoger):
+                <ul className="ml-4 list-disc">
+                  {!allItemsConfirmed ? <li>Confirma el proveedor y costo de todos los items.</li> : null}
+                  {!allItemsPaymentSet ? <li>Registra el pago al proveedor (recibo o pagar luego).</li> : null}
+                  {!allItemsHavePhotos ? <li>Sube al menos una foto del producto terminado por cada item.</li> : null}
+                </ul>
+              </div>
+            ) : null}
+            <Button
+              type="button"
+              className="w-full"
+              disabled={!canDispatch}
+              onClick={() => setOpen(true)}
+            >
+              <Truck className="h-4 w-4" />
+              Despachar orden
+            </Button>
+          </>
+        )}
+      </CardContent>
+      {modal}
     </Card>
   );
 }

@@ -22,11 +22,14 @@ type LedgerEntry = {
   createdByName: string | null;
 };
 
+type SupplierType = "MANUFACTURER" | "SHIPPING";
+
 type SupplierRow = {
   id: string;
   name: string;
   email: string | null;
   phone: string | null;
+  type: SupplierType;
   productsCount: number;
   balance: number;
   ledger: LedgerEntry[];
@@ -104,7 +107,7 @@ export function SuppliersWorkspace({ suppliers, currency }: SuppliersWorkspacePr
           onClick={closeModal}
         >
           <Card
-            className="w-full max-w-lg rounded-xl p-5"
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl p-5"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
@@ -124,6 +127,17 @@ export function SuppliersWorkspace({ suppliers, currency }: SuppliersWorkspacePr
                 <span className="text-sm font-medium text-slate-700">Nombre</span>
                 <Input name="name" placeholder="Ej. Textiles Andina" required />
               </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">Tipo de proveedor</span>
+                <select
+                  name="type"
+                  defaultValue="MANUFACTURER"
+                  className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  <option value="MANUFACTURER">Fabricante</option>
+                  <option value="SHIPPING">Envios</option>
+                </select>
+              </label>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block space-y-1.5">
                   <span className="text-sm font-medium text-slate-700">Correo</span>
@@ -134,10 +148,7 @@ export function SuppliersWorkspace({ suppliers, currency }: SuppliersWorkspacePr
                   <Input name="phone" placeholder="+57 300..." />
                 </label>
               </div>
-              <Button
-                type="submit"
-                className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
-              >
+              <Button type="submit" className="h-10 w-full">
                 Guardar proveedor
               </Button>
             </form>
@@ -154,7 +165,7 @@ export function SuppliersWorkspace({ suppliers, currency }: SuppliersWorkspacePr
           onClick={closeModal}
         >
           <Card
-            className="w-full max-w-lg rounded-xl p-5"
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl p-5"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
@@ -175,6 +186,17 @@ export function SuppliersWorkspace({ suppliers, currency }: SuppliersWorkspacePr
                 <span className="text-sm font-medium text-slate-700">Nombre</span>
                 <Input name="name" defaultValue={activeSupplier.name} required />
               </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">Tipo de proveedor</span>
+                <select
+                  name="type"
+                  defaultValue={activeSupplier.type}
+                  className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  <option value="MANUFACTURER">Fabricante</option>
+                  <option value="SHIPPING">Envios</option>
+                </select>
+              </label>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block space-y-1.5">
                   <span className="text-sm font-medium text-slate-700">Correo</span>
@@ -194,10 +216,7 @@ export function SuppliersWorkspace({ suppliers, currency }: SuppliersWorkspacePr
                   />
                 </label>
               </div>
-              <Button
-                type="submit"
-                className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
-              >
+              <Button type="submit" className="h-10 w-full">
                 Guardar cambios
               </Button>
             </form>
@@ -254,10 +273,7 @@ export function SuppliersWorkspace({ suppliers, currency }: SuppliersWorkspacePr
                   <Input name="note" placeholder="Referencia del pago" />
                 </label>
               </div>
-              <Button
-                type="submit"
-                className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
-              >
+              <Button type="submit" className="h-10 w-full">
                 Registrar abono
               </Button>
             </form>

@@ -63,37 +63,36 @@ export function OrderItemManager({ item, currency, returnTo }: OrderItemManagerP
     <div className="space-y-2 rounded-lg border border-border p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-1">
-          <p className="text-sm font-medium text-foreground">{item.productName}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-medium text-foreground">{item.productName}</p>
+            <Badge
+              variant="outline"
+              className={
+                item.isConfirmed
+                  ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                  : "border-border bg-muted text-muted-foreground"
+              }
+            >
+              {item.isConfirmed ? "Fabricando" : "Sin confirmar"}
+            </Badge>
+          </div>
           <p className="text-xs text-muted-foreground">
             {item.quantity} x {formatMoney(item.unitPrice, currency)} - {item.fulfillmentLabel}
           </p>
-          <p className="text-xs text-muted-foreground">{item.observations || "Sin observaciones"}</p>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-2">
-          <Badge
-            variant="outline"
-            className={
-              item.isConfirmed
-                ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                : "border-border bg-muted text-muted-foreground"
-            }
-          >
-            {item.isConfirmed ? "Confirmado" : "Sin confirmar"}
-          </Badge>
-          <Button
-            type="button"
-            size="sm"
-            className={
-              item.isConfirmed
-                ? "h-8 bg-blue-600 text-white hover:bg-blue-700"
-                : "h-8 bg-emerald-600 text-white hover:bg-emerald-700"
-            }
-            onClick={() => setOpen(true)}
-          >
-            {item.isConfirmed ? <PackageCheck className="h-4 w-4" /> : <Factory className="h-4 w-4" />}
-            {item.isConfirmed ? "Recoger" : "Fabricar"}
-          </Button>
-        </div>
+        <Button
+          type="button"
+          size="sm"
+          className={
+            item.isConfirmed
+              ? "h-8 shrink-0 bg-blue-600 text-white hover:bg-blue-700"
+              : "h-8 shrink-0 bg-emerald-600 text-white hover:bg-emerald-700"
+          }
+          onClick={() => setOpen(true)}
+        >
+          {item.isConfirmed ? <PackageCheck className="h-4 w-4" /> : <Factory className="h-4 w-4" />}
+          {item.isConfirmed ? "Recoger" : "Fabricar"}
+        </Button>
       </div>
 
       {open ? (

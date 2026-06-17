@@ -37,6 +37,7 @@ const createSupplierSchema = z.object({
     .optional()
     .or(z.literal("")),
   phone: z.string().trim().max(40, "Telefono demasiado largo").optional().or(z.literal("")),
+  type: z.enum(["MANUFACTURER", "SHIPPING"]).default("MANUFACTURER"),
 });
 
 const updateSupplierSchema = createSupplierSchema.extend({
@@ -306,6 +307,7 @@ export async function adminCreateSupplierAction(formData: FormData): Promise<voi
     name: formData.get("name"),
     email: formData.get("email") ?? "",
     phone: formData.get("phone") ?? "",
+    type: formData.get("type") ?? "MANUFACTURER",
   });
 
   if (!parsed.success) {
@@ -332,6 +334,7 @@ export async function adminCreateSupplierAction(formData: FormData): Promise<voi
         name: parsed.data.name,
         email: parsed.data.email || null,
         phone: parsed.data.phone || null,
+        type: parsed.data.type,
       },
     });
   } catch {
@@ -352,6 +355,7 @@ export async function adminUpdateSupplierAction(formData: FormData): Promise<voi
     name: formData.get("name"),
     email: formData.get("email") ?? "",
     phone: formData.get("phone") ?? "",
+    type: formData.get("type") ?? "MANUFACTURER",
   });
 
   if (!parsed.success) {
@@ -389,6 +393,7 @@ export async function adminUpdateSupplierAction(formData: FormData): Promise<voi
         name: parsed.data.name,
         email: parsed.data.email || null,
         phone: parsed.data.phone || null,
+        type: parsed.data.type,
       },
     });
   } catch {

@@ -61,6 +61,7 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
             name: supplier.name,
             email: supplier.email,
             phone: supplier.phone,
+            type: supplier.type,
             productsCount: supplier._count.products,
             balance,
             ledger: supplier.ledgerEntries.map((entry) => ({

@@ -3,22 +3,18 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { adminCancelOrderAction, adminUpdateOrderStatusAction } from "@/app/actions/orders-actions";
 import { OrderItemManager } from "@/components/admin/order-item-manager";
-import { OrderDispatchManager } from "@/components/admin/order-dispatch-manager";
+import { OrderStepper } from "@/components/admin/order-stepper";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import {
-  getDispatchStatusBadgeClassName,
-  getDispatchStatusLabel,
   getFulfillmentModeLabel,
   getOrderStatusBadgeClassName,
   getOrderStatusLabel,
-  getProductionJobStatusBadgeClassName,
-  getProductionJobStatusLabel,
 } from "@/lib/orders";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
@@ -143,10 +139,6 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     notFound();
   }
 
-  const activeDispatch = order.dispatches.find((dispatch) =>
-    ["PENDING", "PACKING", "SHIPPED"].includes(dispatch.status),
-  );
-
   const returnTo = `/admin/ordenes/${order.id}`;
   const allItemsConfirmed =
     order.items.length > 0 &&
@@ -156,6 +148,28 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   const allItemsPaymentSet =
     order.items.length > 0 && order.items.every((item) => item.supplierPaymentStatus !== null);
   const canDispatch = allItemsConfirmed && allItemsHavePhotos && allItemsPaymentSet;
+
+  const step1Done = allItemsConfirmed;
+  const step2Done = allItemsPaymentSet && allItemsHavePhotos;
+  const step3Done = order.dispatches.length > 0;
+
+  const isItemConfirmed = (item: (typeof order.items)[number]) =>
+    Boolean(item.confirmedSupplierId) && item.purchaseCost !== null;
+  const isItemRecogido = (item: (typeof order.items)[number]) =>
+    item.supplierPaymentStatus !== null && item.photos.length > 0;
+  const pendingFabricar = order.items.filter((item) => !isItemConfirmed(item)).length;
+  const pendingRecoger = order.items.filter(
+    (item) => isItemConfirmed(item) && !isItemRecogido(item),
+  ).length;
+  const pluralProductos = (n: number) => `${n} producto${n === 1 ? "" : "s"}`;
+  const itemsTitle =
+    pendingFabricar > 0
+      ? `Pendiente fabricar ${pluralProductos(pendingFabricar)}`
+      : pendingRecoger > 0
+        ? `Pendiente recoger ${pluralProductos(pendingRecoger)}`
+        : !step3Done
+          ? "Listo para despachar"
+          : "Items";
 
   return (
     <section className="w-full space-y-5">
@@ -190,9 +204,6 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           {order.status === "RELEASED" ? (
             <OrderStatusAction orderId={order.id} status="IN_PRODUCTION" label="Iniciar produccion" />
           ) : null}
-          {order.status === "IN_PRODUCTION" ? (
-            <OrderStatusAction orderId={order.id} status="READY_FOR_DISPATCH" label="Lista para despacho" />
-          ) : null}
           {order.status === "READY_FOR_DISPATCH" ? (
             <OrderStatusAction orderId={order.id} status="DISPATCHED" label="Marcar despachada" />
           ) : null}
@@ -213,60 +224,65 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-border bg-card/95">
-          <CardContent className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Total</p>
-            <p className="text-2xl font-semibold text-foreground">{formatMoney(Number(order.total), currency)}</p>
+        <Card className="border-border bg-card/95 py-2">
+          <CardContent className="space-y-0.5">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Total</p>
+            <p className="text-lg font-semibold text-foreground">{formatMoney(Number(order.total), currency)}</p>
           </CardContent>
         </Card>
-        <Card className="border-border bg-card/95">
-          <CardContent className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Items</p>
-            <p className="text-2xl font-semibold text-foreground">{order.items.length}</p>
+        <Card className="border-border bg-card/95 py-2">
+          <CardContent className="space-y-0.5">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Items</p>
+            <p className="text-lg font-semibold text-foreground">{order.items.length}</p>
           </CardContent>
         </Card>
-        <Card className="border-border bg-card/95">
-          <CardContent className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Produccion</p>
-            <p className="text-2xl font-semibold text-foreground">{order.productionJobs.length}</p>
+        <Card className="border-border bg-card/95 py-2">
+          <CardContent className="space-y-0.5">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Produccion</p>
+            <p className="text-lg font-semibold text-foreground">{order.productionJobs.length}</p>
           </CardContent>
         </Card>
-        <Card className="border-border bg-card/95">
-          <CardContent className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Despachos</p>
-            <p className="text-2xl font-semibold text-foreground">{order.dispatches.length}</p>
+        <Card className="border-border bg-card/95 py-2">
+          <CardContent className="space-y-0.5">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Despachos</p>
+            <p className="text-lg font-semibold text-foreground">{order.dispatches.length}</p>
           </CardContent>
         </Card>
       </div>
 
+      <OrderStepper
+        step1Done={step1Done}
+        step2Done={step2Done}
+        step3Done={step3Done}
+        dispatch={{
+          orderId: order.id,
+          returnTo,
+          carriers,
+          defaultAddress: order.client.address ?? "",
+          canDispatch,
+          allItemsConfirmed,
+          allItemsPaymentSet,
+          allItemsHavePhotos,
+        }}
+      />
+
       <div className="grid gap-4 xl:grid-cols-[1.4fr_0.9fr]">
         <Card className="border-border bg-card/95">
-          <CardHeader>
-            <CardTitle>Orden</CardTitle>
-            <CardDescription>Detalle comercial y operativo de la orden.</CardDescription>
-          </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1">
-                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Cliente</p>
-                <p className="text-sm text-foreground">{order.client.name || order.client.email}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Responsable</p>
-                <p className="text-sm text-foreground">{order.assignedTo?.name ?? order.assignedTo?.email ?? "Sin asignar"}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Creada por</p>
-                <p className="text-sm text-foreground">{order.createdBy.name ?? order.createdBy.email}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Nota comercial</p>
-                <p className="text-sm text-foreground">{order.notes || "Sin notas"}</p>
-              </div>
-            </div>
-
             <div className="space-y-3">
-              <p className="text-sm font-semibold text-foreground">Items</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-foreground">Productos</p>
+                <Badge
+                  variant="outline"
+                  className={
+                    pendingFabricar > 0 || pendingRecoger > 0
+                      ? "border-amber-500/30 bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                      : "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                  }
+                >
+                  {itemsTitle}
+                </Badge>
+              </div>
               <div className="space-y-2">
                 {order.items.map((item) => {
                   const preferred = item.product.suppliers[0];
@@ -330,7 +346,6 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           <Card className="border-border bg-card/95">
             <CardHeader>
               <CardTitle>Historial</CardTitle>
-              <CardDescription>Registro completo de cambios de estado.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
               {order.history.length === 0 ? (
@@ -354,88 +369,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               )}
             </CardContent>
           </Card>
-
-          <Card className="border-border bg-card/95">
-            <CardHeader>
-              <CardTitle>Produccion</CardTitle>
-              <CardDescription>Avance de los trabajos vinculados a la orden.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {order.productionJobs.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Aun no hay trabajos de produccion.</p>
-              ) : (
-                order.productionJobs.map((job) => (
-                  <div key={job.id} className="space-y-2 rounded-lg border border-border p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{job.code}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {job.orderItem?.product.name ?? "Orden completa"} - {job.quantity}
-                        </p>
-                      </div>
-                      <Badge className={getProductionJobStatusBadgeClassName(job.status)} variant="outline">
-                        {getProductionJobStatusLabel(job.status)}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {job.assignedTo?.name ?? job.assignedTo?.email ?? "Sin asignar"}
-                    </p>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="border-border bg-card/95">
-            <CardHeader>
-              <CardTitle>Despachos</CardTitle>
-              <CardDescription>Seguimiento de salida y entrega.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {order.dispatches.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Aun no hay despachos.</p>
-              ) : (
-                order.dispatches.map((dispatch) => (
-                  <div key={dispatch.id} className="space-y-2 rounded-lg border border-border p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{dispatch.code}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {dispatch.carrierName ?? "Sin transportadora"} - {dispatch.trackingNumber ?? "Sin guia"}
-                        </p>
-                      </div>
-                      <Badge className={getDispatchStatusBadgeClassName(dispatch.status)} variant="outline">
-                        {getDispatchStatusLabel(dispatch.status)}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Creado por {dispatch.createdBy.name ?? dispatch.createdBy.email}</p>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
         </div>
       </div>
-
-      <OrderDispatchManager
-        orderId={order.id}
-        returnTo={returnTo}
-        carriers={carriers}
-        defaultAddress={order.client.address ?? ""}
-        canDispatch={canDispatch}
-        allItemsConfirmed={allItemsConfirmed}
-        allItemsPaymentSet={allItemsPaymentSet}
-        allItemsHavePhotos={allItemsHavePhotos}
-        activeDispatch={
-          activeDispatch
-            ? {
-                code: activeDispatch.code,
-                carrierName: activeDispatch.carrierName,
-                trackingNumber: activeDispatch.trackingNumber,
-              }
-            : null
-        }
-      />
     </section>
   );
 }

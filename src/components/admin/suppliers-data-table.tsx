@@ -6,6 +6,7 @@ import {
   ArrowUp,
   ArrowUpDown,
   Edit3,
+  Factory,
   Mail,
   MoreHorizontal,
   Phone,
@@ -28,14 +29,20 @@ import {
 } from "@/components/ui/table";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 
+type SupplierType = "MANUFACTURER" | "SHIPPING";
+
 type SupplierRow = {
   id: string;
   name: string;
   email: string | null;
   phone: string | null;
+  type: SupplierType;
   productsCount: number;
   balance: number;
 };
+
+const SupplierTypeIcon = ({ type, className }: { type: SupplierType; className?: string }) =>
+  type === "SHIPPING" ? <Truck className={className} /> : <Factory className={className} />;
 
 type SuppliersDataTableProps = {
   suppliers: SupplierRow[];
@@ -223,7 +230,7 @@ export function SuppliersDataTable({
                 <div className="min-w-0 space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                      <Truck className="h-4 w-4" />
+                      <SupplierTypeIcon type={supplier.type} className="h-4 w-4" />
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-slate-900">{supplier.name}</p>
@@ -358,7 +365,7 @@ export function SuppliersDataTable({
                   <TableCell>
                     <div className="flex items-center gap-2.5">
                       <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[(--line)] bg-slate-50 text-slate-700">
-                        <Truck className="h-4 w-4" />
+                        <SupplierTypeIcon type={supplier.type} className="h-4 w-4" />
                       </span>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-slate-900">{supplier.name}</p>
