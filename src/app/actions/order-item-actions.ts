@@ -355,7 +355,7 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
   const orderItem = await prisma.orderItem.findUnique({
     where: { id: orderItemId.trim() },
     include: {
-      order: { select: { id: true, code: true, status: true } },
+      order: { select: { id: true, code: true, status: true, saleId: true } },
       photos: { select: { id: true } },
     },
   });
@@ -421,6 +421,7 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
             type: "CHARGE",
             amount,
             note: `Despacho item - Orden ${orderItem.order.code}`,
+            saleId: orderItem.order.saleId,
             orderId: orderItem.order.id,
             orderItemId: orderItem.id,
             createdById,
@@ -436,8 +437,10 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
               type: "PAYMENT",
               amount,
               note: `Pago a proveedor - Orden ${orderItem.order.code}`,
+              saleId: orderItem.order.saleId,
               orderId: orderItem.order.id,
               orderItemId: orderItem.id,
+              paymentDate: new Date(),
               receiptUrl: receipt?.url ?? orderItem.supplierReceiptUrl ?? null,
               receiptName: receipt?.name ?? orderItem.supplierReceiptName ?? null,
               createdById,

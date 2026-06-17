@@ -1,5 +1,8 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -8,13 +11,63 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buildDispatchCode, parseDispatchCodeNumber } from "@/lib/orders";
 
+const RECEIPT_MAX_BYTES = 12 * 1024 * 1024;
+const ALLOWED_RECEIPT_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+]);
+const ALLOWED_RECEIPT_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".pdf"]);
+
 const createDispatchSchema = z.object({
   orderId: z.string().trim().min(1, "Orden invalida"),
-  carrierName: z.string().trim().max(120, "Transportadora demasiado larga").optional(),
+  carrierSupplierId: z.string().trim().min(1, "Selecciona la transportadora"),
+  shippingCost: z.coerce.number().nonnegative("Costo de envio invalido"),
+  shippingMode: z.enum(["PAY_NOW", "PAY_LATER"]).default("PAY_LATER"),
   trackingNumber: z.string().trim().max(120, "Guia demasiado larga").optional(),
   shippingAddress: z.string().trim().max(250, "Direccion demasiado larga").optional(),
   notes: z.string().trim().max(4000, "Notas demasiado largas").optional(),
 });
+
+function getReceiptExtension(file: File): string {
+  const fromName = path.extname(file.name).toLowerCase();
+  if (fromName) {
+    return fromName;
+  }
+
+  if (file.type === "application/pdf") return ".pdf";
+  if (file.type === "image/jpeg") return ".jpg";
+  if (file.type === "image/png") return ".png";
+  if (file.type === "image/webp") return ".webp";
+  return "";
+}
+
+async function saveShippingReceipt(
+  file: File,
+  orderId: string,
+): Promise<{ url: string; name: string }> {
+  if (!(file instanceof File) || file.size <= 0) {
+    throw new Error("No se pudo leer el comprobante de envio.");
+  }
+  if (file.size > RECEIPT_MAX_BYTES) {
+    throw new Error(`El comprobante ${file.name} supera el limite de 12 MB.`);
+  }
+  const extension = getReceiptExtension(file);
+  if (!ALLOWED_RECEIPT_MIME_TYPES.has(file.type) && !ALLOWED_RECEIPT_EXTENSIONS.has(extension)) {
+    throw new Error(`El comprobante ${file.name} no es compatible. Solo JPG, PNG, WEBP o PDF.`);
+  }
+
+  const uploadDir = path.join(process.cwd(), "public", "uploads", "dispatches", "receipts");
+  await mkdir(uploadDir, { recursive: true });
+  const fileName = `${orderId}-${Date.now()}-${randomUUID()}${extension || ".pdf"}`;
+  await writeFile(path.join(uploadDir, fileName), Buffer.from(await file.arrayBuffer()));
+
+  return {
+    url: `/uploads/dispatches/receipts/${fileName}`,
+    name: file.name || fileName,
+  };
+}
 
 const updateDispatchStatusSchema = z.object({
   dispatchId: z.string().trim().min(1, "Despacho invalido"),
@@ -84,7 +137,9 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
 
   const parsed = createDispatchSchema.safeParse({
     orderId: formData.get("orderId"),
-    carrierName: formData.get("carrierName") || undefined,
+    carrierSupplierId: formData.get("carrierSupplierId"),
+    shippingCost: formData.get("shippingCost") || 0,
+    shippingMode: formData.get("shippingMode") || "PAY_LATER",
     trackingNumber: formData.get("trackingNumber") || undefined,
     shippingAddress: formData.get("shippingAddress") || undefined,
     notes: formData.get("notes") || undefined,
@@ -92,6 +147,20 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
 
   if (!parsed.success) {
     redirect(`${returnTo}?error=Datos+de+despacho+invalidos`);
+  }
+
+  const carrier = await prisma.supplier.findUnique({
+    where: { id: parsed.data.carrierSupplierId },
+    select: { id: true, name: true },
+  });
+  if (!carrier) {
+    redirect(`${returnTo}?error=Transportadora+no+encontrada`);
+  }
+
+  const shippingReceiptFile = formData.get("shippingReceipt");
+  const hasShippingReceipt = shippingReceiptFile instanceof File && shippingReceiptFile.size > 0;
+  if (parsed.data.shippingMode === "PAY_NOW" && !hasShippingReceipt) {
+    redirect(`${returnTo}?error=Sube+el+comprobante+del+envio+o+selecciona+pagar+luego`);
   }
 
   const order = await prisma.order.findUnique({
@@ -145,15 +214,26 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
     redirect(`${returnTo}?error=Registra+el+pago+al+proveedor+de+cada+item+antes+de+despachar`);
   }
 
+  const shippingCost = parsed.data.shippingCost;
+
   try {
+    let receipt: { url: string; name: string } | null = null;
+    if (parsed.data.shippingMode === "PAY_NOW" && hasShippingReceipt) {
+      receipt = await saveShippingReceipt(shippingReceiptFile, order.id);
+    }
+
     await prisma.$transaction(async (tx) => {
       const code = await getNextDispatchCode(tx);
-      await tx.dispatch.create({
+      const dispatch = await tx.dispatch.create({
         data: {
           code,
           orderId: order.id,
           status: "PACKING",
-          carrierName: parsed.data.carrierName || null,
+          carrierName: carrier.name,
+          carrierSupplierId: carrier.id,
+          shippingCost,
+          shippingReceiptUrl: receipt?.url ?? null,
+          shippingReceiptName: receipt?.name ?? null,
           trackingNumber: parsed.data.trackingNumber || null,
           shippingAddress: parsed.data.shippingAddress || null,
           notes: parsed.data.notes || null,
@@ -167,6 +247,56 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
           },
         },
       });
+
+      // Costo de envio: gasto de la venta.
+      if (shippingCost > 0) {
+        const shippingReference =
+          receipt?.name ?? parsed.data.trackingNumber ?? `Despacho ${dispatch.code}`;
+
+        // 1) Modulo balances: registra el envio como gasto de la venta.
+        await tx.shippingCost.create({
+          data: {
+            saleId: order.saleId,
+            shippingProvider: carrier.name,
+            amount: shippingCost,
+            transactionReference: shippingReference,
+            paymentDate: new Date(),
+            createdById,
+          },
+        });
+
+        // 2) Cuenta corriente de la transportadora (proveedor).
+        await tx.supplierLedgerEntry.create({
+          data: {
+            supplierId: carrier.id,
+            type: "CHARGE",
+            amount: shippingCost,
+            note: `Envio - Despacho ${dispatch.code} (Orden ${order.code})`,
+            saleId: order.saleId,
+            orderId: order.id,
+            dispatchId: dispatch.id,
+            createdById,
+          },
+        });
+
+        if (parsed.data.shippingMode === "PAY_NOW") {
+          await tx.supplierLedgerEntry.create({
+            data: {
+              supplierId: carrier.id,
+              type: "PAYMENT",
+              amount: shippingCost,
+              note: `Pago envio - Despacho ${dispatch.code}`,
+              saleId: order.saleId,
+              orderId: order.id,
+              dispatchId: dispatch.id,
+              paymentDate: new Date(),
+              receiptUrl: receipt?.url ?? null,
+              receiptName: receipt?.name ?? null,
+              createdById,
+            },
+          });
+        }
+      }
 
       if (order.status !== "READY_FOR_DISPATCH") {
         await tx.order.update({

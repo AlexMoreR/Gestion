@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Factory, Truck, X } from "lucide-react";
+import { Factory, PackageCheck, X } from "lucide-react";
 import {
   adminConfirmOrderItemAction,
   adminDeleteOrderItemPhotoAction,
@@ -90,8 +90,8 @@ export function OrderItemManager({ item, currency, returnTo }: OrderItemManagerP
             }
             onClick={() => setOpen(true)}
           >
-            {item.isConfirmed ? <Truck className="h-4 w-4" /> : <Factory className="h-4 w-4" />}
-            {item.isConfirmed ? "Despachar" : "Fabricar"}
+            {item.isConfirmed ? <PackageCheck className="h-4 w-4" /> : <Factory className="h-4 w-4" />}
+            {item.isConfirmed ? "Recoger" : "Fabricar"}
           </Button>
         </div>
       </div>
@@ -101,7 +101,7 @@ export function OrderItemManager({ item, currency, returnTo }: OrderItemManagerP
           className="fixed inset-0 z-50 flex items-center justify-center bg-[#11182752] px-4"
           role="dialog"
           aria-modal="true"
-          aria-label={`${item.isConfirmed ? "Despachar" : "Fabricar"} ${item.productName}`}
+          aria-label={`${item.isConfirmed ? "Recoger" : "Fabricar"} ${item.productName}`}
           onClick={() => setOpen(false)}
         >
           <Card
@@ -287,11 +287,11 @@ export function OrderItemManager({ item, currency, returnTo }: OrderItemManagerP
                     type="submit"
                     className="w-full bg-blue-600 text-white hover:bg-blue-700"
                   >
-                    <Truck className="h-4 w-4" />
-                    Marcar listo para despacho
+                    <PackageCheck className="h-4 w-4" />
+                    Marcar como recogido
                   </Button>
                   <p className="text-xs text-muted-foreground">
-                    Sin al menos una foto del producto terminado no se puede despachar.
+                    Sin al menos una foto del producto terminado no se puede recoger.
                   </p>
                 </form>
 

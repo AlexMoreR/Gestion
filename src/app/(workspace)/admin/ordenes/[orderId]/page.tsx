@@ -2,14 +2,12 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { adminCancelOrderAction, adminUpdateOrderStatusAction } from "@/app/actions/orders-actions";
-import { adminCreateDispatchAction } from "@/app/actions/dispatch-actions";
 import { OrderItemManager } from "@/components/admin/order-item-manager";
+import { OrderDispatchManager } from "@/components/admin/order-dispatch-manager";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
-import { Textarea } from "@/components/ui/textarea";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
@@ -68,7 +66,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   const okMessage = typeof query.ok === "string" ? query.ok : "";
   const errorMessage = typeof query.error === "string" ? query.error : "";
 
-  const [order, currency] = await Promise.all([
+  const [order, currency, carriers] = await Promise.all([
     prisma.order.findUnique({
       where: { id: orderId },
       include: {
@@ -134,6 +132,11 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       },
     }),
     getSystemCurrency(),
+    prisma.supplier.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   if (!order) {
@@ -326,57 +329,6 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         <div className="space-y-4">
           <Card className="border-border bg-card/95">
             <CardHeader>
-              <CardTitle>Despacho</CardTitle>
-              <CardDescription>Crea la salida operacional de la orden.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {activeDispatch ? (
-                <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground">
-                  Ya existe un despacho activo para esta orden:{" "}
-                  <span className="font-medium text-foreground">{activeDispatch.code}</span>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <form action={adminCreateDispatchAction} className="space-y-3">
-                    <input type="hidden" name="returnTo" value={`/admin/ordenes/${order.id}`} />
-                    <input type="hidden" name="orderId" value={order.id} />
-                  <div className="space-y-1">
-                    <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Transportadora</label>
-                    <Input name="carrierName" placeholder="Transportadora" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Guia</label>
-                    <Input name="trackingNumber" placeholder="Numero de guia" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Direccion</label>
-                    <Input name="shippingAddress" defaultValue={order.client.address ?? ""} />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Notas</label>
-                    <Textarea name="notes" placeholder="Observaciones internas" />
-                  </div>
-                  {!canDispatch ? (
-                    <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-400">
-                      Antes de despachar, en cada item (boton Fabricar/Despachar):
-                      <ul className="ml-4 list-disc">
-                        {!allItemsConfirmed ? <li>Confirma el proveedor y costo de todos los items.</li> : null}
-                        {!allItemsPaymentSet ? <li>Registra el pago al proveedor (recibo o pagar luego).</li> : null}
-                        {!allItemsHavePhotos ? <li>Sube al menos una foto del producto terminado por cada item.</li> : null}
-                      </ul>
-                    </div>
-                  ) : null}
-                  <Button type="submit" className="w-full" disabled={!canDispatch}>
-                    Crear despacho
-                  </Button>
-                  </form>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="border-border bg-card/95">
-            <CardHeader>
               <CardTitle>Historial</CardTitle>
               <CardDescription>Registro completo de cambios de estado.</CardDescription>
             </CardHeader>
@@ -464,6 +416,26 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           </Card>
         </div>
       </div>
+
+      <OrderDispatchManager
+        orderId={order.id}
+        returnTo={returnTo}
+        carriers={carriers}
+        defaultAddress={order.client.address ?? ""}
+        canDispatch={canDispatch}
+        allItemsConfirmed={allItemsConfirmed}
+        allItemsPaymentSet={allItemsPaymentSet}
+        allItemsHavePhotos={allItemsHavePhotos}
+        activeDispatch={
+          activeDispatch
+            ? {
+                code: activeDispatch.code,
+                carrierName: activeDispatch.carrierName,
+                trackingNumber: activeDispatch.trackingNumber,
+              }
+            : null
+        }
+      />
     </section>
   );
 }
