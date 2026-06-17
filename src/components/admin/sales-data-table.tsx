@@ -22,6 +22,7 @@ import {
 import { useFormStatus } from "react-dom";
 import { adminAddSalePaymentAction, adminDeleteSalePaymentAction } from "@/app/actions/sales-actions";
 import { adminCreateOrderFromSaleAction } from "@/app/actions/orders-actions";
+import { invoicePdfFileName } from "@/lib/document-names";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -214,7 +215,7 @@ function RowActions({
         <DropdownMenuItem asChild>
           <a
             href={`/api/generate-sale-invoice-pdf?token=${sale.invoiceToken}`}
-            download={`invoice-${sale.invoiceToken}.pdf`}
+            download={invoicePdfFileName(sale.code)}
             target="_blank"
             rel="noreferrer"
           >
@@ -259,6 +260,7 @@ function SaleReceiptsSheet({
       : sale.paymentReceiptUrl
         ? [
             {
+              id: "",
               amount: sale.downPaymentAmount,
               paymentMethod: "N/A",
               note: null,
@@ -313,19 +315,28 @@ function SaleReceiptsSheet({
                             <p className="text-xs text-muted-foreground">{getReceiptLabel(receipt.receiptType)}</p>
                           ) : null}
                         </div>
-                        {receipt.receiptUrl ? (
-                          <a
-                            href={receipt.receiptUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
-                          >
-                            <FileCheck2 className="h-3.5 w-3.5" />
-                            Abrir
-                          </a>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Sin archivo</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {receipt.receiptUrl ? (
+                            <a
+                              href={receipt.receiptUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                            >
+                              <FileCheck2 className="h-3.5 w-3.5" />
+                              Abrir
+                            </a>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Sin archivo</span>
+                          )}
+                          {receipt.id ? (
+                            <form action={adminDeleteSalePaymentAction}>
+                              <input type="hidden" name="returnTo" value="/admin/ventas" />
+                              <input type="hidden" name="paymentId" value={receipt.id} />
+                              <DeletePaymentButton />
+                            </form>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   ))}

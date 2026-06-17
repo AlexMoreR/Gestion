@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { invoicePdfFileName } from "@/lib/document-names";
+import { prisma } from "@/lib/prisma";
 import { generateSaleInvoicePdf } from "./pdf-generator";
 
 export async function GET(req: NextRequest) {
@@ -15,6 +17,12 @@ export async function GET(req: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}//${host}`;
     const targetUrl = `${baseUrl}/sales/${token}?pdf=true`;
 
+    const sale = await prisma.sale.findUnique({
+      where: { invoiceToken: token },
+      select: { code: true },
+    });
+    const fileName = sale ? invoicePdfFileName(sale.code) : `invoice-${token}.pdf`;
+
     const pdfBuffer = await generateSaleInvoicePdf(targetUrl);
     const arrayBuffer = new Uint8Array(pdfBuffer).buffer;
 
@@ -22,7 +30,7 @@ export async function GET(req: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="invoice-${token}.pdf"`,
+        "Content-Disposition": `attachment; filename="${fileName}"`,
       },
     });
   } catch (error) {

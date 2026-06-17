@@ -539,6 +539,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
               </Button>
               <DownloadQuotePdfButton
                 quoteToken={token}
+                quoteCode={quote.code}
                 className="rounded-xl h-11 font-bold border-slate-200 text-xs flex items-center justify-center"
               />
               <Button

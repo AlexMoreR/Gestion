@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { adminCancelOrderAction, adminUpdateOrderStatusAction } from "@/app/actions/orders-actions";
 import { adminCreateDispatchAction } from "@/app/actions/dispatch-actions";
-import { adminCreateProductionJobAction } from "@/app/actions/production-actions";
+import { OrderItemManager } from "@/components/admin/order-item-manager";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,7 @@ import {
   getProductionJobStatusLabel,
 } from "@/lib/orders";
 import { getSystemCurrency } from "@/lib/system-settings";
+import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 
 type PageProps = {
   params: Promise<{ orderId: string }>;
@@ -77,7 +78,16 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         assignedTo: true,
         items: {
           include: {
-            product: true,
+            product: {
+              include: {
+                suppliers: {
+                  include: { supplier: true },
+                  orderBy: { isPreferred: "desc" },
+                },
+              },
+            },
+            confirmedSupplier: true,
+            photos: { orderBy: { createdAt: "asc" } },
             productionJobs: {
               include: {
                 assignedTo: true,
@@ -133,6 +143,16 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   const activeDispatch = order.dispatches.find((dispatch) =>
     ["PENDING", "PACKING", "SHIPPED"].includes(dispatch.status),
   );
+
+  const returnTo = `/admin/ordenes/${order.id}`;
+  const allItemsConfirmed =
+    order.items.length > 0 &&
+    order.items.every((item) => item.confirmedSupplierId && item.purchaseCost !== null);
+  const allItemsHavePhotos =
+    order.items.length > 0 && order.items.every((item) => item.photos.length > 0);
+  const allItemsPaymentSet =
+    order.items.length > 0 && order.items.every((item) => item.supplierPaymentStatus !== null);
+  const canDispatch = allItemsConfirmed && allItemsHavePhotos && allItemsPaymentSet;
 
   return (
     <section className="w-full space-y-5">
@@ -191,25 +211,25 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card className="border-border bg-card/95">
-          <CardContent className="space-y-2 pt-6">
+          <CardContent className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Total</p>
             <p className="text-2xl font-semibold text-foreground">{formatMoney(Number(order.total), currency)}</p>
           </CardContent>
         </Card>
         <Card className="border-border bg-card/95">
-          <CardContent className="space-y-2 pt-6">
+          <CardContent className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Items</p>
             <p className="text-2xl font-semibold text-foreground">{order.items.length}</p>
           </CardContent>
         </Card>
         <Card className="border-border bg-card/95">
-          <CardContent className="space-y-2 pt-6">
+          <CardContent className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Produccion</p>
             <p className="text-2xl font-semibold text-foreground">{order.productionJobs.length}</p>
           </CardContent>
         </Card>
         <Card className="border-border bg-card/95">
-          <CardContent className="space-y-2 pt-6">
+          <CardContent className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Despachos</p>
             <p className="text-2xl font-semibold text-foreground">{order.dispatches.length}</p>
           </CardContent>
@@ -246,31 +266,56 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               <p className="text-sm font-semibold text-foreground">Items</p>
               <div className="space-y-2">
                 {order.items.map((item) => {
-                  const requiresManufacturing = item.fulfillmentMode !== "STOCK";
+                  const preferred = item.product.suppliers[0];
+                  const meta = parseQuoteItemMeta(item.notes);
+                  const observations = [
+                    meta.description,
+                    meta.color ? `Color: ${meta.color}` : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" - ");
                   return (
-                    <div key={item.id} className="rounded-lg border border-border p-3">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium text-foreground">{item.product.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {item.quantity} x {formatMoney(Number(item.unitPrice), currency)} - {getFulfillmentModeLabel(item.fulfillmentMode)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{item.notes || "Sin observaciones"}</p>
-                        </div>
-                        {requiresManufacturing ? (
-                          <form action={adminCreateProductionJobAction} className="shrink-0">
-                            <input type="hidden" name="returnTo" value={`/admin/ordenes/${order.id}`} />
-                            <input type="hidden" name="orderId" value={order.id} />
-                            <input type="hidden" name="orderItemId" value={item.id} />
-                            <input type="hidden" name="quantity" value={item.quantity} />
-                            <input type="hidden" name="notes" value={item.notes ?? ""} />
-                            <Button type="submit" size="sm" variant="outline" className="h-7">
-                              Crear trabajo
-                            </Button>
-                          </form>
-                        ) : null}
-                      </div>
-                    </div>
+                    <OrderItemManager
+                      key={item.id}
+                      currency={currency}
+                      returnTo={returnTo}
+                      item={{
+                        id: item.id,
+                        orderId: order.id,
+                        productName: item.product.name,
+                        quantity: item.quantity,
+                        unitPrice: Number(item.unitPrice),
+                        fulfillmentLabel: getFulfillmentModeLabel(item.fulfillmentMode),
+                        observations,
+                        isConfirmed: Boolean(item.confirmedSupplierId) && item.purchaseCost !== null,
+                        requiresManufacturing: item.fulfillmentMode !== "STOCK",
+                        hasProductionJob: item.productionJobs.length > 0,
+                        suppliers: item.product.suppliers.map((entry) => ({
+                          id: entry.supplierId,
+                          name: entry.supplier.name,
+                        })),
+                        defaultSupplierId: item.confirmedSupplierId ?? preferred?.supplierId ?? "",
+                        defaultCost: Number(
+                          item.purchaseCost ?? preferred?.supplierCost ?? item.product.baseCost,
+                        ),
+                        confirmedSupplierName: item.confirmedSupplier?.name ?? null,
+                        purchaseCost: item.purchaseCost === null ? null : Number(item.purchaseCost),
+                        supplierCostTotal:
+                          item.purchaseCost === null ? 0 : Number(item.purchaseCost) * item.quantity,
+                        paymentStatus:
+                          item.supplierPaymentStatus === "PAID"
+                            ? "PAID"
+                            : item.supplierPaymentStatus === "PENDING"
+                              ? "PENDING"
+                              : null,
+                        receiptUrl: item.supplierReceiptUrl,
+                        photos: item.photos.map((photo) => ({
+                          id: photo.id,
+                          url: photo.url,
+                          name: photo.name,
+                        })),
+                      }}
+                    />
                   );
                 })}
               </div>
@@ -291,9 +336,10 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                   <span className="font-medium text-foreground">{activeDispatch.code}</span>
                 </div>
               ) : (
-                <form action={adminCreateDispatchAction} className="space-y-3">
-                  <input type="hidden" name="returnTo" value={`/admin/ordenes/${order.id}`} />
-                  <input type="hidden" name="orderId" value={order.id} />
+                <div className="space-y-3">
+                  <form action={adminCreateDispatchAction} className="space-y-3">
+                    <input type="hidden" name="returnTo" value={`/admin/ordenes/${order.id}`} />
+                    <input type="hidden" name="orderId" value={order.id} />
                   <div className="space-y-1">
                     <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Transportadora</label>
                     <Input name="carrierName" placeholder="Transportadora" />
@@ -310,10 +356,21 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                     <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Notas</label>
                     <Textarea name="notes" placeholder="Observaciones internas" />
                   </div>
-                  <Button type="submit" className="w-full">
+                  {!canDispatch ? (
+                    <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-400">
+                      Antes de despachar, en cada item (boton Fabricar/Despachar):
+                      <ul className="ml-4 list-disc">
+                        {!allItemsConfirmed ? <li>Confirma el proveedor y costo de todos los items.</li> : null}
+                        {!allItemsPaymentSet ? <li>Registra el pago al proveedor (recibo o pagar luego).</li> : null}
+                        {!allItemsHavePhotos ? <li>Sube al menos una foto del producto terminado por cada item.</li> : null}
+                      </ul>
+                    </div>
+                  ) : null}
+                  <Button type="submit" className="w-full" disabled={!canDispatch}>
                     Crear despacho
                   </Button>
-                </form>
+                  </form>
+                </div>
               )}
             </CardContent>
           </Card>

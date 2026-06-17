@@ -39,6 +39,7 @@ model User {
   productionJobsCreated  ProductionJob[]  @relation("ProductionJobCreatedBy")
   dispatchesCreated Dispatch[] @relation("DispatchCreatedBy")
   orderStatusChanges OrderStatusHistory[] @relation("OrderStatusHistoryChangedBy")
+  supplierLedgerEntries SupplierLedgerEntry[] @relation("SupplierLedgerCreatedBy")
 }
 
 model Product {
@@ -102,6 +103,38 @@ model Supplier {
   updatedAt DateTime          @updatedAt
   products  ProductSupplier[]
   quoteItems QuoteItem[]
+  orderItems OrderItem[]       @relation("OrderItemConfirmedSupplier")
+  ledgerEntries SupplierLedgerEntry[]
+}
+
+enum SupplierLedgerType {
+  CHARGE
+  PAYMENT
+}
+
+model SupplierLedgerEntry {
+  id          String             @id @default(cuid())
+  supplierId  String
+  type        SupplierLedgerType
+  amount      Decimal            @db.Decimal(12, 2)
+  note        String?
+  orderId     String?
+  orderItemId String?
+  dispatchId  String?
+  receiptUrl  String?
+  receiptName String?
+  createdById String
+  createdAt   DateTime           @default(now())
+  supplier    Supplier           @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  order       Order?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderItem   OrderItem?         @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  dispatch    Dispatch?          @relation(fields: [dispatchId], references: [id], onDelete: SetNull)
+  createdBy   User               @relation("SupplierLedgerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([supplierId, createdAt])
+  @@index([orderId])
+  @@index([orderItemId])
+  @@index([dispatchId])
 }
 
 model ProductSupplier {
@@ -292,6 +325,7 @@ model Order {
   productionJobs    ProductionJob[]
   dispatches        Dispatch[]
   history           OrderStatusHistory[]
+  supplierLedgerEntries SupplierLedgerEntry[]
 
   @@index([clientId, createdAt])
   @@index([createdById, createdAt])
@@ -300,25 +334,46 @@ model Order {
 }
 
 model OrderItem {
-  id               String               @id @default(cuid())
-  orderId          String
-  quoteItemId      String?              @unique
-  productId        String
-  quantity         Int
-  unitPrice        Decimal              @db.Decimal(12, 2)
-  lineTotal        Decimal              @db.Decimal(12, 2)
-  fulfillmentMode  ProductFulfillmentMode
-  notes            String?
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
-  order            Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  quoteItem        QuoteItem?           @relation(fields: [quoteItemId], references: [id], onDelete: SetNull)
-  product          Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
-  productionJobs   ProductionJob[]
-  dispatchItems    DispatchItem[]
+  id                  String               @id @default(cuid())
+  orderId             String
+  quoteItemId         String?              @unique
+  productId           String
+  quantity            Int
+  unitPrice           Decimal              @db.Decimal(12, 2)
+  lineTotal           Decimal              @db.Decimal(12, 2)
+  fulfillmentMode     ProductFulfillmentMode
+  notes               String?
+  confirmedSupplierId String?
+  purchaseCost        Decimal?             @db.Decimal(12, 2)
+  confirmedAt         DateTime?
+  supplierPaymentStatus String?
+  supplierReceiptUrl  String?
+  supplierReceiptName String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  order               Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  quoteItem           QuoteItem?           @relation(fields: [quoteItemId], references: [id], onDelete: SetNull)
+  product             Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
+  confirmedSupplier   Supplier?            @relation("OrderItemConfirmedSupplier", fields: [confirmedSupplierId], references: [id], onDelete: SetNull)
+  productionJobs      ProductionJob[]
+  dispatchItems       DispatchItem[]
+  photos              OrderItemPhoto[]
+  supplierLedgerEntries SupplierLedgerEntry[]
 
   @@index([orderId])
   @@index([productId])
+  @@index([confirmedSupplierId])
+}
+
+model OrderItemPhoto {
+  id          String    @id @default(cuid())
+  orderItemId String
+  url         String
+  name        String?
+  createdAt   DateTime  @default(now())
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([orderItemId])
 }
 
 model ProductionJob {
@@ -364,6 +419,7 @@ model Dispatch {
   order         Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   createdBy     User            @relation("DispatchCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   items         DispatchItem[]
+  supplierLedgerEntries SupplierLedgerEntry[]
 
   @@index([orderId])
   @@index([createdById, createdAt])

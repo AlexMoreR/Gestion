@@ -3,14 +3,16 @@
 import { useState } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { invoicePdfFileName } from "@/lib/document-names";
 import { toast } from "sonner";
 
 type DownloadSaleInvoicePdfButtonProps = {
   className?: string;
   invoiceToken: string;
+  saleCode?: string;
 };
 
-export function DownloadSaleInvoicePdfButton({ className, invoiceToken }: DownloadSaleInvoicePdfButtonProps) {
+export function DownloadSaleInvoicePdfButton({ className, invoiceToken, saleCode }: DownloadSaleInvoicePdfButtonProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleDownloadPdf = async () => {
@@ -31,7 +33,7 @@ export function DownloadSaleInvoicePdfButton({ className, invoiceToken }: Downlo
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
-          a.download = `invoice-${invoiceToken}.pdf`;
+          a.download = saleCode ? invoicePdfFileName(saleCode) : `invoice-${invoiceToken}.pdf`;
           document.body.appendChild(a);
           a.click();
           a.remove();

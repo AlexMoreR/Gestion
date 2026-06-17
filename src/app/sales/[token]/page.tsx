@@ -19,6 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatMoney } from "@/lib/currency";
+import { formatInvoiceNumber } from "@/lib/document-names";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
@@ -51,17 +52,6 @@ type SaleReceiptSummary = {
   receiptType: string | null;
   paidAt: string | null;
 };
-
-const INVOICE_NUMBER_OFFSET = 100;
-
-function formatInvoiceNumber(code: string): string {
-  const raw = code.split("-")[1] ?? code;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed)) {
-    return raw;
-  }
-  return String(parsed + INVOICE_NUMBER_OFFSET).padStart(5, "0");
-}
 
 function formatReceiptDate(value: unknown): string | null {
   if (value instanceof Date) {
@@ -642,7 +632,7 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 sm:flex sm:gap-3 sm:space-y-0">
-                <DownloadSaleInvoicePdfButton invoiceToken={sale.invoiceToken} className="w-full sm:w-auto" />
+                <DownloadSaleInvoicePdfButton invoiceToken={sale.invoiceToken} saleCode={sale.code} className="w-full sm:w-auto" />
                 {receiptUrl ? (
                   <a
                     href={receiptUrl}

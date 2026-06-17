@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { quotePdfFileName } from "@/lib/document-names";
+import { prisma } from "@/lib/prisma";
 import { generateQuotePdf } from "./pdf-generator";
 
 export async function GET(req: NextRequest) {
@@ -21,6 +23,12 @@ export async function GET(req: NextRequest) {
 
         console.log("generate-quote-pdf: targetUrl=", targetUrl, "baseUrl=", baseUrl, "token=", token);
 
+        const quote = await prisma.quote.findUnique({
+            where: { shareToken: token },
+            select: { code: true },
+        });
+        const fileName = quote ? quotePdfFileName(quote.code) : `cotizacion-${token}.pdf`;
+
         const pdfBuffer = await generateQuotePdf(targetUrl);
         const arrayBuffer = new Uint8Array(pdfBuffer).buffer;
 
@@ -29,7 +37,7 @@ export async function GET(req: NextRequest) {
             status: 200,
             headers: {
                 "Content-Type": "application/pdf",
-                "Content-Disposition": `attachment; filename="cotizacion-${token}.pdf"`,
+                "Content-Disposition": `attachment; filename="${fileName}"`,
             },
         });
     } catch (error) {

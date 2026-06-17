@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { Download } from "lucide-react";
 import { Button } from "../ui/button";
+import { quotePdfFileName } from "@/lib/document-names";
 
 type DownloadQuotePdfButtonProps = {
   className?: string;
   quoteToken: string;
+  quoteCode?: string;
 };
 
-export function DownloadQuotePdfButton({ className, quoteToken }: DownloadQuotePdfButtonProps) {
+export function DownloadQuotePdfButton({ className, quoteToken, quoteCode }: DownloadQuotePdfButtonProps) {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleDownloadPdf = async () => {
@@ -27,7 +29,7 @@ export function DownloadQuotePdfButton({ className, quoteToken }: DownloadQuoteP
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `cotizacion-${quoteToken}.pdf`; // Nombre de archivo dinámico
+      a.download = quoteCode ? quotePdfFileName(quoteCode) : `cotizacion-${quoteToken}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();

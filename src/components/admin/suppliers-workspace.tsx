@@ -6,10 +6,21 @@ import {
   adminCreateSupplierAction,
   adminUpdateSupplierAction,
 } from "@/app/actions/catalog-actions";
+import { adminCreateSupplierPaymentAction } from "@/app/actions/supplier-ledger-actions";
 import { SuppliersDataTable } from "@/components/admin/suppliers-data-table";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { Button } from "../ui/button";
+
+type LedgerEntry = {
+  id: string;
+  type: "CHARGE" | "PAYMENT";
+  amount: number;
+  note: string | null;
+  createdAt: string;
+  createdByName: string | null;
+};
 
 type SupplierRow = {
   id: string;
@@ -17,14 +28,17 @@ type SupplierRow = {
   email: string | null;
   phone: string | null;
   productsCount: number;
+  balance: number;
+  ledger: LedgerEntry[];
 };
 
 type SuppliersWorkspaceProps = {
   suppliers: SupplierRow[];
+  currency: SupportedCurrencyCode;
 };
 
-export function SuppliersWorkspace({ suppliers }: SuppliersWorkspaceProps) {
-  const [modal, setModal] = useState<"new" | "edit" | null>(null);
+export function SuppliersWorkspace({ suppliers, currency }: SuppliersWorkspaceProps) {
+  const [modal, setModal] = useState<"new" | "edit" | "ledger" | null>(null);
   const [activeSupplierId, setActiveSupplierId] = useState<string | null>(null);
 
   const activeSupplier = useMemo(
@@ -40,6 +54,11 @@ export function SuppliersWorkspace({ suppliers }: SuppliersWorkspaceProps) {
   const openEditModal = (supplierId: string) => {
     setActiveSupplierId(supplierId);
     setModal("edit");
+  };
+
+  const openLedgerModal = (supplierId: string) => {
+    setActiveSupplierId(supplierId);
+    setModal("ledger");
   };
 
   const closeModal = () => {
@@ -62,14 +81,19 @@ export function SuppliersWorkspace({ suppliers }: SuppliersWorkspaceProps) {
         <Button
           type="button"
           onClick={openNewModal}
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[(--primary)] px-3 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
         >
           <Plus className="h-4 w-4" />
           Nuevo proveedor
         </Button>
       </div>
 
-      <SuppliersDataTable suppliers={suppliers} onEditSupplier={openEditModal} />
+      <SuppliersDataTable
+        suppliers={suppliers}
+        currency={currency}
+        onEditSupplier={openEditModal}
+        onViewLedger={openLedgerModal}
+      />
 
       {modal === "new" ? (
         <div
@@ -177,6 +201,99 @@ export function SuppliersWorkspace({ suppliers }: SuppliersWorkspaceProps) {
                 Guardar cambios
               </Button>
             </form>
+          </Card>
+        </div>
+      ) : null}
+
+      {modal === "ledger" && activeSupplier ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#11182752] px-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Cuenta corriente de ${activeSupplier.name}`}
+          onClick={closeModal}
+        >
+          <Card
+            className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-xl p-5"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900">Cuenta corriente</h2>
+              <Button
+                type="button"
+                onClick={closeModal}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[(--line)] text-slate-600 transition hover:bg-slate-50"
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="rounded-lg border border-[(--line)] bg-slate-50 p-3">
+              <p className="text-sm font-medium text-slate-900">{activeSupplier.name}</p>
+              <p className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">Saldo pendiente</p>
+              <p
+                className={`text-2xl font-semibold ${
+                  activeSupplier.balance > 0 ? "text-red-600" : "text-emerald-600"
+                }`}
+              >
+                {formatMoney(activeSupplier.balance, currency)}
+              </p>
+            </div>
+
+            <form action={adminCreateSupplierPaymentAction} className="mt-4 space-y-3">
+              <input type="hidden" name="supplierId" value={activeSupplier.id} />
+              <input type="hidden" name="returnTo" value="/admin/proveedores" />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-medium text-slate-700">Monto del abono</span>
+                  <Input name="amount" type="number" step="0.01" min="0" placeholder="0.00" required />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-medium text-slate-700">Nota</span>
+                  <Input name="note" placeholder="Referencia del pago" />
+                </label>
+              </div>
+              <Button
+                type="submit"
+                className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
+              >
+                Registrar abono
+              </Button>
+            </form>
+
+            <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Movimientos</p>
+              {activeSupplier.ledger.length === 0 ? (
+                <p className="text-sm text-slate-500">Sin movimientos registrados.</p>
+              ) : (
+                activeSupplier.ledger.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex items-start justify-between gap-3 rounded-lg border border-[(--line)] p-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900">
+                        {entry.type === "CHARGE" ? "Cargo" : "Abono"}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {new Date(entry.createdAt).toLocaleDateString("es-CO")}
+                        {entry.note ? ` - ${entry.note}` : ""}
+                      </p>
+                      <p className="text-xs text-slate-400">{entry.createdByName ?? "Sistema"}</p>
+                    </div>
+                    <p
+                      className={`shrink-0 text-sm font-semibold ${
+                        entry.type === "CHARGE" ? "text-red-600" : "text-emerald-600"
+                      }`}
+                    >
+                      {entry.type === "CHARGE" ? "+" : "-"}
+                      {formatMoney(entry.amount, currency)}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
           </Card>
         </div>
       ) : null}

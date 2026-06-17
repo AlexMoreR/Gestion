@@ -131,9 +131,13 @@ export async function adminCreateProductionJobAction(formData: FormData): Promis
   }
 
   if (parsed.data.orderItemId) {
-    const belongsToOrder = order.items.some((item) => item.id === parsed.data.orderItemId);
-    if (!belongsToOrder) {
+    const orderItem = order.items.find((item) => item.id === parsed.data.orderItemId);
+    if (!orderItem) {
       redirect(`${returnTo}?error=Producto+de+orden+invalido`);
+    }
+
+    if (!orderItem.confirmedSupplierId || orderItem.purchaseCost === null) {
+      redirect(`${returnTo}?error=Confirma+el+proveedor+y+costo+de+compra+antes+de+enviar+a+produccion`);
     }
   }
 

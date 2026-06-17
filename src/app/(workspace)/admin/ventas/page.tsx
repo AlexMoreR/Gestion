@@ -5,6 +5,7 @@ import { SalesWorkspace } from "@/components/admin/sales-workspace";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
+import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 
 type SaleWithDiscountFields = {
@@ -55,7 +56,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
-  const [sales, currency] = await Promise.all([
+  const [sales, products, currency] = await Promise.all([
     prisma.sale.findMany({
       orderBy: { createdAt: "desc" },
       include: {
@@ -67,6 +68,10 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
         },
       },
       take: 200,
+    }),
+    prisma.product.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 500,
     }),
     getSystemCurrency(),
   ]);
@@ -118,6 +123,13 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
 
       <SalesWorkspace
         currency={currency}
+        products={products.map((product) => ({
+          id: product.id,
+          name: product.name,
+          code: product.code,
+          retailPrice: Number(product.price),
+          thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
+        }))}
         sales={sales.map((sale) => ({
           id: sale.id,
           code: sale.code,

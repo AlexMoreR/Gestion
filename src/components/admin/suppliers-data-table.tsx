@@ -12,6 +12,7 @@ import {
   Search,
   Trash2,
   Truck,
+  Wallet,
   X,
 } from "lucide-react";
 import { adminDeleteSupplierAction } from "@/app/actions/catalog-actions";
@@ -25,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 
 type SupplierRow = {
   id: string;
@@ -32,14 +34,17 @@ type SupplierRow = {
   email: string | null;
   phone: string | null;
   productsCount: number;
+  balance: number;
 };
 
 type SuppliersDataTableProps = {
   suppliers: SupplierRow[];
+  currency: SupportedCurrencyCode;
   onEditSupplier?: (supplierId: string) => void;
+  onViewLedger?: (supplierId: string) => void;
 };
 
-type SortKey = "proveedor" | "correo" | "telefono" | "productos" | "acciones";
+type SortKey = "proveedor" | "correo" | "telefono" | "productos" | "saldo" | "acciones";
 type SortDirection = "asc" | "desc";
 
 const PAGE_SIZE = 12;
@@ -79,7 +84,12 @@ function HeaderLabel({
   );
 }
 
-export function SuppliersDataTable({ suppliers, onEditSupplier }: SuppliersDataTableProps) {
+export function SuppliersDataTable({
+  suppliers,
+  currency,
+  onEditSupplier,
+  onViewLedger,
+}: SuppliersDataTableProps) {
   const [query, setQuery] = React.useState("");
   const [sortKey, setSortKey] = React.useState<SortKey>("proveedor");
   const [sortDirection, setSortDirection] = React.useState<SortDirection>("asc");
@@ -111,6 +121,8 @@ export function SuppliersDataTable({ suppliers, onEditSupplier }: SuppliersDataT
           return textCompare(a.phone ?? "Sin telefono", b.phone ?? "Sin telefono") * directionFactor;
         case "productos":
           return (a.productsCount - b.productsCount) * directionFactor;
+        case "saldo":
+          return (a.balance - b.balance) * directionFactor;
         default:
           return 0;
       }
@@ -221,9 +233,25 @@ export function SuppliersDataTable({ suppliers, onEditSupplier }: SuppliersDataT
                   <div className="space-y-1 text-xs text-slate-600">
                     <p>{supplier.email ?? "Sin correo"}</p>
                     <p>{supplier.phone ?? "Sin telefono"}</p>
+                    <p>
+                      Saldo:{" "}
+                      <span className={supplier.balance > 0 ? "font-semibold text-red-600" : "font-semibold text-emerald-600"}>
+                        {formatMoney(supplier.balance, currency)}
+                      </span>
+                    </p>
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => onViewLedger?.(supplier.id)}
+                    aria-label={`Cuenta corriente de ${supplier.name}`}
+                  >
+                    <Wallet className="h-4 w-4" />
+                  </Button>
                   <Button
                     type="button"
                     variant="outline"
@@ -297,6 +325,16 @@ export function SuppliersDataTable({ suppliers, onEditSupplier }: SuppliersDataT
               </TableHead>
               <TableHead className="normal-case tracking-normal">
                 <HeaderLabel
+                  active={sortKey === "saldo"}
+                  direction={sortDirection}
+                  onClick={() => toggleSort("saldo")}
+                  icon={<Wallet className="h-3.5 w-3.5" />}
+                >
+                  Saldo
+                </HeaderLabel>
+              </TableHead>
+              <TableHead className="normal-case tracking-normal">
+                <HeaderLabel
                   active={sortKey === "acciones"}
                   direction={sortDirection}
                   onClick={() => toggleSort("acciones")}
@@ -310,7 +348,7 @@ export function SuppliersDataTable({ suppliers, onEditSupplier }: SuppliersDataT
           <TableBody>
             {pagedSuppliers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-9 text-center text-slate-500">
+                <TableCell colSpan={6} className="py-9 text-center text-slate-500">
                   No hay proveedores para el filtro actual.
                 </TableCell>
               </TableRow>
@@ -336,11 +374,26 @@ export function SuppliersDataTable({ suppliers, onEditSupplier }: SuppliersDataT
                   <TableCell className="text-sm font-medium text-slate-700">
                     {supplier.productsCount}
                   </TableCell>
+                  <TableCell className="text-sm font-medium">
+                    <span className={supplier.balance > 0 ? "text-red-600" : "text-emerald-600"}>
+                      {formatMoney(supplier.balance, currency)}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <form data-delete-supplier-id={supplier.id} action={adminDeleteSupplierAction}>
                       <input type="hidden" name="supplierId" value={supplier.id} />
                     </form>
                     <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 border border-transparent hover:border-[(--line)]"
+                        onClick={() => onViewLedger?.(supplier.id)}
+                        aria-label={`Cuenta corriente de ${supplier.name}`}
+                      >
+                        <Wallet className="h-4 w-4 text-slate-600" />
+                      </Button>
                       <Button
                         type="button"
                         variant="ghost"

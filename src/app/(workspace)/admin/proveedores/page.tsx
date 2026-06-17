@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { SuppliersWorkspace } from "@/components/admin/suppliers-workspace";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
+import { getSystemCurrency } from "@/lib/system-settings";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -24,10 +25,19 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
-  const suppliers = await prisma.supplier.findMany({
-    orderBy: { name: "asc" },
-    include: { _count: { select: { products: true } } },
-  });
+  const [suppliers, currency] = await Promise.all([
+    prisma.supplier.findMany({
+      orderBy: { name: "asc" },
+      include: {
+        _count: { select: { products: true } },
+        ledgerEntries: {
+          orderBy: { createdAt: "desc" },
+          include: { createdBy: { select: { name: true, email: true } } },
+        },
+      },
+    }),
+    getSystemCurrency(),
+  ]);
 
   return (
     <section className="w-full space-y-5">
@@ -39,13 +49,30 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
       />
 
       <SuppliersWorkspace
-        suppliers={suppliers.map((supplier) => ({
-          id: supplier.id,
-          name: supplier.name,
-          email: supplier.email,
-          phone: supplier.phone,
-          productsCount: supplier._count.products,
-        }))}
+        currency={currency}
+        suppliers={suppliers.map((supplier) => {
+          const balance = supplier.ledgerEntries.reduce((acc, entry) => {
+            const amount = Number(entry.amount);
+            return entry.type === "CHARGE" ? acc + amount : acc - amount;
+          }, 0);
+
+          return {
+            id: supplier.id,
+            name: supplier.name,
+            email: supplier.email,
+            phone: supplier.phone,
+            productsCount: supplier._count.products,
+            balance,
+            ledger: supplier.ledgerEntries.map((entry) => ({
+              id: entry.id,
+              type: entry.type,
+              amount: Number(entry.amount),
+              note: entry.note,
+              createdAt: entry.createdAt.toISOString(),
+              createdByName: entry.createdBy.name ?? entry.createdBy.email,
+            })),
+          };
+        })}
       />
     </section>
   );

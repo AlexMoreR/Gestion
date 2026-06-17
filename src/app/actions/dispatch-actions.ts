@@ -97,7 +97,11 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
   const order = await prisma.order.findUnique({
     where: { id: parsed.data.orderId },
     include: {
-      items: true,
+      items: {
+        include: {
+          photos: { select: { id: true } },
+        },
+      },
       dispatches: {
         where: {
           status: {
@@ -118,6 +122,27 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
 
   if (order.dispatches.length > 0) {
     redirect(`${returnTo}?error=Ya+existe+un+despacho+activo+para+esta+orden`);
+  }
+
+  if (order.items.length === 0) {
+    redirect(`${returnTo}?error=La+orden+no+tiene+items`);
+  }
+
+  const unconfirmedItem = order.items.find(
+    (item) => !item.confirmedSupplierId || item.purchaseCost === null,
+  );
+  if (unconfirmedItem) {
+    redirect(`${returnTo}?error=Confirma+el+proveedor+y+costo+de+todos+los+items+antes+de+despachar`);
+  }
+
+  const itemWithoutPhoto = order.items.find((item) => item.photos.length === 0);
+  if (itemWithoutPhoto) {
+    redirect(`${returnTo}?error=Sube+al+menos+una+foto+del+producto+terminado+por+cada+item`);
+  }
+
+  const itemWithoutPayment = order.items.find((item) => item.supplierPaymentStatus === null);
+  if (itemWithoutPayment) {
+    redirect(`${returnTo}?error=Registra+el+pago+al+proveedor+de+cada+item+antes+de+despachar`);
   }
 
   try {
@@ -167,6 +192,7 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
   revalidatePath("/admin/despachos");
   revalidatePath("/admin/ordenes");
   revalidatePath(`/admin/ordenes/${order.id}`);
+  revalidatePath("/admin/proveedores");
   redirect(`${returnTo}?ok=Despacho+creado`);
 }
 

@@ -3,11 +3,13 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { Prisma } from "@prisma/client";
+import bcrypt from "bcryptjs";
+import { Prisma, Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
+import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 
 type PaymentMethod = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "OTRO";
@@ -537,4 +539,248 @@ export async function adminDeleteSalePaymentAction(formData: FormData): Promise<
   revalidatePath("/admin/ventas");
   revalidatePath(`/sales/${sale.invoiceToken}`);
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Abono eliminado" }).toString()}`);
+}
+
+// ─── VENTA DIRECTA (mostrador, sin cotizacion previa) ──────────────────────
+
+function buildQuoteCode(index: number): string {
+  return `COT-${String(index).padStart(5, "0")}`;
+}
+
+function parseQuoteCodeNumber(code: string): number {
+  const match = /^COT-(\d+)$/.exec(code.trim());
+  if (!match) {
+    return 0;
+  }
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : 0;
+}
+
+async function getNextQuoteCode(tx: Prisma.TransactionClient): Promise<string> {
+  const lastQuote = await tx.quote.findFirst({
+    select: { code: true },
+    orderBy: { code: "desc" },
+  });
+  const baseCodeNumber = lastQuote ? parseQuoteCodeNumber(lastQuote.code) : 0;
+
+  for (let offset = 0; offset < 30; offset += 1) {
+    const code = buildQuoteCode(baseCodeNumber + 1 + offset);
+    const existing = await tx.quote.findUnique({ where: { code }, select: { id: true } });
+    if (!existing) {
+      return code;
+    }
+  }
+
+  throw new Error("Unable to allocate quote code");
+}
+
+const directSaleItemSchema = z.object({
+  productId: z.string().trim().min(1, "Producto invalido"),
+  quantity: z.coerce.number().int().min(1, "Cantidad invalida").max(10000),
+  unitPrice: z.coerce.number().positive("Precio invalido"),
+  description: z.string().trim().max(4000).optional().default(""),
+});
+
+export async function adminCreateDirectSaleAction(formData: FormData): Promise<void> {
+  const createdById = await requireAdminSession();
+  const returnTo = getReturnTo(formData);
+  let invoiceToken = "";
+
+  const clientNameRaw = formData.get("clientName");
+  const clientName = typeof clientNameRaw === "string" && clientNameRaw.trim()
+    ? clientNameRaw.trim()
+    : "Consumidor final";
+
+  // Items en arreglos paralelos
+  const productIdsRaw = formData.getAll("itemProductIds");
+  const quantitiesRaw = formData.getAll("itemQuantities");
+  const unitPricesRaw = formData.getAll("itemUnitPrices");
+  const descriptionsRaw = formData.getAll("itemDescriptions");
+
+  if (productIdsRaw.length === 0) {
+    redirectWithError(returnTo, "Debes agregar al menos un producto");
+  }
+
+  if (
+    productIdsRaw.length !== quantitiesRaw.length ||
+    productIdsRaw.length !== unitPricesRaw.length
+  ) {
+    redirectWithError(returnTo, "Faltan datos de uno o mas productos");
+  }
+
+  const parsedItems = productIdsRaw.map((productId, index) => {
+    const parsed = directSaleItemSchema.safeParse({
+      productId,
+      quantity: quantitiesRaw[index],
+      unitPrice: unitPricesRaw[index],
+      description: descriptionsRaw[index] ?? "",
+    });
+    if (!parsed.success) {
+      redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Producto invalido");
+    }
+    return parsed.data;
+  });
+
+  const productIds = Array.from(new Set(parsedItems.map((item) => item.productId)));
+  const products = await prisma.product.findMany({
+    where: { id: { in: productIds } },
+    select: { id: true },
+  });
+  if (products.length !== productIds.length) {
+    redirectWithError(returnTo, "Uno o mas productos no existen");
+  }
+
+  const normalizedItems = parsedItems.map((item) => {
+    const lineTotal = calculateQuoteLineTotal(item.quantity, item.unitPrice, 0, 0);
+    const notes = stringifyQuoteItemMeta({
+      color: "",
+      description: item.description ?? "",
+      additionalCost: 0,
+      discount: 0,
+    });
+    return {
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      lineTotal,
+      notes,
+    };
+  });
+
+  const subtotal = Number(normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2));
+  const total = subtotal;
+
+  // Abono inicial opcional
+  const amountRaw = formData.get("amount");
+  const hasInitialPayment = typeof amountRaw === "string" && amountRaw.trim() !== "" && Number(amountRaw) > 0;
+
+  let initialPayment: { amount: number; paymentMethod: PaymentMethod; note: string | null; receipt: { url: string; name: string; type: string } | null } | null = null;
+
+  if (hasInitialPayment) {
+    const amount = Number(amountRaw);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      redirectWithError(returnTo, "El monto del abono debe ser mayor a cero");
+    }
+    if (amount > total + 0.0001) {
+      redirectWithError(returnTo, "El abono no puede superar el total de la venta");
+    }
+
+    const paymentMethod = parsePaymentMethod(formData.get("paymentMethod"));
+    if (!paymentMethod) {
+      redirectWithError(returnTo, "Selecciona un medio de pago valido");
+    }
+
+    const noteValue = formData.get("note");
+    const note = typeof noteValue === "string" ? noteValue.trim() : "";
+
+    const fileEntry = formData.get("receipt");
+    const file = fileEntry instanceof File && fileEntry.size > 0 ? fileEntry : null;
+
+    if (paymentMethod !== "EFECTIVO" && !file) {
+      redirectWithError(returnTo, "Los abonos que no sean en efectivo deben incluir comprobante");
+    }
+
+    let savedReceipt: { url: string; name: string; type: string } | null = null;
+    if (file) {
+      const validationError = validateReceiptFile(file);
+      if (validationError) {
+        redirectWithError(returnTo, validationError);
+      }
+      savedReceipt = await savePaymentReceipt(file, "venta-directa", 0);
+    }
+
+    initialPayment = { amount, paymentMethod, note: note || null, receipt: savedReceipt };
+  }
+
+  const downPaymentAmount = initialPayment?.amount ?? 0;
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Cliente de mostrador (se crea uno por venta para conservar el nombre)
+      const placeholderEmail = `mostrador-${randomUUID().replace(/-/g, "").slice(0, 18)}@magilus.local`;
+      const hashedPassword = await bcrypt.hash(randomUUID().replace(/-/g, "").slice(0, 14), 12);
+      const client = await tx.user.create({
+        data: {
+          name: clientName,
+          email: placeholderEmail,
+          role: Role.CLIENTE,
+          password: hashedPassword,
+        },
+        select: { id: true },
+      });
+
+      // Cotizacion interna (para mantener la estructura factura -> cotizacion)
+      const quoteCode = await getNextQuoteCode(tx);
+      const shareToken = randomUUID().replace(/-/g, "");
+      const quote = await tx.quote.create({
+        data: {
+          code: quoteCode,
+          clientId: client.id,
+          createdById,
+          status: "ACCEPTED",
+          subtotal: new Prisma.Decimal(subtotal),
+          total: new Prisma.Decimal(total),
+          shareToken,
+          items: {
+            create: normalizedItems.map((item) => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              unitPrice: new Prisma.Decimal(item.unitPrice),
+              lineTotal: new Prisma.Decimal(item.lineTotal),
+              notes: item.notes,
+            })),
+          },
+        },
+        select: { id: true },
+      });
+
+      const saleCode = await getNextSaleCode(tx);
+      invoiceToken = randomUUID().replace(/-/g, "");
+
+      await tx.sale.create({
+        data: {
+          code: saleCode,
+          quoteId: quote.id,
+          clientId: client.id,
+          createdById,
+          status: "ACTIVE",
+          downPaymentAmount,
+          grossTotal: new Prisma.Decimal(total),
+          discountAmount: new Prisma.Decimal(0),
+          paymentReceiptUrl: initialPayment?.receipt?.url ?? "",
+          paymentReceiptName: initialPayment?.receipt?.name ?? "",
+          paymentReceiptType: initialPayment?.receipt?.type ?? "",
+          invoiceToken,
+          subtotal: new Prisma.Decimal(subtotal),
+          total: new Prisma.Decimal(total),
+          ...(initialPayment
+            ? {
+                salePayments: {
+                  create: [
+                    {
+                      amount: new Prisma.Decimal(initialPayment.amount),
+                      paymentMethod: initialPayment.paymentMethod,
+                      note: initialPayment.note,
+                      receiptUrl: initialPayment.receipt?.url ?? null,
+                      receiptName: initialPayment.receipt?.name ?? null,
+                      receiptType: initialPayment.receipt?.type ?? null,
+                      sortOrder: 0,
+                    },
+                  ],
+                },
+              }
+            : {}),
+        } satisfies Prisma.SaleUncheckedCreateInput,
+      });
+    });
+  } catch (error) {
+    console.error("Failed to create direct sale:", error);
+    redirectWithError(returnTo, "No se pudo crear la venta");
+  }
+
+  revalidatePath("/admin/ventas");
+  if (invoiceToken) {
+    revalidatePath(`/sales/${invoiceToken}`);
+  }
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Venta creada" }).toString()}`);
 }
