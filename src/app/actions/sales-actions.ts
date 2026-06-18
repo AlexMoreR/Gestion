@@ -12,8 +12,6 @@ import { auth } from "@/auth";
 import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 
-type PaymentMethod = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "OTRO";
-
 const createSaleSchema = z.object({
   quoteId: z.string().trim().min(1, "Quote is invalid"),
   discountAmount: z.coerce.number().min(0, "Discount cannot be negative").default(0),
@@ -27,7 +25,6 @@ const ALLOWED_RECEIPT_MIME_TYPES = new Set([
   "application/pdf",
 ]);
 const ALLOWED_RECEIPT_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".pdf"]);
-const ALLOWED_PAYMENT_METHODS = new Set<PaymentMethod>(["EFECTIVO", "TARJETA", "TRANSFERENCIA", "OTRO"]);
 
 async function requireAdminSession(): Promise<string> {
   const session = await auth();
@@ -110,15 +107,6 @@ function validateReceiptFile(file: File): string | null {
   }
 
   return null;
-}
-
-function parsePaymentMethod(rawValue: FormDataEntryValue | null): PaymentMethod | null {
-  if (typeof rawValue !== "string") {
-    return null;
-  }
-
-  const value = rawValue.trim().toUpperCase() as PaymentMethod;
-  return ALLOWED_PAYMENT_METHODS.has(value) ? value : null;
 }
 
 async function savePaymentReceipt(
@@ -427,9 +415,10 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
     redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos del abono invalidos");
   }
 
-  const paymentMethod = parsePaymentMethod(formData.get("paymentMethod"));
-  if (!paymentMethod) {
-    redirectWithError(returnTo, "Selecciona un medio de pago valido");
+  const accountIdValue = formData.get("accountId");
+  const accountId = typeof accountIdValue === "string" ? accountIdValue.trim() : "";
+  if (!accountId) {
+    redirectWithError(returnTo, "Selecciona una cuenta de balance valida");
   }
 
   const noteValue = formData.get("note");
@@ -438,7 +427,22 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
   const fileEntry = formData.get("receipt");
   const file = fileEntry instanceof File && fileEntry.size > 0 ? fileEntry : null;
 
-  if (paymentMethod !== "EFECTIVO" && !file) {
+  const [account, sale] = await Promise.all([
+    prisma.account.findFirst({
+      where: { id: accountId, isActive: true },
+      select: { id: true, name: true, type: true },
+    }),
+    prisma.sale.findUnique({
+      where: { id: parsed.data.saleId },
+      include: { salePayments: true },
+    }),
+  ]);
+
+  if (!account) {
+    redirectWithError(returnTo, "Selecciona una cuenta de balance valida");
+  }
+
+  if (account.type !== "CASH" && !file) {
     redirectWithError(returnTo, "Los abonos que no sean en efectivo deben incluir comprobante");
   }
 
@@ -448,11 +452,6 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
       redirectWithError(returnTo, validationError);
     }
   }
-
-  const sale = await prisma.sale.findUnique({
-    where: { id: parsed.data.saleId },
-    include: { salePayments: true },
-  });
 
   if (!sale) {
     redirectWithError(returnTo, "No se encontro la venta");
@@ -477,7 +476,7 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
   const hasRecentDuplicate = sale.salePayments.some(
     (payment) =>
       Number(payment.amount ?? 0) === parsed.data.amount &&
-      payment.paymentMethod === paymentMethod &&
+      payment.accountId === account.id &&
       payment.createdAt instanceof Date &&
       now - payment.createdAt.getTime() < DUPLICATE_WINDOW_MS,
   );
@@ -500,7 +499,8 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
         data: {
           saleId: sale.id,
           amount: parsed.data.amount,
-          paymentMethod,
+          paymentMethod: account.name,
+          accountId: account.id,
           note: note || null,
           receiptUrl: savedReceipt?.url ?? null,
           receiptName: savedReceipt?.name ?? null,
@@ -727,7 +727,13 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
   const amountRaw = formData.get("amount");
   const hasInitialPayment = typeof amountRaw === "string" && amountRaw.trim() !== "" && Number(amountRaw) > 0;
 
-  let initialPayment: { amount: number; paymentMethod: PaymentMethod; note: string | null; receipt: { url: string; name: string; type: string } | null } | null = null;
+  let initialPayment: {
+    amount: number;
+    paymentMethod: string;
+    accountId: string;
+    note: string | null;
+    receipt: { url: string; name: string; type: string } | null;
+  } | null = null;
 
   if (hasInitialPayment) {
     const amount = Number(amountRaw);
@@ -738,9 +744,17 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
       redirectWithError(returnTo, "El abono no puede superar el total de la venta");
     }
 
-    const paymentMethod = parsePaymentMethod(formData.get("paymentMethod"));
-    if (!paymentMethod) {
-      redirectWithError(returnTo, "Selecciona un medio de pago valido");
+    const accountId = getTrimmed("accountId");
+    if (!accountId) {
+      redirectWithError(returnTo, "Selecciona una cuenta de balance valida");
+    }
+
+    const account = await prisma.account.findFirst({
+      where: { id: accountId, isActive: true },
+      select: { id: true, name: true, type: true },
+    });
+    if (!account) {
+      redirectWithError(returnTo, "Selecciona una cuenta de balance valida");
     }
 
     const noteValue = formData.get("note");
@@ -749,7 +763,7 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
     const fileEntry = formData.get("receipt");
     const file = fileEntry instanceof File && fileEntry.size > 0 ? fileEntry : null;
 
-    if (paymentMethod !== "EFECTIVO" && !file) {
+    if (account.type !== "CASH" && !file) {
       redirectWithError(returnTo, "Los abonos que no sean en efectivo deben incluir comprobante");
     }
 
@@ -762,7 +776,13 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
       savedReceipt = await savePaymentReceipt(file, "venta-directa", 0);
     }
 
-    initialPayment = { amount, paymentMethod, note: note || null, receipt: savedReceipt };
+    initialPayment = {
+      amount,
+      paymentMethod: account.name,
+      accountId: account.id,
+      note: note || null,
+      receipt: savedReceipt,
+    };
   }
 
   const downPaymentAmount = initialPayment?.amount ?? 0;
@@ -882,6 +902,7 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
                     {
                       amount: new Prisma.Decimal(initialPayment.amount),
                       paymentMethod: initialPayment.paymentMethod,
+                      accountId: initialPayment.accountId,
                       note: initialPayment.note,
                       receiptUrl: initialPayment.receipt?.url ?? null,
                       receiptName: initialPayment.receipt?.name ?? null,

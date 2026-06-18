@@ -10,7 +10,6 @@ import {
   CalendarDays,
   Download,
   FileText,
-  Image as ImageIcon,
   MoreHorizontal,
   PlusCircle,
   ReceiptText,
@@ -50,6 +49,14 @@ import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 
 type SaleStatus = "DRAFT" | "ACTIVE" | "INVOICED" | "COMPLETED" | "CANCELLED";
 
+type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER";
+
+type AccountOption = {
+  id: string;
+  name: string;
+  type: AccountType;
+};
+
 type SalePaymentRow = {
   id: string;
   amount: number;
@@ -81,6 +88,7 @@ type SaleRow = {
 type SalesDataTableProps = {
   sales: SaleRow[];
   currency: SupportedCurrencyCode;
+  accounts: AccountOption[];
 };
 
 type SortKey = "sale" | "quote" | "client" | "status" | "total" | "downPayment" | "remaining" | "created";
@@ -147,6 +155,21 @@ function getPaymentMethodLabel(paymentMethod: string): string {
   }
 }
 
+function getAccountTypeLabel(type: AccountType): string {
+  switch (type) {
+    case "CASH":
+      return "Efectivo";
+    case "BANK":
+      return "Banco";
+    case "WALLET":
+      return "Billetera";
+    case "OTHER":
+      return "Otro";
+    default:
+      return type;
+  }
+}
+
 function HeaderLabel({
   children,
   active,
@@ -179,12 +202,10 @@ function HeaderLabel({
 
 function RowActions({
   sale,
-  currency,
   onViewReceipts,
   onAddPayment,
 }: {
   sale: SaleRow;
-  currency: SupportedCurrencyCode;
   onViewReceipts: () => void;
   onAddPayment: () => void;
 }) {
@@ -354,10 +375,10 @@ function SaleReceiptsSheet({
   );
 }
 
-function SavePaymentButton() {
+function SavePaymentButton({ disabled }: { disabled?: boolean }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" className="w-full" disabled={pending}>
+    <Button type="submit" className="w-full" disabled={pending || disabled}>
       <PlusCircle className="h-4 w-4" />
       {pending ? "Guardando..." : "Guardar abono"}
     </Button>
@@ -382,11 +403,13 @@ function DeletePaymentButton() {
 function AddSalePaymentSheet({
   sale,
   currency,
+  accounts,
   open,
   onOpenChange,
 }: {
   sale: SaleRow | null;
   currency: SupportedCurrencyCode;
+  accounts: AccountOption[];
   open: boolean;
   onOpenChange: (value: boolean) => void;
 }) {
@@ -443,15 +466,36 @@ function AddSalePaymentSheet({
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="add-payment-method" className="text-sm font-medium text-foreground">
-                Medio de pago
+              <label htmlFor="add-payment-account" className="text-sm font-medium text-foreground">
+                Cuenta de balance
               </label>
-              <select id="add-payment-method" name="paymentMethod" required defaultValue="EFECTIVO" className={inputClass}>
-                <option value="EFECTIVO">Efectivo</option>
-                <option value="TARJETA">Tarjeta</option>
-                <option value="TRANSFERENCIA">Transferencia</option>
-                <option value="OTRO">Otro</option>
+              <select
+                id="add-payment-account"
+                name="accountId"
+                required
+                defaultValue={accounts[0]?.id ?? ""}
+                disabled={accounts.length === 0}
+                className={inputClass}
+              >
+                {accounts.length === 0 ? (
+                  <option value="">Sin cuentas activas</option>
+                ) : (
+                  accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name} - {getAccountTypeLabel(account.type)}
+                    </option>
+                  ))
+                )}
               </select>
+              {accounts.length === 0 ? (
+                <p className="text-xs text-destructive">
+                  Crea una cuenta activa en Balances para registrar abonos.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  El ingreso quedara asociado a la cuenta seleccionada.
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -466,7 +510,7 @@ function AddSalePaymentSheet({
                 className={inputClass}
               />
               <p className="text-xs text-muted-foreground">
-                Obligatorio si el pago no es en efectivo. JPG, PNG, WEBP o PDF (max 12 MB).
+                Obligatorio si la cuenta no es de efectivo. JPG, PNG, WEBP o PDF (max 12 MB).
               </p>
             </div>
 
@@ -483,7 +527,7 @@ function AddSalePaymentSheet({
               />
             </div>
 
-            <SavePaymentButton />
+            <SavePaymentButton disabled={accounts.length === 0} />
           </form>
         ) : null}
 
@@ -527,7 +571,7 @@ function AddSalePaymentSheet({
   );
 }
 
-export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
+export function SalesDataTable({ sales, currency, accounts }: SalesDataTableProps) {
   const [sortKey, setSortKey] = React.useState<SortKey>("created");
   const [sortDirection, setSortDirection] = React.useState<SortDirection>("desc");
   const [selectedSale, setSelectedSale] = React.useState<SaleRow | null>(null);
@@ -589,6 +633,7 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
       <AddSalePaymentSheet
         sale={paymentSale}
         currency={currency}
+        accounts={accounts}
         open={Boolean(paymentSale)}
         onOpenChange={(open) => {
           if (!open) {
@@ -711,7 +756,6 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
                     <div className="flex items-center">
                       <RowActions
                         sale={sale}
-                        currency={currency}
                         onViewReceipts={() => setSelectedSale(sale)}
                         onAddPayment={() => setPaymentSale(sale)}
                       />
@@ -755,7 +799,6 @@ export function SalesDataTable({ sales, currency }: SalesDataTableProps) {
                 </form>
                 <RowActions
                   sale={sale}
-                  currency={currency}
                   onViewReceipts={() => setSelectedSale(sale)}
                   onAddPayment={() => setPaymentSale(sale)}
                 />

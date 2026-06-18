@@ -257,20 +257,28 @@ export function OrderItemManager({ item, currency, returnTo, accounts }: OrderIt
                     {paymentMode === "PAY_NOW" ? (
                       <div className="space-y-2">
                         <Input type="file" name="receipt" accept="image/*,application/pdf" className="h-8 text-xs" />
-                        <select
-                          name="accountId"
-                          defaultValue=""
-                          className="h-8 w-full rounded-lg border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                        >
-                          <option value="">Cuenta (origen del gasto) - opcional</option>
-                          {accounts.map((account) => (
-                            <option key={account.id} value={account.id}>
-                              {account.name}
-                            </option>
-                          ))}
-                        </select>
+                        <label className="space-y-1">
+                          <span className="text-xs font-medium text-muted-foreground">Cuenta de salida</span>
+                          <select
+                            name="accountId"
+                            defaultValue=""
+                            required
+                            className="h-8 w-full rounded-lg border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                          >
+                            <option value="">Seleccionar cuenta</option>
+                            {accounts.map((account) => (
+                              <option key={account.id} value={account.id}>
+                                {account.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
                       </div>
-                    ) : null}
+                    ) : (
+                      <p className="rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                        No sale dinero de ninguna cuenta ahora; queda como saldo pendiente con el proveedor.
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">

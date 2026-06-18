@@ -393,6 +393,9 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
   const supplierId = orderItem.confirmedSupplierId;
   const accountIdRaw = formData.get("accountId");
   const accountId = typeof accountIdRaw === "string" && accountIdRaw.trim() ? accountIdRaw.trim() : null;
+  if (paymentMode === "PAY_NOW" && !accountId) {
+    redirect(`${returnTo}?error=Selecciona+la+cuenta+de+salida+del+pago`);
+  }
   const alreadyPaid = orderItem.supplierPaymentStatus === "PAID";
   const alreadyCharged = orderItem.supplierPaymentStatus !== null;
 

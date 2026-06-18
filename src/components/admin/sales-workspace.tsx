@@ -34,9 +34,18 @@ type SaleRow = {
   hasOrder: boolean;
 };
 
+type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER";
+
+type AccountOption = {
+  id: string;
+  name: string;
+  type: AccountType;
+};
+
 type SalesWorkspaceProps = {
   sales: SaleRow[];
   currency: SupportedCurrencyCode;
+  accounts: AccountOption[];
   products: DirectSaleProduct[];
   clients: DirectSaleClient[];
   stats: {
@@ -50,7 +59,7 @@ type SalesWorkspaceProps = {
   };
 };
 
-export function SalesWorkspace({ sales, currency, products, clients, stats }: SalesWorkspaceProps) {
+export function SalesWorkspace({ sales, currency, accounts, products, clients, stats }: SalesWorkspaceProps) {
   return (
     <section className="space-y-4">
       <Card className="border border-border bg-card/95">
@@ -62,7 +71,7 @@ export function SalesWorkspace({ sales, currency, products, clients, stats }: Sa
               </div>
               <h1 className="text-lg font-semibold tracking-tight text-foreground md:text-xl">Ventas</h1>
             </div>
-            <DirectSaleSheet products={products} clients={clients} currency={currency} />
+            <DirectSaleSheet products={products} clients={clients} currency={currency} accounts={accounts} />
           </div>
         </CardContent>
       </Card>
@@ -88,7 +97,7 @@ export function SalesWorkspace({ sales, currency, products, clients, stats }: Sa
         </Card>
       </div>
 
-      <SalesDataTable sales={sales} currency={currency} />
+      <SalesDataTable sales={sales} currency={currency} accounts={accounts} />
     </section>
   );
 }

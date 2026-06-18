@@ -38,6 +38,14 @@ export type DirectSaleClient = {
   address: string;
 };
 
+type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER";
+
+type AccountOption = {
+  id: string;
+  name: string;
+  type: AccountType;
+};
+
 type ClientMode = "final" | "existing" | "new";
 
 type DraftLine = {
@@ -53,6 +61,21 @@ type DraftLine = {
 const inputClass =
   "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
 
+function getAccountTypeLabel(type: AccountType): string {
+  switch (type) {
+    case "CASH":
+      return "Efectivo";
+    case "BANK":
+      return "Banco";
+    case "WALLET":
+      return "Billetera";
+    case "OTHER":
+      return "Otro";
+    default:
+      return type;
+  }
+}
+
 function CreateButton({ disabled }: { disabled?: boolean }) {
   const { pending } = useFormStatus();
   return (
@@ -67,10 +90,12 @@ export function DirectSaleSheet({
   products,
   clients,
   currency,
+  accounts,
 }: {
   products: DirectSaleProduct[];
   clients: DirectSaleClient[];
   currency: SupportedCurrencyCode;
+  accounts: AccountOption[];
 }) {
   const [open, setOpen] = React.useState(false);
   const [lines, setLines] = React.useState<DraftLine[]>([]);
@@ -124,6 +149,7 @@ export function DirectSaleSheet({
     () => lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0),
     [lines],
   );
+  const paymentReady = !withPayment || accounts.length > 0;
 
   function addProduct(product: DirectSaleProduct) {
     setLines((prev) => [
@@ -471,13 +497,30 @@ export function DirectSaleSheet({
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="direct-method" className="text-sm text-foreground">Medio de pago</label>
-                  <select id="direct-method" name="paymentMethod" defaultValue="EFECTIVO" className={inputClass}>
-                    <option value="EFECTIVO">Efectivo</option>
-                    <option value="TARJETA">Tarjeta</option>
-                    <option value="TRANSFERENCIA">Transferencia</option>
-                    <option value="OTRO">Otro</option>
+                  <label htmlFor="direct-account" className="text-sm text-foreground">Cuenta de balance</label>
+                  <select
+                    id="direct-account"
+                    name="accountId"
+                    required
+                    defaultValue={accounts[0]?.id ?? ""}
+                    disabled={accounts.length === 0}
+                    className={inputClass}
+                  >
+                    {accounts.length === 0 ? (
+                      <option value="">Sin cuentas activas</option>
+                    ) : (
+                      accounts.map((account) => (
+                        <option key={account.id} value={account.id}>
+                          {account.name} - {getAccountTypeLabel(account.type)}
+                        </option>
+                      ))
+                    )}
                   </select>
+                  {accounts.length === 0 ? (
+                    <p className="text-xs text-destructive">
+                      Crea una cuenta activa en Balances para registrar el abono.
+                    </p>
+                  ) : null}
                 </div>
                 <div className="space-y-1.5">
                   <label htmlFor="direct-receipt" className="text-sm text-foreground">Comprobante</label>
@@ -488,7 +531,7 @@ export function DirectSaleSheet({
                     accept="image/jpeg,image/png,image/webp,application/pdf"
                     className={inputClass}
                   />
-                  <p className="text-xs text-muted-foreground">Obligatorio si el pago no es en efectivo.</p>
+                  <p className="text-xs text-muted-foreground">Obligatorio si la cuenta no es de efectivo.</p>
                 </div>
                 <div className="space-y-1.5">
                   <label htmlFor="direct-note" className="text-sm text-foreground">Nota (opcional)</label>
@@ -498,9 +541,13 @@ export function DirectSaleSheet({
             ) : null}
           </div>
 
-          <CreateButton disabled={!clientReady} />
+          <CreateButton disabled={!clientReady || lines.length === 0 || !paymentReady} />
           {lines.length === 0 ? (
             <p className="text-center text-xs text-muted-foreground">Agrega al menos un producto para crear la venta.</p>
+          ) : !paymentReady ? (
+            <p className="text-center text-xs text-muted-foreground">
+              Crea una cuenta activa en Balances para registrar el abono.
+            </p>
           ) : !clientReady ? (
             <p className="text-center text-xs text-muted-foreground">
               {clientMode === "existing"

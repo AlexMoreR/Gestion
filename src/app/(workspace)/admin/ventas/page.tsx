@@ -56,7 +56,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
-  const [sales, products, clients, currency] = await Promise.all([
+  const [sales, products, clients, currency, accounts] = await Promise.all([
     prisma.sale.findMany({
       orderBy: { createdAt: "desc" },
       include: {
@@ -87,6 +87,11 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
       take: 400,
     }),
     getSystemCurrency(),
+    prisma.account.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, type: true },
+    }),
   ]);
 
   const stats = sales.reduce(
@@ -136,6 +141,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
 
       <SalesWorkspace
         currency={currency}
+        accounts={accounts}
         clients={clients.map((client) => ({
           id: client.id,
           name: client.name || "Cliente sin nombre",
