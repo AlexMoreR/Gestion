@@ -562,7 +562,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                         ) : null}
                       </label>
                       <label className="block space-y-1.5">
-                        <span className="text-sm font-medium text-foreground">Nit o cedula</span>
+                        <span className="text-sm font-medium text-foreground">Nit o cedula <span className="text-muted-foreground">(opcional)</span></span>
                         <Input
                           value={clientDocument}
                           onChange={(event) => handleClientInputChange(setClientDocument, event.target.value)}
@@ -573,7 +573,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
 
                     <div className="grid gap-3 md:grid-cols-2">
                       <label className="block space-y-1.5">
-                        <span className="text-sm font-medium text-foreground">Correo Electronico</span>
+                        <span className="text-sm font-medium text-foreground">Correo Electronico <span className="text-muted-foreground">(opcional)</span></span>
                         <Input
                           type="email"
                           value={clientEmail}
@@ -601,7 +601,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                         />
                       </label>
                       <label className="block space-y-1.5">
-                        <span className="text-sm font-medium text-foreground">Barrio</span>
+                        <span className="text-sm font-medium text-foreground">Barrio <span className="text-muted-foreground">(opcional)</span></span>
                         <Input
                           value={clientNeighborhood}
                           onChange={(event) => handleClientInputChange(setClientNeighborhood, event.target.value)}
@@ -609,7 +609,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                         />
                       </label>
                       <label className="block space-y-1.5">
-                        <span className="text-sm font-medium text-foreground">Departamento</span>
+                        <span className="text-sm font-medium text-foreground">Departamento <span className="text-muted-foreground">(opcional)</span></span>
                         <Input
                           value={clientDepartment}
                           onChange={(event) => handleClientInputChange(setClientDepartment, event.target.value)}
