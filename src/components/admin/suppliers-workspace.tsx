@@ -20,6 +20,12 @@ type LedgerEntry = {
   note: string | null;
   createdAt: string;
   createdByName: string | null;
+  accountName: string | null;
+};
+
+type AccountOption = {
+  id: string;
+  name: string;
 };
 
 type SupplierType = "MANUFACTURER" | "SHIPPING";
@@ -38,9 +44,16 @@ type SupplierRow = {
 type SuppliersWorkspaceProps = {
   suppliers: SupplierRow[];
   currency: SupportedCurrencyCode;
+  accounts: AccountOption[];
 };
 
-export function SuppliersWorkspace({ suppliers, currency }: SuppliersWorkspaceProps) {
+const todayInputValue = () => {
+  const now = new Date();
+  const offset = now.getTimezoneOffset();
+  return new Date(now.getTime() - offset * 60_000).toISOString().slice(0, 10);
+};
+
+export function SuppliersWorkspace({ suppliers, currency, accounts }: SuppliersWorkspaceProps) {
   const [modal, setModal] = useState<"new" | "edit" | "ledger" | null>(null);
   const [activeSupplierId, setActiveSupplierId] = useState<string | null>(null);
 
@@ -269,6 +282,27 @@ export function SuppliersWorkspace({ suppliers, currency }: SuppliersWorkspacePr
                   <Input name="amount" type="number" step="0.01" min="0" placeholder="0.00" required />
                 </label>
                 <label className="block space-y-1.5">
+                  <span className="text-sm font-medium text-slate-700">Fecha</span>
+                  <Input name="paymentDate" type="date" defaultValue={todayInputValue()} required />
+                </label>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-medium text-slate-700">Cuenta</span>
+                  <select
+                    name="accountId"
+                    defaultValue=""
+                    className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  >
+                    <option value="">Cuenta (origen del pago)</option>
+                    {accounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block space-y-1.5">
                   <span className="text-sm font-medium text-slate-700">Nota</span>
                   <Input name="note" placeholder="Referencia del pago" />
                 </label>
@@ -296,7 +330,10 @@ export function SuppliersWorkspace({ suppliers, currency }: SuppliersWorkspacePr
                         {new Date(entry.createdAt).toLocaleDateString("es-CO")}
                         {entry.note ? ` - ${entry.note}` : ""}
                       </p>
-                      <p className="text-xs text-slate-400">{entry.createdByName ?? "Sistema"}</p>
+                      <p className="text-xs text-slate-400">
+                        {entry.createdByName ?? "Sistema"}
+                        {entry.accountName ? ` - ${entry.accountName}` : ""}
+                      </p>
                     </div>
                     <p
                       className={`shrink-0 text-sm font-semibold ${

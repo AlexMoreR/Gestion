@@ -10,6 +10,8 @@ const createPaymentSchema = z.object({
   supplierId: z.string().trim().min(1, "Proveedor invalido"),
   amount: z.coerce.number().positive("El monto debe ser mayor a cero"),
   note: z.string().trim().max(2000, "Nota demasiado larga").optional(),
+  accountId: z.string().trim().min(1).optional(),
+  paymentDate: z.coerce.date().optional(),
 });
 
 async function requireAdminSession(): Promise<string> {
@@ -39,6 +41,8 @@ export async function adminCreateSupplierPaymentAction(formData: FormData): Prom
     supplierId: formData.get("supplierId"),
     amount: formData.get("amount"),
     note: formData.get("note") || undefined,
+    accountId: formData.get("accountId") || undefined,
+    paymentDate: formData.get("paymentDate") || undefined,
   });
 
   if (!parsed.success) {
@@ -54,12 +58,26 @@ export async function adminCreateSupplierPaymentAction(formData: FormData): Prom
     redirect(`${returnTo}?error=Proveedor+no+encontrado`);
   }
 
+  let accountId: string | null = null;
+  if (parsed.data.accountId) {
+    const account = await prisma.account.findFirst({
+      where: { id: parsed.data.accountId, isActive: true },
+      select: { id: true },
+    });
+    if (!account) {
+      redirect(`${returnTo}?error=Cuenta+no+encontrada`);
+    }
+    accountId = account.id;
+  }
+
   await prisma.supplierLedgerEntry.create({
     data: {
       supplierId: supplier.id,
       type: "PAYMENT",
       amount: parsed.data.amount,
       note: parsed.data.note || null,
+      accountId,
+      paymentDate: parsed.data.paymentDate ?? new Date(),
       createdById,
     },
   });

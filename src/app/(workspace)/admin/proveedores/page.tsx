@@ -25,18 +25,26 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
-  const [suppliers, currency] = await Promise.all([
+  const [suppliers, currency, accounts] = await Promise.all([
     prisma.supplier.findMany({
       orderBy: { name: "asc" },
       include: {
         _count: { select: { products: true } },
         ledgerEntries: {
           orderBy: { createdAt: "desc" },
-          include: { createdBy: { select: { name: true, email: true } } },
+          include: {
+            createdBy: { select: { name: true, email: true } },
+            account: { select: { name: true } },
+          },
         },
       },
     }),
     getSystemCurrency(),
+    prisma.account.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
   ]);
 
   return (
@@ -50,6 +58,7 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
 
       <SuppliersWorkspace
         currency={currency}
+        accounts={accounts}
         suppliers={suppliers.map((supplier) => {
           const balance = supplier.ledgerEntries.reduce((acc, entry) => {
             const amount = Number(entry.amount);
@@ -69,8 +78,9 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
               type: entry.type,
               amount: Number(entry.amount),
               note: entry.note,
-              createdAt: entry.createdAt.toISOString(),
+              createdAt: (entry.paymentDate ?? entry.createdAt).toISOString(),
               createdByName: entry.createdBy.name ?? entry.createdBy.email,
+              accountName: entry.account?.name ?? null,
             })),
           };
         })}
