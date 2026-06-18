@@ -308,22 +308,14 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
     () =>
       Boolean(
         clientName.trim() &&
-        clientDocument.trim() &&
-        clientEmail.trim() &&
         clientPhone.trim() &&
         clientAddress.trim() &&
-        clientNeighborhood.trim() &&
-        clientDepartment.trim() &&
         clientCity.trim(),
       ),
     [
       clientAddress,
       clientCity,
-      clientDepartment,
-      clientDocument,
-      clientEmail,
       clientName,
-      clientNeighborhood,
       clientPhone,
     ],
   );

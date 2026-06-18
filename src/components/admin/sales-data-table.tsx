@@ -10,6 +10,7 @@ import {
   CalendarDays,
   Download,
   FileText,
+  ImagePlus,
   MoreHorizontal,
   PlusCircle,
   ReceiptText,
@@ -17,6 +18,7 @@ import {
   Eye,
   FileCheck2,
   Trash2,
+  X,
 } from "lucide-react";
 import { useFormStatus } from "react-dom";
 import { adminAddSalePaymentAction, adminDeleteSalePaymentAction } from "@/app/actions/sales-actions";
@@ -400,6 +402,89 @@ function DeletePaymentButton() {
   );
 }
 
+function ReceiptUploadField() {
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const [preview, setPreview] = React.useState<
+    { url: string | null; name: string; isImage: boolean } | null
+  >(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (preview?.url) URL.revokeObjectURL(preview.url);
+    };
+  }, [preview]);
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    setPreview((prev) => {
+      if (prev?.url) URL.revokeObjectURL(prev.url);
+      if (!file) return null;
+      const isImage = file.type.startsWith("image/");
+      return { url: isImage ? URL.createObjectURL(file) : null, name: file.name, isImage };
+    });
+  };
+
+  const clear = () => {
+    setPreview((prev) => {
+      if (prev?.url) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+    if (inputRef.current) inputRef.current.value = "";
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-sm font-medium text-foreground">Comprobante</p>
+      <div className="flex flex-wrap items-center gap-2">
+        {preview ? (
+          <span className="relative inline-block">
+            {preview.isImage && preview.url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={preview.url}
+                alt={preview.name}
+                className="h-16 w-16 rounded-md border border-border object-cover"
+              />
+            ) : (
+              <span className="flex h-16 w-24 flex-col items-center justify-center gap-1 rounded-md border border-border px-2 text-center">
+                <FileText className="h-5 w-5 text-muted-foreground" />
+                <span className="w-full truncate text-[10px] text-muted-foreground">{preview.name}</span>
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={clear}
+              className="absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-white bg-red-600 text-white shadow-sm transition hover:bg-red-700"
+              aria-label="Quitar comprobante"
+              title="Quitar comprobante"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="flex h-16 w-16 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border text-muted-foreground transition hover:border-ring hover:text-foreground"
+          title="Subir comprobante"
+        >
+          <ImagePlus className="h-5 w-5" />
+          <span className="text-[10px] font-medium">Archivo</span>
+        </button>
+        <input
+          ref={inputRef}
+          id="add-payment-receipt"
+          name="receipt"
+          type="file"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
+          className="hidden"
+          onChange={handleChange}
+        />
+      </div>
+    </div>
+  );
+}
+
 function AddSalePaymentSheet({
   sale,
   currency,
@@ -415,12 +500,30 @@ function AddSalePaymentSheet({
 }) {
   const inputClass =
     "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
+  const today = new Date();
+  const todayValue = new Date(today.getTime() - today.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 10);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md">
         <SheetHeader className="border-b border-border pb-4">
-          <SheetTitle>Registrar abono</SheetTitle>
+          <div className="flex items-center gap-3">
+            <SheetTitle className="shrink-0">Registrar abono</SheetTitle>
+            {sale ? (
+              <input
+                id="add-payment-date"
+                form="add-payment-form"
+                name="paymentDate"
+                type="date"
+                required
+                defaultValue={todayValue}
+                aria-label="Fecha del abono"
+                className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              />
+            ) : null}
+          </div>
           <SheetDescription>
             {sale ? `Venta ${sale.code} · ${sale.clientName}` : "Registra un nuevo abono para la venta."}
           </SheetDescription>
@@ -428,6 +531,7 @@ function AddSalePaymentSheet({
 
         {sale ? (
           <form
+            id="add-payment-form"
             action={adminAddSalePaymentAction}
             className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-6 pt-3"
           >
@@ -491,28 +595,10 @@ function AddSalePaymentSheet({
                 <p className="text-xs text-destructive">
                   Crea una cuenta activa en Balances para registrar abonos.
                 </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  El ingreso quedara asociado a la cuenta seleccionada.
-                </p>
-              )}
+              ) : null}
             </div>
 
-            <div className="space-y-1.5">
-              <label htmlFor="add-payment-receipt" className="text-sm font-medium text-foreground">
-                Comprobante
-              </label>
-              <input
-                id="add-payment-receipt"
-                name="receipt"
-                type="file"
-                accept="image/jpeg,image/png,image/webp,application/pdf"
-                className={inputClass}
-              />
-              <p className="text-xs text-muted-foreground">
-                Obligatorio si la cuenta no es de efectivo. JPG, PNG, WEBP o PDF (max 12 MB).
-              </p>
-            </div>
+            <ReceiptUploadField />
 
             <div className="space-y-1.5">
               <label htmlFor="add-payment-note" className="text-sm font-medium text-foreground">

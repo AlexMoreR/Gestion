@@ -10,14 +10,29 @@ import { auth } from "@/auth";
 import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 
+const emptyToUndefined = (value: unknown) =>
+  typeof value === "string" && value.trim() === "" ? undefined : value;
+
 const createClientSchema = z.object({
   name: z.string().trim().min(2, "Nombre invalido").max(120, "Nombre demasiado largo"),
-  document: z.string().trim().min(5, "Documento invalido").max(40, "Documento demasiado largo"),
-  email: z.string().trim().email("Correo invalido"),
+  document: z.preprocess(
+    emptyToUndefined,
+    z.string().trim().max(40, "Documento demasiado largo").optional(),
+  ),
+  email: z.preprocess(
+    emptyToUndefined,
+    z.string().trim().email("Correo invalido").max(180, "Correo demasiado largo").optional(),
+  ),
   phone: z.string().trim().min(7, "Telefono invalido").max(30, "Telefono demasiado largo"),
   address: z.string().trim().min(5, "Direccion invalida").max(180, "Direccion demasiado larga"),
-  neighborhood: z.string().trim().min(2, "Barrio invalido").max(120, "Barrio demasiado largo"),
-  department: z.string().trim().min(2, "Departamento invalido").max(120, "Departamento demasiado largo"),
+  neighborhood: z.preprocess(
+    emptyToUndefined,
+    z.string().trim().max(120, "Barrio demasiado largo").optional(),
+  ),
+  department: z.preprocess(
+    emptyToUndefined,
+    z.string().trim().max(120, "Departamento demasiado largo").optional(),
+  ),
   city: z.string().trim().min(2, "Ciudad invalida").max(120, "Ciudad demasiado larga"),
 });
 
@@ -93,16 +108,19 @@ function parseQuoteCodeNumber(code: string): number {
 }
 
 async function upsertClientFromData(data: z.infer<typeof createClientSchema>): Promise<string> {
-  const existing = await prisma.user.findUnique({ where: { email: data.email } });
   const clientProfileData = {
     name: data.name,
-    document: data.document,
+    document: data.document ?? null,
     phone: data.phone,
     address: data.address,
-    neighborhood: data.neighborhood,
-    department: data.department,
+    neighborhood: data.neighborhood ?? null,
+    department: data.department ?? null,
     city: data.city,
   };
+
+  const existing = data.email
+    ? await prisma.user.findUnique({ where: { email: data.email } })
+    : null;
 
   if (existing) {
     const updated = await prisma.user.update({
@@ -118,10 +136,11 @@ async function upsertClientFromData(data: z.infer<typeof createClientSchema>): P
 
   const password = randomUUID().replace(/-/g, "").slice(0, 14);
   const hashedPassword = await bcrypt.hash(password, 12);
+  const email = data.email ?? `cliente-${randomUUID().replace(/-/g, "").slice(0, 16)}@sin-correo.local`;
   const created = await prisma.user.create({
     data: {
       ...clientProfileData,
-      email: data.email,
+      email,
       role: Role.CLIENTE,
       password: hashedPassword,
     },

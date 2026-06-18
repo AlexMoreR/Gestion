@@ -400,6 +400,7 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
 const addSalePaymentSchema = z.object({
   saleId: z.string().trim().min(1, "Venta invalida"),
   amount: z.coerce.number().positive("El monto del abono debe ser mayor a cero"),
+  paymentDate: z.coerce.date().optional(),
 });
 
 export async function adminAddSalePaymentAction(formData: FormData): Promise<void> {
@@ -409,6 +410,7 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
   const parsed = addSalePaymentSchema.safeParse({
     saleId: formData.get("saleId"),
     amount: formData.get("amount"),
+    paymentDate: formData.get("paymentDate") || undefined,
   });
 
   if (!parsed.success) {
@@ -501,6 +503,7 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
           amount: parsed.data.amount,
           paymentMethod: account.name,
           accountId: account.id,
+          paymentDate: parsed.data.paymentDate ?? new Date(),
           note: note || null,
           receiptUrl: savedReceipt?.url ?? null,
           receiptName: savedReceipt?.name ?? null,
