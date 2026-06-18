@@ -35,9 +35,8 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
         category: true,
         images: { orderBy: { order: "asc" } },
         suppliers: {
-          where: { isPreferred: true },
+          orderBy: [{ isPreferred: "desc" }, { createdAt: "asc" }],
           include: { supplier: true },
-          take: 1,
         },
       },
     }),
@@ -89,7 +88,10 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
             wholesaleMarginPct: Number(product.wholesaleMarginPct),
           minWholesaleQty: product.minWholesaleQty,
           categoryId: product.categoryId,
-          supplierId: product.suppliers[0]?.supplier.id ?? null,
+          suppliers: product.suppliers.map((supplier) => ({
+            supplierId: supplier.supplierId,
+            supplierCost: supplier.supplierCost === null ? null : Number(supplier.supplierCost),
+          })),
           imageUrls: product.images.map((image) => getPublicAssetUrl(image.url)),
         }}
       />

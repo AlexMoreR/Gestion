@@ -35,9 +35,8 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
           orderBy: { order: "asc" },
         },
         suppliers: {
-          where: { isPreferred: true },
+          orderBy: [{ isPreferred: "desc" }, { createdAt: "asc" }],
           include: { supplier: true },
-          take: 1,
         },
       },
     }),
@@ -77,6 +76,10 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
           categoryName: product.category?.name ?? null,
           supplierId: product.suppliers[0]?.supplier.id ?? null,
           supplierName: product.suppliers[0]?.supplier.name ?? null,
+          suppliers: product.suppliers.map((supplier) => ({
+            supplierId: supplier.supplierId,
+            supplierCost: supplier.supplierCost === null ? null : Number(supplier.supplierCost),
+          })),
           thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
           imageUrls: product.images.map((image) => getPublicAssetUrl(image.url)),
           baseCost: Number(product.baseCost),

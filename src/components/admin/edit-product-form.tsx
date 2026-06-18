@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { adminUpdateProductAction } from "@/app/actions/product-actions";
 import { ProductFormStepper } from "@/components/admin/product-form-stepper";
+import { ProductSuppliersField, type ProductSupplierDraft } from "@/components/admin/product-suppliers-field";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
@@ -37,7 +38,10 @@ type EditProductInitialData = {
   wholesaleMarginPct: number;
   minWholesaleQty: number;
   categoryId: string | null;
-  supplierId: string | null;
+  suppliers: Array<{
+    supplierId: string;
+    supplierCost: number | null;
+  }>;
   imageUrls: string[];
 };
 
@@ -81,6 +85,21 @@ export function EditProductForm({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [newImageUrls, setNewImageUrls] = useState<string[]>([]);
   const [existingImageUrls, setExistingImageUrls] = useState(initialData.imageUrls);
+  const [supplierRows, setSupplierRows] = useState<ProductSupplierDraft[]>(() =>
+    initialData.suppliers.length > 0
+      ? initialData.suppliers.map((supplier) => ({
+          id: globalThis.crypto?.randomUUID?.() ?? `${supplier.supplierId}-${Math.random()}`,
+          supplierId: supplier.supplierId,
+          supplierCost: (supplier.supplierCost ?? initialData.baseCost).toFixed(2),
+        }))
+      : [
+          {
+            id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+            supplierId: "",
+            supplierCost: initialData.baseCost.toFixed(2),
+          },
+        ],
+  );
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -178,6 +197,25 @@ export function EditProductForm({
     const newIndex = index - existingImageUrls.length;
     const nextFiles = selectedFiles.filter((_, i) => i !== newIndex);
     syncSelectedFiles(nextFiles);
+  };
+
+  const addSupplierRow = () => {
+    setSupplierRows((current) => [
+      ...current,
+      {
+        id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+        supplierId: "",
+        supplierCost: baseCost || "0",
+      },
+    ]);
+  };
+
+  const removeSupplierRow = (rowId: string) => {
+    setSupplierRows((current) => current.filter((row) => row.id !== rowId));
+  };
+
+  const updateSupplierRow = (rowId: string, values: Partial<Omit<ProductSupplierDraft, "id">>) => {
+    setSupplierRows((current) => current.map((row) => (row.id === rowId ? { ...row, ...values } : row)));
   };
 
   return (
@@ -495,9 +533,9 @@ export function EditProductForm({
                     ))}
                   </select>
                 </label>
-                <label className="space-y-1.5 md:col-span-2">
+                <label className="hidden">
                   <span className="text-sm font-medium text-slate-700">🚚 Proveedor principal</span>
-                  <select name="supplierId" className="field-select" defaultValue={initialData.supplierId ?? ""}>
+                  <select name="legacySupplierId" className="hidden" defaultValue="">
                     <option value="">Sin proveedor</option>
                     {suppliers.map((supplier) => (
                       <option key={supplier.id} value={supplier.id}>
@@ -506,6 +544,14 @@ export function EditProductForm({
                     ))}
                   </select>
                 </label>
+                <ProductSuppliersField
+                  suppliers={suppliers}
+                  rows={supplierRows}
+                  currency={currency}
+                  onAdd={addSupplierRow}
+                  onRemove={removeSupplierRow}
+                  onChange={updateSupplierRow}
+                />
               </div>
             </section>
 

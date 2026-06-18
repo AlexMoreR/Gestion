@@ -10,6 +10,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buildProductionJobCode, parseProductionJobCodeNumber } from "@/lib/orders";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
+import { syncOrderStatusAfterProduction } from "@/app/actions/orders-actions";
 
 const PHOTO_MAX_BYTES = 12 * 1024 * 1024;
 const ALLOWED_PHOTO_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -252,9 +253,10 @@ export async function adminConfirmOrderItemAction(formData: FormData): Promise<v
             code,
             orderId: orderItem.order.id,
             orderItemId: orderItem.id,
-            status: "PENDING",
+            status: "IN_PROGRESS",
             quantity: orderItem.quantity,
             notes: jobNotes || null,
+            startedAt: new Date(),
             createdById,
           },
         });
@@ -465,6 +467,19 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
           data: { supplierPaymentStatus: "PENDING" },
         });
       }
+
+      await tx.productionJob.updateMany({
+        where: {
+          orderItemId: orderItem.id,
+          status: { in: ["PENDING", "IN_PROGRESS", "PAUSED"] },
+        },
+        data: {
+          status: "DONE",
+          completedAt: new Date(),
+        },
+      });
+
+      await syncOrderStatusAfterProduction(tx, orderItem.order.id, createdById);
     });
   } catch (error) {
     console.error("Failed to dispatch order item:", error);
@@ -474,6 +489,7 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
 
   revalidatePath("/admin/ordenes");
   revalidatePath(`/admin/ordenes/${orderItem.order.id}`);
+  revalidatePath("/admin/produccion");
   revalidatePath("/admin/proveedores");
   redirect(`${returnTo}?ok=Item+listo+para+despacho`);
 }

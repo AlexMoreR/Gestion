@@ -25,7 +25,6 @@ const baseProductSchema = z.object({
   wholesalePrice: z.coerce.number().min(0, "El precio mayorista no puede ser negativo"),
   minWholesaleQty: z.coerce.number().int().min(1, "Cantidad mayorista invalida").max(100000),
   categoryId: z.string().trim().optional(),
-  supplierId: z.string().trim().optional(),
 });
 
 const createProductSchema = baseProductSchema;
@@ -52,6 +51,46 @@ async function requireAdminSession(): Promise<void> {
 function parseOptionalId(value?: string): string | null {
   const raw = value?.trim();
   return raw ? raw : null;
+}
+
+type ParsedProductSupplier = {
+  supplierId: string;
+  supplierCost: number;
+  isPreferred: boolean;
+};
+
+function parseProductSuppliers(formData: FormData): ParsedProductSupplier[] {
+  const supplierIds = formData.getAll("supplierIds");
+  const supplierCosts = formData.getAll("supplierCosts");
+  const suppliers: ParsedProductSupplier[] = [];
+  const seenSupplierIds = new Set<string>();
+
+  for (let index = 0; index < supplierIds.length; index += 1) {
+    const rawSupplierId = supplierIds[index];
+    const supplierId = typeof rawSupplierId === "string" ? rawSupplierId.trim() : "";
+    if (!supplierId) {
+      continue;
+    }
+
+    if (seenSupplierIds.has(supplierId)) {
+      throw new Error("No repitas el mismo proveedor en el producto.");
+    }
+
+    const rawCost = supplierCosts[index];
+    const supplierCost = typeof rawCost === "string" ? Number(rawCost) : Number.NaN;
+    if (!Number.isFinite(supplierCost) || supplierCost <= 0) {
+      throw new Error("Cada proveedor debe tener un valor de compra mayor a cero.");
+    }
+
+    seenSupplierIds.add(supplierId);
+    suppliers.push({
+      supplierId,
+      supplierCost,
+      isPreferred: suppliers.length === 0,
+    });
+  }
+
+  return suppliers;
 }
 
 function parseImageList(raw: string): string[] {
@@ -232,7 +271,6 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
     wholesalePrice: formData.get("wholesalePrice"),
     minWholesaleQty: formData.get("minWholesaleQty"),
     categoryId: formData.get("categoryId") || undefined,
-    supplierId: formData.get("supplierId") || undefined,
   });
 
   if (!parsed.success) {
@@ -252,7 +290,12 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
 
   const thumbnailUrl = imageList[0];
   const categoryId = parseOptionalId(parsed.data.categoryId);
-  const supplierId = parseOptionalId(parsed.data.supplierId);
+  let productSuppliers: ParsedProductSupplier[];
+  try {
+    productSuppliers = parseProductSuppliers(formData);
+  } catch (error) {
+    redirect(`/admin/productos?error=${encodeURIComponent(error instanceof Error ? error.message : "Proveedores invalidos")}`);
+  }
   const slug = await generateUniqueProductSlug(parsed.data.name, parsed.data.code);
   const retailPrice = parsed.data.retailPrice;
   const effectiveRetailMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost, retailPrice);
@@ -282,12 +325,10 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
             order: index,
           })),
         },
-        suppliers: supplierId
+        suppliers: productSuppliers.length > 0
           ? {
-              create: {
-                supplierId,
-                supplierCost: parsed.data.baseCost,
-                isPreferred: true,
+              createMany: {
+                data: productSuppliers,
               },
             }
           : undefined,
@@ -323,7 +364,6 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
     wholesalePrice: formData.get("wholesalePrice"),
     minWholesaleQty: formData.get("minWholesaleQty"),
     categoryId: formData.get("categoryId") || undefined,
-    supplierId: formData.get("supplierId") || undefined,
   });
 
   if (!parsed.success) {
@@ -364,7 +404,12 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
 
   const thumbnailUrl = imageList[0];
   const categoryId = parseOptionalId(parsed.data.categoryId);
-  const supplierId = parseOptionalId(parsed.data.supplierId);
+  let productSuppliers: ParsedProductSupplier[];
+  try {
+    productSuppliers = parseProductSuppliers(formData);
+  } catch (error) {
+    redirect(`${redirectBase}?error=${encodeURIComponent(error instanceof Error ? error.message : "Proveedores invalidos")}`);
+  }
   const slug = await generateUniqueProductSlug(parsed.data.name, parsed.data.code, parsed.data.productId);
   const retailPrice = parsed.data.retailPrice;
   const effectiveRetailMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost, retailPrice);
@@ -405,15 +450,13 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
       prisma.productSupplier.deleteMany({
         where: { productId: parsed.data.productId },
       }),
-      ...(supplierId
+      ...(productSuppliers.length > 0
         ? [
-            prisma.productSupplier.create({
-              data: {
+            prisma.productSupplier.createMany({
+              data: productSuppliers.map((supplier) => ({
                 productId: parsed.data.productId,
-                supplierId,
-                supplierCost: parsed.data.baseCost,
-                isPreferred: true,
-              },
+                ...supplier,
+              })),
             }),
           ]
         : []),

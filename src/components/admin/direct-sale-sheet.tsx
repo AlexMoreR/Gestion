@@ -12,6 +12,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 
 export type DirectSaleProduct = {
@@ -161,7 +168,9 @@ export function DirectSaleSheet({
 
           {/* Cliente */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Cliente</label>
+            <label htmlFor="direct-client-mode" className="text-sm font-medium text-foreground">
+              Cliente
+            </label>
 
             {/* Campos enviados al servidor */}
             <input type="hidden" name="clientMode" value={clientMode} />
@@ -172,27 +181,23 @@ export function DirectSaleSheet({
             <input type="hidden" name="clientDocument" value={clientMode === "new" ? newDocument : ""} />
             <input type="hidden" name="clientEmail" value={clientMode === "new" ? newEmail : ""} />
 
-            {/* Selector de modo */}
-            <div className="grid grid-cols-3 gap-1.5 rounded-lg border border-border bg-muted/20 p-1">
-              {([
-                { value: "final", label: "Consumidor final" },
-                { value: "existing", label: "Cliente existente" },
-                { value: "new", label: "Nuevo cliente" },
-              ] as const).map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setClientMode(option.value)}
-                  className={`rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
-                    clientMode === option.value
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
+            <Select
+              value={clientMode}
+              onValueChange={(value) => {
+                if (value === "final" || value === "existing" || value === "new") {
+                  setClientMode(value);
+                }
+              }}
+            >
+              <SelectTrigger id="direct-client-mode" className="h-10 w-full bg-background">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="start">
+                <SelectItem value="final">Consumidor final</SelectItem>
+                <SelectItem value="existing">Cliente existente</SelectItem>
+                <SelectItem value="new">Nuevo cliente</SelectItem>
+              </SelectContent>
+            </Select>
 
             {clientMode === "final" ? (
               <p className="text-xs text-muted-foreground">La venta se registrará a nombre de “Consumidor final”.</p>

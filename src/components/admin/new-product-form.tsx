@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { adminCreateProductAction } from "@/app/actions/product-actions";
 import { ProductFormStepper } from "@/components/admin/product-form-stepper";
+import { ProductSuppliersField, type ProductSupplierDraft } from "@/components/admin/product-suppliers-field";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
@@ -45,10 +46,18 @@ type NewProductDraft = {
   retailPriceDirty: boolean;
   wholesalePriceDirty: boolean;
   categoryId: string;
-  supplierId: string;
+  supplierRows: ProductSupplierDraft[];
 };
 
 export const NEW_PRODUCT_DRAFT_KEY = "admin:new-product-draft:v1";
+
+function createSupplierRow(supplierCost = "0"): ProductSupplierDraft {
+  return {
+    id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+    supplierId: "",
+    supplierCost,
+  };
+}
 
 export function NewProductForm({ categories, suppliers, currency }: NewProductFormProps) {
   const [name, setName] = useState("");
@@ -66,7 +75,7 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
   const [retailPriceDirty, setRetailPriceDirty] = useState(false);
   const [wholesalePriceDirty, setWholesalePriceDirty] = useState(false);
   const [categoryId, setCategoryId] = useState("");
-  const [supplierId, setSupplierId] = useState("");
+  const [supplierRows, setSupplierRows] = useState<ProductSupplierDraft[]>(() => [createSupplierRow("0")]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [mainImageUrls, setMainImageUrls] = useState<string[]>([]);
   const [dragActive, setDragActive] = useState(false);
@@ -104,7 +113,22 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
       setRetailPriceDirty(draft.retailPriceDirty ?? false);
       setWholesalePriceDirty(draft.wholesalePriceDirty ?? false);
       setCategoryId(draft.categoryId ?? "");
-      setSupplierId(draft.supplierId ?? "");
+      if (Array.isArray(draft.supplierRows) && draft.supplierRows.length > 0) {
+        setSupplierRows(
+          draft.supplierRows.map((row) => ({
+            id: row.id || (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`),
+            supplierId: row.supplierId ?? "",
+            supplierCost: row.supplierCost ?? draft.baseCost ?? "0",
+          })),
+        );
+      } else if (typeof (draft as Partial<NewProductDraft> & { supplierId?: string }).supplierId === "string") {
+        setSupplierRows([
+          {
+            ...createSupplierRow(draft.baseCost ?? "0"),
+            supplierId: (draft as Partial<NewProductDraft> & { supplierId?: string }).supplierId ?? "",
+          },
+        ]);
+      }
       setDraftRestored(true);
     } catch {
       window.localStorage.removeItem(NEW_PRODUCT_DRAFT_KEY);
@@ -134,7 +158,7 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
       retailPriceDirty,
       wholesalePriceDirty,
       categoryId,
-      supplierId,
+      supplierRows,
     };
 
     window.localStorage.setItem(NEW_PRODUCT_DRAFT_KEY, JSON.stringify(draft));
@@ -155,7 +179,7 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
     retailPriceDirty,
     wholesalePriceDirty,
     categoryId,
-    supplierId,
+    supplierRows,
   ]);
 
   const pricing = useMemo(() => {
@@ -227,6 +251,18 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
   const removeImageAt = (index: number) => {
     const nextFiles = selectedFiles.filter((_, i) => i !== index);
     syncSelectedFiles(nextFiles);
+  };
+
+  const addSupplierRow = () => {
+    setSupplierRows((current) => [...current, createSupplierRow(baseCost || "0")]);
+  };
+
+  const removeSupplierRow = (rowId: string) => {
+    setSupplierRows((current) => current.filter((row) => row.id !== rowId));
+  };
+
+  const updateSupplierRow = (rowId: string, values: Partial<Omit<ProductSupplierDraft, "id">>) => {
+    setSupplierRows((current) => current.map((row) => (row.id === rowId ? { ...row, ...values } : row)));
   };
 
   return (
@@ -569,9 +605,9 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
                     ))}
                   </select>
                 </label>
-                <label className="space-y-1.5 md:col-span-2">
+                <label className="hidden">
                   <span className="text-sm font-medium text-slate-700">🚚 Proveedor principal</span>
-                  <select name="supplierId" className="field-select" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
+                  <select name="legacySupplierId" className="hidden" value="" onChange={() => undefined}>
                     <option value="">Sin proveedor</option>
                     {suppliers.map((supplier) => (
                       <option key={supplier.id} value={supplier.id}>
@@ -580,6 +616,14 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
                     ))}
                   </select>
                 </label>
+                <ProductSuppliersField
+                  suppliers={suppliers}
+                  rows={supplierRows}
+                  currency={currency}
+                  onAdd={addSupplierRow}
+                  onRemove={removeSupplierRow}
+                  onChange={updateSupplierRow}
+                />
               </div>
             </section>
 

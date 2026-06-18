@@ -80,7 +80,6 @@ export default async function AdminProduccionPage({ searchParams }: PageProps) {
           code: job.code,
           orderCode: job.order.code,
           orderId: job.order.id,
-          clientName: job.order.client.name || job.order.client.email,
           productName: job.orderItem?.product.name ?? "Orden completa",
           quantity: job.quantity,
           status: job.status,

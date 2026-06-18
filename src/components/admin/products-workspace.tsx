@@ -30,6 +30,10 @@ type ProductWorkspaceRow = {
   categoryName: string | null;
   supplierId: string | null;
   supplierName: string | null;
+  suppliers: Array<{
+    supplierId: string;
+    supplierCost: number | null;
+  }>;
   thumbnailUrl: string;
   imageUrls: string[];
   baseCost: number;
@@ -182,7 +186,7 @@ export function ProductsWorkspace({
                 wholesaleMarginPct: activeProduct.wholesaleMarginPct,
                 minWholesaleQty: activeProduct.minWholesaleQty,
                 categoryId: activeProduct.categoryId,
-                supplierId: activeProduct.supplierId,
+                suppliers: activeProduct.suppliers,
                 imageUrls: activeProduct.imageUrls,
               }}
             />

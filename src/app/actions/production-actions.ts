@@ -149,11 +149,12 @@ export async function adminCreateProductionJobAction(formData: FormData): Promis
           code,
           orderId: order.id,
           orderItemId: parsed.data.orderItemId || null,
-          status: "PENDING",
+          status: "IN_PROGRESS",
           quantity: parsed.data.quantity,
           notes: parsed.data.notes || null,
           dueDate,
           assignedToId: parsed.data.assignedToId || null,
+          startedAt: new Date(),
           createdById: changedById,
         },
       });
