@@ -25,6 +25,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -444,15 +451,9 @@ function SaleInstallmentEditor({
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="text-sm font-semibold text-foreground">Detalle del abono</p>
-          <p className="text-xs text-muted-foreground">
-            Suma: {formatMoney(Number(installment.amount || 0), currency)}
-          </p>
           {errors && errors.length > 0 ? <p className="text-xs text-destructive">{errors.join(" · ")}</p> : null}
         </div>
         <div className="shrink-0 space-y-1">
-          <label htmlFor={dateId} className="block text-right text-xs font-medium text-foreground">
-            Fecha del abono
-          </label>
           <Input
             id={dateId}
             type="date"
@@ -464,76 +465,81 @@ function SaleInstallmentEditor({
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <label htmlFor={amountId} className="text-xs font-medium text-foreground">
-          Monto de abono
-        </label>
-        <Input
-          id={amountId}
-          type="number"
-          min="0.01"
-          step="0.01"
-          required
-          value={installment.amount}
-          onChange={(event) => onAmountChange(event.target.value)}
-        />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <label htmlFor={amountId} className="text-xs font-medium text-foreground">
+            Monto de abono
+          </label>
+          <Input
+            id={amountId}
+            type="number"
+            min="0.01"
+            step="0.01"
+            required
+            value={installment.amount}
+            onChange={(event) => onAmountChange(event.target.value)}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor={methodId} className="text-xs font-medium text-foreground">
+            Metodo de pago del abono
+          </label>
+          <Select
+            value={installment.accountId || null}
+            onValueChange={(value) => onAccountChange(value ?? "")}
+          >
+            <SelectTrigger id={methodId} className="h-10 w-full">
+              <SelectValue placeholder="Seleccionar metodo" />
+            </SelectTrigger>
+            <SelectContent>
+              {accounts.map((account) => (
+                <SelectItem key={account.id} value={account.id}>
+                  {account.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {accounts.length === 0 ? (
+            <p className="text-xs text-destructive">
+              No hay cuentas registradas. Crea una en Balances → Cuentas.
+            </p>
+          ) : null}
+        </div>
       </div>
 
-      <div className="space-y-1.5">
-        <label htmlFor={methodId} className="text-xs font-medium text-foreground">
-          Metodo de pago del abono
-        </label>
-        <select
-          id={methodId}
-          required
-          value={installment.accountId}
-          onChange={(event) => onAccountChange(event.target.value)}
-          className="h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-        >
-          <option value="">Seleccionar metodo</option>
-          {accounts.map((account) => (
-            <option key={account.id} value={account.id}>
-              {account.name}
-            </option>
-          ))}
-        </select>
-        {accounts.length === 0 ? (
-          <p className="text-xs text-destructive">
-            No hay cuentas registradas. Crea una en Balances → Cuentas.
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-1.5">
+          <label htmlFor={receiptId} className="text-xs font-medium text-foreground">
+            Comprobante de pago del abono
+          </label>
+          <Input
+            id={receiptId}
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+            required={requiresReceipt}
+            className="cursor-pointer"
+            onChange={(event) => onReceiptChange(event.currentTarget.files?.[0] ?? null)}
+          />
+          <p className="text-xs text-muted-foreground">
+            {selectedAccount && selectedAccount.type === "CASH"
+              ? "Opcional para cuentas de efectivo."
+              : "Requerido para cuentas que no son de efectivo."}
           </p>
-        ) : null}
-      </div>
+        </div>
 
-      <div className="space-y-1.5">
-        <label htmlFor={receiptId} className="text-xs font-medium text-foreground">
-          Comprobante de pago del abono
-        </label>
-        <Input
-          id={receiptId}
-          type="file"
-          accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
-          required={requiresReceipt}
-          className="cursor-pointer"
-          onChange={(event) => onReceiptChange(event.currentTarget.files?.[0] ?? null)}
-        />
-        <p className="text-xs text-muted-foreground">
-          {selectedAccount && selectedAccount.type === "CASH"
-            ? "Opcional para cuentas de efectivo."
-            : "Requerido para cuentas que no son de efectivo."}
-        </p>
-      </div>
-
-      <div className="space-y-1.5">
-        <label htmlFor={noteId} className="text-xs font-medium text-foreground">
-          Observacion opcional
-        </label>
-        <Textarea
-          id={noteId}
-          value={installment.note}
-          onChange={(event) => onNoteChange(event.target.value)}
-          placeholder="Ej: Abono 1 de 3"
-          className="min-h-28 resize-none bg-background"
-        />
+        <div className="space-y-1.5">
+          <label htmlFor={noteId} className="text-xs font-medium text-foreground">
+            Observacion opcional
+          </label>
+          <Textarea
+            id={noteId}
+            value={installment.note}
+            onChange={(event) => onNoteChange(event.target.value)}
+            placeholder="Ej: Abono 1 de 3"
+            className="min-h-28 resize-none bg-background"
+          />
+        </div>
       </div>
     </div>
   );
@@ -919,7 +925,7 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
       setSaleAttachments([
         {
           id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
-          amount: quote.total.toFixed(2),
+          amount: "",
           file: null,
           previewUrl: null,
           accountId: "",
@@ -1196,4 +1202,3 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
     </div>
   );
 }
-
