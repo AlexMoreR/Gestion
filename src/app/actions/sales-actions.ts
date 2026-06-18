@@ -627,10 +627,42 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
   const returnTo = getReturnTo(formData);
   let invoiceToken = "";
 
-  const clientNameRaw = formData.get("clientName");
-  const clientName = typeof clientNameRaw === "string" && clientNameRaw.trim()
-    ? clientNameRaw.trim()
-    : "Consumidor final";
+  const getTrimmed = (key: string): string => {
+    const value = formData.get(key);
+    return typeof value === "string" ? value.trim() : "";
+  };
+
+  // Modo de cliente: "final" (Consumidor final), "existing" (cliente existente) o "new" (cliente nuevo)
+  const clientModeRaw = getTrimmed("clientMode");
+  const clientMode: "final" | "existing" | "new" =
+    clientModeRaw === "existing" || clientModeRaw === "new" ? clientModeRaw : "final";
+
+  const existingClientId = getTrimmed("clientId");
+
+  const newClientName = getTrimmed("clientName");
+  const newClientPhone = getTrimmed("clientPhone");
+  const newClientAddress = getTrimmed("clientAddress");
+  const newClientDocument = getTrimmed("clientDocument");
+  const newClientEmail = getTrimmed("clientEmail");
+
+  // Nombre que se mostrará para el cliente de mostrador (modo "final")
+  const clientName = newClientName || "Consumidor final";
+
+  if (clientMode === "existing" && !existingClientId) {
+    redirectWithError(returnTo, "Selecciona un cliente existente");
+  }
+
+  if (clientMode === "new") {
+    if (!newClientName) {
+      redirectWithError(returnTo, "El nombre del cliente es obligatorio");
+    }
+    if (!newClientPhone) {
+      redirectWithError(returnTo, "El telefono del cliente es obligatorio");
+    }
+    if (!newClientAddress) {
+      redirectWithError(returnTo, "La direccion del cliente es obligatoria");
+    }
+  }
 
   // Items en arreglos paralelos
   const productIdsRaw = formData.getAll("itemProductIds");
@@ -737,18 +769,67 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
 
   try {
     await prisma.$transaction(async (tx) => {
-      // Cliente de mostrador (se crea uno por venta para conservar el nombre)
-      const placeholderEmail = `mostrador-${randomUUID().replace(/-/g, "").slice(0, 18)}@magilus.local`;
-      const hashedPassword = await bcrypt.hash(randomUUID().replace(/-/g, "").slice(0, 14), 12);
-      const client = await tx.user.create({
-        data: {
-          name: clientName,
-          email: placeholderEmail,
-          role: Role.CLIENTE,
-          password: hashedPassword,
-        },
-        select: { id: true },
-      });
+      let client: { id: string };
+
+      if (clientMode === "existing") {
+        // Cliente ya registrado: validamos que exista y sea cliente
+        const found = await tx.user.findFirst({
+          where: { id: existingClientId, role: Role.CLIENTE },
+          select: { id: true },
+        });
+        if (!found) {
+          throw new Error("CLIENT_NOT_FOUND");
+        }
+        client = found;
+      } else if (clientMode === "new") {
+        // Cliente nuevo reutilizable: si el correo ya existe lo reutilizamos, si no lo creamos
+        const email = newClientEmail
+          ? newClientEmail.toLowerCase()
+          : `cliente-${randomUUID().replace(/-/g, "").slice(0, 18)}@magilus.local`;
+        const existingByEmail = newClientEmail
+          ? await tx.user.findUnique({ where: { email }, select: { id: true } })
+          : null;
+        if (existingByEmail) {
+          client = await tx.user.update({
+            where: { id: existingByEmail.id },
+            data: {
+              role: Role.CLIENTE,
+              name: newClientName,
+              phone: newClientPhone,
+              address: newClientAddress,
+              document: newClientDocument || undefined,
+            },
+            select: { id: true },
+          });
+        } else {
+          const hashedPassword = await bcrypt.hash(randomUUID().replace(/-/g, "").slice(0, 14), 12);
+          client = await tx.user.create({
+            data: {
+              name: newClientName,
+              email,
+              phone: newClientPhone,
+              address: newClientAddress,
+              document: newClientDocument || undefined,
+              role: Role.CLIENTE,
+              password: hashedPassword,
+            },
+            select: { id: true },
+          });
+        }
+      } else {
+        // Consumidor final: cliente de mostrador desechable (uno por venta para conservar el nombre)
+        const placeholderEmail = `mostrador-${randomUUID().replace(/-/g, "").slice(0, 18)}@magilus.local`;
+        const hashedPassword = await bcrypt.hash(randomUUID().replace(/-/g, "").slice(0, 14), 12);
+        client = await tx.user.create({
+          data: {
+            name: clientName,
+            email: placeholderEmail,
+            role: Role.CLIENTE,
+            password: hashedPassword,
+          },
+          select: { id: true },
+        });
+      }
 
       // Cotizacion interna (para mantener la estructura factura -> cotizacion)
       const quoteCode = await getNextQuoteCode(tx);
@@ -815,6 +896,9 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
       });
     });
   } catch (error) {
+    if (error instanceof Error && error.message === "CLIENT_NOT_FOUND") {
+      redirectWithError(returnTo, "El cliente seleccionado no existe");
+    }
     console.error("Failed to create direct sale:", error);
     redirectWithError(returnTo, "No se pudo crear la venta");
   }

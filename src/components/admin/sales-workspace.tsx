@@ -2,7 +2,7 @@
 
 import { BadgeDollarSign } from "lucide-react";
 import { SalesDataTable } from "@/components/admin/sales-data-table";
-import { DirectSaleSheet, type DirectSaleProduct } from "@/components/admin/direct-sale-sheet";
+import { DirectSaleSheet, type DirectSaleProduct, type DirectSaleClient } from "@/components/admin/direct-sale-sheet";
 import { Card, CardContent } from "@/components/ui/card";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 
@@ -38,6 +38,7 @@ type SalesWorkspaceProps = {
   sales: SaleRow[];
   currency: SupportedCurrencyCode;
   products: DirectSaleProduct[];
+  clients: DirectSaleClient[];
   stats: {
     salesCount: number;
     grossTotal: string;
@@ -49,7 +50,7 @@ type SalesWorkspaceProps = {
   };
 };
 
-export function SalesWorkspace({ sales, currency, products, stats }: SalesWorkspaceProps) {
+export function SalesWorkspace({ sales, currency, products, clients, stats }: SalesWorkspaceProps) {
   return (
     <section className="space-y-4">
       <Card className="border border-border bg-card/95">
@@ -61,7 +62,7 @@ export function SalesWorkspace({ sales, currency, products, stats }: SalesWorksp
               </div>
               <h1 className="text-lg font-semibold tracking-tight text-foreground md:text-xl">Ventas</h1>
             </div>
-            <DirectSaleSheet products={products} currency={currency} />
+            <DirectSaleSheet products={products} clients={clients} currency={currency} />
           </div>
         </CardContent>
       </Card>

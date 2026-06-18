@@ -16,6 +16,7 @@ import {
   Plus,
   ShoppingCart,
   Trash2,
+  Upload,
   User2,
   X,
 } from "lucide-react";
@@ -441,10 +442,15 @@ function SaleInstallmentEditor({
   const amountId = `payment-amount-${installment.id}`;
   const methodId = `payment-method-${installment.id}`;
   const receiptId = `payment-receipt-${installment.id}`;
+  const receiptHelpId = `payment-receipt-help-${installment.id}`;
   const noteId = `payment-note-${installment.id}`;
   const dateId = `payment-date-${installment.id}`;
   const selectedAccount = accounts.find((account) => account.id === installment.accountId);
   const requiresReceipt = Boolean(selectedAccount) && selectedAccount?.type !== "CASH";
+  const receiptHelperText =
+    selectedAccount && selectedAccount.type === "CASH"
+      ? "Opcional para cuentas de efectivo."
+      : "Requerido para cuentas que no son de efectivo.";
 
   return (
     <div className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -508,24 +514,63 @@ function SaleInstallmentEditor({
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <label htmlFor={receiptId} className="text-xs font-medium text-foreground">
             Comprobante de pago del abono
           </label>
-          <Input
-            id={receiptId}
-            type="file"
-            accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
-            required={requiresReceipt}
-            className="cursor-pointer"
-            onChange={(event) => onReceiptChange(event.currentTarget.files?.[0] ?? null)}
-          />
-          <p className="text-xs text-muted-foreground">
-            {selectedAccount && selectedAccount.type === "CASH"
-              ? "Opcional para cuentas de efectivo."
-              : "Requerido para cuentas que no son de efectivo."}
-          </p>
+          <div className="relative flex min-h-28 flex-col justify-between rounded-lg border border-dashed border-border bg-background p-3 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 hover:bg-muted/20">
+            <Input
+              key={
+                installment.file
+                  ? `${installment.file.name}-${installment.file.size}-${installment.file.lastModified}`
+                  : "empty"
+              }
+              id={receiptId}
+              type="file"
+              accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+              aria-describedby={receiptHelpId}
+              aria-required={requiresReceipt}
+              className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+              onChange={(event) => onReceiptChange(event.currentTarget.files?.[0] ?? null)}
+            />
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/60 text-muted-foreground">
+                <Upload className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium text-foreground">
+                  {installment.file ? "Cambiar comprobante" : "Seleccionar archivo"}
+                </span>
+                <span
+                  className="mt-0.5 block truncate text-xs text-muted-foreground"
+                  title={installment.file?.name}
+                >
+                  {installment.file ? installment.file.name : "PDF, JPG, PNG o WEBP (max. 12 MB)"}
+                </span>
+              </span>
+            </div>
+            <div className="mt-3 flex items-end justify-between gap-2">
+              <p id={receiptHelpId} className="text-xs leading-relaxed text-muted-foreground">
+                {receiptHelperText}
+              </p>
+              {installment.file ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="relative z-20 shrink-0 text-muted-foreground"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onReceiptChange(null);
+                  }}
+                  aria-label="Quitar comprobante"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              ) : null}
+            </div>
+          </div>
         </div>
 
         <div className="space-y-1.5">

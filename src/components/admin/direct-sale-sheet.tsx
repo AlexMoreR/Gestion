@@ -8,7 +8,6 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -23,6 +22,17 @@ export type DirectSaleProduct = {
   thumbnailUrl?: string | null;
 };
 
+export type DirectSaleClient = {
+  id: string;
+  name: string;
+  email: string;
+  document: string;
+  phone: string;
+  address: string;
+};
+
+type ClientMode = "final" | "existing" | "new";
+
 type DraftLine = {
   uid: string;
   productId: string;
@@ -36,10 +46,10 @@ type DraftLine = {
 const inputClass =
   "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
 
-function CreateButton() {
+function CreateButton({ disabled }: { disabled?: boolean }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" className="w-full" disabled={pending}>
+    <Button type="submit" className="w-full" disabled={pending || disabled}>
       <PlusCircle className="h-4 w-4" />
       {pending ? "Creando venta..." : "Crear venta"}
     </Button>
@@ -48,15 +58,52 @@ function CreateButton() {
 
 export function DirectSaleSheet({
   products,
+  clients,
   currency,
 }: {
   products: DirectSaleProduct[];
+  clients: DirectSaleClient[];
   currency: SupportedCurrencyCode;
 }) {
   const [open, setOpen] = React.useState(false);
   const [lines, setLines] = React.useState<DraftLine[]>([]);
   const [search, setSearch] = React.useState("");
   const [withPayment, setWithPayment] = React.useState(false);
+
+  // Cliente
+  const [clientMode, setClientMode] = React.useState<ClientMode>("final");
+  const [clientSearch, setClientSearch] = React.useState("");
+  const [showClientResults, setShowClientResults] = React.useState(false);
+  const [selectedClientId, setSelectedClientId] = React.useState("");
+  const [newName, setNewName] = React.useState("");
+  const [newPhone, setNewPhone] = React.useState("");
+  const [newAddress, setNewAddress] = React.useState("");
+  const [newDocument, setNewDocument] = React.useState("");
+  const [newEmail, setNewEmail] = React.useState("");
+
+  const selectedClient = React.useMemo(
+    () => clients.find((client) => client.id === selectedClientId) ?? null,
+    [clients, selectedClientId],
+  );
+
+  const clientMatches = React.useMemo(() => {
+    const q = clientSearch.trim().toLowerCase();
+    if (!q) return clients.slice(0, 8);
+    return clients
+      .filter((c) => `${c.name} ${c.email} ${c.document} ${c.phone}`.toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [clients, clientSearch]);
+
+  function selectExistingClient(client: DirectSaleClient) {
+    setSelectedClientId(client.id);
+    setClientSearch(client.name);
+    setShowClientResults(false);
+  }
+
+  const clientReady =
+    clientMode === "final" ||
+    (clientMode === "existing" && Boolean(selectedClientId)) ||
+    (clientMode === "new" && Boolean(newName.trim() && newPhone.trim() && newAddress.trim()));
 
   const matches = React.useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -104,9 +151,6 @@ export function DirectSaleSheet({
       <SheetContent side="right" className="flex w-full flex-col sm:max-w-lg">
         <SheetHeader className="border-b border-border pb-4">
           <SheetTitle>Nueva venta directa</SheetTitle>
-          <SheetDescription>
-            Venta de mostrador sin cotización previa. Agrega los productos y, si quieres, el pago.
-          </SheetDescription>
         </SheetHeader>
 
         <form
@@ -116,18 +160,166 @@ export function DirectSaleSheet({
           <input type="hidden" name="returnTo" value="/admin/ventas" />
 
           {/* Cliente */}
-          <div className="space-y-1.5">
-            <label htmlFor="direct-client-name" className="text-sm font-medium text-foreground">
-              Cliente
-            </label>
-            <input
-              id="direct-client-name"
-              name="clientName"
-              type="text"
-              className={inputClass}
-              placeholder="Consumidor final"
-            />
-            <p className="text-xs text-muted-foreground">Opcional. Si lo dejas vacío se usa “Consumidor final”.</p>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Cliente</label>
+
+            {/* Campos enviados al servidor */}
+            <input type="hidden" name="clientMode" value={clientMode} />
+            <input type="hidden" name="clientId" value={clientMode === "existing" ? selectedClientId : ""} />
+            <input type="hidden" name="clientName" value={clientMode === "new" ? newName : ""} />
+            <input type="hidden" name="clientPhone" value={clientMode === "new" ? newPhone : ""} />
+            <input type="hidden" name="clientAddress" value={clientMode === "new" ? newAddress : ""} />
+            <input type="hidden" name="clientDocument" value={clientMode === "new" ? newDocument : ""} />
+            <input type="hidden" name="clientEmail" value={clientMode === "new" ? newEmail : ""} />
+
+            {/* Selector de modo */}
+            <div className="grid grid-cols-3 gap-1.5 rounded-lg border border-border bg-muted/20 p-1">
+              {([
+                { value: "final", label: "Consumidor final" },
+                { value: "existing", label: "Cliente existente" },
+                { value: "new", label: "Nuevo cliente" },
+              ] as const).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setClientMode(option.value)}
+                  className={`rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+                    clientMode === option.value
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
+            {clientMode === "final" ? (
+              <p className="text-xs text-muted-foreground">La venta se registrará a nombre de “Consumidor final”.</p>
+            ) : null}
+
+            {clientMode === "existing" ? (
+              <div className="relative space-y-1.5">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={clientSearch}
+                    onChange={(event) => {
+                      setClientSearch(event.target.value);
+                      setSelectedClientId("");
+                      setShowClientResults(true);
+                    }}
+                    onFocus={() => setShowClientResults(true)}
+                    onBlur={() => setTimeout(() => setShowClientResults(false), 120)}
+                    className={`${inputClass} pl-9`}
+                    placeholder="Buscar cliente por nombre, documento o teléfono…"
+                  />
+                </div>
+                {showClientResults ? (
+                  <div className="absolute left-0 right-0 top-full z-30 mt-1.5 max-h-52 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
+                    {clientMatches.length > 0 ? (
+                      clientMatches.map((client) => (
+                        <button
+                          key={client.id}
+                          type="button"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => selectExistingClient(client)}
+                          className="flex w-full items-center justify-between gap-3 border-b border-border px-3 py-2 text-left text-sm last:border-b-0 hover:bg-muted"
+                        >
+                          <span className="min-w-0 truncate font-medium text-foreground">{client.name}</span>
+                          <span className="shrink-0 text-xs text-muted-foreground">{client.phone || "Sin teléfono"}</span>
+                        </button>
+                      ))
+                    ) : (
+                      <p className="px-3 py-3 text-sm text-muted-foreground">Sin coincidencias.</p>
+                    )}
+                  </div>
+                ) : null}
+                {selectedClient ? (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                    Cliente seleccionado: {selectedClient.name}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Selecciona un cliente de la lista.</p>
+                )}
+              </div>
+            ) : null}
+
+            {clientMode === "new" ? (
+              <div className="space-y-2 rounded-lg border border-border p-3">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <label htmlFor="new-client-name" className="text-xs text-muted-foreground">
+                      Nombre y apellido *
+                    </label>
+                    <input
+                      id="new-client-name"
+                      type="text"
+                      value={newName}
+                      onChange={(event) => setNewName(event.target.value)}
+                      className={inputClass}
+                      placeholder="Ej: Ana Pérez"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor="new-client-phone" className="text-xs text-muted-foreground">
+                      Teléfono *
+                    </label>
+                    <input
+                      id="new-client-phone"
+                      type="text"
+                      value={newPhone}
+                      onChange={(event) => setNewPhone(event.target.value)}
+                      className={inputClass}
+                      placeholder="Ej: 3001234567"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label htmlFor="new-client-address" className="text-xs text-muted-foreground">
+                    Dirección *
+                  </label>
+                  <input
+                    id="new-client-address"
+                    type="text"
+                    value={newAddress}
+                    onChange={(event) => setNewAddress(event.target.value)}
+                    className={inputClass}
+                    placeholder="Ej: Calle 1 # 2-3"
+                  />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <label htmlFor="new-client-document" className="text-xs text-muted-foreground">
+                      Documento (opcional)
+                    </label>
+                    <input
+                      id="new-client-document"
+                      type="text"
+                      value={newDocument}
+                      onChange={(event) => setNewDocument(event.target.value)}
+                      className={inputClass}
+                      placeholder="Ej: 123456789"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label htmlFor="new-client-email" className="text-xs text-muted-foreground">
+                      Correo (opcional)
+                    </label>
+                    <input
+                      id="new-client-email"
+                      type="email"
+                      value={newEmail}
+                      onChange={(event) => setNewEmail(event.target.value)}
+                      className={inputClass}
+                      placeholder="cliente@correo.com"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">* Campos obligatorios. El cliente quedará guardado para futuras ventas.</p>
+              </div>
+            ) : null}
           </div>
 
           {/* Buscar / agregar productos */}
@@ -301,9 +493,15 @@ export function DirectSaleSheet({
             ) : null}
           </div>
 
-          <CreateButton />
+          <CreateButton disabled={!clientReady} />
           {lines.length === 0 ? (
             <p className="text-center text-xs text-muted-foreground">Agrega al menos un producto para crear la venta.</p>
+          ) : !clientReady ? (
+            <p className="text-center text-xs text-muted-foreground">
+              {clientMode === "existing"
+                ? "Selecciona un cliente existente."
+                : "Completa nombre, teléfono y dirección del cliente."}
+            </p>
           ) : null}
         </form>
       </SheetContent>
