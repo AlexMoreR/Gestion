@@ -543,7 +543,7 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
 
   revalidatePath("/admin/cotizaciones");
   revalidatePath(returnTo);
-  redirect(`${returnTo}?ok=Cotizacion+actualizada`);
+  redirect(`/admin/cotizaciones?ok=Cotizacion+actualizada`);
 }
 
 export async function adminDeleteQuoteAction(formData: FormData): Promise<void> {

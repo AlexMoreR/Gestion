@@ -114,7 +114,7 @@ const MAX_RECEIPT_BYTES = 12 * 1024 * 1024;
 function statusLabel(status: QuoteStatus): string {
   switch (status) {
     case "DRAFT":
-      return "Borrador";
+      return "Revisión";
     case "SENT":
       return "Enviada";
     case "ACCEPTED":

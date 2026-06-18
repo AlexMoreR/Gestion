@@ -367,7 +367,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
               <label className="space-y-1.5 block">
                 <span className="text-sm font-medium text-slate-700">Estado</span>
                 <select className="field-select" value={status} onChange={(e) => setStatus(e.target.value as EditQuoteData["status"])}>
-                  <option value="DRAFT">Borrador</option>
+                  <option value="DRAFT">Revisión</option>
                   <option value="SENT">Enviada</option>
                   <option value="ACCEPTED">Aceptada</option>
                   <option value="REJECTED">Rechazada</option>
