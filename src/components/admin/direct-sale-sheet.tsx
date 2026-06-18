@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { expandComboLines, type ComboComponent } from "@/lib/combo";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 
 export type DirectSaleProduct = {
@@ -27,6 +28,8 @@ export type DirectSaleProduct = {
   code: string | null;
   retailPrice: number;
   thumbnailUrl?: string | null;
+  isBundle?: boolean;
+  components?: ComboComponent[];
 };
 
 export type DirectSaleClient = {
@@ -152,10 +155,31 @@ export function DirectSaleSheet({
   const paymentReady = !withPayment || accounts.length > 0;
 
   function addProduct(product: DirectSaleProduct) {
+    // Si es un combo, se separa en sus componentes (cada uno conserva su
+    // producto real, su proveedor y su fabricacion); el precio del combo se
+    // reparte entre las lineas.
+    if (product.isBundle && product.components && product.components.length > 0) {
+      const expanded = expandComboLines(product.components, 1, product.retailPrice);
+      setLines((prev) => [
+        ...prev,
+        ...expanded.map((line) => ({
+          uid: crypto.randomUUID(),
+          productId: line.productId,
+          name: line.name,
+          code: line.code,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          description: `Combo: ${product.name}`,
+        })),
+      ]);
+      setSearch("");
+      return;
+    }
+
     setLines((prev) => [
       ...prev,
       {
-        uid: `${product.id}-${prev.length}-${Math.round(total)}`,
+        uid: crypto.randomUUID(),
         productId: product.id,
         name: product.name,
         code: product.code,

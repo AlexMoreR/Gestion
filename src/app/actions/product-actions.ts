@@ -93,6 +93,59 @@ function parseProductSuppliers(formData: FormData): ParsedProductSupplier[] {
   return suppliers;
 }
 
+type ParsedProductComponent = {
+  childId: string;
+  quantity: number;
+  sortOrder: number;
+};
+
+function parseProductComponents(formData: FormData): ParsedProductComponent[] {
+  const childIds = formData.getAll("componentProductIds");
+  const quantities = formData.getAll("componentQuantities");
+  const components: ParsedProductComponent[] = [];
+  const seenChildIds = new Set<string>();
+
+  for (let index = 0; index < childIds.length; index += 1) {
+    const rawChildId = childIds[index];
+    const childId = typeof rawChildId === "string" ? rawChildId.trim() : "";
+    if (!childId) {
+      continue;
+    }
+
+    if (seenChildIds.has(childId)) {
+      throw new Error("No repitas el mismo producto en el combo.");
+    }
+
+    const rawQuantity = quantities[index];
+    const quantity = typeof rawQuantity === "string" ? Number(rawQuantity) : Number.NaN;
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new Error("Cada componente del combo debe tener una cantidad entera mayor a cero.");
+    }
+
+    seenChildIds.add(childId);
+    components.push({ childId, quantity, sortOrder: components.length });
+  }
+
+  return components;
+}
+
+async function assertComponentsAreNotBundles(components: ParsedProductComponent[]): Promise<void> {
+  if (components.length === 0) {
+    return;
+  }
+  const childIds = components.map((component) => component.childId);
+  const found = await prisma.product.findMany({
+    where: { id: { in: childIds } },
+    select: { id: true, isBundle: true },
+  });
+  if (found.length !== childIds.length) {
+    throw new Error("Uno o mas componentes del combo ya no existen.");
+  }
+  if (found.some((product) => product.isBundle)) {
+    throw new Error("Un combo no puede incluir otro combo como componente.");
+  }
+}
+
 function parseImageList(raw: string): string[] {
   return raw
     .split(/[\n,]/g)
@@ -290,11 +343,21 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
 
   const thumbnailUrl = imageList[0];
   const categoryId = parseOptionalId(parsed.data.categoryId);
+  const isBundle = formData.get("isBundle") === "true";
   let productSuppliers: ParsedProductSupplier[];
+  let productComponents: ParsedProductComponent[] = [];
   try {
-    productSuppliers = parseProductSuppliers(formData);
+    productComponents = parseProductComponents(formData);
+    // Un combo se arma con componentes y no usa proveedores propios.
+    productSuppliers = isBundle ? [] : parseProductSuppliers(formData);
+    if (isBundle && productComponents.length === 0) {
+      throw new Error("Un combo debe tener al menos un componente.");
+    }
+    if (isBundle) {
+      await assertComponentsAreNotBundles(productComponents);
+    }
   } catch (error) {
-    redirect(`/admin/productos?error=${encodeURIComponent(error instanceof Error ? error.message : "Proveedores invalidos")}`);
+    redirect(`/admin/productos?error=${encodeURIComponent(error instanceof Error ? error.message : "Datos del combo invalidos")}`);
   }
   const slug = await generateUniqueProductSlug(parsed.data.name, parsed.data.code);
   const retailPrice = parsed.data.retailPrice;
@@ -317,6 +380,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
         minWholesaleQty: parsed.data.minWholesaleQty,
         price: retailPrice,
         wholesalePrice,
+        isBundle,
         categoryId,
         thumbnailUrl,
         images: {
@@ -329,6 +393,13 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
           ? {
               createMany: {
                 data: productSuppliers,
+              },
+            }
+          : undefined,
+        bundleComponents: productComponents.length > 0
+          ? {
+              createMany: {
+                data: productComponents,
               },
             }
           : undefined,
@@ -404,11 +475,23 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
 
   const thumbnailUrl = imageList[0];
   const categoryId = parseOptionalId(parsed.data.categoryId);
+  const isBundle = formData.get("isBundle") === "true";
   let productSuppliers: ParsedProductSupplier[];
+  let productComponents: ParsedProductComponent[] = [];
   try {
-    productSuppliers = parseProductSuppliers(formData);
+    productComponents = parseProductComponents(formData);
+    productSuppliers = isBundle ? [] : parseProductSuppliers(formData);
+    if (isBundle && productComponents.length === 0) {
+      throw new Error("Un combo debe tener al menos un componente.");
+    }
+    if (isBundle && productComponents.some((component) => component.childId === parsed.data.productId)) {
+      throw new Error("Un combo no puede incluirse a si mismo como componente.");
+    }
+    if (isBundle) {
+      await assertComponentsAreNotBundles(productComponents);
+    }
   } catch (error) {
-    redirect(`${redirectBase}?error=${encodeURIComponent(error instanceof Error ? error.message : "Proveedores invalidos")}`);
+    redirect(`${redirectBase}?error=${encodeURIComponent(error instanceof Error ? error.message : "Datos del combo invalidos")}`);
   }
   const slug = await generateUniqueProductSlug(parsed.data.name, parsed.data.code, parsed.data.productId);
   const retailPrice = parsed.data.retailPrice;
@@ -433,6 +516,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
           minWholesaleQty: parsed.data.minWholesaleQty,
           price: retailPrice,
           wholesalePrice,
+          isBundle,
           categoryId,
           thumbnailUrl,
         },
@@ -456,6 +540,19 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
               data: productSuppliers.map((supplier) => ({
                 productId: parsed.data.productId,
                 ...supplier,
+              })),
+            }),
+          ]
+        : []),
+      prisma.productComponent.deleteMany({
+        where: { parentId: parsed.data.productId },
+      }),
+      ...(productComponents.length > 0
+        ? [
+            prisma.productComponent.createMany({
+              data: productComponents.map((component) => ({
+                parentId: parsed.data.productId,
+                ...component,
               })),
             }),
           ]

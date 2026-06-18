@@ -6,6 +6,7 @@ import { EditProductForm } from "@/components/admin/edit-product-form";
 import { NEW_PRODUCT_DRAFT_KEY, NewProductForm } from "@/components/admin/new-product-form";
 import { ProductImportExportControls } from "@/components/admin/product-import-export-controls";
 import { ProductsDataTable } from "@/components/admin/products-data-table";
+import type { BundleProductOption } from "@/components/admin/product-bundle-field";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { Button } from "../ui/button";
 
@@ -34,6 +35,11 @@ type ProductWorkspaceRow = {
     supplierId: string;
     supplierCost: number | null;
   }>;
+  isBundle: boolean;
+  components: Array<{
+    childId: string;
+    quantity: number;
+  }>;
   thumbnailUrl: string;
   imageUrls: string[];
   baseCost: number;
@@ -48,6 +54,7 @@ type ProductsWorkspaceProps = {
   products: ProductWorkspaceRow[];
   categories: CategoryOption[];
   suppliers: SupplierOption[];
+  bundleProducts: BundleProductOption[];
   currency: SupportedCurrencyCode;
   okMessage?: string;
 };
@@ -56,6 +63,7 @@ export function ProductsWorkspace({
   products,
   categories,
   suppliers,
+  bundleProducts,
   currency,
   okMessage,
 }: ProductsWorkspaceProps) {
@@ -140,7 +148,12 @@ export function ProductsWorkspace({
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <NewProductForm categories={categories} suppliers={suppliers} currency={currency} />
+            <NewProductForm
+              categories={categories}
+              suppliers={suppliers}
+              currency={currency}
+              bundleProducts={bundleProducts}
+            />
           </div>
         </div>
       ) : null}
@@ -172,6 +185,7 @@ export function ProductsWorkspace({
               categories={categories}
               suppliers={suppliers}
               currency={currency}
+              bundleProducts={bundleProducts.filter((product) => product.id !== activeProduct.id)}
               initialData={{
                 id: activeProduct.id,
                 code: activeProduct.code,
@@ -186,7 +200,9 @@ export function ProductsWorkspace({
                 wholesaleMarginPct: activeProduct.wholesaleMarginPct,
                 minWholesaleQty: activeProduct.minWholesaleQty,
                 categoryId: activeProduct.categoryId,
+                isBundle: activeProduct.isBundle,
                 suppliers: activeProduct.suppliers,
+                components: activeProduct.components,
                 imageUrls: activeProduct.imageUrls,
               }}
             />

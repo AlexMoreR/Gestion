@@ -267,6 +267,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                         fulfillmentLabel: getFulfillmentModeLabel(item.fulfillmentMode),
                         observations,
                         isConfirmed: Boolean(item.confirmedSupplierId) && item.purchaseCost !== null,
+                        isRecogido: isItemRecogido(item),
                         requiresManufacturing: item.fulfillmentMode !== "STOCK",
                         hasProductionJob: item.productionJobs.length > 0,
                         suppliers: item.product.suppliers.map((entry) => ({

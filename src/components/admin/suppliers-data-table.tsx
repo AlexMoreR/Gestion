@@ -18,6 +18,12 @@ import {
 } from "lucide-react";
 import { adminDeleteSupplierAction } from "@/app/actions/catalog-actions";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -43,6 +49,51 @@ type SupplierRow = {
 
 const SupplierTypeIcon = ({ type, className }: { type: SupplierType; className?: string }) =>
   type === "SHIPPING" ? <Truck className={className} /> : <Factory className={className} />;
+
+function SupplierActionsMenu({
+  supplier,
+  onViewLedger,
+  onEditSupplier,
+  onDelete,
+}: {
+  supplier: SupplierRow;
+  onViewLedger?: (supplierId: string) => void;
+  onEditSupplier?: (supplierId: string) => void;
+  onDelete: (supplier: { id: string; name: string }) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 border border-transparent hover:border-[(--line)]"
+          aria-label={`Acciones de ${supplier.name}`}
+        >
+          <MoreHorizontal className="h-4 w-4 text-slate-600" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={() => onViewLedger?.(supplier.id)}>
+          <Wallet className="mr-2 h-4 w-4 text-slate-600" />
+          Cuenta corriente
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onEditSupplier?.(supplier.id)}>
+          <Edit3 className="mr-2 h-4 w-4 text-slate-600" />
+          Editar
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="text-red-600 hover:bg-red-50 hover:text-red-700 focus:bg-red-50 focus:text-red-700"
+          onSelect={() => onDelete({ id: supplier.id, name: supplier.name })}
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Eliminar
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 type SuppliersDataTableProps = {
   suppliers: SupplierRow[];
@@ -222,7 +273,19 @@ export function SuppliersDataTable({
           </div>
         ) : (
           pagedSuppliers.map((supplier) => (
-            <article key={supplier.id} className="rounded-xl border border-[(--line)] bg-white p-3">
+            <article
+              key={supplier.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => onViewLedger?.(supplier.id)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onViewLedger?.(supplier.id);
+                }
+              }}
+              className="cursor-pointer rounded-xl border border-[(--line)] bg-white p-3 transition hover:border-slate-300 hover:bg-slate-50"
+            >
               <form data-delete-supplier-id={supplier.id} action={adminDeleteSupplierAction}>
                 <input type="hidden" name="supplierId" value={supplier.id} />
               </form>
@@ -248,38 +311,14 @@ export function SuppliersDataTable({
                     </p>
                   </div>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => onViewLedger?.(supplier.id)}
-                    aria-label={`Cuenta corriente de ${supplier.name}`}
-                  >
-                    <Wallet className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => onEditSupplier?.(supplier.id)}
-                    aria-label={`Editar ${supplier.name}`}
-                  >
-                    <Edit3 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                    onClick={() => setPendingDelete({ id: supplier.id, name: supplier.name })}
-                    aria-label={`Eliminar ${supplier.name}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                <span onClick={(event) => event.stopPropagation()}>
+                  <SupplierActionsMenu
+                    supplier={supplier}
+                    onViewLedger={onViewLedger}
+                    onEditSupplier={onEditSupplier}
+                    onDelete={setPendingDelete}
+                  />
+                </span>
               </div>
             </article>
           ))
@@ -340,15 +379,8 @@ export function SuppliersDataTable({
                   Saldo
                 </HeaderLabel>
               </TableHead>
-              <TableHead className="normal-case tracking-normal">
-                <HeaderLabel
-                  active={sortKey === "acciones"}
-                  direction={sortDirection}
-                  onClick={() => toggleSort("acciones")}
-                  icon={<MoreHorizontal className="h-3.5 w-3.5" />}
-                >
-                  Acciones
-                </HeaderLabel>
+              <TableHead className="w-px normal-case tracking-normal">
+                <span className="sr-only">Acciones</span>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -361,7 +393,11 @@ export function SuppliersDataTable({
               </TableRow>
             ) : (
               pagedSuppliers.map((supplier) => (
-                <TableRow key={supplier.id}>
+                <TableRow
+                  key={supplier.id}
+                  onClick={() => onViewLedger?.(supplier.id)}
+                  className="cursor-pointer transition hover:bg-slate-50"
+                >
                   <TableCell>
                     <div className="flex items-center gap-2.5">
                       <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[(--line)] bg-slate-50 text-slate-700">
@@ -386,42 +422,16 @@ export function SuppliersDataTable({
                       {formatMoney(supplier.balance, currency)}
                     </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(event) => event.stopPropagation()}>
                     <form data-delete-supplier-id={supplier.id} action={adminDeleteSupplierAction}>
                       <input type="hidden" name="supplierId" value={supplier.id} />
                     </form>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 border border-transparent hover:border-[(--line)]"
-                        onClick={() => onViewLedger?.(supplier.id)}
-                        aria-label={`Cuenta corriente de ${supplier.name}`}
-                      >
-                        <Wallet className="h-4 w-4 text-slate-600" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 border border-transparent hover:border-[(--line)]"
-                        onClick={() => onEditSupplier?.(supplier.id)}
-                        aria-label={`Editar ${supplier.name}`}
-                      >
-                        <Edit3 className="h-4 w-4 text-slate-600" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 border border-transparent text-red-600 hover:border-red-100 hover:bg-red-50 hover:text-red-700"
-                        onClick={() => setPendingDelete({ id: supplier.id, name: supplier.name })}
-                        aria-label={`Eliminar ${supplier.name}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <SupplierActionsMenu
+                      supplier={supplier}
+                      onViewLedger={onViewLedger}
+                      onEditSupplier={onEditSupplier}
+                      onDelete={setPendingDelete}
+                    />
                   </TableCell>
                 </TableRow>
               ))

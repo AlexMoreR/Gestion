@@ -60,6 +60,7 @@ model Product {
   wholesalePrice     Decimal           @default(0) @db.Decimal(10, 2)
   minWholesaleQty    Int               @default(6)
   fulfillmentMode    ProductFulfillmentMode @default(STOCK)
+  isBundle           Boolean           @default(false)
   categoryId         String?
   thumbnailUrl       String
   createdAt          DateTime          @default(now())
@@ -69,6 +70,23 @@ model Product {
   suppliers          ProductSupplier[]
   quoteItems         QuoteItem[]
   orderItems         OrderItem[]
+  bundleComponents   ProductComponent[] @relation("BundleParent")
+  partOfBundles      ProductComponent[] @relation("BundleChild")
+}
+
+model ProductComponent {
+  id        String   @id @default(cuid())
+  parentId  String
+  childId   String
+  quantity  Int      @default(1)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  parent    Product  @relation("BundleParent", fields: [parentId], references: [id], onDelete: Cascade)
+  child     Product  @relation("BundleChild", fields: [childId], references: [id], onDelete: Restrict)
+
+  @@unique([parentId, childId])
+  @@index([parentId])
+  @@index([childId])
 }
 
 model ProductImage {

@@ -303,17 +303,17 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
         }
       }
 
-      if (order.status !== "READY_FOR_DISPATCH") {
+      if (order.status !== "DISPATCHED") {
         await tx.order.update({
           where: { id: order.id },
-          data: { status: "READY_FOR_DISPATCH" },
+          data: { status: "DISPATCHED" },
         });
         await tx.orderStatusHistory.create({
           data: {
             orderId: order.id,
             fromStatus: order.status,
-            toStatus: "READY_FOR_DISPATCH",
-            note: "Despacho en preparacion",
+            toStatus: "DISPATCHED",
+            note: `Despacho ${dispatch.code} creado`,
             changedById: createdById,
           },
         });

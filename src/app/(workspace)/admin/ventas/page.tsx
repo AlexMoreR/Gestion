@@ -71,6 +71,12 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
     }),
     prisma.product.findMany({
       orderBy: { createdAt: "desc" },
+      include: {
+        bundleComponents: {
+          orderBy: { sortOrder: "asc" },
+          include: { child: true },
+        },
+      },
       take: 500,
     }),
     prisma.user.findMany({
@@ -156,6 +162,15 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
           code: product.code,
           retailPrice: Number(product.price),
           thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
+          isBundle: product.isBundle,
+          components: product.bundleComponents.map((component) => ({
+            productId: component.childId,
+            name: component.child.name,
+            code: component.child.code,
+            quantity: component.quantity,
+            retailPrice: Number(component.child.price),
+            thumbnailUrl: getPublicAssetUrl(component.child.thumbnailUrl),
+          })),
         }))}
         sales={sales.map((sale) => ({
           id: sale.id,

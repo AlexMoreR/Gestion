@@ -7,6 +7,11 @@ import {
 } from "lucide-react";
 import { adminCreateProductAction } from "@/app/actions/product-actions";
 import { ProductFormStepper } from "@/components/admin/product-form-stepper";
+import {
+  ProductBundleField,
+  type BundleProductOption,
+  type ProductComponentDraft,
+} from "@/components/admin/product-bundle-field";
 import { ProductSuppliersField, type ProductSupplierDraft } from "@/components/admin/product-suppliers-field";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,6 +33,7 @@ type NewProductFormProps = {
   categories: CategoryOption[];
   suppliers: SupplierOption[];
   currency: SupportedCurrencyCode;
+  bundleProducts: BundleProductOption[];
 };
 
 type NewProductDraft = {
@@ -59,7 +65,15 @@ function createSupplierRow(supplierCost = "0"): ProductSupplierDraft {
   };
 }
 
-export function NewProductForm({ categories, suppliers, currency }: NewProductFormProps) {
+function createComponentRow(): ProductComponentDraft {
+  return {
+    id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+    childId: "",
+    quantity: "1",
+  };
+}
+
+export function NewProductForm({ categories, suppliers, currency, bundleProducts }: NewProductFormProps) {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [description, setDescription] = useState("");
@@ -76,6 +90,8 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
   const [wholesalePriceDirty, setWholesalePriceDirty] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [supplierRows, setSupplierRows] = useState<ProductSupplierDraft[]>(() => [createSupplierRow("0")]);
+  const [isBundle, setIsBundle] = useState(false);
+  const [componentRows, setComponentRows] = useState<ProductComponentDraft[]>(() => [createComponentRow()]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [mainImageUrls, setMainImageUrls] = useState<string[]>([]);
   const [dragActive, setDragActive] = useState(false);
@@ -265,6 +281,18 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
     setSupplierRows((current) => current.map((row) => (row.id === rowId ? { ...row, ...values } : row)));
   };
 
+  const addComponentRow = () => {
+    setComponentRows((current) => [...current, createComponentRow()]);
+  };
+
+  const removeComponentRow = (rowId: string) => {
+    setComponentRows((current) => current.filter((row) => row.id !== rowId));
+  };
+
+  const updateComponentRow = (rowId: string, values: Partial<Omit<ProductComponentDraft, "id">>) => {
+    setComponentRows((current) => current.map((row) => (row.id === rowId ? { ...row, ...values } : row)));
+  };
+
   return (
     <div className="grid gap-4 xl:grid-cols-[19rem_minmax(0,1fr)] xl:gap-8">
       <aside className="space-y-4 xl:sticky xl:top-8 xl:h-fit xl:space-y-5">
@@ -323,28 +351,9 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </label>
-                <label className="block space-y-1.5 md:col-span-2">
-                  <span className="text-sm font-medium text-slate-700">SEO title</span>
-                  <Input
-                    name="seoTitle"
-                    placeholder="Ej. Silla hidraulica para peluqueria | Magilus"
-                    maxLength={70}
-                    value={seoTitle}
-                    onChange={(e) => setSeoTitle(e.target.value)}
-                  />
-                </label>
-                <label className="block space-y-1.5 md:col-span-2">
-                  <span className="text-sm font-medium text-slate-700">SEO description</span>
-                  <textarea
-                    name="seoDescription"
-                    rows={3}
-                    maxLength={180}
-                    value={seoDescription}
-                    onChange={(e) => setSeoDescription(e.target.value)}
-                    className="w-full rounded-lg border border-[(--line)] bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[(--primary)]"
-                    placeholder="Resumen breve y persuasivo para Google."
-                  />
-                </label>
+                {/* Campos SEO ocultos temporalmente (se mantienen para no perder el dato/borrador) */}
+                <input type="hidden" name="seoTitle" value={seoTitle} />
+                <input type="hidden" name="seoDescription" value={seoDescription} />
                 <div className="block space-y-1.5 md:col-span-2">
                   <span className="text-sm font-medium text-slate-700">🖼️ Multimedia</span>
                   <div
@@ -616,16 +625,33 @@ export function NewProductForm({ categories, suppliers, currency }: NewProductFo
                     ))}
                   </select>
                 </label>
-                <ProductSuppliersField
-                  suppliers={suppliers}
-                  rows={supplierRows}
-                  currency={currency}
-                  onAdd={addSupplierRow}
-                  onRemove={removeSupplierRow}
-                  onChange={updateSupplierRow}
-                />
+                {!isBundle ? (
+                  <ProductSuppliersField
+                    suppliers={suppliers}
+                    rows={supplierRows}
+                    currency={currency}
+                    onAdd={addSupplierRow}
+                    onRemove={removeSupplierRow}
+                    onChange={updateSupplierRow}
+                  />
+                ) : (
+                  <p className="rounded-lg border border-dashed border-[(--line)] bg-slate-50/60 px-3 py-3 text-xs text-slate-500 md:col-span-2">
+                    Este producto es un combo: los proveedores se toman de cada componente.
+                  </p>
+                )}
               </div>
             </section>
+
+            <ProductBundleField
+              isBundle={isBundle}
+              onToggle={setIsBundle}
+              products={bundleProducts}
+              rows={componentRows}
+              currency={currency}
+              onAdd={addComponentRow}
+              onRemove={removeComponentRow}
+              onChange={updateComponentRow}
+            />
 
             <div className="mt-1 flex flex-wrap items-center justify-end gap-3 border-t border-[(--line)] pt-5">
               <Link

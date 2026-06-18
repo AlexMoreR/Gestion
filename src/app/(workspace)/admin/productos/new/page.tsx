@@ -15,9 +15,14 @@ export default async function AdminNuevoProductoPage() {
   if (!canAccess) {
     redirect("/unauthorized");
   }
-  const [categories, suppliers] = await Promise.all([
+  const [categories, suppliers, bundleProducts] = await Promise.all([
     prisma.category.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
     prisma.supplier.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+    prisma.product.findMany({
+      where: { isBundle: false },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, code: true, price: true },
+    }),
   ]);
   const systemCurrency = await getSystemCurrency();
 
@@ -35,7 +40,17 @@ export default async function AdminNuevoProductoPage() {
         </div>
       </div>
 
-      <NewProductForm categories={categories} suppliers={suppliers} currency={systemCurrency} />
+      <NewProductForm
+        categories={categories}
+        suppliers={suppliers}
+        currency={systemCurrency}
+        bundleProducts={bundleProducts.map((product) => ({
+          id: product.id,
+          name: product.name,
+          code: product.code,
+          price: Number(product.price),
+        }))}
+      />
     </section>
   );
 }

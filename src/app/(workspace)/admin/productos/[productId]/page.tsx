@@ -28,7 +28,7 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
   const okMessage = typeof query.ok === "string" ? query.ok : "";
   const errorMessage = typeof query.error === "string" ? query.error : "";
 
-  const [product, categories, suppliers, systemCurrency] = await Promise.all([
+  const [product, categories, suppliers, bundleProducts, systemCurrency] = await Promise.all([
     prisma.product.findUnique({
       where: { id: productId },
       include: {
@@ -38,10 +38,18 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
           orderBy: [{ isPreferred: "desc" }, { createdAt: "asc" }],
           include: { supplier: true },
         },
+        bundleComponents: {
+          orderBy: { sortOrder: "asc" },
+        },
       },
     }),
     prisma.category.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
     prisma.supplier.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+    prisma.product.findMany({
+      where: { isBundle: false, id: { not: productId } },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, code: true, price: true },
+    }),
     getSystemCurrency(),
   ]);
 
@@ -74,6 +82,12 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
         categories={categories}
         suppliers={suppliers}
         currency={systemCurrency}
+        bundleProducts={bundleProducts.map((item) => ({
+          id: item.id,
+          name: item.name,
+          code: item.code,
+          price: Number(item.price),
+        }))}
           initialData={{
             id: product.id,
             code: product.code,
@@ -88,9 +102,14 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
             wholesaleMarginPct: Number(product.wholesaleMarginPct),
           minWholesaleQty: product.minWholesaleQty,
           categoryId: product.categoryId,
+          isBundle: product.isBundle,
           suppliers: product.suppliers.map((supplier) => ({
             supplierId: supplier.supplierId,
             supplierCost: supplier.supplierCost === null ? null : Number(supplier.supplierCost),
+          })),
+          components: product.bundleComponents.map((component) => ({
+            childId: component.childId,
+            quantity: component.quantity,
           })),
           imageUrls: product.images.map((image) => getPublicAssetUrl(image.url)),
         }}

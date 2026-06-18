@@ -5,6 +5,7 @@ import { Boxes, FileText, Link2, Plus, Search, Trash2, UserRound, X } from "luci
 import { adminCreateQuoteAction, adminResolveClientAction } from "@/app/actions/quote-actions";
 import { QuotesDataTable } from "@/components/admin/quotes-data-table";
 import { Input } from "@/components/ui/input";
+import { expandComboLines, type ComboComponent } from "@/lib/combo";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { calculateQuoteLineTotal } from "@/lib/quote-item-meta";
 import { Button } from "../ui/button";
@@ -33,6 +34,8 @@ type ProductOption = {
   retailPrice: number;
   thumbnailUrl?: string | null;
   suppliers: ProductSupplierOption[];
+  isBundle?: boolean;
+  components?: ComboComponent[];
 };
 
 type QuoteRow = {
@@ -235,6 +238,30 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
 
     if (!Number.isFinite(discount) || discount < 0) {
       setProductFormError("El descuento no puede ser negativo.");
+      return;
+    }
+
+    // Si es un combo, se separa en sus componentes (cada uno conserva su
+    // producto real y su proveedor); el precio del combo se reparte entre las
+    // lineas. Los ajustes de combo no usan costo adicional ni descuento.
+    if (draftProduct?.isBundle && draftProduct.components && draftProduct.components.length > 0) {
+      const expanded = expandComboLines(draftProduct.components, quantity, unitPrice);
+      setLines((current) => [
+        ...current,
+        ...expanded.map((line) => ({
+          uid: crypto.randomUUID(),
+          productId: line.productId,
+          quantity: line.quantity,
+          color: draftColor.trim(),
+          unitPrice: line.unitPrice,
+          description: draftDescription.trim() || `Combo: ${draftProduct.name}`,
+          additionalCost: 0,
+          discount: 0,
+        })),
+      ]);
+
+      setOpenProductModal(false);
+      resetDraftProduct();
       return;
     }
 

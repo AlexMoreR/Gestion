@@ -60,6 +60,10 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
             supplier: true,
           },
         },
+        bundleComponents: {
+          orderBy: { sortOrder: "asc" },
+          include: { child: true },
+        },
       },
       take: 500,
     }),
@@ -114,6 +118,15 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
           suppliers: product.suppliers.map((row) => ({
             id: row.supplierId,
             name: row.supplier.name,
+          })),
+          isBundle: product.isBundle,
+          components: product.bundleComponents.map((component) => ({
+            productId: component.childId,
+            name: component.child.name,
+            code: component.child.code,
+            quantity: component.quantity,
+            retailPrice: Number(component.child.price),
+            thumbnailUrl: getPublicAssetUrl(component.child.thumbnailUrl),
           })),
         }))}
       />

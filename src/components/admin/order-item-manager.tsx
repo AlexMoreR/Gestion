@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Factory, PackageCheck, X } from "lucide-react";
+import { Factory, ImagePlus, PackageCheck, Pencil, X } from "lucide-react";
 import {
   adminConfirmOrderItemAction,
   adminDeleteOrderItemPhotoAction,
@@ -38,6 +38,7 @@ export type OrderItemManagerData = {
   fulfillmentLabel: string;
   observations: string;
   isConfirmed: boolean;
+  isRecogido: boolean;
   requiresManufacturing: boolean;
   hasProductionJob: boolean;
   suppliers: SupplierOption[];
@@ -60,10 +61,19 @@ type OrderItemManagerProps = {
 
 export function OrderItemManager({ item, currency, returnTo, accounts }: OrderItemManagerProps) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [paymentMode, setPaymentMode] = useState<"PAY_NOW" | "PAY_LATER">(
     item.paymentStatus === "PAID" ? "PAY_NOW" : "PAY_LATER",
   );
   const hasSuppliers = item.suppliers.length > 0;
+  // Cuando el item ya esta recogido se muestra un resumen de solo lectura;
+  // el lapiz habilita el formulario para editar el despacho.
+  const showDispatchForm = !item.isRecogido || editing;
+
+  const openModal = () => {
+    setEditing(false);
+    setOpen(true);
+  };
 
   return (
     <div className="space-y-2 rounded-lg border border-border p-3">
@@ -74,12 +84,14 @@ export function OrderItemManager({ item, currency, returnTo, accounts }: OrderIt
             <Badge
               variant="outline"
               className={
-                item.isConfirmed
-                  ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                  : "border-border bg-muted text-muted-foreground"
+                item.isRecogido
+                  ? "border-blue-500/30 bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                  : item.isConfirmed
+                    ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                    : "border-border bg-muted text-muted-foreground"
               }
             >
-              {item.isConfirmed ? "Fabricando" : "Sin confirmar"}
+              {item.isRecogido ? "Recogido" : item.isConfirmed ? "Fabricando" : "Sin confirmar"}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -89,15 +101,18 @@ export function OrderItemManager({ item, currency, returnTo, accounts }: OrderIt
         <Button
           type="button"
           size="sm"
+          variant={item.isRecogido ? "outline" : undefined}
           className={
-            item.isConfirmed
-              ? "h-8 shrink-0 bg-blue-600 text-white hover:bg-blue-700"
-              : "h-8 shrink-0 bg-emerald-600 text-white hover:bg-emerald-700"
+            item.isRecogido
+              ? "h-8 shrink-0"
+              : item.isConfirmed
+                ? "h-8 shrink-0 bg-blue-600 text-white hover:bg-blue-700"
+                : "h-8 shrink-0 bg-emerald-600 text-white hover:bg-emerald-700"
           }
-          onClick={() => setOpen(true)}
+          onClick={openModal}
         >
           {item.isConfirmed ? <PackageCheck className="h-4 w-4" /> : <Factory className="h-4 w-4" />}
-          {item.isConfirmed ? "Recoger" : "Fabricar"}
+          {item.isRecogido ? "Recogido" : item.isConfirmed ? "Recoger" : "Fabricar"}
         </Button>
       </div>
 
@@ -136,7 +151,7 @@ export function OrderItemManager({ item, currency, returnTo, accounts }: OrderIt
             {!item.isConfirmed ? (
             <div className="space-y-2 rounded-md border border-dashed border-border p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                <p className="text-xs uppercase tracking-[0.2em] font-semibold text-foreground">
                   Confirmacion de compra
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -189,14 +204,89 @@ export function OrderItemManager({ item, currency, returnTo, accounts }: OrderIt
 
             {/* Despacho: pago al proveedor + foto */}
             {item.isConfirmed ? (
-              <div className="mt-4 space-y-4 border-t border-border pt-4">
+              <div className="mt-2 space-y-4">
+                {/* Resumen de solo lectura cuando ya esta recogido */}
+                {item.isRecogido && !editing ? (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs uppercase tracking-[0.2em] font-semibold text-foreground">
+                          Pago al proveedor
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs text-muted-foreground">
+                            Costo: {formatMoney(item.supplierCostTotal, currency)}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => setEditing(true)}
+                            aria-label="Editar despacho"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                      {item.confirmedSupplierName ? (
+                        <p className="text-xs text-muted-foreground">
+                          Proveedor: {item.confirmedSupplierName}
+                        </p>
+                      ) : null}
+                      {item.paymentStatus === "PAID" ? (
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium text-emerald-600">Pagado al proveedor.</p>
+                          {item.receiptUrl ? (
+                            <a href={item.receiptUrl} target="_blank" rel="noreferrer" className="inline-block">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={item.receiptUrl}
+                                alt="Comprobante del proveedor"
+                                className="h-28 w-28 rounded-md border border-border object-cover"
+                              />
+                            </a>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                          Pago pendiente
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-xs uppercase tracking-[0.2em] font-semibold text-foreground">
+                        Foto del producto terminado
+                      </p>
+                      {item.photos.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">Aun sin fotos.</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {item.photos.map((photo) => (
+                            <a key={photo.id} href={photo.url} target="_blank" rel="noreferrer" className="inline-block">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={photo.url}
+                                alt={photo.name ?? "Foto del producto"}
+                                className="h-16 w-16 rounded-md border border-border object-cover"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+
+                {showDispatchForm ? (
                 <form action={adminDispatchItemAction} className="space-y-4">
                   <input type="hidden" name="returnTo" value={returnTo} />
                   <input type="hidden" name="orderItemId" value={item.id} />
 
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      <p className="text-xs uppercase tracking-[0.2em] font-semibold text-foreground">
                         Pago al proveedor
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -274,70 +364,84 @@ export function OrderItemManager({ item, currency, returnTo, accounts }: OrderIt
                           </select>
                         </label>
                       </div>
-                    ) : (
-                      <p className="rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                        No sale dinero de ninguna cuenta ahora; queda como saldo pendiente con el proveedor.
-                      </p>
-                    )}
+                    ) : null}
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                    <p className="text-xs uppercase tracking-[0.2em] font-semibold text-foreground">
                       Foto del producto terminado
                     </p>
-                    {item.photos.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">Aun sin fotos.</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {item.photos.map((photo) => (
-                          <span key={photo.id} className="relative inline-block">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={photo.url}
-                              alt={photo.name ?? "Foto del producto"}
-                              className="h-16 w-16 rounded-md border border-border object-cover"
-                            />
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <Input
-                      type="file"
-                      name="photos"
-                      accept="image/*"
-                      multiple
-                      className="h-8 max-w-xs text-xs"
-                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      {item.photos.map((photo) => (
+                        <span key={photo.id} className="relative inline-block">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={photo.url}
+                            alt={photo.name ?? "Foto del producto"}
+                            className="h-16 w-16 rounded-md border border-border object-cover"
+                          />
+                          <button
+                            type="submit"
+                            form={`del-photo-${photo.id}`}
+                            className="absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-white bg-red-600 text-white shadow-sm transition hover:bg-red-700"
+                            aria-label={`Quitar foto ${photo.name ?? ""}`}
+                            title="Quitar foto"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                      <label
+                        className="flex h-16 w-16 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border text-muted-foreground transition hover:border-ring hover:text-foreground"
+                        title="Agregar fotos"
+                      >
+                        <ImagePlus className="h-5 w-5" />
+                        <span className="text-[10px] font-medium">Fotos</span>
+                        <input
+                          type="file"
+                          name="photos"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
                   </div>
 
-                  <Button
-                    type="submit"
-                    className="w-full bg-blue-600 text-white hover:bg-blue-700"
-                  >
-                    <PackageCheck className="h-4 w-4" />
-                    Marcar como recogido
-                  </Button>
+                  <div className="flex gap-2">
+                    {editing ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => setEditing(false)}
+                      >
+                        Cancelar
+                      </Button>
+                    ) : null}
+                    <Button
+                      type="submit"
+                      className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
+                    >
+                      <PackageCheck className="h-4 w-4" />
+                      {editing ? "Guardar cambios" : "Marcar como recogido"}
+                    </Button>
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     Sin al menos una foto del producto terminado no se puede recoger.
                   </p>
                 </form>
-
-                {item.photos.length > 0 ? (
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Eliminar fotos:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {item.photos.map((photo) => (
-                        <form key={photo.id} action={adminDeleteOrderItemPhotoAction}>
-                          <input type="hidden" name="returnTo" value={returnTo} />
-                          <input type="hidden" name="photoId" value={photo.id} />
-                          <Button type="submit" size="sm" variant="outline" className="h-7 text-xs">
-                            Quitar {photo.name ? `(${photo.name})` : "foto"}
-                          </Button>
-                        </form>
-                      ))}
-                    </div>
-                  </div>
                 ) : null}
+
+                {/* Formularios para quitar fotos (los activa la "x" sobre cada miniatura) */}
+                {showDispatchForm
+                  ? item.photos.map((photo) => (
+                      <form key={photo.id} id={`del-photo-${photo.id}`} action={adminDeleteOrderItemPhotoAction} className="hidden">
+                        <input type="hidden" name="returnTo" value={returnTo} />
+                        <input type="hidden" name="photoId" value={photo.id} />
+                      </form>
+                    ))
+                  : null}
               </div>
             ) : null}
           </Card>

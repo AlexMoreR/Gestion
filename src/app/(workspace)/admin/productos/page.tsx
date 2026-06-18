@@ -38,12 +38,24 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
           orderBy: [{ isPreferred: "desc" }, { createdAt: "asc" }],
           include: { supplier: true },
         },
+        bundleComponents: {
+          orderBy: { sortOrder: "asc" },
+        },
       },
     }),
     prisma.category.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
     prisma.supplier.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
     getSystemCurrency(),
   ]);
+
+  const bundleProducts = products
+    .filter((product) => !product.isBundle)
+    .map((product) => ({
+      id: product.id,
+      name: product.name,
+      code: product.code,
+      price: Number(product.price),
+    }));
 
   return (
     <section className="w-full space-y-4 overflow-x-hidden">
@@ -57,6 +69,7 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
       <ProductsWorkspace
         currency={systemCurrency}
         okMessage={okMessage}
+        bundleProducts={bundleProducts}
         categories={categories.map((category) => ({
           id: category.id,
           name: category.name,
@@ -79,6 +92,11 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
           suppliers: product.suppliers.map((supplier) => ({
             supplierId: supplier.supplierId,
             supplierCost: supplier.supplierCost === null ? null : Number(supplier.supplierCost),
+          })),
+          isBundle: product.isBundle,
+          components: product.bundleComponents.map((component) => ({
+            childId: component.childId,
+            quantity: component.quantity,
           })),
           thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
           imageUrls: product.images.map((image) => getPublicAssetUrl(image.url)),

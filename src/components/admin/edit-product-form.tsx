@@ -7,6 +7,11 @@ import {
 } from "lucide-react";
 import { adminUpdateProductAction } from "@/app/actions/product-actions";
 import { ProductFormStepper } from "@/components/admin/product-form-stepper";
+import {
+  ProductBundleField,
+  type BundleProductOption,
+  type ProductComponentDraft,
+} from "@/components/admin/product-bundle-field";
 import { ProductSuppliersField, type ProductSupplierDraft } from "@/components/admin/product-suppliers-field";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -38,9 +43,14 @@ type EditProductInitialData = {
   wholesaleMarginPct: number;
   minWholesaleQty: number;
   categoryId: string | null;
+  isBundle: boolean;
   suppliers: Array<{
     supplierId: string;
     supplierCost: number | null;
+  }>;
+  components: Array<{
+    childId: string;
+    quantity: number;
   }>;
   imageUrls: string[];
 };
@@ -49,6 +59,7 @@ type EditProductFormProps = {
   categories: CategoryOption[];
   suppliers: SupplierOption[];
   currency: SupportedCurrencyCode;
+  bundleProducts: BundleProductOption[];
   initialData: EditProductInitialData;
 };
 
@@ -56,6 +67,7 @@ export function EditProductForm({
   categories,
   suppliers,
   currency,
+  bundleProducts,
   initialData,
 }: EditProductFormProps) {
   const initialSuggestedRetailPrice = calculateRetailPrice(initialData.baseCost, initialData.retailMarginPct);
@@ -100,8 +112,43 @@ export function EditProductForm({
           },
         ],
   );
+  const [isBundle, setIsBundle] = useState(initialData.isBundle);
+  const [componentRows, setComponentRows] = useState<ProductComponentDraft[]>(() =>
+    initialData.components.length > 0
+      ? initialData.components.map((component) => ({
+          id: globalThis.crypto?.randomUUID?.() ?? `${component.childId}-${Math.random()}`,
+          childId: component.childId,
+          quantity: String(component.quantity),
+        }))
+      : [
+          {
+            id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+            childId: "",
+            quantity: "1",
+          },
+        ],
+  );
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const addComponentRow = () => {
+    setComponentRows((current) => [
+      ...current,
+      {
+        id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+        childId: "",
+        quantity: "1",
+      },
+    ]);
+  };
+
+  const removeComponentRow = (rowId: string) => {
+    setComponentRows((current) => current.filter((row) => row.id !== rowId));
+  };
+
+  const updateComponentRow = (rowId: string, values: Partial<Omit<ProductComponentDraft, "id">>) => {
+    setComponentRows((current) => current.map((row) => (row.id === rowId ? { ...row, ...values } : row)));
+  };
 
   useEffect(() => {
     return () => {
@@ -274,28 +321,9 @@ export function EditProductForm({
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </label>
-                <label className="block space-y-1.5 md:col-span-2">
-                  <span className="text-sm font-medium text-slate-700">SEO title</span>
-                  <Input
-                    name="seoTitle"
-                    placeholder="Ej. Silla hidraulica para peluqueria | Magilus"
-                    maxLength={70}
-                    value={seoTitle}
-                    onChange={(e) => setSeoTitle(e.target.value)}
-                  />
-                </label>
-                <label className="block space-y-1.5 md:col-span-2">
-                  <span className="text-sm font-medium text-slate-700">SEO description</span>
-                  <textarea
-                    name="seoDescription"
-                    rows={3}
-                    maxLength={180}
-                    value={seoDescription}
-                    onChange={(e) => setSeoDescription(e.target.value)}
-                    className="w-full rounded-lg border border-[(--line)] bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[(--primary)]"
-                    placeholder="Resumen breve y persuasivo para Google."
-                  />
-                </label>
+                {/* Campos SEO ocultos temporalmente (se conserva el valor existente) */}
+                <input type="hidden" name="seoTitle" value={seoTitle} />
+                <input type="hidden" name="seoDescription" value={seoDescription} />
                 <div className="block space-y-1.5 md:col-span-2">
                   <span className="text-sm font-medium text-slate-700">🖼️ Multimedia</span>
                   <div
@@ -544,16 +572,33 @@ export function EditProductForm({
                     ))}
                   </select>
                 </label>
-                <ProductSuppliersField
-                  suppliers={suppliers}
-                  rows={supplierRows}
-                  currency={currency}
-                  onAdd={addSupplierRow}
-                  onRemove={removeSupplierRow}
-                  onChange={updateSupplierRow}
-                />
+                {!isBundle ? (
+                  <ProductSuppliersField
+                    suppliers={suppliers}
+                    rows={supplierRows}
+                    currency={currency}
+                    onAdd={addSupplierRow}
+                    onRemove={removeSupplierRow}
+                    onChange={updateSupplierRow}
+                  />
+                ) : (
+                  <p className="rounded-lg border border-dashed border-[(--line)] bg-slate-50/60 px-3 py-3 text-xs text-slate-500 md:col-span-2">
+                    Este producto es un combo: los proveedores se toman de cada componente.
+                  </p>
+                )}
               </div>
             </section>
+
+            <ProductBundleField
+              isBundle={isBundle}
+              onToggle={setIsBundle}
+              products={bundleProducts}
+              rows={componentRows}
+              currency={currency}
+              onAdd={addComponentRow}
+              onRemove={removeComponentRow}
+              onChange={updateComponentRow}
+            />
 
             <div className="mt-1 flex flex-wrap items-center gap-3 border-t border-[(--line)] pt-5">
               <Link
