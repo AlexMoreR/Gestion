@@ -22,7 +22,8 @@ const ALLOWED_RECEIPT_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".
 
 const createDispatchSchema = z.object({
   orderId: z.string().trim().min(1, "Orden invalida"),
-  carrierSupplierId: z.string().trim().min(1, "Selecciona la transportadora"),
+  deliveryType: z.enum(["COUNTER", "PICKUP", "SHIPPING"]).default("SHIPPING"),
+  carrierSupplierId: z.string().trim().optional(),
   shippingCost: z.coerce.number().nonnegative("Costo de envio invalido"),
   shippingMode: z.enum(["PAY_NOW", "PAY_LATER"]).default("PAY_LATER"),
   trackingNumber: z.string().trim().max(120, "Guia demasiado larga").optional(),
@@ -67,6 +68,149 @@ async function saveShippingReceipt(
     url: `/uploads/dispatches/receipts/${fileName}`,
     name: file.name || fileName,
   };
+}
+
+const PHOTO_MAX_BYTES = 12 * 1024 * 1024;
+const ALLOWED_PHOTO_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const ALLOWED_PHOTO_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
+
+function getPhotoExtension(file: File): string {
+  const fromName = path.extname(file.name).toLowerCase();
+  if (fromName) {
+    return fromName;
+  }
+  if (file.type === "image/jpeg") return ".jpg";
+  if (file.type === "image/png") return ".png";
+  if (file.type === "image/webp") return ".webp";
+  return "";
+}
+
+async function saveDeliveryPhoto(
+  file: File,
+  orderId: string,
+): Promise<{ url: string; name: string }> {
+  if (!(file instanceof File) || file.size <= 0) {
+    throw new Error("No se pudo leer la foto de entrega.");
+  }
+  if (file.size > PHOTO_MAX_BYTES) {
+    throw new Error(`La foto ${file.name} supera el limite de 12 MB.`);
+  }
+  const extension = getPhotoExtension(file);
+  if (!ALLOWED_PHOTO_MIME_TYPES.has(file.type) && !ALLOWED_PHOTO_EXTENSIONS.has(extension)) {
+    throw new Error(`La foto ${file.name} no es compatible. Solo JPG, PNG o WEBP.`);
+  }
+
+  const uploadDir = path.join(process.cwd(), "public", "uploads", "dispatches", "deliveries");
+  await mkdir(uploadDir, { recursive: true });
+  const fileName = `${orderId}-${Date.now()}-${randomUUID()}${extension || ".jpg"}`;
+  await writeFile(path.join(uploadDir, fileName), Buffer.from(await file.arrayBuffer()));
+
+  return {
+    url: `/uploads/dispatches/deliveries/${fileName}`,
+    name: file.name || fileName,
+  };
+}
+
+function normalizeHandle(value: FormDataEntryValue | null): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim().replace(/^@+/, "");
+  return trimmed ? trimmed.slice(0, 120) : null;
+}
+
+const completeDeliverySchema = z.object({
+  dispatchId: z.string().trim().min(1, "Despacho invalido"),
+  note: z.string().trim().max(2000, "Nota demasiado larga").optional(),
+});
+
+export async function adminCompleteDeliveryAction(formData: FormData): Promise<void> {
+  const changedById = await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/despachos");
+
+  const parsed = completeDeliverySchema.safeParse({
+    dispatchId: formData.get("dispatchId"),
+    note: formData.get("note") || undefined,
+  });
+
+  if (!parsed.success) {
+    redirect(`${returnTo}?error=Datos+de+entrega+invalidos`);
+  }
+
+  const dispatch = await prisma.dispatch.findUnique({
+    where: { id: parsed.data.dispatchId },
+    include: { order: true },
+  });
+
+  if (!dispatch) {
+    redirect(`${returnTo}?error=Despacho+no+encontrado`);
+  }
+
+  if (dispatch.status === "DELIVERED") {
+    redirect(`${returnTo}?error=La+entrega+ya+fue+registrada`);
+  }
+  if (dispatch.status === "CANCELLED" || dispatch.status === "RETURNED") {
+    redirect(`${returnTo}?error=El+despacho+no+admite+entrega`);
+  }
+
+  const instagram = normalizeHandle(formData.get("instagram"));
+  const tiktok = normalizeHandle(formData.get("tiktok"));
+
+  const photoFile = formData.get("deliveryPhoto");
+  const hasPhoto = photoFile instanceof File && photoFile.size > 0;
+
+  try {
+    let photo: { url: string; name: string } | null = null;
+    if (hasPhoto) {
+      photo = await saveDeliveryPhoto(photoFile, dispatch.orderId);
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.dispatch.update({
+        where: { id: dispatch.id },
+        data: {
+          status: "DELIVERED",
+          deliveredAt: new Date(),
+          deliveryPhotoUrl: photo?.url ?? dispatch.deliveryPhotoUrl,
+          deliveryPhotoName: photo?.name ?? dispatch.deliveryPhotoName,
+        },
+      });
+
+      await tx.order.update({
+        where: { id: dispatch.orderId },
+        data: { status: "COMPLETED", completedAt: new Date() },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: dispatch.orderId,
+          fromStatus: dispatch.order.status,
+          toStatus: "COMPLETED",
+          note: parsed.data.note || "Pedido entregado al cliente",
+          changedById,
+        },
+      });
+
+      // Redes sociales: se guardan en la ficha del cliente (reutilizables para marketing).
+      if (instagram || tiktok) {
+        await tx.user.update({
+          where: { id: dispatch.order.clientId },
+          data: {
+            ...(instagram ? { instagram } : {}),
+            ...(tiktok ? { tiktok } : {}),
+          },
+        });
+      }
+    });
+  } catch (error) {
+    console.error("Failed to complete delivery:", error);
+    redirect(`${returnTo}?error=No+se+pudo+registrar+la+entrega`);
+  }
+
+  revalidatePath("/admin/despachos");
+  revalidatePath("/admin/ordenes");
+  revalidatePath(`/admin/ordenes/${dispatch.orderId}`);
+  redirect(`${returnTo}?ok=Entrega+registrada`);
 }
 
 const updateDispatchStatusSchema = z.object({
@@ -137,7 +281,8 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
 
   const parsed = createDispatchSchema.safeParse({
     orderId: formData.get("orderId"),
-    carrierSupplierId: formData.get("carrierSupplierId"),
+    deliveryType: formData.get("deliveryType") || "SHIPPING",
+    carrierSupplierId: formData.get("carrierSupplierId") || undefined,
     shippingCost: formData.get("shippingCost") || 0,
     shippingMode: formData.get("shippingMode") || "PAY_LATER",
     trackingNumber: formData.get("trackingNumber") || undefined,
@@ -149,12 +294,21 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
     redirect(`${returnTo}?error=Datos+de+despacho+invalidos`);
   }
 
-  const carrier = await prisma.supplier.findUnique({
-    where: { id: parsed.data.carrierSupplierId },
-    select: { id: true, name: true },
-  });
-  if (!carrier) {
-    redirect(`${returnTo}?error=Transportadora+no+encontrada`);
+  const isShipping = parsed.data.deliveryType === "SHIPPING";
+
+  // La transportadora solo es obligatoria cuando hay envío a domicilio.
+  let carrier: { id: string; name: string } | null = null;
+  if (parsed.data.carrierSupplierId) {
+    carrier = await prisma.supplier.findUnique({
+      where: { id: parsed.data.carrierSupplierId },
+      select: { id: true, name: true },
+    });
+    if (!carrier) {
+      redirect(`${returnTo}?error=Transportadora+no+encontrada`);
+    }
+  }
+  if (isShipping && !carrier) {
+    redirect(`${returnTo}?error=Selecciona+la+transportadora+para+el+envio`);
   }
 
   const accountIdRaw = formData.get("accountId");
@@ -162,7 +316,7 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
 
   const shippingReceiptFile = formData.get("shippingReceipt");
   const hasShippingReceipt = shippingReceiptFile instanceof File && shippingReceiptFile.size > 0;
-  if (parsed.data.shippingMode === "PAY_NOW" && !hasShippingReceipt) {
+  if (isShipping && parsed.data.shippingMode === "PAY_NOW" && !hasShippingReceipt) {
     redirect(`${returnTo}?error=Sube+el+comprobante+del+envio+o+selecciona+pagar+luego`);
   }
 
@@ -217,11 +371,11 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
     redirect(`${returnTo}?error=Registra+el+pago+al+proveedor+de+cada+item+antes+de+despachar`);
   }
 
-  const shippingCost = parsed.data.shippingCost;
+  const shippingCost = isShipping ? parsed.data.shippingCost : 0;
 
   try {
     let receipt: { url: string; name: string } | null = null;
-    if (parsed.data.shippingMode === "PAY_NOW" && hasShippingReceipt) {
+    if (isShipping && parsed.data.shippingMode === "PAY_NOW" && hasShippingReceipt) {
       receipt = await saveShippingReceipt(shippingReceiptFile, order.id);
     }
 
@@ -232,8 +386,9 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
           code,
           orderId: order.id,
           status: "PACKING",
-          carrierName: carrier.name,
-          carrierSupplierId: carrier.id,
+          deliveryType: parsed.data.deliveryType,
+          carrierName: carrier?.name ?? null,
+          carrierSupplierId: carrier?.id ?? null,
           shippingCost,
           shippingReceiptUrl: receipt?.url ?? null,
           shippingReceiptName: receipt?.name ?? null,
@@ -251,8 +406,8 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
         },
       });
 
-      // Costo de envio: gasto de la venta.
-      if (shippingCost > 0) {
+      // Costo de envio: gasto de la venta (solo aplica a envíos con transportadora).
+      if (carrier && shippingCost > 0) {
         const shippingReference =
           receipt?.name ?? parsed.data.trackingNumber ?? `Despacho ${dispatch.code}`;
 

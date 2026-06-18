@@ -1,4 +1,5 @@
 import type {
+  DeliveryType,
   DispatchStatus,
   OrderStatus,
   ProductionJobStatus,
@@ -100,6 +101,53 @@ export function getDispatchStatusLabel(status: DispatchStatus): string {
     default:
       return status;
   }
+}
+
+export function getDeliveryTypeLabel(type: DeliveryType): string {
+  switch (type) {
+    case "COUNTER":
+      return "Mostrador (Cali)";
+    case "PICKUP":
+      return "Recoge en su local";
+    case "SHIPPING":
+      return "Envío a domicilio";
+    default:
+      return type;
+  }
+}
+
+const GREEN_BADGE =
+  "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400";
+const AMBER_BADGE =
+  "border-amber-500/30 bg-amber-500/15 text-amber-600 dark:text-amber-400";
+
+/**
+ * Etiqueta y color del estado "real" de la orden de cara al usuario.
+ * Distingue los dos cierres verdes que pidió el negocio:
+ *   - "Cerrado – En envío": despachada por transportadora, aún no entregada.
+ *   - "Cerrado – Entregado": el cliente ya recibió.
+ * `delivery` es el despacho más reciente (o null si aún no se despacha).
+ */
+export function getOrderDisplayState(
+  status: OrderStatus,
+  delivery: { deliveryType: DeliveryType; status: DispatchStatus } | null,
+): { label: string; className: string } {
+  if (status === "COMPLETED") {
+    return { label: "Cerrado – Entregado", className: GREEN_BADGE };
+  }
+
+  if (status === "DISPATCHED" && delivery) {
+    if (delivery.deliveryType === "SHIPPING") {
+      return { label: "Cerrado – En envío", className: GREEN_BADGE };
+    }
+    // Mostrador / Recoge: ya despachado, solo falta el registro de entrega.
+    return { label: "Por entregar", className: AMBER_BADGE };
+  }
+
+  return {
+    label: getOrderStatusLabel(status),
+    className: getOrderStatusBadgeClassName(status),
+  };
 }
 
 export function getFulfillmentModeLabel(mode: ProductFulfillmentMode): string {

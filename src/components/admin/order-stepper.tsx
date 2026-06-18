@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { OrderDeliveryManager } from "@/components/admin/order-delivery-manager";
 import { OrderDispatchManager } from "@/components/admin/order-dispatch-manager";
 import { cn } from "@/lib/utils";
 
@@ -25,11 +26,20 @@ type DispatchData = {
   allItemsHavePhotos: boolean;
 };
 
+type DeliveryData = {
+  dispatchId: string | null;
+  returnTo: string;
+  defaultInstagram: string;
+  defaultTiktok: string;
+};
+
 type OrderStepperProps = {
   step1Done: boolean;
   step2Done: boolean;
   step3Done: boolean;
+  step4Done: boolean;
   dispatch: DispatchData;
+  delivery: DeliveryData;
 };
 
 const STEPS = [
@@ -46,13 +56,25 @@ const STEPS = [
   {
     n: 3,
     title: "Despachar",
-    hint: "Crea el envío de la orden: transportadora, costo de envío y comprobante.",
+    hint: "Elige la modalidad de entrega y crea el despacho de la orden.",
+  },
+  {
+    n: 4,
+    title: "Entregar",
+    hint: "Registra la entrega: foto de quien recibió y redes del cliente (opcional).",
   },
 ];
 
-export function OrderStepper({ step1Done, step2Done, step3Done, dispatch }: OrderStepperProps) {
-  const done = [step1Done, step2Done, step3Done];
-  const current = !step1Done ? 1 : !step2Done ? 2 : !step3Done ? 3 : 0;
+export function OrderStepper({
+  step1Done,
+  step2Done,
+  step3Done,
+  step4Done,
+  dispatch,
+  delivery,
+}: OrderStepperProps) {
+  const done = [step1Done, step2Done, step3Done, step4Done];
+  const current = !step1Done ? 1 : !step2Done ? 2 : !step3Done ? 3 : !step4Done ? 4 : 0;
   const allDone = current === 0;
 
   return (
@@ -95,7 +117,7 @@ export function OrderStepper({ step1Done, step2Done, step3Done, dispatch }: Orde
         </div>
 
         {allDone ? (
-          <p className="text-sm font-medium text-emerald-600">Orden despachada. Pasos completados.</p>
+          <p className="text-sm font-medium text-emerald-600">Orden entregada. Pasos completados.</p>
         ) : current === 3 ? (
           <OrderDispatchManager
             display="button"
@@ -111,6 +133,16 @@ export function OrderStepper({ step1Done, step2Done, step3Done, dispatch }: Orde
             allItemsPaymentSet={dispatch.allItemsPaymentSet}
             allItemsHavePhotos={dispatch.allItemsHavePhotos}
             activeDispatch={null}
+          />
+        ) : current === 4 && delivery.dispatchId ? (
+          <OrderDeliveryManager
+            dispatchId={delivery.dispatchId}
+            returnTo={delivery.returnTo}
+            defaultInstagram={delivery.defaultInstagram}
+            defaultTiktok={delivery.defaultTiktok}
+            canDeliver
+            buttonLabel="Registrar entrega"
+            buttonClassName="w-full bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto"
           />
         ) : null}
       </CardContent>

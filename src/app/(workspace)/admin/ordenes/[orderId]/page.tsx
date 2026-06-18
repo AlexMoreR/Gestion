@@ -12,7 +12,7 @@ import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import {
   getFulfillmentModeLabel,
-  getOrderStatusBadgeClassName,
+  getOrderDisplayState,
   getOrderStatusLabel,
 } from "@/lib/orders";
 import { getSystemCurrency } from "@/lib/system-settings";
@@ -130,9 +130,17 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     order.items.length > 0 && order.items.every((item) => item.supplierPaymentStatus !== null);
   const canDispatch = allItemsConfirmed && allItemsHavePhotos && allItemsPaymentSet;
 
+  const latestDispatch = order.dispatches[0] ?? null;
   const step1Done = allItemsConfirmed;
   const step2Done = allItemsPaymentSet && allItemsHavePhotos;
   const step3Done = order.dispatches.length > 0;
+  const step4Done = order.status === "COMPLETED" || latestDispatch?.status === "DELIVERED";
+  const displayState = getOrderDisplayState(
+    order.status,
+    latestDispatch
+      ? { deliveryType: latestDispatch.deliveryType, status: latestDispatch.status }
+      : null,
+  );
 
   const isItemConfirmed = (item: (typeof order.items)[number]) =>
     Boolean(item.confirmedSupplierId) && item.purchaseCost !== null;
@@ -174,8 +182,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         </div>
 
         <div className="flex items-center gap-2">
-          <Badge className={getOrderStatusBadgeClassName(order.status)} variant="outline">
-            {getOrderStatusLabel(order.status)}
+          <Badge className={displayState.className} variant="outline">
+            {displayState.label}
           </Badge>
           <OrderActionsMenu orderId={order.id} status={order.status} returnTo={returnTo} />
         </div>
@@ -212,6 +220,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         step1Done={step1Done}
         step2Done={step2Done}
         step3Done={step3Done}
+        step4Done={step4Done}
         dispatch={{
           orderId: order.id,
           returnTo,
@@ -222,6 +231,12 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           allItemsConfirmed,
           allItemsPaymentSet,
           allItemsHavePhotos,
+        }}
+        delivery={{
+          dispatchId: latestDispatch?.id ?? null,
+          returnTo,
+          defaultInstagram: order.client.instagram ?? "",
+          defaultTiktok: order.client.tiktok ?? "",
         }}
       />
 

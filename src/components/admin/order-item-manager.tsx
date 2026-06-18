@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Factory, ImagePlus, PackageCheck, Pencil, X } from "lucide-react";
+import { useFormStatus } from "react-dom";
+import { Factory, ImagePlus, Loader2, PackageCheck, Pencil, X } from "lucide-react";
 import {
   adminConfirmOrderItemAction,
   adminDeleteOrderItemPhotoAction,
@@ -59,9 +60,34 @@ type OrderItemManagerProps = {
   accounts: AccountOption[];
 };
 
+function DispatchSubmitButton({ editing }: { editing: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button
+      type="submit"
+      disabled={pending}
+      className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
+    >
+      {pending ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <PackageCheck className="h-4 w-4" />
+      )}
+      {pending
+        ? "Subiendo y guardando..."
+        : editing
+          ? "Guardar cambios"
+          : "Marcar como recogido"}
+    </Button>
+  );
+}
+
 export function OrderItemManager({ item, currency, returnTo, accounts }: OrderItemManagerProps) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  // Vista previa de las fotos recien seleccionadas (aun no enviadas al servidor),
+  // para que el usuario confirme que la foto quedo adjunta antes de guardar.
+  const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
   const [paymentMode, setPaymentMode] = useState<"PAY_NOW" | "PAY_LATER">(
     item.paymentStatus === "PAID" ? "PAY_NOW" : "PAY_LATER",
   );
@@ -391,6 +417,24 @@ export function OrderItemManager({ item, currency, returnTo, accounts }: OrderIt
                           </button>
                         </span>
                       ))}
+                      {/* Miniaturas de las fotos recien seleccionadas (pendientes de guardar) */}
+                      {selectedPhotos.map((preview, index) => (
+                        <span
+                          key={preview}
+                          className="relative inline-block"
+                          title="Pendiente de guardar"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={preview}
+                            alt={`Foto seleccionada ${index + 1}`}
+                            className="h-16 w-16 rounded-md border-2 border-blue-500 object-cover"
+                          />
+                          <span className="absolute -right-1.5 -top-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-white bg-blue-600 text-[9px] font-bold text-white shadow-sm">
+                            +
+                          </span>
+                        </span>
+                      ))}
                       <label
                         className="flex h-16 w-16 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border text-muted-foreground transition hover:border-ring hover:text-foreground"
                         title="Agregar fotos"
@@ -403,9 +447,20 @@ export function OrderItemManager({ item, currency, returnTo, accounts }: OrderIt
                           accept="image/*"
                           multiple
                           className="hidden"
+                          onChange={(event) => {
+                            const files = Array.from(event.target.files ?? []);
+                            setSelectedPhotos(files.map((file) => URL.createObjectURL(file)));
+                          }}
                         />
                       </label>
                     </div>
+                    {selectedPhotos.length > 0 ? (
+                      <p className="text-xs font-medium text-blue-600">
+                        {selectedPhotos.length}{" "}
+                        {selectedPhotos.length === 1 ? "foto lista" : "fotos listas"} para subir.
+                        Guarda para confirmar.
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="flex gap-2">
@@ -419,13 +474,7 @@ export function OrderItemManager({ item, currency, returnTo, accounts }: OrderIt
                         Cancelar
                       </Button>
                     ) : null}
-                    <Button
-                      type="submit"
-                      className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
-                    >
-                      <PackageCheck className="h-4 w-4" />
-                      {editing ? "Guardar cambios" : "Marcar como recogido"}
-                    </Button>
+                    <DispatchSubmitButton editing={editing} />
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Sin al menos una foto del producto terminado no se puede recoger.

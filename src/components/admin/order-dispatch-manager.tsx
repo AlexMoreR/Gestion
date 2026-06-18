@@ -63,6 +63,8 @@ export function OrderDispatchManager({
 }: OrderDispatchManagerProps) {
   const [open, setOpen] = useState(false);
   const [shippingMode, setShippingMode] = useState<"PAY_NOW" | "PAY_LATER">("PAY_LATER");
+  const [deliveryType, setDeliveryType] = useState<"COUNTER" | "PICKUP" | "SHIPPING">("SHIPPING");
+  const isShipping = deliveryType === "SHIPPING";
 
   const modal = open ? (
         <div
@@ -101,95 +103,122 @@ export function OrderDispatchManager({
 
               <div className="space-y-1">
                 <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  Transportadora
+                  Modalidad de entrega
                 </label>
                 <select
-                  name="carrierSupplierId"
-                  required
-                  defaultValue=""
+                  name="deliveryType"
+                  value={deliveryType}
+                  onChange={(event) =>
+                    setDeliveryType(event.target.value as "COUNTER" | "PICKUP" | "SHIPPING")
+                  }
                   className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
                 >
-                  <option value="" disabled>
-                    Selecciona la transportadora
-                  </option>
-                  {carriers.map((carrier) => (
-                    <option key={carrier.id} value={carrier.id}>
-                      {carrier.name}
-                    </option>
-                  ))}
+                  <option value="SHIPPING">Envío a domicilio (transportadora)</option>
+                  <option value="COUNTER">Mostrador (Cali) - el cliente recoge</option>
+                  <option value="PICKUP">Recoge en su local</option>
                 </select>
-                {carriers.length === 0 ? (
-                  <p className="text-xs text-destructive">
-                    No hay proveedores registrados. Crea la transportadora en Proveedores.
+                {!isShipping ? (
+                  <p className="text-xs text-muted-foreground">
+                    Sin transportadora ni costo de envío. La entrega se confirma en el paso 4.
                   </p>
                 ) : null}
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  Costo de envio (gasto de la venta)
-                </label>
-                <Input name="shippingCost" type="number" step="0.01" min="0" defaultValue={0} />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  Pago del envio
-                </label>
-                <div className="flex flex-col gap-1 text-sm">
-                  <label className="inline-flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="shippingMode"
-                      value="PAY_LATER"
-                      checked={shippingMode === "PAY_LATER"}
-                      onChange={() => setShippingMode("PAY_LATER")}
-                    />
-                    <span>Pagar luego (genera saldo a la transportadora)</span>
-                  </label>
-                  <label className="inline-flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="shippingMode"
-                      value="PAY_NOW"
-                      checked={shippingMode === "PAY_NOW"}
-                      onChange={() => setShippingMode("PAY_NOW")}
-                    />
-                    <span>Subir comprobante de pago</span>
-                  </label>
-                </div>
-                {shippingMode === "PAY_NOW" ? (
-                  <div className="space-y-2">
-                    <Input
-                      type="file"
-                      name="shippingReceipt"
-                      accept="image/*,application/pdf"
-                      className="h-8 text-xs"
-                    />
+              {isShipping ? (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      Transportadora
+                    </label>
                     <select
-                      name="accountId"
+                      name="carrierSupplierId"
+                      required
                       defaultValue=""
-                      className="h-8 w-full rounded-lg border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                      className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
                     >
-                      <option value="">Cuenta (origen del gasto) - opcional</option>
-                      {accounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.name}
+                      <option value="" disabled>
+                        Selecciona la transportadora
+                      </option>
+                      {carriers.map((carrier) => (
+                        <option key={carrier.id} value={carrier.id}>
+                          {carrier.name}
                         </option>
                       ))}
                     </select>
+                    {carriers.length === 0 ? (
+                      <p className="text-xs text-destructive">
+                        No hay proveedores registrados. Crea la transportadora en Proveedores.
+                      </p>
+                    ) : null}
                   </div>
-                ) : null}
-              </div>
 
-              <div className="space-y-1">
-                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Guia</label>
-                <Input name="trackingNumber" placeholder="Numero de guia" />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Direccion</label>
-                <Input name="shippingAddress" defaultValue={defaultAddress} />
-              </div>
+                  <div className="space-y-1">
+                    <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      Costo de envio (gasto de la venta)
+                    </label>
+                    <Input name="shippingCost" type="number" step="0.01" min="0" defaultValue={0} />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      Pago del envio
+                    </label>
+                    <div className="flex flex-col gap-1 text-sm">
+                      <label className="inline-flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="shippingMode"
+                          value="PAY_LATER"
+                          checked={shippingMode === "PAY_LATER"}
+                          onChange={() => setShippingMode("PAY_LATER")}
+                        />
+                        <span>Pagar luego (genera saldo a la transportadora)</span>
+                      </label>
+                      <label className="inline-flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="shippingMode"
+                          value="PAY_NOW"
+                          checked={shippingMode === "PAY_NOW"}
+                          onChange={() => setShippingMode("PAY_NOW")}
+                        />
+                        <span>Subir comprobante de pago</span>
+                      </label>
+                    </div>
+                    {shippingMode === "PAY_NOW" ? (
+                      <div className="space-y-2">
+                        <Input
+                          type="file"
+                          name="shippingReceipt"
+                          accept="image/*,application/pdf"
+                          className="h-8 text-xs"
+                        />
+                        <select
+                          name="accountId"
+                          defaultValue=""
+                          className="h-8 w-full rounded-lg border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                        >
+                          <option value="">Cuenta (origen del gasto) - opcional</option>
+                          {accounts.map((account) => (
+                            <option key={account.id} value={account.id}>
+                              {account.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Guia</label>
+                    <Input name="trackingNumber" placeholder="Numero de guia" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Direccion</label>
+                    <Input name="shippingAddress" defaultValue={defaultAddress} />
+                  </div>
+                </>
+              ) : null}
               <div className="space-y-1">
                 <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Notas</label>
                 <Textarea name="notes" placeholder="Observaciones internas" />
