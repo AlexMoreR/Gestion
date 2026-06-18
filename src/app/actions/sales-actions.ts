@@ -150,8 +150,10 @@ async function savePaymentReceipt(
 
 type SalePaymentReceipt = {
   amount: number;
-  paymentMethod: PaymentMethod;
+  paymentMethod: string;
+  accountId: string;
   note: string | null;
+  paymentDate: Date | null;
   receiptUrl: string | null;
   receiptName: string | null;
   receiptType: string | null;
@@ -223,20 +225,27 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
   const netTotal = Math.max(grossTotal - discountAmount, 0);
   const amountEntries = formData.getAll("paymentReceiptAmounts");
   const receiptEntries = formData.getAll("paymentReceipts");
-  const receiptMethodEntries = formData.getAll("paymentReceiptMethods");
+  const receiptAccountEntries = formData.getAll("paymentReceiptAccounts");
   const receiptNoteEntries = formData.getAll("paymentReceiptNotes");
+  const receiptDateEntries = formData.getAll("paymentReceiptDates");
 
   if (amountEntries.length === 0) {
     redirectWithError(returnTo, "Debes registrar al menos un abono");
   }
 
   if (
-    amountEntries.length !== receiptMethodEntries.length ||
+    amountEntries.length !== receiptAccountEntries.length ||
     amountEntries.length !== receiptNoteEntries.length ||
     amountEntries.length !== receiptEntries.length
   ) {
     redirectWithError(returnTo, "Faltan datos de uno o mas abonos");
   }
+
+  const activeAccounts = await prisma.account.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true, type: true },
+  });
+  const accountById = new Map(activeAccounts.map((account) => [account.id, account]));
 
   const installments = amountEntries.map((amountEntry, index) => {
     const amount = typeof amountEntry === "string" ? Number(amountEntry) : Number.NaN;
@@ -244,17 +253,31 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
       redirectWithError(returnTo, "Cada abono necesita un monto valido");
     }
 
-    const paymentMethod = parsePaymentMethod(receiptMethodEntries[index]);
-    if (!paymentMethod) {
-      redirectWithError(returnTo, "Cada abono necesita un medio de pago");
+    const accountEntry = receiptAccountEntries[index];
+    const accountId = typeof accountEntry === "string" ? accountEntry.trim() : "";
+    const account = accountId ? accountById.get(accountId) : undefined;
+    if (!account) {
+      redirectWithError(returnTo, "Cada abono necesita un medio de pago valido");
     }
 
     const noteValue = receiptNoteEntries[index];
     const note = typeof noteValue === "string" ? noteValue.trim() : "";
+
+    const dateValue = receiptDateEntries[index];
+    const rawDate = typeof dateValue === "string" ? dateValue.trim() : "";
+    let paymentDate: Date | null = null;
+    if (rawDate) {
+      const parsedDate = new Date(`${rawDate}T12:00:00`);
+      if (Number.isNaN(parsedDate.getTime())) {
+        redirectWithError(returnTo, "La fecha de uno de los abonos es invalida");
+      }
+      paymentDate = parsedDate;
+    }
+
     const fileEntry = receiptEntries[index];
     const file = fileEntry instanceof File && fileEntry.size > 0 ? fileEntry : null;
 
-    if (paymentMethod !== "EFECTIVO" && !file) {
+    if (account.type !== "CASH" && !file) {
       redirectWithError(returnTo, "Los abonos que no sean en efectivo deben incluir comprobante");
     }
 
@@ -267,8 +290,10 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
 
     return {
       amount,
-      paymentMethod,
+      paymentMethod: account.name,
+      accountId: account.id,
       note: note || null,
+      paymentDate,
       file,
     };
   });
@@ -278,17 +303,28 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
     redirectWithError(returnTo, "Debes registrar al menos un abono valido");
   }
 
+  // La fecha de la venta es la del abono mas temprano.
+  const installmentDates = installments
+    .map((installment) => installment.paymentDate)
+    .filter((date): date is Date => date instanceof Date);
+  const saleCreatedAt =
+    installmentDates.length > 0
+      ? new Date(Math.min(...installmentDates.map((date) => date.getTime())))
+      : undefined;
+
   if (totalDownPayment > netTotal) {
     redirectWithError(returnTo, "La suma de los abonos no puede superar el total real de la venta");
   }
 
   const savedReceipts = await Promise.all(
-    installments.map(async ({ amount, paymentMethod, note, file }, index) => {
+    installments.map(async ({ amount, paymentMethod, accountId, note, paymentDate, file }, index) => {
       if (!file) {
         return {
           amount,
           paymentMethod,
+          accountId,
           note,
+          paymentDate,
           receiptUrl: null,
           receiptName: null,
           receiptType: null,
@@ -300,7 +336,9 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
       return {
         amount,
         paymentMethod,
+        accountId,
         note,
+        paymentDate,
         receiptUrl: savedReceipt.url,
         receiptName: savedReceipt.name,
         receiptType: savedReceipt.type,
@@ -322,6 +360,7 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
           clientId: quote.clientId,
           createdById,
           status: "ACTIVE",
+          ...(saleCreatedAt ? { createdAt: saleCreatedAt } : {}),
           downPaymentAmount: totalDownPayment,
           grossTotal,
           discountAmount,
@@ -332,7 +371,9 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
             create: savedReceipts.map((receipt, index) => ({
               amount: receipt.amount,
               paymentMethod: receipt.paymentMethod,
+              accountId: receipt.accountId,
               note: receipt.note,
+              paymentDate: receipt.paymentDate,
               receiptUrl: receipt.receiptUrl,
               receiptName: receipt.receiptName,
               receiptType: receipt.receiptType,

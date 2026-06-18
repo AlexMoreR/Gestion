@@ -25,6 +25,11 @@ type SupplierOption = {
   name: string;
 };
 
+type AccountOption = {
+  id: string;
+  name: string;
+};
+
 type SupplierPaymentFormState = {
   saleId: string;
   supplierId: string;
@@ -32,6 +37,7 @@ type SupplierPaymentFormState = {
   transactionReference: string;
   paymentDate: string;
   notes: string;
+  accountId: string;
 };
 
 type SupplierPaymentFormDialogProps = {
@@ -42,6 +48,7 @@ type SupplierPaymentFormDialogProps = {
   returnTo: string;
   sales: SaleOption[];
   suppliers: SupplierOption[];
+  accounts: AccountOption[];
   initialValue?: {
     paymentId?: string;
     saleId?: string;
@@ -50,6 +57,7 @@ type SupplierPaymentFormDialogProps = {
     transactionReference?: string;
     paymentDate?: string;
     notes?: string | null;
+    accountId?: string | null;
   } | null;
 };
 
@@ -64,6 +72,7 @@ export function SupplierPaymentFormDialog({
   returnTo,
   sales,
   suppliers,
+  accounts,
   initialValue,
 }: SupplierPaymentFormDialogProps) {
   const formRef = React.useRef<HTMLFormElement | null>(null);
@@ -79,6 +88,7 @@ export function SupplierPaymentFormDialog({
       transactionReference: initialValue?.transactionReference ?? "",
       paymentDate: initialValue?.paymentDate ?? new Date().toISOString().slice(0, 10),
       notes: initialValue?.notes ?? "",
+      accountId: initialValue?.accountId ?? "",
     },
   });
 
@@ -91,6 +101,7 @@ export function SupplierPaymentFormDialog({
         transactionReference: "",
         paymentDate: new Date().toISOString().slice(0, 10),
         notes: "",
+        accountId: "",
       });
       setFormKey((current) => current + 1);
       submitBypassRef.current = false;
@@ -104,6 +115,7 @@ export function SupplierPaymentFormDialog({
       transactionReference: initialValue?.transactionReference ?? "",
       paymentDate: initialValue?.paymentDate ?? new Date().toISOString().slice(0, 10),
       notes: initialValue?.notes ?? "",
+      accountId: initialValue?.accountId ?? "",
     });
   }, [form, initialValue, open, sales, suppliers]);
 
@@ -226,6 +238,18 @@ export function SupplierPaymentFormDialog({
             <label className="space-y-1.5">
               <span className="text-sm font-medium text-foreground">Fecha de pago</span>
               <Input type="date" {...form.register("paymentDate")} />
+            </label>
+
+            <label className="space-y-1.5 md:col-span-2">
+              <span className="text-sm font-medium text-foreground">Cuenta (origen del gasto)</span>
+              <select className={cn(controlClassName, "appearance-none")} {...form.register("accountId")}>
+                <option value="">Sin asignar</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label className="space-y-1.5 md:col-span-2">

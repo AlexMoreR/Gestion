@@ -93,35 +93,30 @@ export function OrdersWorkspace({ orders, currency, stats }: OrdersWorkspaceProp
           <CardContent className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Ordenes</p>
             <p className="text-2xl font-semibold text-foreground">{stats.ordersCount}</p>
-            <p className="text-xs text-muted-foreground">Total registradas</p>
           </CardContent>
         </Card>
         <Card className="border-border bg-card/95">
           <CardContent className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Activas</p>
             <p className="text-2xl font-semibold text-foreground">{stats.activeCount}</p>
-            <p className="text-xs text-muted-foreground">No cerradas ni canceladas</p>
           </CardContent>
         </Card>
         <Card className="border-border bg-card/95">
           <CardContent className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Produccion</p>
             <p className="text-2xl font-semibold text-foreground">{stats.productionCount}</p>
-            <p className="text-xs text-muted-foreground">En ejecucion</p>
           </CardContent>
         </Card>
         <Card className="border-border bg-card/95">
           <CardContent className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Listas</p>
             <p className="text-2xl font-semibold text-foreground">{stats.readyToDispatchCount}</p>
-            <p className="text-xs text-muted-foreground">Pendientes de salida</p>
           </CardContent>
         </Card>
         <Card className="border-border bg-card/95">
           <CardContent className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Cerradas</p>
             <p className="text-2xl font-semibold text-foreground">{stats.completedCount}</p>
-            <p className="text-xs text-muted-foreground">Entregadas o finalizadas</p>
           </CardContent>
         </Card>
       </div>

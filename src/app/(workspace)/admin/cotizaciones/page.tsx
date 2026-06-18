@@ -26,7 +26,7 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
-  const [quotes, clients, products, currency] = await Promise.all([
+  const [quotes, clients, products, currency, accounts] = await Promise.all([
     prisma.quote.findMany({
       orderBy: { createdAt: "desc" },
       include: {
@@ -64,6 +64,11 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
       take: 500,
     }),
     getSystemCurrency(),
+    prisma.account.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, type: true },
+    }),
   ]);
 
   return (
@@ -77,6 +82,7 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
 
       <QuotesWorkspace
         currency={currency}
+        accounts={accounts}
         quotes={quotes.map((quote) => ({
           id: quote.id,
           code: quote.code,

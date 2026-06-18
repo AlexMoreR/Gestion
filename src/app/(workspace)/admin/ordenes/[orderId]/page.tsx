@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { adminCancelOrderAction, adminUpdateOrderStatusAction } from "@/app/actions/orders-actions";
+import { OrderActionsMenu } from "@/components/admin/order-actions-menu";
 import { OrderItemManager } from "@/components/admin/order-item-manager";
 import { OrderStepper } from "@/components/admin/order-stepper";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
@@ -24,29 +23,6 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-function OrderStatusAction({
-  orderId,
-  status,
-  label,
-  variant = "outline",
-}: {
-  orderId: string;
-  status: "DRAFT" | "RELEASED" | "IN_PRODUCTION" | "READY_FOR_DISPATCH" | "DISPATCHED" | "COMPLETED" | "CANCELLED";
-  label: string;
-  variant?: "outline" | "default" | "destructive";
-}) {
-  return (
-    <form action={adminUpdateOrderStatusAction}>
-      <input type="hidden" name="returnTo" value={`/admin/ordenes/${orderId}`} />
-      <input type="hidden" name="orderId" value={orderId} />
-      <input type="hidden" name="status" value={status} />
-      <Button type="submit" size="sm" variant={variant} className="h-7">
-        {label}
-      </Button>
-    </form>
-  );
-}
-
 export default async function AdminOrderDetailPage({ params, searchParams }: PageProps) {
   const session = await auth();
   if (session?.user?.role !== "ADMIN" || !session.user.id) {
@@ -62,7 +38,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   const okMessage = typeof query.ok === "string" ? query.ok : "";
   const errorMessage = typeof query.error === "string" ? query.error : "";
 
-  const [order, currency, carriers] = await Promise.all([
+  const [order, currency, carriers, accounts] = await Promise.all([
     prisma.order.findUnique({
       where: { id: orderId },
       include: {
@@ -133,6 +109,11 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    prisma.account.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   if (!order) {
@@ -182,12 +163,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground">{order.code}</h1>
-            <Badge className={getOrderStatusBadgeClassName(order.status)} variant="outline">
-              {getOrderStatusLabel(order.status)}
-            </Badge>
-          </div>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">{order.code}</h1>
           <p className="text-sm text-muted-foreground">
             Venta{" "}
             <Link href="/admin/ventas" className="font-medium text-foreground hover:underline">
@@ -197,29 +173,11 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {order.status === "DRAFT" ? (
-            <OrderStatusAction orderId={order.id} status="RELEASED" label="Liberar" />
-          ) : null}
-          {order.status === "RELEASED" ? (
-            <OrderStatusAction orderId={order.id} status="IN_PRODUCTION" label="Iniciar produccion" />
-          ) : null}
-          {order.status === "READY_FOR_DISPATCH" ? (
-            <OrderStatusAction orderId={order.id} status="DISPATCHED" label="Marcar despachada" />
-          ) : null}
-          {order.status === "DISPATCHED" ? (
-            <OrderStatusAction orderId={order.id} status="COMPLETED" label="Cerrar orden" />
-          ) : null}
-          {order.status !== "COMPLETED" && order.status !== "CANCELLED" ? (
-            <form action={adminCancelOrderAction}>
-              <input type="hidden" name="returnTo" value={`/admin/ordenes/${order.id}`} />
-              <input type="hidden" name="orderId" value={order.id} />
-              <input type="hidden" name="note" value="Cancelada desde detalle" />
-              <Button type="submit" variant="destructive" size="sm" className="h-7">
-                Cancelar
-              </Button>
-            </form>
-          ) : null}
+        <div className="flex items-center gap-2">
+          <Badge className={getOrderStatusBadgeClassName(order.status)} variant="outline">
+            {getOrderStatusLabel(order.status)}
+          </Badge>
+          <OrderActionsMenu orderId={order.id} status={order.status} returnTo={returnTo} />
         </div>
       </div>
 
@@ -258,6 +216,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           orderId: order.id,
           returnTo,
           carriers,
+          accounts,
           defaultAddress: order.client.address ?? "",
           canDispatch,
           allItemsConfirmed,
@@ -298,6 +257,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                       key={item.id}
                       currency={currency}
                       returnTo={returnTo}
+                      accounts={accounts}
                       item={{
                         id: item.id,
                         orderId: order.id,

@@ -1,17 +1,25 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 import {
+  createAccountMovementUseCase,
+  createAccountUseCase,
   createShippingCostUseCase,
   createSupplierPaymentUseCase,
   deleteShippingCostUseCase,
   deleteSupplierPaymentUseCase,
+  updateAccountUseCase,
   updateShippingCostUseCase,
   updateSupplierPaymentUseCase,
 } from "@/modules/balances/application/use-cases";
 import {
+  accountCreateSchema,
+  accountMovementCreateSchema,
+  accountUpdateSchema,
   shippingCostCreateSchema,
   shippingCostUpdateSchema,
   supplierPaymentCreateSchema,
@@ -32,7 +40,28 @@ async function requireAdminSession(): Promise<string> {
     redirect("/unauthorized");
   }
 
-  return session.user.id;
+  // El id de la sesion (token JWT) puede apuntar a un usuario que ya no existe
+  // (sesion vieja). Resolvemos un User real por id o por email; si no existe
+  // ninguno, forzamos re-login para evitar errores de llave foranea.
+  const byId = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true },
+  });
+  if (byId) {
+    return byId.id;
+  }
+
+  if (session.user.email) {
+    const byEmail = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true },
+    });
+    if (byEmail) {
+      return byEmail.id;
+    }
+  }
+
+  redirect("/login");
 }
 
 function getReturnTo(formData: FormData, fallback = "/admin/balances"): string {
@@ -61,6 +90,7 @@ export async function adminCreateSupplierPaymentAction(formData: FormData): Prom
     transactionReference: getStringField(formData, "transactionReference"),
     paymentDate: getStringField(formData, "paymentDate"),
     notes: getStringField(formData, "notes") || undefined,
+    accountId: getStringField(formData, "accountId") || undefined,
   });
 
   if (!parsed.success) {
@@ -90,6 +120,7 @@ export async function adminUpdateSupplierPaymentAction(formData: FormData): Prom
     transactionReference: getStringField(formData, "transactionReference"),
     paymentDate: getStringField(formData, "paymentDate"),
     notes: getStringField(formData, "notes") || undefined,
+    accountId: getStringField(formData, "accountId") || undefined,
   });
 
   if (!parsed.success) {
@@ -103,6 +134,7 @@ export async function adminUpdateSupplierPaymentAction(formData: FormData): Prom
     transactionReference: parsed.data.transactionReference,
     paymentDate: parsed.data.paymentDate,
     notes: parsed.data.notes ?? null,
+    accountId: parsed.data.accountId,
   });
 
   revalidatePath("/admin/balances");
@@ -135,6 +167,7 @@ export async function adminCreateShippingCostAction(formData: FormData): Promise
     amount: getStringField(formData, "amount"),
     transactionReference: getStringField(formData, "transactionReference"),
     paymentDate: getStringField(formData, "paymentDate"),
+    accountId: getStringField(formData, "accountId") || undefined,
   });
 
   if (!parsed.success) {
@@ -161,6 +194,7 @@ export async function adminUpdateShippingCostAction(formData: FormData): Promise
     amount: getStringField(formData, "amount"),
     transactionReference: getStringField(formData, "transactionReference"),
     paymentDate: getStringField(formData, "paymentDate"),
+    accountId: getStringField(formData, "accountId") || undefined,
   });
 
   if (!parsed.success) {
@@ -173,6 +207,7 @@ export async function adminUpdateShippingCostAction(formData: FormData): Promise
     amount: parsed.data.amount,
     transactionReference: parsed.data.transactionReference,
     paymentDate: parsed.data.paymentDate,
+    accountId: parsed.data.accountId,
   });
 
   revalidatePath("/admin/balances");
@@ -191,4 +226,108 @@ export async function adminDeleteShippingCostAction(formData: FormData): Promise
   await deleteShippingCostUseCase(repository, shippingCostId);
   revalidatePath("/admin/balances");
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Costo eliminado" }).toString()}`);
+}
+
+export async function adminCreateAccountAction(formData: FormData): Promise<void> {
+  const createdById = await requireAdminSession();
+  const returnTo = getReturnTo(formData);
+
+  const parsed = accountCreateSchema.safeParse({
+    name: getStringField(formData, "name"),
+    type: getStringField(formData, "type"),
+    reference: getStringField(formData, "reference") || undefined,
+    openingBalance: getStringField(formData, "openingBalance") || 0,
+  });
+
+  if (!parsed.success) {
+    redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos invalidos");
+  }
+
+  try {
+    await createAccountUseCase(repository, {
+      name: parsed.data.name,
+      type: parsed.data.type,
+      reference: parsed.data.reference ?? null,
+      openingBalance: parsed.data.openingBalance,
+      createdById,
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      redirectWithError(returnTo, "Ya existe una cuenta con ese nombre");
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      redirectWithError(returnTo, "Tu sesion expiro. Cierra sesion e ingresa de nuevo.");
+    }
+    throw error;
+  }
+
+  revalidatePath("/admin/balances");
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Cuenta creada" }).toString()}`);
+}
+
+export async function adminUpdateAccountAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const returnTo = getReturnTo(formData);
+
+  const parsed = accountUpdateSchema.safeParse({
+    accountId: getStringField(formData, "accountId"),
+    name: getStringField(formData, "name"),
+    type: getStringField(formData, "type"),
+    reference: getStringField(formData, "reference") || undefined,
+    openingBalance: getStringField(formData, "openingBalance") || 0,
+    isActive: getStringField(formData, "isActive") === "true",
+  });
+
+  if (!parsed.success) {
+    redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos invalidos");
+  }
+
+  try {
+    await updateAccountUseCase(repository, parsed.data.accountId, {
+      name: parsed.data.name,
+      type: parsed.data.type,
+      reference: parsed.data.reference ?? null,
+      openingBalance: parsed.data.openingBalance,
+      isActive: parsed.data.isActive,
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      redirectWithError(returnTo, "Ya existe una cuenta con ese nombre");
+    }
+    throw error;
+  }
+
+  revalidatePath("/admin/balances");
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Cuenta actualizada" }).toString()}`);
+}
+
+export async function adminCreateAccountMovementAction(formData: FormData): Promise<void> {
+  const createdById = await requireAdminSession();
+  const returnTo = getReturnTo(formData);
+
+  const parsed = accountMovementCreateSchema.safeParse({
+    accountId: getStringField(formData, "accountId"),
+    type: getStringField(formData, "type"),
+    amount: getStringField(formData, "amount"),
+    note: getStringField(formData, "note") || undefined,
+    movementDate: getStringField(formData, "movementDate"),
+    toAccountId: getStringField(formData, "toAccountId") || undefined,
+  });
+
+  if (!parsed.success) {
+    redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos invalidos");
+  }
+
+  await createAccountMovementUseCase(repository, {
+    accountId: parsed.data.accountId,
+    type: parsed.data.type,
+    amount: parsed.data.amount,
+    note: parsed.data.note ?? null,
+    movementDate: parsed.data.movementDate,
+    toAccountId: parsed.data.toAccountId,
+    createdById,
+  });
+
+  revalidatePath("/admin/balances");
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Movimiento registrado" }).toString()}`);
 }

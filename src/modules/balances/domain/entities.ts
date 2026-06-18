@@ -60,13 +60,36 @@ export type PagedResult<T> = {
   pageCount: number;
 };
 
+export type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER";
+
+export type AccountMovementType = "IN" | "OUT" | "TRANSFER";
+
+export type Account = {
+  id: string;
+  name: string;
+  type: AccountType;
+  reference: string | null;
+  isActive: boolean;
+  openingBalance: number;
+  createdAt: Date;
+};
+
+export type AccountBalance = Account & {
+  ingreso: number;
+  gasto: number;
+  movimientos: number;
+  balance: number;
+};
+
 export type PaymentHistoryRow = SupplierPayment & {
   supplierName: string;
   saleCode: string | null;
   saleTotal: number | null;
+  accountId: string | null;
 };
 
 export type ShippingCostRow = ShippingCost & {
   saleCode: string;
   clientName: string | null;
+  accountId: string | null;
 };

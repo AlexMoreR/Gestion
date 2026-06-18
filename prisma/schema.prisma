@@ -41,6 +41,8 @@ model User {
   orderStatusChanges OrderStatusHistory[] @relation("OrderStatusHistoryChangedBy")
   supplierLedgerEntries SupplierLedgerEntry[] @relation("SupplierLedgerCreatedBy")
   shippingCostsCreated ShippingCost[]
+  accountsCreated   Account[]         @relation("AccountCreatedBy")
+  accountMovements  AccountMovement[] @relation("AccountMovementCreatedBy")
 }
 
 model Product {
@@ -134,6 +136,7 @@ model SupplierLedgerEntry {
   dispatchId  String?
   receiptUrl  String?
   receiptName String?
+  accountId   String?
   createdById String
   createdAt   DateTime           @default(now())
   supplier    Supplier           @relation(fields: [supplierId], references: [id], onDelete: Cascade)
@@ -141,6 +144,7 @@ model SupplierLedgerEntry {
   order       Order?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
   orderItem   OrderItem?         @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
   dispatch    Dispatch?          @relation(fields: [dispatchId], references: [id], onDelete: SetNull)
+  account     Account?           @relation(fields: [accountId], references: [id], onDelete: SetNull)
   createdBy   User               @relation("SupplierLedgerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([supplierId, createdAt])
@@ -148,6 +152,7 @@ model SupplierLedgerEntry {
   @@index([orderId])
   @@index([orderItemId])
   @@index([dispatchId])
+  @@index([accountId])
 }
 
 model ProductSupplier {
@@ -249,14 +254,17 @@ model ShippingCost {
   amount               Decimal  @db.Decimal(12, 2)
   transactionReference String
   paymentDate          DateTime
+  accountId            String?
   createdById          String
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   sale                 Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  account              Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   createdBy            User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([saleId, createdAt])
   @@index([createdById, createdAt])
+  @@index([accountId])
 }
 
 model SalePayment {
@@ -265,15 +273,19 @@ model SalePayment {
   amount         Decimal  @db.Decimal(12, 2)
   paymentMethod  String
   note           String?
+  paymentDate    DateTime?
   receiptUrl     String?
   receiptName    String?
   receiptType    String?
   sortOrder      Int      @default(0)
+  accountId      String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   sale           Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  account        Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
 
   @@index([saleId, sortOrder])
+  @@index([accountId])
 }
 
 model QuoteItem {
@@ -491,4 +503,53 @@ model OrderStatusHistory {
 
   @@index([orderId, createdAt])
   @@index([changedById, createdAt])
+}
+
+enum AccountType {
+  CASH
+  BANK
+  WALLET
+  OTHER
+}
+
+enum AccountMovementType {
+  IN
+  OUT
+  TRANSFER
+}
+
+model Account {
+  id             String      @id @default(cuid())
+  name           String      @unique
+  type           AccountType @default(CASH)
+  reference      String?
+  isActive       Boolean     @default(true)
+  openingBalance Decimal     @default(0) @db.Decimal(14, 2)
+  createdById    String
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  createdBy      User        @relation("AccountCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  salePayments          SalePayment[]
+  supplierLedgerEntries SupplierLedgerEntry[]
+  shippingCosts         ShippingCost[]
+  movements             AccountMovement[]
+
+  @@index([isActive])
+}
+
+model AccountMovement {
+  id           String              @id @default(cuid())
+  accountId    String
+  type         AccountMovementType
+  amount       Decimal             @db.Decimal(14, 2)
+  note         String?
+  transferId   String?
+  movementDate DateTime            @default(now())
+  createdById  String
+  createdAt    DateTime            @default(now())
+  account      Account             @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdBy    User                @relation("AccountMovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([accountId, movementDate])
+  @@index([transferId])
 }

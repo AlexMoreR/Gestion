@@ -1,14 +1,21 @@
+import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type {
   BalancesRepository,
+  CreateAccountInput,
+  CreateAccountMovementInput,
   CreateShippingCostInput,
   CreateSupplierPaymentInput,
   ListBalancesQuery,
+  UpdateAccountInput,
   UpdateShippingCostInput,
   UpdateSupplierPaymentInput,
 } from "../domain/repository";
 import type {
+  Account,
+  AccountBalance,
+  AccountType,
   DashboardMetrics,
   PagedResult,
   PaymentHistoryRow,
@@ -20,9 +27,32 @@ import type {
 } from "../domain/entities";
 import {
   calculateSaleProfitSummary,
+  summarizeAccountBalance,
   summarizeDashboardMetrics,
   summarizeSupplierBalance,
 } from "../domain/calculations";
+
+type AccountSelection = {
+  id: string;
+  name: string;
+  type: AccountType;
+  reference: string | null;
+  isActive: boolean;
+  openingBalance: Prisma.Decimal;
+  createdAt: Date;
+};
+
+function mapAccount(row: AccountSelection): Account {
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    reference: row.reference,
+    isActive: row.isActive,
+    openingBalance: toNumber(row.openingBalance),
+    createdAt: row.createdAt,
+  };
+}
 
 type PaymentSelection = {
   id: string;
@@ -32,6 +62,7 @@ type PaymentSelection = {
   transactionReference: string | null;
   paymentDate: Date | null;
   note: string | null;
+  accountId?: string | null;
   createdAt: Date;
   supplier: { name: string };
   sale: { code: string; total: Prisma.Decimal } | null;
@@ -44,6 +75,7 @@ type ShippingSelection = {
   amount: Prisma.Decimal;
   transactionReference: string;
   paymentDate: Date;
+  accountId?: string | null;
   createdAt: Date;
   sale: { code: string; client: { name: string | null } };
 };
@@ -100,6 +132,7 @@ function mapSupplierPayment(row: PaymentSelection): PaymentHistoryRow {
     supplierName: row.supplier.name,
     saleCode: row.sale?.code ?? null,
     saleTotal: row.sale ? toNumber(row.sale.total) : null,
+    accountId: row.accountId ?? null,
   };
 }
 
@@ -114,6 +147,7 @@ function mapShippingCost(row: ShippingSelection): ShippingCostRow {
     createdAt: row.createdAt,
     saleCode: row.sale.code,
     clientName: row.sale.client.name,
+    accountId: row.accountId ?? null,
   };
 }
 
@@ -268,6 +302,7 @@ export function createPrismaBalancesRepository(): BalancesRepository {
             transactionReference: true,
             paymentDate: true,
             note: true,
+            accountId: true,
             createdAt: true,
             supplier: { select: { name: true } },
             sale: { select: { code: true, total: true } },
@@ -312,6 +347,7 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           transactionReference: input.transactionReference,
           paymentDate: input.paymentDate,
           note: input.notes ?? null,
+          accountId: input.accountId ?? null,
           createdById: input.createdById,
         },
         select: {
@@ -341,6 +377,7 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           transactionReference: input.transactionReference,
           paymentDate: input.paymentDate,
           note: input.notes ?? null,
+          accountId: input.accountId ?? null,
         },
         select: {
           id: true,
@@ -394,6 +431,7 @@ export function createPrismaBalancesRepository(): BalancesRepository {
             amount: true,
             transactionReference: true,
             paymentDate: true,
+            accountId: true,
             createdAt: true,
             sale: {
               select: {
@@ -433,6 +471,7 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           amount: input.amount,
           transactionReference: input.transactionReference,
           paymentDate: input.paymentDate,
+          accountId: input.accountId ?? null,
           createdById: input.createdById,
         },
         select: {
@@ -458,6 +497,7 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           amount: input.amount,
           transactionReference: input.transactionReference,
           paymentDate: input.paymentDate,
+          accountId: input.accountId ?? null,
         },
         select: {
           id: true,
@@ -530,6 +570,189 @@ export function createPrismaBalancesRepository(): BalancesRepository {
     async getDashboardMetrics(): Promise<DashboardMetrics> {
       const sales = await getSaleProfitRows();
       return summarizeDashboardMetrics(sales);
+    },
+
+    async listAccounts(options?: { activeOnly?: boolean }): Promise<Account[]> {
+      const rows = (await prisma.account.findMany({
+        where: options?.activeOnly ? { isActive: true } : undefined,
+        orderBy: [{ isActive: "desc" }, { name: "asc" }],
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          reference: true,
+          isActive: true,
+          openingBalance: true,
+          createdAt: true,
+        } satisfies Prisma.AccountSelect,
+      })) as AccountSelection[];
+
+      return rows.map(mapAccount);
+    },
+
+    async listAccountBalances(): Promise<AccountBalance[]> {
+      const [accounts, incomeByAccount, expenseByAccount, shippingByAccount, movementsByAccount] = await Promise.all([
+        prisma.account.findMany({
+          orderBy: [{ isActive: "desc" }, { name: "asc" }],
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            reference: true,
+            isActive: true,
+            openingBalance: true,
+            createdAt: true,
+          } satisfies Prisma.AccountSelect,
+        }) as unknown as AccountSelection[],
+        prisma.salePayment.groupBy({
+          by: ["accountId"],
+          where: { accountId: { not: null } },
+          _sum: { amount: true },
+        }),
+        prisma.supplierLedgerEntry.groupBy({
+          by: ["accountId"],
+          where: { accountId: { not: null }, type: "PAYMENT" },
+          _sum: { amount: true },
+        }),
+        prisma.shippingCost.groupBy({
+          by: ["accountId"],
+          where: { accountId: { not: null } },
+          _sum: { amount: true },
+        }),
+        prisma.accountMovement.groupBy({
+          by: ["accountId", "type"],
+          _sum: { amount: true },
+        }),
+      ]);
+
+      const incomeMap = new Map<string, number>();
+      for (const row of incomeByAccount) {
+        if (row.accountId) incomeMap.set(row.accountId, toNumber(row._sum.amount));
+      }
+
+      const expenseMap = new Map<string, number>();
+      for (const row of expenseByAccount) {
+        if (row.accountId) expenseMap.set(row.accountId, toNumber(row._sum.amount));
+      }
+      for (const row of shippingByAccount) {
+        if (row.accountId) {
+          expenseMap.set(row.accountId, (expenseMap.get(row.accountId) ?? 0) + toNumber(row._sum.amount));
+        }
+      }
+
+      const movementInMap = new Map<string, number>();
+      const movementOutMap = new Map<string, number>();
+      for (const row of movementsByAccount) {
+        const amount = toNumber(row._sum.amount);
+        // TRANSFER se desglosa en filas IN/OUT al crearse, por eso solo se suman IN y OUT.
+        if (row.type === "IN") {
+          movementInMap.set(row.accountId, (movementInMap.get(row.accountId) ?? 0) + amount);
+        } else if (row.type === "OUT") {
+          movementOutMap.set(row.accountId, (movementOutMap.get(row.accountId) ?? 0) + amount);
+        }
+      }
+
+      return accounts.map((account) =>
+        summarizeAccountBalance(mapAccount(account), {
+          ingreso: incomeMap.get(account.id) ?? 0,
+          gasto: expenseMap.get(account.id) ?? 0,
+          movimientosIn: movementInMap.get(account.id) ?? 0,
+          movimientosOut: movementOutMap.get(account.id) ?? 0,
+        }),
+      );
+    },
+
+    async createAccount(input: CreateAccountInput): Promise<Account> {
+      const row = (await prisma.account.create({
+        data: {
+          name: input.name,
+          type: input.type,
+          reference: input.reference ?? null,
+          openingBalance: input.openingBalance,
+          createdById: input.createdById,
+        },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          reference: true,
+          isActive: true,
+          openingBalance: true,
+          createdAt: true,
+        } satisfies Prisma.AccountSelect,
+      })) as AccountSelection;
+
+      return mapAccount(row);
+    },
+
+    async updateAccount(accountId: string, input: UpdateAccountInput): Promise<Account> {
+      const row = (await prisma.account.update({
+        where: { id: accountId },
+        data: {
+          name: input.name,
+          type: input.type,
+          reference: input.reference ?? null,
+          openingBalance: input.openingBalance,
+          isActive: input.isActive,
+        },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          reference: true,
+          isActive: true,
+          openingBalance: true,
+          createdAt: true,
+        } satisfies Prisma.AccountSelect,
+      })) as AccountSelection;
+
+      return mapAccount(row);
+    },
+
+    async createAccountMovement(input: CreateAccountMovementInput): Promise<void> {
+      if (input.type === "TRANSFER") {
+        if (!input.toAccountId) {
+          throw new Error("La cuenta destino es obligatoria para un traslado.");
+        }
+
+        const transferId = randomUUID();
+        await prisma.$transaction([
+          prisma.accountMovement.create({
+            data: {
+              accountId: input.accountId,
+              type: "OUT",
+              amount: input.amount,
+              note: input.note ?? null,
+              transferId,
+              movementDate: input.movementDate,
+              createdById: input.createdById,
+            },
+          }),
+          prisma.accountMovement.create({
+            data: {
+              accountId: input.toAccountId,
+              type: "IN",
+              amount: input.amount,
+              note: input.note ?? null,
+              transferId,
+              movementDate: input.movementDate,
+              createdById: input.createdById,
+            },
+          }),
+        ]);
+        return;
+      }
+
+      await prisma.accountMovement.create({
+        data: {
+          accountId: input.accountId,
+          type: input.type,
+          amount: input.amount,
+          note: input.note ?? null,
+          movementDate: input.movementDate,
+          createdById: input.createdById,
+        },
+      });
     },
   };
 }

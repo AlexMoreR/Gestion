@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateSaleProfitSummary,
+  summarizeAccountBalance,
   summarizeDashboardMetrics,
   summarizeSupplierBalance,
 } from "./calculations";
+import type { Account } from "./entities";
 
 describe("balances calculations", () => {
   it("calculates sale profit with supplier and shipping costs", () => {
@@ -35,6 +37,30 @@ describe("balances calculations", () => {
     expect(result.paymentCount).toBe(2);
     expect(result.totalPaid).toBe(200);
     expect(result.lastSaleCode).toBe("SAL-002");
+  });
+
+  it("summarizes account balance: opening + ingreso - gasto + movimientos", () => {
+    const account: Account = {
+      id: "acc-1",
+      name: "Nequi1",
+      type: "WALLET",
+      reference: "3001234567",
+      isActive: true,
+      openingBalance: 100,
+      createdAt: new Date("2026-06-17T00:00:00.000Z"),
+    };
+
+    const result = summarizeAccountBalance(account, {
+      ingreso: 500,
+      gasto: 200,
+      movimientosIn: 50,
+      movimientosOut: 30,
+    });
+
+    expect(result.ingreso).toBe(500);
+    expect(result.gasto).toBe(200);
+    expect(result.movimientos).toBe(20);
+    expect(result.balance).toBe(420);
   });
 
   it("summarizes dashboard metrics", () => {

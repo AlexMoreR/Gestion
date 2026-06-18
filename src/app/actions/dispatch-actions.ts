@@ -157,6 +157,9 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
     redirect(`${returnTo}?error=Transportadora+no+encontrada`);
   }
 
+  const accountIdRaw = formData.get("accountId");
+  const accountId = typeof accountIdRaw === "string" && accountIdRaw.trim() ? accountIdRaw.trim() : null;
+
   const shippingReceiptFile = formData.get("shippingReceipt");
   const hasShippingReceipt = shippingReceiptFile instanceof File && shippingReceiptFile.size > 0;
   if (parsed.data.shippingMode === "PAY_NOW" && !hasShippingReceipt) {
@@ -261,6 +264,8 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
             amount: shippingCost,
             transactionReference: shippingReference,
             paymentDate: new Date(),
+            // La cuenta solo se asocia cuando se paga ahora (salida real de dinero).
+            accountId: parsed.data.shippingMode === "PAY_NOW" ? accountId : null,
             createdById,
           },
         });

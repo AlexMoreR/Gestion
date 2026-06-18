@@ -19,6 +19,11 @@ type CarrierOption = {
   name: string;
 };
 
+type AccountOption = {
+  id: string;
+  name: string;
+};
+
 type ActiveDispatch = {
   code: string;
   carrierName: string | null;
@@ -29,6 +34,7 @@ type OrderDispatchManagerProps = {
   orderId: string;
   returnTo: string;
   carriers: CarrierOption[];
+  accounts: AccountOption[];
   defaultAddress: string;
   canDispatch: boolean;
   allItemsConfirmed: boolean;
@@ -44,6 +50,7 @@ export function OrderDispatchManager({
   orderId,
   returnTo,
   carriers,
+  accounts,
   defaultAddress,
   canDispatch,
   allItemsConfirmed,
@@ -152,12 +159,26 @@ export function OrderDispatchManager({
                   </label>
                 </div>
                 {shippingMode === "PAY_NOW" ? (
-                  <Input
-                    type="file"
-                    name="shippingReceipt"
-                    accept="image/*,application/pdf"
-                    className="h-8 text-xs"
-                  />
+                  <div className="space-y-2">
+                    <Input
+                      type="file"
+                      name="shippingReceipt"
+                      accept="image/*,application/pdf"
+                      className="h-8 text-xs"
+                    />
+                    <select
+                      name="accountId"
+                      defaultValue=""
+                      className="h-8 w-full rounded-lg border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                      <option value="">Cuenta (origen del gasto) - opcional</option>
+                      {accounts.map((account) => (
+                        <option key={account.id} value={account.id}>
+                          {account.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 ) : null}
               </div>
 

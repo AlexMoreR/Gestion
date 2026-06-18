@@ -1,8 +1,11 @@
 import type {
   BalancesRepository,
+  CreateAccountInput,
+  CreateAccountMovementInput,
   CreateShippingCostInput,
   CreateSupplierPaymentInput,
   ListBalancesQuery,
+  UpdateAccountInput,
   UpdateShippingCostInput,
   UpdateSupplierPaymentInput,
 } from "../domain/repository";
@@ -59,4 +62,31 @@ export async function getDashboardMetricsUseCase(repository: BalancesRepository)
 
 export async function getProfitReportUseCase(repository: BalancesRepository, query: ListBalancesQuery) {
   return repository.listProfitReport(query);
+}
+
+export async function listAccountsUseCase(repository: BalancesRepository, options?: { activeOnly?: boolean }) {
+  return repository.listAccounts(options);
+}
+
+export async function listAccountBalancesUseCase(repository: BalancesRepository) {
+  return repository.listAccountBalances();
+}
+
+export async function createAccountUseCase(repository: BalancesRepository, input: CreateAccountInput) {
+  return repository.createAccount(input);
+}
+
+export async function updateAccountUseCase(
+  repository: BalancesRepository,
+  accountId: string,
+  input: UpdateAccountInput,
+) {
+  return repository.updateAccount(accountId, input);
+}
+
+export async function createAccountMovementUseCase(
+  repository: BalancesRepository,
+  input: CreateAccountMovementInput,
+) {
+  return repository.createAccountMovement(input);
 }

@@ -27,13 +27,14 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
-  const [currency, metrics, supplierBalances, paymentHistory, shippingCosts, profitReport, sales, suppliers] = await Promise.all([
+  const [currency, metrics, supplierBalances, paymentHistory, shippingCosts, profitReport, accounts, sales, suppliers] = await Promise.all([
     getSystemCurrency(),
     repository.getDashboardMetrics(),
     repository.listSupplierBalances(),
     repository.listSupplierPayments({ page: 1, pageSize: 500, sortBy: "date", sortDirection: "desc" }),
     repository.listShippingCosts({ page: 1, pageSize: 500, sortBy: "date", sortDirection: "desc" }),
     repository.listProfitReport({ page: 1, pageSize: 500, sortBy: "date", sortDirection: "desc" }),
+    repository.listAccountBalances(),
     prisma.sale.findMany({
       orderBy: { createdAt: "desc" },
       take: 200,
@@ -66,6 +67,7 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
         paymentHistory={paymentHistory.items}
         shippingCosts={shippingCosts.items}
         profitReport={profitReport.items}
+        accounts={accounts}
         sales={sales.map((sale) => ({
           id: sale.id,
           code: sale.code,

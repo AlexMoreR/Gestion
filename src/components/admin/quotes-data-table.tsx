@@ -10,15 +10,12 @@ import {
   ArrowUpRight,
   CalendarDays,
   BadgeDollarSign,
-  CreditCard,
   Edit3,
   FileText,
   MoreHorizontal,
-  Paperclip,
   Plus,
   ShoppingCart,
   Trash2,
-  Upload,
   User2,
   X,
 } from "lucide-react";
@@ -50,7 +47,6 @@ import { useFormStatus } from "react-dom";
 type QuoteStatus = "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED";
 type SortKey = "cotizacion" | "cliente" | "estado" | "total" | "fecha" | "acciones";
 type SortDirection = "asc" | "desc";
-type PaymentMethod = "EFECTIVO" | "TARJETA" | "TRANSFERENCIA" | "OTRO";
 
 type QuoteRow = {
   id: string;
@@ -64,9 +60,18 @@ type QuoteRow = {
   hasSale: boolean;
 };
 
+type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER";
+
+type AccountOption = {
+  id: string;
+  name: string;
+  type: AccountType;
+};
+
 type QuotesDataTableProps = {
   quotes: QuoteRow[];
   currency: SupportedCurrencyCode;
+  accounts: AccountOption[];
 };
 
 type SaleAttachmentDraft = {
@@ -74,9 +79,16 @@ type SaleAttachmentDraft = {
   amount: string;
   file: File | null;
   previewUrl: string | null;
-  paymentMethod: PaymentMethod | "";
+  accountId: string;
   note: string;
+  paymentDate: string;
 };
+
+function todayInputValue(): string {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
 
 type SaleInstallmentValidation = {
   canSubmit: boolean;
@@ -86,13 +98,6 @@ type SaleInstallmentValidation = {
   summaryErrors: string[];
   installmentErrors: Record<string, string[]>;
 };
-
-const PAYMENT_METHOD_OPTIONS: Array<{ value: PaymentMethod; label: string }> = [
-  { value: "EFECTIVO", label: "Efectivo" },
-  { value: "TARJETA", label: "Tarjeta" },
-  { value: "TRANSFERENCIA", label: "Transferencia" },
-  { value: "OTRO", label: "Otro" },
-];
 
 const ALLOWED_RECEIPT_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".pdf"]);
 const ALLOWED_RECEIPT_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
@@ -132,34 +137,13 @@ function statusBadgeClassName(status: QuoteStatus): string {
   }
 }
 
-function paymentMethodLabel(value: PaymentMethod): string {
-  return PAYMENT_METHOD_OPTIONS.find((item) => item.value === value)?.label ?? value;
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function getAttachmentKind(file: File | null): "image" | "pdf" | "other" {
-  if (!file) return "other";
-  if (file.type.startsWith("image/")) return "image";
-  if (file.type === "application/pdf") return "pdf";
-
-  const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
-  if ([".jpg", ".jpeg", ".png", ".webp"].includes(extension)) return "image";
-  if (extension === ".pdf") return "pdf";
-  return "other";
-}
-
 function getAttachmentValidationError(file: File): string | null {
   if (!(file instanceof File) || file.size <= 0) {
     return "No se pudo leer uno de los archivos adjuntos.";
   }
 
   if (file.size > MAX_RECEIPT_BYTES) {
-    return `El archivo ${file.name} supera el tamaÃ±o mÃ¡ximo permitido de 12 MB.`;
+    return `El archivo ${file.name} supera el tamaño máximo permitido de 12 MB.`;
   }
 
   const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
@@ -170,14 +154,6 @@ function getAttachmentValidationError(file: File): string | null {
   }
 
   return null;
-}
-
-function normalizeFileName(name: string): string {
-  return name.trim() || "archivo-adjunto";
-}
-
-function formatNumberInput(value: number): string {
-  return Number.isFinite(value) ? value.toFixed(2) : "";
 }
 
 function parseMoneyInput(value: string): number {
@@ -192,11 +168,14 @@ function validateSaleInstallments({
   quoteTotal,
   discountAmount,
   installments,
+  accounts,
 }: {
   quoteTotal: number;
   discountAmount: string;
   installments: SaleAttachmentDraft[];
+  accounts: AccountOption[];
 }): SaleInstallmentValidation {
+  const accountById = new Map(accounts.map((account) => [account.id, account]));
   const parsedDiscount = parseMoneyInput(discountAmount);
   const discountIsValid = Number.isFinite(parsedDiscount) && parsedDiscount >= 0 && parsedDiscount < quoteTotal;
   const discountValue = discountIsValid ? parsedDiscount : 0;
@@ -211,26 +190,27 @@ function validateSaleInstallments({
   }
 
   if (!Number.isFinite(parsedDiscount) || parsedDiscount < 0) {
-    summaryErrors.push("El descuento debe ser un nÃºmero vÃ¡lido y no puede ser negativo.");
+    summaryErrors.push("El descuento debe ser un número válido y no puede ser negativo.");
   } else if (parsedDiscount >= quoteTotal) {
-    summaryErrors.push("El descuento debe ser menor al valor bruto de la cotizaciÃ³n.");
+    summaryErrors.push("El descuento debe ser menor al valor bruto de la cotización.");
   }
 
   installments.forEach((installment) => {
     const errors: string[] = [];
     const amount = parseMoneyInput(installment.amount);
     const hasValidAmount = Number.isFinite(amount) && amount > 0;
-    const hasPaymentMethod = installment.paymentMethod !== "";
-    const requiresReceipt = hasPaymentMethod && installment.paymentMethod !== "EFECTIVO";
+    const selectedAccount = installment.accountId ? accountById.get(installment.accountId) : undefined;
+    const hasAccount = Boolean(selectedAccount);
+    const requiresReceipt = hasAccount && selectedAccount?.type !== "CASH";
 
     if (!hasValidAmount) {
-      errors.push("Ingresa un monto vÃ¡lido mayor a cero.");
+      errors.push("Ingresa un monto válido mayor a cero.");
     } else {
       totalInstallments += amount;
     }
 
-    if (!hasPaymentMethod) {
-      errors.push("Selecciona un mÃ©todo de pago.");
+    if (!hasAccount) {
+      errors.push("Selecciona un método de pago.");
     }
 
     if (requiresReceipt && !installment.file) {
@@ -360,480 +340,10 @@ function SaleSubmitButton({ disabled, className }: { disabled: boolean; classNam
   );
 }
 
-function AttachmentThumb({ kind, previewUrl }: { kind: "image" | "pdf" | "other"; previewUrl: string | null }) {
-  if (kind === "image" && previewUrl) {
-    return (
-      // Blob URLs are only available on the client and are revoked by the parent.
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={previewUrl} alt="" className="h-16 w-16 rounded-xl border border-border object-cover" />
-    );
-  }
-
-  return (
-    <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-border bg-muted/60 text-muted-foreground">
-      <FileText className="h-7 w-7" />
-    </div>
-  );
-}
-
-function AttachmentCard({
-  attachment,
-  active,
-  onClick,
-  onRemove,
-}: {
-  attachment: SaleAttachmentDraft;
-  active: boolean;
-  onClick: () => void;
-  onRemove: () => void;
-}) {
-  const kind = getAttachmentKind(attachment.file);
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onClick();
-        }
-      }}
-      className={`group flex w-full cursor-pointer gap-3 rounded-xl border p-3 text-left transition-colors ${
-        active ? "border-ring bg-muted/60 shadow-sm" : "border-border bg-background hover:bg-muted/30"
-      }`}
-    >
-      <AttachmentThumb kind={kind} previewUrl={attachment.previewUrl} />
-      <div className="min-w-0 flex-1 space-y-1">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-foreground">{attachment.file?.name ?? "Sin comprobante"}</p>
-            <p className="text-xs text-muted-foreground">
-              {kind === "image" ? "Imagen" : kind === "pdf" ? "PDF" : "Archivo"} Â· {formatFileSize(attachment.file!.size)}
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
-            onClick={(event) => {
-              event.stopPropagation();
-              onRemove();
-            }}
-            aria-label="Eliminar adjunto"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="outline" className="border-border bg-muted/40 text-foreground">
-            <Paperclip className="h-3 w-3" />
-            {attachment.paymentMethod ? paymentMethodLabel(attachment.paymentMethod) : "Sin medio"}
-          </Badge>
-          {attachment.note ? (
-            <Badge variant="outline" className="border-border bg-muted/40 text-foreground">
-              Nota
-            </Badge>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AttachmentEditor({
-  attachment,
-  onPaymentMethodChange,
-  onNoteChange,
-}: {
-  attachment: SaleAttachmentDraft;
-  onPaymentMethodChange: (value: PaymentMethod | "") => void;
-  onNoteChange: (value: string) => void;
-}) {
-  const kind = getAttachmentKind(attachment.file);
-  const paymentMethodFieldId = `payment-method-${attachment.id}`;
-  const noteFieldId = `payment-note-${attachment.id}`;
-
-  return (
-    <div className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-start gap-3">
-        <AttachmentThumb kind={kind} previewUrl={attachment.previewUrl} />
-        <div className="min-w-0 flex-1 space-y-1">
-          <p className="truncate text-sm font-semibold text-foreground">{attachment.file?.name ?? "Sin comprobante"}</p>
-          <p className="text-xs text-muted-foreground">
-            {kind === "image" ? "Imagen" : kind === "pdf" ? "PDF" : "Archivo"} Â· {formatFileSize(attachment.file!.size)}
-          </p>
-          <div className="flex flex-wrap gap-2 pt-1">
-            <Badge variant="outline" className="border-border bg-muted/40 text-foreground">
-              <CreditCard className="h-3 w-3" />
-              {attachment.paymentMethod ? paymentMethodLabel(attachment.paymentMethod) : "Medio pendiente"}
-            </Badge>
-            {attachment.note ? (
-              <Badge variant="outline" className="border-border bg-muted/40 text-foreground">
-                ObservaciÃ³n activa
-              </Badge>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <label htmlFor={paymentMethodFieldId} className="text-xs font-medium text-foreground">
-          Medio de pago
-        </label>
-        <select
-          id={paymentMethodFieldId}
-          name="paymentReceiptMethods"
-          required
-          value={attachment.paymentMethod}
-          onChange={(event) => onPaymentMethodChange(event.target.value as PaymentMethod | "")}
-          className="h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-        >
-          <option value="">Seleccionar medio de pago</option>
-          {PAYMENT_METHOD_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="space-y-1.5">
-        <label htmlFor={noteFieldId} className="text-xs font-medium text-foreground">
-          ObservaciÃ³n opcional
-        </label>
-        <Textarea
-          id={noteFieldId}
-          name="paymentReceiptNotes"
-          value={attachment.note}
-          onChange={(event) => onNoteChange(event.target.value)}
-          placeholder="Ej: Tarjeta dÃ©bito Bancolombia â€” cuota 1 de 3"
-          className="min-h-28 resize-none bg-background"
-        />
-      </div>
-    </div>
-  );
-}
-
-function SendToSalesModal({
-  open,
-  quote,
-  currency,
-  attachments,
-  selectedAttachmentId,
-  downPaymentAmount,
-  discountAmount,
-  attachmentError,
-  isDragging,
-  isSaleReady,
-  onClose,
-  onDrop,
-  onDragStateChange,
-  onOpenPicker,
-  onFileInputChange,
-  onRemoveAttachment,
-  onSelectAttachment,
-  onPaymentMethodChange,
-  onNoteChange,
-  onDownPaymentAmountChange,
-  onDiscountAmountChange,
-  onSubmit,
-  fileInputRef,
-}: {
-  open: boolean;
-  quote: QuoteRow | null;
-  currency: SupportedCurrencyCode;
-  attachments: SaleAttachmentDraft[];
-  selectedAttachmentId: string | null;
-  downPaymentAmount: string;
-  discountAmount: string;
-  attachmentError: string;
-  isDragging: boolean;
-  isSaleReady: boolean;
-  onClose: () => void;
-  onDrop: (event: React.DragEvent<HTMLButtonElement>) => void;
-  onDragStateChange: (value: boolean) => void;
-  onOpenPicker: () => void;
-  onFileInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onRemoveAttachment: (id: string) => void;
-  onSelectAttachment: (id: string) => void;
-  onPaymentMethodChange: (id: string, value: PaymentMethod | "") => void;
-  onNoteChange: (id: string, value: string) => void;
-  onDownPaymentAmountChange: (value: string) => void;
-  onDiscountAmountChange: (value: string) => void;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-  fileInputRef: React.RefObject<HTMLInputElement | null>;
-}) {
-  const selectedAttachment = attachments.find((item) => item.id === selectedAttachmentId) ?? attachments[0] ?? null;
-
-  React.useEffect(() => {
-    if (!open) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
-
-  React.useEffect(() => {
-    if (!open) return;
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = originalOverflow;
-    };
-  }, [open]);
-
-  if (!open || !quote) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative flex min-h-full items-start justify-center p-0 sm:p-4">
-        <div className="flex min-h-[100dvh] w-full max-w-6xl flex-col overflow-hidden bg-background shadow-2xl sm:min-h-0 sm:max-h-[92vh] sm:rounded-2xl sm:border sm:border-border">
-          <div className="flex items-start justify-between gap-4 border-b border-border bg-background px-4 py-4 sm:px-6">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-base font-semibold text-foreground">Enviar a ventas</h2>
-                <Badge variant="outline" className="border-border bg-muted/40 text-foreground">
-                  {quote.code}
-                </Badge>
-                <Badge variant="outline" className="border-border bg-muted/40 text-foreground">
-                  {attachments.length} adjuntos
-                </Badge>
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Adjunte comprobantes, asigne el medio de pago por archivo y deje observaciones si aplica.
-              </p>
-            </div>
-            <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={onClose} aria-label="Cerrar">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <form action={adminCreateSaleFromQuoteAction} className="flex min-h-0 flex-1 flex-col" onSubmit={onSubmit}>
-          <input type="hidden" name="returnTo" value="/admin/cotizaciones" />
-          <input type="hidden" name="quoteId" value={quote.id} />
-          <input
-            ref={fileInputRef}
-            type="file"
-              name="paymentReceipts"
-              multiple
-              accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
-              className="hidden"
-              onChange={onFileInputChange}
-            />
-
-            <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[22rem_minmax(0,1fr)]">
-              <aside className="min-h-0 border-b border-border bg-muted/20 p-4 lg:border-b-0 lg:border-r">
-                <div className="space-y-4">
-                  <div className="grid gap-3 rounded-2xl border border-border bg-card p-3 text-sm sm:grid-cols-3">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Valor bruto</p>
-                      <p className="font-semibold text-foreground">{formatMoney(quote.total, currency)}</p>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-foreground" htmlFor="discountAmount">
-                        Descuento
-                      </label>
-                      <Input
-                        id="discountAmount"
-                        name="discountAmount"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        max={quote.total}
-                        value={discountAmount}
-                        onChange={(event) => onDiscountAmountChange(event.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Valor real</p>
-                      <p className="font-semibold text-foreground">
-                        {formatMoney(Math.max(quote.total - Number(discountAmount || 0), 0), currency)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground" htmlFor="downPaymentAmount">
-                      Monto del abono
-                    </label>
-                    <Input
-                      id="downPaymentAmount"
-                      name="downPaymentAmount"
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      required
-                      value={downPaymentAmount}
-                      onChange={(event) => onDownPaymentAmountChange(event.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Este valor es obligatorio antes de crear la venta.
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-dashed border-border bg-background p-4 transition-colors">
-                    <button
-                      type="button"
-                      onClick={onOpenPicker}
-                      onDragEnter={(event) => {
-                        event.preventDefault();
-                        onDragStateChange(true);
-                      }}
-                      onDragOver={(event) => {
-                        event.preventDefault();
-                        onDragStateChange(true);
-                      }}
-                      onDragLeave={(event) => {
-                        event.preventDefault();
-                        onDragStateChange(false);
-                      }}
-                      onDrop={onDrop}
-                      className={`flex w-full items-start gap-3 rounded-xl outline-none transition-colors ${
-                        isDragging ? "bg-muted/60" : "hover:bg-muted/30"
-                      }`}
-                    >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground">
-                        <Upload className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1 text-left">
-                        <p className="text-sm font-medium text-foreground">Arrastra archivos o haz clic para agregarlos</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          JPG, PNG, WEBP o PDF. Puedes agregar mÃ¡s archivos sin reiniciar el flujo.
-                        </p>
-                      </div>
-                    </button>
-                  </div>
-
-                  {attachmentError ? (
-                    <div
-                      role="alert"
-                      className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-                    >
-                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                      <p>{attachmentError}</p>
-                    </div>
-                  ) : null}
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-sm font-semibold text-foreground">Adjuntos</h3>
-                      <Button type="button" variant="outline" size="sm" className="gap-2" onClick={onOpenPicker}>
-                        <Plus className="h-4 w-4" />
-                        Agregar
-                      </Button>
-                    </div>
-
-                    <div className="max-h-[34vh] space-y-2 overflow-y-auto pr-1 lg:max-h-[42vh]">
-                      {attachments.length === 0 ? (
-                        <div className="rounded-xl border border-border bg-card px-4 py-6 text-sm text-muted-foreground">
-                          Aun no hay adjuntos. Agrega al menos un archivo con su medio de pago para habilitar el envÃ­o.
-                        </div>
-                      ) : (
-                        attachments.map((attachment) => (
-                          <AttachmentCard
-                            key={attachment.id}
-                            attachment={attachment}
-                            active={attachment.id === selectedAttachment?.id}
-                            onClick={() => onSelectAttachment(attachment.id)}
-                            onRemove={() => onRemoveAttachment(attachment.id)}
-                          />
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </aside>
-
-              <section className="min-h-0 bg-background p-4 sm:p-5">
-                <div className="flex min-h-0 flex-col gap-4">
-                  <div className="rounded-2xl border border-border bg-muted/20 p-4">
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div>
-                        <p className="text-xs text-muted-foreground">CotizaciÃ³n</p>
-                        <p className="font-semibold text-foreground">{quote.code}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Cliente</p>
-                        <p className="font-semibold text-foreground">{quote.clientName}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Estado</p>
-                        <p className="font-semibold text-foreground">{quote.hasSale ? "Ya enviada" : "Lista para envÃ­o"}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="min-h-0 flex-1">
-                    {selectedAttachment ? (
-                      <AttachmentEditor
-                        attachment={selectedAttachment}
-                        onPaymentMethodChange={(value) => onPaymentMethodChange(selectedAttachment.id, value)}
-                        onNoteChange={(value) => onNoteChange(selectedAttachment.id, value)}
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center">
-                        <div className="max-w-sm space-y-2">
-                          <p className="text-sm font-medium text-foreground">No hay adjuntos para editar</p>
-                          <p className="text-sm text-muted-foreground">
-                            Agrega uno o mÃ¡s archivos para empezar. El detalle del archivo activo aparecerÃ¡ aquÃ­.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="rounded-2xl border border-border bg-muted/20 p-4">
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Adjuntos</p>
-                        <p className="font-semibold text-foreground">{attachments.length}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Con medio</p>
-                        <p className="font-semibold text-foreground">
-                          {attachments.filter((attachment) => attachment.paymentMethod).length}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Listo para enviar</p>
-                        <p className="font-semibold text-foreground">{isSaleReady ? "SÃ­" : "No"}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </section>
-            </div>
-
-            <footer className="border-t border-border bg-background px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:pb-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-muted-foreground">
-                  El envÃ­o se habilita solo cuando exista al menos un adjunto con medio de pago seleccionado.
-                </p>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                  <Button type="button" variant="outline" onClick={onClose} className="w-full sm:w-auto">
-                    Cancelar
-                  </Button>
-                  <SaleSubmitButton disabled={!isSaleReady || attachments.length === 0} className="w-full sm:w-auto" />
-                </div>
-              </div>
-            </footer>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function SaleInstallmentCard({
   installment,
   currency,
+  accounts,
   active,
   errors,
   onClick,
@@ -841,12 +351,14 @@ function SaleInstallmentCard({
 }: {
   installment: SaleAttachmentDraft;
   currency: SupportedCurrencyCode;
+  accounts: AccountOption[];
   active: boolean;
   errors?: string[];
   onClick: () => void;
   onRemove: () => void;
 }) {
   const hasFile = Boolean(installment.file);
+  const accountName = accounts.find((account) => account.id === installment.accountId)?.name ?? "";
 
   return (
     <div
@@ -873,8 +385,8 @@ function SaleInstallmentCard({
               Abono {installment.amount ? formatMoney(Number(installment.amount || 0), currency) : ""}
             </p>
             <p className="text-xs text-muted-foreground">
-              {installment.paymentMethod ? paymentMethodLabel(installment.paymentMethod) : "Sin mÃ©todo"}
-              {hasFile ? " Â· Con comprobante" : " Â· Sin comprobante"}
+              {accountName || "Sin método"}
+              {hasFile ? " · Con comprobante" : " · Sin comprobante"}
             </p>
           </div>
           <Button
@@ -892,7 +404,7 @@ function SaleInstallmentCard({
           </Button>
         </div>
         {installment.note ? <p className="text-xs text-muted-foreground">{installment.note}</p> : null}
-        {errors && errors.length > 0 ? <p className="text-xs text-destructive">{errors.join(" Â· ")}</p> : null}
+        {errors && errors.length > 0 ? <p className="text-xs text-destructive">{errors.join(" · ")}</p> : null}
       </div>
     </div>
   );
@@ -901,34 +413,55 @@ function SaleInstallmentCard({
 function SaleInstallmentEditor({
   installment,
   currency,
+  accounts,
   onAmountChange,
-  onPaymentMethodChange,
+  onAccountChange,
   onReceiptChange,
   onNoteChange,
+  onPaymentDateChange,
   errors,
 }: {
   installment: SaleAttachmentDraft;
   currency: SupportedCurrencyCode;
+  accounts: AccountOption[];
   onAmountChange: (value: string) => void;
-  onPaymentMethodChange: (value: PaymentMethod | "") => void;
+  onAccountChange: (value: string) => void;
   onReceiptChange: (file: File | null) => void;
   onNoteChange: (value: string) => void;
+  onPaymentDateChange: (value: string) => void;
   errors?: string[];
 }) {
   const amountId = `payment-amount-${installment.id}`;
   const methodId = `payment-method-${installment.id}`;
   const receiptId = `payment-receipt-${installment.id}`;
   const noteId = `payment-note-${installment.id}`;
-  const requiresReceipt = installment.paymentMethod !== "" && installment.paymentMethod !== "EFECTIVO";
+  const dateId = `payment-date-${installment.id}`;
+  const selectedAccount = accounts.find((account) => account.id === installment.accountId);
+  const requiresReceipt = Boolean(selectedAccount) && selectedAccount?.type !== "CASH";
 
   return (
     <div className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <div className="space-y-1">
-        <p className="text-sm font-semibold text-foreground">Detalle del abono</p>
-        <p className="text-xs text-muted-foreground">
-          Suma: {formatMoney(Number(installment.amount || 0), currency)}
-        </p>
-        {errors && errors.length > 0 ? <p className="text-xs text-destructive">{errors.join(" Â· ")}</p> : null}
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-foreground">Detalle del abono</p>
+          <p className="text-xs text-muted-foreground">
+            Suma: {formatMoney(Number(installment.amount || 0), currency)}
+          </p>
+          {errors && errors.length > 0 ? <p className="text-xs text-destructive">{errors.join(" · ")}</p> : null}
+        </div>
+        <div className="shrink-0 space-y-1">
+          <label htmlFor={dateId} className="block text-right text-xs font-medium text-foreground">
+            Fecha del abono
+          </label>
+          <Input
+            id={dateId}
+            type="date"
+            max={todayInputValue()}
+            value={installment.paymentDate}
+            onChange={(event) => onPaymentDateChange(event.target.value)}
+            className="w-40"
+          />
+        </div>
       </div>
 
       <div className="space-y-1.5">
@@ -953,17 +486,22 @@ function SaleInstallmentEditor({
         <select
           id={methodId}
           required
-          value={installment.paymentMethod}
-          onChange={(event) => onPaymentMethodChange(event.target.value as PaymentMethod | "")}
+          value={installment.accountId}
+          onChange={(event) => onAccountChange(event.target.value)}
           className="h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <option value="">Seleccionar metodo</option>
-          {PAYMENT_METHOD_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
+          {accounts.map((account) => (
+            <option key={account.id} value={account.id}>
+              {account.name}
             </option>
           ))}
         </select>
+        {accounts.length === 0 ? (
+          <p className="text-xs text-destructive">
+            No hay cuentas registradas. Crea una en Balances → Cuentas.
+          </p>
+        ) : null}
       </div>
 
       <div className="space-y-1.5">
@@ -979,9 +517,9 @@ function SaleInstallmentEditor({
           onChange={(event) => onReceiptChange(event.currentTarget.files?.[0] ?? null)}
         />
         <p className="text-xs text-muted-foreground">
-          {installment.paymentMethod === "EFECTIVO"
-            ? "Opcional para efectivo."
-            : "Requerido para tarjeta, transferencia u otros medios."}
+          {selectedAccount && selectedAccount.type === "CASH"
+            ? "Opcional para cuentas de efectivo."
+            : "Requerido para cuentas que no son de efectivo."}
         </p>
       </div>
 
@@ -1027,8 +565,9 @@ function SaleInstallmentSubmissionBridge({
       {installments.map((installment) => (
         <div key={installment.id} className="hidden">
           <input type="hidden" name="paymentReceiptAmounts" value={installment.amount} />
-          <input type="hidden" name="paymentReceiptMethods" value={installment.paymentMethod} />
+          <input type="hidden" name="paymentReceiptAccounts" value={installment.accountId} />
           <input type="hidden" name="paymentReceiptNotes" value={installment.note} />
+          <input type="hidden" name="paymentReceiptDates" value={installment.paymentDate} />
           <input type="hidden" name="paymentReceiptHasFile" value={installment.file ? "true" : "false"} />
           <input
             ref={(node) => {
@@ -1048,6 +587,7 @@ function SaleInstallmentsModal({
   open,
   quote,
   currency,
+  accounts,
   installments,
   selectedInstallmentId,
   discountAmount,
@@ -1058,15 +598,17 @@ function SaleInstallmentsModal({
   onRemoveInstallment,
   onSelectInstallment,
   onAttachmentAmountChange,
-  onPaymentMethodChange,
+  onAccountChange,
   onReceiptChange,
   onNoteChange,
+  onPaymentDateChange,
   onDiscountAmountChange,
   onSubmit,
 }: {
   open: boolean;
   quote: QuoteRow | null;
   currency: SupportedCurrencyCode;
+  accounts: AccountOption[];
   installments: SaleAttachmentDraft[];
   selectedInstallmentId: string | null;
   discountAmount: string;
@@ -1077,9 +619,10 @@ function SaleInstallmentsModal({
   onRemoveInstallment: (id: string) => void;
   onSelectInstallment: (id: string | null) => void;
   onAttachmentAmountChange: (id: string, value: string) => void;
-  onPaymentMethodChange: (id: string, value: PaymentMethod | "") => void;
+  onAccountChange: (id: string, value: string) => void;
   onReceiptChange: (id: string, file: File | null) => void;
   onNoteChange: (id: string, value: string) => void;
+  onPaymentDateChange: (id: string, value: string) => void;
   onDiscountAmountChange: (value: string) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
@@ -1144,8 +687,8 @@ function SaleInstallmentsModal({
                   <div className="rounded-2xl border border-border bg-card p-3">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div>
-                        <p className="text-xs text-muted-foreground">Capital bruto</p>
-                        <p className="font-semibold text-foreground">{formatMoney(quote ? quote.total : 0, currency)}</p>
+                        <p className="text-xs text-muted-foreground">Total</p>
+                        <p className="font-semibold text-foreground">{formatMoney(validation.capitalTotal, currency)}</p>
                       </div>
                       <div>
                         <label className="mb-1 block text-xs font-medium text-foreground" htmlFor="discountAmount">
@@ -1162,14 +705,10 @@ function SaleInstallmentsModal({
                         />
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Capital neto</p>
-                        <p className="font-semibold text-foreground">{formatMoney(validation.capitalTotal, currency)}</p>
-                      </div>
-                      <div>
                         <p className="text-xs text-muted-foreground">Abonos</p>
                         <p className="font-semibold text-foreground">{formatMoney(validation.totalInstallments, currency)}</p>
                       </div>
-                      <div className="sm:col-span-2">
+                      <div>
                         <p className="text-xs text-muted-foreground">Restante</p>
                         <p className="font-semibold text-foreground">{formatMoney(validation.remainingBalance, currency)}</p>
                       </div>
@@ -1191,6 +730,7 @@ function SaleInstallmentsModal({
                           key={installment.id}
                           installment={installment}
                           currency={currency}
+                          accounts={accounts}
                           active={installment.id === selectedInstallment?.id}
                           errors={validation.installmentErrors[installment.id]}
                           onClick={() => onSelectInstallment(installment.id)}
@@ -1220,21 +760,16 @@ function SaleInstallmentsModal({
 
               <section className="min-h-0 bg-background p-4 sm:p-5">
                 <div className="space-y-3">
-                  <div className="rounded-2xl border border-border bg-muted/20 p-4">
-                    <p className="text-sm font-semibold text-foreground">Detalle de abonos</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Cada bloque se guarda de forma independiente. El total de abonos debe coincidir con lo registrado abajo.
-                    </p>
-                  </div>
-
                   {selectedInstallment ? (
                     <SaleInstallmentEditor
                       installment={selectedInstallment}
                       currency={currency}
+                      accounts={accounts}
                       onAmountChange={(value) => onAttachmentAmountChange(selectedInstallment.id, value)}
-                      onPaymentMethodChange={(value) => onPaymentMethodChange(selectedInstallment.id, value)}
+                      onAccountChange={(value) => onAccountChange(selectedInstallment.id, value)}
                       onReceiptChange={(file) => onReceiptChange(selectedInstallment.id, file)}
                       onNoteChange={(value) => onNoteChange(selectedInstallment.id, value)}
+                      onPaymentDateChange={(value) => onPaymentDateChange(selectedInstallment.id, value)}
                       errors={validation.installmentErrors[selectedInstallment.id]}
                     />
                   ) : (
@@ -1273,7 +808,7 @@ function SaleInstallmentsModal({
   );
 }
 
-export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
+export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableProps) {
   const [sortKey, setSortKey] = React.useState<SortKey>("cotizacion");
   const [sortDirection, setSortDirection] = React.useState<SortDirection>("desc");
   const [pendingDelete, setPendingDelete] = React.useState<{ id: string; code: string } | null>(null);
@@ -1282,8 +817,6 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
   const [saleAttachments, setSaleAttachments] = React.useState<SaleAttachmentDraft[]>([]);
   const [attachmentError, setAttachmentError] = React.useState("");
   const [selectedAttachmentId, setSelectedAttachmentId] = React.useState<string | null>(null);
-  const [isDragging, setIsDragging] = React.useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const saleLoadingToastRef = React.useRef<string | number | null>(null);
   const saleAttachmentsRef = React.useRef<SaleAttachmentDraft[]>([]);
 
@@ -1339,8 +872,9 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
       quoteTotal: pendingSale?.total ?? 0,
       discountAmount,
       installments: saleAttachments,
+      accounts,
     });
-  }, [discountAmount, pendingSale?.total, saleAttachments]);
+  }, [accounts, discountAmount, pendingSale?.total, saleAttachments]);
 
   React.useEffect(() => {
     if (!attachmentError) return;
@@ -1374,7 +908,6 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
     setSaleAttachments([]);
     setAttachmentError("");
     setSelectedAttachmentId(null);
-    setIsDragging(false);
   }, []);
 
   const openSaleModal = React.useCallback(
@@ -1389,8 +922,9 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
           amount: quote.total.toFixed(2),
           file: null,
           previewUrl: null,
-          paymentMethod: "",
+          accountId: "",
           note: "",
+          paymentDate: todayInputValue(),
         },
       ]);
       setSelectedAttachmentId(null);
@@ -1404,8 +938,9 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
       amount: "",
       file: null,
       previewUrl: null,
-      paymentMethod: "",
+      accountId: "",
       note: "",
+      paymentDate: todayInputValue(),
       ...overrides,
     }),
     [],
@@ -1442,8 +977,8 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
     setSaleAttachments((current) => current.map((item) => (item.id === attachmentId ? { ...item, amount: value } : item)));
   }, []);
 
-  const updateAttachmentPaymentMethod = React.useCallback((attachmentId: string, value: PaymentMethod | "") => {
-    setSaleAttachments((current) => current.map((item) => (item.id === attachmentId ? { ...item, paymentMethod: value } : item)));
+  const updateAttachmentAccount = React.useCallback((attachmentId: string, value: string) => {
+    setSaleAttachments((current) => current.map((item) => (item.id === attachmentId ? { ...item, accountId: value } : item)));
   }, []);
 
   const updateAttachmentFile = React.useCallback((attachmentId: string, file: File | null) => {
@@ -1473,6 +1008,10 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
 
   const updateAttachmentNote = React.useCallback((attachmentId: string, value: string) => {
     setSaleAttachments((current) => current.map((item) => (item.id === attachmentId ? { ...item, note: value } : item)));
+  }, []);
+
+  const updateAttachmentPaymentDate = React.useCallback((attachmentId: string, value: string) => {
+    setSaleAttachments((current) => current.map((item) => (item.id === attachmentId ? { ...item, paymentDate: value } : item)));
   }, []);
 
   const confirmDelete = () => {
@@ -1636,6 +1175,7 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
         open={Boolean(pendingSale)}
         quote={pendingSale}
         currency={currency}
+        accounts={accounts}
         installments={saleAttachments}
         selectedInstallmentId={selectedAttachment?.id ?? null}
         discountAmount={discountAmount}
@@ -1646,9 +1186,10 @@ export function QuotesDataTable({ quotes, currency }: QuotesDataTableProps) {
         onRemoveInstallment={removeAttachment}
         onSelectInstallment={setSelectedAttachmentId}
         onAttachmentAmountChange={updateAttachmentAmount}
-        onPaymentMethodChange={updateAttachmentPaymentMethod}
+        onAccountChange={updateAttachmentAccount}
         onReceiptChange={updateAttachmentFile}
         onNoteChange={updateAttachmentNote}
+        onPaymentDateChange={updateAttachmentPaymentDate}
         onDiscountAmountChange={setDiscountAmount}
         onSubmit={handleSaleSubmit}
       />

@@ -18,6 +18,11 @@ type SupplierOption = {
   name: string;
 };
 
+type AccountOption = {
+  id: string;
+  name: string;
+};
+
 type ItemPhoto = {
   id: string;
   url: string;
@@ -50,9 +55,10 @@ type OrderItemManagerProps = {
   item: OrderItemManagerData;
   currency: SupportedCurrencyCode;
   returnTo: string;
+  accounts: AccountOption[];
 };
 
-export function OrderItemManager({ item, currency, returnTo }: OrderItemManagerProps) {
+export function OrderItemManager({ item, currency, returnTo, accounts }: OrderItemManagerProps) {
   const [open, setOpen] = useState(false);
   const [paymentMode, setPaymentMode] = useState<"PAY_NOW" | "PAY_LATER">(
     item.paymentStatus === "PAID" ? "PAY_NOW" : "PAY_LATER",
@@ -249,7 +255,21 @@ export function OrderItemManager({ item, currency, returnTo }: OrderItemManagerP
                       </label>
                     </div>
                     {paymentMode === "PAY_NOW" ? (
-                      <Input type="file" name="receipt" accept="image/*,application/pdf" className="h-8 text-xs" />
+                      <div className="space-y-2">
+                        <Input type="file" name="receipt" accept="image/*,application/pdf" className="h-8 text-xs" />
+                        <select
+                          name="accountId"
+                          defaultValue=""
+                          className="h-8 w-full rounded-lg border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                        >
+                          <option value="">Cuenta (origen del gasto) - opcional</option>
+                          {accounts.map((account) => (
+                            <option key={account.id} value={account.id}>
+                              {account.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     ) : null}
                   </div>
 

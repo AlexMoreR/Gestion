@@ -1,18 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { Landmark, Plus, ReceiptText, Truck, TrendingUp } from "lucide-react";
+import { Landmark, Plus, ReceiptText, Truck, TrendingUp, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type {
+  AccountBalance,
   DashboardMetrics,
   PaymentHistoryRow,
   SaleProfit,
   ShippingCostRow,
   SupplierBalance,
 } from "@/modules/balances/domain/entities";
-import { adminCreateShippingCostAction, adminCreateSupplierPaymentAction, adminDeleteShippingCostAction, adminDeleteSupplierPaymentAction, adminUpdateShippingCostAction, adminUpdateSupplierPaymentAction } from "@/app/actions/balances-actions";
+import { adminCreateAccountAction, adminCreateAccountMovementAction, adminCreateShippingCostAction, adminCreateSupplierPaymentAction, adminDeleteShippingCostAction, adminDeleteSupplierPaymentAction, adminUpdateAccountAction, adminUpdateShippingCostAction, adminUpdateSupplierPaymentAction } from "@/app/actions/balances-actions";
 import { SupplierPaymentFormDialog } from "./components/supplier-payment-form-dialog";
 import { ShippingCostFormDialog } from "./components/shipping-cost-form-dialog";
 import { PaymentHistoryTable } from "./components/payment-history-table";
@@ -20,6 +21,9 @@ import { ShippingCostsTable } from "./components/shipping-costs-table";
 import { ProfitReportTable } from "./components/profit-report-table";
 import { ProfitChart } from "./components/profit-chart";
 import { SupplierBalancesTable } from "./components/supplier-balances-table";
+import { AccountBalancesTable } from "./components/account-balances-table";
+import { AccountFormDialog } from "./components/account-form-dialog";
+import { AccountMovementFormDialog } from "./components/account-movement-form-dialog";
 
 type SaleOption = {
   id: string;
@@ -42,9 +46,10 @@ type BalancesWorkspaceProps = {
   profitReport: SaleProfit[];
   sales: SaleOption[];
   suppliers: SupplierOption[];
+  accounts: AccountBalance[];
 };
 
-type TabKey = "overview" | "payments" | "shipping" | "reports";
+type TabKey = "overview" | "payments" | "shipping" | "reports" | "cuentas";
 
 function MetricCard({
   title,
@@ -86,6 +91,7 @@ export function BalancesWorkspace({
   profitReport,
   sales,
   suppliers,
+  accounts,
 }: BalancesWorkspaceProps) {
   const [tab, setTab] = React.useState<TabKey>("overview");
   const [supplierPaymentModal, setSupplierPaymentModal] = React.useState<
@@ -98,8 +104,19 @@ export function BalancesWorkspace({
     | { mode: "edit"; initialValue: ShippingCostRow }
     | null
   >(null);
+  const [accountModal, setAccountModal] = React.useState<
+    | { mode: "create"; initialValue?: null }
+    | { mode: "edit"; initialValue: AccountBalance }
+    | null
+  >(null);
+  const [accountMovementOpen, setAccountMovementOpen] = React.useState(false);
   const [pendingSupplierPaymentDelete, setPendingSupplierPaymentDelete] = React.useState<PaymentHistoryRow | null>(null);
   const [pendingShippingCostDelete, setPendingShippingCostDelete] = React.useState<ShippingCostRow | null>(null);
+
+  const accountOptions = React.useMemo(
+    () => accounts.filter((account) => account.isActive).map((account) => ({ id: account.id, name: account.name })),
+    [accounts],
+  );
 
   const actionsReturnTo = "/admin/balances";
   const topSales = [...profitReport].sort((a, b) => b.netProfit - a.netProfit).slice(0, 5);
@@ -130,14 +147,22 @@ export function BalancesWorkspace({
                   <Plus className="h-4 w-4" />
                   Nuevo pago
                 </Button>
-                <Button type="button" onClick={() => setShippingCostModal({ mode: "create", initialValue: null })}>
+                <Button type="button" variant="outline" onClick={() => setShippingCostModal({ mode: "create", initialValue: null })}>
                   <Truck className="h-4 w-4" />
                   Costo de envio
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setAccountMovementOpen(true)}>
+                  <Wallet className="h-4 w-4" />
+                  Movimiento
+                </Button>
+                <Button type="button" onClick={() => setAccountModal({ mode: "create", initialValue: null })}>
+                  <Plus className="h-4 w-4" />
+                  Nueva cuenta
                 </Button>
               </div>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
               <Button
                 type="button"
                 variant={tab === "overview" ? "secondary" : "ghost"}
@@ -173,6 +198,15 @@ export function BalancesWorkspace({
               >
                 <Landmark className="h-4 w-4" />
                 Reportes
+              </Button>
+              <Button
+                type="button"
+                variant={tab === "cuentas" ? "secondary" : "ghost"}
+                className="justify-start"
+                onClick={() => setTab("cuentas")}
+              >
+                <Wallet className="h-4 w-4" />
+                Cuentas
               </Button>
             </div>
           </CardContent>
@@ -287,6 +321,19 @@ export function BalancesWorkspace({
             <SupplierBalancesTable data={supplierBalances} currency={currency} />
           </div>
         ) : null}
+
+        {tab === "cuentas" ? (
+          <AccountBalancesTable
+            data={accounts}
+            currency={currency}
+            onEdit={(accountId) => {
+              const account = accounts.find((row) => row.id === accountId);
+              if (account) {
+                setAccountModal({ mode: "edit", initialValue: account });
+              }
+            }}
+          />
+        ) : null}
       </section>
 
       <SupplierPaymentFormDialog
@@ -297,6 +344,7 @@ export function BalancesWorkspace({
         returnTo={actionsReturnTo}
         sales={sales}
         suppliers={suppliers}
+        accounts={accountOptions}
         initialValue={
           supplierPaymentModal?.mode === "edit"
             ? {
@@ -307,6 +355,7 @@ export function BalancesWorkspace({
                 transactionReference: supplierPaymentModal.initialValue.transactionReference,
                 paymentDate: new Date(supplierPaymentModal.initialValue.paymentDate).toISOString().slice(0, 10),
                 notes: supplierPaymentModal.initialValue.notes,
+                accountId: supplierPaymentModal.initialValue.accountId,
               }
             : null
         }
@@ -319,6 +368,7 @@ export function BalancesWorkspace({
         onClose={() => setShippingCostModal(null)}
         returnTo={actionsReturnTo}
         sales={sales}
+        accounts={accountOptions}
         initialValue={
           shippingCostModal?.mode === "edit"
             ? {
@@ -328,9 +378,27 @@ export function BalancesWorkspace({
                 amount: shippingCostModal.initialValue.amount,
                 transactionReference: shippingCostModal.initialValue.transactionReference,
                 paymentDate: new Date(shippingCostModal.initialValue.paymentDate).toISOString().slice(0, 10),
+                accountId: shippingCostModal.initialValue.accountId,
               }
             : null
         }
+      />
+
+      <AccountFormDialog
+        open={Boolean(accountModal)}
+        mode={accountModal?.mode ?? "create"}
+        action={accountModal?.mode === "edit" ? adminUpdateAccountAction : adminCreateAccountAction}
+        onClose={() => setAccountModal(null)}
+        returnTo={actionsReturnTo}
+        initialValue={accountModal?.mode === "edit" ? accountModal.initialValue : null}
+      />
+
+      <AccountMovementFormDialog
+        open={accountMovementOpen}
+        action={adminCreateAccountMovementAction}
+        onClose={() => setAccountMovementOpen(false)}
+        returnTo={actionsReturnTo}
+        accounts={accountOptions}
       />
 
       {pendingSupplierPaymentDelete ? (

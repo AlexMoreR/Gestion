@@ -8,10 +8,16 @@ type CarrierOption = {
   name: string;
 };
 
+type AccountOption = {
+  id: string;
+  name: string;
+};
+
 type DispatchData = {
   orderId: string;
   returnTo: string;
   carriers: CarrierOption[];
+  accounts: AccountOption[];
   defaultAddress: string;
   canDispatch: boolean;
   allItemsConfirmed: boolean;
@@ -98,6 +104,7 @@ export function OrderStepper({ step1Done, step2Done, step3Done, dispatch }: Orde
             orderId={dispatch.orderId}
             returnTo={dispatch.returnTo}
             carriers={dispatch.carriers}
+            accounts={dispatch.accounts}
             defaultAddress={dispatch.defaultAddress}
             canDispatch={dispatch.canDispatch}
             allItemsConfirmed={dispatch.allItemsConfirmed}

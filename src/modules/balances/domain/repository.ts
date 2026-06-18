@@ -1,4 +1,7 @@
 import type {
+  Account,
+  AccountBalance,
+  AccountType,
   DashboardMetrics,
   PagedResult,
   PaymentHistoryRow,
@@ -24,6 +27,7 @@ export type CreateSupplierPaymentInput = {
   transactionReference: string;
   paymentDate: Date;
   notes?: string | null;
+  accountId?: string | null;
   createdById: string;
 };
 
@@ -35,10 +39,37 @@ export type CreateShippingCostInput = {
   amount: number;
   transactionReference: string;
   paymentDate: Date;
+  accountId?: string | null;
   createdById: string;
 };
 
 export type UpdateShippingCostInput = Omit<CreateShippingCostInput, "createdById">;
+
+export type CreateAccountInput = {
+  name: string;
+  type: AccountType;
+  reference?: string | null;
+  openingBalance: number;
+  createdById: string;
+};
+
+export type UpdateAccountInput = {
+  name: string;
+  type: AccountType;
+  reference?: string | null;
+  openingBalance: number;
+  isActive: boolean;
+};
+
+export type CreateAccountMovementInput = {
+  accountId: string;
+  type: "IN" | "OUT" | "TRANSFER";
+  amount: number;
+  note?: string | null;
+  movementDate: Date;
+  toAccountId?: string | null;
+  createdById: string;
+};
 
 export interface BalancesRepository {
   listSupplierPayments(query: ListBalancesQuery): Promise<PagedResult<PaymentHistoryRow>>;
@@ -57,4 +88,10 @@ export interface BalancesRepository {
   listProfitReport(query: ListBalancesQuery): Promise<PagedResult<SaleProfit>>;
   listSupplierBalances(): Promise<SupplierBalance[]>;
   getDashboardMetrics(): Promise<DashboardMetrics>;
+
+  listAccounts(options?: { activeOnly?: boolean }): Promise<Account[]>;
+  listAccountBalances(): Promise<AccountBalance[]>;
+  createAccount(input: CreateAccountInput): Promise<Account>;
+  updateAccount(accountId: string, input: UpdateAccountInput): Promise<Account>;
+  createAccountMovement(input: CreateAccountMovementInput): Promise<void>;
 }

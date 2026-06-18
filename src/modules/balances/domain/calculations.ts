@@ -1,4 +1,4 @@
-import type { DashboardMetrics, SaleProfit, SupplierBalance } from "./entities";
+import type { Account, AccountBalance, DashboardMetrics, SaleProfit, SupplierBalance } from "./entities";
 
 export type SaleProfitInput = {
   saleId: string;
@@ -55,6 +55,22 @@ export function summarizeSupplierBalance(
     totalPaid,
     lastPaymentAt: lastEntry?.createdAt ?? null,
     lastSaleCode: lastEntry?.saleCode ?? null,
+  };
+}
+
+export function summarizeAccountBalance(
+  account: Account,
+  totals: { ingreso: number; gasto: number; movimientosIn: number; movimientosOut: number },
+): AccountBalance {
+  const movimientos = totals.movimientosIn - totals.movimientosOut;
+  const balance = account.openingBalance + totals.ingreso - totals.gasto + movimientos;
+
+  return {
+    ...account,
+    ingreso: totals.ingreso,
+    gasto: totals.gasto,
+    movimientos,
+    balance,
   };
 }
 

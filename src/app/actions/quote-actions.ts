@@ -536,6 +536,19 @@ export async function adminDeleteQuoteAction(formData: FormData): Promise<void> 
     redirect(`${returnTo}?error=Cotizacion+invalida`);
   }
 
+  const sale = await prisma.sale.findUnique({
+    where: { quoteId },
+    select: { code: true },
+  });
+
+  if (sale) {
+    redirect(
+      `${returnTo}?error=No+se+puede+eliminar:+la+cotizacion+ya+tiene+una+venta+asociada+(${encodeURIComponent(
+        sale.code
+      )})`
+    );
+  }
+
   await prisma.quote.delete({
     where: { id: quoteId },
   });

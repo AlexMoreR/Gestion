@@ -18,12 +18,18 @@ type SaleOption = {
   clientName: string | null;
 };
 
+type AccountOption = {
+  id: string;
+  name: string;
+};
+
 type ShippingCostFormState = {
   saleId: string;
   shippingProvider: string;
   amount: number;
   transactionReference: string;
   paymentDate: string;
+  accountId: string;
 };
 
 type ShippingCostFormDialogProps = {
@@ -33,6 +39,7 @@ type ShippingCostFormDialogProps = {
   onClose: () => void;
   returnTo: string;
   sales: SaleOption[];
+  accounts: AccountOption[];
   initialValue?: {
     shippingCostId?: string;
     saleId?: string;
@@ -40,6 +47,7 @@ type ShippingCostFormDialogProps = {
     amount?: number;
     transactionReference?: string;
     paymentDate?: string;
+    accountId?: string | null;
   } | null;
 };
 
@@ -53,6 +61,7 @@ export function ShippingCostFormDialog({
   onClose,
   returnTo,
   sales,
+  accounts,
   initialValue,
 }: ShippingCostFormDialogProps) {
   const formRef = React.useRef<HTMLFormElement | null>(null);
@@ -67,6 +76,7 @@ export function ShippingCostFormDialog({
       amount: initialValue?.amount ?? 0,
       transactionReference: initialValue?.transactionReference ?? "",
       paymentDate: initialValue?.paymentDate ?? new Date().toISOString().slice(0, 10),
+      accountId: initialValue?.accountId ?? "",
     },
   });
 
@@ -78,6 +88,7 @@ export function ShippingCostFormDialog({
         amount: 0,
         transactionReference: "",
         paymentDate: new Date().toISOString().slice(0, 10),
+        accountId: "",
       });
       setFormKey((current) => current + 1);
       submitBypassRef.current = false;
@@ -90,6 +101,7 @@ export function ShippingCostFormDialog({
       amount: initialValue?.amount ?? 0,
       transactionReference: initialValue?.transactionReference ?? "",
       paymentDate: initialValue?.paymentDate ?? new Date().toISOString().slice(0, 10),
+      accountId: initialValue?.accountId ?? "",
     });
   }, [form, initialValue, open, sales]);
 
@@ -179,6 +191,18 @@ export function ShippingCostFormDialog({
             <label className="space-y-1.5">
               <span className="text-sm font-medium text-foreground">Fecha de pago</span>
               <Input type="date" {...form.register("paymentDate")} />
+            </label>
+
+            <label className="space-y-1.5 md:col-span-2">
+              <span className="text-sm font-medium text-foreground">Cuenta (origen del gasto)</span>
+              <select className={cn(controlClassName, "appearance-none")} {...form.register("accountId")}>
+                <option value="">Sin asignar</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
 

@@ -389,6 +389,8 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
 
   const amount = Number(orderItem.purchaseCost) * orderItem.quantity;
   const supplierId = orderItem.confirmedSupplierId;
+  const accountIdRaw = formData.get("accountId");
+  const accountId = typeof accountIdRaw === "string" && accountIdRaw.trim() ? accountIdRaw.trim() : null;
   const alreadyPaid = orderItem.supplierPaymentStatus === "PAID";
   const alreadyCharged = orderItem.supplierPaymentStatus !== null;
 
@@ -443,6 +445,7 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
               paymentDate: new Date(),
               receiptUrl: receipt?.url ?? orderItem.supplierReceiptUrl ?? null,
               receiptName: receipt?.name ?? orderItem.supplierReceiptName ?? null,
+              accountId,
               createdById,
             },
           });

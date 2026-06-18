@@ -58,14 +58,21 @@ type QuoteLine = {
   discount: number;
 };
 
+type AccountOption = {
+  id: string;
+  name: string;
+  type: "CASH" | "BANK" | "WALLET" | "OTHER";
+};
+
 type QuotesWorkspaceProps = {
   quotes: QuoteRow[];
   clients: ClientOption[];
   products: ProductOption[];
   currency: SupportedCurrencyCode;
+  accounts: AccountOption[];
 };
 
-export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesWorkspaceProps) {
+export function QuotesWorkspace({ quotes, clients, products, currency, accounts }: QuotesWorkspaceProps) {
   const [openModal, setOpenModal] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [showClientResults, setShowClientResults] = useState(false);
@@ -390,7 +397,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency }: QuotesW
         </Button>
       </div>
 
-      <QuotesDataTable quotes={quotes} currency={currency} />
+      <QuotesDataTable quotes={quotes} currency={currency} accounts={accounts} />
 
       {openModal ? (
         <div
