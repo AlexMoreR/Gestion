@@ -92,12 +92,12 @@ export async function ProductDetailContent({
       <div className="flex items-center justify-between">
         <Link
           href={product.category?.slug ? `/${product.category.slug}` : "/"}
-          className="inline-flex items-center rounded-lg border border-[(--line)] bg-white px-3 py-1.5 text-sm font-medium text-[(--primary-strong)] transition hover:bg-slate-50"
+          className="inline-flex items-center rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--primary-strong)] transition hover:bg-slate-50"
         >
           Volver a tienda
         </Link>
         {product.category?.name ? (
-          <span className="inline-flex rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-[(--line)]">
+          <span className="inline-flex rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-[var(--line)]">
             {product.category.name}
           </span>
         ) : null}
@@ -107,7 +107,7 @@ export async function ProductDetailContent({
         <ProductGallery name={product.name} images={gallery} />
 
         <Card className="space-y-4 rounded-2xl">
-          <div className="space-y-2 border-b border-[(--line)] pb-4">
+          <div className="space-y-2 border-b border-[var(--line)] pb-4">
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">{product.name}</h1>
             {product.description || product.seoDescription ? (
               <p className="text-sm leading-6 text-slate-600">{product.description || product.seoDescription}</p>
@@ -117,13 +117,13 @@ export async function ProductDetailContent({
           </div>
 
           <div className="space-y-3">
-            <div className="rounded-xl border border-[(--primary)] bg-white px-4 py-3">
+            <div className="rounded-xl border border-[var(--primary)] bg-white px-4 py-3">
               <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-500">Precio detal</p>
               <p className="mt-1 text-3xl font-semibold tracking-tight text-slate-900">
                 {formatMoney(String(product.price), currency)}
               </p>
             </div>
-            <div className="rounded-xl border border-[(--line)] bg-white px-4 py-3">
+            <div className="rounded-xl border border-[var(--line)] bg-white px-4 py-3">
               <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-500">Precio mayorista</p>
               <p className="mt-1 text-lg font-semibold text-slate-900">
                 {formatMoney(String(product.wholesalePrice), currency)}
@@ -142,7 +142,7 @@ export async function ProductDetailContent({
               </Link>
               <Button
                 type="button"
-                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-[(--primary)] px-4 text-sm font-semibold text-white transition hover:bg-[(--primary-strong)]"
+                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--primary-strong)]"
               >
                 <ShoppingCart className="h-4 w-4" />
                 Comprar
@@ -157,7 +157,7 @@ export async function ProductDetailContent({
         </Card>
       </div>
 
-      <div className="rounded-2xl border border-[(--line)] bg-white px-5 py-4">
+      <div className="rounded-2xl border border-[var(--line)] bg-white px-5 py-4">
         <h2 className="text-lg font-semibold tracking-tight text-slate-900">Detalle profesional</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           {productDescription} Esta referencia forma parte del catalogo premium de {siteConfig.name}, enfocado en
@@ -170,7 +170,7 @@ export async function ProductDetailContent({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold tracking-tight text-slate-900">Productos relacionados</h2>
-            <Link href="/" className="text-xs font-medium text-[(--primary)] hover:text-[(--primary-strong)]">
+            <Link href="/" className="text-xs font-medium text-[var(--primary)] hover:text-[var(--primary-strong)]">
               Ver toda la tienda
             </Link>
           </div>
@@ -192,7 +192,7 @@ export async function ProductDetailContent({
                   </div>
                   <div className="space-y-1.5 px-3 py-3">
                     <p className="line-clamp-1 text-sm font-semibold text-slate-900">{item.name}</p>
-                    <p className="text-sm font-semibold text-[(--primary-strong)]">
+                    <p className="text-sm font-semibold text-[var(--primary-strong)]">
                       {formatMoney(String(item.price), currency)}
                     </p>
                   </div>

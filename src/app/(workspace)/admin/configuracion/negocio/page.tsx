@@ -104,7 +104,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
             <Button
               type="submit"
               aria-label="Guardar marca"
-            // className="inline-flex h-11 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
+            // className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
             >
               <Save className="h-4 w-4" />
             </Button>
@@ -124,7 +124,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
             <Button
               type="submit"
               aria-label="Guardar moneda"
-            // className="inline-flex h-11 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
+            // className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
             >
               <Save className="h-4 w-4" />
             </Button>
@@ -145,7 +145,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
           <Button
             type="submit"
             aria-label="Guardar WhatsApp"
-          // className="inline-flex h-11 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
+          // className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
           >
             <Save className="h-4 w-4" />
           </Button>
@@ -159,7 +159,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
                 name="primaryColor"
                 type="color"
                 defaultValue={systemPrimaryColor}
-                className="h-11 w-16 rounded-lg border border-[(--line)] bg-white p-1"
+                className="h-11 w-16 rounded-lg border border-[var(--line)] bg-white p-1"
                 required
               />
               <Input
@@ -172,7 +172,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
           <Button
             type="submit"
             aria-label="Guardar color"
-          // className="inline-flex h-11 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
+          // className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
           >
             <Save className="h-4 w-4" />
           </Button>
@@ -251,7 +251,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
                     name="heroDescription"
                     defaultValue={storefrontHeroDescription}
                     placeholder="Texto de apoyo que acompana el titulo principal"
-                    className="min-h-24 w-full rounded-[1.1rem] border border-slate-200 bg-white px-2 py-3 text-sm text-slate-800 placeholder:text-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] transition focus-visible:border-[(--line-strong)] focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d1d5db80]"
+                    className="min-h-24 w-full rounded-[1.1rem] border border-slate-200 bg-white px-2 py-3 text-sm text-slate-800 placeholder:text-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)] transition focus-visible:border-[var(--line-strong)] focus-visible:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d1d5db80]"
                     required
                   />
                 </label>

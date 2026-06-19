@@ -32,7 +32,7 @@ function CategoryLogo({ name, logoUrl }: { name: string; logoUrl: string | null 
 
   if (!logoUrl || hasError) {
     return (
-      <div className="grid h-9 w-9 place-items-center rounded-md border border-[(--line)] bg-slate-50 text-xs font-semibold text-slate-500">
+      <div className="grid h-9 w-9 place-items-center rounded-md border border-[var(--line)] bg-slate-50 text-xs font-semibold text-slate-500">
         {name.charAt(0).toUpperCase()}
       </div>
     );
@@ -42,7 +42,7 @@ function CategoryLogo({ name, logoUrl }: { name: string; logoUrl: string | null 
     <img
       src={getPublicAssetUrl(logoUrl)}
       alt={`Logo ${name}`}
-      className="h-9 w-9 rounded-md border border-[(--line)] object-cover"
+      className="h-9 w-9 rounded-md border border-[var(--line)] object-cover"
       onError={() => setHasError(true)}
     />
   );
@@ -50,7 +50,7 @@ function CategoryLogo({ name, logoUrl }: { name: string; logoUrl: string | null 
 
 export function CategoriesDataTable({ categories, onEditCategory }: CategoriesDataTableProps) {
   return (
-    <div className="overflow-hidden rounded-xl border border-[(--line)] bg-white">
+    <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-white">
       <Table>
         <TableHeader>
           <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
@@ -101,7 +101,7 @@ export function CategoriesDataTable({ categories, onEditCategory }: CategoriesDa
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 border border-transparent hover:border-[(--line)]"
+                      className="h-8 w-8 border border-transparent hover:border-[var(--line)]"
                       onClick={() => onEditCategory(category.id)}
                       aria-label={`Editar ${category.name}`}
                     >

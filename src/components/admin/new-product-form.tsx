@@ -297,18 +297,18 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
     <div className="grid gap-4 xl:grid-cols-[19rem_minmax(0,1fr)] xl:gap-8">
       <aside className="space-y-4 xl:sticky xl:top-8 xl:h-fit xl:space-y-5">
         <div className="space-y-4">
-          <div className="overflow-hidden rounded-xl border border-[(--line)] bg-white">
+          <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-white">
             <div className="relative flex h-52 items-center justify-center bg-slate-100">
               {previewImageUrl ? (
                 <img src={previewImageUrl} alt="Vista previa" className="h-full w-full object-contain" />
               ) : (
                 <p className="text-xs text-slate-500">Primera imagen del producto</p>
               )}
-              <span className="absolute right-2 top-2 rounded-full border border-[(--line)] bg-white/95 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              <span className="absolute right-2 top-2 rounded-full border border-[var(--line)] bg-white/95 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                 {code.trim() || "SKU"}
               </span>
             </div>
-            <div className="space-y-1.5 border-t border-[(--line)] bg-white p-3">
+            <div className="space-y-1.5 border-t border-[var(--line)] bg-white p-3">
               <p className="text-sm font-semibold text-slate-900">{name.trim() || "Nuevo producto"}</p>
               {description.trim() ? (
                 <p className="line-clamp-2 text-xs text-slate-500">{description.trim()}</p>
@@ -336,7 +336,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                 Se restauro el ultimo borrador. Las imagenes deben seleccionarse de nuevo.
               </div>
             ) : null}
-            <section className="space-y-4 rounded-xl border border-[(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)] sm:p-5">
+            <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)] sm:p-5">
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="space-y-1.5 md:col-span-2">
                   <span className="text-sm font-medium text-slate-700">📦 Nombre</span>
@@ -359,7 +359,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                   <div
                     className={`space-y-3 rounded-xl border border-dashed p-4 transition ${dragActive
                         ? "border-slate-400 bg-slate-100/80"
-                        : "border-[(--line-strong)] bg-slate-50/60"
+                        : "border-[var(--line-strong)] bg-slate-50/60"
                       }`}
                     onDragOver={(e) => {
                       e.preventDefault();
@@ -401,7 +401,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                     {allImageUrls.length === 0 ? (
                       <Button
                         type="button"
-                        className="flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-[(--line)] bg-white px-4 py-8 text-center transition hover:bg-slate-50"
+                        className="flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-[var(--line)] bg-white px-4 py-8 text-center transition hover:bg-slate-50"
                         onClick={() => fileInputRef.current?.click()}
                       >
                         <span className="text-2xl">⬆️</span>
@@ -414,7 +414,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                       <div className="flex justify-end">
                         <Button
                           type="button"
-                          className="inline-flex h-8 items-center gap-1 rounded-lg border border-[(--line)] bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                          className="inline-flex h-8 items-center gap-1 rounded-lg border border-[var(--line)] bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                           onClick={() => fileInputRef.current?.click()}
                         >
                           ➕ Agregar imagenes
@@ -426,7 +426,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                         {allImageUrls.map((url, index) => (
                           <div
                             key={`${url}-${index}`}
-                            className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-[(--line)] bg-slate-100"
+                            className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-[var(--line)] bg-slate-100"
                           >
                             <img src={url} alt={`Imagen ${index + 1}`} className="h-full w-full object-cover" />
                             <Button
@@ -449,8 +449,8 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
               </div>
             </section>
 
-            <section className="space-y-4 rounded-xl border border-[(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)] sm:p-5">
-              <div className="space-y-1 border-b border-[(--line)] pb-3">
+            <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)] sm:p-5">
+              <div className="space-y-1 border-b border-[var(--line)] pb-3">
                 <h2 className="text-sm font-semibold text-slate-900">Precios</h2>
               </div>
               <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
@@ -523,7 +523,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                 </label>
                 {wholesaleEnabled ? (
                   <>
-                    <div className="md:col-span-12 border-t border-[(--line)] pt-1" />
+                    <div className="md:col-span-12 border-t border-[var(--line)] pt-1" />
                     <label className="space-y-1.5 md:col-span-2">
                       <span className="text-sm font-medium text-slate-700">📦 % Mayor</span>
                       <Input
@@ -589,8 +589,8 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
               </div>
             </section>
 
-            <section className="space-y-4 rounded-xl border border-[(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)] sm:p-5">
-              <div className="space-y-1 border-b border-[(--line)] pb-3">
+            <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)] sm:p-5">
+              <div className="space-y-1 border-b border-[var(--line)] pb-3">
                 <h2 className="text-sm font-semibold text-slate-900">Inventario</h2>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
@@ -635,7 +635,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                     onChange={updateSupplierRow}
                   />
                 ) : (
-                  <p className="rounded-lg border border-dashed border-[(--line)] bg-slate-50/60 px-3 py-3 text-xs text-slate-500 md:col-span-2">
+                  <p className="rounded-lg border border-dashed border-[var(--line)] bg-slate-50/60 px-3 py-3 text-xs text-slate-500 md:col-span-2">
                     Este producto es un combo: los proveedores se toman de cada componente.
                   </p>
                 )}
@@ -653,10 +653,10 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
               onChange={updateComponentRow}
             />
 
-            <div className="mt-1 flex flex-wrap items-center justify-end gap-3 border-t border-[(--line)] pt-5">
+            <div className="mt-1 flex flex-wrap items-center justify-end gap-3 border-t border-[var(--line)] pt-5">
               <Link
                 href="/admin/productos"
-                className="inline-flex h-10 items-center justify-center rounded-lg border border-[(--line)] bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-[var(--line)] bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
               >
                 Cancelar
               </Link>

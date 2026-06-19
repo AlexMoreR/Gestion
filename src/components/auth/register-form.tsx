@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect } from "react";
 import Link from "next/link";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { registerAction } from "@/app/actions/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -62,7 +62,7 @@ export function RegisterForm() {
       </form>
       <p className="mt-5 text-center text-sm text-slate-600">
         Ya tienes cuenta?{" "}
-        <Link href="/login" className="font-semibold text-[(--primary)] hover:text-[(--primary-strong)]">
+        <Link href="/login" className="font-semibold text-[var(--primary)] hover:text-[var(--primary-strong)]">
           Inicia sesion
         </Link>
       </p>

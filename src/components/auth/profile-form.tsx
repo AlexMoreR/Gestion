@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { KeyRound, Mail, ShieldCheck, UserPen, X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { changePasswordAction, updateProfileAction } from "@/app/actions/auth-actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -75,7 +75,7 @@ export function ProfileForm({
     <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
       <Card className="space-y-5 p-5">
         <div className="flex items-center gap-3">
-          <Avatar className="h-14 w-14 rounded-xl border border-[(--line)]">
+          <Avatar className="h-14 w-14 rounded-xl border border-[var(--line)]">
             <AvatarImage src={defaultImage} alt={defaultName || email} />
             <AvatarFallback className="rounded-xl bg-slate-800 text-sm">
               {initials}
@@ -89,7 +89,7 @@ export function ProfileForm({
           </div>
         </div>
 
-        <div className="space-y-3 border-t border-[(--line)] pt-4">
+        <div className="space-y-3 border-t border-[var(--line)] pt-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cuenta</p>
           <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
             <Mail className="h-4 w-4 text-slate-500" />

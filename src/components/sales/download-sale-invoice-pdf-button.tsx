@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { invoicePdfFileName } from "@/lib/document-names";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 
 type DownloadSaleInvoicePdfButtonProps = {
   className?: string;
@@ -40,9 +40,9 @@ export function DownloadSaleInvoicePdfButton({ className, invoiceToken, saleCode
           window.URL.revokeObjectURL(url);
         })(),
         {
-          loading: "Generating invoice PDF...",
-          success: "Invoice PDF ready",
-          error: "Could not generate invoice PDF",
+          pending: "Generando PDF de la factura...",
+          success: "PDF de la factura listo",
+          error: "No se pudo generar el PDF",
         },
       );
     } catch (error) {

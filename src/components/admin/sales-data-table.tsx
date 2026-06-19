@@ -15,7 +15,11 @@ import {
   X,
 } from "lucide-react";
 import { useFormStatus } from "react-dom";
-import { adminAddSalePaymentAction, adminDeleteSalePaymentAction } from "@/app/actions/sales-actions";
+import {
+  adminAddSalePaymentAction,
+  adminDeleteSalePaymentAction,
+  adminDeleteSaleAction,
+} from "@/app/actions/sales-actions";
 import { adminCreateOrderFromSaleAction } from "@/app/actions/orders-actions";
 import { invoicePdfFileName } from "@/lib/document-names";
 import { Button } from "@/components/ui/button";
@@ -222,6 +226,23 @@ function RowActions({
         <DropdownMenuItem onClick={onViewReceipts} disabled={!hasReceipts}>
           <Eye className="mr-2 h-4 w-4" />
           {hasReceipts ? "Ver comprobantes" : "Sin comprobantes"}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive"
+          onClick={() => {
+            const confirmed = window.confirm(
+              `¿Eliminar la venta ${sale.code}?\n\nSe borrarán también la orden, despachos, producción, abonos y los pagos/cargos a proveedores ligados. Esta acción no se puede deshacer.`,
+            );
+            if (!confirmed) return;
+            const form = document.querySelector<HTMLFormElement>(
+              `form[data-delete-sale-id="${sale.id}"]`,
+            );
+            form?.requestSubmit();
+          }}
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Eliminar venta
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -692,6 +713,10 @@ export function SalesDataTable({ sales, currency, accounts }: SalesDataTableProp
                       <input type="hidden" name="returnTo" value="/admin/ventas" />
                       <input type="hidden" name="saleId" value={sale.id} />
                     </form>
+                    <form data-delete-sale-id={sale.id} action={adminDeleteSaleAction}>
+                      <input type="hidden" name="returnTo" value="/admin/ventas" />
+                      <input type="hidden" name="saleId" value={sale.id} />
+                    </form>
                     <div className="flex items-center">
                       <RowActions
                         sale={sale}
@@ -732,6 +757,10 @@ export function SalesDataTable({ sales, currency, accounts }: SalesDataTableProp
               </div>
               <div className="flex items-center justify-end">
                 <form data-create-order-sale-id={sale.id} action={adminCreateOrderFromSaleAction}>
+                  <input type="hidden" name="returnTo" value="/admin/ventas" />
+                  <input type="hidden" name="saleId" value={sale.id} />
+                </form>
+                <form data-delete-sale-id={sale.id} action={adminDeleteSaleAction}>
                   <input type="hidden" name="returnTo" value="/admin/ventas" />
                   <input type="hidden" name="saleId" value={sale.id} />
                 </form>

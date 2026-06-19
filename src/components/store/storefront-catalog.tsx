@@ -469,22 +469,22 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
           <div className="mx-auto max-w-6xl px-4 md:px-6">
             <div className="grid grid-cols-3 gap-4 text-center md:grid-cols-3">
               <div className="flex flex-col items-center gap-1.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[(--primary)]/10">
-                  <Star className="h-5 w-5 text-[(--primary-strong)]" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--primary)]/10">
+                  <Star className="h-5 w-5 text-[var(--primary-strong)]" />
                 </div>
                 <p className="text-lg font-bold text-slate-900">500+</p>
                 <p className="text-xs text-slate-500">Salones equipados</p>
               </div>
               <div className="flex flex-col items-center gap-1.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[(--primary)]/10">
-                  <Truck className="h-5 w-5 text-[(--primary-strong)]" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--primary)]/10">
+                  <Truck className="h-5 w-5 text-[var(--primary-strong)]" />
                 </div>
                 <p className="text-lg font-bold text-slate-900">Todo Colombia</p>
                 <p className="text-xs text-slate-500">Envio a tu ciudad</p>
               </div>
               <div className="flex flex-col items-center gap-1.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[(--primary)]/10">
-                  <Shield className="h-5 w-5 text-[(--primary-strong)]" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--primary)]/10">
+                  <Shield className="h-5 w-5 text-[var(--primary-strong)]" />
                 </div>
                 <p className="text-lg font-bold text-slate-900">Garantia</p>
                 <p className="text-xs text-slate-500">Respaldo postventa</p>
@@ -501,8 +501,8 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
       ) : (
         <div className="space-y-3" id="catalogo">
           {!normalizedQuery && !category ? (
-            <div className="rounded-2xl border border-[(--line)] bg-white px-4 py-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[(--primary-strong)]">
+            <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--primary-strong)]">
                 Mobiliario profesional premium
               </p>
               <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">
@@ -596,7 +596,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                     </Link>
                     <Link
                       href={productHref}
-                      className="cta-float cta-float-delay inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-[(--primary)] px-2.5 text-xs font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[(--primary-strong)] active:translate-y-0 active:scale-[0.98]"
+                      className="cta-float cta-float-delay inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-[var(--primary)] px-2.5 text-xs font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--primary-strong)] active:translate-y-0 active:scale-[0.98]"
                     >
                       Comprar
                       <ShoppingCart className="h-4 w-4" />
@@ -637,8 +637,8 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
             </div>
           ) : null}
           {!normalizedQuery && category ? (
-            <div className="rounded-2xl border border-[(--line)] bg-white px-4 py-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[(--primary-strong)]">
+            <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--primary-strong)]">
                 {category.name}
               </p>
               <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">

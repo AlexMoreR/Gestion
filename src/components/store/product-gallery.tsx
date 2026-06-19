@@ -26,7 +26,7 @@ export function ProductGallery({ name, images }: ProductGalleryProps) {
 
   if (gallery.length === 0) {
     return (
-      <div className="overflow-hidden rounded-2xl border border-[(--line)] bg-white">
+      <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-white">
         <div className="grid h-[280px] place-items-center text-sm text-slate-500 md:h-[460px]">
           Sin imagen disponible
         </div>
@@ -37,7 +37,7 @@ export function ProductGallery({ name, images }: ProductGalleryProps) {
   const mainImage = gallery[Math.min(activeIndex, gallery.length - 1)];
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[(--line)] bg-white">
+    <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-white">
       <div className="relative">
         <img
           src={mainImage}
@@ -48,7 +48,7 @@ export function ProductGallery({ name, images }: ProductGalleryProps) {
       </div>
 
       {gallery.length > 1 ? (
-        <div className="space-y-2 border-t border-[(--line)] p-3">
+        <div className="space-y-2 border-t border-[var(--line)] p-3">
           <p className="text-xs font-medium text-slate-500">
             Galeria ({gallery.length} imagenes)
           </p>
@@ -63,7 +63,7 @@ export function ProductGallery({ name, images }: ProductGalleryProps) {
                 className={`relative aspect-square overflow-hidden rounded-md border transition ${
                   active
                     ? "border-violet-700 ring-2 ring-violet-300/60"
-                    : "border-[(--line)] hover:border-violet-300"
+                    : "border-[var(--line)] hover:border-violet-300"
                 }`}
                 aria-label={`Ver imagen ${index + 1}`}
               >

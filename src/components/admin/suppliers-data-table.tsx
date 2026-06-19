@@ -68,7 +68,7 @@ function SupplierActionsMenu({
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8 border border-transparent hover:border-[(--line)]"
+          className="h-8 w-8 border border-transparent hover:border-[var(--line)]"
           aria-label={`Acciones de ${supplier.name}`}
         >
           <MoreHorizontal className="h-4 w-4 text-slate-600" />
@@ -268,7 +268,7 @@ export function SuppliersDataTable({
 
       <div className="space-y-2 md:hidden">
         {pagedSuppliers.length === 0 ? (
-          <div className="rounded-xl border border-[(--line)] bg-white px-3 py-6 text-center text-sm text-slate-500">
+          <div className="rounded-xl border border-[var(--line)] bg-white px-3 py-6 text-center text-sm text-slate-500">
             No hay proveedores para el filtro actual.
           </div>
         ) : (
@@ -284,7 +284,7 @@ export function SuppliersDataTable({
                   onViewLedger?.(supplier.id);
                 }
               }}
-              className="cursor-pointer rounded-xl border border-[(--line)] bg-white p-3 transition hover:border-slate-300 hover:bg-slate-50"
+              className="cursor-pointer rounded-xl border border-[var(--line)] bg-white p-3 transition hover:border-slate-300 hover:bg-slate-50"
             >
               <form data-delete-supplier-id={supplier.id} action={adminDeleteSupplierAction}>
                 <input type="hidden" name="supplierId" value={supplier.id} />
@@ -325,7 +325,7 @@ export function SuppliersDataTable({
         )}
       </div>
 
-      <div className="hidden overflow-hidden rounded-xl border border-[(--line)] bg-white md:block">
+      <div className="hidden overflow-hidden rounded-xl border border-[var(--line)] bg-white md:block">
         <Table className="min-w-[880px]">
           <TableHeader>
             <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
@@ -400,7 +400,7 @@ export function SuppliersDataTable({
                 >
                   <TableCell>
                     <div className="flex items-center gap-2.5">
-                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[(--line)] bg-slate-50 text-slate-700">
+                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--line)] bg-slate-50 text-slate-700">
                         <SupplierTypeIcon type={supplier.type} className="h-4 w-4" />
                       </span>
                       <div className="min-w-0">

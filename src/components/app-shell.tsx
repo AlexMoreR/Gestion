@@ -144,7 +144,7 @@ export function AppShell({ children, initialUser, brandName, adminModuleAccess }
           className="admin-print-sidebar"
         />
         <SidebarInset className="admin-print-inset">
-          <header className="admin-print-header flex h-12 shrink-0 items-center justify-between border-b border-[(--line)] bg-background">
+          <header className="admin-print-header flex h-12 shrink-0 items-center justify-between border-b border-[var(--line)] bg-background">
             <div className="flex items-center gap-2 px-4">
               <SidebarTrigger className="-ml-1" />
               <Separator

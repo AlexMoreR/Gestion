@@ -253,7 +253,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
           <select
             value={categoryFilter}
             onChange={(event) => setCategoryFilter(event.target.value)}
-            className="h-9 w-full rounded-lg border border-[(--line)] bg-white px-2.5 text-sm text-slate-700 outline-none transition focus:border-[(--line-strong)] sm:min-w-40 sm:w-auto"
+            className="h-9 w-full rounded-lg border border-[var(--line)] bg-white px-2.5 text-sm text-slate-700 outline-none transition focus:border-[var(--line-strong)] sm:min-w-40 sm:w-auto"
             aria-label="Filtrar por categoria"
           >
             <option value="__all__">Categorias</option>
@@ -277,7 +277,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
           >
             <Paintbrush className="h-4 w-4" />
           </Button>
-          <div className="flex items-center gap-0.5 rounded-lg border border-[(--line)] p-0.5">
+          <div className="flex items-center gap-0.5 rounded-lg border border-[var(--line)] p-0.5">
             <Button
               type="button"
               variant={viewMode === "grid" ? "secondary" : "ghost"}
@@ -306,7 +306,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
 
       {viewMode === "grid" ? (
         pagedProducts.length === 0 ? (
-          <div className="rounded-xl border border-[(--line)] bg-white px-3 py-6 text-center text-sm text-slate-500">
+          <div className="rounded-xl border border-[var(--line)] bg-white px-3 py-6 text-center text-sm text-slate-500">
             No hay productos para el filtro actual.
           </div>
         ) : (
@@ -314,7 +314,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
             {pagedProducts.map((product) => (
               <div
                 key={product.id}
-                className="group relative flex items-stretch overflow-hidden rounded-xl border border-[(--line)] bg-white transition hover:shadow-md"
+                className="group relative flex items-stretch overflow-hidden rounded-xl border border-[var(--line)] bg-white transition hover:shadow-md"
               >
                 <form data-delete-product-id={product.id} action={adminDeleteProductAction}>
                   <input type="hidden" name="productId" value={product.id} />
@@ -335,7 +335,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                       {product.code ?? "Sin codigo"}
                     </p>
                     <div className="mt-1 flex items-center justify-between gap-2">
-                      <span className="inline-flex max-w-[55%] truncate rounded-md border border-[(--line)] bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700">
+                      <span className="inline-flex max-w-[55%] truncate rounded-md border border-[var(--line)] bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700">
                         {product.categoryName ?? "Sin categoria"}
                       </span>
                       <span className="text-sm font-semibold text-slate-800">
@@ -373,14 +373,14 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
 
       <div className={viewMode === "table" ? "space-y-2 md:hidden" : "hidden"}>
         {pagedProducts.length === 0 ? (
-          <div className="rounded-xl border border-[(--line)] bg-white px-3 py-6 text-center text-sm text-slate-500">
+          <div className="rounded-xl border border-[var(--line)] bg-white px-3 py-6 text-center text-sm text-slate-500">
             No hay productos para el filtro actual.
           </div>
         ) : (
           pagedProducts.map((product) => (
             <article
               key={product.id}
-              className="rounded-xl border border-[(--line)] bg-white p-3"
+              className="rounded-xl border border-[var(--line)] bg-white p-3"
             >
               <form data-delete-product-id={product.id} action={adminDeleteProductAction}>
                 <input type="hidden" name="productId" value={product.id} />
@@ -394,12 +394,12 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                   <img
                     src={product.thumbnailUrl}
                     alt={product.name}
-                    className="h-12 w-12 rounded-md border border-[(--line)] object-cover"
+                    className="h-12 w-12 rounded-md border border-[var(--line)] object-cover"
                   />
                   <div className="min-w-0">
                     <p className="line-clamp-2 break-words text-sm font-semibold text-slate-900">{product.name}</p>
                     <div className="mt-0.5 flex flex-wrap items-center gap-2">
-                      <span className="inline-flex rounded-md border border-[(--line)] bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700">
+                      <span className="inline-flex rounded-md border border-[var(--line)] bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700">
                         {product.categoryName ?? "Sin categoria"}
                       </span>
                       <span className="text-[11px] leading-none font-semibold text-slate-700">
@@ -440,7 +440,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
         )}
       </div>
 
-      <div className={viewMode === "table" ? "hidden overflow-hidden rounded-xl border border-[(--line)] bg-white md:block" : "hidden"}>
+      <div className={viewMode === "table" ? "hidden overflow-hidden rounded-xl border border-[var(--line)] bg-white md:block" : "hidden"}>
         <Table className="min-w-[980px]">
           <TableHeader>
             <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
@@ -515,7 +515,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                       <img
                         src={product.thumbnailUrl}
                         alt={product.name}
-                        className="h-10 w-10 rounded-md border border-[(--line)] object-cover"
+                        className="h-10 w-10 rounded-md border border-[var(--line)] object-cover"
                       />
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-slate-900 group-hover:text-slate-700">
@@ -528,7 +528,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                     </Link>
                   </TableCell>
                   <TableCell className="text-sm text-slate-600">
-                    <span className="inline-flex rounded-md border border-[(--line)] bg-slate-50 px-2 py-1 text-xs">
+                    <span className="inline-flex rounded-md border border-[var(--line)] bg-slate-50 px-2 py-1 text-xs">
                       {product.categoryName ?? "Sin categoria"}
                     </span>
                   </TableCell>
@@ -543,7 +543,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                       <input type="hidden" name="productId" value={product.id} />
                     </form>
                     <div className="flex items-center gap-1">
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[(--line)]">
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[var(--line)]">
                         <Link
                           href={`/admin/productos/${product.id}`}
                           aria-label={`Editar ${product.name}`}

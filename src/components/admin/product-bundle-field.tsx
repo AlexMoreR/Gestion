@@ -49,8 +49,8 @@ export function ProductBundleField({
   }, 0);
 
   return (
-    <section className="space-y-4 rounded-xl border border-[(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)] sm:p-5">
-      <div className="space-y-1 border-b border-[(--line)] pb-3">
+    <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)] sm:p-5">
+      <div className="space-y-1 border-b border-[var(--line)] pb-3">
         <h2 className="text-sm font-semibold text-slate-900">🧩 Combo</h2>
         <p className="text-xs text-slate-500">
           Un combo se arma con otros productos. Al venderlo se separa en sus componentes, cada uno con su
@@ -91,7 +91,7 @@ export function ProductBundleField({
                 return (
                   <div
                     key={row.id}
-                    className="grid gap-2 rounded-lg border border-[(--line)] bg-slate-50/60 p-3 md:grid-cols-[minmax(0,1fr)_7rem_2rem]"
+                    className="grid gap-2 rounded-lg border border-[var(--line)] bg-slate-50/60 p-3 md:grid-cols-[minmax(0,1fr)_7rem_2rem]"
                   >
                     <label className="space-y-1.5">
                       <span className="text-xs font-medium text-slate-600">Producto</span>
@@ -154,12 +154,12 @@ export function ProductBundleField({
               })}
             </div>
           ) : (
-            <p className="rounded-lg border border-dashed border-[(--line)] bg-slate-50/60 px-3 py-4 text-sm text-slate-500">
+            <p className="rounded-lg border border-dashed border-[var(--line)] bg-slate-50/60 px-3 py-4 text-sm text-slate-500">
               Sin componentes. Agrega al menos un producto.
             </p>
           )}
 
-          <div className="flex items-center justify-between rounded-lg border border-[(--line)] bg-slate-50/60 px-3 py-2">
+          <div className="flex items-center justify-between rounded-lg border border-[var(--line)] bg-slate-50/60 px-3 py-2">
             <span className="text-xs font-medium text-slate-600">Suma precios individuales (referencia)</span>
             <span className="text-sm font-semibold text-slate-900">{formatMoney(componentsTotal, currency)}</span>
           </div>

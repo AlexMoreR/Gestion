@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 
 type QueryFeedbackToastProps = {
   okMessage?: string;
@@ -29,15 +29,21 @@ export function QueryFeedbackToast({
     toast.dismiss();
 
     if (okMessage) {
-      toast.success(okTitle, {
-        description: okMessage,
-      });
+      toast.success(
+        <div>
+          <p className="text-sm font-semibold">{okTitle}</p>
+          <p className="text-xs opacity-90">{okMessage}</p>
+        </div>,
+      );
     }
 
     if (errorMessage) {
-      toast.error(errorTitle, {
-        description: errorMessage,
-      });
+      toast.error(
+        <div>
+          <p className="text-sm font-semibold">{errorTitle}</p>
+          <p className="text-xs opacity-90">{errorMessage}</p>
+        </div>,
+      );
     }
 
     const url = new URL(window.location.href);

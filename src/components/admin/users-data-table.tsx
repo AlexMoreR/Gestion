@@ -94,7 +94,7 @@ export function UsersDataTable({ users }: UsersDataTableProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 border-b border-[(--line)] pb-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-2 border-b border-[var(--line)] pb-3 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-sm font-semibold text-slate-900">Directorio de usuarios</p>
           <p className="text-xs text-slate-500">

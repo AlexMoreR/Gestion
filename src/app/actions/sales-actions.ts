@@ -585,6 +585,71 @@ export async function adminDeleteSalePaymentAction(formData: FormData): Promise<
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Abono eliminado" }).toString()}`);
 }
 
+const deleteSaleSchema = z.object({
+  saleId: z.string().trim().min(1, "Venta invalida"),
+});
+
+export async function adminDeleteSaleAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const returnTo = getReturnTo(formData);
+
+  const parsed = deleteSaleSchema.safeParse({
+    saleId: formData.get("saleId"),
+  });
+
+  if (!parsed.success) {
+    redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Venta invalida");
+  }
+
+  const sale = await prisma.sale.findUnique({
+    where: { id: parsed.data.saleId },
+    include: { order: { select: { id: true } } },
+  });
+
+  if (!sale) {
+    redirectWithError(returnTo, "No se encontro la venta");
+  }
+
+  const orderId = sale.order?.id ?? null;
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // 1. Borra los cargos y pagos a proveedores ligados a la venta o su orden.
+      //    Al desaparecer, los saldos de proveedores y cuentas se recalculan solos.
+      await tx.supplierLedgerEntry.deleteMany({
+        where: {
+          OR: [{ saleId: sale.id }, ...(orderId ? [{ orderId }] : [])],
+        },
+      });
+
+      if (orderId) {
+        // 2. Borra los despachos (cascade -> items de despacho). Esto libera el
+        //    Restrict que impide borrar los items de la orden si tienen despacho.
+        await tx.dispatch.deleteMany({ where: { orderId } });
+
+        // 3. Borra la orden: cascade elimina items, fotos, producción e historial.
+        await tx.order.delete({ where: { id: orderId } });
+      }
+
+      // 4. Borra la venta: cascade elimina abonos y fletes. La cotización origen
+      //    se conserva (queda libre para generar una venta nueva si se requiere).
+      await tx.sale.delete({ where: { id: sale.id } });
+    });
+  } catch (error) {
+    console.error("Failed to delete sale:", error);
+    redirectWithError(returnTo, "No se pudo eliminar la venta");
+  }
+
+  revalidatePath("/admin/ventas");
+  revalidatePath("/admin/cotizaciones");
+  revalidatePath("/admin/ordenes");
+  revalidatePath("/admin/produccion");
+  revalidatePath("/admin/despachos");
+  revalidatePath("/admin/proveedores");
+  revalidatePath("/admin/balances");
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Venta eliminada" }).toString()}`);
+}
+
 // ─── VENTA DIRECTA (mostrador, sin cotizacion previa) ──────────────────────
 
 function buildQuoteCode(index: number): string {

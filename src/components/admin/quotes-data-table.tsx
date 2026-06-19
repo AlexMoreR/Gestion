@@ -55,7 +55,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { useFormStatus } from "react-dom";
 
 type QuoteStatus = "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED";

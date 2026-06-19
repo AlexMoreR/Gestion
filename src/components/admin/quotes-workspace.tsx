@@ -32,6 +32,8 @@ type ProductOption = {
   name: string;
   code: string | null;
   retailPrice: number;
+  wholesalePrice: number;
+  minWholesaleQty: number;
   thumbnailUrl?: string | null;
   suppliers: ProductSupplierOption[];
   isBundle?: boolean;
@@ -100,6 +102,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
   const [draftQuantity, setDraftQuantity] = useState("1");
   const [draftColor, setDraftColor] = useState("");
   const [draftUnitPrice, setDraftUnitPrice] = useState("");
+  const [draftWholesale, setDraftWholesale] = useState(false);
   const [draftDescription, setDraftDescription] = useState("");
   const [draftAdditionalCost, setDraftAdditionalCost] = useState("0");
   const [draftDiscount, setDraftDiscount] = useState("0");
@@ -191,6 +194,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
     setDraftQuantity("1");
     setDraftColor("");
     setDraftUnitPrice("");
+    setDraftWholesale(false);
     setDraftDescription("");
     setDraftAdditionalCost("0");
     setDraftDiscount("0");
@@ -203,12 +207,25 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
     setOpenProductModal(true);
   };
 
+  const priceForMode = (product: ProductOption, wholesale: boolean): number =>
+    wholesale && product.wholesalePrice > 0 ? product.wholesalePrice : product.retailPrice;
+
   const applyProductSelection = (product: ProductOption) => {
     setDraftProductId(product.id);
     setProductLookup(product.code || product.name);
-    setDraftUnitPrice(String(product.retailPrice));
+    // Si el producto no tiene precio mayorista configurado, se cae a precio detal.
+    const useWholesale = draftWholesale && product.wholesalePrice > 0;
+    setDraftWholesale(useWholesale);
+    setDraftUnitPrice(String(priceForMode(product, useWholesale)));
     setShowProductResults(false);
     setProductFormError("");
+  };
+
+  const toggleWholesale = (checked: boolean) => {
+    setDraftWholesale(checked);
+    if (draftProduct) {
+      setDraftUnitPrice(String(priceForMode(draftProduct, checked)));
+    }
   };
 
   const addDraftProduct = () => {
@@ -471,9 +488,9 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
 
               <div>
                 <div className="grid gap-1.5 md:grid-cols-3">
-                  <div className={`rounded-lg border p-2 transition ${step >= 1 ? "border-[(--primary)]/30 bg-[(--primary)]/5" : "border-border bg-card"}`}>
+                  <div className={`rounded-lg border p-2 transition ${step >= 1 ? "border-[var(--primary)]/30 bg-[var(--primary)]/5" : "border-border bg-card"}`}>
                     <div className="flex items-center gap-2">
-                      <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 1 ? "border-[(--primary)] bg-[(--primary)] text-primary-foreground" : "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"}`}>
+                      <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 1 ? "border-[var(--primary)] bg-[var(--primary)] text-primary-foreground" : "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"}`}>
                         <UserRound className="h-3.5 w-3.5" />
                       </div>
                       <div>
@@ -483,9 +500,9 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                     </div>
                   </div>
 
-                  <div className={`rounded-lg border p-2 transition ${step >= 2 ? "border-[(--primary)]/30 bg-[(--primary)]/5" : "border-border bg-card"}`}>
+                  <div className={`rounded-lg border p-2 transition ${step >= 2 ? "border-[var(--primary)]/30 bg-[var(--primary)]/5" : "border-border bg-card"}`}>
                     <div className="flex items-center gap-2">
-                      <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 2 ? "border-[(--primary)] bg-[(--primary)] text-primary-foreground" : step > 2 ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "border-border bg-card text-muted-foreground"}`}>
+                      <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 2 ? "border-[var(--primary)] bg-[var(--primary)] text-primary-foreground" : step > 2 ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "border-border bg-card text-muted-foreground"}`}>
                         <Boxes className="h-3.5 w-3.5" />
                       </div>
                       <div>
@@ -495,9 +512,9 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                     </div>
                   </div>
 
-                  <div className={`rounded-lg border p-2 transition ${step >= 3 ? "border-[(--primary)]/30 bg-[(--primary)]/5" : "border-border bg-card"}`}>
+                  <div className={`rounded-lg border p-2 transition ${step >= 3 ? "border-[var(--primary)]/30 bg-[var(--primary)]/5" : "border-border bg-card"}`}>
                     <div className="flex items-center gap-2">
-                      <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 3 ? "border-[(--primary)] bg-[(--primary)] text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}>
+                      <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 3 ? "border-[var(--primary)] bg-[var(--primary)] text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}>
                         <Link2 className="h-3.5 w-3.5" />
                       </div>
                       <div>
@@ -510,7 +527,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
 
                 <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
                   <div
-                    className={`h-full rounded-full bg-[(--primary)] transition-all duration-300 ${step === 1 ? "w-1/3" : step === 2 ? "w-2/3" : "w-full"}`}
+                    className={`h-full rounded-full bg-[var(--primary)] transition-all duration-300 ${step === 1 ? "w-1/3" : step === 2 ? "w-2/3" : "w-full"}`}
                   />
                 </div>
               </div>
@@ -1046,8 +1063,38 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                   min={0}
                   step="0.01"
                   value={draftUnitPrice}
-                  onChange={(event) => setDraftUnitPrice(event.target.value)}
+                  onChange={(event) => {
+                    setDraftUnitPrice(event.target.value);
+                    // Edicion manual: ya no refleja un precio mayorista "puro".
+                    if (draftWholesale) setDraftWholesale(false);
+                  }}
                 />
+                {draftProduct ? (
+                  draftProduct.wholesalePrice > 0 ? (
+                    <label className="flex items-center gap-2 pt-0.5">
+                      <input
+                        type="checkbox"
+                        checked={draftWholesale}
+                        onChange={(event) => toggleWholesale(event.target.checked)}
+                        className="h-4 w-4 rounded border-input accent-[var(--primary)]"
+                      />
+                      <span className="text-xs font-medium text-foreground">
+                        Precio al por mayor{" "}
+                        <span className="text-muted-foreground">
+                          ({draftProduct.wholesalePrice.toLocaleString("es-CO", { style: "currency", currency })}
+                          {draftProduct.minWholesaleQty > 0
+                            ? ` · desde ${draftProduct.minWholesaleQty} und`
+                            : ""}
+                          )
+                        </span>
+                      </span>
+                    </label>
+                  ) : (
+                    <span className="block pt-0.5 text-xs text-muted-foreground">
+                      Este producto no tiene precio al por mayor configurado.
+                    </span>
+                  )
+                ) : null}
               </label>
 
               <label className="space-y-1.5">

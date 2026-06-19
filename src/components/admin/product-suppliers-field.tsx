@@ -52,7 +52,7 @@ export function ProductSuppliersField({
           {rows.map((row, index) => (
             <div
               key={row.id}
-              className="grid gap-2 rounded-lg border border-[(--line)] bg-slate-50/60 p-3 md:grid-cols-[minmax(0,1fr)_11rem_2rem]"
+              className="grid gap-2 rounded-lg border border-[var(--line)] bg-slate-50/60 p-3 md:grid-cols-[minmax(0,1fr)_11rem_2rem]"
             >
               <label className="space-y-1.5">
                 <span className="text-xs font-medium text-slate-600">
@@ -105,7 +105,7 @@ export function ProductSuppliersField({
           ))}
         </div>
       ) : (
-        <p className="rounded-lg border border-dashed border-[(--line)] bg-slate-50/60 px-3 py-4 text-sm text-slate-500">
+        <p className="rounded-lg border border-dashed border-[var(--line)] bg-slate-50/60 px-3 py-4 text-sm text-slate-500">
           Sin proveedores asignados.
         </p>
       )}

@@ -242,7 +242,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
         </h1>
       </div>
 
-      <form action={adminUpdateQuoteFullAction} className="space-y-4 rounded-xl border border-[(--line)] bg-white p-4">
+      <form action={adminUpdateQuoteFullAction} className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4">
         <input type="hidden" name="quoteId" value={quote.id} />
         <input type="hidden" name="returnTo" value={`/admin/cotizaciones/${quote.id}`} />
         <input type="hidden" name="clientId" value={clientId} />
@@ -272,7 +272,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
         </div>
 
         {step === 1 ? (
-          <div className="space-y-3 rounded-xl border border-[(--line)] p-3">
+          <div className="space-y-3 rounded-xl border border-[var(--line)] p-3">
             <label className="space-y-1.5 block">
               <span className="text-sm font-medium text-slate-700">Cliente existente</span>
               <select className="field-select" value={clientId} onChange={(event) => onSelectClient(event.target.value)}>
@@ -294,7 +294,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
         ) : null}
 
         {step === 2 ? (
-          <div className="space-y-3 rounded-xl border border-[(--line)] p-3">
+          <div className="space-y-3 rounded-xl border border-[var(--line)] p-3">
             <div className="grid gap-3 md:grid-cols-3">
               <label className="space-y-1.5 block md:col-span-2">
                 <span className="text-sm font-medium text-slate-700">Producto</span>
@@ -326,7 +326,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
             </Button>
             {productFormError ? <p className="text-xs font-medium text-red-600">{productFormError}</p> : null}
 
-            <div className="overflow-hidden rounded-xl border border-[(--line)]">
+            <div className="overflow-hidden rounded-xl border border-[var(--line)]">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50/70 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
@@ -341,7 +341,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
                 </thead>
                 <tbody>
                   {linesWithMeta.map(({ line, product, lineTotal }) => (
-                    <tr key={line.uid} className="border-t border-[(--line)]">
+                    <tr key={line.uid} className="border-t border-[var(--line)]">
                       <td className="px-3 py-2 text-slate-900">{product?.name || "Producto"}</td>
                       <td className="px-3 py-2 text-slate-700">{line.description || "-"}</td>
                       <td className="px-3 py-2 text-slate-700">{line.quantity}</td>
@@ -362,7 +362,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
         ) : null}
 
         {step === 3 ? (
-          <div className="space-y-3 rounded-xl border border-[(--line)] p-3">
+          <div className="space-y-3 rounded-xl border border-[var(--line)] p-3">
             <div className="grid gap-3 md:grid-cols-3">
               <label className="space-y-1.5 block">
                 <span className="text-sm font-medium text-slate-700">Estado</span>
@@ -383,26 +383,26 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
                 <Input value={quoteTotal.toLocaleString("es-CO", { style: "currency", currency })} readOnly />
               </label>
             </div>
-            <div className="grid gap-2 rounded-lg border border-[(--line)] bg-slate-50 p-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-lg border border-[(--line)] bg-white px-3 py-2">
+            <div className="grid gap-2 rounded-lg border border-[var(--line)] bg-slate-50 p-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
                 <span className="text-sm font-medium text-slate-700">Subtotal</span>
                 <p className="mt-1 text-lg font-medium text-slate-700">
                   {quoteSubtotal.toLocaleString("es-CO", { style: "currency", currency })}
                 </p>
               </div>
-              <div className="rounded-lg border border-[(--line)] bg-white px-3 py-2">
+              <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
                 <span className="text-sm font-medium text-slate-700">Descuento</span>
                 <p className="mt-1 text-lg font-medium text-slate-700">
                   {quoteDiscountTotal.toLocaleString("es-CO", { style: "currency", currency })}
                 </p>
               </div>
-              <div className="rounded-lg border border-[(--line)] bg-white px-3 py-2">
+              <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
                 <span className="text-sm font-medium text-slate-700">Valor adicional</span>
                 <p className="mt-1 text-lg font-medium text-slate-700">
                   {quoteAdditionalCostTotal.toLocaleString("es-CO", { style: "currency", currency })}
                 </p>
               </div>
-              <div className="rounded-lg border border-[(--line)] bg-white px-3 py-2">
+              <div className="rounded-lg border border-[var(--line)] bg-white px-3 py-2">
                 <span className="text-sm font-medium text-slate-700">Total</span>
                 <p className="mt-1 text-lg font-bold text-slate-900">
                   {quoteTotal.toLocaleString("es-CO", { style: "currency", currency })}
@@ -415,7 +415,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={4}
-                className="w-full rounded-lg border border-[(--line)] bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[(--line-strong)]"
+                className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[var(--line-strong)]"
               />
             </label>
             <div className="flex justify-end">

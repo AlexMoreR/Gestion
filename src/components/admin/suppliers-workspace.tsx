@@ -128,7 +128,7 @@ export function SuppliersWorkspace({ suppliers, currency, accounts }: SuppliersW
               <Button
                 type="button"
                 onClick={closeModal}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[(--line)] text-slate-600 transition hover:bg-slate-50"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] text-slate-600 transition hover:bg-slate-50"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
@@ -186,7 +186,7 @@ export function SuppliersWorkspace({ suppliers, currency, accounts }: SuppliersW
               <Button
                 type="button"
                 onClick={closeModal}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[(--line)] text-slate-600 transition hover:bg-slate-50"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] text-slate-600 transition hover:bg-slate-50"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
@@ -254,14 +254,14 @@ export function SuppliersWorkspace({ suppliers, currency, accounts }: SuppliersW
               <Button
                 type="button"
                 onClick={closeModal}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[(--line)] text-slate-600 transition hover:bg-slate-50"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] text-slate-600 transition hover:bg-slate-50"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
 
-            <div className="rounded-lg border border-[(--line)] bg-slate-50 p-3">
+            <div className="rounded-lg border border-[var(--line)] bg-slate-50 p-3">
               <p className="text-sm font-medium text-slate-900">{activeSupplier.name}</p>
               <p className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">Saldo pendiente</p>
               <p
@@ -320,7 +320,7 @@ export function SuppliersWorkspace({ suppliers, currency, accounts }: SuppliersW
                 activeSupplier.ledger.map((entry) => (
                   <div
                     key={entry.id}
-                    className="flex items-start justify-between gap-3 rounded-lg border border-[(--line)] p-3"
+                    className="flex items-start justify-between gap-3 rounded-lg border border-[var(--line)] p-3"
                   >
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-slate-900">
