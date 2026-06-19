@@ -216,12 +216,18 @@ function buildShippingWhere(search?: string): Prisma.ShippingCostWhereInput {
 }
 
 function buildProfitWhere(search?: string): Prisma.SaleWhereInput {
+  // Solo ventas facturadas con su orden cerrada (entregada).
+  const base: Prisma.SaleWhereInput = {
+    status: "INVOICED",
+    order: { is: { status: "COMPLETED" } },
+  };
   const normalizedSearch = normalizeSearch(search);
   if (!normalizedSearch) {
-    return {};
+    return base;
   }
 
   return {
+    ...base,
     OR: [
       { code: { contains: normalizedSearch, mode: "insensitive" } },
       { client: { name: { contains: normalizedSearch, mode: "insensitive" } } },
@@ -587,7 +593,11 @@ export function createPrismaBalancesRepository(): BalancesRepository {
     },
 
     async getDashboardMetrics(): Promise<DashboardMetrics> {
-      const sales = await getSaleProfitRows();
+      // Solo se contabilizan ventas facturadas cuya orden esta cerrada (entregada).
+      const sales = await getSaleProfitRows({
+        status: "INVOICED",
+        order: { is: { status: "COMPLETED" } },
+      });
       return summarizeDashboardMetrics(sales);
     },
 
@@ -610,7 +620,7 @@ export function createPrismaBalancesRepository(): BalancesRepository {
     },
 
     async listAccountBalances(): Promise<AccountBalance[]> {
-      const [accounts, incomeByAccount, expenseByAccount, shippingByAccount, movementsByAccount] = await Promise.all([
+      const [accounts, incomeByAccount, expenseByAccount, shippingByAccount, operatingExpenseByAccount, movementsByAccount] = await Promise.all([
         prisma.account.findMany({
           orderBy: [{ isActive: "desc" }, { name: "asc" }],
           select: {
@@ -638,6 +648,10 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           where: { accountId: { not: null } },
           _sum: { amount: true },
         }),
+        prisma.expense.groupBy({
+          by: ["accountId"],
+          _sum: { amount: true },
+        }),
         prisma.accountMovement.groupBy({
           by: ["accountId", "type"],
           _sum: { amount: true },
@@ -657,6 +671,10 @@ export function createPrismaBalancesRepository(): BalancesRepository {
         if (row.accountId) {
           expenseMap.set(row.accountId, (expenseMap.get(row.accountId) ?? 0) + toNumber(row._sum.amount));
         }
+      }
+      // Los gastos operativos (nomina, marketing, varios) tambien descuentan del saldo.
+      for (const row of operatingExpenseByAccount) {
+        expenseMap.set(row.accountId, (expenseMap.get(row.accountId) ?? 0) + toNumber(row._sum.amount));
       }
 
       const movementInMap = new Map<string, number>();

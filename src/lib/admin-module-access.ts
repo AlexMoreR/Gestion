@@ -68,6 +68,13 @@ export const adminModuleDefinitions = [
     group: "Comercial",
   },
   {
+    key: "expenses",
+    label: "Gastos",
+    description: "Registra gastos de nomina, marketing y varios por cuenta.",
+    path: "/admin/gastos",
+    group: "Comercial",
+  },
+  {
     key: "orders",
     label: "Ordenes",
     description: "Gestiona ordenes de cumplimiento y trazabilidad.",

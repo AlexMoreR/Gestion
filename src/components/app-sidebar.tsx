@@ -7,6 +7,7 @@ import {
   Landmark,
   LayoutDashboard,
   Package,
+  ReceiptText,
   Settings,
   Tag,
   Truck,
@@ -173,6 +174,18 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
         icon: Landmark,
         isActive: pathname.startsWith("/admin/balances"),
         items: [{ title: "Rentabilidad", url: "/admin/balances" }],
+      });
+    }
+
+    if (adminModuleAccess.expenses) {
+      navMain.push({
+        title: "Gastos",
+        url: "/admin/gastos",
+        icon: ReceiptText,
+        isActive: pathname.startsWith("/admin/gastos"),
+        items: [
+          { title: "Registro", url: "/admin/gastos" },
+        ],
       });
     }
   }
