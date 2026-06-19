@@ -125,11 +125,14 @@ body {
 .field-select {
   height: 2rem;
   width: 100%;
+  box-sizing: border-box;
   border-radius: 0.5rem;
   border: 1px solid var(--line);
   background: var(--surface);
+  padding-block: 0;
   padding-inline: 0.625rem;
   font-size: 0.875rem;
+  line-height: normal;
   color: #1f2937;
   outline: none;
   transition: border-color 120ms ease;
