@@ -21,6 +21,7 @@ type SaleWithDiscountFields = {
     receiptUrl?: unknown;
     receiptName?: unknown;
     receiptType?: unknown;
+    paymentDate?: unknown;
     createdAt?: unknown;
   }>;
 };
@@ -170,7 +171,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
                 receiptUrl: typeof payment.receiptUrl === "string" && payment.receiptUrl.trim() ? payment.receiptUrl.trim() : null,
                 receiptName: typeof payment.receiptName === "string" && payment.receiptName.trim() ? payment.receiptName.trim() : null,
                 receiptType: typeof payment.receiptType === "string" && payment.receiptType.trim() ? payment.receiptType.trim() : null,
-                paidAt: formatPaymentDate(payment.createdAt),
+                paidAt: formatPaymentDate(payment.paymentDate ?? payment.createdAt),
               }))
             : [],
           hasOrder: Boolean(sale.order),

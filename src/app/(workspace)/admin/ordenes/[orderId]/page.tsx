@@ -349,7 +349,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                   amount: Number(payment.amount),
                   method: payment.paymentMethod ?? null,
                   note: payment.note ?? null,
-                  paidAt: payment.createdAt.toLocaleDateString("es-CO"),
+                  paidAt: (payment.paymentDate ?? payment.createdAt).toLocaleDateString("es-CO"),
                   receiptUrl: payment.receiptUrl ?? null,
                 }))}
               />
