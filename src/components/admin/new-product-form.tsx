@@ -660,10 +660,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
               >
                 Cancelar
               </Link>
-              <Button
-                type="submit"
-                className="inline-flex h-10 items-center justify-center rounded-lg bg-[(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[(--primary-strong)]"
-              >
+              <Button type="submit" className="h-10 px-4">
                 Guardar producto
               </Button>
             </div>

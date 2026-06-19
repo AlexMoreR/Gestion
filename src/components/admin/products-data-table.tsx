@@ -9,6 +9,8 @@ import {
   Boxes,
   CircleDollarSign,
   Edit3,
+  LayoutGrid,
+  List,
   MoreHorizontal,
   Paintbrush,
   Search,
@@ -212,6 +214,8 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
     setPendingDelete(null);
   };
 
+  const [viewMode, setViewMode] = React.useState<"grid" | "table">("grid");
+
   const handleOpenProduct = (
     event: React.MouseEvent<HTMLAnchorElement>,
     productId: string,
@@ -273,10 +277,101 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
           >
             <Paintbrush className="h-4 w-4" />
           </Button>
+          <div className="flex items-center gap-0.5 rounded-lg border border-[(--line)] p-0.5">
+            <Button
+              type="button"
+              variant={viewMode === "grid" ? "secondary" : "ghost"}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setViewMode("grid")}
+              aria-label="Vista cuadricula"
+              title="Cuadricula"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant={viewMode === "table" ? "secondary" : "ghost"}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setViewMode("table")}
+              aria-label="Vista tabla"
+              title="Tabla"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="space-y-2 md:hidden">
+      {viewMode === "grid" ? (
+        pagedProducts.length === 0 ? (
+          <div className="rounded-xl border border-[(--line)] bg-white px-3 py-6 text-center text-sm text-slate-500">
+            No hay productos para el filtro actual.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {pagedProducts.map((product) => (
+              <div
+                key={product.id}
+                className="group relative flex items-stretch overflow-hidden rounded-xl border border-[(--line)] bg-white transition hover:shadow-md"
+              >
+                <form data-delete-product-id={product.id} action={adminDeleteProductAction}>
+                  <input type="hidden" name="productId" value={product.id} />
+                </form>
+                <Link
+                  href={`/admin/productos/${product.id}`}
+                  onClick={(event) => handleOpenProduct(event, product.id)}
+                  className="flex min-w-0 flex-1 items-stretch"
+                >
+                  <img
+                    src={product.thumbnailUrl}
+                    alt={product.name}
+                    className="w-14 shrink-0 self-stretch bg-slate-50 object-cover"
+                  />
+                  <div className="min-w-0 flex-1 p-3">
+                    <p className="line-clamp-2 text-sm font-semibold text-slate-900">{product.name}</p>
+                    <p className="truncate text-xs text-slate-500">
+                      {product.code ?? "Sin codigo"}
+                    </p>
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      <span className="inline-flex max-w-[55%] truncate rounded-md border border-[(--line)] bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700">
+                        {product.categoryName ?? "Sin categoria"}
+                      </span>
+                      <span className="text-sm font-semibold text-slate-800">
+                        {formatMoney(product.price, currency)}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+                <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100">
+                  <Button type="button" variant="outline" size="icon" className="h-7 w-7 bg-white/90">
+                    <Link
+                      href={`/admin/productos/${product.id}`}
+                      aria-label={`Editar ${product.name}`}
+                      onClick={(event) => handleOpenProduct(event, product.id)}
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7 border-red-200 bg-white/90 text-red-600 hover:bg-red-50 hover:text-red-700"
+                    onClick={() => setPendingDelete({ id: product.id, name: product.name })}
+                    aria-label={`Eliminar ${product.name}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : null}
+
+      <div className={viewMode === "table" ? "space-y-2 md:hidden" : "hidden"}>
         {pagedProducts.length === 0 ? (
           <div className="rounded-xl border border-[(--line)] bg-white px-3 py-6 text-center text-sm text-slate-500">
             No hay productos para el filtro actual.
@@ -345,7 +440,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
         )}
       </div>
 
-      <div className="hidden overflow-hidden rounded-xl border border-[(--line)] bg-white md:block">
+      <div className={viewMode === "table" ? "hidden overflow-hidden rounded-xl border border-[(--line)] bg-white md:block" : "hidden"}>
         <Table className="min-w-[980px]">
           <TableHeader>
             <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
