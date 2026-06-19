@@ -7,6 +7,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buildOrderCode, parseOrderCodeNumber } from "@/lib/orders";
+import { expandQuoteItemsToOrderItems } from "@/lib/order-items";
 
 const createOrderSchema = z.object({
   saleId: z.string().trim().min(1, "Venta invalida"),
@@ -161,7 +162,14 @@ export async function adminCreateOrderFromSaleAction(formData: FormData): Promis
         include: {
           items: {
             include: {
-              product: true,
+              product: {
+                include: {
+                  bundleComponents: {
+                    orderBy: { sortOrder: "asc" },
+                    include: { child: true },
+                  },
+                },
+              },
             },
           },
         },
@@ -195,6 +203,34 @@ export async function adminCreateOrderFromSaleAction(formData: FormData): Promis
   const subtotal = Number(sale.total);
   const total = Number(sale.total);
 
+  // Expande los combos en sus componentes para que la orden de fabricacion
+  // muestre los subproductos reales y no el combo padre.
+  const orderItemInputs = expandQuoteItemsToOrderItems(
+    sale.quote.items.map((item) => ({
+      id: item.id,
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPrice: Number(item.unitPrice),
+      lineTotal: Number(item.lineTotal),
+      notes: item.notes,
+      product: {
+        name: item.product.name,
+        fulfillmentMode: item.product.fulfillmentMode,
+        isBundle: item.product.isBundle,
+        bundleComponents: item.product.bundleComponents.map((component) => ({
+          quantity: component.quantity,
+          child: {
+            id: component.child.id,
+            name: component.child.name,
+            code: component.child.code,
+            price: Number(component.child.price),
+            fulfillmentMode: component.child.fulfillmentMode,
+          },
+        })),
+      },
+    })),
+  );
+
   try {
     await prisma.$transaction(async (tx) => {
       const code = await getNextOrderCode(tx);
@@ -214,15 +250,7 @@ export async function adminCreateOrderFromSaleAction(formData: FormData): Promis
           subtotal: new Prisma.Decimal(subtotal),
           total: new Prisma.Decimal(total),
           items: {
-            create: sale.quote.items.map((item) => ({
-              quoteItemId: item.id,
-              productId: item.productId,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              lineTotal: item.lineTotal,
-              fulfillmentMode: item.product.fulfillmentMode,
-              notes: item.notes,
-            })),
+            create: orderItemInputs,
           },
         },
       });
