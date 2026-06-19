@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { getSystemCurrency } from "@/lib/system-settings";
+import { prisma } from "@/lib/prisma";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import { createPrismaExpensesRepository } from "@/modules/expenses/infrastructure/prisma-expenses-repository";
 import { ExpensesWorkspace } from "@/modules/expenses/presentation/expenses-workspace";
@@ -25,8 +26,18 @@ export default async function AdminExpensesPage({ searchParams }: PageProps) {
   const expensesRepository = createPrismaExpensesRepository();
   const balancesRepository = createPrismaBalancesRepository();
 
+  // El id del JWT puede apuntar a un usuario que ya no existe; resolvemos un
+  // User real por id o por email antes de sembrar categorias por defecto.
+  const sessionUser =
+    (await prisma.user.findUnique({ where: { id: session.user.id }, select: { id: true } })) ??
+    (session.user.email
+      ? await prisma.user.findUnique({ where: { email: session.user.email }, select: { id: true } })
+      : null);
+
   // Crea Nomina / Marketing / Varios la primera vez que se abre el modulo.
-  await expensesRepository.ensureDefaultCategories(session.user.id);
+  if (sessionUser) {
+    await expensesRepository.ensureDefaultCategories(sessionUser.id);
+  }
 
   const params = await searchParams;
   const okMessage = typeof params.ok === "string" ? params.ok : "";
