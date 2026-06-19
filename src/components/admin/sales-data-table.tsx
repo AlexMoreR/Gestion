@@ -80,6 +80,7 @@ type SaleRow = {
   remainingBalance: number;
   status: SaleStatus;
   createdAt: string;
+  createdAtISO: string;
   invoiceToken: string;
   paymentReceiptUrl: string;
   paymentReceiptType: string;
@@ -811,7 +812,7 @@ export function SalesDataTable({ sales, currency, accounts }: SalesDataTableProp
             {sortedSales.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="py-9 text-center text-muted-foreground">
-                  Aun no hay ventas.
+                  No hay ventas con los filtros seleccionados.
                 </TableCell>
               </TableRow>
             ) : (
@@ -857,7 +858,7 @@ export function SalesDataTable({ sales, currency, accounts }: SalesDataTableProp
       <div className="space-y-2 md:hidden">
         {sortedSales.length === 0 ? (
           <div className="rounded-xl border border-border bg-card px-3 py-6 text-center text-sm text-muted-foreground">
-            Aun no hay ventas.
+            No hay ventas con los filtros seleccionados.
           </div>
         ) : (
           sortedSales.map((sale) => (

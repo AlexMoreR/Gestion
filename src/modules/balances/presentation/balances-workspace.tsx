@@ -4,6 +4,7 @@ import * as React from "react";
 import { Landmark, Plus, ReceiptText, Truck, TrendingUp, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type {
   AccountBalance,
@@ -72,11 +73,11 @@ function MetricCard({
           : "border-border bg-card";
 
   return (
-    <Card className={toneClass}>
-      <CardContent className="space-y-2 p-4">
-        <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">{title}</p>
-        <p className="text-2xl font-semibold tracking-tight text-foreground">{value}</p>
-        <p className="text-xs text-muted-foreground">{helper}</p>
+    <Card className={`${toneClass} py-2`}>
+      <CardContent className="space-y-0.5">
+        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
+        <p className="text-lg font-semibold text-foreground">{value}</p>
+        <p className="text-[10px] text-muted-foreground">{helper}</p>
       </CardContent>
     </Card>
   );
@@ -125,99 +126,73 @@ export function BalancesWorkspace({
   return (
     <>
       <section className="space-y-4">
-        <Card className="border-border bg-card/95">
-          <CardContent className="space-y-3 p-4">
+        <div className="space-y-3">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-start gap-3">
-                <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
-                  <Landmark className="h-5 w-5" />
-                </div>
-                <div>
-                  <h1 className="text-lg font-semibold tracking-tight text-foreground md:text-xl">
-                    Balances y rentabilidad
-                  </h1>
-                  <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                    Controla pagos a proveedores, costos de envio y margen real por venta sin salir de la operacion diaria.
-                  </p>
-                </div>
-              </div>
+              <h1 className="inline-flex items-center gap-1 text-lg font-semibold tracking-tight text-foreground md:text-xl">
+                <Landmark className="h-4 w-4 text-primary" />
+                <span>Balances y rentabilidad</span>
+              </h1>
 
               <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" onClick={() => setSupplierPaymentModal({ mode: "create", initialValue: null })}>
-                  <Plus className="h-4 w-4" />
-                  Nuevo pago
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setShippingCostModal({ mode: "create", initialValue: null })}>
-                  <Truck className="h-4 w-4" />
-                  Costo de envio
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setAccountMovementOpen(true)}>
-                  <Wallet className="h-4 w-4" />
-                  Movimiento
-                </Button>
-                <Button type="button" onClick={() => setAccountModal({ mode: "create", initialValue: null })}>
-                  <Plus className="h-4 w-4" />
-                  Nueva cuenta
-                </Button>
+                {tab === "payments" ? (
+                  <Button type="button" variant="outline" onClick={() => setSupplierPaymentModal({ mode: "create", initialValue: null })}>
+                    <Plus className="h-4 w-4" />
+                    Nuevo pago
+                  </Button>
+                ) : null}
+                {tab === "shipping" ? (
+                  <Button type="button" variant="outline" onClick={() => setShippingCostModal({ mode: "create", initialValue: null })}>
+                    <Truck className="h-4 w-4" />
+                    Costo de envio
+                  </Button>
+                ) : null}
+                {tab === "cuentas" ? (
+                  <>
+                    <Button type="button" variant="outline" onClick={() => setAccountMovementOpen(true)}>
+                      <Wallet className="h-4 w-4" />
+                      Movimiento
+                    </Button>
+                    <Button type="button" onClick={() => setAccountModal({ mode: "create", initialValue: null })}>
+                      <Plus className="h-4 w-4" />
+                      Nueva cuenta
+                    </Button>
+                  </>
+                ) : null}
               </div>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
-              <Button
-                type="button"
-                variant={tab === "overview" ? "secondary" : "ghost"}
-                className="justify-start"
-                onClick={() => setTab("overview")}
-              >
-                <TrendingUp className="h-4 w-4" />
-                Resumen
-              </Button>
-              <Button
-                type="button"
-                variant={tab === "payments" ? "secondary" : "ghost"}
-                className="justify-start"
-                onClick={() => setTab("payments")}
-              >
-                <ReceiptText className="h-4 w-4" />
-                Pagos
-              </Button>
-              <Button
-                type="button"
-                variant={tab === "shipping" ? "secondary" : "ghost"}
-                className="justify-start"
-                onClick={() => setTab("shipping")}
-              >
-                <Truck className="h-4 w-4" />
-                Envios
-              </Button>
-              <Button
-                type="button"
-                variant={tab === "reports" ? "secondary" : "ghost"}
-                className="justify-start"
-                onClick={() => setTab("reports")}
-              >
-                <Landmark className="h-4 w-4" />
-                Reportes
-              </Button>
-              <Button
-                type="button"
-                variant={tab === "cuentas" ? "secondary" : "ghost"}
-                className="justify-start"
-                onClick={() => setTab("cuentas")}
-              >
-                <Wallet className="h-4 w-4" />
-                Cuentas
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            <Tabs value={tab} onValueChange={(value) => setTab(value as TabKey)} variant="line">
+              <TabsList>
+                <TabsTrigger value="overview">
+                  <TrendingUp />
+                  Resumen
+                </TabsTrigger>
+                <TabsTrigger value="payments">
+                  <ReceiptText />
+                  Pagos
+                </TabsTrigger>
+                <TabsTrigger value="shipping">
+                  <Truck />
+                  Envios
+                </TabsTrigger>
+                <TabsTrigger value="reports">
+                  <Landmark />
+                  Reportes
+                </TabsTrigger>
+                <TabsTrigger value="cuentas">
+                  <Wallet />
+                  Cuentas
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+        </div>
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <MetricCard title="Ventas totales" value={formatMoney(metrics.salesTotal, currency)} helper={`${metrics.salesCount} ventas analizadas`} accent="info" />
-          <MetricCard title="Costos totales" value={formatMoney(metrics.supplierCosts, currency)} helper="Costos asociados a proveedores" accent="danger" />
+          <MetricCard title="Costos totales" value={formatMoney(metrics.supplierCosts, currency)} helper="Costo proveedores" accent="danger" />
           <MetricCard title="Costos de envio" value={formatMoney(metrics.shippingCosts, currency)} helper="Fletes y transportes" accent="danger" />
           <MetricCard title="Ganancia neta" value={formatMoney(metrics.netProfit, currency)} helper={`${metrics.marginPercentage.toFixed(2)}% de margen`} accent={metrics.netProfit >= 0 ? "success" : "danger"} />
-          <MetricCard title="Ventas rentables" value={`${metrics.profitableSalesCount}`} helper="Ventas con margen positivo" accent="success" />
+          <MetricCard title="Ventas rentables" value={`${metrics.profitableSalesCount}`} helper="Ventas positivas" accent="success" />
         </div>
 
         {tab === "overview" ? (

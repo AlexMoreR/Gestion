@@ -401,7 +401,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="inline-flex items-center gap-1 text-lg font-semibold tracking-tight text-foreground md:text-xl">
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <FileText className="h-4 w-4 text-primary" />
             <span>Cotizaciones</span>
           </h1>
         </div>
