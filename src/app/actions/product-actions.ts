@@ -570,7 +570,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
   revalidatePath("/");
   revalidatePath("/admin/productos");
   revalidatePath(redirectBase);
-  redirect(`${redirectBase}?ok=Producto+actualizado`);
+  redirect("/admin/productos?ok=Producto+actualizado");
 }
 
 export async function adminDeleteProductAction(formData: FormData): Promise<void> {
