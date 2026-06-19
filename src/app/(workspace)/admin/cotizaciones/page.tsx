@@ -34,7 +34,7 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
         items: true,
         sale: true,
       },
-      take: 200,
+      take: 500,
     }),
     prisma.user.findMany({
       where: { role: "CLIENTE" },
@@ -95,6 +95,7 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
           total: Number(quote.total),
           status: quote.status,
           createdAt: quote.createdAt.toLocaleDateString("es-CO"),
+          createdAtISO: quote.createdAt.toISOString(),
           shareToken: quote.shareToken,
           hasSale: Boolean(quote.sale),
         }))}

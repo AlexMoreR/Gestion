@@ -46,6 +46,7 @@ type QuoteRow = {
   total: number;
   status: "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED";
   createdAt: string;
+  createdAtISO: string;
   shareToken: string;
   hasSale: boolean;
 };
@@ -403,9 +404,6 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
             <FileText className="h-4 w-4 text-muted-foreground" />
             <span>Cotizaciones</span>
           </h1>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Crea cotizaciones con cliente, productos y link compartible.
-          </p>
         </div>
         <Button
           type="button"

@@ -9,11 +9,14 @@ import {
   ArrowUpDown,
   ArrowUpRight,
   CalendarDays,
+  ChevronDown,
   BadgeDollarSign,
   Edit3,
   FileText,
   MoreHorizontal,
+  Paintbrush,
   Plus,
+  Search,
   ShoppingCart,
   Trash2,
   Upload,
@@ -24,6 +27,7 @@ import { adminDeleteQuoteAction } from "@/app/actions/quote-actions";
 import { adminCreateSaleFromQuoteAction } from "@/app/actions/sales-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -34,8 +38,10 @@ import {
 } from "@/components/ui/select";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -64,6 +70,7 @@ type QuoteRow = {
   total: number;
   status: QuoteStatus;
   createdAt: string;
+  createdAtISO: string;
   shareToken: string;
   hasSale: boolean;
 };
@@ -97,6 +104,13 @@ function todayInputValue(): string {
   const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
   return local.toISOString().slice(0, 10);
 }
+
+function firstDayOfMonthInput(): string {
+  return `${todayInputValue().slice(0, 8)}01`;
+}
+
+const STATUS_FILTER_OPTIONS: QuoteStatus[] = ["DRAFT", "SENT", "ACCEPTED", "REJECTED", "EXPIRED"];
+const DEFAULT_STATUS_FILTER: QuoteStatus[] = ["DRAFT", "SENT", "EXPIRED"];
 
 type SaleInstallmentValidation = {
   canSubmit: boolean;
@@ -862,6 +876,10 @@ function SaleInstallmentsModal({
 export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableProps) {
   const [sortKey, setSortKey] = React.useState<SortKey>("cotizacion");
   const [sortDirection, setSortDirection] = React.useState<SortDirection>("desc");
+  const [search, setSearch] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState<QuoteStatus[]>(DEFAULT_STATUS_FILTER);
+  const [dateFrom, setDateFrom] = React.useState(firstDayOfMonthInput());
+  const [dateTo, setDateTo] = React.useState(todayInputValue());
   const [pendingDelete, setPendingDelete] = React.useState<{ id: string; code: string } | null>(null);
   const [pendingSale, setPendingSale] = React.useState<QuoteRow | null>(null);
   const [discountAmount, setDiscountAmount] = React.useState("0");
@@ -892,8 +910,43 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
     }
   }, [pendingSale]);
 
+  const filteredQuotes = React.useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return quotes.filter((quote) => {
+      if (!statusFilter.includes(quote.status)) return false;
+      const day = quote.createdAtISO.slice(0, 10);
+      if (dateFrom && day < dateFrom) return false;
+      if (dateTo && day > dateTo) return false;
+      if (term && !`${quote.code} ${quote.clientName}`.toLowerCase().includes(term)) return false;
+      return true;
+    });
+  }, [quotes, search, statusFilter, dateFrom, dateTo]);
+
+  const stats = React.useMemo(() => {
+    const accepted = filteredQuotes.filter((quote) => quote.status === "ACCEPTED");
+    return {
+      count: filteredQuotes.length,
+      total: filteredQuotes.reduce((sum, quote) => sum + quote.total, 0),
+      acceptedCount: accepted.length,
+      acceptedTotal: accepted.reduce((sum, quote) => sum + quote.total, 0),
+    };
+  }, [filteredQuotes]);
+
+  const toggleStatusFilter = React.useCallback((status: QuoteStatus) => {
+    setStatusFilter((current) =>
+      current.includes(status) ? current.filter((item) => item !== status) : [...current, status],
+    );
+  }, []);
+
+  const resetFilters = React.useCallback(() => {
+    setSearch("");
+    setStatusFilter(DEFAULT_STATUS_FILTER);
+    setDateFrom(firstDayOfMonthInput());
+    setDateTo(todayInputValue());
+  }, []);
+
   const sortedQuotes = React.useMemo(() => {
-    const list = [...quotes];
+    const list = [...filteredQuotes];
     const directionFactor = sortDirection === "asc" ? 1 : -1;
     const textCompare = (a: string, b: string) => a.localeCompare(b, "es", { sensitivity: "base", numeric: true });
 
@@ -916,7 +969,7 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
     });
 
     return list;
-  }, [quotes, sortDirection, sortKey]);
+  }, [filteredQuotes, sortDirection, sortKey]);
 
   const saleValidation = React.useMemo(() => {
     return validateSaleInstallments({
@@ -1093,6 +1146,108 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
 
   return (
     <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="border-border bg-card/95 py-2">
+          <CardContent className="space-y-0.5">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Cotizaciones</p>
+            <p className="text-lg font-semibold text-foreground">{stats.count}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border bg-card/95 py-2">
+          <CardContent className="space-y-0.5">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Valor total</p>
+            <p className="text-lg font-semibold text-foreground">{formatMoney(stats.total, currency)}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border bg-card/95 py-2">
+          <CardContent className="space-y-0.5">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Aceptadas</p>
+            <p className="text-lg font-semibold text-foreground">{stats.acceptedCount}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border bg-card/95 py-2">
+          <CardContent className="space-y-0.5">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Valor aceptado</p>
+            <p className="text-lg font-semibold text-foreground">{formatMoney(stats.acceptedTotal, currency)}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative w-full sm:max-w-xs">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className="pl-9"
+                placeholder="Buscar por código o cliente"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Estados</span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline" size="sm" className="gap-2">
+                    <span>
+                      {statusFilter.length === 0
+                        ? "Ninguno"
+                        : statusFilter.length === STATUS_FILTER_OPTIONS.length
+                          ? "Todos los estados"
+                          : `${statusFilter.length} seleccionados`}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-52">
+                  <DropdownMenuLabel>Filtrar por estado</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {STATUS_FILTER_OPTIONS.map((status) => (
+                    <DropdownMenuCheckboxItem
+                      key={status}
+                      checked={statusFilter.includes(status)}
+                      onCheckedChange={() => toggleStatusFilter(status)}
+                      onSelect={(event) => event.preventDefault()}
+                    >
+                      {statusLabel(status)}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(event) => setDateFrom(event.target.value)}
+              className="w-40"
+              title="Desde"
+              aria-label="Desde"
+            />
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(event) => setDateTo(event.target.value)}
+              className="w-40"
+              title="Hasta"
+              aria-label="Hasta"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={resetFilters}
+              aria-label="Limpiar filtros"
+              title="Limpiar filtros"
+            >
+              <Paintbrush className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
       <div className="hidden overflow-hidden rounded-xl border border-border bg-card md:block">
         <Table className="min-w-[900px]">
           <TableHeader>
@@ -1131,7 +1286,7 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
             {sortedQuotes.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="py-9 text-center text-muted-foreground">
-                  Aun no hay cotizaciones.
+                  No hay cotizaciones con los filtros seleccionados.
                 </TableCell>
               </TableRow>
             ) : (
@@ -1167,7 +1322,7 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
       <div className="space-y-2 md:hidden">
         {sortedQuotes.length === 0 ? (
           <div className="rounded-xl border border-border bg-card px-3 py-6 text-center text-sm text-muted-foreground">
-            Aun no hay cotizaciones.
+            No hay cotizaciones con los filtros seleccionados.
           </div>
         ) : (
           sortedQuotes.map((quote) => (
