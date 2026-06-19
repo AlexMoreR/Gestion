@@ -334,10 +334,19 @@ function RowActions({
             Editar
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onSendToSales} disabled={quote.hasSale}>
-          <ShoppingCart className="mr-2 h-4 w-4" />
-          {quote.hasSale ? "Enviado a ventas" : "Enviar a ventas"}
-        </DropdownMenuItem>
+        {quote.hasSale ? (
+          <DropdownMenuItem asChild>
+            <Link href={`/admin/ventas?q=${encodeURIComponent(quote.code)}`}>
+              <BadgeDollarSign className="mr-2 h-4 w-4" />
+              Ver venta
+            </Link>
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem onClick={onSendToSales}>
+            <ShoppingCart className="mr-2 h-4 w-4" />
+            Enviar a ventas
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onDelete} className="text-destructive hover:text-destructive focus:text-destructive">
           <Trash2 className="mr-2 h-4 w-4" />

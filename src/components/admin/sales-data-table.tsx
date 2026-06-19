@@ -85,6 +85,7 @@ type SaleRow = {
   paymentReceiptType: string;
   salePayments: SalePaymentRow[];
   hasOrder: boolean;
+  orderId: string | null;
 };
 
 type SalesDataTableProps = {
@@ -213,16 +214,24 @@ function RowActions({
             Descargar PDF
           </a>
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            const form = document.querySelector<HTMLFormElement>(`form[data-create-order-sale-id="${sale.id}"]`);
-            form?.requestSubmit();
-          }}
-          disabled={sale.hasOrder}
-        >
-          <FileText className="mr-2 h-4 w-4" />
-          {sale.hasOrder ? "Orden creada" : "Crear orden"}
-        </DropdownMenuItem>
+        {sale.hasOrder && sale.orderId ? (
+          <DropdownMenuItem asChild>
+            <Link href={`/admin/ordenes/${sale.orderId}`}>
+              <FileText className="mr-2 h-4 w-4" />
+              Ver orden
+            </Link>
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem
+            onClick={() => {
+              const form = document.querySelector<HTMLFormElement>(`form[data-create-order-sale-id="${sale.id}"]`);
+              form?.requestSubmit();
+            }}
+          >
+            <FileText className="mr-2 h-4 w-4" />
+            Crear orden
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onViewReceipts} disabled={!hasReceipts}>
           <Eye className="mr-2 h-4 w-4" />

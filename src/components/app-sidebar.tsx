@@ -145,16 +145,6 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
       });
     }
 
-    if (adminModuleAccess.balances) {
-      navMain.push({
-        title: "Balances",
-        url: "/admin/balances",
-        icon: Landmark,
-        isActive: pathname.startsWith("/admin/balances"),
-        items: [{ title: "Rentabilidad", url: "/admin/balances" }],
-      });
-    }
-
     const operationsItems: { title: string; url: string }[] = [];
     if (adminModuleAccess.orders) {
       operationsItems.push({ title: "Listado", url: "/admin/ordenes" });
@@ -173,6 +163,16 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
         icon: ClipboardList,
         isActive: isAdminOrdersRoute || isAdminProductionRoute || isAdminDispatchesRoute,
         items: operationsItems,
+      });
+    }
+
+    if (adminModuleAccess.balances) {
+      navMain.push({
+        title: "Balances",
+        url: "/admin/balances",
+        icon: Landmark,
+        isActive: pathname.startsWith("/admin/balances"),
+        items: [{ title: "Rentabilidad", url: "/admin/balances" }],
       });
     }
   }

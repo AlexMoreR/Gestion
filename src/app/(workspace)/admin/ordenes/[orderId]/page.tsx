@@ -2,10 +2,11 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { OrderActionsMenu } from "@/components/admin/order-actions-menu";
+import { OrderHistoryTabs } from "@/components/admin/order-history-tabs";
 import { OrderItemManager } from "@/components/admin/order-item-manager";
 import { OrderStepper } from "@/components/admin/order-stepper";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { formatMoney } from "@/lib/currency";
@@ -42,7 +43,11 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     prisma.order.findUnique({
       where: { id: orderId },
       include: {
-        sale: true,
+        sale: {
+          include: {
+            salePayments: { orderBy: { sortOrder: "asc" } },
+          },
+        },
         client: true,
         createdBy: true,
         assignedTo: true,
@@ -121,6 +126,14 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   }
 
   const returnTo = `/admin/ordenes/${order.id}`;
+  // Costo total de compra de la orden (usa el costo confirmado por item y, si falta,
+  // el del proveedor preferido o el costo base del producto).
+  const totalPurchaseCost = order.items.reduce((sum, item) => {
+    const preferred = item.product.suppliers[0];
+    const unitCost = Number(item.purchaseCost ?? preferred?.supplierCost ?? item.product.baseCost);
+    return sum + unitCost * item.quantity;
+  }, 0);
+  const earnedValue = Number(order.total) - totalPurchaseCost;
   const allItemsConfirmed =
     order.items.length > 0 &&
     order.items.every((item) => item.confirmedSupplierId && item.purchaseCost !== null);
@@ -198,8 +211,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         </Card>
         <Card className="border-border bg-card/95 py-2">
           <CardContent className="space-y-0.5">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Items</p>
-            <p className="text-lg font-semibold text-foreground">{order.items.length}</p>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Valor ganado</p>
+            <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">{formatMoney(earnedValue, currency)}</p>
           </CardContent>
         </Card>
         <Card className="border-border bg-card/95 py-2">
@@ -320,29 +333,26 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
 
         <div className="space-y-4">
           <Card className="border-border bg-card/95">
-            <CardHeader>
-              <CardTitle>Historial</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {order.history.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Sin movimientos registrados.</p>
-              ) : (
-                order.history.map((item) => (
-                  <div key={item.id} className="rounded-lg border border-border p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium text-foreground">
-                        {item.fromStatus ? getOrderStatusLabel(item.fromStatus) : "Nuevo"}{" "}
-                        <span className="text-muted-foreground">-&gt;</span> {getOrderStatusLabel(item.toStatus)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{item.createdAt.toLocaleDateString("es-CO")}</p>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {item.changedBy.name ?? item.changedBy.email}
-                      {item.note ? ` - ${item.note}` : ""}
-                    </p>
-                  </div>
-                ))
-              )}
+            <CardContent>
+              <OrderHistoryTabs
+                currency={currency}
+                history={order.history.map((item) => ({
+                  id: item.id,
+                  fromLabel: item.fromStatus ? getOrderStatusLabel(item.fromStatus) : "Nuevo",
+                  toLabel: getOrderStatusLabel(item.toStatus),
+                  date: item.createdAt.toLocaleDateString("es-CO"),
+                  by: item.changedBy.name ?? item.changedBy.email,
+                  note: item.note,
+                }))}
+                payments={order.sale.salePayments.map((payment) => ({
+                  id: payment.id,
+                  amount: Number(payment.amount),
+                  method: payment.paymentMethod ?? null,
+                  note: payment.note ?? null,
+                  paidAt: payment.createdAt.toLocaleDateString("es-CO"),
+                  receiptUrl: payment.receiptUrl ?? null,
+                }))}
+              />
             </CardContent>
           </Card>
         </div>

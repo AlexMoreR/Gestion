@@ -46,6 +46,7 @@ type SaleRow = {
     paidAt: string | null;
   }>;
   hasOrder: boolean;
+  orderId: string | null;
 };
 
 type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER";
@@ -62,6 +63,7 @@ type SalesWorkspaceProps = {
   accounts: AccountOption[];
   products: DirectSaleProduct[];
   clients: DirectSaleClient[];
+  initialSearch?: string;
 };
 
 function todayInputValue(): string {
@@ -90,11 +92,13 @@ const SALE_STATUS_OPTIONS: { value: SaleStatus; label: string }[] = [
 
 const DEFAULT_STATUS_FILTER: SaleStatus[] = SALE_STATUS_OPTIONS.map((option) => option.value);
 
-export function SalesWorkspace({ sales, currency, accounts, products, clients }: SalesWorkspaceProps) {
-  const [search, setSearch] = React.useState("");
+export function SalesWorkspace({ sales, currency, accounts, products, clients, initialSearch = "" }: SalesWorkspaceProps) {
+  const [search, setSearch] = React.useState(initialSearch);
   const [statusFilter, setStatusFilter] = React.useState<SaleStatus[]>(DEFAULT_STATUS_FILTER);
-  const [dateFrom, setDateFrom] = React.useState(firstDayOfMonthInput());
-  const [dateTo, setDateTo] = React.useState(todayInputValue());
+  // Si llegamos con una búsqueda inicial (p. ej. desde una cotización), no acotamos por fecha
+  // para no ocultar ventas de meses anteriores.
+  const [dateFrom, setDateFrom] = React.useState(initialSearch ? "" : firstDayOfMonthInput());
+  const [dateTo, setDateTo] = React.useState(initialSearch ? "" : todayInputValue());
 
   const filteredSales = React.useMemo(() => {
     const term = search.trim().toLowerCase();

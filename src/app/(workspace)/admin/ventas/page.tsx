@@ -54,6 +54,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
+  const initialSearch = typeof params.q === "string" ? params.q : "";
 
   const [sales, products, clients, currency, accounts] = await Promise.all([
     prisma.sale.findMany({
@@ -111,6 +112,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
       <SalesWorkspace
         currency={currency}
         accounts={accounts}
+        initialSearch={initialSearch}
         clients={clients.map((client) => ({
           id: client.id,
           name: client.name || "Cliente sin nombre",
@@ -172,6 +174,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
               }))
             : [],
           hasOrder: Boolean(sale.order),
+          orderId: sale.order?.id ?? null,
         }))}
       />
     </section>
