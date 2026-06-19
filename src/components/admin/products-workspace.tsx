@@ -139,7 +139,7 @@ export function ProductsWorkspace({
       </Dialog>
 
       <Dialog open={modal === "edit"} onOpenChange={(open) => (open ? null : closeModal())}>
-        <DialogContent className="max-h-[92vh] w-full max-w-6xl overflow-y-auto">
+        <DialogContent className="max-h-[92vh] w-full max-w-3xl overflow-y-auto">
           {activeProduct ? (
             <>
               <DialogHeader>
