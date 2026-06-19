@@ -28,6 +28,8 @@ export type CreateSupplierPaymentInput = {
   paymentDate: Date;
   notes?: string | null;
   accountId?: string | null;
+  receiptUrl?: string | null;
+  receiptName?: string | null;
   createdById: string;
 };
 

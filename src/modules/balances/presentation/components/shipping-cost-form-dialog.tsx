@@ -7,6 +7,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { cn } from "@/lib/utils";
 import {
   shippingCostCreateSchema,
@@ -180,7 +181,12 @@ export function ShippingCostFormDialog({
 
             <label className="space-y-1.5">
               <span className="text-sm font-medium text-foreground">Monto</span>
-              <Input type="number" step="0.01" min="0" {...form.register("amount", { valueAsNumber: true })} />
+              <MoneyInput
+                value={form.watch("amount") ?? 0}
+                onValueChange={(raw) =>
+                  form.setValue("amount", raw ? Number(raw) : 0, { shouldValidate: true })
+                }
+              />
             </label>
 
             <label className="space-y-1.5">

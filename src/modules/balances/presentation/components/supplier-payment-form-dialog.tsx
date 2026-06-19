@@ -7,8 +7,10 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { adminSupplierSalePendingAction } from "@/app/actions/balances-actions";
 import {
   supplierPaymentCreateSchema,
 } from "@/modules/balances/application/schemas";
@@ -58,6 +60,8 @@ type SupplierPaymentFormDialogProps = {
     paymentDate?: string;
     notes?: string | null;
     accountId?: string | null;
+    receiptUrl?: string | null;
+    receiptName?: string | null;
   } | null;
 };
 
@@ -127,9 +131,40 @@ export function SupplierPaymentFormDialog({
     }
   }, [form, open]);
 
+  const watchedSaleId = form.watch("saleId");
+  const watchedSupplierId = form.watch("supplierId");
+  const watchedAmount = form.watch("amount");
+  const [supplierBalance, setSupplierBalance] = React.useState<
+    { charged: number; paid: number; pending: number } | null
+  >(null);
+
+  React.useEffect(() => {
+    if (!open || !watchedSaleId || !watchedSupplierId) {
+      setSupplierBalance(null);
+      return;
+    }
+    let active = true;
+    adminSupplierSalePendingAction(watchedSaleId, watchedSupplierId)
+      .then((result) => {
+        if (active) setSupplierBalance(result);
+      })
+      .catch(() => {
+        if (active) setSupplierBalance(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, watchedSaleId, watchedSupplierId]);
+
   if (!open) {
     return null;
   }
+
+  const exceedsPending =
+    mode === "create" &&
+    supplierBalance !== null &&
+    supplierBalance.charged > 0 &&
+    Number(watchedAmount) > supplierBalance.pending + 0.5;
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     if (submitBypassRef.current) {
@@ -224,7 +259,18 @@ export function SupplierPaymentFormDialog({
 
             <label className="space-y-1.5">
               <span className="text-sm font-medium text-foreground">Monto</span>
-              <Input type="number" step="0.01" min="0" {...form.register("amount", { valueAsNumber: true })} />
+              <MoneyInput
+                value={watchedAmount ?? 0}
+                onValueChange={(raw) =>
+                  form.setValue("amount", raw ? Number(raw) : 0, { shouldValidate: true })
+                }
+              />
+              {supplierBalance && supplierBalance.charged > 0 ? (
+                <p className={cn("text-xs", exceedsPending ? "text-destructive" : "text-muted-foreground")}>
+                  Pendiente al proveedor: ${supplierBalance.pending.toLocaleString("es-CO")}
+                  {exceedsPending ? " — el monto excede el saldo" : ""}
+                </p>
+              ) : null}
             </label>
 
             <label className="space-y-1.5">
@@ -253,6 +299,21 @@ export function SupplierPaymentFormDialog({
             </label>
 
             <label className="space-y-1.5 md:col-span-2">
+              <span className="text-sm font-medium text-foreground">Comprobante (opcional)</span>
+              <Input type="file" name="receipt" accept="image/*,application/pdf" className="h-9" />
+              {initialValue?.receiptUrl ? (
+                <a
+                  href={initialValue.receiptUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  Ver comprobante actual{initialValue.receiptName ? `: ${initialValue.receiptName}` : ""}
+                </a>
+              ) : null}
+            </label>
+
+            <label className="space-y-1.5 md:col-span-2">
               <span className="text-sm font-medium text-foreground">Notas</span>
               <Textarea rows={3} {...form.register("notes")} placeholder="Observaciones opcionales" />
             </label>
@@ -268,7 +329,9 @@ export function SupplierPaymentFormDialog({
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit">{mode === "create" ? "Registrar pago" : "Guardar cambios"}</Button>
+            <Button type="submit" disabled={exceedsPending}>
+              {mode === "create" ? "Registrar pago" : "Guardar cambios"}
+            </Button>
           </div>
         </form>
       </Card>

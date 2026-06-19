@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,11 @@ const controlClassName =
 
 export function AccountMovementFormDialog({ open, action, onClose, returnTo, accounts }: AccountMovementFormDialogProps) {
   const [type, setType] = React.useState<"IN" | "OUT" | "TRANSFER">("IN");
+  const [amount, setAmount] = React.useState("");
+
+  React.useEffect(() => {
+    if (!open) setAmount("");
+  }, [open]);
 
   if (!open) {
     return null;
@@ -105,7 +111,7 @@ export function AccountMovementFormDialog({ open, action, onClose, returnTo, acc
 
             <label className="space-y-1.5">
               <span className="text-sm font-medium text-foreground">Monto</span>
-              <Input type="number" step="0.01" min="0" name="amount" required />
+              <MoneyInput value={amount} onValueChange={setAmount} name="amount" />
             </label>
 
             <label className="space-y-1.5 md:col-span-2">

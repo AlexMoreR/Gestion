@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Package, Plus, X } from "lucide-react";
+import { Package, Plus } from "lucide-react";
 import { EditProductForm } from "@/components/admin/edit-product-form";
 import { NEW_PRODUCT_DRAFT_KEY, NewProductForm } from "@/components/admin/new-product-form";
 import { ProductImportExportControls } from "@/components/admin/product-import-export-controls";
 import { ProductsDataTable } from "@/components/admin/products-data-table";
 import type { BundleProductOption } from "@/components/admin/product-bundle-field";
 import type { SupportedCurrencyCode } from "@/lib/currency";
-import { Button } from "../ui/button";
+import { cn } from "@/lib/utils";
+import { buttonVariants } from "../ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type CategoryOption = {
   id: string;
@@ -67,18 +69,13 @@ export function ProductsWorkspace({
   currency,
   okMessage,
 }: ProductsWorkspaceProps) {
-  const [modal, setModal] = useState<"new" | "edit" | null>(null);
+  const [modal, setModal] = useState<"edit" | "new" | null>(null);
   const [activeProductId, setActiveProductId] = useState<string | null>(null);
 
   const activeProduct = useMemo(
     () => products.find((product) => product.id === activeProductId) ?? null,
     [products, activeProductId],
   );
-
-  const openNewModal = () => {
-    setActiveProductId(null);
-    setModal("new");
-  };
 
   const openEditModal = (productId: string) => {
     setActiveProductId(productId);
@@ -107,10 +104,14 @@ export function ProductsWorkspace({
         </div>
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <ProductImportExportControls />
-          <Button type="button" onClick={openNewModal} className="flex-1 sm:flex-none">
+          <button
+            type="button"
+            onClick={() => setModal("new")}
+            className={cn(buttonVariants(), "flex-1 sm:flex-none")}
+          >
             <Plus className="h-4 w-4" />
             Nuevo producto
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -120,90 +121,59 @@ export function ProductsWorkspace({
         onOpenProduct={openEditModal}
       />
 
-      {modal === "new" ? (
-        <div
-          className="fixed inset-0 z-50 flex items-stretch justify-center bg-[#11182770] p-0 sm:items-start sm:p-4 md:p-6"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Nuevo producto"
-          onClick={closeModal}
-        >
-          <div
-            className="h-full w-full max-w-6xl overflow-y-auto overflow-x-hidden rounded-none border border-[var(--line)] bg-white p-3 sm:max-h-[92vh] sm:rounded-xl sm:p-4 md:p-5"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Nuevo producto</h2>
-              <Button
-                type="button"
-                onClick={closeModal}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] text-slate-600 transition hover:bg-slate-50"
-                aria-label="Cerrar"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <NewProductForm
-              categories={categories}
-              suppliers={suppliers}
-              currency={currency}
-              bundleProducts={bundleProducts}
-            />
-          </div>
-        </div>
-      ) : null}
+      <Dialog open={modal === "new"} onOpenChange={(open) => (open ? null : closeModal())}>
+        <DialogContent className="max-h-[92vh] w-full max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="inline-flex items-center gap-2">
+              <Package className="h-4 w-4 text-slate-500" />
+              Nuevo producto
+            </DialogTitle>
+          </DialogHeader>
+          <NewProductForm
+            categories={categories}
+            suppliers={suppliers}
+            currency={currency}
+            bundleProducts={bundleProducts}
+          />
+        </DialogContent>
+      </Dialog>
 
-      {modal === "edit" && activeProduct ? (
-        <div
-          className="fixed inset-0 z-50 flex items-stretch justify-center bg-[#11182770] p-0 sm:items-start sm:p-4 md:p-6"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Editar ${activeProduct.name}`}
-          onClick={closeModal}
-        >
-          <div
-            className="h-full w-full max-w-6xl overflow-y-auto overflow-x-hidden rounded-none border border-[var(--line)] bg-white p-3 sm:max-h-[92vh] sm:rounded-xl sm:p-4 md:p-5"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">{activeProduct.name}</h2>
-              <Button
-                type="button"
-                onClick={closeModal}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] text-slate-600 transition hover:bg-slate-50"
-                aria-label="Cerrar"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <EditProductForm
-              categories={categories}
-              suppliers={suppliers}
-              currency={currency}
-              bundleProducts={bundleProducts.filter((product) => product.id !== activeProduct.id)}
-              initialData={{
-                id: activeProduct.id,
-                code: activeProduct.code,
-                name: activeProduct.name,
-                description: activeProduct.description,
-                seoTitle: activeProduct.seoTitle,
-                seoDescription: activeProduct.seoDescription,
-                baseCost: activeProduct.baseCost,
-                price: activeProduct.price,
-                wholesalePrice: activeProduct.wholesalePrice,
-                retailMarginPct: activeProduct.retailMarginPct,
-                wholesaleMarginPct: activeProduct.wholesaleMarginPct,
-                minWholesaleQty: activeProduct.minWholesaleQty,
-                categoryId: activeProduct.categoryId,
-                isBundle: activeProduct.isBundle,
-                suppliers: activeProduct.suppliers,
-                components: activeProduct.components,
-                imageUrls: activeProduct.imageUrls,
-              }}
-            />
-          </div>
-        </div>
-      ) : null}
+      <Dialog open={modal === "edit"} onOpenChange={(open) => (open ? null : closeModal())}>
+        <DialogContent className="max-h-[92vh] w-full max-w-6xl overflow-y-auto">
+          {activeProduct ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>{activeProduct.name}</DialogTitle>
+              </DialogHeader>
+              <EditProductForm
+                categories={categories}
+                suppliers={suppliers}
+                currency={currency}
+                bundleProducts={bundleProducts.filter((product) => product.id !== activeProduct.id)}
+                initialData={{
+                  id: activeProduct.id,
+                  code: activeProduct.code,
+                  name: activeProduct.name,
+                  description: activeProduct.description,
+                  seoTitle: activeProduct.seoTitle,
+                  seoDescription: activeProduct.seoDescription,
+                  baseCost: activeProduct.baseCost,
+                  price: activeProduct.price,
+                  wholesalePrice: activeProduct.wholesalePrice,
+                  retailMarginPct: activeProduct.retailMarginPct,
+                  wholesaleMarginPct: activeProduct.wholesaleMarginPct,
+                  minWholesaleQty: activeProduct.minWholesaleQty,
+                  categoryId: activeProduct.categoryId,
+                  isBundle: activeProduct.isBundle,
+                  suppliers: activeProduct.suppliers,
+                  components: activeProduct.components,
+                  imageUrls: activeProduct.imageUrls,
+                }}
+              />
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

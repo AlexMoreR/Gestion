@@ -10,9 +10,11 @@ type ProductFormStep = {
 type ProductFormStepperProps = {
   steps: readonly ProductFormStep[];
   activeStep: number;
+  onSelect?: (stepId: number) => void;
+  canSelect?: (stepId: number) => boolean;
 };
 
-export function ProductFormStepper({ steps, activeStep }: ProductFormStepperProps) {
+export function ProductFormStepper({ steps, activeStep, onSelect, canSelect }: ProductFormStepperProps) {
   return (
     <div className="overflow-visible rounded-xl border border-[var(--line)] bg-white px-2 pb-3 pt-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)]">
       <div className="relative overflow-x-auto overflow-y-visible pb-0.5">
@@ -30,28 +32,46 @@ export function ProductFormStepper({ steps, activeStep }: ProductFormStepperProp
           {steps.map((step) => {
             const isCurrent = activeStep === step.id;
             const isDone = activeStep > step.id;
+            const selectable = Boolean(onSelect) && (canSelect ? canSelect(step.id) : true);
+            const badge = (
+              <span
+                className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition ${
+                  isCurrent
+                    ? "bg-[var(--primary)] text-white shadow-[0_8px_18px_-10px_rgba(88,28,135,0.55)]"
+                    : isDone
+                      ? "bg-[#e8efff] text-[var(--primary)]"
+                      : "bg-white text-slate-500 ring-1 ring-[var(--line)]"
+                } ${selectable && !isCurrent ? "group-hover:ring-2 group-hover:ring-[var(--primary)]/40" : ""}`}
+              >
+                {isDone ? <Check className="h-3.5 w-3.5" /> : step.id}
+              </span>
+            );
+            const labelEl = (
+              <span
+                className={`mt-1 text-[11px] font-semibold leading-tight ${
+                  isCurrent || isDone ? "text-slate-900" : "text-slate-500"
+                }`}
+              >
+                {step.label}
+              </span>
+            );
             return (
               <div key={step.id} className="flex min-w-[4.5rem] flex-1 items-center gap-2">
-                <div className="flex min-w-[4.5rem] flex-col items-center text-center">
-                  <span
-                    className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition ${
-                      isCurrent
-                        ? "bg-[var(--primary)] text-white shadow-[0_8px_18px_-10px_rgba(88,28,135,0.55)]"
-                        : isDone
-                          ? "bg-[#e8efff] text-[var(--primary)]"
-                          : "bg-white text-slate-500 ring-1 ring-[var(--line)]"
-                    }`}
+                {selectable ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelect?.(step.id)}
+                    className="group flex min-w-[4.5rem] flex-col items-center text-center focus:outline-none"
                   >
-                    {isDone ? <Check className="h-3.5 w-3.5" /> : step.id}
-                  </span>
-                  <span
-                    className={`mt-1 text-[11px] font-semibold leading-tight ${
-                      isCurrent || isDone ? "text-slate-900" : "text-slate-500"
-                    }`}
-                  >
-                    {step.label}
-                  </span>
-                </div>
+                    {badge}
+                    {labelEl}
+                  </button>
+                ) : (
+                  <div className="flex min-w-[4.5rem] flex-col items-center text-center">
+                    {badge}
+                    {labelEl}
+                  </div>
+                )}
               </div>
             );
           })}

@@ -116,8 +116,10 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
               <h2 className="text-lg font-semibold text-slate-900">Nueva categoria</h2>
               <Button
                 type="button"
+                variant="outline"
+                size="icon"
                 onClick={closeModal}
-                // className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] text-slate-600 transition hover:bg-slate-50"
+                className="h-8 w-8"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
@@ -191,8 +193,10 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
               <h2 className="text-lg font-semibold text-slate-900">Editar categoria</h2>
               <Button
                 type="button"
+                variant="outline"
+                size="icon"
                 onClick={closeModal}
-                // className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] text-slate-600 transition hover:bg-slate-50"
+                className="h-8 w-8"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />

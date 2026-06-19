@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Truck, X } from "lucide-react";
+import { ImagePlus, Plus, Truck, X } from "lucide-react";
 import {
   adminCreateSupplierAction,
   adminUpdateSupplierAction,
@@ -21,6 +21,8 @@ type LedgerEntry = {
   createdAt: string;
   createdByName: string | null;
   accountName: string | null;
+  orderCode: string | null;
+  receiptUrl: string | null;
 };
 
 type AccountOption = {
@@ -30,6 +32,13 @@ type AccountOption = {
 
 type SupplierType = "MANUFACTURER" | "SHIPPING";
 
+type SupplierOrderOption = {
+  orderId: string;
+  code: string;
+  saleId: string;
+  pending: number;
+};
+
 type SupplierRow = {
   id: string;
   name: string;
@@ -38,6 +47,7 @@ type SupplierRow = {
   type: SupplierType;
   productsCount: number;
   balance: number;
+  orders: SupplierOrderOption[];
   ledger: LedgerEntry[];
 };
 
@@ -56,6 +66,9 @@ const todayInputValue = () => {
 export function SuppliersWorkspace({ suppliers, currency, accounts }: SuppliersWorkspaceProps) {
   const [modal, setModal] = useState<"new" | "edit" | "ledger" | null>(null);
   const [activeSupplierId, setActiveSupplierId] = useState<string | null>(null);
+  const [ledgerOrderId, setLedgerOrderId] = useState("");
+  const [ledgerReceiptName, setLedgerReceiptName] = useState("");
+  const [ledgerAmount, setLedgerAmount] = useState("");
 
   const activeSupplier = useMemo(
     () => suppliers.find((supplier) => supplier.id === activeSupplierId) ?? null,
@@ -74,6 +87,9 @@ export function SuppliersWorkspace({ suppliers, currency, accounts }: SuppliersW
 
   const openLedgerModal = (supplierId: string) => {
     setActiveSupplierId(supplierId);
+    setLedgerOrderId("");
+    setLedgerReceiptName("");
+    setLedgerAmount("");
     setModal("ledger");
   };
 
@@ -127,8 +143,10 @@ export function SuppliersWorkspace({ suppliers, currency, accounts }: SuppliersW
               <h2 className="text-lg font-semibold text-slate-900">Nuevo proveedor</h2>
               <Button
                 type="button"
+                variant="outline"
+                size="icon"
                 onClick={closeModal}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] text-slate-600 transition hover:bg-slate-50"
+                className="h-8 w-8"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
@@ -185,8 +203,10 @@ export function SuppliersWorkspace({ suppliers, currency, accounts }: SuppliersW
               <h2 className="text-lg font-semibold text-slate-900">Editar proveedor</h2>
               <Button
                 type="button"
+                variant="outline"
+                size="icon"
                 onClick={closeModal}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] text-slate-600 transition hover:bg-slate-50"
+                className="h-8 w-8"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
@@ -249,21 +269,33 @@ export function SuppliersWorkspace({ suppliers, currency, accounts }: SuppliersW
             className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-xl p-5"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">Cuenta corriente</h2>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold text-slate-900">Cuenta corriente</h2>
+                <Input
+                  form="ledger-payment-form"
+                  name="paymentDate"
+                  type="date"
+                  defaultValue={todayInputValue()}
+                  required
+                  aria-label="Fecha del abono"
+                  className="h-8 w-40"
+                />
+              </div>
               <Button
                 type="button"
+                variant="outline"
+                size="icon"
                 onClick={closeModal}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] text-slate-600 transition hover:bg-slate-50"
+                className="h-8 w-8"
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
 
-            <div className="rounded-lg border border-[var(--line)] bg-slate-50 p-3">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-slate-50 p-3">
               <p className="text-sm font-medium text-slate-900">{activeSupplier.name}</p>
-              <p className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">Saldo pendiente</p>
               <p
                 className={`text-2xl font-semibold ${
                   activeSupplier.balance > 0 ? "text-red-600" : "text-emerald-600"
@@ -273,17 +305,37 @@ export function SuppliersWorkspace({ suppliers, currency, accounts }: SuppliersW
               </p>
             </div>
 
-            <form action={adminCreateSupplierPaymentAction} className="mt-4 space-y-3">
+            <form id="ledger-payment-form" action={adminCreateSupplierPaymentAction} className="mt-4 space-y-3">
               <input type="hidden" name="supplierId" value={activeSupplier.id} />
               <input type="hidden" name="returnTo" value="/admin/proveedores" />
               <div className="grid gap-3 sm:grid-cols-2">
+                {activeSupplier.orders.length > 0 ? (
+                  <label className="block space-y-1.5">
+                    <span className="text-sm font-medium text-slate-700">Orden a pagar (opcional)</span>
+                    <select
+                      name="orderId"
+                      value={ledgerOrderId}
+                      onChange={(event) => setLedgerOrderId(event.target.value)}
+                      className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                      <option value="">Abono general (sin orden)</option>
+                      {activeSupplier.orders.map((order) => (
+                        <option key={order.orderId} value={order.orderId}>
+                          {order.code} — pendiente {formatMoney(order.pending, currency)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
                 <label className="block space-y-1.5">
                   <span className="text-sm font-medium text-slate-700">Monto del abono</span>
-                  <Input name="amount" type="number" step="0.01" min="0" placeholder="0.00" required />
-                </label>
-                <label className="block space-y-1.5">
-                  <span className="text-sm font-medium text-slate-700">Fecha</span>
-                  <Input name="paymentDate" type="date" defaultValue={todayInputValue()} required />
+                  <Input
+                    inputMode="numeric"
+                    value={ledgerAmount ? Number(ledgerAmount).toLocaleString("es-CO") : ""}
+                    onChange={(event) => setLedgerAmount(event.target.value.replace(/\D/g, ""))}
+                    placeholder="0"
+                  />
+                  <input type="hidden" name="amount" value={ledgerAmount} />
                 </label>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -307,7 +359,29 @@ export function SuppliersWorkspace({ suppliers, currency, accounts }: SuppliersW
                   <Input name="note" placeholder="Referencia del pago" />
                 </label>
               </div>
-              <Button type="submit" className="h-10 w-full">
+              <div className="space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">Comprobante</span>
+                <div className="flex items-center gap-2">
+                  <label
+                    className="flex h-16 w-16 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-[var(--line)] text-slate-400 transition hover:border-[var(--line-strong)] hover:text-slate-600"
+                    title="Subir comprobante"
+                  >
+                    <ImagePlus className="h-5 w-5" />
+                    <span className="text-[10px] font-medium">Foto</span>
+                    <input
+                      type="file"
+                      name="receipt"
+                      accept="image/*,application/pdf"
+                      className="hidden"
+                      onChange={(event) => setLedgerReceiptName(event.target.files?.[0]?.name ?? "")}
+                    />
+                  </label>
+                  <span className="min-w-0 truncate text-xs text-slate-500">
+                    {ledgerReceiptName || "Imagen o PDF · obligatorio"}
+                  </span>
+                </div>
+              </div>
+              <Button type="submit" className="h-10 w-full" disabled={!ledgerReceiptName || !ledgerAmount}>
                 Registrar abono
               </Button>
             </form>
@@ -325,6 +399,7 @@ export function SuppliersWorkspace({ suppliers, currency, accounts }: SuppliersW
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-slate-900">
                         {entry.type === "CHARGE" ? "Cargo" : "Abono"}
+                        {entry.orderCode ? ` · ${entry.orderCode}` : ""}
                       </p>
                       <p className="text-xs text-slate-500">
                         {new Date(entry.createdAt).toLocaleDateString("es-CO")}
@@ -334,6 +409,16 @@ export function SuppliersWorkspace({ suppliers, currency, accounts }: SuppliersW
                         {entry.createdByName ?? "Sistema"}
                         {entry.accountName ? ` - ${entry.accountName}` : ""}
                       </p>
+                      {entry.receiptUrl ? (
+                        <a
+                          href={entry.receiptUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-medium text-primary hover:underline"
+                        >
+                          Ver comprobante
+                        </a>
+                      ) : null}
                     </div>
                     <p
                       className={`shrink-0 text-sm font-semibold ${

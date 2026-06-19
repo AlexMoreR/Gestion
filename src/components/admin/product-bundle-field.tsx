@@ -52,10 +52,6 @@ export function ProductBundleField({
     <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)] sm:p-5">
       <div className="space-y-1 border-b border-[var(--line)] pb-3">
         <h2 className="text-sm font-semibold text-slate-900">🧩 Combo</h2>
-        <p className="text-xs text-slate-500">
-          Un combo se arma con otros productos. Al venderlo se separa en sus componentes, cada uno con su
-          proveedor, su fabricacion y su pago.
-        </p>
       </div>
 
       {/* Bandera enviada al servidor */}

@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import {
   Select,
   SelectContent,
@@ -496,14 +497,10 @@ function SaleInstallmentEditor({
           <label htmlFor={amountId} className="text-xs font-medium text-foreground">
             Monto de abono
           </label>
-          <Input
+          <MoneyInput
             id={amountId}
-            type="number"
-            min="0.01"
-            step="0.01"
-            required
             value={installment.amount}
-            onChange={(event) => onAmountChange(event.target.value)}
+            onValueChange={(raw) => onAmountChange(raw)}
           />
         </div>
 
@@ -765,14 +762,10 @@ function SaleInstallmentsModal({
                         <label className="mb-1 block text-xs font-medium text-foreground" htmlFor="discountAmount">
                           Descuento
                         </label>
-                        <Input
+                        <MoneyInput
                           id="discountAmount"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          max={quote.total}
                           value={discountAmount}
-                          onChange={(event) => onDiscountAmountChange(event.target.value)}
+                          onValueChange={(raw) => onDiscountAmountChange(raw)}
                         />
                       </div>
                       <div>

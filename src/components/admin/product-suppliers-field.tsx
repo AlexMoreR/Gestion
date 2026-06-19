@@ -39,7 +39,6 @@ export function ProductSuppliersField({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold text-slate-900">Proveedores</h3>
-          <p className="text-xs text-slate-500">Agrega uno o varios proveedores con su costo de compra.</p>
         </div>
         <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={onAdd}>
           <Plus className="h-3.5 w-3.5" />

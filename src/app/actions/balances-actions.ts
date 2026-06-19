@@ -1,5 +1,8 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -79,6 +82,70 @@ function getStringField(formData: FormData, key: string): string {
   return typeof value === "string" ? value : "";
 }
 
+const RECEIPT_MAX_BYTES = 12 * 1024 * 1024;
+const ALLOWED_RECEIPT_MIME = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+const ALLOWED_RECEIPT_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".pdf"]);
+
+function getReceiptExtension(file: File): string {
+  const fromName = path.extname(file.name).toLowerCase();
+  if (fromName) return fromName;
+  if (file.type === "application/pdf") return ".pdf";
+  if (file.type === "image/png") return ".png";
+  if (file.type === "image/webp") return ".webp";
+  return ".jpg";
+}
+
+async function getSupplierSalePending(
+  saleId: string,
+  supplierId: string,
+): Promise<{ charged: number; paid: number; pending: number }> {
+  const [charges, payments] = await Promise.all([
+    prisma.supplierLedgerEntry.aggregate({
+      _sum: { amount: true },
+      where: { saleId, supplierId, type: "CHARGE" },
+    }),
+    prisma.supplierLedgerEntry.aggregate({
+      _sum: { amount: true },
+      where: { saleId, supplierId, type: "PAYMENT" },
+    }),
+  ]);
+  const charged = Number(charges._sum.amount ?? 0);
+  const paid = Number(payments._sum.amount ?? 0);
+  return { charged, paid, pending: charged - paid };
+}
+
+// Consulta usada por el formulario para mostrar el saldo pendiente al proveedor.
+export async function adminSupplierSalePendingAction(
+  saleId: string,
+  supplierId: string,
+): Promise<{ charged: number; paid: number; pending: number }> {
+  await requireAdminSession();
+  if (!saleId || !supplierId) {
+    return { charged: 0, paid: 0, pending: 0 };
+  }
+  return getSupplierSalePending(saleId, supplierId);
+}
+
+async function saveSupplierPaymentReceipt(file: File): Promise<{ url: string; name: string }> {
+  if (!(file instanceof File) || file.size <= 0) {
+    throw new Error("No se pudo leer el comprobante.");
+  }
+  if (file.size > RECEIPT_MAX_BYTES) {
+    throw new Error("El comprobante supera el limite de 12 MB.");
+  }
+  const extension = getReceiptExtension(file);
+  if (!ALLOWED_RECEIPT_MIME.has(file.type) && !ALLOWED_RECEIPT_EXT.has(extension)) {
+    throw new Error("El comprobante no es compatible. Solo JPG, PNG, WEBP o PDF.");
+  }
+
+  const uploadDir = path.join(process.cwd(), "public", "uploads", "suppliers", "payments");
+  await mkdir(uploadDir, { recursive: true });
+  const fileName = `${Date.now()}-${randomUUID()}${extension}`;
+  await writeFile(path.join(uploadDir, fileName), Buffer.from(await file.arrayBuffer()));
+
+  return { url: `/uploads/suppliers/payments/${fileName}`, name: file.name || fileName };
+}
+
 export async function adminCreateSupplierPaymentAction(formData: FormData): Promise<void> {
   const createdById = await requireAdminSession();
   const returnTo = getReturnTo(formData);
@@ -97,9 +164,44 @@ export async function adminCreateSupplierPaymentAction(formData: FormData): Prom
     redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos invalidos");
   }
 
+  // Control: no permitir pagar mas de lo que se le debe al proveedor en esta venta.
+  const balance = await getSupplierSalePending(parsed.data.saleId, parsed.data.supplierId);
+  if (balance.charged > 0 && parsed.data.amount > balance.pending + 0.5) {
+    redirectWithError(
+      returnTo,
+      `El pago supera el saldo pendiente al proveedor ($${balance.pending.toLocaleString("es-CO")}).`,
+    );
+  }
+
+  // Control: evitar registrar dos veces el mismo abono (misma referencia).
+  const duplicate = await prisma.supplierLedgerEntry.findFirst({
+    where: {
+      saleId: parsed.data.saleId,
+      supplierId: parsed.data.supplierId,
+      type: "PAYMENT",
+      transactionReference: parsed.data.transactionReference,
+    },
+    select: { id: true },
+  });
+  if (duplicate) {
+    redirectWithError(returnTo, "Ya existe un pago con esa referencia para este proveedor y venta.");
+  }
+
+  const receiptFile = formData.get("receipt");
+  let receipt: { url: string; name: string } | null = null;
+  if (receiptFile instanceof File && receiptFile.size > 0) {
+    try {
+      receipt = await saveSupplierPaymentReceipt(receiptFile);
+    } catch (error) {
+      redirectWithError(returnTo, error instanceof Error ? error.message : "Comprobante invalido");
+    }
+  }
+
   await createSupplierPaymentUseCase(repository, {
     ...parsed.data,
     notes: parsed.data.notes ?? null,
+    receiptUrl: receipt?.url ?? null,
+    receiptName: receipt?.name ?? null,
     createdById,
   });
 
@@ -127,6 +229,16 @@ export async function adminUpdateSupplierPaymentAction(formData: FormData): Prom
     redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos invalidos");
   }
 
+  const receiptFile = formData.get("receipt");
+  let receipt: { url: string; name: string } | null = null;
+  if (receiptFile instanceof File && receiptFile.size > 0) {
+    try {
+      receipt = await saveSupplierPaymentReceipt(receiptFile);
+    } catch (error) {
+      redirectWithError(returnTo, error instanceof Error ? error.message : "Comprobante invalido");
+    }
+  }
+
   await updateSupplierPaymentUseCase(repository, parsed.data.paymentId, {
     saleId: parsed.data.saleId,
     supplierId: parsed.data.supplierId,
@@ -135,6 +247,8 @@ export async function adminUpdateSupplierPaymentAction(formData: FormData): Prom
     paymentDate: parsed.data.paymentDate,
     notes: parsed.data.notes ?? null,
     accountId: parsed.data.accountId,
+    // Solo reemplaza el comprobante si se subio uno nuevo.
+    ...(receipt ? { receiptUrl: receipt.url, receiptName: receipt.name } : {}),
   });
 
   revalidatePath("/admin/balances");

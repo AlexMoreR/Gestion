@@ -6,6 +6,8 @@ export type SupplierPayment = {
   transactionReference: string;
   paymentDate: Date;
   notes?: string | null;
+  receiptUrl?: string | null;
+  receiptName?: string | null;
   createdAt: Date;
 };
 

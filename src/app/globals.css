@@ -123,12 +123,12 @@ body {
 }
 
 .field-select {
-  height: 2.75rem;
+  height: 2rem;
   width: 100%;
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
   border: 1px solid var(--line);
   background: var(--surface);
-  padding-inline: 0.75rem;
+  padding-inline: 0.625rem;
   font-size: 0.875rem;
   color: #1f2937;
   outline: none;

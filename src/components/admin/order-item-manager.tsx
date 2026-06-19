@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 
 type SupplierOption = {
@@ -90,6 +91,9 @@ export function OrderItemManager({ item, currency, returnTo, accounts }: OrderIt
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
   const [paymentMode, setPaymentMode] = useState<"PAY_NOW" | "PAY_LATER">(
     item.paymentStatus === "PAID" ? "PAY_NOW" : "PAY_LATER",
+  );
+  const [purchaseCost, setPurchaseCost] = useState(
+    item.defaultCost ? String(Math.trunc(item.defaultCost)) : "",
   );
   const hasSuppliers = item.suppliers.length > 0;
   // Cuando el item ya esta recogido se muestra un resumen de solo lectura;
@@ -207,12 +211,10 @@ export function OrderItemManager({ item, currency, returnTo, accounts }: OrderIt
                   </label>
                   <label className="space-y-1">
                     <span className="text-xs text-muted-foreground">Costo de compra</span>
-                    <Input
+                    <MoneyInput
                       name="purchaseCost"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      defaultValue={item.defaultCost}
+                      value={purchaseCost}
+                      onValueChange={setPurchaseCost}
                       className="sm:w-32"
                     />
                   </label>

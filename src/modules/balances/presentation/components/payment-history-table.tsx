@@ -1,6 +1,6 @@
 "use client";
 
-import { PencilLine, Trash2 } from "lucide-react";
+import { Paperclip, PencilLine, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
@@ -68,6 +68,18 @@ export function PaymentHistoryTable({ data, currency, onEdit, onDelete }: Paymen
       header: "Acciones",
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-1">
+          {row.original.receiptUrl ? (
+            <a
+              href={row.original.receiptUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              aria-label="Ver comprobante"
+              title="Ver comprobante"
+            >
+              <Paperclip className="h-4 w-4" />
+            </a>
+          ) : null}
           <Button type="button" variant="ghost" size="icon-sm" onClick={() => onEdit(row.original.id)} aria-label="Editar pago">
             <PencilLine className="h-4 w-4" />
           </Button>

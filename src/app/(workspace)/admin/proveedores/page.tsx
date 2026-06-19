@@ -35,6 +35,7 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
           include: {
             createdBy: { select: { name: true, email: true } },
             account: { select: { name: true } },
+            order: { select: { id: true, code: true, saleId: true } },
           },
         },
       },
@@ -65,6 +66,35 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
             return entry.type === "CHARGE" ? acc + amount : acc - amount;
           }, 0);
 
+          // Ordenes asociadas a este proveedor con su saldo pendiente (cargos - pagos).
+          const ordersMap = new Map<
+            string,
+            { orderId: string; code: string; saleId: string; charged: number; paid: number }
+          >();
+          for (const entry of supplier.ledgerEntries) {
+            if (!entry.order) continue;
+            const current = ordersMap.get(entry.order.id) ?? {
+              orderId: entry.order.id,
+              code: entry.order.code,
+              saleId: entry.order.saleId,
+              charged: 0,
+              paid: 0,
+            };
+            const amount = Number(entry.amount);
+            if (entry.type === "CHARGE") current.charged += amount;
+            else current.paid += amount;
+            ordersMap.set(entry.order.id, current);
+          }
+          const orders = Array.from(ordersMap.values())
+            .map((order) => ({
+              orderId: order.orderId,
+              code: order.code,
+              saleId: order.saleId,
+              pending: order.charged - order.paid,
+            }))
+            .filter((order) => order.pending > 0.0001)
+            .sort((a, b) => a.code.localeCompare(b.code, "es", { numeric: true }));
+
           return {
             id: supplier.id,
             name: supplier.name,
@@ -73,6 +103,7 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
             type: supplier.type,
             productsCount: supplier._count.products,
             balance,
+            orders,
             ledger: supplier.ledgerEntries.map((entry) => ({
               id: entry.id,
               type: entry.type,
@@ -81,6 +112,8 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
               createdAt: (entry.paymentDate ?? entry.createdAt).toISOString(),
               createdByName: entry.createdBy.name ?? entry.createdBy.email,
               accountName: entry.account?.name ?? null,
+              orderCode: entry.order?.code ?? null,
+              receiptUrl: entry.receiptUrl ?? null,
             })),
           };
         })}

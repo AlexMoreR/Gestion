@@ -15,6 +15,7 @@ import {
 import { ProductSuppliersField, type ProductSupplierDraft } from "@/components/admin/product-suppliers-field";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { calculateProfit, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
 import { Button } from "../ui/button";
@@ -198,8 +199,6 @@ export function EditProductForm({
     wholesaleEnabled,
   ]);
 
-  const retailPriceFieldValue = retailPriceDirty ? retailPriceInput : pricing.suggestedRetail.toFixed(2);
-  const wholesalePriceFieldValue = wholesalePriceDirty ? wholesalePriceInput : pricing.suggestedWholesale.toFixed(2);
 
   const allImageUrls = useMemo(
     () => [...existingImageUrls, ...newImageUrls],
@@ -435,27 +434,19 @@ export function EditProductForm({
                 </label>
                 <label className="space-y-1.5 md:col-span-4">
                   <span className="text-sm font-medium text-slate-700">💸 Costo compra ({currency})</span>
-                  <Input
+                  <MoneyInput
                     name="baseCost"
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    required
                     value={baseCost}
-                    onChange={(e) => setBaseCost(e.target.value)}
+                    onValueChange={setBaseCost}
                   />
                 </label>
                 <label className="space-y-1.5 md:col-span-6">
                   <span className="text-sm font-medium text-slate-700">🏷️ Precio final</span>
-                  <Input
+                  <MoneyInput
                     name="retailPrice"
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    required
-                    value={retailPriceFieldValue}
-                    onChange={(e) => {
-                      setRetailPriceInput(e.target.value);
+                    value={retailPriceDirty ? retailPriceInput : pricing.suggestedRetail}
+                    onValueChange={(raw) => {
+                      setRetailPriceInput(raw);
                       setRetailPriceDirty(true);
                     }}
                   />
@@ -493,19 +484,19 @@ export function EditProductForm({
                     </label>
                     <label className="space-y-1.5 md:col-span-4">
                       <span className="text-sm font-medium text-slate-700">?? Costo compra ({currency})</span>
-                      <Input value={baseCost} readOnly className="bg-slate-100 text-slate-600" />
+                      <Input
+                        value={baseCost ? Number(baseCost).toLocaleString("es-CO") : ""}
+                        readOnly
+                        className="bg-slate-100 text-slate-600"
+                      />
                     </label>
                     <label className="space-y-1.5 md:col-span-6">
                       <span className="text-sm font-medium text-slate-700">??? Precio final</span>
-                      <Input
+                      <MoneyInput
                         name="wholesalePrice"
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        required
-                        value={wholesalePriceFieldValue}
-                        onChange={(e) => {
-                          setWholesalePriceInput(e.target.value);
+                        value={wholesalePriceDirty ? wholesalePriceInput : pricing.suggestedWholesale}
+                        onValueChange={(raw) => {
+                          setWholesalePriceInput(raw);
                           setWholesalePriceDirty(true);
                         }}
                       />

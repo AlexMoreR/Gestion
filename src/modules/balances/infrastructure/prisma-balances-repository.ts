@@ -63,6 +63,8 @@ type PaymentSelection = {
   paymentDate: Date | null;
   note: string | null;
   accountId?: string | null;
+  receiptUrl?: string | null;
+  receiptName?: string | null;
   createdAt: Date;
   supplier: { name: string };
   sale: { code: string; total: Prisma.Decimal } | null;
@@ -133,6 +135,8 @@ function mapSupplierPayment(row: PaymentSelection): PaymentHistoryRow {
     saleCode: row.sale?.code ?? null,
     saleTotal: row.sale ? toNumber(row.sale.total) : null,
     accountId: row.accountId ?? null,
+    receiptUrl: row.receiptUrl ?? null,
+    receiptName: row.receiptName ?? null,
   };
 }
 
@@ -161,6 +165,8 @@ function mapPaymentEntity(row: PaymentSelection): SupplierPayment {
     paymentDate: row.paymentDate ?? row.createdAt,
     notes: row.note,
     createdAt: row.createdAt,
+    receiptUrl: row.receiptUrl ?? null,
+    receiptName: row.receiptName ?? null,
   };
 }
 
@@ -304,6 +310,8 @@ export function createPrismaBalancesRepository(): BalancesRepository {
             note: true,
             accountId: true,
             createdAt: true,
+            receiptUrl: true,
+            receiptName: true,
             supplier: { select: { name: true } },
             sale: { select: { code: true, total: true } },
           } satisfies Prisma.SupplierLedgerEntrySelect,
@@ -325,6 +333,8 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           paymentDate: true,
           note: true,
           createdAt: true,
+          receiptUrl: true,
+          receiptName: true,
           supplier: { select: { name: true } },
           sale: { select: { code: true, total: true } },
         } satisfies Prisma.SupplierLedgerEntrySelect,
@@ -348,6 +358,8 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           paymentDate: input.paymentDate,
           note: input.notes ?? null,
           accountId: input.accountId ?? null,
+          receiptUrl: input.receiptUrl ?? null,
+          receiptName: input.receiptName ?? null,
           createdById: input.createdById,
         },
         select: {
@@ -359,6 +371,8 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           paymentDate: true,
           note: true,
           createdAt: true,
+          receiptUrl: true,
+          receiptName: true,
           supplier: { select: { name: true } },
           sale: { select: { code: true, total: true } },
         } satisfies Prisma.SupplierLedgerEntrySelect,
@@ -378,6 +392,9 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           paymentDate: input.paymentDate,
           note: input.notes ?? null,
           accountId: input.accountId ?? null,
+          ...(input.receiptUrl !== undefined
+            ? { receiptUrl: input.receiptUrl, receiptName: input.receiptName ?? null }
+            : {}),
         },
         select: {
           id: true,
@@ -388,6 +405,8 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           paymentDate: true,
           note: true,
           createdAt: true,
+          receiptUrl: true,
+          receiptName: true,
           supplier: { select: { name: true } },
           sale: { select: { code: true, total: true } },
         } satisfies Prisma.SupplierLedgerEntrySelect,

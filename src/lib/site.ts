@@ -63,7 +63,16 @@ export function getPublicAssetUrl(path = ""): string {
     return normalizedPath;
   }
 
-  return getSiteUrl(normalizedPath.startsWith("/") ? normalizedPath : `/${normalizedPath}`);
+  const relativePath = normalizedPath.startsWith("/") ? normalizedPath : `/${normalizedPath}`;
+
+  // En desarrollo los archivos subidos viven en el `public/` local, no en el
+  // dominio de produccion. Devolver la ruta relativa hace que la imagen se
+  // sirva desde el origen actual (localhost) y evita la imagen rota.
+  if (process.env.NODE_ENV !== "production") {
+    return relativePath;
+  }
+
+  return getSiteUrl(relativePath);
 }
 
 export function buildWhatsAppHref(message: string): string {

@@ -331,6 +331,8 @@ export function BalancesWorkspace({
                 paymentDate: new Date(supplierPaymentModal.initialValue.paymentDate).toISOString().slice(0, 10),
                 notes: supplierPaymentModal.initialValue.notes,
                 accountId: supplierPaymentModal.initialValue.accountId,
+                receiptUrl: supplierPaymentModal.initialValue.receiptUrl,
+                receiptName: supplierPaymentModal.initialValue.receiptName,
               }
             : null
         }

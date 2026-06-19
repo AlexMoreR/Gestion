@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Textarea } from "@/components/ui/textarea";
 
 type CarrierOption = {
@@ -64,6 +65,7 @@ export function OrderDispatchManager({
   const [open, setOpen] = useState(false);
   const [shippingMode, setShippingMode] = useState<"PAY_NOW" | "PAY_LATER">("PAY_LATER");
   const [deliveryType, setDeliveryType] = useState<"COUNTER" | "PICKUP" | "SHIPPING">("SHIPPING");
+  const [shippingCost, setShippingCost] = useState("");
   const isShipping = deliveryType === "SHIPPING";
 
   const modal = open ? (
@@ -156,7 +158,7 @@ export function OrderDispatchManager({
                     <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                       Costo de envio (gasto de la venta)
                     </label>
-                    <Input name="shippingCost" type="number" step="0.01" min="0" defaultValue={0} />
+                    <MoneyInput name="shippingCost" value={shippingCost} onValueChange={setShippingCost} />
                   </div>
 
                   <div className="space-y-1">

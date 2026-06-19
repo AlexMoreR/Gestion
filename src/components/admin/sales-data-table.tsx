@@ -46,6 +46,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { MoneyInput } from "@/components/ui/money-input";
 
 type SaleStatus = "DRAFT" | "ACTIVE" | "INVOICED" | "COMPLETED" | "CANCELLED";
 
@@ -487,6 +488,11 @@ function AddSalePaymentSheet({
   const todayValue = new Date(today.getTime() - today.getTimezoneOffset() * 60_000)
     .toISOString()
     .slice(0, 10);
+  const [amount, setAmount] = React.useState("");
+
+  React.useEffect(() => {
+    if (!open) setAmount("");
+  }, [open]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -536,16 +542,12 @@ function AddSalePaymentSheet({
               <label htmlFor="add-payment-amount" className="text-sm font-medium text-foreground">
                 Monto del abono
               </label>
-              <input
+              <MoneyInput
                 id="add-payment-amount"
                 name="amount"
-                type="number"
-                min="0.01"
-                max={sale.remainingBalance}
-                step="0.01"
-                required
+                value={amount}
+                onValueChange={setAmount}
                 className={inputClass}
-                placeholder="0.00"
               />
               <p className="text-xs text-muted-foreground">
                 Maximo {formatMoney(sale.remainingBalance, currency)}
