@@ -109,6 +109,12 @@ function firstDayOfMonthInput(): string {
   return `${todayInputValue().slice(0, 8)}01`;
 }
 
+// Convierte un instante ISO (UTC) al día en la zona horaria local del navegador.
+function isoToLocalDay(iso: string): string {
+  const date = new Date(iso);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
 const STATUS_FILTER_OPTIONS: QuoteStatus[] = ["DRAFT", "SENT", "ACCEPTED", "REJECTED", "EXPIRED"];
 const DEFAULT_STATUS_FILTER: QuoteStatus[] = ["DRAFT", "SENT", "EXPIRED"];
 
@@ -914,7 +920,7 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
     const term = search.trim().toLowerCase();
     return quotes.filter((quote) => {
       if (!statusFilter.includes(quote.status)) return false;
-      const day = quote.createdAtISO.slice(0, 10);
+      const day = isoToLocalDay(quote.createdAtISO);
       if (dateFrom && day < dateFrom) return false;
       if (dateTo && day > dateTo) return false;
       if (term && !`${quote.code} ${quote.clientName}`.toLowerCase().includes(term)) return false;

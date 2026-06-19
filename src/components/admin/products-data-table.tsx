@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { adminDeleteProductAction } from "@/app/actions/product-actions";
+import { ProductThumb } from "@/components/admin/product-thumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -324,7 +325,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                   onClick={(event) => handleOpenProduct(event, product.id)}
                   className="flex min-w-0 flex-1 items-stretch"
                 >
-                  <img
+                  <ProductThumb
                     src={product.thumbnailUrl}
                     alt={product.name}
                     className="w-14 shrink-0 self-stretch bg-slate-50 object-cover"
@@ -391,7 +392,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                   className="group col-span-2 grid grid-cols-[3rem_minmax(0,1fr)] items-start gap-2 rounded-md transition"
                   onClick={(event) => handleOpenProduct(event, product.id)}
                 >
-                  <img
+                  <ProductThumb
                     src={product.thumbnailUrl}
                     alt={product.name}
                     className="h-12 w-12 rounded-md border border-[var(--line)] object-cover"
@@ -512,7 +513,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                       className="group -m-1 flex items-center gap-2.5 rounded-md p-1 transition hover:bg-slate-50"
                       onClick={(event) => handleOpenProduct(event, product.id)}
                     >
-                      <img
+                      <ProductThumb
                         src={product.thumbnailUrl}
                         alt={product.name}
                         className="h-10 w-10 rounded-md border border-[var(--line)] object-cover"

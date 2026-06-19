@@ -74,6 +74,12 @@ function firstDayOfMonthInput(): string {
   return `${todayInputValue().slice(0, 8)}01`;
 }
 
+// Convierte un instante ISO (UTC) al día en la zona horaria local del navegador.
+function isoToLocalDay(iso: string): string {
+  const date = new Date(iso);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
 const SALE_STATUS_OPTIONS: { value: SaleStatus; label: string }[] = [
   { value: "DRAFT", label: "Borrador" },
   { value: "ACTIVE", label: "Activa" },
@@ -94,7 +100,7 @@ export function SalesWorkspace({ sales, currency, accounts, products, clients }:
     const term = search.trim().toLowerCase();
     return sales.filter((sale) => {
       if (!statusFilter.includes(sale.status)) return false;
-      const day = sale.createdAtISO.slice(0, 10);
+      const day = isoToLocalDay(sale.createdAtISO);
       if (dateFrom && day < dateFrom) return false;
       if (dateTo && day > dateTo) return false;
       if (term && !`${sale.code} ${sale.quoteCode} ${sale.clientName}`.toLowerCase().includes(term)) return false;
