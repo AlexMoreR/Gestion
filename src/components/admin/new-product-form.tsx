@@ -92,7 +92,8 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDescription, setSeoDescription] = useState("");
   const [baseCost, setBaseCost] = useState("0");
-  const [retailMarginPct, setRetailMarginPct] = useState("35");
+  const [baseCostDirty, setBaseCostDirty] = useState(false);
+  const [retailMarginPct, setRetailMarginPct] = useState("40");
   const [retailPriceInput, setRetailPriceInput] = useState("0");
   const [wholesaleMarginPct, setWholesaleMarginPct] = useState("20");
   const [wholesalePriceInput, setWholesalePriceInput] = useState("0");
@@ -240,6 +241,19 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
       cost: formatMoney(cost, currency),
     };
   }, [baseCost, retailMarginPct, retailPriceInput, retailPriceDirty, wholesaleMarginPct, wholesalePriceInput, wholesalePriceDirty, currency, wholesaleEnabled]);
+
+  // Por defecto el costo deja un 40% de margen sobre el precio (costo = precio * 0.6),
+  // mientras el usuario no edite el costo manualmente.
+  useEffect(() => {
+    if (baseCostDirty) {
+      return;
+    }
+    const price = retailPriceDirty ? Number(retailPriceInput) || 0 : 0;
+    if (price <= 0) {
+      return;
+    }
+    setBaseCost(String(Math.round(price * 0.6)));
+  }, [retailPriceInput, retailPriceDirty, baseCostDirty]);
 
   // El % Detal es el margen sobre el precio: % = (precio - costo) / precio * 100.
   useEffect(() => {
@@ -471,7 +485,10 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                   <MoneyInput
                     name="baseCost"
                     value={baseCost}
-                    onValueChange={setBaseCost}
+                    onValueChange={(raw) => {
+                      setBaseCost(raw);
+                      setBaseCostDirty(true);
+                    }}
                   />
                 </label>
                 <label className="space-y-1.5 md:col-span-2">
