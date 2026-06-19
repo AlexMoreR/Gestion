@@ -4,6 +4,7 @@ import { adminUpdateDispatchStatusAction } from "@/app/actions/dispatch-actions"
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { OperationsTabs } from "@/components/admin/operations-tabs";
 import { getDispatchStatusBadgeClassName, getDispatchStatusLabel } from "@/lib/orders";
 
 type DispatchRow = {
@@ -87,21 +88,7 @@ function DispatchActions({ dispatch }: { dispatch: DispatchRow }) {
 export function DispatchesWorkspace({ dispatches, stats }: DispatchesWorkspaceProps) {
   return (
     <section className="space-y-4">
-      <Card className="border-border bg-card/95">
-        <CardContent className="space-y-2">
-          <div className="flex flex-row items-center gap-2">
-            <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-600">
-              <Truck className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight text-foreground md:text-xl">Despachos</h1>
-              <p className="text-sm text-muted-foreground">
-                Controla la salida, guia y entrega final de cada orden.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <OperationsTabs />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card className="border-border bg-card/95">

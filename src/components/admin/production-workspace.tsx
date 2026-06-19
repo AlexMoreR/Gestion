@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { Factory, MoreHorizontal, XCircle } from "lucide-react";
+import { MoreHorizontal, XCircle } from "lucide-react";
 import { adminUpdateProductionJobStatusAction } from "@/app/actions/production-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { OperationsTabs } from "@/components/admin/operations-tabs";
 import { getProductionJobStatusBadgeClassName, getProductionJobStatusLabel } from "@/lib/orders";
 
 type ProductionJobRow = {
@@ -64,21 +65,7 @@ function JobActions({ job }: { job: ProductionJobRow }) {
 export function ProductionWorkspace({ jobs, stats }: ProductionWorkspaceProps) {
   return (
     <section className="space-y-4">
-      <Card className="border-border bg-card/95">
-        <CardContent className="space-y-2">
-          <div className="flex flex-row items-center gap-2">
-            <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600">
-              <Factory className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight text-foreground md:text-xl">Produccion</h1>
-              <p className="text-sm text-muted-foreground">
-                Gestiona los trabajos de fabricacion ligados a las ordenes activas.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <OperationsTabs />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card className="border-border bg-card/95">

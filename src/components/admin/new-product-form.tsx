@@ -340,7 +340,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="space-y-1.5 md:col-span-2">
                   <span className="text-sm font-medium text-slate-700">📦 Nombre</span>
-                  <Input name="name" placeholder="Ej. Camisa Oxford" required value={name} onChange={(e) => setName(e.target.value)} />
+                  <Input name="name" placeholder="EJ. CAMISA OXFORD" required value={name} onChange={(e) => setName(e.target.value.toUpperCase())} className="uppercase" />
                 </label>
                 <label className="block space-y-1.5 md:col-span-2">
                   <span className="text-sm font-medium text-slate-700">📝 Descripcion</span>

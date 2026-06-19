@@ -4,7 +4,6 @@ import {
   BadgeDollarSign,
   ClipboardList,
   FileText,
-  Factory,
   Landmark,
   LayoutDashboard,
   Package,
@@ -156,33 +155,24 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
       });
     }
 
+    const operationsItems: { title: string; url: string }[] = [];
     if (adminModuleAccess.orders) {
+      operationsItems.push({ title: "Listado", url: "/admin/ordenes" });
+    }
+    if (adminModuleAccess.production) {
+      operationsItems.push({ title: "Produccion", url: "/admin/produccion" });
+    }
+    if (adminModuleAccess.dispatches) {
+      operationsItems.push({ title: "Despachos", url: "/admin/despachos" });
+    }
+
+    if (operationsItems.length > 0) {
       navMain.push({
         title: "Ordenes",
-        url: "/admin/ordenes",
+        url: operationsItems[0].url,
         icon: ClipboardList,
-        isActive: pathname.startsWith("/admin/ordenes"),
-        items: [{ title: "Listado", url: "/admin/ordenes" }],
-      });
-    }
-
-    if (adminModuleAccess.production) {
-      navMain.push({
-        title: "Produccion",
-        url: "/admin/produccion",
-        icon: Factory,
-        isActive: pathname.startsWith("/admin/produccion"),
-        items: [{ title: "Trabajo", url: "/admin/produccion" }],
-      });
-    }
-
-    if (adminModuleAccess.dispatches) {
-      navMain.push({
-        title: "Despachos",
-        url: "/admin/despachos",
-        icon: Truck,
-        isActive: pathname.startsWith("/admin/despachos"),
-        items: [{ title: "Salida", url: "/admin/despachos" }],
+        isActive: isAdminOrdersRoute || isAdminProductionRoute || isAdminDispatchesRoute,
+        items: operationsItems,
       });
     }
   }

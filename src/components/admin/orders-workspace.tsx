@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, ClipboardList, MoreHorizontal, ShoppingCart } from "lucide-react";
+import { ArrowUpRight, MoreHorizontal, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { OperationsTabs } from "@/components/admin/operations-tabs";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { getOrderStatusBadgeClassName, getOrderStatusLabel } from "@/lib/orders";
 
@@ -72,21 +73,7 @@ function RowActions({ order }: { order: OrderRow }) {
 export function OrdersWorkspace({ orders, currency, stats }: OrdersWorkspaceProps) {
   return (
     <section className="space-y-4">
-      <Card className="border-border bg-card/95">
-        <CardContent className="space-y-2">
-          <div className="flex flex-row items-center gap-2">
-            <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <ClipboardList className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight text-foreground md:text-xl">Ordenes</h1>
-              <p className="text-sm text-muted-foreground">
-                Controla la ejecucion de ventas, fabricacion y despachos desde un solo flujo.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <OperationsTabs />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         <Card className="border-border bg-card/95">
@@ -146,10 +133,7 @@ export function OrdersWorkspace({ orders, currency, stats }: OrdersWorkspaceProp
               orders.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell>
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold text-foreground">{order.code}</p>
-                      <p className="text-xs text-muted-foreground">Venta relacionada</p>
-                    </div>
+                    <p className="text-sm font-semibold text-foreground">{order.code}</p>
                   </TableCell>
                   <TableCell className="text-sm text-foreground">{order.saleCode}</TableCell>
                   <TableCell className="text-sm text-foreground">{order.clientName}</TableCell>

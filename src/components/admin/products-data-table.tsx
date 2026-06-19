@@ -10,10 +10,10 @@ import {
   CircleDollarSign,
   Edit3,
   MoreHorizontal,
+  Paintbrush,
   Search,
   Tag,
   Trash2,
-  Truck,
   X,
 } from "lucide-react";
 import { adminDeleteProductAction } from "@/app/actions/product-actions";
@@ -262,15 +262,16 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
           <Button
             type="button"
             variant="ghost"
-            size="sm"
-            className="h-9 px-3 text-xs"
+            size="icon"
             onClick={() => {
               setQuery("");
               setCategoryFilter("__all__");
             }}
             disabled={!query && categoryFilter === "__all__"}
+            aria-label="Limpiar filtros"
+            title="Limpiar filtros"
           >
-            Limpiar filtros
+            <Paintbrush className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -370,16 +371,6 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
               </TableHead>
               <TableHead className="normal-case tracking-normal">
                 <HeaderLabel
-                  active={sortKey === "proveedor"}
-                  direction={sortDirection}
-                  onClick={() => toggleSort("proveedor")}
-                  icon={<Truck className="h-3.5 w-3.5" />}
-                >
-                  Proveedor
-                </HeaderLabel>
-              </TableHead>
-              <TableHead className="normal-case tracking-normal">
-                <HeaderLabel
                   active={sortKey === "costo"}
                   direction={sortDirection}
                   onClick={() => toggleSort("costo")}
@@ -413,7 +404,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
           <TableBody>
             {pagedProducts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-9 text-center text-slate-500">
+                <TableCell colSpan={5} className="py-9 text-center text-slate-500">
                   No hay productos para el filtro actual.
                 </TableCell>
               </TableRow>
@@ -444,11 +435,6 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                   <TableCell className="text-sm text-slate-600">
                     <span className="inline-flex rounded-md border border-[(--line)] bg-slate-50 px-2 py-1 text-xs">
                       {product.categoryName ?? "Sin categoria"}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-sm text-slate-600">
-                    <span className="inline-flex rounded-md border border-[(--line)] bg-slate-50 px-2 py-1 text-xs">
-                      {product.supplierName ?? "Sin proveedor"}
                     </span>
                   </TableCell>
                   <TableCell className="text-sm font-medium text-slate-700">

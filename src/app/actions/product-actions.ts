@@ -14,7 +14,12 @@ import { calculateMarginPctFromPrice, calculateRetailPrice, calculateWholesalePr
 
 const baseProductSchema = z.object({
   code: z.string().trim().max(60, "Codigo demasiado largo").optional(),
-  name: z.string().trim().min(2, "Nombre invalido").max(120, "Nombre demasiado largo"),
+  name: z
+    .string()
+    .trim()
+    .min(2, "Nombre invalido")
+    .max(120, "Nombre demasiado largo")
+    .transform((value) => value.toUpperCase()),
   description: z.string().trim().max(4000, "Descripcion demasiado larga").optional(),
   seoTitle: z.string().trim().max(70, "SEO title demasiado largo").optional().or(z.literal("")),
   seoDescription: z.string().trim().max(180, "SEO description demasiado largo").optional().or(z.literal("")),
@@ -651,7 +656,7 @@ export async function adminImportProductsCsvAction(formData: FormData): Promise<
 
   for (let i = 1; i < lines.length; i += 1) {
     const row = splitCsvLine(lines[i]);
-    const name = (row[nameIndex] ?? "").trim();
+    const name = (row[nameIndex] ?? "").trim().toUpperCase();
     if (!name) {
       skipped += 1;
       continue;

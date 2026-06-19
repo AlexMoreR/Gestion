@@ -104,15 +104,10 @@ export function ProductsWorkspace({
             <Package className="h-4 w-4 text-slate-500" />
             <span>Productos</span>
           </h1>
-          <p className="mt-1 text-xs text-slate-600">Gestion de productos.</p>
         </div>
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <ProductImportExportControls />
-          <Button
-            type="button"
-            onClick={openNewModal}
-            className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[(--primary)] px-3 text-sm font-medium text-white transition hover:bg-[(--primary-strong)] sm:flex-none"
-          >
+          <Button type="button" onClick={openNewModal} className="flex-1 sm:flex-none">
             <Plus className="h-4 w-4" />
             Nuevo producto
           </Button>

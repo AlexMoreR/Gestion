@@ -3,18 +3,12 @@
 import Link from "next/link";
 import * as React from "react";
 import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
   ArrowUpRight,
-  CalendarDays,
   Download,
   FileText,
   ImagePlus,
   MoreHorizontal,
   PlusCircle,
-  ReceiptText,
-  User2,
   Eye,
   FileCheck2,
   Trash2,
@@ -94,9 +88,6 @@ type SalesDataTableProps = {
   accounts: AccountOption[];
 };
 
-type SortKey = "sale" | "quote" | "client" | "status" | "total" | "downPayment" | "remaining" | "created";
-type SortDirection = "asc" | "desc";
-
 function statusLabel(status: SaleStatus): string {
   switch (status) {
     case "DRAFT":
@@ -171,36 +162,6 @@ function getAccountTypeLabel(type: AccountType): string {
     default:
       return type;
   }
-}
-
-function HeaderLabel({
-  children,
-  active,
-  direction,
-  onClick,
-  icon,
-}: {
-  children: React.ReactNode;
-  active: boolean;
-  direction: SortDirection;
-  onClick: () => void;
-  icon: React.ReactNode;
-}) {
-  return (
-    <Button type="button" variant="ghost" onClick={onClick} aria-label={`Ordenar por ${String(children)}`}>
-      <span className="text-muted-foreground">{icon}</span>
-      {children}
-      {active ? (
-        direction === "asc" ? (
-          <ArrowUp className="h-3.5 w-3.5 text-foreground" />
-        ) : (
-          <ArrowDown className="h-3.5 w-3.5 text-foreground" />
-        )
-      ) : (
-        <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-      )}
-    </Button>
-  );
 }
 
 function RowActions({
@@ -659,50 +620,8 @@ function AddSalePaymentSheet({
 }
 
 export function SalesDataTable({ sales, currency, accounts }: SalesDataTableProps) {
-  const [sortKey, setSortKey] = React.useState<SortKey>("created");
-  const [sortDirection, setSortDirection] = React.useState<SortDirection>("desc");
   const [selectedSale, setSelectedSale] = React.useState<SaleRow | null>(null);
   const [paymentSale, setPaymentSale] = React.useState<SaleRow | null>(null);
-
-  const sortedSales = React.useMemo(() => {
-    const list = [...sales];
-    const directionFactor = sortDirection === "asc" ? 1 : -1;
-    const textCompare = (a: string, b: string) => a.localeCompare(b, "en", { sensitivity: "base", numeric: true });
-
-    list.sort((a, b) => {
-      switch (sortKey) {
-        case "sale":
-          return textCompare(a.code, b.code) * directionFactor;
-        case "quote":
-          return textCompare(a.quoteCode, b.quoteCode) * directionFactor;
-        case "client":
-          return textCompare(a.clientName, b.clientName) * directionFactor;
-        case "status":
-          return textCompare(statusLabel(a.status), statusLabel(b.status)) * directionFactor;
-        case "total":
-          return (a.total - b.total) * directionFactor;
-        case "downPayment":
-          return (a.downPaymentAmount - b.downPaymentAmount) * directionFactor;
-        case "remaining":
-          return (a.remainingBalance - b.remainingBalance) * directionFactor;
-        case "created":
-          return textCompare(a.createdAt, b.createdAt) * directionFactor;
-        default:
-          return 0;
-      }
-    });
-
-    return list;
-  }, [sales, sortDirection, sortKey]);
-
-  const toggleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDirection((value) => (value === "asc" ? "desc" : "asc"));
-      return;
-    }
-    setSortKey(key);
-    setSortDirection("asc");
-  };
 
   return (
     <div className="space-y-3">
@@ -733,95 +652,28 @@ export function SalesDataTable({ sales, currency, accounts }: SalesDataTableProp
         <Table className="min-w-[980px]">
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead className="normal-case tracking-normal">
-                <HeaderLabel
-                  active={sortKey === "sale"}
-                  direction={sortDirection}
-                  onClick={() => toggleSort("sale")}
-                  icon={<FileText className="h-3.5 w-3.5" />}
-                >
-                  Venta
-                </HeaderLabel>
-              </TableHead>
-              <TableHead className="normal-case tracking-normal">
-                <HeaderLabel
-                  active={sortKey === "quote"}
-                  direction={sortDirection}
-                  onClick={() => toggleSort("quote")}
-                  icon={<FileText className="h-3.5 w-3.5" />}
-                >
-                  Cotizacion
-                </HeaderLabel>
-              </TableHead>
-              <TableHead className="normal-case tracking-normal">
-                <HeaderLabel
-                  active={sortKey === "client"}
-                  direction={sortDirection}
-                  onClick={() => toggleSort("client")}
-                  icon={<User2 className="h-3.5 w-3.5" />}
-                >
-                  Cliente
-                </HeaderLabel>
-              </TableHead>
-              <TableHead className="normal-case tracking-normal">
-                <HeaderLabel
-                  active={sortKey === "status"}
-                  direction={sortDirection}
-                  onClick={() => toggleSort("status")}
-                  icon={<ReceiptText className="h-3.5 w-3.5" />}
-                >
-                  Estado
-                </HeaderLabel>
-              </TableHead>
-              <TableHead className="normal-case tracking-normal">
-                <HeaderLabel
-                  active={sortKey === "total"}
-                  direction={sortDirection}
-                  onClick={() => toggleSort("total")}
-                  icon={<FileText className="h-3.5 w-3.5" />}
-                >
-                  Total
-                </HeaderLabel>
-              </TableHead>
-              <TableHead className="normal-case tracking-normal">
-                <HeaderLabel
-                  active={sortKey === "downPayment"}
-                  direction={sortDirection}
-                  onClick={() => toggleSort("downPayment")}
-                  icon={<ReceiptText className="h-3.5 w-3.5" />}
-                >
-                  Abono
-                </HeaderLabel>
-              </TableHead>
-              <TableHead className="normal-case tracking-normal">
-                <HeaderLabel
-                  active={sortKey === "created"}
-                  direction={sortDirection}
-                  onClick={() => toggleSort("created")}
-                  icon={<CalendarDays className="h-3.5 w-3.5" />}
-                >
-                  Fecha
-                </HeaderLabel>
-              </TableHead>
-              <TableHead className="normal-case tracking-normal">
-                <span className="sr-only">Acciones</span>
-              </TableHead>
+              <TableHead>Venta</TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Total</TableHead>
+              <TableHead>Abono</TableHead>
+              <TableHead>Fecha</TableHead>
+              <TableHead className="sr-only">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedSales.length === 0 ? (
+            {sales.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-9 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="py-9 text-center text-muted-foreground">
                   No hay ventas con los filtros seleccionados.
                 </TableCell>
               </TableRow>
             ) : (
-              sortedSales.map((sale) => (
+              sales.map((sale) => (
                 <TableRow key={sale.id}>
                   <TableCell>
                     <p className="text-sm font-semibold text-foreground">{sale.code}</p>
                   </TableCell>
-                  <TableCell className="text-sm text-foreground">{sale.quoteCode}</TableCell>
                   <TableCell className="text-sm text-foreground">{sale.clientName}</TableCell>
                   <TableCell>
                     <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(sale.status)}`}>
@@ -856,12 +708,12 @@ export function SalesDataTable({ sales, currency, accounts }: SalesDataTableProp
       </div>
 
       <div className="space-y-2 md:hidden">
-        {sortedSales.length === 0 ? (
+        {sales.length === 0 ? (
           <div className="rounded-xl border border-border bg-card px-3 py-6 text-center text-sm text-muted-foreground">
             No hay ventas con los filtros seleccionados.
           </div>
         ) : (
-          sortedSales.map((sale) => (
+          sales.map((sale) => (
             <article key={sale.id} className="space-y-2.5 rounded-xl border border-border bg-card p-3">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
@@ -870,7 +722,6 @@ export function SalesDataTable({ sales, currency, accounts }: SalesDataTableProp
                     {statusLabel(sale.status)}
                   </span>
                 </div>
-                <p className="text-sm text-foreground">{sale.quoteCode}</p>
                 <p className="text-sm text-foreground">{sale.clientName}</p>
                 <p className="text-xs text-muted-foreground">{sale.createdAt}</p>
                 <p className="text-sm font-semibold text-foreground">{formatMoney(sale.total, currency)}</p>
