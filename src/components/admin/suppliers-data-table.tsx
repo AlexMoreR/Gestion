@@ -80,7 +80,7 @@ function SupplierActionsMenu({
         <DropdownMenuItem asChild>
           <Link href={`/admin/proveedores/${supplier.id}/cuenta`}>
             <Wallet className="mr-2 h-4 w-4 text-slate-600" />
-            Cuenta corriente
+            Transacciones
           </Link>
         </DropdownMenuItem>
         {supplier.shareToken ? (

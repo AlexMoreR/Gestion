@@ -118,7 +118,7 @@ export default async function AdminSupplierLedgerPage({ params, searchParams }: 
             {supplier.type === "SHIPPING" ? <Truck className="h-4 w-4" /> : <Factory className="h-4 w-4" />}
           </span>
           <div>
-            <h1 className="text-xl font-semibold tracking-tight text-foreground">Cuenta corriente</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">Transacciones</h1>
             <p className="text-sm text-muted-foreground">{supplier.displayName || supplier.name}</p>
           </div>
         </div>
