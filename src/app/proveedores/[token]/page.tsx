@@ -130,12 +130,10 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
   const total = rows.reduce((sum, row) => sum + row.amount, 0);
   const pagados = rows.filter((row) => row.isPaid).reduce((sum, row) => sum + row.amount, 0);
   const terminados = rows.filter((row) => row.isFinished).reduce((sum, row) => sum + row.amount, 0);
-  const enFabricacion = rows.filter((row) => !row.isFinished).reduce((sum, row) => sum + row.amount, 0);
   const saldoPendiente = total - pagados;
 
   const cards: { label: string; value: number; accent?: string; sub?: string }[] = [
     { label: "Total", value: total, sub: `${rows.length} productos` },
-    { label: "En fabricacion", value: enFabricacion, accent: "text-amber-600" },
     { label: "Terminados", value: terminados, accent: "text-emerald-600" },
     { label: "Pagados", value: pagados, accent: "text-emerald-600" },
     { label: "Saldo pendiente", value: saldoPendiente, accent: "text-red-600" },
@@ -149,24 +147,24 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
 
   return (
     <main className="mx-auto w-full max-w-6xl space-y-5 px-4 py-6">
-      <div className="flex flex-row items-center justify-between gap-3 overflow-hidden rounded-xl border border-slate-200/60 bg-card p-4 shadow-sm">
+      <div className="flex flex-col gap-3 overflow-hidden rounded-xl border border-slate-200/60 bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-2xl font-black text-white">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-xl font-black text-white sm:h-12 sm:w-12 sm:text-2xl">
             M
           </div>
           <div>
-            <p className="text-xl font-bold tracking-tight text-slate-900">{companyInfo.name}</p>
+            <p className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">{companyInfo.name}</p>
             <p className="text-xs text-slate-500">NIT {companyInfo.nit}</p>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <div className="flex items-baseline justify-end gap-2">
-            <p className="text-xl font-bold uppercase tracking-tight text-slate-900 sm:text-2xl">Balance</p>
-            <h1 className="max-w-full break-all text-xl font-extrabold tracking-tight text-slate-400 sm:text-2xl">
+        <div className="flex flex-col gap-1 sm:items-end">
+          <div className="flex items-baseline gap-2 sm:justify-end">
+            <p className="text-lg font-bold uppercase tracking-tight text-slate-900 sm:text-2xl">Balance</p>
+            <h1 className="max-w-full break-words text-lg font-extrabold tracking-tight text-slate-400 sm:text-2xl">
               {supplier.displayName || supplier.name}
             </h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500">
               <Building2 className="h-4 w-4" /> {companyInfo.cityOrigin}
             </span>
@@ -177,12 +175,12 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {cards.map((card) => (
           <Card key={card.label} className="border-border bg-card/95 py-2">
             <CardContent className="space-y-0.5">
               <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{card.label}</p>
-              <p className={`text-lg font-semibold ${card.accent ?? "text-foreground"}`}>
+              <p className={`text-base font-semibold sm:text-lg ${card.accent ?? "text-foreground"}`}>
                 {formatMoney(card.value, currency)}
               </p>
               {card.sub ? <p className="text-xs text-muted-foreground">{card.sub}</p> : null}
@@ -191,7 +189,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
         <Table className="min-w-[760px] [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2">
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -232,13 +230,13 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
                   <TableCell className="w-px whitespace-nowrap text-sm text-muted-foreground">{row.quantity}</TableCell>
                   <TableCell className="w-px whitespace-nowrap text-sm font-semibold text-foreground">{row.orderCode}</TableCell>
                   <TableCell className="text-sm text-foreground">
-                    <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 shrink-0 overflow-hidden rounded-md border border-border bg-muted/40">
+                    <div className="flex items-stretch gap-2">
+                      <div className="-my-1.5 w-10 shrink-0 self-stretch overflow-hidden border-r border-border bg-muted/40">
                         {row.productImage ? (
                           <img src={row.productImage} alt={row.productName} className="h-full w-full object-cover" />
                         ) : null}
                       </div>
-                      <div className="min-w-0 leading-tight">
+                      <div className="min-w-0 self-center leading-tight">
                         <p className="truncate">{row.productName}</p>
                         {row.productCode ? (
                           <p className="text-[11px] text-muted-foreground">{row.productCode}</p>
@@ -276,6 +274,61 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Vista movil en tarjetas */}
+      <div className="space-y-2 md:hidden">
+        {rows.length === 0 ? (
+          <div className="rounded-xl border border-border bg-card px-3 py-6 text-center text-sm text-muted-foreground">
+            Sin productos para {monthLabelOf(selectedMonth)}.
+          </div>
+        ) : (
+          rows.map((row) => (
+            <div key={row.id} className="space-y-2 rounded-xl border border-border bg-card p-3">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border border-border bg-muted/40">
+                  {row.productImage ? (
+                    <img src={row.productImage} alt={row.productName} className="h-full w-full object-cover" />
+                  ) : null}
+                </div>
+                <div className="min-w-0 flex-1 leading-tight">
+                  <p className="truncate text-sm font-medium text-foreground">{row.productName}</p>
+                  {row.productCode ? (
+                    <p className="text-[11px] text-muted-foreground">{row.productCode}</p>
+                  ) : null}
+                </div>
+                <p className="shrink-0 text-sm font-semibold text-foreground">{formatMoney(row.amount, currency)}</p>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {row.orderCode} · {row.date} · x{row.quantity}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <Badge
+                    variant="outline"
+                    className={
+                      row.isFinished
+                        ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600"
+                        : "border-amber-500/30 bg-amber-500/15 text-amber-600"
+                    }
+                  >
+                    {row.isFinished ? "Terminado" : "En fabricacion"}
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className={
+                      row.isPaid
+                        ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600"
+                        : "border-border bg-muted text-muted-foreground"
+                    }
+                  >
+                    {row.isPaid ? "Pagado" : "Pendiente"}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </main>
   );

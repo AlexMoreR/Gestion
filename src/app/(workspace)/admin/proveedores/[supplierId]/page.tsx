@@ -243,13 +243,13 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
                     </Link>
                   </TableCell>
                   <TableCell className="text-sm text-foreground">
-                    <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 shrink-0 overflow-hidden rounded-md border border-border bg-muted/40">
+                    <div className="flex items-stretch gap-2">
+                      <div className="-my-1.5 w-10 shrink-0 self-stretch overflow-hidden border-r border-border bg-muted/40">
                         {row.productImage ? (
                           <img src={row.productImage} alt={row.productName} className="h-full w-full object-cover" />
                         ) : null}
                       </div>
-                      <div className="min-w-0 leading-tight">
+                      <div className="min-w-0 self-center leading-tight">
                         <p className="truncate">{row.productName}</p>
                         {row.productCode ? (
                           <p className="text-[11px] text-muted-foreground">{row.productCode}</p>
