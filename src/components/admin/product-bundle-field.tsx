@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
+import { ProductSearchSelect } from "@/components/admin/product-search-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
@@ -91,22 +92,12 @@ export function ProductBundleField({
                   >
                     <label className="space-y-1.5">
                       <span className="text-xs font-medium text-slate-600">Producto</span>
-                      <select
-                        className="field-select"
+                      <ProductSearchSelect
+                        products={products}
                         value={row.childId}
-                        onChange={(event) => onChange(row.id, { childId: event.target.value })}
-                      >
-                        <option value="">Seleccionar producto</option>
-                        {products.map((option) => {
-                          const disabled = selectedChildIds.has(option.id) && option.id !== row.childId;
-                          return (
-                            <option key={option.id} value={option.id} disabled={disabled}>
-                              {option.code ? `${option.code} - ` : ""}
-                              {option.name}
-                            </option>
-                          );
-                        })}
-                      </select>
+                        onChange={(productId) => onChange(row.id, { childId: productId })}
+                        disabledIds={selectedChildIds}
+                      />
                       {product ? (
                         <span className="text-[11px] text-slate-500">
                           Precio unitario: {formatMoney(product.price, currency)}

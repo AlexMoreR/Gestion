@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { X } from "lucide-react";
+import { ProductSearchSelect } from "@/components/admin/product-search-select";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,12 +16,20 @@ type ProductOption = {
   stock: number;
 };
 
+type SupplierOption = {
+  id: string;
+  name: string;
+  cost: number | null;
+};
+
 type InventoryMovementFormDialogProps = {
   open: boolean;
   action: (formData: FormData) => Promise<void>;
   onClose: () => void;
   returnTo: string;
   products: ProductOption[];
+  suppliersByProduct: Record<string, SupplierOption[]>;
+  suppliers: { id: string; name: string }[];
   initialProductId?: string | null;
 };
 
@@ -52,10 +61,34 @@ export function InventoryMovementFormDialog({
   onClose,
   returnTo,
   products,
+  suppliersByProduct,
+  suppliers,
   initialProductId,
 }: InventoryMovementFormDialogProps) {
   const [productId, setProductId] = React.useState(initialProductId ?? "");
   const [type, setType] = React.useState<MovementType>("IN");
+  const [supplierId, setSupplierId] = React.useState("");
+  const [purchaseCost, setPurchaseCost] = React.useState("");
+  const [extraConcept, setExtraConcept] = React.useState("");
+  const [extraSupplierId, setExtraSupplierId] = React.useState("");
+  const [extraCost, setExtraCost] = React.useState("");
+
+  const supplierOptions = productId ? suppliersByProduct[productId] ?? [] : [];
+
+  // Al cambiar de producto, limpia el proveedor elegido (cada producto tiene los suyos).
+  const handleProductChange = (nextProductId: string) => {
+    setProductId(nextProductId);
+    setSupplierId("");
+  };
+
+  // Al elegir proveedor, autocompleta el costo con el costo de ese proveedor.
+  const handleSupplierChange = (nextSupplierId: string) => {
+    setSupplierId(nextSupplierId);
+    const supplier = (suppliersByProduct[productId] ?? []).find((s) => s.id === nextSupplierId);
+    if (supplier && supplier.cost !== null) {
+      setPurchaseCost(String(Math.round(supplier.cost)));
+    }
+  };
 
   // Sincroniza el producto preseleccionado cada vez que se abre el dialogo.
   React.useEffect(() => {
@@ -108,23 +141,12 @@ export function InventoryMovementFormDialog({
 
             <label className="space-y-1.5">
               <span className="text-sm font-medium text-foreground">Producto</span>
-              <select
-                name="productId"
-                required
+              <ProductSearchSelect
+                products={products}
                 value={productId}
-                onChange={(event) => setProductId(event.target.value)}
-                className={cn(controlClassName, "appearance-none")}
-              >
-                <option value="" disabled>
-                  Selecciona un producto
-                </option>
-                {products.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.name}
-                    {product.code ? ` (${product.code})` : ""}
-                  </option>
-                ))}
-              </select>
+                onChange={handleProductChange}
+              />
+              <input type="hidden" name="productId" value={productId} />
               {selectedProduct ? (
                 <span className="text-xs text-muted-foreground">Stock actual: {selectedProduct.stock}</span>
               ) : null}
@@ -151,6 +173,93 @@ export function InventoryMovementFormDialog({
                 <span className="text-xs text-muted-foreground">{QUANTITY_HINT[type]}</span>
               </label>
             </div>
+
+            {type === "IN" || type === "ADJUSTMENT" ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="space-y-1.5">
+                  <span className="text-sm font-medium text-foreground">Proveedor (opcional)</span>
+                  <select
+                    name="supplierId"
+                    value={supplierId}
+                    onChange={(event) => handleSupplierChange(event.target.value)}
+                    disabled={!productId || supplierOptions.length === 0}
+                    className={cn(controlClassName, "appearance-none disabled:cursor-not-allowed disabled:opacity-50")}
+                  >
+                    <option value="">
+                      {!productId
+                        ? "Elige un producto primero"
+                        : supplierOptions.length === 0
+                          ? "Sin proveedores para este producto"
+                          : "Sin proveedor"}
+                    </option>
+                    {supplierOptions.map((supplier) => (
+                      <option key={supplier.id} value={supplier.id}>
+                        {supplier.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1.5">
+                  <span className="text-sm font-medium text-foreground">Costo de compra</span>
+                  <Input
+                    inputMode="numeric"
+                    value={purchaseCost ? Number(purchaseCost).toLocaleString("es-CO") : ""}
+                    onChange={(event) => setPurchaseCost(event.target.value.replace(/\D/g, ""))}
+                    placeholder="0"
+                  />
+                  <input type="hidden" name="purchaseCost" value={purchaseCost} />
+                  <span className="text-xs text-muted-foreground">
+                    Si eliges proveedor, se genera un cargo en su cuenta.
+                  </span>
+                </label>
+              </div>
+            ) : null}
+
+            {type === "IN" || type === "ADJUSTMENT" ? (
+              <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
+                <span className="text-sm font-medium text-foreground">Costo adicional (opcional)</span>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <label className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">Concepto</span>
+                    <Input
+                      name="extraConcept"
+                      value={extraConcept}
+                      onChange={(event) => setExtraConcept(event.target.value)}
+                      placeholder="Ej. Transporte"
+                    />
+                  </label>
+                  <label className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">Proveedor</span>
+                    <select
+                      name="extraSupplierId"
+                      value={extraSupplierId}
+                      onChange={(event) => setExtraSupplierId(event.target.value)}
+                      className={cn(controlClassName, "appearance-none")}
+                    >
+                      <option value="">Sin proveedor</option>
+                      {suppliers.map((supplier) => (
+                        <option key={supplier.id} value={supplier.id}>
+                          {supplier.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">Monto</span>
+                    <Input
+                      inputMode="numeric"
+                      value={extraCost ? Number(extraCost).toLocaleString("es-CO") : ""}
+                      onChange={(event) => setExtraCost(event.target.value.replace(/\D/g, ""))}
+                      placeholder="0"
+                    />
+                    <input type="hidden" name="extraCost" value={extraCost} />
+                  </label>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Genera un cargo aparte al proveedor del costo adicional.
+                </span>
+              </div>
+            ) : null}
 
             <label className="space-y-1.5">
               <span className="text-sm font-medium text-foreground">Fecha</span>

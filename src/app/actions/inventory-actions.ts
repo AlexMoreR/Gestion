@@ -95,6 +95,68 @@ export async function adminCreateInventoryMovementAction(formData: FormData): Pr
     throw error;
   }
 
+  // Si la compra (entrada/ajuste) se atribuye a un proveedor, genera un cargo
+  // (deuda) en su cuenta corriente por el costo de compra.
+  if (parsed.data.type === "IN" || parsed.data.type === "ADJUSTMENT") {
+    const product = await prisma.product.findUnique({
+      where: { id: parsed.data.productId },
+      select: { name: true },
+    });
+    const productName = product?.name ?? "producto";
+    let createdAnyCharge = false;
+
+    // Cargo por la compra del producto.
+    const supplierId = getStringField(formData, "supplierId").trim();
+    const purchaseCost = Number(getStringField(formData, "purchaseCost").replace(/\D/g, "")) || 0;
+    if (supplierId && purchaseCost > 0) {
+      const supplier = await prisma.supplier.findFirst({
+        where: { id: supplierId, isActive: true },
+        select: { id: true },
+      });
+      if (supplier) {
+        await prisma.supplierLedgerEntry.create({
+          data: {
+            supplierId: supplier.id,
+            type: "CHARGE",
+            amount: purchaseCost,
+            note: `Compra inventario - ${productName} (x${parsed.data.quantity})`,
+            paymentDate: parsed.data.movementDate,
+            createdById,
+          },
+        });
+        createdAnyCharge = true;
+      }
+    }
+
+    // Cargo por costo adicional (ej. transporte) a otro proveedor.
+    const extraSupplierId = getStringField(formData, "extraSupplierId").trim();
+    const extraCost = Number(getStringField(formData, "extraCost").replace(/\D/g, "")) || 0;
+    const extraConcept = getStringField(formData, "extraConcept").trim();
+    if (extraSupplierId && extraCost > 0) {
+      const extraSupplier = await prisma.supplier.findFirst({
+        where: { id: extraSupplierId, isActive: true },
+        select: { id: true },
+      });
+      if (extraSupplier) {
+        await prisma.supplierLedgerEntry.create({
+          data: {
+            supplierId: extraSupplier.id,
+            type: "CHARGE",
+            amount: extraCost,
+            note: `${extraConcept || "Costo adicional"} - ${productName} (x${parsed.data.quantity})`,
+            paymentDate: parsed.data.movementDate,
+            createdById,
+          },
+        });
+        createdAnyCharge = true;
+      }
+    }
+
+    if (createdAnyCharge) {
+      revalidatePath("/admin/proveedores");
+    }
+  }
+
   revalidatePath("/admin/inventario");
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Movimiento registrado" }).toString()}`);
 }

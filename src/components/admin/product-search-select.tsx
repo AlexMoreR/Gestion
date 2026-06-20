@@ -16,6 +16,7 @@ type ProductSearchSelectProps = {
   onChange: (productId: string) => void;
   placeholder?: string;
   className?: string;
+  disabledIds?: Set<string>;
 };
 
 function labelFor(product: ProductOption): string {
@@ -28,6 +29,7 @@ export function ProductSearchSelect({
   onChange,
   placeholder = "Seleccionar producto",
   className,
+  disabledIds,
 }: ProductSearchSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
@@ -99,23 +101,27 @@ export function ProductSearchSelect({
             {filtered.length === 0 ? (
               <p className="px-3 py-2 text-sm text-slate-500">Sin resultados.</p>
             ) : (
-              filtered.map((product) => (
-                <button
-                  key={product.id}
-                  type="button"
-                  onClick={() => {
-                    onChange(product.id);
-                    setOpen(false);
-                  }}
-                  className={cn(
-                    "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-slate-100",
-                    product.id === value ? "bg-slate-50 font-medium" : "",
-                  )}
-                >
-                  <Check className={cn("h-4 w-4 shrink-0", product.id === value ? "opacity-100 text-[var(--primary)]" : "opacity-0")} />
-                  <span className="truncate">{labelFor(product)}</span>
-                </button>
-              ))
+              filtered.map((product) => {
+                const isDisabled = Boolean(disabledIds?.has(product.id)) && product.id !== value;
+                return (
+                  <button
+                    key={product.id}
+                    type="button"
+                    disabled={isDisabled}
+                    onClick={() => {
+                      onChange(product.id);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent",
+                      product.id === value ? "bg-slate-50 font-medium" : "",
+                    )}
+                  >
+                    <Check className={cn("h-4 w-4 shrink-0", product.id === value ? "opacity-100 text-[var(--primary)]" : "opacity-0")} />
+                    <span className="truncate">{labelFor(product)}</span>
+                  </button>
+                );
+              })
             )}
           </div>
         </div>

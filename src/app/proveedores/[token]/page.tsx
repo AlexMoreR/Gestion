@@ -1,25 +1,8 @@
 import { notFound } from "next/navigation";
-import {
-  Building2,
-  CalendarDays,
-  ClipboardList,
-  Factory,
-  Hash,
-  Package,
-  Tag,
-  Wallet,
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Building2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { SupplierBalanceMonthSelect } from "@/components/admin/supplier-balance-month-select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { SupplierBalanceItems } from "@/components/admin/supplier-balance-items";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
@@ -74,22 +57,30 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     }),
     prisma.supplierLedgerEntry.findMany({
       where: { supplierId: supplier.id, type: "PAYMENT" },
-      select: { orderItemId: true, orderId: true, paymentDate: true, createdAt: true },
+      select: { orderItemId: true, orderId: true, paymentDate: true, createdAt: true, receiptUrl: true },
     }),
     getSystemCurrency(),
   ]);
 
   const paidDateByItem = new Map<string, Date>();
   const paidDateByOrder = new Map<string, Date>();
+  const receiptByItem = new Map<string, string>();
+  const receiptByOrder = new Map<string, string>();
   for (const payment of payments) {
     const date = payment.paymentDate ?? payment.createdAt;
     if (payment.orderItemId) {
       const current = paidDateByItem.get(payment.orderItemId);
-      if (!current || date > current) paidDateByItem.set(payment.orderItemId, date);
+      if (!current || date > current) {
+        paidDateByItem.set(payment.orderItemId, date);
+        if (payment.receiptUrl) receiptByItem.set(payment.orderItemId, payment.receiptUrl);
+      }
     }
     if (payment.orderId) {
       const current = paidDateByOrder.get(payment.orderId);
-      if (!current || date > current) paidDateByOrder.set(payment.orderId, date);
+      if (!current || date > current) {
+        paidDateByOrder.set(payment.orderId, date);
+        if (payment.receiptUrl) receiptByOrder.set(payment.orderId, payment.receiptUrl);
+      }
     }
   }
 
@@ -107,6 +98,9 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
       ? paidDateByItem.get(item.id) ?? paidDateByOrder.get(item.order.id) ?? item.createdAt
       : null;
     const bucketMonth = paidDate ? monthKeyOf(paidDate) : currentMonthKey;
+    const receiptRaw = isPaid
+      ? receiptByItem.get(item.id) ?? receiptByOrder.get(item.order.id) ?? null
+      : null;
     return {
       id: item.id,
       orderCode: item.order.code,
@@ -118,6 +112,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
       isPaid,
       isFinished,
       bucketMonth,
+      receiptUrl: receiptRaw ? getPublicAssetUrl(receiptRaw) : null,
       date: (paidDate ?? item.confirmedAt ?? item.createdAt).toLocaleDateString("es-CO"),
     };
   });
@@ -195,147 +190,20 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
         ))}
       </div>
 
-      <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
-        <Table className="min-w-[760px] [&_td]:px-2 [&_td]:py-1.5 [&_th]:px-2">
-          <TableHeader>
-            <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead className="w-px whitespace-nowrap">
-                <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />Fecha</span>
-              </TableHead>
-              <TableHead className="w-px whitespace-nowrap">
-                <span className="inline-flex items-center gap-1.5"><Hash className="h-3.5 w-3.5 text-muted-foreground" />Cant</span>
-              </TableHead>
-              <TableHead className="w-px whitespace-nowrap">
-                <span className="inline-flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />Orden</span>
-              </TableHead>
-              <TableHead>
-                <span className="inline-flex items-center gap-1.5"><Package className="h-3.5 w-3.5 text-muted-foreground" />Producto</span>
-              </TableHead>
-              <TableHead>
-                <span className="inline-flex items-center gap-1.5"><Tag className="h-3.5 w-3.5 text-muted-foreground" />Precio</span>
-              </TableHead>
-              <TableHead>
-                <span className="inline-flex items-center gap-1.5"><Factory className="h-3.5 w-3.5 text-muted-foreground" />Estado</span>
-              </TableHead>
-              <TableHead>
-                <span className="inline-flex items-center gap-1.5"><Wallet className="h-3.5 w-3.5 text-muted-foreground" />Pago</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="py-9 text-center text-muted-foreground">
-                  Sin productos para {monthLabelOf(selectedMonth)}.
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell className="w-px whitespace-nowrap text-xs text-muted-foreground">{row.date}</TableCell>
-                  <TableCell className="w-px whitespace-nowrap text-sm text-muted-foreground">{row.quantity}</TableCell>
-                  <TableCell className="w-px whitespace-nowrap text-sm font-semibold text-foreground">{row.orderCode}</TableCell>
-                  <TableCell className="text-sm text-foreground">
-                    <div className="flex items-stretch gap-2">
-                      <div className="-my-1.5 w-10 shrink-0 self-stretch overflow-hidden border-r border-border bg-muted/40">
-                        {row.productImage ? (
-                          <img src={row.productImage} alt={row.productName} className="h-full w-full object-cover" />
-                        ) : null}
-                      </div>
-                      <div className="min-w-0 self-center leading-tight">
-                        <p className="truncate">{row.productName}</p>
-                        {row.productCode ? (
-                          <p className="text-[11px] text-muted-foreground">{row.productCode}</p>
-                        ) : null}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm font-semibold text-foreground">{formatMoney(row.amount, currency)}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={
-                        row.isFinished
-                          ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600"
-                          : "border-amber-500/30 bg-amber-500/15 text-amber-600"
-                      }
-                    >
-                      {row.isFinished ? "Terminado" : "En fabricacion"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={
-                        row.isPaid
-                          ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600"
-                          : "border-border bg-muted text-muted-foreground"
-                      }
-                    >
-                      {row.isPaid ? "Pagado" : "Pendiente"}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Vista movil en tarjetas */}
-      <div className="space-y-2 md:hidden">
-        {rows.length === 0 ? (
-          <div className="rounded-xl border border-border bg-card px-3 py-6 text-center text-sm text-muted-foreground">
-            Sin productos para {monthLabelOf(selectedMonth)}.
-          </div>
-        ) : (
-          rows.map((row) => (
-            <div key={row.id} className="space-y-2 rounded-xl border border-border bg-card p-3">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border border-border bg-muted/40">
-                  {row.productImage ? (
-                    <img src={row.productImage} alt={row.productName} className="h-full w-full object-cover" />
-                  ) : null}
-                </div>
-                <div className="min-w-0 flex-1 leading-tight">
-                  <p className="truncate text-sm font-medium text-foreground">{row.productName}</p>
-                  {row.productCode ? (
-                    <p className="text-[11px] text-muted-foreground">{row.productCode}</p>
-                  ) : null}
-                </div>
-                <p className="shrink-0 text-sm font-semibold text-foreground">{formatMoney(row.amount, currency)}</p>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs text-muted-foreground">
-                  {row.orderCode} · {row.date} · x{row.quantity}
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <Badge
-                    variant="outline"
-                    className={
-                      row.isFinished
-                        ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600"
-                        : "border-amber-500/30 bg-amber-500/15 text-amber-600"
-                    }
-                  >
-                    {row.isFinished ? "Terminado" : "En fabricacion"}
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className={
-                      row.isPaid
-                        ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600"
-                        : "border-border bg-muted text-muted-foreground"
-                    }
-                  >
-                    {row.isPaid ? "Pagado" : "Pendiente"}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+      <SupplierBalanceItems
+        rows={rows}
+        currency={currency}
+        emptyLabel={`Sin productos para ${monthLabelOf(selectedMonth)}.`}
+        header={{
+          fecha: "Fecha",
+          cant: "Cant",
+          orden: "Orden",
+          producto: "Producto",
+          precio: "Precio",
+          estado: "Estado",
+          pago: "Pago",
+        }}
+      />
     </main>
   );
 }

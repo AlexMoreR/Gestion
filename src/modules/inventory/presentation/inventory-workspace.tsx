@@ -23,6 +23,8 @@ type InventoryWorkspaceProps = {
   metrics: InventoryMetrics;
   stocks: ProductStock[];
   movements: InventoryMovementRow[];
+  suppliersByProduct: Record<string, { id: string; name: string; cost: number | null }[]>;
+  suppliers: { id: string; name: string }[];
 };
 
 type TabKey = "stock" | "movimientos";
@@ -60,7 +62,7 @@ function MetricCard({
   );
 }
 
-export function InventoryWorkspace({ metrics, stocks, movements }: InventoryWorkspaceProps) {
+export function InventoryWorkspace({ metrics, stocks, movements, suppliersByProduct, suppliers }: InventoryWorkspaceProps) {
   const [tab, setTab] = React.useState<TabKey>("stock");
   const [movementModal, setMovementModal] = React.useState<{ open: boolean; productId: string | null }>({
     open: false,
@@ -159,6 +161,8 @@ export function InventoryWorkspace({ metrics, stocks, movements }: InventoryWork
         onClose={() => setMovementModal({ open: false, productId: null })}
         returnTo={actionsReturnTo}
         products={productOptions}
+        suppliersByProduct={suppliersByProduct}
+        suppliers={suppliers}
         initialProductId={movementModal.productId}
       />
 

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, ClipboardList, FileText, ImagePlus, Plus, Receipt, Trash2, Wallet } from "lucide-react";
+import { CalendarDays, ClipboardList, Eye, FileText, ImagePlus, Plus, Trash2, Wallet } from "lucide-react";
 import {
+  adminCreateSupplierChargeAction,
   adminCreateSupplierPaymentsAction,
   adminDeleteSupplierPaymentAction,
 } from "@/app/actions/supplier-ledger-actions";
@@ -71,10 +72,29 @@ export function SupplierLedgerForm({
   currency,
   returnTo,
 }: SupplierLedgerFormProps) {
+  const [mode, setMode] = useState<"payment" | "charge">("payment");
   const [lines, setLines] = useState<PaymentLine[]>(() => [newLine()]);
   const [ledgerReceiptName, setLedgerReceiptName] = useState("");
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
   const [paymentDate, setPaymentDate] = useState(todayInputValue());
+
+  // Estado del formulario de cargo manual.
+  const [chargeAmount, setChargeAmount] = useState("");
+  const [chargeNote, setChargeNote] = useState("");
+  const [chargeDate, setChargeDate] = useState(todayInputValue());
+  const [chargeReceiptName, setChargeReceiptName] = useState("");
+  const [chargeReceiptPreview, setChargeReceiptPreview] = useState<string | null>(null);
+
+  const handleChargeReceiptChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    setChargeReceiptName(file?.name ?? "");
+    setChargeReceiptPreview((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return file && file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
+    });
+  };
+
+  const canSubmitCharge = (Number(chargeAmount) || 0) > 0;
 
   const handleReceiptChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -103,6 +123,114 @@ export function SupplierLedgerForm({
   return (
     <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
       <div className="space-y-4">
+        <div className="inline-flex rounded-lg border border-[var(--line)] bg-slate-100 p-1">
+          <button
+            type="button"
+            onClick={() => setMode("payment")}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+              mode === "payment" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Abono
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("charge")}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+              mode === "charge" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Cargo manual
+          </button>
+        </div>
+
+        {mode === "charge" ? (
+          <form
+            action={adminCreateSupplierChargeAction}
+            className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)]"
+          >
+            <input type="hidden" name="supplierId" value={supplierId} />
+            <input type="hidden" name="returnTo" value={returnTo} />
+
+            <p className="text-xs text-slate-500">
+              Registra una deuda al proveedor por un servicio o trabajo que no proviene de una orden (ej. tapizado, reparación).
+            </p>
+
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+              <div className="shrink-0 space-y-1.5">
+                <label
+                  className="relative flex h-32 w-32 cursor-pointer flex-col items-center justify-center gap-1.5 overflow-hidden rounded-lg bg-zinc-200 text-zinc-500 transition hover:bg-zinc-300 hover:text-zinc-600"
+                  title="Subir comprobante (opcional)"
+                >
+                  {chargeReceiptPreview ? (
+                    <img
+                      src={chargeReceiptPreview}
+                      alt="Comprobante"
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  ) : (
+                    <>
+                      <ImagePlus className="size-6" />
+                      <span className="text-xs font-medium">Foto (opcional)</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    name="receipt"
+                    accept="image/*,application/pdf"
+                    className="hidden"
+                    onChange={handleChargeReceiptChange}
+                  />
+                </label>
+                {chargeReceiptName ? (
+                  <p className="w-32 truncate text-xs text-slate-500">{chargeReceiptName}</p>
+                ) : null}
+              </div>
+
+              <div className="flex-1 space-y-3">
+                <label className="block space-y-1.5">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><CalendarDays className="h-4 w-4 text-slate-500" />Fecha del cargo</span>
+                  <DatePicker name="paymentDate" value={chargeDate} onChange={setChargeDate} required />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Wallet className="h-4 w-4 text-slate-500" />Monto</span>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+                    <Input
+                      inputMode="numeric"
+                      className="pl-5 text-right"
+                      value={chargeAmount ? Number(chargeAmount).toLocaleString("es-CO") : ""}
+                      onChange={(event) => setChargeAmount(event.target.value.replace(/\D/g, ""))}
+                      placeholder="0"
+                    />
+                  </div>
+                  <input type="hidden" name="amount" value={chargeAmount} />
+                </label>
+              </div>
+            </div>
+
+            <label className="block space-y-1.5">
+              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><FileText className="h-4 w-4 text-slate-500" />Nota</span>
+              <Input
+                name="note"
+                value={chargeNote}
+                onChange={(event) => setChargeNote(event.target.value)}
+                placeholder="Ej. Tapizado silla garantía"
+              />
+            </label>
+
+            <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-3 py-2.5">
+              <span className="text-sm font-medium text-slate-700">Total a deber</span>
+              <span className="text-lg font-bold tracking-tight text-red-600">
+                {formatMoney(Number(chargeAmount) || 0, currency)}
+              </span>
+            </div>
+
+            <Button type="submit" className="h-11 w-full text-base" disabled={!canSubmitCharge}>
+              Registrar cargo
+            </Button>
+          </form>
+        ) : (
         <form
           action={adminCreateSupplierPaymentsAction}
           className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)]"
@@ -251,6 +379,7 @@ export function SupplierLedgerForm({
             Registrar pago
           </Button>
         </form>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -274,21 +403,23 @@ export function SupplierLedgerForm({
                   {new Date(entry.createdAt).toLocaleDateString("es-CO")}
                   {entry.note ? ` - ${entry.note}` : ""}
                 </p>
-                <p className="text-xs text-slate-400">
-                  {entry.createdByName ?? "Sistema"}
-                  {entry.accountName ? ` - ${entry.accountName}` : ""}
+                <p className="flex items-center gap-1.5 text-xs text-slate-400">
+                  <span>
+                    {entry.createdByName ?? "Sistema"}
+                    {entry.accountName ? ` - ${entry.accountName}` : ""}
+                  </span>
+                  {entry.receiptUrl ? (
+                    <a
+                      href={entry.receiptUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Ver comprobante"
+                      className="inline-flex items-center text-primary transition hover:text-primary/80"
+                    >
+                      <Eye className="size-4" />
+                    </a>
+                  ) : null}
                 </p>
-                {entry.receiptUrl ? (
-                  <a
-                    href={entry.receiptUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    title="Ver comprobante"
-                    className="inline-flex w-fit items-center text-primary transition hover:text-primary/80"
-                  >
-                    <Receipt className="size-4" />
-                  </a>
-                ) : null}
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <p
@@ -299,11 +430,11 @@ export function SupplierLedgerForm({
                   {entry.type === "CHARGE" ? "+" : "-"}
                   {formatMoney(entry.amount, currency)}
                 </p>
-                {entry.type === "PAYMENT" ? (
+                {entry.type === "PAYMENT" || !entry.orderCode ? (
                   <form
                     action={adminDeleteSupplierPaymentAction}
                     onSubmit={(event) => {
-                      if (!window.confirm("¿Eliminar este abono?")) {
+                      if (!window.confirm(entry.type === "CHARGE" ? "¿Eliminar este cargo?" : "¿Eliminar este abono?")) {
                         event.preventDefault();
                       }
                     }}
@@ -315,7 +446,7 @@ export function SupplierLedgerForm({
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 text-slate-400 hover:text-red-600"
-                      aria-label="Eliminar abono"
+                      aria-label={entry.type === "CHARGE" ? "Eliminar cargo" : "Eliminar abono"}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

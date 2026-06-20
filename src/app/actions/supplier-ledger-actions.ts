@@ -201,6 +201,71 @@ export async function adminCreateSupplierPaymentAction(formData: FormData): Prom
   redirect(`${returnTo}?ok=Abono+registrado`);
 }
 
+const createChargeSchema = z.object({
+  supplierId: z.string().trim().min(1, "Proveedor invalido"),
+  amount: z.coerce.number().positive("El monto debe ser mayor a cero"),
+  note: z.string().trim().max(2000, "Nota demasiado larga").optional(),
+  paymentDate: z.coerce.date().optional(),
+});
+
+// Registra un cargo (deuda) manual al proveedor que no proviene de una orden,
+// por ejemplo un servicio o trabajo suelto (tapizado, reparacion, etc.).
+export async function adminCreateSupplierChargeAction(formData: FormData): Promise<void> {
+  const createdById = await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/proveedores");
+
+  const parsed = createChargeSchema.safeParse({
+    supplierId: formData.get("supplierId"),
+    amount: formData.get("amount"),
+    note: formData.get("note") || undefined,
+    paymentDate: formData.get("paymentDate") || undefined,
+  });
+
+  if (!parsed.success) {
+    redirect(`${returnTo}?error=Datos+del+cargo+invalidos`);
+  }
+
+  const supplier = await prisma.supplier.findUnique({
+    where: { id: parsed.data.supplierId },
+    select: { id: true },
+  });
+
+  if (!supplier) {
+    redirect(`${returnTo}?error=Proveedor+no+encontrado`);
+  }
+
+  // El comprobante es opcional para un cargo manual (puede no existir todavia).
+  let receipt: { url: string; name: string } | null = null;
+  const receiptFile = formData.get("receipt");
+  if (receiptFile instanceof File && receiptFile.size > 0) {
+    try {
+      receipt = await saveSupplierPaymentReceipt(receiptFile);
+    } catch (error) {
+      redirect(
+        `${returnTo}?error=${encodeURIComponent(
+          error instanceof Error ? error.message : "Comprobante invalido",
+        )}`,
+      );
+    }
+  }
+
+  await prisma.supplierLedgerEntry.create({
+    data: {
+      supplierId: supplier.id,
+      type: "CHARGE",
+      amount: parsed.data.amount,
+      note: parsed.data.note || null,
+      receiptUrl: receipt?.url ?? null,
+      receiptName: receipt?.name ?? null,
+      paymentDate: parsed.data.paymentDate ?? new Date(),
+      createdById,
+    },
+  });
+
+  revalidatePath("/admin/proveedores");
+  redirect(`${returnTo}?ok=Cargo+registrado`);
+}
+
 export async function adminDeleteSupplierPaymentAction(formData: FormData): Promise<void> {
   await requireAdminSession();
   const returnTo = getReturnTo(formData, "/admin/proveedores");
@@ -217,9 +282,10 @@ export async function adminDeleteSupplierPaymentAction(formData: FormData): Prom
   if (!entry) {
     redirect(`${returnTo}?error=Movimiento+no+encontrado`);
   }
-  // Solo se pueden eliminar abonos (pagos), nunca los cargos.
-  if (entry.type !== "PAYMENT") {
-    redirect(`${returnTo}?error=${encodeURIComponent("Solo se pueden eliminar abonos, no cargos")}`);
+  // Se pueden eliminar abonos (pagos) y cargos manuales (sin orden ligada).
+  // Los cargos generados por una orden no se pueden borrar aqui.
+  if (entry.type === "CHARGE" && entry.orderId) {
+    redirect(`${returnTo}?error=${encodeURIComponent("No se puede eliminar un cargo ligado a una orden")}`);
   }
 
   await prisma.supplierLedgerEntry.delete({ where: { id: entry.id } });
