@@ -57,7 +57,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     }),
     prisma.supplierLedgerEntry.findMany({
       where: { supplierId: supplier.id, type: "PAYMENT" },
-      select: { orderItemId: true, orderId: true, amount: true, paymentDate: true, createdAt: true, receiptUrl: true },
+      select: { orderItemId: true, orderId: true, settlesEntryId: true, amount: true, paymentDate: true, createdAt: true, receiptUrl: true },
     }),
     // Cargos que NO provienen de una orden: compras de inventario y cargos manuales.
     prisma.supplierLedgerEntry.findMany({
@@ -65,6 +65,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
+        code: true,
         amount: true,
         note: true,
         receiptUrl: true,
@@ -141,8 +142,24 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     };
   });
 
-  // Compras de inventario y cargos manuales: se muestran como filas pendientes.
-  // El pago se hace con un abono general al proveedor (saldo = cargos - abonos).
+  // Abonos que saldan un cargo específico (inventario/manual): monto y fecha por cargo.
+  const settledByCharge = new Map<string, number>();
+  const settleDateByCharge = new Map<string, Date>();
+  const settleReceiptByCharge = new Map<string, string>();
+  for (const payment of payments) {
+    if (!payment.settlesEntryId) continue;
+    settledByCharge.set(payment.settlesEntryId, (settledByCharge.get(payment.settlesEntryId) ?? 0) + Number(payment.amount));
+    const date = payment.paymentDate ?? payment.createdAt;
+    const current = settleDateByCharge.get(payment.settlesEntryId);
+    if (!current || date > current) {
+      settleDateByCharge.set(payment.settlesEntryId, date);
+      if (payment.receiptUrl) settleReceiptByCharge.set(payment.settlesEntryId, payment.receiptUrl);
+    }
+  }
+
+  // Compras de inventario y cargos manuales: se muestran como filas.
+  // Pendiente -> se arrastra al mes actual. Pagado (saldado con un abono al cargo)
+  // -> queda fijo en el mes del pago, igual que las órdenes.
   const chargeRows: BalanceRow[] = charges.map((charge) => {
     const chargeDate = charge.paymentDate ?? charge.createdAt;
     const product = charge.inventoryMovement?.product ?? null;
@@ -150,32 +167,42 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     // "Compra inventario - " del nombre.
     const cleanNote = charge.note?.replace(/^Compra inventario\s*-\s*/i, "").trim() || null;
     const qty = charge.inventoryMovement ? Math.abs(charge.inventoryMovement.change) : 1;
+    // Código persistido: INV-0000X (inventario) o MAN-0000X (manual). Respaldo por
+    // si algún cargo antiguo aún no tiene código asignado.
+    const isInventory = Boolean(charge.inventoryMovement) || /^Compra inventario/i.test(charge.note ?? "");
+    const fallbackCode = isInventory ? "INVENTARIO" : "MANUAL";
+    const amount = Number(charge.amount);
+    const settled = settledByCharge.get(charge.id) ?? 0;
+    const isPaid = settled >= amount - 0.0001;
+    const settleDate = settleDateByCharge.get(charge.id) ?? null;
+    const settleReceipt = settleReceiptByCharge.get(charge.id) ?? null;
+    // Comprobante: si está pagado usa el del abono que lo saldó; si no, el del cargo.
+    const rawReceipt = (isPaid ? settleReceipt : null) ?? charge.receiptUrl ?? null;
     return {
       id: charge.id,
-      orderCode: "INVENTARIO",
+      orderCode: charge.code ?? fallbackCode,
       productName: product?.name ?? cleanNote ?? "Cargo",
-      // Debajo del nombre: código + cantidad, ej. "BMV15 x 1".
-      productCode: product?.code ? `${product.code} x ${qty}` : null,
+      // Debajo del nombre: código + cantidad, ej. "BMV15 x 1". Los cargos manuales
+      // no tienen producto asociado, así que se muestran como "VARIOS x 1".
+      productCode: product?.code ? `${product.code} x ${qty}` : `VARIOS x ${qty}`,
       productImage: product?.thumbnailUrl ? getPublicAssetUrl(product.thumbnailUrl) : null,
       quantity: qty,
-      amount: Number(charge.amount),
-      isPaid: false,
+      amount,
+      isPaid,
       isFinished: true,
-      // Igual que los ítems pendientes de orden: los cargos de inventario/manuales
-      // sin saldar se arrastran al mes actual (conservan su fecha original). Se
-      // saldan con abonos generales (neto cargos - abonos) que también se aplican
-      // en el mes actual.
-      bucketMonth: currentMonthKey,
-      receiptUrl: charge.receiptUrl ? getPublicAssetUrl(charge.receiptUrl) : null,
-      date: chargeDate.toLocaleDateString("es-CO"),
+      // Pagado: mes del pago. Pendiente: se arrastra al mes actual (conserva su fecha
+      // original). El saldo de los pendientes también se reduce con abonos generales.
+      bucketMonth: isPaid && settleDate ? monthKeyOf(settleDate) : currentMonthKey,
+      receiptUrl: rawReceipt ? getPublicAssetUrl(rawReceipt) : null,
+      date: (isPaid && settleDate ? settleDate : chargeDate).toLocaleDateString("es-CO"),
     };
   });
 
-  // Abonos generales (sin orden asociada): reducen el saldo de los cargos de
-  // inventario/manuales. Como los cargos se arrastran al mes actual, los abonos
-  // se aplican (acumulados) en ese mismo mes actual.
+  // Abonos generales (sin orden ni cargo específico): reducen el saldo de los
+  // cargos de inventario/manuales pendientes. Se excluyen los abonos que ya saldan
+  // un cargo puntual (esos ya marcaron su cargo como pagado, evitando doble conteo).
   const totalAbonos = payments
-    .filter((payment) => !payment.orderId && !payment.orderItemId)
+    .filter((payment) => !payment.orderId && !payment.orderItemId && !payment.settlesEntryId)
     .reduce((sum, payment) => sum + Number(payment.amount), 0);
 
   const allRows = [...orderRows, ...chargeRows];

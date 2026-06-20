@@ -46,6 +46,22 @@ export function buildDispatchCode(index: number): string {
   return buildCode("DSP", index);
 }
 
+export function parseInventoryChargeCodeNumber(code: string): number {
+  return parseCodeNumber(code);
+}
+
+export function buildInventoryChargeCode(index: number): string {
+  return buildCode("INV", index);
+}
+
+export function parseManualChargeCodeNumber(code: string): number {
+  return parseCodeNumber(code);
+}
+
+export function buildManualChargeCode(index: number): string {
+  return buildCode("MAN", index);
+}
+
 export function getOrderStatusLabel(status: OrderStatus): string {
   switch (status) {
     case "DRAFT":

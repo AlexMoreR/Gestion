@@ -83,6 +83,26 @@ export default async function AdminSupplierLedgerPage({ params, searchParams }: 
     .filter((order) => order.pending > 0.0001)
     .sort((a, b) => a.code.localeCompare(b.code, "es", { numeric: true }));
 
+  // Cargos de inventario/manuales (sin orden): pendiente = monto - abonos que lo saldan.
+  const settledByCharge = new Map<string, number>();
+  for (const entry of supplier.ledgerEntries) {
+    if (entry.type === "PAYMENT" && entry.settlesEntryId) {
+      settledByCharge.set(
+        entry.settlesEntryId,
+        (settledByCharge.get(entry.settlesEntryId) ?? 0) + Number(entry.amount),
+      );
+    }
+  }
+  const charges = supplier.ledgerEntries
+    .filter((entry) => entry.type === "CHARGE" && !entry.orderId)
+    .map((entry) => ({
+      chargeId: entry.id,
+      code: entry.code ?? (entry.inventoryMovementId || entry.note?.startsWith("Compra inventario") ? "INVENTARIO" : "MANUAL"),
+      pending: Number(entry.amount) - (settledByCharge.get(entry.id) ?? 0),
+    }))
+    .filter((charge) => charge.pending > 0.0001)
+    .sort((a, b) => a.code.localeCompare(b.code, "es", { numeric: true }));
+
   const ledger = supplier.ledgerEntries.map((entry) => ({
     id: entry.id,
     type: entry.type,
@@ -134,6 +154,7 @@ export default async function AdminSupplierLedgerPage({ params, searchParams }: 
         supplierId={supplier.id}
         balance={balance}
         orders={orders}
+        charges={charges}
         ledger={ledger}
         accounts={accounts}
         currency={currency}

@@ -1,0 +1,16 @@
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3003
+- Network:       http://192.168.1.15:3003
+- Environments: .env
+- Experiments (use with caution):
+  · serverActions
+
+✓ Starting...
+✓ Ready in 2.7s
+ GET /admin/proveedores 200 in 3.4s (compile: 777ms, proxy.ts: 217ms, render: 2.4s)
+ GET /proveedores/53594957-68ad-4373-bb96-e3fdc5b67a21?month=2026-06 200 in 2.8s (compile: 1102ms, proxy.ts: 6ms, render: 1739ms)
+ GET /api/auth/session 200 in 1398ms (compile: 1359ms, render: 40ms)
+ GET /api/auth/session 200 in 29ms (compile: 11ms, render: 18ms)
+ GET /proveedores/53594957-68ad-4373-bb96-e3fdc5b67a21?month=2026-06 200 in 3.4s (compile: 17ms, proxy.ts: 8ms, render: 3.4s)
+ GET /admin/proveedores 200 in 2.1s (compile: 6ms, proxy.ts: 15ms, render: 2.1s)
+ GET /proveedores/53594957-68ad-4373-bb96-e3fdc5b67a21?month=2026-06 200 in 1151ms (compile: 26ms, proxy.ts: 20ms, render: 1105ms)

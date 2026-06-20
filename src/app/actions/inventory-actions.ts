@@ -14,8 +14,20 @@ import {
   minStockUpdateSchema,
 } from "@/modules/inventory/application/schemas";
 import { createPrismaInventoryRepository } from "@/modules/inventory/infrastructure/prisma-inventory-repository";
+import { buildInventoryChargeCode, parseInventoryChargeCodeNumber } from "@/lib/orders";
 
 const repository = createPrismaInventoryRepository();
+
+// Siguiente número de código de cargo de inventario (INV-00001...), a partir del
+// mayor existente. Cada cargo creado debe incrementarlo.
+async function getNextInventoryChargeSeq(): Promise<number> {
+  const last = await prisma.supplierLedgerEntry.findFirst({
+    where: { code: { startsWith: "INV-" } },
+    orderBy: { code: "desc" },
+    select: { code: true },
+  });
+  return last?.code ? parseInventoryChargeCodeNumber(last.code) : 0;
+}
 
 function redirectWithError(returnTo: string, message: string): never {
   const query = new URLSearchParams({ error: message }).toString();
@@ -105,6 +117,8 @@ export async function adminCreateInventoryMovementAction(formData: FormData): Pr
     });
     const productName = product?.name ?? "producto";
     let createdAnyCharge = false;
+    // Código secuencial INV-0000X; se incrementa por cada cargo de inventario creado.
+    let invSeq = await getNextInventoryChargeSeq();
 
     // Cargo por la compra del producto.
     const supplierId = getStringField(formData, "supplierId").trim();
@@ -118,6 +132,7 @@ export async function adminCreateInventoryMovementAction(formData: FormData): Pr
         await prisma.supplierLedgerEntry.create({
           data: {
             supplierId: supplier.id,
+            code: buildInventoryChargeCode((invSeq += 1)),
             type: "CHARGE",
             amount: purchaseCost,
             note: `Compra inventario - ${productName} (x${parsed.data.quantity})`,
@@ -143,6 +158,7 @@ export async function adminCreateInventoryMovementAction(formData: FormData): Pr
         await prisma.supplierLedgerEntry.create({
           data: {
             supplierId: extraSupplier.id,
+            code: buildInventoryChargeCode((invSeq += 1)),
             type: "CHARGE",
             amount: extraCost,
             note: `${extraConcept || "Costo adicional"} - ${productName} (x${parsed.data.quantity})`,

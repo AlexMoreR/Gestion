@@ -113,10 +113,12 @@ export function SupplierBalanceItems({ rows, currency, emptyLabel, header }: Sup
                   <TableCell className="w-px whitespace-nowrap text-sm font-semibold text-foreground">{row.orderCode}</TableCell>
                   <TableCell className="text-sm text-foreground">
                     <div className="flex items-stretch gap-2">
-                      <div className="-my-1.5 w-10 shrink-0 self-stretch overflow-hidden border-r border-border bg-muted/40">
+                      <div className="-my-1.5 flex w-10 shrink-0 items-center justify-center self-stretch overflow-hidden border-r border-border bg-muted/40">
                         {row.productImage ? (
                           <img src={row.productImage} alt={row.productName} className="h-full w-full object-cover" />
-                        ) : null}
+                        ) : (
+                          <Package className="h-5 w-5 text-muted-foreground/50" />
+                        )}
                       </div>
                       <div className="min-w-0 self-center leading-tight">
                         <p className="truncate">{row.productName}</p>
@@ -151,10 +153,12 @@ export function SupplierBalanceItems({ rows, currency, emptyLabel, header }: Sup
               className="w-full space-y-2 rounded-xl border border-border bg-card p-3 text-left"
             >
               <div className="flex items-center gap-3">
-                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border border-border bg-muted/40">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-muted/40">
                   {row.productImage ? (
                     <img src={row.productImage} alt={row.productName} className="h-full w-full object-cover" />
-                  ) : null}
+                  ) : (
+                    <Package className="h-6 w-6 text-muted-foreground/50" />
+                  )}
                 </div>
                 <div className="min-w-0 flex-1 leading-tight">
                   <p className="truncate text-sm font-medium text-foreground">{row.productName}</p>

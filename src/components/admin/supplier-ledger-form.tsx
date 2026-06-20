@@ -35,10 +35,17 @@ type SupplierOrderOption = {
   pending: number;
 };
 
+type SupplierChargeOption = {
+  chargeId: string;
+  code: string;
+  pending: number;
+};
+
 type SupplierLedgerFormProps = {
   supplierId: string;
   balance: number;
   orders: SupplierOrderOption[];
+  charges: SupplierChargeOption[];
   ledger: LedgerEntry[];
   accounts: AccountOption[];
   currency: SupportedCurrencyCode;
@@ -47,7 +54,8 @@ type SupplierLedgerFormProps = {
 
 type PaymentLine = {
   id: string;
-  orderId: string;
+  // "" = abono general | "order:<id>" | "charge:<id>"
+  target: string;
   amount: string;
 };
 
@@ -59,7 +67,7 @@ function todayInputValue(): string {
 function newLine(): PaymentLine {
   return {
     id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
-    orderId: "",
+    target: "",
     amount: "",
   };
 }
@@ -67,6 +75,7 @@ function newLine(): PaymentLine {
 export function SupplierLedgerForm({
   supplierId,
   orders,
+  charges,
   ledger,
   accounts,
   currency,
@@ -118,7 +127,11 @@ export function SupplierLedgerForm({
   const removeLine = (id: string) =>
     setLines((current) => (current.length > 1 ? current.filter((line) => line.id !== id) : current));
 
-  const pendingByOrder = new Map(orders.map((order) => [order.orderId, order.pending]));
+  // Pendiente por "target" (order:<id> / charge:<id>).
+  const pendingByTarget = new Map<string, number>([
+    ...orders.map((order) => [`order:${order.orderId}`, order.pending] as const),
+    ...charges.map((charge) => [`charge:${charge.chargeId}`, charge.pending] as const),
+  ]);
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
@@ -285,7 +298,7 @@ export function SupplierLedgerForm({
                 <label className="block space-y-1.5">
                   <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Wallet className="h-4 w-4 text-slate-500" />Cuenta</span>
                   <select name="accountId" defaultValue="" required className={selectClass}>
-                    <option value="" disabled>Cuenta (origen del pago)</option>
+                    <option value="" disabled>Seleccionar</option>
                     {accounts.map((account) => (
                       <option key={account.id} value={account.id}>
                         {account.name}
@@ -303,40 +316,61 @@ export function SupplierLedgerForm({
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><ClipboardList className="h-4 w-4 text-slate-500" />Ordenes a pagar</span>
+              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><ClipboardList className="h-4 w-4 text-slate-500" />Órdenes y cargos a pagar</span>
               <Button type="button" size="sm" className="gap-1.5" onClick={addLine}>
                 <Plus className="h-3.5 w-3.5" />
-                Agregar orden
+                Agregar línea
               </Button>
             </div>
 
             {lines.map((line) => {
-              const pending = line.orderId ? pendingByOrder.get(line.orderId) ?? 0 : 0;
-              const usedOrders = new Set(lines.filter((l) => l.id !== line.id).map((l) => l.orderId));
+              const pending = line.target ? pendingByTarget.get(line.target) ?? 0 : 0;
+              const usedTargets = new Set(lines.filter((l) => l.id !== line.id).map((l) => l.target));
               return (
                 <div
                   key={line.id}
                   className="grid gap-2 rounded-lg border border-[var(--line)] bg-slate-50/60 p-2 sm:grid-cols-[1fr_9rem_2rem] sm:items-center"
                 >
                   <select
-                    value={line.orderId}
+                    value={line.target}
                     onChange={(event) => {
-                      const orderId = event.target.value;
-                      const nextPending = orderId ? pendingByOrder.get(orderId) ?? 0 : 0;
+                      const target = event.target.value;
+                      const nextPending = target ? pendingByTarget.get(target) ?? 0 : 0;
                       updateLine(line.id, {
-                        orderId,
-                        // Autocompleta el monto con el pendiente al elegir la orden.
-                        amount: orderId && nextPending > 0 ? String(Math.round(nextPending)) : line.amount,
+                        target,
+                        // Autocompleta el monto con el pendiente al elegir orden/cargo.
+                        amount: target && nextPending > 0 ? String(Math.round(nextPending)) : line.amount,
                       });
                     }}
                     className={`${selectClass} bg-white`}
                   >
                     <option value="">Abono general (sin orden)</option>
-                    {orders.map((order) => (
-                      <option key={order.orderId} value={order.orderId} disabled={usedOrders.has(order.orderId)}>
-                        {order.code} — pendiente {formatMoney(order.pending, currency)}
-                      </option>
-                    ))}
+                    {orders.length > 0 ? (
+                      <optgroup label="Órdenes">
+                        {orders.map((order) => (
+                          <option
+                            key={order.orderId}
+                            value={`order:${order.orderId}`}
+                            disabled={usedTargets.has(`order:${order.orderId}`)}
+                          >
+                            {order.code} — pendiente {formatMoney(order.pending, currency)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null}
+                    {charges.length > 0 ? (
+                      <optgroup label="Inventario y cargos manuales">
+                        {charges.map((charge) => (
+                          <option
+                            key={charge.chargeId}
+                            value={`charge:${charge.chargeId}`}
+                            disabled={usedTargets.has(`charge:${charge.chargeId}`)}
+                          >
+                            {charge.code} — pendiente {formatMoney(charge.pending, currency)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null}
                   </select>
                   <div className="relative">
                     <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">
@@ -363,7 +397,7 @@ export function SupplierLedgerForm({
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
-                  <input type="hidden" name="orderIds" value={line.orderId} />
+                  <input type="hidden" name="targets" value={line.target} />
                   <input type="hidden" name="amounts" value={line.amount} />
                 </div>
               );

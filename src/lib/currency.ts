@@ -25,8 +25,8 @@ export function formatMoney(value: number | string, currency: SupportedCurrencyC
   const moneyFormatter = new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   });
 
   if (!Number.isFinite(numericValue)) {

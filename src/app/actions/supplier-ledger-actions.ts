@@ -8,6 +8,18 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { buildManualChargeCode, parseManualChargeCodeNumber } from "@/lib/orders";
+
+// Siguiente código de cargo manual (MAN-00001...), a partir del mayor existente.
+async function getNextManualChargeCode(): Promise<string> {
+  const last = await prisma.supplierLedgerEntry.findFirst({
+    where: { code: { startsWith: "MAN-" } },
+    orderBy: { code: "desc" },
+    select: { code: true },
+  });
+  const seq = last?.code ? parseManualChargeCodeNumber(last.code) : 0;
+  return buildManualChargeCode(seq + 1);
+}
 
 const RECEIPT_MAX_BYTES = 12 * 1024 * 1024;
 const ALLOWED_RECEIPT_MIME = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
@@ -252,6 +264,7 @@ export async function adminCreateSupplierChargeAction(formData: FormData): Promi
   await prisma.supplierLedgerEntry.create({
     data: {
       supplierId: supplier.id,
+      code: await getNextManualChargeCode(),
       type: "CHARGE",
       amount: parsed.data.amount,
       note: parsed.data.note || null,
@@ -350,15 +363,16 @@ export async function adminCreateSupplierPaymentsAction(formData: FormData): Pro
     redirect(`${returnTo}?error=Proveedor+no+encontrado`);
   }
 
-  // Lineas: orderIds[] + amounts[] en el mismo orden.
-  const rawOrderIds = formData.getAll("orderIds").map((value) => String(value).trim());
+  // Lineas: targets[] + amounts[] en el mismo orden. target = "" (abono general)
+  // | "order:<id>" | "charge:<id>".
+  const rawTargets = formData.getAll("targets").map((value) => String(value).trim());
   const rawAmounts = formData.getAll("amounts").map((value) => Number(String(value).replace(/\D/g, "")));
-  const allocations = rawOrderIds
-    .map((orderId, index) => ({ orderId, amount: rawAmounts[index] ?? 0 }))
+  const allocations = rawTargets
+    .map((target, index) => ({ target, amount: rawAmounts[index] ?? 0 }))
     .filter((line) => Number.isFinite(line.amount) && line.amount > 0);
 
   if (allocations.length === 0) {
-    redirect(`${returnTo}?error=${encodeURIComponent("Agrega al menos una orden con monto")}`);
+    redirect(`${returnTo}?error=${encodeURIComponent("Agrega al menos una línea con monto")}`);
   }
 
   let accountId: string | null = null;
@@ -393,14 +407,25 @@ export async function adminCreateSupplierPaymentsAction(formData: FormData): Pro
   for (const line of allocations) {
     let orderId: string | null = null;
     let saleId: string | null = null;
-    if (line.orderId) {
+    let settlesEntryId: string | null = null;
+
+    if (line.target.startsWith("order:")) {
       const order = await prisma.order.findUnique({
-        where: { id: line.orderId },
+        where: { id: line.target.slice("order:".length) },
         select: { id: true, saleId: true },
       });
       if (order) {
         orderId = order.id;
         saleId = order.saleId;
+      }
+    } else if (line.target.startsWith("charge:")) {
+      // Abono que salda un cargo de inventario/manual específico.
+      const charge = await prisma.supplierLedgerEntry.findFirst({
+        where: { id: line.target.slice("charge:".length), supplierId: supplier.id, type: "CHARGE" },
+        select: { id: true },
+      });
+      if (charge) {
+        settlesEntryId = charge.id;
       }
     }
 
@@ -413,6 +438,7 @@ export async function adminCreateSupplierPaymentsAction(formData: FormData): Pro
         accountId,
         orderId,
         saleId,
+        settlesEntryId,
         receiptUrl: receipt?.url ?? null,
         receiptName: receipt?.name ?? null,
         paymentDate,
