@@ -373,7 +373,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
           onValueChange={(value) => goToStep(Number(value))}
           className="mb-5"
         >
-          <TabsList>
+          <TabsList className="w-fit">
             {steps.map((step) => (
               <TabsTrigger key={step.id} value={String(step.id)} disabled={!canGoToStep(step.id)}>
                 <step.icon className="h-4 w-4" />
