@@ -11,6 +11,7 @@ import {
   Hash,
   ImagePlus,
   Package,
+  Plus,
   Tag,
   TrendingUp,
   Truck,
@@ -118,6 +119,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
   const [componentRows, setComponentRows] = useState<ProductComponentDraft[]>(() => [createComponentRow()]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [mainImageUrls, setMainImageUrls] = useState<string[]>([]);
+  const [photoIndex, setPhotoIndex] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
@@ -288,7 +290,13 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
 
   const allImageUrls = useMemo(() => mainImageUrls, [mainImageUrls]);
 
-  const step1Ready = name.trim().length >= 2 && allImageUrls.length > 0;
+  // Mantiene el indice de la foto visible dentro de rango.
+  useEffect(() => {
+    setPhotoIndex((index) => Math.min(index, Math.max(0, allImageUrls.length - 1)));
+  }, [allImageUrls.length]);
+  const safePhotoIndex = Math.min(photoIndex, Math.max(0, allImageUrls.length - 1));
+
+  const step1Ready = name.trim().length >= 2;
   const step2Ready =
     Number(baseCost) > 0 &&
     Number(retailMarginPct) >= 0 &&
@@ -298,7 +306,6 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
   // Pistas de lo que falta para poder avanzar/guardar.
   const step1Missing: string[] = [];
   if (name.trim().length < 2) step1Missing.push("nombre");
-  if (allImageUrls.length === 0) step1Missing.push("al menos una foto");
   const step2Missing: string[] = [];
   if (!(Number(baseCost) > 0)) step2Missing.push("costo de compra");
   if (!(pricing.finalRetail > 0)) step2Missing.push("precio final");
@@ -367,7 +374,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
 
   return (
     <div>
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-2xl">
         <Tabs
           value={String(currentStep)}
           onValueChange={(value) => goToStep(Number(value))}
@@ -384,35 +391,9 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
         </Tabs>
         <form action={adminCreateProductAction} className="space-y-7">
             <div className={currentStep === 1 ? "space-y-4" : "hidden"}>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="space-y-1.5">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Package className="h-4 w-4 text-slate-500" />Nombre</span>
-                  <Input name="name" placeholder="EJ. CAMISA OXFORD" required value={name} onChange={(e) => setName(e.target.value.toUpperCase())} className="uppercase" />
-                </label>
-                <label className="space-y-1.5">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Banknote className="h-4 w-4 text-slate-500" />Precio</span>
-                  <MoneyInput
-                    value={retailPriceDirty ? retailPriceInput : pricing.suggestedRetail}
-                    onValueChange={(raw) => {
-                      setRetailPriceInput(raw);
-                      setRetailPriceDirty(true);
-                    }}
-                  />
-                </label>
-                <label className="block space-y-1.5 md:col-span-2">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><FileText className="h-4 w-4 text-slate-500" />Descripcion</span>
-                  <Textarea
-                    name="description"
-                    placeholder="Descripcion del producto"
-                    rows={4}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                  />
-                </label>
-                {/* Campos SEO ocultos temporalmente (se mantienen para no perder el dato/borrador) */}
-                <input type="hidden" name="seoTitle" value={seoTitle} />
-                <input type="hidden" name="seoDescription" value={seoDescription} />
-                <div className="block space-y-2 md:col-span-2">
+              <div className="space-y-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                <div className="block shrink-0 space-y-2">
                   <div
                     className={`flex flex-wrap items-start gap-2 rounded-xl p-1 transition ${
                       dragActive ? "bg-slate-100/80 ring-2 ring-[var(--primary)]/30" : ""
@@ -436,6 +417,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                       }
 
                       syncSelectedFiles([...selectedFiles, ...dropped]);
+                      setPhotoIndex(selectedFiles.length + dropped.length - 1);
                     }}
                   >
                     <input
@@ -444,7 +426,6 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                       type="file"
                       accept="image/*"
                       multiple
-                      required
                       className="hidden"
                       onChange={(e) => {
                         const files = Array.from(e.target.files ?? []);
@@ -452,39 +433,99 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                           return;
                         }
                         syncSelectedFiles([...selectedFiles, ...files]);
+                        setPhotoIndex(selectedFiles.length + files.length - 1);
                       }}
                     />
-                    {allImageUrls.map((url, index) => (
-                      <div
-                        key={`${url}-${index}`}
-                        className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-[var(--line)] bg-slate-100"
-                      >
-                        <img src={url} alt={`Imagen ${index + 1}`} className="h-full w-full object-cover" />
+                    {allImageUrls.length > 0 ? (
+                      <div className="group relative h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-[var(--line)] bg-slate-100">
+                        <img
+                          src={allImageUrls[safePhotoIndex]}
+                          alt={`Foto ${safePhotoIndex + 1}`}
+                          className="h-full w-full object-cover"
+                        />
+                        {/* + al centro (aparece al pasar el mouse) para agregar mas fotos */}
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover:bg-black/30 group-hover:opacity-100"
+                          aria-label="Agregar mas fotos"
+                        >
+                          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow">
+                            <Plus className="h-5 w-5" />
+                          </span>
+                        </button>
+                        {/* X para quitar la foto visible */}
                         <Button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            removeImageAt(index);
+                            removeImageAt(safePhotoIndex);
                           }}
-                          className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black"
-                          aria-label={`Eliminar imagen ${index + 1}`}
+                          className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black"
+                          aria-label="Eliminar foto"
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-3.5 w-3.5" />
                         </Button>
                       </div>
-                    ))}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="h-20 w-20 flex-col gap-1"
-                      aria-label="Subir fotos del producto"
-                    >
-                      <ImagePlus className="size-5" />
-                      <span className="text-xs font-medium">Fotos</span>
-                    </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="h-32 w-32 flex-col gap-1.5 bg-zinc-200 text-zinc-500 hover:bg-zinc-300 hover:text-zinc-600"
+                        aria-label="Subir fotos del producto"
+                      >
+                        <ImagePlus className="size-6" />
+                        <span className="text-xs font-medium">Fotos</span>
+                      </Button>
+                    )}
                   </div>
+                  {allImageUrls.length > 1 ? (
+                    <div className="flex w-32 items-center justify-center gap-1.5">
+                      {allImageUrls.map((_, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setPhotoIndex(i)}
+                          className={`h-1.5 rounded-full transition-all ${
+                            i === safePhotoIndex ? "w-4 bg-slate-800" : "w-1.5 bg-slate-300 hover:bg-slate-400"
+                          }`}
+                          aria-label={`Ver foto ${i + 1}`}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
+                <div className="flex-1 space-y-4">
+                  <label className="block space-y-1.5">
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Package className="h-4 w-4 text-slate-500" />Nombre</span>
+                    <Input name="name" placeholder="EJ. CAMISA OXFORD" required value={name} onChange={(e) => setName(e.target.value.toUpperCase())} className="uppercase" />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Banknote className="h-4 w-4 text-slate-500" />Precio</span>
+                    <MoneyInput
+                      value={retailPriceDirty ? retailPriceInput : pricing.suggestedRetail}
+                      onValueChange={(raw) => {
+                        setRetailPriceInput(raw);
+                        setRetailPriceDirty(true);
+                      }}
+                    />
+                  </label>
+                </div>
+                </div>
+                <label className="block space-y-1.5">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><FileText className="h-4 w-4 text-slate-500" />Descripcion</span>
+                  <Textarea
+                    name="description"
+                    placeholder="Descripcion del producto"
+                    rows={4}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </label>
+                {/* Campos SEO ocultos temporalmente (se mantienen para no perder el dato/borrador) */}
+                <input type="hidden" name="seoTitle" value={seoTitle} />
+                <input type="hidden" name="seoDescription" value={seoDescription} />
               </div>
             </div>
 

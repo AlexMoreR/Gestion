@@ -122,7 +122,7 @@ export function ProductsWorkspace({
       />
 
       <Dialog open={modal === "new"} onOpenChange={(open) => (open ? null : closeModal())}>
-        <DialogContent className="max-h-[92vh] w-full max-w-3xl overflow-y-auto">
+        <DialogContent className="max-h-[92vh] w-full max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="inline-flex items-center gap-2">
               <Package className="h-4 w-4 text-slate-500" />

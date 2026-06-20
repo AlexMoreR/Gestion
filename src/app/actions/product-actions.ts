@@ -346,7 +346,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
     redirect("/admin/productos?error=Las+imagenes+subidas+son+invalidas");
   }
 
-  const thumbnailUrl = imageList[0];
+  const thumbnailUrl = imageList[0] ?? "";
   const categoryId = parseOptionalId(parsed.data.categoryId);
   const isBundle = formData.get("isBundle") === "true";
   let productSuppliers: ParsedProductSupplier[];
@@ -478,7 +478,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
     redirect(`${redirectBase}?error=Debes+mantener+al+menos+una+imagen`);
   }
 
-  const thumbnailUrl = imageList[0];
+  const thumbnailUrl = imageList[0] ?? "";
   const categoryId = parseOptionalId(parsed.data.categoryId);
   const isBundle = formData.get("isBundle") === "true";
   let productSuppliers: ParsedProductSupplier[];
