@@ -73,7 +73,17 @@ export function SupplierLedgerForm({
 }: SupplierLedgerFormProps) {
   const [lines, setLines] = useState<PaymentLine[]>(() => [newLine()]);
   const [ledgerReceiptName, setLedgerReceiptName] = useState("");
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
   const [paymentDate, setPaymentDate] = useState(todayInputValue());
+
+  const handleReceiptChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    setLedgerReceiptName(file?.name ?? "");
+    setReceiptPreview((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return file && file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
+    });
+  };
 
   const selectClass =
     "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -104,17 +114,27 @@ export function SupplierLedgerForm({
             {/* Comprobante primero, a la izquierda (igual que el formulario de producto). */}
             <div className="shrink-0 space-y-1.5">
               <label
-                className="flex h-32 w-32 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg bg-zinc-200 text-zinc-500 transition hover:bg-zinc-300 hover:text-zinc-600"
+                className="relative flex h-32 w-32 cursor-pointer flex-col items-center justify-center gap-1.5 overflow-hidden rounded-lg bg-zinc-200 text-zinc-500 transition hover:bg-zinc-300 hover:text-zinc-600"
                 title="Subir comprobante"
               >
-                <ImagePlus className="size-6" />
-                <span className="text-xs font-medium">Foto</span>
+                {receiptPreview ? (
+                  <img
+                    src={receiptPreview}
+                    alt="Comprobante"
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                ) : (
+                  <>
+                    <ImagePlus className="size-6" />
+                    <span className="text-xs font-medium">Foto</span>
+                  </>
+                )}
                 <input
                   type="file"
                   name="receipt"
                   accept="image/*,application/pdf"
                   className="hidden"
-                  onChange={(event) => setLedgerReceiptName(event.target.files?.[0]?.name ?? "")}
+                  onChange={handleReceiptChange}
                 />
               </label>
               {ledgerReceiptName ? (
