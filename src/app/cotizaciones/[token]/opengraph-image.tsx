@@ -15,7 +15,6 @@ type ImageProps = {
 };
 
 export default async function QuoteOpenGraphImage({ params }: ImageProps) {
-  try {
   const { token } = await params;
 
   const [quote, brandName, currency] = await Promise.all([
@@ -111,7 +110,7 @@ export default async function QuoteOpenGraphImage({ params }: ImageProps) {
             {code}
           </div>
           {clientName ? (
-            <div style={{ fontSize: 30, color: "rgba(255,255,255,0.86)" }}>Para {clientName}</div>
+            <div style={{ fontSize: 30, color: "rgba(255,255,255,0.86)" }}>{`Para ${clientName}`}</div>
           ) : null}
         </div>
 
@@ -125,7 +124,7 @@ export default async function QuoteOpenGraphImage({ params }: ImageProps) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
             <div style={{ fontSize: 24, color: "rgba(255,255,255,0.86)" }}>
-              {itemCount} {itemCount === 1 ? "producto" : "productos"}
+              {`${itemCount} ${itemCount === 1 ? "producto" : "productos"}`}
             </div>
             <div style={{ fontSize: 22, color: "rgba(255,255,255,0.7)" }}>{issuedDate}</div>
           </div>
@@ -134,10 +133,4 @@ export default async function QuoteOpenGraphImage({ params }: ImageProps) {
     ),
     size,
   );
-  } catch (error) {
-    return new Response(`OG_ERROR: ${error instanceof Error ? error.stack : String(error)}`, {
-      status: 500,
-      headers: { "content-type": "text/plain" },
-    });
-  }
 }

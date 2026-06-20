@@ -83,8 +83,8 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
       },
     }),
     prisma.supplierLedgerEntry.findMany({
-      where: { supplierId, type: "PAYMENT", orderItemId: { not: null } },
-      select: { orderItemId: true, paymentDate: true, createdAt: true },
+      where: { supplierId, type: "PAYMENT" },
+      select: { orderItemId: true, orderId: true, paymentDate: true, createdAt: true },
     }),
     getSystemCurrency(),
   ]);
@@ -100,14 +100,18 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
     await prisma.supplier.update({ where: { id: supplier.id }, data: { shareToken } });
   }
 
-  // Fecha de pago por item (la mas reciente si hubiera varias).
+  // Fecha de pago por item y por orden (la mas reciente si hubiera varias).
   const paidDateByItem = new Map<string, Date>();
+  const paidDateByOrder = new Map<string, Date>();
   for (const payment of payments) {
-    if (!payment.orderItemId) continue;
     const date = payment.paymentDate ?? payment.createdAt;
-    const current = paidDateByItem.get(payment.orderItemId);
-    if (!current || date > current) {
-      paidDateByItem.set(payment.orderItemId, date);
+    if (payment.orderItemId) {
+      const current = paidDateByItem.get(payment.orderItemId);
+      if (!current || date > current) paidDateByItem.set(payment.orderItemId, date);
+    }
+    if (payment.orderId) {
+      const current = paidDateByOrder.get(payment.orderId);
+      if (!current || date > current) paidDateByOrder.set(payment.orderId, date);
     }
   }
 
@@ -122,7 +126,9 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
     const isPaid = item.supplierPaymentStatus === "PAID";
     // "Terminado" sigue la misma logica de la orden: recogido = tiene fotos y estado de pago definido.
     const isFinished = item.photos.length > 0 && item.supplierPaymentStatus !== null;
-    const paidDate = isPaid ? paidDateByItem.get(item.id) ?? item.createdAt : null;
+    const paidDate = isPaid
+      ? paidDateByItem.get(item.id) ?? paidDateByOrder.get(item.order.id) ?? item.createdAt
+      : null;
     // Mes al que pertenece: si esta pagado, el mes del pago; si no, se arrastra al mes actual.
     const bucketMonth = paidDate ? monthKeyOf(paidDate) : currentMonthKey;
     return {

@@ -68,24 +68,28 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
         confirmedAt: true,
         createdAt: true,
         product: { select: { name: true, code: true, thumbnailUrl: true } },
-        order: { select: { code: true } },
+        order: { select: { id: true, code: true } },
         photos: { select: { id: true } },
       },
     }),
     prisma.supplierLedgerEntry.findMany({
-      where: { supplierId: supplier.id, type: "PAYMENT", orderItemId: { not: null } },
-      select: { orderItemId: true, paymentDate: true, createdAt: true },
+      where: { supplierId: supplier.id, type: "PAYMENT" },
+      select: { orderItemId: true, orderId: true, paymentDate: true, createdAt: true },
     }),
     getSystemCurrency(),
   ]);
 
   const paidDateByItem = new Map<string, Date>();
+  const paidDateByOrder = new Map<string, Date>();
   for (const payment of payments) {
-    if (!payment.orderItemId) continue;
     const date = payment.paymentDate ?? payment.createdAt;
-    const current = paidDateByItem.get(payment.orderItemId);
-    if (!current || date > current) {
-      paidDateByItem.set(payment.orderItemId, date);
+    if (payment.orderItemId) {
+      const current = paidDateByItem.get(payment.orderItemId);
+      if (!current || date > current) paidDateByItem.set(payment.orderItemId, date);
+    }
+    if (payment.orderId) {
+      const current = paidDateByOrder.get(payment.orderId);
+      if (!current || date > current) paidDateByOrder.set(payment.orderId, date);
     }
   }
 
@@ -99,7 +103,9 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     const amount = Number(item.purchaseCost ?? 0) * item.quantity;
     const isPaid = item.supplierPaymentStatus === "PAID";
     const isFinished = item.photos.length > 0 && item.supplierPaymentStatus !== null;
-    const paidDate = isPaid ? paidDateByItem.get(item.id) ?? item.createdAt : null;
+    const paidDate = isPaid
+      ? paidDateByItem.get(item.id) ?? paidDateByOrder.get(item.order.id) ?? item.createdAt
+      : null;
     const bucketMonth = paidDate ? monthKeyOf(paidDate) : currentMonthKey;
     return {
       id: item.id,
