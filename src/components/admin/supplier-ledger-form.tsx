@@ -136,8 +136,8 @@ export function SupplierLedgerForm({
                 </label>
                 <label className="block space-y-1.5">
                   <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Wallet className="h-4 w-4 text-slate-500" />Cuenta</span>
-                  <select name="accountId" defaultValue="" className={selectClass}>
-                    <option value="">Cuenta (origen del pago)</option>
+                  <select name="accountId" defaultValue="" required className={selectClass}>
+                    <option value="" disabled>Cuenta (origen del pago)</option>
                     {accounts.map((account) => (
                       <option key={account.id} value={account.id}>
                         {account.name}
