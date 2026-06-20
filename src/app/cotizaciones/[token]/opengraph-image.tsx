@@ -15,6 +15,7 @@ type ImageProps = {
 };
 
 export default async function QuoteOpenGraphImage({ params }: ImageProps) {
+  try {
   const { token } = await params;
 
   const [quote, brandName, currency] = await Promise.all([
@@ -133,4 +134,10 @@ export default async function QuoteOpenGraphImage({ params }: ImageProps) {
     ),
     size,
   );
+  } catch (error) {
+    return new Response(`OG_ERROR: ${error instanceof Error ? error.stack : String(error)}`, {
+      status: 500,
+      headers: { "content-type": "text/plain" },
+    });
+  }
 }

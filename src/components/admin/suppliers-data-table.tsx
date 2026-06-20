@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowDown,
   ArrowUp,
@@ -55,12 +56,10 @@ const SupplierTypeIcon = ({ type, className }: { type: SupplierType; className?:
 
 function SupplierActionsMenu({
   supplier,
-  onViewLedger,
   onEditSupplier,
   onDelete,
 }: {
   supplier: SupplierRow;
-  onViewLedger?: (supplierId: string) => void;
   onEditSupplier?: (supplierId: string) => void;
   onDelete: (supplier: { id: string; name: string }) => void;
 }) {
@@ -78,9 +77,11 @@ function SupplierActionsMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={() => onViewLedger?.(supplier.id)}>
-          <Wallet className="mr-2 h-4 w-4 text-slate-600" />
-          Cuenta corriente
+        <DropdownMenuItem asChild>
+          <Link href={`/admin/proveedores/${supplier.id}/cuenta`}>
+            <Wallet className="mr-2 h-4 w-4 text-slate-600" />
+            Cuenta corriente
+          </Link>
         </DropdownMenuItem>
         {supplier.shareToken ? (
           <DropdownMenuItem asChild>
@@ -110,7 +111,6 @@ type SuppliersDataTableProps = {
   suppliers: SupplierRow[];
   currency: SupportedCurrencyCode;
   onEditSupplier?: (supplierId: string) => void;
-  onViewLedger?: (supplierId: string) => void;
 };
 
 type SortKey = "proveedor" | "correo" | "telefono" | "productos" | "saldo" | "acciones";
@@ -157,8 +157,9 @@ export function SuppliersDataTable({
   suppliers,
   currency,
   onEditSupplier,
-  onViewLedger,
 }: SuppliersDataTableProps) {
+  const router = useRouter();
+  const openLedger = (supplierId: string) => router.push(`/admin/proveedores/${supplierId}/cuenta`);
   const [query, setQuery] = React.useState("");
   const [sortKey, setSortKey] = React.useState<SortKey>("proveedor");
   const [sortDirection, setSortDirection] = React.useState<SortDirection>("asc");
@@ -288,11 +289,11 @@ export function SuppliersDataTable({
               key={supplier.id}
               role="button"
               tabIndex={0}
-              onClick={() => onViewLedger?.(supplier.id)}
+              onClick={() => openLedger(supplier.id)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
-                  onViewLedger?.(supplier.id);
+                  openLedger(supplier.id);
                 }
               }}
               className="cursor-pointer rounded-xl border border-[var(--line)] bg-white p-3 transition hover:border-slate-300 hover:bg-slate-50"
@@ -325,7 +326,6 @@ export function SuppliersDataTable({
                 <span onClick={(event) => event.stopPropagation()}>
                   <SupplierActionsMenu
                     supplier={supplier}
-                    onViewLedger={onViewLedger}
                     onEditSupplier={onEditSupplier}
                     onDelete={setPendingDelete}
                   />
@@ -337,7 +337,7 @@ export function SuppliersDataTable({
       </div>
 
       <div className="hidden overflow-hidden rounded-xl border border-[var(--line)] bg-white md:block">
-        <Table className="min-w-[880px]">
+        <Table className="min-w-[880px] [&_td]:py-1.5">
           <TableHeader>
             <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
               <TableHead className="normal-case tracking-normal">
@@ -406,12 +406,12 @@ export function SuppliersDataTable({
               pagedSuppliers.map((supplier) => (
                 <TableRow
                   key={supplier.id}
-                  onClick={() => onViewLedger?.(supplier.id)}
+                  onClick={() => openLedger(supplier.id)}
                   className="cursor-pointer transition hover:bg-slate-50"
                 >
                   <TableCell>
                     <div className="flex items-center gap-2.5">
-                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--line)] bg-slate-50 text-slate-700">
+                      <span className="inline-flex items-center justify-center text-slate-500">
                         <SupplierTypeIcon type={supplier.type} className="h-4 w-4" />
                       </span>
                       <div className="min-w-0">
@@ -439,7 +439,6 @@ export function SuppliersDataTable({
                     </form>
                     <SupplierActionsMenu
                       supplier={supplier}
-                      onViewLedger={onViewLedger}
                       onEditSupplier={onEditSupplier}
                       onDelete={setPendingDelete}
                     />
