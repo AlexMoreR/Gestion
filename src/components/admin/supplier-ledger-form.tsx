@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ImagePlus, Plus, Trash2 } from "lucide-react";
+import { CalendarDays, ClipboardList, FileText, ImagePlus, Plus, Trash2, Wallet } from "lucide-react";
 import {
   adminCreateSupplierPaymentsAction,
   adminDeleteSupplierPaymentAction,
@@ -100,33 +100,63 @@ export function SupplierLedgerForm({
           <input type="hidden" name="supplierId" value={supplierId} />
           <input type="hidden" name="returnTo" value={returnTo} />
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block space-y-1.5">
-              <span className="text-sm font-medium text-slate-700">Fecha del pago</span>
-              <DatePicker
-                name="paymentDate"
-                value={paymentDate}
-                onChange={setPaymentDate}
-                required
-              />
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-sm font-medium text-slate-700">Cuenta</span>
-              <select name="accountId" defaultValue="" className={selectClass}>
-                <option value="">Cuenta (origen del pago)</option>
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+            {/* Comprobante primero, a la izquierda (igual que el formulario de producto). */}
+            <div className="shrink-0 space-y-1.5">
+              <label
+                className="flex h-32 w-32 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg bg-zinc-200 text-zinc-500 transition hover:bg-zinc-300 hover:text-zinc-600"
+                title="Subir comprobante"
+              >
+                <ImagePlus className="size-6" />
+                <span className="text-xs font-medium">Foto</span>
+                <input
+                  type="file"
+                  name="receipt"
+                  accept="image/*,application/pdf"
+                  className="hidden"
+                  onChange={(event) => setLedgerReceiptName(event.target.files?.[0]?.name ?? "")}
+                />
+              </label>
+              {ledgerReceiptName ? (
+                <p className="w-32 truncate text-xs text-slate-500">{ledgerReceiptName}</p>
+              ) : null}
+            </div>
+
+            {/* Fecha y Cuenta en una fila; Nota debajo. */}
+            <div className="flex-1 space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block space-y-1.5">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><CalendarDays className="h-4 w-4 text-slate-500" />Fecha del pago</span>
+                  <DatePicker
+                    name="paymentDate"
+                    value={paymentDate}
+                    onChange={setPaymentDate}
+                    required
+                  />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Wallet className="h-4 w-4 text-slate-500" />Cuenta</span>
+                  <select name="accountId" defaultValue="" className={selectClass}>
+                    <option value="">Cuenta (origen del pago)</option>
+                    {accounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <label className="block space-y-1.5">
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><FileText className="h-4 w-4 text-slate-500" />Nota</span>
+                <Input name="note" placeholder="Referencia del pago" />
+              </label>
+            </div>
           </div>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-700">Ordenes a pagar</span>
-              <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={addLine}>
+              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><ClipboardList className="h-4 w-4 text-slate-500" />Ordenes a pagar</span>
+              <Button type="button" size="sm" className="gap-1.5" onClick={addLine}>
                 <Plus className="h-3.5 w-3.5" />
                 Agregar orden
               </Button>
@@ -190,34 +220,6 @@ export function SupplierLedgerForm({
                 </div>
               );
             })}
-          </div>
-
-          <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-slate-700">Nota</span>
-            <Input name="note" placeholder="Referencia del pago" />
-          </label>
-
-          <div className="space-y-1.5">
-            <span className="text-sm font-medium text-slate-700">Comprobante</span>
-            <div className="flex items-center gap-2">
-              <label
-                className="flex h-16 w-16 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-[var(--line)] text-slate-400 transition hover:border-[var(--line-strong)] hover:text-slate-600"
-                title="Subir comprobante"
-              >
-                <ImagePlus className="h-5 w-5" />
-                <span className="text-[10px] font-medium">Foto</span>
-                <input
-                  type="file"
-                  name="receipt"
-                  accept="image/*,application/pdf"
-                  className="hidden"
-                  onChange={(event) => setLedgerReceiptName(event.target.files?.[0]?.name ?? "")}
-                />
-              </label>
-              <span className="min-w-0 truncate text-xs text-slate-500">
-                {ledgerReceiptName || "Imagen o PDF · obligatorio"}
-              </span>
-            </div>
           </div>
 
           <div className="flex items-center justify-between rounded-lg border border-[var(--primary)]/20 bg-[var(--primary)]/5 px-3 py-2.5">
