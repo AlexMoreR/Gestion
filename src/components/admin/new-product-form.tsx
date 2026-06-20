@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
 import {
   Barcode,
   Boxes,
@@ -46,7 +47,17 @@ type NewProductFormProps = {
   suppliers: SupplierOption[];
   currency: SupportedCurrencyCode;
   bundleProducts: BundleProductOption[];
+  onCancel?: () => void;
 };
+
+function SaveProductButton({ disabled }: { disabled: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={disabled || pending}>
+      {pending ? "Guardando..." : "Guardar producto"}
+    </Button>
+  );
+}
 
 type NewProductDraft = {
   name: string;
@@ -85,7 +96,7 @@ function createComponentRow(): ProductComponentDraft {
   };
 }
 
-export function NewProductForm({ categories, suppliers, currency, bundleProducts }: NewProductFormProps) {
+export function NewProductForm({ categories, suppliers, currency, bundleProducts, onCancel }: NewProductFormProps) {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [description, setDescription] = useState("");
@@ -283,6 +294,16 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
     Number(retailMarginPct) >= 0 &&
     pricing.finalRetail > 0 &&
     (!wholesaleEnabled || (Number(wholesaleMarginPct) >= 0 && pricing.finalWholesale > 0 && Number(minWholesaleQty) >= 1));
+
+  // Pistas de lo que falta para poder avanzar/guardar.
+  const step1Missing: string[] = [];
+  if (name.trim().length < 2) step1Missing.push("nombre");
+  if (allImageUrls.length === 0) step1Missing.push("al menos una foto");
+  const step2Missing: string[] = [];
+  if (!(Number(baseCost) > 0)) step2Missing.push("costo de compra");
+  if (!(pricing.finalRetail > 0)) step2Missing.push("precio final");
+  if (wholesaleEnabled && !(pricing.finalWholesale > 0)) step2Missing.push("precio mayor");
+  const currentMissing = currentStep === 1 ? step1Missing : currentStep === 2 ? step2Missing : [];
   const steps = [
     { id: 1, label: "Producto", icon: Package },
     { id: 2, label: "Precios", icon: Banknote },
@@ -627,33 +648,40 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
             />
             </div>
 
-            <div className="mt-1 flex flex-wrap items-center justify-between gap-3 border-t pt-5">
-              <div>
-                {currentStep > 1 ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setCurrentStep((step) => Math.max(1, step - 1))}
-                  >
-                    ← Atras
-                  </Button>
-                ) : (
-                  <Link href="/admin/productos" className={buttonVariants({ variant: "outline" })}>
-                    Cancelar
-                  </Link>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                {currentStep >= 2 ? (
-                  <Button type="submit" disabled={!canSubmit}>
-                    Guardar producto
-                  </Button>
-                ) : null}
-                {currentStep < 3 ? (
-                  <Button type="button" onClick={() => goToStep(currentStep + 1)} disabled={!canGoToStep(currentStep + 1)}>
-                    Siguiente
-                  </Button>
-                ) : null}
+            <div className="mt-1 space-y-2 border-t pt-5">
+              {currentMissing.length > 0 ? (
+                <p className="text-right text-xs text-amber-600">
+                  Falta: {currentMissing.join(", ")}
+                </p>
+              ) : null}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  {currentStep > 1 ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setCurrentStep((step) => Math.max(1, step - 1))}
+                    >
+                      ← Atras
+                    </Button>
+                  ) : onCancel ? (
+                    <Button type="button" variant="outline" onClick={onCancel}>
+                      Cancelar
+                    </Button>
+                  ) : (
+                    <Link href="/admin/productos" className={buttonVariants({ variant: "outline" })}>
+                      Cancelar
+                    </Link>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  {currentStep >= 2 ? <SaveProductButton disabled={!canSubmit} /> : null}
+                  {currentStep < 3 ? (
+                    <Button type="button" onClick={() => goToStep(currentStep + 1)} disabled={!canGoToStep(currentStep + 1)}>
+                      Siguiente
+                    </Button>
+                  ) : null}
+                </div>
               </div>
             </div>
         </form>

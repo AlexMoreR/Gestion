@@ -134,6 +134,7 @@ export function ProductsWorkspace({
             suppliers={suppliers}
             currency={currency}
             bundleProducts={bundleProducts}
+            onCancel={closeModal}
           />
         </DialogContent>
       </Dialog>
