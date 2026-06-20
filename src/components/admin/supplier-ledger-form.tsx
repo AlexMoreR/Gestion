@@ -64,7 +64,6 @@ function newLine(): PaymentLine {
 
 export function SupplierLedgerForm({
   supplierId,
-  balance,
   orders,
   ledger,
   accounts,
@@ -93,14 +92,10 @@ export function SupplierLedgerForm({
   return (
     <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-slate-50 p-3">
-          <p className="text-sm font-medium text-slate-900">Saldo</p>
-          <p className={`text-2xl font-semibold ${balance > 0 ? "text-red-600" : "text-emerald-600"}`}>
-            {formatMoney(balance, currency)}
-          </p>
-        </div>
-
-        <form action={adminCreateSupplierPaymentsAction} className="space-y-3">
+        <form
+          action={adminCreateSupplierPaymentsAction}
+          className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)]"
+        >
           <input type="hidden" name="supplierId" value={supplierId} />
           <input type="hidden" name="returnTo" value={returnTo} />
 
@@ -141,44 +136,43 @@ export function SupplierLedgerForm({
               const pending = line.orderId ? pendingByOrder.get(line.orderId) ?? 0 : 0;
               const usedOrders = new Set(lines.filter((l) => l.id !== line.id).map((l) => l.orderId));
               return (
-                <div key={line.id} className="grid gap-2 sm:grid-cols-[1fr_10rem_2rem] sm:items-end">
-                  <label className="block space-y-1">
-                    <span className="text-xs font-medium text-slate-600">Orden</span>
-                    <select
-                      value={line.orderId}
-                      onChange={(event) => {
-                        const orderId = event.target.value;
-                        const nextPending = orderId ? pendingByOrder.get(orderId) ?? 0 : 0;
-                        updateLine(line.id, {
-                          orderId,
-                          // Autocompleta el monto con el pendiente al elegir la orden.
-                          amount: orderId && nextPending > 0 ? String(Math.round(nextPending)) : line.amount,
-                        });
-                      }}
-                      className={selectClass}
-                    >
-                      <option value="">Abono general (sin orden)</option>
-                      {orders.map((order) => (
-                        <option
-                          key={order.orderId}
-                          value={order.orderId}
-                          disabled={usedOrders.has(order.orderId)}
-                        >
-                          {order.code} — pendiente {formatMoney(order.pending, currency)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block space-y-1">
-                    <span className="text-xs font-medium text-slate-600">Monto</span>
+                <div
+                  key={line.id}
+                  className="grid gap-2 rounded-lg border border-[var(--line)] bg-slate-50/60 p-2 sm:grid-cols-[1fr_9rem_2rem] sm:items-center"
+                >
+                  <select
+                    value={line.orderId}
+                    onChange={(event) => {
+                      const orderId = event.target.value;
+                      const nextPending = orderId ? pendingByOrder.get(orderId) ?? 0 : 0;
+                      updateLine(line.id, {
+                        orderId,
+                        // Autocompleta el monto con el pendiente al elegir la orden.
+                        amount: orderId && nextPending > 0 ? String(Math.round(nextPending)) : line.amount,
+                      });
+                    }}
+                    className={`${selectClass} bg-white`}
+                  >
+                    <option value="">Abono general (sin orden)</option>
+                    {orders.map((order) => (
+                      <option key={order.orderId} value={order.orderId} disabled={usedOrders.has(order.orderId)}>
+                        {order.code} — pendiente {formatMoney(order.pending, currency)}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                      $
+                    </span>
                     <Input
                       inputMode="numeric"
+                      className="bg-white pl-5 text-right"
                       value={line.amount ? Number(line.amount).toLocaleString("es-CO") : ""}
                       onChange={(event) => updateLine(line.id, { amount: event.target.value.replace(/\D/g, "") })}
-                      placeholder={pending > 0 ? formatMoney(pending, currency) : "0"}
+                      placeholder={pending > 0 ? Math.round(pending).toLocaleString("es-CO") : "0"}
                     />
-                  </label>
-                  <div className="flex items-center justify-end pb-0.5">
+                  </div>
+                  <div className="flex items-center justify-end">
                     <Button
                       type="button"
                       variant="ghost"
@@ -226,12 +220,12 @@ export function SupplierLedgerForm({
             </div>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border border-[var(--line)] bg-slate-50 px-3 py-2">
+          <div className="flex items-center justify-between rounded-lg border border-[var(--primary)]/20 bg-[var(--primary)]/5 px-3 py-2.5">
             <span className="text-sm font-medium text-slate-700">Total a pagar</span>
-            <span className="text-base font-semibold text-slate-900">{formatMoney(total, currency)}</span>
+            <span className="text-lg font-bold tracking-tight text-[var(--primary)]">{formatMoney(total, currency)}</span>
           </div>
 
-          <Button type="submit" className="h-10 w-full" disabled={!canSubmit}>
+          <Button type="submit" className="h-11 w-full text-base" disabled={!canSubmit}>
             Registrar pago
           </Button>
         </form>
@@ -245,7 +239,9 @@ export function SupplierLedgerForm({
           ledger.map((entry) => (
             <div
               key={entry.id}
-              className="flex items-start justify-between gap-3 rounded-lg border border-[var(--line)] p-3"
+              className={`flex items-start justify-between gap-3 rounded-lg border border-l-4 border-[var(--line)] bg-white p-3 transition-colors hover:bg-slate-50/60 ${
+                entry.type === "CHARGE" ? "border-l-red-400" : "border-l-emerald-400"
+              }`}
             >
               <div className="min-w-0">
                 <p className="text-sm font-medium text-slate-900">

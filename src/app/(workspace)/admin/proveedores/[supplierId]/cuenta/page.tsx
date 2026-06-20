@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { SupplierLedgerForm } from "@/components/admin/supplier-ledger-form";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
+import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { getSystemCurrency } from "@/lib/system-settings";
 
@@ -105,15 +106,27 @@ export default async function AdminSupplierLedgerPage({ params, searchParams }: 
         errorTitle="Error en la cuenta"
       />
 
-      <div className="space-y-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--line)] bg-slate-50 text-slate-700">
+      <div
+        className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 ${
+          balance > 0
+            ? "border-red-200 bg-gradient-to-br from-red-50 to-white"
+            : "border-emerald-200 bg-gradient-to-br from-emerald-50 to-white"
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--line)] bg-white text-slate-700">
             {supplier.type === "SHIPPING" ? <Truck className="h-4 w-4" /> : <Factory className="h-4 w-4" />}
           </span>
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-foreground">Cuenta corriente</h1>
             <p className="text-sm text-muted-foreground">{supplier.displayName || supplier.name}</p>
           </div>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Saldo</p>
+          <p className={`text-2xl font-bold tracking-tight ${balance > 0 ? "text-red-600" : "text-emerald-600"}`}>
+            {formatMoney(balance, currency)}
+          </p>
         </div>
       </div>
 
