@@ -33,7 +33,7 @@ export type RegisterMovementInput = {
 export async function registerInventoryMovementUseCase(
   repository: InventoryRepository,
   input: RegisterMovementInput,
-): Promise<void> {
+): Promise<string> {
   const trackable = await repository.isTrackableProduct(input.productId);
   if (!trackable) {
     throw new InventoryError(
@@ -69,7 +69,7 @@ export async function registerInventoryMovementUseCase(
     }
   }
 
-  await repository.createMovement({
+  return repository.createMovement({
     productId: input.productId,
     type: input.type,
     change,

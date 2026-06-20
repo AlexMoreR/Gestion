@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Building2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { SupplierBalanceMonthSelect } from "@/components/admin/supplier-balance-month-select";
-import { SupplierBalanceItems } from "@/components/admin/supplier-balance-items";
+import { SupplierBalanceItems, type SupplierBalanceRow } from "@/components/admin/supplier-balance-items";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
@@ -39,7 +39,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     notFound();
   }
 
-  const [items, payments, currency] = await Promise.all([
+  const [items, payments, charges, currency] = await Promise.all([
     prisma.orderItem.findMany({
       where: { confirmedSupplierId: supplier.id },
       orderBy: { confirmedAt: "desc" },
@@ -57,7 +57,26 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     }),
     prisma.supplierLedgerEntry.findMany({
       where: { supplierId: supplier.id, type: "PAYMENT" },
-      select: { orderItemId: true, orderId: true, paymentDate: true, createdAt: true, receiptUrl: true },
+      select: { orderItemId: true, orderId: true, amount: true, paymentDate: true, createdAt: true, receiptUrl: true },
+    }),
+    // Cargos que NO provienen de una orden: compras de inventario y cargos manuales.
+    prisma.supplierLedgerEntry.findMany({
+      where: { supplierId: supplier.id, type: "CHARGE", orderId: null },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        amount: true,
+        note: true,
+        receiptUrl: true,
+        paymentDate: true,
+        createdAt: true,
+        inventoryMovement: {
+          select: {
+            change: true,
+            product: { select: { name: true, code: true, thumbnailUrl: true } },
+          },
+        },
+      },
     }),
     getSystemCurrency(),
   ]);
@@ -90,13 +109,17 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     ? query.month
     : currentMonthKey;
 
-  const allRows = items.map((item) => {
+  type BalanceRow = SupplierBalanceRow & { bucketMonth: string };
+
+  const orderRows: BalanceRow[] = items.map((item) => {
     const amount = Number(item.purchaseCost ?? 0) * item.quantity;
     const isPaid = item.supplierPaymentStatus === "PAID";
     const isFinished = item.photos.length > 0 && item.supplierPaymentStatus !== null;
     const paidDate = isPaid
       ? paidDateByItem.get(item.id) ?? paidDateByOrder.get(item.order.id) ?? item.createdAt
       : null;
+    // Pagado: queda fijo en el mes del pago. Pendiente: se arrastra al mes actual
+    // (y sigue avanzando cada mes) hasta que se pague, sin importar su mes de origen.
     const bucketMonth = paidDate ? monthKeyOf(paidDate) : currentMonthKey;
     const receiptRaw = isPaid
       ? receiptByItem.get(item.id) ?? receiptByOrder.get(item.order.id) ?? null
@@ -117,19 +140,59 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     };
   });
 
+  // Compras de inventario y cargos manuales: se muestran como filas pendientes.
+  // El pago se hace con un abono general al proveedor (saldo = cargos - abonos).
+  const chargeRows: BalanceRow[] = charges.map((charge) => {
+    const chargeDate = charge.paymentDate ?? charge.createdAt;
+    const product = charge.inventoryMovement?.product ?? null;
+    // "Inventario" ya aparece en la columna ORDEN; quitamos el prefijo redundante
+    // "Compra inventario - " del nombre.
+    const cleanNote = charge.note?.replace(/^Compra inventario\s*-\s*/i, "").trim() || null;
+    return {
+      id: charge.id,
+      orderCode: "INVENTARIO",
+      productName: product?.name ?? cleanNote ?? "Cargo",
+      productCode: product?.code ?? null,
+      productImage: product?.thumbnailUrl ? getPublicAssetUrl(product.thumbnailUrl) : null,
+      quantity: charge.inventoryMovement ? Math.abs(charge.inventoryMovement.change) : 1,
+      amount: Number(charge.amount),
+      isPaid: false,
+      isFinished: true,
+      // Igual que los ítems pendientes de orden: los cargos de inventario/manuales
+      // sin saldar se arrastran al mes actual (conservan su fecha original). Se
+      // saldan con abonos generales (neto cargos - abonos) que también se aplican
+      // en el mes actual.
+      bucketMonth: currentMonthKey,
+      receiptUrl: charge.receiptUrl ? getPublicAssetUrl(charge.receiptUrl) : null,
+      date: chargeDate.toLocaleDateString("es-CO"),
+    };
+  });
+
+  // Abonos generales (sin orden asociada): reducen el saldo de los cargos de
+  // inventario/manuales. Como los cargos se arrastran al mes actual, los abonos
+  // se aplican (acumulados) en ese mismo mes actual.
+  const totalAbonos = payments
+    .filter((payment) => !payment.orderId && !payment.orderItemId)
+    .reduce((sum, payment) => sum + Number(payment.amount), 0);
+
+  const allRows = [...orderRows, ...chargeRows];
+
   const monthSet = new Set<string>([currentMonthKey]);
-  for (const row of allRows) {
-    if (row.isPaid) monthSet.add(row.bucketMonth);
-  }
+  for (const row of allRows) monthSet.add(row.bucketMonth);
   if (!monthSet.has(selectedMonth)) monthSet.add(selectedMonth);
   const months = Array.from(monthSet)
     .sort((a, b) => b.localeCompare(a))
     .map((key) => ({ value: key, label: monthLabelOf(key) }));
 
   const rows = allRows.filter((row) => row.bucketMonth === selectedMonth);
+  // Los abonos generales se aplican solo en la vista del mes actual (donde viven
+  // los cargos arrastrados).
+  const abonosAplicados = selectedMonth === currentMonthKey ? totalAbonos : 0;
 
   const total = rows.reduce((sum, row) => sum + row.amount, 0);
-  const pagados = rows.filter((row) => row.isPaid).reduce((sum, row) => sum + row.amount, 0);
+  // Pagados = items de orden pagados + abonos generales (que saldan los cargos de inventario).
+  const pagados =
+    rows.filter((row) => row.isPaid).reduce((sum, row) => sum + row.amount, 0) + abonosAplicados;
   const terminados = rows.filter((row) => row.isFinished).reduce((sum, row) => sum + row.amount, 0);
   const saldoPendiente = total - pagados;
 

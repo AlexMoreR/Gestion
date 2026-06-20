@@ -103,8 +103,8 @@ export function createPrismaInventoryRepository(): InventoryRepository {
       }));
     },
 
-    async createMovement(input: CreateInventoryMovementInput): Promise<void> {
-      await prisma.inventoryMovement.create({
+    async createMovement(input: CreateInventoryMovementInput): Promise<string> {
+      const created = await prisma.inventoryMovement.create({
         data: {
           productId: input.productId,
           type: input.type,
@@ -113,7 +113,9 @@ export function createPrismaInventoryRepository(): InventoryRepository {
           movementDate: input.movementDate,
           createdById: input.createdById,
         },
+        select: { id: true },
       });
+      return created.id;
     },
 
     async updateMinStock(productId: string, minStock: number): Promise<void> {

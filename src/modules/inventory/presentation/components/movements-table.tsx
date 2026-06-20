@@ -1,12 +1,22 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { Edit3, MoreHorizontal, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { InventoryMovementRow, InventoryMovementType } from "@/modules/inventory/domain/entities";
 import { InventoryDataGrid } from "./inventory-data-grid";
 
 type MovementsTableProps = {
   data: InventoryMovementRow[];
+  onEdit: (movement: InventoryMovementRow) => void;
+  onDelete: (movement: InventoryMovementRow) => void;
 };
 
 const TYPE_BADGE: Record<InventoryMovementType, { label: string; className: string }> = {
@@ -28,7 +38,7 @@ function formatDate(value: Date): string {
   return new Date(value).toLocaleDateString("es-CO", { year: "numeric", month: "short", day: "2-digit" });
 }
 
-export function MovementsTable({ data }: MovementsTableProps) {
+export function MovementsTable({ data, onEdit, onDelete }: MovementsTableProps) {
   const columns: ColumnDef<InventoryMovementRow>[] = [
     {
       accessorKey: "movementDate",
@@ -77,6 +87,34 @@ export function MovementsTable({ data }: MovementsTableProps) {
       header: "Nota",
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">{row.original.note ?? "-"}</span>
+      ),
+    },
+    {
+      id: "acciones",
+      header: "",
+      cell: ({ row }) => (
+        <div className="flex justify-end">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label="Acciones">
+                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => onEdit(row.original)}>
+                <Edit3 className="mr-2 h-4 w-4" />
+                Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onSelect={() => onDelete(row.original)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       ),
     },
   ];

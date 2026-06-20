@@ -14,7 +14,7 @@ export interface InventoryRepository {
   listProductStocks(): Promise<ProductStock[]>;
   getCurrentStock(productId: string): Promise<number>;
   listMovements(): Promise<InventoryMovementRow[]>;
-  createMovement(input: CreateInventoryMovementInput): Promise<void>;
+  createMovement(input: CreateInventoryMovementInput): Promise<string>;
   updateMinStock(productId: string, minStock: number): Promise<void>;
   getMetrics(): Promise<InventoryMetrics>;
   // Valida que un producto exista y sea elegible para inventario (tipo STOCK, no combo).

@@ -39,15 +39,9 @@ const controlClassName =
   "h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
 
 const QUANTITY_LABEL: Record<MovementType, string> = {
-  IN: "Cantidad a ingresar",
-  OUT: "Cantidad a retirar",
-  ADJUSTMENT: "Conteo real (total)",
-};
-
-const QUANTITY_HINT: Record<MovementType, string> = {
-  IN: "Se sumara al stock actual.",
-  OUT: "Se restara del stock actual.",
-  ADJUSTMENT: "Fija el stock al numero contado; se registra la diferencia.",
+  IN: "Cant",
+  OUT: "Cant",
+  ADJUSTMENT: "Cant",
 };
 
 function today(): string {
@@ -114,13 +108,8 @@ export function InventoryMovementFormDialog({
       onClick={onClose}
     >
       <Card className="w-full max-w-lg rounded-2xl p-0" onClick={(event) => event.stopPropagation()}>
-        <div className="flex items-start justify-between border-b border-border px-4 py-3">
-          <div>
-            <h3 className="text-base font-semibold text-foreground">Movimiento de inventario</h3>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Registra una entrada, salida o ajuste de stock.
-            </p>
-          </div>
+        <div className="flex items-start justify-between px-4 py-3">
+          <h3 className="text-base font-semibold text-foreground">Movimiento de inventario</h3>
           <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Cerrar">
             <X className="h-4 w-4" />
           </Button>
@@ -136,7 +125,7 @@ export function InventoryMovementFormDialog({
             </div>
           </div>
         ) : (
-          <form action={action} className="space-y-4 px-4 py-4">
+          <form action={action} className="space-y-4 px-4 pb-4 pt-1">
             <input type="hidden" name="returnTo" value={returnTo} />
 
             <label className="space-y-1.5">
@@ -170,7 +159,6 @@ export function InventoryMovementFormDialog({
               <label className="space-y-1.5">
                 <span className="text-sm font-medium text-foreground">{QUANTITY_LABEL[type]}</span>
                 <Input name="quantity" type="number" step="1" min="0" required placeholder="0" />
-                <span className="text-xs text-muted-foreground">{QUANTITY_HINT[type]}</span>
               </label>
             </div>
 
@@ -208,9 +196,6 @@ export function InventoryMovementFormDialog({
                     placeholder="0"
                   />
                   <input type="hidden" name="purchaseCost" value={purchaseCost} />
-                  <span className="text-xs text-muted-foreground">
-                    Si eliges proveedor, se genera un cargo en su cuenta.
-                  </span>
                 </label>
               </div>
             ) : null}

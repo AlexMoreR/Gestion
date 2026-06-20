@@ -161,6 +161,7 @@ model SupplierLedgerEntry {
   orderId              String?
   orderItemId          String?
   dispatchId           String?
+  inventoryMovementId  String?
   receiptUrl           String?
   receiptName          String?
   accountId            String?
@@ -171,6 +172,7 @@ model SupplierLedgerEntry {
   order                Order?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
   orderItem            OrderItem?         @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
   dispatch             Dispatch?          @relation(fields: [dispatchId], references: [id], onDelete: SetNull)
+  inventoryMovement    InventoryMovement? @relation(fields: [inventoryMovementId], references: [id], onDelete: Cascade)
   account              Account?           @relation(fields: [accountId], references: [id], onDelete: SetNull)
   createdBy            User               @relation("SupplierLedgerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
@@ -179,6 +181,7 @@ model SupplierLedgerEntry {
   @@index([orderId])
   @@index([orderItemId])
   @@index([dispatchId])
+  @@index([inventoryMovementId])
   @@index([accountId])
 }
 
@@ -643,6 +646,7 @@ model InventoryMovement {
   createdAt    DateTime              @default(now())
   product      Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdBy    User                  @relation("InventoryMovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  ledgerEntries SupplierLedgerEntry[]
 
   @@index([productId, movementDate])
 }

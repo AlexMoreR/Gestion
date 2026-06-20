@@ -79,8 +79,9 @@ export async function adminCreateInventoryMovementAction(formData: FormData): Pr
     redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos invalidos");
   }
 
+  let movementId: string;
   try {
-    await registerInventoryMovementUseCase(repository, {
+    movementId = await registerInventoryMovementUseCase(repository, {
       productId: parsed.data.productId,
       type: parsed.data.type,
       quantity: parsed.data.quantity,
@@ -121,6 +122,7 @@ export async function adminCreateInventoryMovementAction(formData: FormData): Pr
             amount: purchaseCost,
             note: `Compra inventario - ${productName} (x${parsed.data.quantity})`,
             paymentDate: parsed.data.movementDate,
+            inventoryMovementId: movementId,
             createdById,
           },
         });
@@ -145,6 +147,7 @@ export async function adminCreateInventoryMovementAction(formData: FormData): Pr
             amount: extraCost,
             note: `${extraConcept || "Costo adicional"} - ${productName} (x${parsed.data.quantity})`,
             paymentDate: parsed.data.movementDate,
+            inventoryMovementId: movementId,
             createdById,
           },
         });
@@ -159,6 +162,77 @@ export async function adminCreateInventoryMovementAction(formData: FormData): Pr
 
   revalidatePath("/admin/inventario");
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Movimiento registrado" }).toString()}`);
+}
+
+export async function adminDeleteInventoryMovementAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const returnTo = getReturnTo(formData);
+  const id = getStringField(formData, "movementId").trim();
+  if (!id) {
+    redirectWithError(returnTo, "Movimiento invalido");
+  }
+
+  try {
+    // Los cargos al proveedor ligados a este movimiento se borran en cascada (FK).
+    await prisma.inventoryMovement.delete({ where: { id } });
+  } catch {
+    redirectWithError(returnTo, "No se pudo eliminar el movimiento");
+  }
+
+  revalidatePath("/admin/inventario");
+  revalidatePath("/admin/proveedores");
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Movimiento eliminado" }).toString()}`);
+}
+
+export async function adminUpdateInventoryMovementAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const returnTo = getReturnTo(formData);
+  const id = getStringField(formData, "movementId").trim();
+  if (!id) {
+    redirectWithError(returnTo, "Movimiento invalido");
+  }
+
+  const movement = await prisma.inventoryMovement.findUnique({
+    where: { id },
+    select: { id: true, productId: true, change: true },
+  });
+  if (!movement) {
+    redirectWithError(returnTo, "Movimiento no encontrado");
+  }
+
+  const type = getStringField(formData, "type") as "IN" | "OUT" | "ADJUSTMENT";
+  const quantity = Math.trunc(Number(getStringField(formData, "quantity")) || 0);
+  const note = getStringField(formData, "note").trim() || null;
+  const rawDate = getStringField(formData, "movementDate");
+  const movementDate = rawDate ? new Date(rawDate) : new Date();
+
+  // Stock del producto sin contar este movimiento.
+  const agg = await prisma.inventoryMovement.aggregate({
+    where: { productId: movement.productId },
+    _sum: { change: true },
+  });
+  const stockExcluding = (agg._sum.change ?? 0) - movement.change;
+
+  let change: number;
+  if (type === "IN") {
+    if (quantity <= 0) redirectWithError(returnTo, "La cantidad de entrada debe ser mayor a cero.");
+    change = quantity;
+  } else if (type === "OUT") {
+    if (quantity <= 0) redirectWithError(returnTo, "La cantidad de salida debe ser mayor a cero.");
+    if (quantity > stockExcluding) redirectWithError(returnTo, `No hay stock suficiente. Disponible: ${stockExcluding}.`);
+    change = -quantity;
+  } else {
+    change = quantity - stockExcluding;
+    if (change === 0) redirectWithError(returnTo, "El conteo coincide con el stock actual; no hay ajuste que registrar.");
+  }
+
+  await prisma.inventoryMovement.update({
+    where: { id },
+    data: { type, change, note, movementDate },
+  });
+
+  revalidatePath("/admin/inventario");
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Movimiento actualizado" }).toString()}`);
 }
 
 export async function adminUpdateMinStockAction(formData: FormData): Promise<void> {

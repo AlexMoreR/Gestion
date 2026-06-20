@@ -62,7 +62,7 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
   const { supplierId } = await params;
   const query = await searchParams;
 
-  const [supplier, items, payments, currency] = await Promise.all([
+  const [supplier, items, payments, charges, currency] = await Promise.all([
     prisma.supplier.findUnique({
       where: { id: supplierId },
       select: { id: true, name: true, displayName: true, type: true, shareToken: true },
@@ -84,7 +84,26 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
     }),
     prisma.supplierLedgerEntry.findMany({
       where: { supplierId, type: "PAYMENT" },
-      select: { orderItemId: true, orderId: true, paymentDate: true, createdAt: true },
+      select: { orderItemId: true, orderId: true, amount: true, paymentDate: true, createdAt: true },
+    }),
+    // Cargos que NO provienen de una orden: compras de inventario y cargos manuales.
+    // (Los cargos de una orden ya se reflejan via los orderItem de arriba.)
+    prisma.supplierLedgerEntry.findMany({
+      where: { supplierId, type: "CHARGE", orderId: null },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        amount: true,
+        note: true,
+        paymentDate: true,
+        createdAt: true,
+        inventoryMovement: {
+          select: {
+            change: true,
+            product: { select: { name: true, code: true, thumbnailUrl: true } },
+          },
+        },
+      },
     }),
     getSystemCurrency(),
   ]);
@@ -121,7 +140,22 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
     ? query.month
     : currentMonthKey;
 
-  const allRows = items.map((item) => {
+  type BalanceRow = {
+    id: string;
+    orderId: string | null;
+    orderCode: string;
+    productName: string;
+    productCode: string | null;
+    productImage: string | null;
+    quantity: number | null;
+    amount: number;
+    isPaid: boolean;
+    isFinished: boolean;
+    bucketMonth: string;
+    date: string;
+  };
+
+  const orderRows: BalanceRow[] = items.map((item) => {
     const amount = Number(item.purchaseCost ?? 0) * item.quantity;
     const isPaid = item.supplierPaymentStatus === "PAID";
     // "Terminado" sigue la misma logica de la orden: recogido = tiene fotos y estado de pago definido.
@@ -129,8 +163,10 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
     const paidDate = isPaid
       ? paidDateByItem.get(item.id) ?? paidDateByOrder.get(item.order.id) ?? item.createdAt
       : null;
-    // Mes al que pertenece: si esta pagado, el mes del pago; si no, se arrastra al mes actual.
-    const bucketMonth = paidDate ? monthKeyOf(paidDate) : currentMonthKey;
+    // Pagado: mes del pago. Pendiente: mes en que se confirmo/creo la orden (no el mes actual).
+    const bucketMonth = paidDate
+      ? monthKeyOf(paidDate)
+      : monthKeyOf(item.confirmedAt ?? item.createdAt);
     return {
       id: item.id,
       orderId: item.order.id,
@@ -147,20 +183,55 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
     };
   });
 
-  // Meses disponibles: el actual + todos los meses con pagos registrados.
+  // Compras de inventario y cargos manuales: se muestran como filas pendientes.
+  // El pago de estos se hace con un abono general al proveedor (cargos - abonos).
+  const chargeRows: BalanceRow[] = charges.map((charge) => {
+    const chargeDate = charge.paymentDate ?? charge.createdAt;
+    const product = charge.inventoryMovement?.product ?? null;
+    return {
+      id: charge.id,
+      orderId: null,
+      orderCode: "Inventario",
+      productName: product?.name ?? charge.note ?? "Cargo",
+      productCode: product?.code ?? null,
+      productImage: product?.thumbnailUrl ? getPublicAssetUrl(product.thumbnailUrl) : null,
+      quantity: charge.inventoryMovement ? Math.abs(charge.inventoryMovement.change) : null,
+      amount: Number(charge.amount),
+      isPaid: false,
+      isFinished: true,
+      bucketMonth: monthKeyOf(chargeDate),
+      date: chargeDate.toLocaleDateString("es-CO"),
+    };
+  });
+
+  // Abonos generales (no atados a una orden): reducen el saldo de los cargos de inventario/manuales.
+  const generalAbonos = payments
+    .filter((payment) => !payment.orderId && !payment.orderItemId)
+    .map((payment) => ({
+      amount: Number(payment.amount),
+      month: monthKeyOf(payment.paymentDate ?? payment.createdAt),
+    }));
+
+  const allRows = [...orderRows, ...chargeRows];
+
+  // Meses disponibles: el actual + todos los meses con filas o con abonos generales.
   const monthSet = new Set<string>([currentMonthKey]);
-  for (const row of allRows) {
-    if (row.isPaid) monthSet.add(row.bucketMonth);
-  }
+  for (const row of allRows) monthSet.add(row.bucketMonth);
+  for (const abono of generalAbonos) monthSet.add(abono.month);
   if (!monthSet.has(selectedMonth)) monthSet.add(selectedMonth);
   const months = Array.from(monthSet)
     .sort((a, b) => b.localeCompare(a))
     .map((key) => ({ value: key, label: monthLabelOf(key) }));
 
   const rows = allRows.filter((row) => row.bucketMonth === selectedMonth);
+  const abonosDelMes = generalAbonos
+    .filter((abono) => abono.month === selectedMonth)
+    .reduce((sum, abono) => sum + abono.amount, 0);
 
   const total = rows.reduce((sum, row) => sum + row.amount, 0);
-  const pagados = rows.filter((row) => row.isPaid).reduce((sum, row) => sum + row.amount, 0);
+  // Pagados = items de orden pagados + abonos generales del mes (que saldan los cargos de inventario).
+  const pagados =
+    rows.filter((row) => row.isPaid).reduce((sum, row) => sum + row.amount, 0) + abonosDelMes;
   const terminados = rows.filter((row) => row.isFinished).reduce((sum, row) => sum + row.amount, 0);
   const enFabricacion = rows.filter((row) => !row.isFinished).reduce((sum, row) => sum + row.amount, 0);
   const saldoPendiente = total - pagados;
@@ -242,11 +313,15 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
               rows.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell className="w-px whitespace-nowrap text-xs text-muted-foreground">{row.date}</TableCell>
-                  <TableCell className="w-px whitespace-nowrap text-sm text-muted-foreground">{row.quantity}</TableCell>
+                  <TableCell className="w-px whitespace-nowrap text-sm text-muted-foreground">{row.quantity ?? "—"}</TableCell>
                   <TableCell className="w-px whitespace-nowrap">
-                    <Link href={`/admin/ordenes/${row.orderId}`} className="text-sm font-semibold text-foreground hover:underline">
-                      {row.orderCode}
-                    </Link>
+                    {row.orderId ? (
+                      <Link href={`/admin/ordenes/${row.orderId}`} className="text-sm font-semibold text-foreground hover:underline">
+                        {row.orderCode}
+                      </Link>
+                    ) : (
+                      <span className="text-sm font-medium text-muted-foreground">{row.orderCode}</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm text-foreground">
                     <div className="flex items-stretch gap-2">

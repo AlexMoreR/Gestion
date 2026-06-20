@@ -12,11 +12,14 @@ import type {
 } from "@/modules/inventory/domain/entities";
 import {
   adminCreateInventoryMovementAction,
+  adminDeleteInventoryMovementAction,
+  adminUpdateInventoryMovementAction,
   adminUpdateMinStockAction,
 } from "@/app/actions/inventory-actions";
 import { ProductStockTable } from "./components/product-stock-table";
 import { MovementsTable } from "./components/movements-table";
 import { InventoryMovementFormDialog } from "./components/inventory-movement-form-dialog";
+import { InventoryMovementEditDialog } from "./components/inventory-movement-edit-dialog";
 import { MinStockFormDialog } from "./components/min-stock-form-dialog";
 
 type InventoryWorkspaceProps = {
@@ -69,6 +72,8 @@ export function InventoryWorkspace({ metrics, stocks, movements, suppliersByProd
     productId: null,
   });
   const [minStockProduct, setMinStockProduct] = React.useState<ProductStock | null>(null);
+  const [editMovement, setEditMovement] = React.useState<InventoryMovementRow | null>(null);
+  const [pendingDelete, setPendingDelete] = React.useState<InventoryMovementRow | null>(null);
 
   const actionsReturnTo = "/admin/inventario";
   const productOptions = React.useMemo(
@@ -152,7 +157,9 @@ export function InventoryWorkspace({ metrics, stocks, movements, suppliersByProd
           />
         ) : null}
 
-        {tab === "movimientos" ? <MovementsTable data={movements} /> : null}
+        {tab === "movimientos" ? (
+          <MovementsTable data={movements} onEdit={setEditMovement} onDelete={setPendingDelete} />
+        ) : null}
       </section>
 
       <InventoryMovementFormDialog
@@ -173,6 +180,45 @@ export function InventoryWorkspace({ metrics, stocks, movements, suppliersByProd
         returnTo={actionsReturnTo}
         product={minStockProduct}
       />
+
+      <InventoryMovementEditDialog
+        open={Boolean(editMovement)}
+        movement={editMovement}
+        action={adminUpdateInventoryMovementAction}
+        onClose={() => setEditMovement(null)}
+        returnTo={actionsReturnTo}
+      />
+
+      {pendingDelete ? (
+        <div
+          className="fixed inset-0 z-[55] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Eliminar movimiento"
+          onClick={() => setPendingDelete(null)}
+        >
+          <Card className="w-full max-w-md rounded-2xl p-5" onClick={(event) => event.stopPropagation()}>
+            <div className="space-y-1">
+              <h3 className="text-base font-semibold text-foreground">Eliminar movimiento</h3>
+              <p className="text-sm text-muted-foreground">
+                Se eliminara el movimiento de{" "}
+                <span className="font-medium text-foreground">{pendingDelete.productName}</span>. El stock se
+                recalcula. Esta accion no se puede deshacer.
+              </p>
+            </div>
+            <form action={adminDeleteInventoryMovementAction} className="mt-5 flex items-center justify-end gap-2">
+              <input type="hidden" name="returnTo" value={actionsReturnTo} />
+              <input type="hidden" name="movementId" value={pendingDelete.id} />
+              <Button type="button" variant="outline" size="sm" onClick={() => setPendingDelete(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" size="sm" className="bg-destructive text-white hover:bg-destructive/90">
+                Eliminar
+              </Button>
+            </form>
+          </Card>
+        </div>
+      ) : null}
     </>
   );
 }
