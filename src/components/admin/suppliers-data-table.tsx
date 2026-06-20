@@ -1,10 +1,12 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  BarChart3,
   Edit3,
   Factory,
   Mail,
@@ -78,6 +80,12 @@ function SupplierActionsMenu({
         <DropdownMenuItem onSelect={() => onViewLedger?.(supplier.id)}>
           <Wallet className="mr-2 h-4 w-4 text-slate-600" />
           Cuenta corriente
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href={`/admin/proveedores/${supplier.id}`}>
+            <BarChart3 className="mr-2 h-4 w-4 text-slate-600" />
+            Balance
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => onEditSupplier?.(supplier.id)}>
           <Edit3 className="mr-2 h-4 w-4 text-slate-600" />

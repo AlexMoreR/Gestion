@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Boxes, FileText, Plus, Trash2, UserRound } from "lucide-react";
 import { adminUpdateQuoteFullAction } from "@/app/actions/quote-actions";
+import { ProductSearchSelect } from "@/components/admin/product-search-select";
 import { Input } from "@/components/ui/input";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { calculateQuoteLineTotal } from "@/lib/quote-item-meta";
@@ -298,16 +299,15 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
             <div className="grid gap-3 md:grid-cols-3">
               <label className="space-y-1.5 block md:col-span-2">
                 <span className="text-sm font-medium text-slate-700">Producto</span>
-                <select className="field-select" value={draftProductId} onChange={(e) => {
-                  setDraftProductId(e.target.value);
-                  const product = products.find((p) => p.id === e.target.value);
-                  if (product) setDraftUnitPrice(String(product.retailPrice));
-                }}>
-                  <option value="">Seleccionar producto</option>
-                  {products.map((product) => (
-                    <option key={product.id} value={product.id}>{product.code || "SIN-CODIGO"} - {product.name}</option>
-                  ))}
-                </select>
+                <ProductSearchSelect
+                  products={products}
+                  value={draftProductId}
+                  onChange={(productId) => {
+                    setDraftProductId(productId);
+                    const product = products.find((p) => p.id === productId);
+                    if (product) setDraftUnitPrice(String(product.retailPrice));
+                  }}
+                />
               </label>
               <label className="space-y-1.5 block"><span className="text-sm font-medium text-slate-700">Cantidad</span><Input type="number" min={1} value={draftQuantity} onChange={(e) => setDraftQuantity(e.target.value)} /></label>
             </div>
