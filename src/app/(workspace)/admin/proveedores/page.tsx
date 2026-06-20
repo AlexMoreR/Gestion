@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { SuppliersWorkspace } from "@/components/admin/suppliers-workspace";
@@ -47,6 +48,20 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
       select: { id: true, name: true },
     }),
   ]);
+
+  // Asegura un token de link publico para cada proveedor (se genera una sola vez).
+  const tokenUpdates: Promise<unknown>[] = [];
+  for (const supplier of suppliers) {
+    if (!supplier.shareToken) {
+      supplier.shareToken = randomUUID();
+      tokenUpdates.push(
+        prisma.supplier.update({ where: { id: supplier.id }, data: { shareToken: supplier.shareToken } }),
+      );
+    }
+  }
+  if (tokenUpdates.length > 0) {
+    await Promise.all(tokenUpdates);
+  }
 
   return (
     <section className="w-full space-y-5">
@@ -98,9 +113,11 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
           return {
             id: supplier.id,
             name: supplier.name,
+            displayName: supplier.displayName,
             email: supplier.email,
             phone: supplier.phone,
             type: supplier.type,
+            shareToken: supplier.shareToken,
             productsCount: supplier._count.products,
             balance,
             orders,

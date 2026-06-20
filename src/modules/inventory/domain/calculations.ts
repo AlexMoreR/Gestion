@@ -1,0 +1,25 @@
+import type { InventoryMetrics, ProductStock, StockStatus } from "./entities";
+
+export function computeStockStatus(stock: number, minStock: number): StockStatus {
+  if (stock <= 0) {
+    return "OUT";
+  }
+  if (minStock > 0 && stock <= minStock) {
+    return "LOW";
+  }
+  return "OK";
+}
+
+export function summarizeInventoryMetrics(stocks: ProductStock[]): InventoryMetrics {
+  const trackedProducts = stocks.length;
+  const totalUnits = stocks.reduce((sum, item) => sum + Math.max(0, item.stock), 0);
+  const lowStockCount = stocks.filter((item) => item.status === "LOW").length;
+  const outOfStockCount = stocks.filter((item) => item.status === "OUT").length;
+
+  return {
+    trackedProducts,
+    totalUnits,
+    lowStockCount,
+    outOfStockCount,
+  };
+}

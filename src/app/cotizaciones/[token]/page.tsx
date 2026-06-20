@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -21,9 +22,10 @@ import { DownloadQuotePdfButton } from "@/components/quotes/download-quote-pdf-b
 import { formatMoney } from "@/lib/currency";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
-import { getPublicAssetUrl } from "@/lib/site";
+import { getPublicAssetUrl, getSiteUrl } from "@/lib/site";
 import {
   buildSystemWhatsAppHref,
+  getSystemBrandName,
   getSystemCurrency,
   getSystemWhatsAppPhoneDisplay,
   getSystemWhatsAppPhoneHref,
@@ -44,6 +46,62 @@ type PageProps = {
   params: Promise<{ token: string }>;
   searchParams: Promise<{ pdf?: string }>;
 };
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { token } = await params;
+
+  const [quote, brandName, currency] = await Promise.all([
+    prisma.quote.findUnique({
+      where: { shareToken: token },
+      select: {
+        code: true,
+        total: true,
+        client: { select: { name: true } },
+      },
+    }),
+    getSystemBrandName(),
+    getSystemCurrency(),
+  ]);
+
+  if (!quote) {
+    return {
+      title: "Cotizacion",
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const clientName = quote.client?.name?.trim();
+  const total = formatMoney(Number(quote.total), currency);
+  const title = `Cotizacion ${quote.code}`;
+  const ogTitle = `${title} | ${brandName}`;
+  const description = clientName
+    ? `Cotizacion ${quote.code} de ${brandName} para ${clientName}. Total ${total}.`
+    : `Cotizacion ${quote.code} de ${brandName}. Total ${total}.`;
+  const ogImageUrl = getSiteUrl(`/cotizaciones/${token}/opengraph-image`);
+  const pageUrl = getSiteUrl(`/cotizaciones/${token}`);
+
+  return {
+    title,
+    description,
+    // Los links de cotizacion son privados por cliente: no se indexan.
+    robots: { index: false, follow: false },
+    alternates: { canonical: pageUrl },
+    openGraph: {
+      type: "website",
+      url: pageUrl,
+      siteName: brandName,
+      title: ogTitle,
+      description,
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: ogTitle }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: ogTitle,
+      description,
+      images: [ogImageUrl],
+    },
+  };
+}
 
 export default async function QuotePublicPage({ params, searchParams }: PageProps) {
   const { token } = await params;

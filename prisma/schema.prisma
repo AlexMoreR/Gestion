@@ -47,6 +47,7 @@ model User {
   accountMovements         AccountMovement[]     @relation("AccountMovementCreatedBy")
   expenseCategoriesCreated ExpenseCategory[]     @relation("ExpenseCategoryCreatedBy")
   expensesCreated          Expense[]             @relation("ExpenseCreatedBy")
+  inventoryMovements       InventoryMovement[]   @relation("InventoryMovementCreatedBy")
 }
 
 model Product {
@@ -63,6 +64,7 @@ model Product {
   wholesaleMarginPct Decimal                @default(0) @db.Decimal(6, 2)
   wholesalePrice     Decimal                @default(0) @db.Decimal(10, 2)
   minWholesaleQty    Int                    @default(6)
+  minStock           Int                    @default(0)
   fulfillmentMode    ProductFulfillmentMode @default(STOCK)
   isBundle           Boolean                @default(false)
   categoryId         String?
@@ -76,6 +78,7 @@ model Product {
   orderItems         OrderItem[]
   bundleComponents   ProductComponent[]     @relation("BundleParent")
   partOfBundles      ProductComponent[]     @relation("BundleChild")
+  inventoryMovements InventoryMovement[]
 }
 
 model ProductComponent {
@@ -126,9 +129,11 @@ enum SupplierType {
 model Supplier {
   id                String                @id @default(cuid())
   name              String                @unique
+  displayName       String?
   email             String?
   phone             String?
   type              SupplierType          @default(MANUFACTURER)
+  shareToken        String?               @unique
   isActive          Boolean               @default(true)
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
@@ -335,6 +340,12 @@ enum ProductFulfillmentMode {
   STOCK
   MANUFACTURE
   MIXED
+}
+
+enum InventoryMovementType {
+  IN
+  OUT
+  ADJUSTMENT
 }
 
 enum OrderStatus {
@@ -618,4 +629,20 @@ model Expense {
   @@index([categoryId])
   @@index([accountId])
   @@index([expenseDate])
+}
+
+model InventoryMovement {
+  id           String                @id @default(cuid())
+  productId    String
+  type         InventoryMovementType
+  // Efecto con signo sobre el stock: +entrada, -salida, +/- ajuste.
+  change       Int
+  note         String?
+  movementDate DateTime              @default(now())
+  createdById  String
+  createdAt    DateTime              @default(now())
+  product      Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdBy    User                  @relation("InventoryMovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([productId, movementDate])
 }

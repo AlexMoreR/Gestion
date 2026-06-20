@@ -45,6 +45,7 @@ type SupplierRow = {
   email: string | null;
   phone: string | null;
   type: SupplierType;
+  shareToken: string | null;
   productsCount: number;
   balance: number;
 };
@@ -81,12 +82,14 @@ function SupplierActionsMenu({
           <Wallet className="mr-2 h-4 w-4 text-slate-600" />
           Cuenta corriente
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href={`/admin/proveedores/${supplier.id}`}>
-            <BarChart3 className="mr-2 h-4 w-4 text-slate-600" />
-            Balance
-          </Link>
-        </DropdownMenuItem>
+        {supplier.shareToken ? (
+          <DropdownMenuItem asChild>
+            <Link href={`/proveedores/${supplier.shareToken}`} target="_blank" rel="noopener noreferrer">
+              <BarChart3 className="mr-2 h-4 w-4 text-slate-600" />
+              Balance
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem onSelect={() => onEditSupplier?.(supplier.id)}>
           <Edit3 className="mr-2 h-4 w-4 text-slate-600" />
           Editar

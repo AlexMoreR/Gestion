@@ -11,6 +11,7 @@ import {
   Settings,
   Tag,
   Truck,
+  Warehouse,
 } from "lucide-react";
 import type { Role } from "@prisma/client";
 import { NavMain } from "@/components/nav-main";
@@ -123,6 +124,16 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
         icon: Truck,
         isActive: pathname.startsWith("/admin/proveedores"),
         items: [{ title: "Gestion", url: "/admin/proveedores" }],
+      });
+    }
+
+    if (adminModuleAccess.inventory) {
+      navMain.push({
+        title: "Inventario",
+        url: "/admin/inventario",
+        icon: Warehouse,
+        isActive: pathname.startsWith("/admin/inventario"),
+        items: [{ title: "Stock", url: "/admin/inventario" }],
       });
     }
 

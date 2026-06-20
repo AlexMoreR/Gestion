@@ -29,7 +29,8 @@ const deleteCategorySchema = z.object({
 });
 
 const createSupplierSchema = z.object({
-  name: z.string().trim().min(2, "Nombre invalido").max(120, "Nombre demasiado largo"),
+  name: z.string().trim().min(2, "Proveedor invalido").max(120, "Proveedor demasiado largo"),
+  displayName: z.string().trim().max(120, "Nombre demasiado largo").optional().or(z.literal("")),
   email: z
     .string()
     .trim()
@@ -305,6 +306,7 @@ export async function adminCreateSupplierAction(formData: FormData): Promise<voi
 
   const parsed = createSupplierSchema.safeParse({
     name: formData.get("name"),
+    displayName: formData.get("displayName") ?? "",
     email: formData.get("email") ?? "",
     phone: formData.get("phone") ?? "",
     type: formData.get("type") ?? "MANUFACTURER",
@@ -332,6 +334,7 @@ export async function adminCreateSupplierAction(formData: FormData): Promise<voi
     await prisma.supplier.create({
       data: {
         name: parsed.data.name,
+        displayName: parsed.data.displayName || null,
         email: parsed.data.email || null,
         phone: parsed.data.phone || null,
         type: parsed.data.type,
@@ -353,6 +356,7 @@ export async function adminUpdateSupplierAction(formData: FormData): Promise<voi
   const parsed = updateSupplierSchema.safeParse({
     supplierId: formData.get("supplierId"),
     name: formData.get("name"),
+    displayName: formData.get("displayName") ?? "",
     email: formData.get("email") ?? "",
     phone: formData.get("phone") ?? "",
     type: formData.get("type") ?? "MANUFACTURER",
@@ -391,6 +395,7 @@ export async function adminUpdateSupplierAction(formData: FormData): Promise<voi
       where: { id: parsed.data.supplierId },
       data: {
         name: parsed.data.name,
+        displayName: parsed.data.displayName || null,
         email: parsed.data.email || null,
         phone: parsed.data.phone || null,
         type: parsed.data.type,

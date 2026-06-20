@@ -42,9 +42,11 @@ type SupplierOrderOption = {
 type SupplierRow = {
   id: string;
   name: string;
+  displayName: string | null;
   email: string | null;
   phone: string | null;
   type: SupplierType;
+  shareToken: string | null;
   productsCount: number;
   balance: number;
   orders: SupplierOrderOption[];
@@ -155,8 +157,12 @@ export function SuppliersWorkspace({ suppliers, currency, accounts }: SuppliersW
 
             <form action={adminCreateSupplierAction} className="space-y-3">
               <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">Proveedor</span>
+                <Input name="name" placeholder="Ej. P-15" required />
+              </label>
+              <label className="block space-y-1.5">
                 <span className="text-sm font-medium text-slate-700">Nombre</span>
-                <Input name="name" placeholder="Ej. Textiles Andina" required />
+                <Input name="displayName" placeholder="Ej. Textiles Andina" />
               </label>
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium text-slate-700">Tipo de proveedor</span>
@@ -216,8 +222,12 @@ export function SuppliersWorkspace({ suppliers, currency, accounts }: SuppliersW
             <form action={adminUpdateSupplierAction} className="space-y-3">
               <input type="hidden" name="supplierId" value={activeSupplier.id} />
               <label className="block space-y-1.5">
-                <span className="text-sm font-medium text-slate-700">Nombre</span>
+                <span className="text-sm font-medium text-slate-700">Proveedor</span>
                 <Input name="name" defaultValue={activeSupplier.name} required />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-medium text-slate-700">Nombre</span>
+                <Input name="displayName" defaultValue={activeSupplier.displayName ?? ""} />
               </label>
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium text-slate-700">Tipo de proveedor</span>

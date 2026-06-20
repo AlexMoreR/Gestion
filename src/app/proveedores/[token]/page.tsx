@@ -1,7 +1,6 @@
-import { randomUUID } from "node:crypto";
-import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import {
+  Building2,
   CalendarDays,
   ClipboardList,
   Factory,
@@ -9,13 +8,10 @@ import {
   Package,
   Tag,
   Wallet,
-  Truck,
 } from "lucide-react";
-import { auth } from "@/auth";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { SupplierBalanceMonthSelect } from "@/components/admin/supplier-balance-month-select";
-import { SupplierShareLinkButton } from "@/components/admin/supplier-share-link-button";
 import {
   Table,
   TableBody,
@@ -24,14 +20,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 
 type PageProps = {
-  params: Promise<{ supplierId: string }>;
+  params: Promise<{ token: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
@@ -48,27 +43,22 @@ function monthLabelOf(key: string): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-export default async function AdminSupplierBalancePage({ params, searchParams }: PageProps) {
-  const session = await auth();
-  if (session?.user?.role !== "ADMIN" || !session.user.id) {
-    redirect("/unauthorized");
-  }
-
-  const canAccess = await hasAdminModuleAccess(session.user.id, session.user.role, "suppliers");
-  if (!canAccess) {
-    redirect("/unauthorized");
-  }
-
-  const { supplierId } = await params;
+export default async function SupplierBalancePublicPage({ params, searchParams }: PageProps) {
+  const { token } = await params;
   const query = await searchParams;
 
-  const [supplier, items, payments, currency] = await Promise.all([
-    prisma.supplier.findUnique({
-      where: { id: supplierId },
-      select: { id: true, name: true, displayName: true, type: true, shareToken: true },
-    }),
+  const supplier = await prisma.supplier.findUnique({
+    where: { shareToken: token },
+    select: { id: true, name: true, displayName: true, type: true },
+  });
+
+  if (!supplier) {
+    notFound();
+  }
+
+  const [items, payments, currency] = await Promise.all([
     prisma.orderItem.findMany({
-      where: { confirmedSupplierId: supplierId },
+      where: { confirmedSupplierId: supplier.id },
       orderBy: { confirmedAt: "desc" },
       select: {
         id: true,
@@ -78,29 +68,17 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
         confirmedAt: true,
         createdAt: true,
         product: { select: { name: true, code: true, thumbnailUrl: true } },
-        order: { select: { id: true, code: true } },
+        order: { select: { code: true } },
         photos: { select: { id: true } },
       },
     }),
     prisma.supplierLedgerEntry.findMany({
-      where: { supplierId, type: "PAYMENT", orderItemId: { not: null } },
+      where: { supplierId: supplier.id, type: "PAYMENT", orderItemId: { not: null } },
       select: { orderItemId: true, paymentDate: true, createdAt: true },
     }),
     getSystemCurrency(),
   ]);
 
-  if (!supplier) {
-    notFound();
-  }
-
-  // Genera el token de link publico la primera vez que se abre el balance.
-  let shareToken = supplier.shareToken;
-  if (!shareToken) {
-    shareToken = randomUUID();
-    await prisma.supplier.update({ where: { id: supplier.id }, data: { shareToken } });
-  }
-
-  // Fecha de pago por item (la mas reciente si hubiera varias).
   const paidDateByItem = new Map<string, Date>();
   for (const payment of payments) {
     if (!payment.orderItemId) continue;
@@ -120,14 +98,11 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
   const allRows = items.map((item) => {
     const amount = Number(item.purchaseCost ?? 0) * item.quantity;
     const isPaid = item.supplierPaymentStatus === "PAID";
-    // "Terminado" sigue la misma logica de la orden: recogido = tiene fotos y estado de pago definido.
     const isFinished = item.photos.length > 0 && item.supplierPaymentStatus !== null;
     const paidDate = isPaid ? paidDateByItem.get(item.id) ?? item.createdAt : null;
-    // Mes al que pertenece: si esta pagado, el mes del pago; si no, se arrastra al mes actual.
     const bucketMonth = paidDate ? monthKeyOf(paidDate) : currentMonthKey;
     return {
       id: item.id,
-      orderId: item.order.id,
       orderCode: item.order.code,
       productName: item.product.name,
       productCode: item.product.code,
@@ -141,7 +116,6 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
     };
   });
 
-  // Meses disponibles: el actual + todos los meses con pagos registrados.
   const monthSet = new Set<string>([currentMonthKey]);
   for (const row of allRows) {
     if (row.isPaid) monthSet.add(row.bucketMonth);
@@ -167,19 +141,38 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
     { label: "Saldo pendiente", value: saldoPendiente, accent: "text-red-600" },
   ];
 
+  const companyInfo = {
+    name: "Magilus",
+    nit: "100.61.80.650",
+    cityOrigin: "Cali - Bogotá",
+  };
+
   return (
-    <section className="w-full space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--line)] bg-slate-50 text-slate-700">
-            {supplier.type === "SHIPPING" ? <Truck className="h-4 w-4" /> : <Factory className="h-4 w-4" />}
-          </span>
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">{supplier.displayName || supplier.name}</h1>
+    <main className="mx-auto w-full max-w-6xl space-y-5 px-4 py-6">
+      <div className="flex flex-row items-center justify-between gap-3 overflow-hidden rounded-xl border border-slate-200/60 bg-card p-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-2xl font-black text-white">
+            M
+          </div>
+          <div>
+            <p className="text-xl font-bold tracking-tight text-slate-900">{companyInfo.name}</p>
+            <p className="text-xs text-slate-500">NIT {companyInfo.nit}</p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <SupplierShareLinkButton path={`/proveedores/${shareToken}`} />
-          <div className="w-48 shrink-0">
-            <SupplierBalanceMonthSelect months={months} value={selectedMonth} />
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-baseline justify-end gap-2">
+            <p className="text-xl font-bold uppercase tracking-tight text-slate-900 sm:text-2xl">Balance</p>
+            <h1 className="max-w-full break-all text-xl font-extrabold tracking-tight text-slate-400 sm:text-2xl">
+              {supplier.displayName || supplier.name}
+            </h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500">
+              <Building2 className="h-4 w-4" /> {companyInfo.cityOrigin}
+            </span>
+            <div className="w-40 shrink-0">
+              <SupplierBalanceMonthSelect months={months} value={selectedMonth} />
+            </div>
           </div>
         </div>
       </div>
@@ -237,11 +230,7 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
                 <TableRow key={row.id}>
                   <TableCell className="w-px whitespace-nowrap text-xs text-muted-foreground">{row.date}</TableCell>
                   <TableCell className="w-px whitespace-nowrap text-sm text-muted-foreground">{row.quantity}</TableCell>
-                  <TableCell className="w-px whitespace-nowrap">
-                    <Link href={`/admin/ordenes/${row.orderId}`} className="text-sm font-semibold text-foreground hover:underline">
-                      {row.orderCode}
-                    </Link>
-                  </TableCell>
+                  <TableCell className="w-px whitespace-nowrap text-sm font-semibold text-foreground">{row.orderCode}</TableCell>
                   <TableCell className="text-sm text-foreground">
                     <div className="flex items-center gap-2">
                       <div className="h-8 w-8 shrink-0 overflow-hidden rounded-md border border-border bg-muted/40">
@@ -288,6 +277,6 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
           </TableBody>
         </Table>
       </div>
-    </section>
+    </main>
   );
 }

@@ -47,6 +47,13 @@ export const adminModuleDefinitions = [
     group: "Catalogo",
   },
   {
+    key: "inventory",
+    label: "Inventario",
+    description: "Controla el stock y los movimientos de los productos.",
+    path: "/admin/inventario",
+    group: "Catalogo",
+  },
+  {
     key: "quotes",
     label: "Cotizaciones",
     description: "Crea, edita y consulta cotizaciones.",
