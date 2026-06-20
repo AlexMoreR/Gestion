@@ -23,6 +23,7 @@ import {
 import { adminCreateOrderFromSaleAction } from "@/app/actions/orders-actions";
 import { invoicePdfFileName } from "@/lib/document-names";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -510,15 +511,14 @@ function AddSalePaymentSheet({
           <div className="flex items-center gap-3">
             <SheetTitle className="shrink-0">Registrar abono</SheetTitle>
             {sale ? (
-              <input
+              <DatePicker
                 id="add-payment-date"
                 form="add-payment-form"
                 name="paymentDate"
-                type="date"
                 required
                 defaultValue={todayValue}
                 aria-label="Fecha del abono"
-                className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                className="w-44"
               />
             ) : null}
           </div>

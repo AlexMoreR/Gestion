@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { MoneyInput } from "@/components/ui/money-input";
 import {
   Select,
@@ -490,12 +491,11 @@ function SaleInstallmentEditor({
           {errors && errors.length > 0 ? <p className="text-xs text-destructive">{errors.join(" · ")}</p> : null}
         </div>
         <div className="shrink-0 space-y-1">
-          <Input
+          <DatePicker
             id={dateId}
-            type="date"
             max={todayInputValue()}
             value={installment.paymentDate}
-            onChange={(event) => onPaymentDateChange(event.target.value)}
+            onChange={onPaymentDateChange}
             className="w-40"
           />
         </div>
@@ -1226,20 +1226,18 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Input
-              type="date"
+            <DatePicker
               value={dateFrom}
-              onChange={(event) => setDateFrom(event.target.value)}
+              onChange={setDateFrom}
               className="w-40"
-              title="Desde"
+              placeholder="Desde"
               aria-label="Desde"
             />
-            <Input
-              type="date"
+            <DatePicker
               value={dateTo}
-              onChange={(event) => setDateTo(event.target.value)}
+              onChange={setDateTo}
               className="w-40"
-              title="Hasta"
+              placeholder="Hasta"
               aria-label="Hasta"
             />
             <Button

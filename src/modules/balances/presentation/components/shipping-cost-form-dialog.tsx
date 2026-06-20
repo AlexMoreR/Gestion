@@ -7,6 +7,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { MoneyInput } from "@/components/ui/money-input";
 import { cn } from "@/lib/utils";
 import {
@@ -196,7 +197,10 @@ export function ShippingCostFormDialog({
 
             <label className="space-y-1.5">
               <span className="text-sm font-medium text-foreground">Fecha de pago</span>
-              <Input type="date" {...form.register("paymentDate")} />
+              <DatePicker
+                value={form.watch("paymentDate")}
+                onChange={(value) => form.setValue("paymentDate", value, { shouldValidate: true, shouldDirty: true })}
+              />
             </label>
 
             <label className="space-y-1.5 md:col-span-2">

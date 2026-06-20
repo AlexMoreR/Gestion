@@ -5,6 +5,7 @@ import { Boxes, FileText, Plus, Trash2, UserRound } from "lucide-react";
 import { adminUpdateQuoteFullAction } from "@/app/actions/quote-actions";
 import { ProductSearchSelect } from "@/components/admin/product-search-select";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { calculateQuoteLineTotal } from "@/lib/quote-item-meta";
 import { Button } from "../ui/button";
@@ -376,7 +377,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
               </label>
               <label className="space-y-1.5 block">
                 <span className="text-sm font-medium text-slate-700">Valida hasta</span>
-                <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+                <DatePicker value={validUntil} onChange={setValidUntil} />
               </label>
               <label className="space-y-1.5 block">
                 <span className="text-sm font-medium text-slate-700">Total</span>

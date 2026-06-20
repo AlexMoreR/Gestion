@@ -10,6 +10,7 @@ import {
   Hash,
   ImagePlus,
   Package,
+  Plus,
   Tag,
   TrendingUp,
   Truck,
@@ -137,6 +138,7 @@ export function EditProductForm({
         ],
   );
   const [dragActive, setDragActive] = useState(false);
+  const [photoIndex, setPhotoIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -207,7 +209,13 @@ export function EditProductForm({
     [existingImageUrls, newImageUrls],
   );
 
-  const step1Ready = name.trim().length >= 2 && allImageUrls.length > 0;
+  // Mantiene el indice de la foto visible dentro de rango.
+  useEffect(() => {
+    setPhotoIndex((index) => Math.min(index, Math.max(0, allImageUrls.length - 1)));
+  }, [allImageUrls.length]);
+  const safePhotoIndex = Math.min(photoIndex, Math.max(0, allImageUrls.length - 1));
+
+  const step1Ready = name.trim().length >= 2;
   const step2Ready =
     Number(baseCost) > 0 &&
     Number(retailMarginPct) >= 0 &&
@@ -295,7 +303,7 @@ export function EditProductForm({
 
   return (
     <div>
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-2xl">
         <Tabs
           value={String(currentStep)}
           onValueChange={(value) => goToStep(Number(value))}
@@ -315,22 +323,126 @@ export function EditProductForm({
             <input type="hidden" name="existingImages" value={existingImageUrls.join("\n")} />
 
             <div className={currentStep === 1 ? "space-y-4" : "hidden"}>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="space-y-1.5">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Package className="h-4 w-4 text-slate-500" />Nombre</span>
-                  <Input name="name" placeholder="EJ. CAMISA OXFORD" required value={name} onChange={(e) => setName(e.target.value.toUpperCase())} className="uppercase" />
-                </label>
-                <label className="space-y-1.5">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Banknote className="h-4 w-4 text-slate-500" />Precio</span>
-                  <MoneyInput
-                    value={retailPriceInput}
-                    onValueChange={(raw) => {
-                      setRetailPriceInput(raw);
-                      setRetailPriceDirty(true);
-                    }}
-                  />
-                </label>
-                <label className="block space-y-1.5 md:col-span-2">
+              <div className="space-y-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                  <div className="block shrink-0 space-y-2">
+                    <div
+                      className={`flex flex-wrap items-start gap-2 rounded-xl p-1 transition ${
+                        dragActive ? "bg-slate-100/80 ring-2 ring-[var(--primary)]/30" : ""
+                      }`}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDragActive(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        setDragActive(false);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setDragActive(false);
+                        const dropped = Array.from(e.dataTransfer.files).filter((file) =>
+                          file.type.startsWith("image/"),
+                        );
+                        if (dropped.length === 0) {
+                          return;
+                        }
+                        syncSelectedFiles([...selectedFiles, ...dropped]);
+                        setPhotoIndex(existingImageUrls.length + selectedFiles.length + dropped.length - 1);
+                      }}
+                    >
+                      <input
+                        ref={fileInputRef}
+                        name="images"
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files ?? []);
+                          if (files.length === 0) {
+                            return;
+                          }
+                          syncSelectedFiles([...selectedFiles, ...files]);
+                          setPhotoIndex(existingImageUrls.length + selectedFiles.length + files.length - 1);
+                        }}
+                      />
+                      {allImageUrls.length > 0 ? (
+                        <div className="group relative h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-[var(--line)] bg-slate-100">
+                          <img
+                            src={allImageUrls[safePhotoIndex]}
+                            alt={`Foto ${safePhotoIndex + 1}`}
+                            className="h-full w-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover:bg-black/30 group-hover:opacity-100"
+                            aria-label="Agregar mas fotos"
+                          >
+                            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow">
+                              <Plus className="h-5 w-5" />
+                            </span>
+                          </button>
+                          <Button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeImageAt(safePhotoIndex);
+                            }}
+                            className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black"
+                            aria-label="Eliminar foto"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="h-32 w-32 flex-col gap-1.5 bg-zinc-200 text-zinc-500 hover:bg-zinc-300 hover:text-zinc-600"
+                          aria-label="Subir fotos del producto"
+                        >
+                          <ImagePlus className="size-6" />
+                          <span className="text-xs font-medium">Fotos</span>
+                        </Button>
+                      )}
+                    </div>
+                    {allImageUrls.length > 1 ? (
+                      <div className="flex w-32 items-center justify-center gap-1.5">
+                        {allImageUrls.map((_, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => setPhotoIndex(i)}
+                            className={`h-1.5 rounded-full transition-all ${
+                              i === safePhotoIndex ? "w-4 bg-slate-800" : "w-1.5 bg-slate-300 hover:bg-slate-400"
+                            }`}
+                            aria-label={`Ver foto ${i + 1}`}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="flex-1 space-y-4">
+                    <label className="block space-y-1.5">
+                      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Package className="h-4 w-4 text-slate-500" />Nombre</span>
+                      <Input name="name" placeholder="EJ. CAMISA OXFORD" required value={name} onChange={(e) => setName(e.target.value.toUpperCase())} className="uppercase" />
+                    </label>
+                    <label className="block space-y-1.5">
+                      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Banknote className="h-4 w-4 text-slate-500" />Precio</span>
+                      <MoneyInput
+                        value={retailPriceInput}
+                        onValueChange={(raw) => {
+                          setRetailPriceInput(raw);
+                          setRetailPriceDirty(true);
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+                <label className="block space-y-1.5">
                   <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><FileText className="h-4 w-4 text-slate-500" />Descripcion</span>
                   <Textarea
                     name="description"
@@ -343,82 +455,6 @@ export function EditProductForm({
                 {/* Campos SEO ocultos temporalmente (se conserva el valor existente) */}
                 <input type="hidden" name="seoTitle" value={seoTitle} />
                 <input type="hidden" name="seoDescription" value={seoDescription} />
-                <div className="block space-y-2 md:col-span-2">
-                  <div
-                    className={`flex flex-wrap items-start gap-2 rounded-xl p-1 transition ${
-                      dragActive ? "bg-slate-100/80 ring-2 ring-[var(--primary)]/30" : ""
-                    }`}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setDragActive(true);
-                    }}
-                    onDragLeave={(e) => {
-                      e.preventDefault();
-                      setDragActive(false);
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setDragActive(false);
-                      const dropped = Array.from(e.dataTransfer.files).filter((file) =>
-                        file.type.startsWith("image/"),
-                      );
-                      if (dropped.length === 0) {
-                        return;
-                      }
-                      syncSelectedFiles([...selectedFiles, ...dropped]);
-                    }}
-                  >
-                    <input
-                      ref={fileInputRef}
-                      name="images"
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={(e) => {
-                        const files = Array.from(e.target.files ?? []);
-                        if (files.length === 0) {
-                          return;
-                        }
-                        syncSelectedFiles([...selectedFiles, ...files]);
-                      }}
-                    />
-                    {allImageUrls.map((url, index) => (
-                      <div
-                        key={`${url}-${index}`}
-                        className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-[var(--line)] bg-slate-100"
-                      >
-                        <img src={url} alt={`Imagen ${index + 1}`} className="h-full w-full object-cover" />
-                        <Button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeImageAt(index);
-                          }}
-                          className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black"
-                          aria-label={`Eliminar imagen ${index + 1}`}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="h-20 w-20 flex-col gap-1"
-                      aria-label="Subir fotos del producto"
-                    >
-                      <ImagePlus className="size-5" />
-                      <span className="text-xs font-medium">Fotos</span>
-                    </Button>
-                  </div>
-                  {allImageUrls.length === 0 ? (
-                    <p className="text-xs text-red-600">
-                      Debes mantener al menos una imagen para guardar el producto.
-                    </p>
-                  ) : null}
-                </div>
               </div>
             </div>
 

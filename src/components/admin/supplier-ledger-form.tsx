@@ -7,6 +7,7 @@ import {
   adminDeleteSupplierPaymentAction,
 } from "@/app/actions/supplier-ledger-actions";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 
@@ -102,11 +103,10 @@ export function SupplierLedgerForm({
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-1.5">
               <span className="text-sm font-medium text-slate-700">Fecha del pago</span>
-              <Input
+              <DatePicker
                 name="paymentDate"
-                type="date"
                 value={paymentDate}
-                onChange={(event) => setPaymentDate(event.target.value)}
+                onChange={setPaymentDate}
                 required
               />
             </label>

@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
 
 type ProductOption = {
@@ -153,7 +154,7 @@ export function InventoryMovementFormDialog({
 
             <label className="space-y-1.5">
               <span className="text-sm font-medium text-foreground">Fecha</span>
-              <Input name="movementDate" type="date" required defaultValue={today()} />
+              <DatePicker name="movementDate" required defaultValue={today()} />
             </label>
 
             <label className="space-y-1.5">

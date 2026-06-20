@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -78,7 +79,7 @@ export function AccountMovementFormDialog({ open, action, onClose, returnTo, acc
 
             <label className="space-y-1.5">
               <span className="text-sm font-medium text-foreground">Fecha</span>
-              <Input type="date" name="movementDate" defaultValue={new Date().toISOString().slice(0, 10)} />
+              <DatePicker name="movementDate" defaultValue={new Date().toISOString().slice(0, 10)} />
             </label>
 
             <label className="space-y-1.5">

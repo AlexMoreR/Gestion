@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 
 type SaleStatus = "DRAFT" | "ACTIVE" | "INVOICED" | "COMPLETED" | "CANCELLED";
@@ -209,20 +210,18 @@ export function SalesWorkspace({ sales, currency, accounts, products, clients, i
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Input
-              type="date"
+            <DatePicker
               value={dateFrom}
-              onChange={(event) => setDateFrom(event.target.value)}
+              onChange={setDateFrom}
               className="w-40"
-              title="Desde"
+              placeholder="Desde"
               aria-label="Desde"
             />
-            <Input
-              type="date"
+            <DatePicker
               value={dateTo}
-              onChange={(event) => setDateTo(event.target.value)}
+              onChange={setDateTo}
               className="w-40"
-              title="Hasta"
+              placeholder="Hasta"
               aria-label="Hasta"
             />
             <Button

@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
 
 type Option = {
@@ -152,9 +153,8 @@ export function ExpenseFormDialog({
 
               <label className="space-y-1.5">
                 <span className="text-sm font-medium text-foreground">Fecha</span>
-                <Input
+                <DatePicker
                   name="expenseDate"
-                  type="date"
                   required
                   defaultValue={initialValue?.expenseDate ?? today()}
                 />
