@@ -128,7 +128,8 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
       id: item.id,
       orderCode: item.order.code,
       productName: item.product.name,
-      productCode: item.product.code,
+      // Debajo del nombre: código + cantidad, ej. "SHV15 x 1".
+      productCode: item.product.code ? `${item.product.code} x ${item.quantity}` : null,
       productImage: getPublicAssetUrl(item.product.thumbnailUrl),
       quantity: item.quantity,
       amount,
@@ -148,13 +149,15 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     // "Inventario" ya aparece en la columna ORDEN; quitamos el prefijo redundante
     // "Compra inventario - " del nombre.
     const cleanNote = charge.note?.replace(/^Compra inventario\s*-\s*/i, "").trim() || null;
+    const qty = charge.inventoryMovement ? Math.abs(charge.inventoryMovement.change) : 1;
     return {
       id: charge.id,
       orderCode: "INVENTARIO",
       productName: product?.name ?? cleanNote ?? "Cargo",
-      productCode: product?.code ?? null,
+      // Debajo del nombre: código + cantidad, ej. "BMV15 x 1".
+      productCode: product?.code ? `${product.code} x ${qty}` : null,
       productImage: product?.thumbnailUrl ? getPublicAssetUrl(product.thumbnailUrl) : null,
-      quantity: charge.inventoryMovement ? Math.abs(charge.inventoryMovement.change) : 1,
+      quantity: qty,
       amount: Number(charge.amount),
       isPaid: false,
       isFinished: true,
@@ -259,7 +262,6 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
         emptyLabel={`Sin productos para ${monthLabelOf(selectedMonth)}.`}
         header={{
           fecha: "Fecha",
-          cant: "Cant",
           orden: "Orden",
           producto: "Producto",
           precio: "Precio",

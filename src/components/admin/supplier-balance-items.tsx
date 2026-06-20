@@ -37,7 +37,7 @@ type SupplierBalanceItemsProps = {
   rows: SupplierBalanceRow[];
   currency: Parameters<typeof formatMoney>[1];
   emptyLabel: string;
-  header: { fecha: string; cant: string; orden: string; producto: string; precio: string; estado: string; pago: string };
+  header: { fecha: string; orden: string; producto: string; precio: string; estado: string; pago: string };
 };
 
 function StateBadge({ isFinished }: { isFinished: boolean }) {
@@ -83,9 +83,6 @@ export function SupplierBalanceItems({ rows, currency, emptyLabel, header }: Sup
                 <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />{header.fecha}</span>
               </TableHead>
               <TableHead className="w-px whitespace-nowrap">
-                <span className="inline-flex items-center gap-1.5">{header.cant}</span>
-              </TableHead>
-              <TableHead className="w-px whitespace-nowrap">
                 <span className="inline-flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />{header.orden}</span>
               </TableHead>
               <TableHead>
@@ -101,7 +98,7 @@ export function SupplierBalanceItems({ rows, currency, emptyLabel, header }: Sup
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-9 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="py-9 text-center text-muted-foreground">
                   {emptyLabel}
                 </TableCell>
               </TableRow>
@@ -113,7 +110,6 @@ export function SupplierBalanceItems({ rows, currency, emptyLabel, header }: Sup
                   className="cursor-pointer"
                 >
                   <TableCell className="w-px whitespace-nowrap text-xs text-muted-foreground">{row.date}</TableCell>
-                  <TableCell className="w-px whitespace-nowrap text-sm text-muted-foreground">{row.quantity}</TableCell>
                   <TableCell className="w-px whitespace-nowrap text-sm font-semibold text-foreground">{row.orderCode}</TableCell>
                   <TableCell className="text-sm text-foreground">
                     <div className="flex items-stretch gap-2">
@@ -125,7 +121,7 @@ export function SupplierBalanceItems({ rows, currency, emptyLabel, header }: Sup
                       <div className="min-w-0 self-center leading-tight">
                         <p className="truncate">{row.productName}</p>
                         {row.productCode ? (
-                          <p className="text-[11px] text-muted-foreground">{row.productCode}</p>
+                          <p className="text-[12px] text-muted-foreground">{row.productCode}</p>
                         ) : null}
                       </div>
                     </div>
@@ -163,7 +159,7 @@ export function SupplierBalanceItems({ rows, currency, emptyLabel, header }: Sup
                 <div className="min-w-0 flex-1 leading-tight">
                   <p className="truncate text-sm font-medium text-foreground">{row.productName}</p>
                   {row.productCode ? (
-                    <p className="text-[11px] text-muted-foreground">{row.productCode}</p>
+                    <p className="text-[12px] text-muted-foreground">{row.productCode}</p>
                   ) : null}
                 </div>
                 <p className="shrink-0 text-sm font-semibold text-foreground">{formatMoney(row.amount, currency)}</p>
@@ -203,7 +199,7 @@ export function SupplierBalanceItems({ rows, currency, emptyLabel, header }: Sup
                   <dd className="text-right font-medium text-foreground">
                     {selected.productName}
                     {selected.productCode ? (
-                      <span className="block text-[11px] font-normal text-muted-foreground">{selected.productCode}</span>
+                      <span className="block text-[12px] font-normal text-muted-foreground">{selected.productCode}</span>
                     ) : null}
                   </dd>
                 </div>
