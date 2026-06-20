@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, ClipboardList, FileText, ImagePlus, Plus, Trash2, Wallet } from "lucide-react";
+import { CalendarDays, ClipboardList, FileText, ImagePlus, Plus, Receipt, Trash2, Wallet } from "lucide-react";
 import {
   adminCreateSupplierPaymentsAction,
   adminDeleteSupplierPaymentAction,
@@ -283,9 +283,10 @@ export function SupplierLedgerForm({
                     href={entry.receiptUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-xs font-medium text-primary hover:underline"
+                    title="Ver comprobante"
+                    className="inline-flex w-fit items-center text-primary transition hover:text-primary/80"
                   >
-                    Ver comprobante
+                    <Receipt className="size-4" />
                   </a>
                 ) : null}
               </div>
