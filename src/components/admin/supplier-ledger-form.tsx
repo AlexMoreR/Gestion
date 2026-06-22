@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, ClipboardList, Eye, FileText, ImagePlus, Plus, Trash2, Wallet } from "lucide-react";
+import { BarChart3, CalendarDays, ClipboardList, Eye, FileText, ImagePlus, Plus, Trash2, Wallet } from "lucide-react";
 import {
   adminCreateSupplierChargeAction,
   adminCreateSupplierPaymentsAction,
@@ -43,6 +43,7 @@ type SupplierChargeOption = {
 
 type SupplierLedgerFormProps = {
   supplierId: string;
+  balanceToken: string | null;
   balance: number;
   orders: SupplierOrderOption[];
   charges: SupplierChargeOption[];
@@ -74,6 +75,7 @@ function newLine(): PaymentLine {
 
 export function SupplierLedgerForm({
   supplierId,
+  balanceToken,
   orders,
   charges,
   ledger,
@@ -136,25 +138,38 @@ export function SupplierLedgerForm({
   return (
     <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
       <div className="space-y-4">
-        <div className="inline-flex rounded-lg border border-[var(--line)] bg-slate-100 p-1">
-          <button
-            type="button"
-            onClick={() => setMode("payment")}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-              mode === "payment" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            Abono
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("charge")}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-              mode === "charge" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            Cargo manual
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="inline-flex rounded-lg border border-[var(--line)] bg-slate-100 p-1">
+            <button
+              type="button"
+              onClick={() => setMode("payment")}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                mode === "payment" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Abono
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("charge")}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                mode === "charge" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Cargo manual
+            </button>
+          </div>
+          {balanceToken ? (
+            <a
+              href={`/proveedores/${balanceToken}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] bg-white px-4 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Ver balance
+            </a>
+          ) : null}
         </div>
 
         {mode === "charge" ? (

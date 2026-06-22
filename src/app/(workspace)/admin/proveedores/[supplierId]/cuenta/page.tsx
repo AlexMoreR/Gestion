@@ -37,6 +37,7 @@ export default async function AdminSupplierLedgerPage({ params, searchParams }: 
         name: true,
         displayName: true,
         type: true,
+        shareToken: true,
         ledgerEntries: {
           orderBy: { createdAt: "desc" },
           include: {
@@ -152,6 +153,7 @@ export default async function AdminSupplierLedgerPage({ params, searchParams }: 
 
       <SupplierLedgerForm
         supplierId={supplier.id}
+        balanceToken={supplier.shareToken}
         balance={balance}
         orders={orders}
         charges={charges}
