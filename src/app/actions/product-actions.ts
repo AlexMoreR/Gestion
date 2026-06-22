@@ -29,6 +29,7 @@ const baseProductSchema = z.object({
   wholesaleMarginPct: z.coerce.number().min(0, "El margen mayorista no puede ser negativo").max(1000),
   wholesalePrice: z.coerce.number().min(0, "El precio mayorista no puede ser negativo"),
   minWholesaleQty: z.coerce.number().int().min(1, "Cantidad mayorista invalida").max(100000),
+  minStock: z.coerce.number().int().min(0, "Stock minimo invalido").max(1000000).optional().default(0),
   categoryId: z.string().trim().optional(),
 });
 
@@ -328,6 +329,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
     wholesaleMarginPct: formData.get("wholesaleMarginPct"),
     wholesalePrice: formData.get("wholesalePrice"),
     minWholesaleQty: formData.get("minWholesaleQty"),
+    minStock: formData.get("minStock") ?? undefined,
     categoryId: formData.get("categoryId") || undefined,
   });
 
@@ -383,6 +385,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
         retailMarginPct: effectiveRetailMarginPct,
         wholesaleMarginPct: effectiveWholesaleMarginPct,
         minWholesaleQty: parsed.data.minWholesaleQty,
+        minStock: parsed.data.minStock,
         price: retailPrice,
         wholesalePrice,
         isBundle,
@@ -439,6 +442,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
     wholesaleMarginPct: formData.get("wholesaleMarginPct"),
     wholesalePrice: formData.get("wholesalePrice"),
     minWholesaleQty: formData.get("minWholesaleQty"),
+    minStock: formData.get("minStock") ?? undefined,
     categoryId: formData.get("categoryId") || undefined,
   });
 
@@ -519,6 +523,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
           retailMarginPct: effectiveRetailMarginPct,
           wholesaleMarginPct: effectiveWholesaleMarginPct,
           minWholesaleQty: parsed.data.minWholesaleQty,
+          minStock: parsed.data.minStock,
           price: retailPrice,
           wholesalePrice,
           isBundle,

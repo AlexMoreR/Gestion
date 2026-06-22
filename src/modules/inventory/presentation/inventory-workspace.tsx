@@ -47,12 +47,10 @@ type TabKey = "stock" | "movimientos";
 function MetricCard({
   title,
   value,
-  helper,
   accent = "neutral",
 }: {
   title: string;
   value: string;
-  helper: string;
   accent?: "neutral" | "success" | "danger" | "warning" | "info";
 }) {
   const toneClass =
@@ -71,7 +69,6 @@ function MetricCard({
       <CardContent className="space-y-0.5">
         <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
         <p className="text-lg font-semibold text-foreground">{value}</p>
-        <p className="text-[10px] text-muted-foreground">{helper}</p>
       </CardContent>
     </Card>
   );
@@ -150,25 +147,21 @@ export function InventoryWorkspace({
           <MetricCard
             title="Productos en stock"
             value={`${metrics.trackedProducts}`}
-            helper="Productos tipo Stock"
             accent="info"
           />
           <MetricCard
             title="Unidades totales"
             value={`${metrics.totalUnits}`}
-            helper="Suma de existencias"
             accent="neutral"
           />
           <MetricCard
             title="Bajo stock"
             value={`${metrics.lowStockCount}`}
-            helper="En o bajo el minimo"
             accent={metrics.lowStockCount > 0 ? "warning" : "neutral"}
           />
           <MetricCard
             title="Agotados"
             value={`${metrics.outOfStockCount}`}
-            helper="Sin existencias"
             accent={metrics.outOfStockCount > 0 ? "danger" : "neutral"}
           />
         </div>

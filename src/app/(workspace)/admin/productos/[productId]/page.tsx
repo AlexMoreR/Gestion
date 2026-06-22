@@ -5,6 +5,7 @@ import { EditProductForm } from "@/components/admin/edit-product-form";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
+import { getProductPurchaseHistory } from "@/lib/product-purchase-history";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 
@@ -28,7 +29,7 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
   const okMessage = typeof query.ok === "string" ? query.ok : "";
   const errorMessage = typeof query.error === "string" ? query.error : "";
 
-  const [product, categories, suppliers, bundleProducts, systemCurrency] = await Promise.all([
+  const [product, categories, suppliers, bundleProducts, systemCurrency, purchaseHistory] = await Promise.all([
     prisma.product.findUnique({
       where: { id: productId },
       include: {
@@ -51,6 +52,7 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
       select: { id: true, name: true, code: true, price: true },
     }),
     getSystemCurrency(),
+    getProductPurchaseHistory(productId),
   ]);
 
   if (!product) {
@@ -82,6 +84,7 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
         categories={categories}
         suppliers={suppliers}
         currency={systemCurrency}
+        purchaseHistory={purchaseHistory}
         bundleProducts={bundleProducts.map((item) => ({
           id: item.id,
           name: item.name,
@@ -101,6 +104,7 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
             retailMarginPct: Number(product.retailMarginPct),
             wholesaleMarginPct: Number(product.wholesaleMarginPct),
           minWholesaleQty: product.minWholesaleQty,
+          minStock: product.minStock,
           categoryId: product.categoryId,
           isBundle: product.isBundle,
           suppliers: product.suppliers.map((supplier) => ({

@@ -110,6 +110,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
   const [wholesaleMarginPct, setWholesaleMarginPct] = useState("20");
   const [wholesalePriceInput, setWholesalePriceInput] = useState("0");
   const [minWholesaleQty, setMinWholesaleQty] = useState("6");
+  const [minStock, setMinStock] = useState("0");
   const [wholesaleEnabled, setWholesaleEnabled] = useState(false);
   const [retailPriceDirty, setRetailPriceDirty] = useState(false);
   const [wholesalePriceDirty, setWholesalePriceDirty] = useState(false);
@@ -313,7 +314,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
   const currentMissing = currentStep === 1 ? step1Missing : currentStep === 2 ? step2Missing : [];
   const steps = [
     { id: 1, label: "Producto", icon: Package },
-    { id: 2, label: "Precios", icon: Banknote },
+    { id: 2, label: "Precios y compra", icon: Banknote },
     { id: 3, label: "Inventario", icon: Boxes },
   ] as const;
 
@@ -513,6 +514,23 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                   </label>
                 </div>
                 </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="space-y-1.5">
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Barcode className="h-4 w-4 text-slate-500" />Codigo</span>
+                    <Input name="code" placeholder="Ej. CAM-001" value={code} onChange={(e) => setCode(e.target.value)} />
+                  </label>
+                  <label className="space-y-1.5">
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Tag className="h-4 w-4 text-slate-500" />Categoria</span>
+                    <select name="categoryId" className="field-select" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+                      <option value="">Sin categoria</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
                 <label className="block space-y-1.5">
                   <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><FileText className="h-4 w-4 text-slate-500" />Descripcion</span>
                   <Textarea
@@ -636,30 +654,8 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                   </>
                 ) : null}
               </div>
-            </div>
 
-            <div className={currentStep === 3 ? "space-y-4" : "hidden"}>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="space-y-1.5">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Barcode className="h-4 w-4 text-slate-500" />Codigo</span>
-                  <Input
-                    name="code"
-                    placeholder="Ej. CAM-001"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                  />
-                </label>
-                <label className="space-y-1.5">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Tag className="h-4 w-4 text-slate-500" />Categoria</span>
-                  <select name="categoryId" className="field-select" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                    <option value="">Sin categoria</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              <div className="grid gap-4 md:grid-cols-2 border-t pt-4">
                 <label className="hidden">
                   <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Truck className="h-4 w-4 text-slate-500" />Proveedor principal</span>
                   <select name="legacySupplierId" className="hidden" value="" onChange={() => undefined}>
@@ -686,6 +682,24 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                   </p>
                 )}
               </div>
+            </div>
+
+            <div className={currentStep === 3 ? "space-y-4" : "hidden"}>
+              <label className="block max-w-xs space-y-1.5">
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Boxes className="h-4 w-4 text-slate-500" />Stock minimo</span>
+                <Input
+                  name="minStock"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={minStock}
+                  onChange={(e) => setMinStock(e.target.value)}
+                />
+                <span className="text-xs text-slate-500">Cantidad minima antes de marcar bajo stock.</span>
+              </label>
+              <p className="rounded-lg border border-dashed border-[var(--line)] bg-slate-50/60 px-3 py-3 text-xs text-slate-500">
+                El stock actual y los movimientos se gestionan desde Inventario.
+              </p>
             </div>
 
             <div className="mt-1 space-y-2 border-t pt-5">

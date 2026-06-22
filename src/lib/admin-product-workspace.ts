@@ -27,6 +27,7 @@ export type ProductWorkspaceRow = {
   retailMarginPct: number;
   wholesaleMarginPct: number;
   minWholesaleQty: number;
+  minStock: number;
   price: number;
   wholesalePrice: number;
 };
@@ -112,6 +113,7 @@ export async function getProductWorkspaceData(): Promise<ProductWorkspaceData> {
       retailMarginPct: Number(product.retailMarginPct),
       wholesaleMarginPct: Number(product.wholesaleMarginPct),
       minWholesaleQty: product.minWholesaleQty,
+      minStock: product.minStock,
       price: Number(product.price),
       wholesalePrice: Number(product.wholesalePrice),
     })),

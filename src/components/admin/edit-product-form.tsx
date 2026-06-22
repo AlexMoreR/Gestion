@@ -29,6 +29,7 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import type { ProductPurchaseRow } from "@/lib/product-purchase-history";
 import { calculateProfit, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
 import { Button, buttonVariants } from "../ui/button";
 
@@ -55,6 +56,7 @@ type EditProductInitialData = {
   retailMarginPct: number;
   wholesaleMarginPct: number;
   minWholesaleQty: number;
+  minStock: number;
   categoryId: string | null;
   isBundle: boolean;
   suppliers: Array<{
@@ -74,6 +76,8 @@ type EditProductFormProps = {
   currency: SupportedCurrencyCode;
   bundleProducts: BundleProductOption[];
   initialData: EditProductInitialData;
+  purchaseHistory?: ProductPurchaseRow[];
+  purchaseHistoryLoading?: boolean;
 };
 
 export function EditProductForm({
@@ -82,6 +86,8 @@ export function EditProductForm({
   currency,
   bundleProducts,
   initialData,
+  purchaseHistory = [],
+  purchaseHistoryLoading = false,
 }: EditProductFormProps) {
   const initialWholesaleEnabled =
     initialData.wholesalePrice > 0 ||
@@ -102,6 +108,7 @@ export function EditProductForm({
   const [wholesalePriceDirty, setWholesalePriceDirty] = useState(true);
   const [minWholesaleQty, setMinWholesaleQty] = useState(String(initialData.minWholesaleQty));
   const [categoryId, setCategoryId] = useState(initialData.categoryId ?? "");
+  const [minStock, setMinStock] = useState(String(initialData.minStock));
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [newImageUrls, setNewImageUrls] = useState<string[]>([]);
   const [existingImageUrls, setExistingImageUrls] = useState(initialData.imageUrls);
@@ -224,7 +231,7 @@ export function EditProductForm({
       (Number(wholesaleMarginPct) >= 0 && pricing.finalWholesale > 0 && Number(minWholesaleQty) >= 1));
   const steps = [
     { id: 1, label: "Producto", icon: Package },
-    { id: 2, label: "Precios", icon: Banknote },
+    { id: 2, label: "Precios y compra", icon: Banknote },
     { id: 3, label: "Inventario", icon: Boxes },
   ] as const;
 
@@ -442,6 +449,23 @@ export function EditProductForm({
                     </label>
                   </div>
                 </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="space-y-1.5">
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Barcode className="h-4 w-4 text-slate-500" />Codigo</span>
+                    <Input name="code" placeholder="Ej. CAM-001" value={code} onChange={(e) => setCode(e.target.value)} />
+                  </label>
+                  <label className="space-y-1.5">
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Tag className="h-4 w-4 text-slate-500" />Categoria</span>
+                    <select name="categoryId" className="field-select" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+                      <option value="">Sin categoria</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
                 <label className="block space-y-1.5">
                   <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><FileText className="h-4 w-4 text-slate-500" />Descripcion</span>
                   <Textarea
@@ -561,25 +585,8 @@ export function EditProductForm({
                   </>
                 )}
               </div>
-            </div>
 
-            <div className={currentStep === 3 ? "space-y-4" : "hidden"}>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="space-y-1.5">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Barcode className="h-4 w-4 text-slate-500" />Codigo</span>
-                  <Input name="code" placeholder="Ej. CAM-001" value={code} onChange={(e) => setCode(e.target.value)} />
-                </label>
-                <label className="space-y-1.5">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Tag className="h-4 w-4 text-slate-500" />Categoria</span>
-                  <select name="categoryId" className="field-select" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                    <option value="">Sin categoria</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              <div className="grid gap-4 md:grid-cols-2 border-t pt-4">
                 <label className="hidden">
                   <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Truck className="h-4 w-4 text-slate-500" />Proveedor principal</span>
                   <select name="legacySupplierId" className="hidden" defaultValue="">
@@ -604,6 +611,69 @@ export function EditProductForm({
                   <p className="rounded-lg border border-dashed border-[var(--line)] bg-slate-50/60 px-3 py-3 text-xs text-slate-500 md:col-span-2">
                     Este producto es un combo: los proveedores se toman de cada componente.
                   </p>
+                )}
+              </div>
+            </div>
+
+            <div className={currentStep === 3 ? "space-y-4" : "hidden"}>
+              <label className="block max-w-xs space-y-1.5">
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Boxes className="h-4 w-4 text-slate-500" />Stock minimo</span>
+                <Input
+                  name="minStock"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={minStock}
+                  onChange={(e) => setMinStock(e.target.value)}
+                />
+                <span className="text-xs text-slate-500">Cantidad minima antes de marcar bajo stock.</span>
+              </label>
+
+              <div className="space-y-2">
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Boxes className="h-4 w-4 text-slate-500" />Compras en inventario</span>
+                {purchaseHistoryLoading ? (
+                  <p className="rounded-lg border border-dashed border-[var(--line)] bg-slate-50/60 px-3 py-3 text-xs text-slate-500">
+                    Cargando movimientos...
+                  </p>
+                ) : purchaseHistory.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-[var(--line)] bg-slate-50/60 px-3 py-3 text-xs text-slate-500">
+                    Este producto no tiene compras registradas en inventario.
+                  </p>
+                ) : (
+                  <div className="overflow-hidden rounded-xl border border-[var(--line)]">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50/70 text-xs uppercase tracking-wide text-slate-500">
+                        <tr>
+                          <th className="px-3 py-2 text-left">Fecha</th>
+                          <th className="px-3 py-2 text-left">Cant</th>
+                          <th className="px-3 py-2 text-left">Precio compra</th>
+                          <th className="px-3 py-2 text-left">Pagado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {purchaseHistory.map((row) => (
+                          <tr key={row.id} className="border-t border-[var(--line)]">
+                            <td className="px-3 py-2 text-slate-700">
+                              {new Date(row.date).toLocaleDateString("es-CO", { year: "numeric", month: "short", day: "2-digit" })}
+                            </td>
+                            <td className="px-3 py-2 text-slate-700">{row.quantity}</td>
+                            <td className="px-3 py-2 text-slate-700">{formatMoney(row.purchaseCost, currency)}</td>
+                            <td className="px-3 py-2">
+                              <span
+                                className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${
+                                  row.isPaid
+                                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+                                    : "border-amber-500/30 bg-amber-500/10 text-amber-600"
+                                }`}
+                              >
+                                {row.isPaid ? "Pagado" : "Pendiente"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
             </div>

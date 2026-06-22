@@ -15,6 +15,7 @@ import {
 } from "@/modules/inventory/application/schemas";
 import { createPrismaInventoryRepository } from "@/modules/inventory/infrastructure/prisma-inventory-repository";
 import { buildInventoryChargeCode, parseInventoryChargeCodeNumber } from "@/lib/orders";
+import { getProductPurchaseHistory, type ProductPurchaseRow } from "@/lib/product-purchase-history";
 
 const repository = createPrismaInventoryRepository();
 
@@ -59,6 +60,16 @@ async function requireAdminSession(): Promise<string> {
   }
 
   redirect("/login");
+}
+
+// Carga diferida del historial de compras de un producto (para el modal de producto).
+export async function getProductPurchaseHistoryAction(productId: string): Promise<ProductPurchaseRow[]> {
+  await requireAdminSession();
+  const trimmed = productId.trim();
+  if (!trimmed) {
+    return [];
+  }
+  return getProductPurchaseHistory(trimmed);
 }
 
 function getReturnTo(formData: FormData, fallback = "/admin/inventario"): string {
