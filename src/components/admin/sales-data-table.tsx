@@ -4,7 +4,6 @@ import Link from "next/link";
 import * as React from "react";
 import {
   ArrowUpRight,
-  Download,
   FileText,
   ImagePlus,
   MoreHorizontal,
@@ -21,7 +20,6 @@ import {
   adminDeleteSaleAction,
 } from "@/app/actions/sales-actions";
 import { adminCreateOrderFromSaleAction } from "@/app/actions/orders-actions";
-import { invoicePdfFileName } from "@/lib/document-names";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -201,19 +199,8 @@ function RowActions({
         <DropdownMenuItem asChild>
           <Link href={`/sales/${sale.invoiceToken}`}>
             <ArrowUpRight className="mr-2 h-4 w-4" />
-            Ver factura
+            Ver recibo
           </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <a
-            href={`/api/generate-sale-invoice-pdf?token=${sale.invoiceToken}`}
-            download={invoicePdfFileName(sale.code)}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Descargar PDF
-          </a>
         </DropdownMenuItem>
         {sale.hasOrder && sale.orderId ? (
           <DropdownMenuItem asChild>

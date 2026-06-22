@@ -347,7 +347,9 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
           quoteId: quote.id,
           clientId: quote.clientId,
           createdById,
-          status: "ACTIVE",
+          // Si la venta nace ya pagada por completo, se factura de una vez
+          // (misma regla que la ruta de abonos posteriores).
+          status: totalDownPayment >= netTotal ? "INVOICED" : "ACTIVE",
           ...(saleCreatedAt ? { createdAt: saleCreatedAt } : {}),
           downPaymentAmount: totalDownPayment,
           grossTotal,
@@ -953,7 +955,9 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
           quoteId: quote.id,
           clientId: client.id,
           createdById,
-          status: "ACTIVE",
+          // Si la venta nace ya pagada por completo, se factura de una vez
+          // (misma regla que la ruta de abonos posteriores).
+          status: downPaymentAmount >= total ? "INVOICED" : "ACTIVE",
           downPaymentAmount,
           grossTotal: new Prisma.Decimal(total),
           discountAmount: new Prisma.Decimal(0),

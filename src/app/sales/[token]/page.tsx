@@ -264,7 +264,7 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
 
               <div className="text-right">
                 <div className="flex items-baseline justify-end gap-2">
-                  <p className="text-base font-bold tracking-widest text-slate-700 uppercase">Factura</p>
+                  <p className="text-base font-bold tracking-widest text-slate-700 uppercase">Recibo de Caja</p>
                   <h1 className="text-base font-bold tracking-tight text-slate-400">
                     N° {formatInvoiceNumber(sale.code)}
                   </h1>
@@ -439,7 +439,7 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
             <div className="text-right">
               <div className="flex items-baseline justify-end gap-2">
                 <p className="text-2xl font-bold tracking-tight text-slate-900 uppercase">
-                  Factura
+                  Recibo de Caja
                 </p>
                 <h1 className="max-w-full break-all text-2xl font-extrabold tracking-tight text-slate-400">
                   N° {formatInvoiceNumber(sale.code)}
