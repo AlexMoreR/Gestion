@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Pencil } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Eye, Pencil } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
-import type { AccountBalance, AccountType } from "@/modules/balances/domain/entities";
+import type { AccountBalance } from "@/modules/balances/domain/entities";
 import { BalancesDataGrid } from "./balances-data-grid";
 
 type AccountBalancesTableProps = {
@@ -13,12 +14,7 @@ type AccountBalancesTableProps = {
   onEdit: (accountId: string) => void;
 };
 
-const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
-  CASH: "Efectivo",
-  BANK: "Banco",
-  WALLET: "Billetera",
-  OTHER: "Otro",
-};
+const accountHref = (accountId: string) => `/admin/balances/cuentas/${accountId}`;
 
 export function AccountBalancesTable({ data, currency, onEdit }: AccountBalancesTableProps) {
   const columns: ColumnDef<AccountBalance>[] = [
@@ -27,7 +23,12 @@ export function AccountBalancesTable({ data, currency, onEdit }: AccountBalances
       header: "Cuenta",
       cell: ({ row }) => (
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-foreground">{row.original.name}</p>
+          <Link
+            href={accountHref(row.original.id)}
+            className="truncate text-left text-sm font-medium text-foreground hover:text-primary hover:underline"
+          >
+            {row.original.name}
+          </Link>
           {row.original.reference ? (
             <p className="truncate text-xs text-muted-foreground">{row.original.reference}</p>
           ) : null}
@@ -35,13 +36,6 @@ export function AccountBalancesTable({ data, currency, onEdit }: AccountBalances
             <span className="text-xs text-amber-600 dark:text-amber-400">Inactiva</span>
           ) : null}
         </div>
-      ),
-    },
-    {
-      accessorKey: "type",
-      header: "Tipo",
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{ACCOUNT_TYPE_LABEL[row.original.type]}</span>
       ),
     },
     {
@@ -87,15 +81,24 @@ export function AccountBalancesTable({ data, currency, onEdit }: AccountBalances
       id: "actions",
       header: "",
       cell: ({ row }) => (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => onEdit(row.original.id)}
-          aria-label={`Editar ${row.original.name}`}
-        >
-          <Pencil className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center justify-end gap-1">
+          <Link
+            href={accountHref(row.original.id)}
+            className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+            aria-label={`Ver transacciones de ${row.original.name}`}
+          >
+            <Eye className="h-4 w-4" />
+          </Link>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => onEdit(row.original.id)}
+            aria-label={`Editar ${row.original.name}`}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ];

@@ -72,6 +72,10 @@ export async function listAccountBalancesUseCase(repository: BalancesRepository)
   return repository.listAccountBalances();
 }
 
+export async function listAccountTransactionsUseCase(repository: BalancesRepository, accountId: string) {
+  return repository.listAccountTransactions(accountId);
+}
+
 export async function createAccountUseCase(repository: BalancesRepository, input: CreateAccountInput) {
   return repository.createAccount(input);
 }

@@ -83,6 +83,20 @@ export type AccountBalance = Account & {
   balance: number;
 };
 
+export type AccountTransactionType = "INCOME" | "EXPENSE" | "MOVEMENT_IN" | "MOVEMENT_OUT";
+
+export type AccountTransaction = {
+  id: string;
+  date: Date;
+  type: AccountTransactionType;
+  concept: string;
+  reference: string | null;
+  // Monto con signo: positivo aumenta el saldo, negativo lo disminuye.
+  amount: number;
+  receiptUrl: string | null;
+  receiptName: string | null;
+};
+
 export type PaymentHistoryRow = SupplierPayment & {
   supplierName: string;
   saleCode: string | null;

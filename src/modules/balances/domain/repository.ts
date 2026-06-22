@@ -1,6 +1,7 @@
 import type {
   Account,
   AccountBalance,
+  AccountTransaction,
   AccountType,
   DashboardMetrics,
   PagedResult,
@@ -93,6 +94,7 @@ export interface BalancesRepository {
 
   listAccounts(options?: { activeOnly?: boolean }): Promise<Account[]>;
   listAccountBalances(): Promise<AccountBalance[]>;
+  listAccountTransactions(accountId: string): Promise<AccountTransaction[]>;
   createAccount(input: CreateAccountInput): Promise<Account>;
   updateAccount(accountId: string, input: UpdateAccountInput): Promise<Account>;
   createAccountMovement(input: CreateAccountMovementInput): Promise<void>;

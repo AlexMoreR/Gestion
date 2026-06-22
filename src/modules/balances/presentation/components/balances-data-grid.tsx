@@ -31,6 +31,8 @@ type BalancesDataGridProps<TData> = {
   searchPlaceholder?: string;
   emptyMessage: string;
   pageSize?: number;
+  onRowClick?: (row: TData) => void;
+  paginate?: boolean;
 };
 
 export function BalancesDataGrid<TData>({
@@ -41,6 +43,8 @@ export function BalancesDataGrid<TData>({
   searchPlaceholder = "Buscar",
   emptyMessage,
   pageSize = 8,
+  onRowClick,
+  paginate = true,
 }: BalancesDataGridProps<TData>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = React.useState("");
@@ -70,7 +74,7 @@ export function BalancesDataGrid<TData>({
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    ...(paginate ? { getPaginationRowModel: getPaginationRowModel() } : {}),
   });
 
   return (
@@ -144,7 +148,11 @@ export function BalancesDataGrid<TData>({
               </TableRow>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                  className={onRowClick ? "cursor-pointer" : undefined}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -157,6 +165,7 @@ export function BalancesDataGrid<TData>({
         </Table>
       </div>
 
+      {paginate ? (
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-muted-foreground">
           Mostrando {table.getRowModel().rows.length === 0 ? 0 : table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}
@@ -191,6 +200,7 @@ export function BalancesDataGrid<TData>({
           </Button>
         </div>
       </div>
+      ) : null}
     </div>
   );
 }

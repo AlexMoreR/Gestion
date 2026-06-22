@@ -15,6 +15,7 @@ import type {
 import type {
   Account,
   AccountBalance,
+  AccountTransaction,
   AccountType,
   DashboardMetrics,
   PagedResult,
@@ -697,6 +698,129 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           movimientosOut: movementOutMap.get(account.id) ?? 0,
         }),
       );
+    },
+
+    async listAccountTransactions(accountId: string): Promise<AccountTransaction[]> {
+      const [salePayments, supplierPayments, shippingCosts, expenses, movements] = await Promise.all([
+        prisma.salePayment.findMany({
+          where: { accountId },
+          select: {
+            id: true,
+            amount: true,
+            paymentMethod: true,
+            note: true,
+            paymentDate: true,
+            createdAt: true,
+            receiptUrl: true,
+            receiptName: true,
+            sale: { select: { code: true } },
+          },
+        }),
+        prisma.supplierLedgerEntry.findMany({
+          where: { accountId, type: "PAYMENT" },
+          select: {
+            id: true,
+            amount: true,
+            transactionReference: true,
+            note: true,
+            paymentDate: true,
+            createdAt: true,
+            receiptUrl: true,
+            receiptName: true,
+            supplier: { select: { name: true } },
+          },
+        }),
+        prisma.shippingCost.findMany({
+          where: { accountId },
+          select: {
+            id: true,
+            amount: true,
+            shippingProvider: true,
+            transactionReference: true,
+            paymentDate: true,
+            sale: { select: { code: true } },
+          },
+        }),
+        prisma.expense.findMany({
+          where: { accountId },
+          select: {
+            id: true,
+            amount: true,
+            description: true,
+            reference: true,
+            expenseDate: true,
+            category: { select: { name: true } },
+          },
+        }),
+        prisma.accountMovement.findMany({
+          where: { accountId },
+          select: {
+            id: true,
+            type: true,
+            amount: true,
+            note: true,
+            transferId: true,
+            movementDate: true,
+          },
+        }),
+      ]);
+
+      const transactions: AccountTransaction[] = [
+        ...salePayments.map((row) => ({
+          id: `sale-payment:${row.id}`,
+          date: row.paymentDate ?? row.createdAt,
+          type: "INCOME" as const,
+          concept: row.sale ? `Pago venta ${row.sale.code}` : "Pago de venta",
+          reference: row.note ?? row.paymentMethod ?? null,
+          amount: toNumber(row.amount),
+          receiptUrl: row.receiptUrl ?? null,
+          receiptName: row.receiptName ?? null,
+        })),
+        ...supplierPayments.map((row) => ({
+          id: `supplier-payment:${row.id}`,
+          date: row.paymentDate ?? row.createdAt,
+          type: "EXPENSE" as const,
+          concept: `Pago proveedor ${row.supplier.name}`,
+          reference: row.transactionReference ?? row.note ?? null,
+          amount: -toNumber(row.amount),
+          receiptUrl: row.receiptUrl ?? null,
+          receiptName: row.receiptName ?? null,
+        })),
+        ...shippingCosts.map((row) => ({
+          id: `shipping:${row.id}`,
+          date: row.paymentDate,
+          type: "EXPENSE" as const,
+          concept: `Envio ${row.shippingProvider}${row.sale ? ` (${row.sale.code})` : ""}`,
+          reference: row.transactionReference ?? null,
+          amount: -toNumber(row.amount),
+          receiptUrl: null,
+          receiptName: null,
+        })),
+        ...expenses.map((row) => ({
+          id: `expense:${row.id}`,
+          date: row.expenseDate,
+          type: "EXPENSE" as const,
+          concept: `Gasto ${row.category.name}${row.description ? ` - ${row.description}` : ""}`,
+          reference: row.reference ?? null,
+          amount: -toNumber(row.amount),
+          receiptUrl: null,
+          receiptName: null,
+        })),
+        ...movements.map((row) => ({
+          id: `movement:${row.id}`,
+          date: row.movementDate,
+          type: row.type === "IN" ? ("MOVEMENT_IN" as const) : ("MOVEMENT_OUT" as const),
+          concept:
+            row.note ??
+            (row.transferId ? "Traslado entre cuentas" : row.type === "IN" ? "Ingreso manual" : "Retiro manual"),
+          reference: row.transferId ? "Traslado" : null,
+          amount: row.type === "IN" ? toNumber(row.amount) : -toNumber(row.amount),
+          receiptUrl: null,
+          receiptName: null,
+        })),
+      ];
+
+      return transactions.sort((a, b) => b.date.getTime() - a.date.getTime());
     },
 
     async createAccount(input: CreateAccountInput): Promise<Account> {
