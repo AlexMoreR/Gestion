@@ -4,6 +4,9 @@ import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
 import { createPrismaInventoryRepository } from "@/modules/inventory/infrastructure/prisma-inventory-repository";
 import { InventoryWorkspace } from "@/modules/inventory/presentation/inventory-workspace";
+import { getPublicAssetUrl } from "@/lib/site";
+import { getProductWorkspaceData } from "@/lib/admin-product-workspace";
+import { getSystemCurrency } from "@/lib/system-settings";
 import { redirect } from "next/navigation";
 
 type PageProps = {
@@ -26,25 +29,28 @@ export default async function AdminInventoryPage({ searchParams }: PageProps) {
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
-  const [metrics, stocks, movements, productSupplierRows, suppliers] = await Promise.all([
-    repository.getMetrics(),
-    repository.listProductStocks(),
-    repository.listMovements(),
-    prisma.productSupplier.findMany({
-      where: { supplier: { isActive: true } },
-      orderBy: [{ isPreferred: "desc" }, { supplier: { name: "asc" } }],
-      select: {
-        productId: true,
-        supplierCost: true,
-        supplier: { select: { id: true, name: true } },
-      },
-    }),
-    prisma.supplier.findMany({
-      where: { isActive: true },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-  ]);
+  const [metrics, stocks, movements, productSupplierRows, suppliers, currency, productData] =
+    await Promise.all([
+      repository.getMetrics(),
+      repository.listProductStocks(),
+      repository.listMovements(),
+      prisma.productSupplier.findMany({
+        where: { supplier: { isActive: true } },
+        orderBy: [{ isPreferred: "desc" }, { supplier: { name: "asc" } }],
+        select: {
+          productId: true,
+          supplierCost: true,
+          supplier: { select: { id: true, name: true } },
+        },
+      }),
+      prisma.supplier.findMany({
+        where: { isActive: true },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+      getSystemCurrency(),
+      getProductWorkspaceData(),
+    ]);
 
   // Proveedores por producto (solo los asociados a cada producto).
   const suppliersByProduct: Record<string, { id: string; name: string; cost: number | null }[]> = {};
@@ -67,10 +73,15 @@ export default async function AdminInventoryPage({ searchParams }: PageProps) {
 
       <InventoryWorkspace
         metrics={metrics}
-        stocks={stocks}
+        stocks={stocks.map((stock) => ({ ...stock, thumbnailUrl: getPublicAssetUrl(stock.thumbnailUrl) }))}
         movements={movements}
         suppliersByProduct={suppliersByProduct}
         suppliers={suppliers}
+        currency={currency}
+        editableProducts={productData.products}
+        categories={productData.categories}
+        editableSuppliers={productData.suppliers}
+        bundleProducts={productData.bundleProducts}
       />
     </section>
   );

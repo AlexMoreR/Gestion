@@ -41,6 +41,8 @@ const quoteItemSchema = z.object({
   supplierId: z.string().trim().optional().nullable(),
   quantity: z.coerce.number().int().min(1, "Cantidad invalida").max(10000),
   unitPrice: z.coerce.number().positive("Precio invalido"),
+  // "por stock" (STOCK) o "por orden" (MANUFACTURE), elegido por linea de venta.
+  fulfillmentMode: z.enum(["STOCK", "MANUFACTURE"]).optional().default("STOCK"),
   color: z.string().trim().max(120, "Color demasiado largo").optional().nullable(),
   notes: z.string().trim().max(4000, "Notas demasiado largas").optional().nullable(),
   additionalCost: z.coerce.number().min(0, "Costo adicional invalido").optional().default(0),
@@ -302,6 +304,7 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
       supplierId,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
+      fulfillmentMode: item.fulfillmentMode,
       lineTotal,
       notes,
     };
@@ -340,6 +343,7 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
                   supplierId: item.supplierId,
                   quantity: item.quantity,
                   unitPrice: new Prisma.Decimal(item.unitPrice),
+                  fulfillmentMode: item.fulfillmentMode,
                   lineTotal: new Prisma.Decimal(item.lineTotal),
                   notes: item.notes,
                 })),
@@ -510,6 +514,7 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
       supplierId,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
+      fulfillmentMode: item.fulfillmentMode,
       lineTotal,
       notes,
     };
@@ -534,6 +539,7 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
           supplierId: item.supplierId,
           quantity: item.quantity,
           unitPrice: new Prisma.Decimal(item.unitPrice),
+          fulfillmentMode: item.fulfillmentMode,
           lineTotal: new Prisma.Decimal(item.lineTotal),
           notes: item.notes,
         })),

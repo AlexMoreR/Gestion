@@ -21,6 +21,9 @@ export type ProductStock = {
   productId: string;
   name: string;
   code: string | null;
+  categoryName: string | null;
+  price: number;
+  thumbnailUrl: string;
   minStock: number;
   stock: number;
   status: StockStatus;

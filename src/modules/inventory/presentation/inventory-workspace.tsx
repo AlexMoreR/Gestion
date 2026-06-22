@@ -10,6 +10,7 @@ import type {
   InventoryMovementRow,
   ProductStock,
 } from "@/modules/inventory/domain/entities";
+import type { SupportedCurrencyCode } from "@/lib/currency";
 import {
   adminCreateInventoryMovementAction,
   adminDeleteInventoryMovementAction,
@@ -21,6 +22,12 @@ import { MovementsTable } from "./components/movements-table";
 import { InventoryMovementFormDialog } from "./components/inventory-movement-form-dialog";
 import { InventoryMovementEditDialog } from "./components/inventory-movement-edit-dialog";
 import { MinStockFormDialog } from "./components/min-stock-form-dialog";
+import { ProductEditModal } from "@/components/admin/product-edit-modal";
+import type {
+  BundleProductOption,
+  ProductWorkspaceOption,
+  ProductWorkspaceRow,
+} from "@/lib/admin-product-workspace";
 
 type InventoryWorkspaceProps = {
   metrics: InventoryMetrics;
@@ -28,6 +35,11 @@ type InventoryWorkspaceProps = {
   movements: InventoryMovementRow[];
   suppliersByProduct: Record<string, { id: string; name: string; cost: number | null }[]>;
   suppliers: { id: string; name: string }[];
+  currency: SupportedCurrencyCode;
+  editableProducts: ProductWorkspaceRow[];
+  categories: ProductWorkspaceOption[];
+  editableSuppliers: ProductWorkspaceOption[];
+  bundleProducts: BundleProductOption[];
 };
 
 type TabKey = "stock" | "movimientos";
@@ -65,7 +77,18 @@ function MetricCard({
   );
 }
 
-export function InventoryWorkspace({ metrics, stocks, movements, suppliersByProduct, suppliers }: InventoryWorkspaceProps) {
+export function InventoryWorkspace({
+  metrics,
+  stocks,
+  movements,
+  suppliersByProduct,
+  suppliers,
+  currency,
+  editableProducts,
+  categories,
+  editableSuppliers,
+  bundleProducts,
+}: InventoryWorkspaceProps) {
   const [tab, setTab] = React.useState<TabKey>("stock");
   const [movementModal, setMovementModal] = React.useState<{ open: boolean; productId: string | null }>({
     open: false,
@@ -74,6 +97,12 @@ export function InventoryWorkspace({ metrics, stocks, movements, suppliersByProd
   const [minStockProduct, setMinStockProduct] = React.useState<ProductStock | null>(null);
   const [editMovement, setEditMovement] = React.useState<InventoryMovementRow | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState<InventoryMovementRow | null>(null);
+  const [editProductId, setEditProductId] = React.useState<string | null>(null);
+
+  const editProduct = React.useMemo(
+    () => editableProducts.find((product) => product.id === editProductId) ?? null,
+    [editableProducts, editProductId],
+  );
 
   const actionsReturnTo = "/admin/inventario";
   const productOptions = React.useMemo(
@@ -147,6 +176,8 @@ export function InventoryWorkspace({ metrics, stocks, movements, suppliersByProd
         {tab === "stock" ? (
           <ProductStockTable
             data={stocks}
+            currency={currency}
+            onOpenProduct={(productId) => setEditProductId(productId)}
             onMove={(productId) => setMovementModal({ open: true, productId })}
             onEditMin={(productId) => {
               const product = stocks.find((row) => row.productId === productId);
@@ -187,6 +218,15 @@ export function InventoryWorkspace({ metrics, stocks, movements, suppliersByProd
         action={adminUpdateInventoryMovementAction}
         onClose={() => setEditMovement(null)}
         returnTo={actionsReturnTo}
+      />
+
+      <ProductEditModal
+        product={editProduct}
+        categories={categories}
+        suppliers={editableSuppliers}
+        bundleProducts={bundleProducts}
+        currency={currency}
+        onClose={() => setEditProductId(null)}
       />
 
       {pendingDelete ? (

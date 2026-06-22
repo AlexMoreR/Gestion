@@ -212,10 +212,10 @@ export async function adminCreateOrderFromSaleAction(formData: FormData): Promis
       quantity: item.quantity,
       unitPrice: Number(item.unitPrice),
       lineTotal: Number(item.lineTotal),
+      fulfillmentMode: item.fulfillmentMode,
       notes: item.notes,
       product: {
         name: item.product.name,
-        fulfillmentMode: item.product.fulfillmentMode,
         isBundle: item.product.isBundle,
         bundleComponents: item.product.bundleComponents.map((component) => ({
           quantity: component.quantity,
@@ -224,7 +224,6 @@ export async function adminCreateOrderFromSaleAction(formData: FormData): Promis
             name: component.child.name,
             code: component.child.code,
             price: Number(component.child.price),
-            fulfillmentMode: component.child.fulfillmentMode,
           },
         })),
       },
@@ -264,6 +263,31 @@ export async function adminCreateOrderFromSaleAction(formData: FormData): Promis
           changedById: createdById,
         },
       });
+
+      // Las lineas "por stock" se surten de existencias: descuentan inventario
+      // automaticamente (un movimiento OUT por producto). Las "por orden" se
+      // fabrican y no tocan stock.
+      const stockOutByProduct = new Map<string, number>();
+      for (const input of orderItemInputs) {
+        if (input.fulfillmentMode === "STOCK") {
+          stockOutByProduct.set(
+            input.productId,
+            (stockOutByProduct.get(input.productId) ?? 0) + input.quantity,
+          );
+        }
+      }
+
+      if (stockOutByProduct.size > 0) {
+        await tx.inventoryMovement.createMany({
+          data: Array.from(stockOutByProduct.entries()).map(([productId, quantity]) => ({
+            productId,
+            type: "OUT" as const,
+            change: -quantity,
+            note: `Salida por orden ${code}`,
+            createdById,
+          })),
+        });
+      }
     });
   } catch (error) {
     console.error("Failed to create order:", error);

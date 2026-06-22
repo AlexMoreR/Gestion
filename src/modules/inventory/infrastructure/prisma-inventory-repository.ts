@@ -9,9 +9,10 @@ import type {
 } from "../domain/entities";
 import { computeStockStatus, summarizeInventoryMetrics } from "../domain/calculations";
 
-// Filtro de productos que manejan inventario: tipo Stock y no combos.
+// Cualquier producto puede tener existencias (el modo "por stock / por orden" se
+// decide en la venta, no en el producto). Solo se excluyen los combos, que no
+// manejan inventario propio (su stock depende de los componentes).
 const TRACKABLE_PRODUCT_WHERE: Prisma.ProductWhereInput = {
-  fulfillmentMode: "STOCK",
   isBundle: false,
 };
 
@@ -28,7 +29,15 @@ export function createPrismaInventoryRepository(): InventoryRepository {
         prisma.product.findMany({
           where: TRACKABLE_PRODUCT_WHERE,
           orderBy: { name: "asc" },
-          select: { id: true, name: true, code: true, minStock: true },
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            minStock: true,
+            price: true,
+            thumbnailUrl: true,
+            category: { select: { name: true } },
+          },
         }),
         prisma.inventoryMovement.groupBy({
           by: ["productId"],
@@ -52,6 +61,9 @@ export function createPrismaInventoryRepository(): InventoryRepository {
           productId: product.id,
           name: product.name,
           code: product.code,
+          categoryName: product.category?.name ?? null,
+          price: Number(product.price),
+          thumbnailUrl: product.thumbnailUrl,
           minStock: product.minStock,
           stock,
           status: computeStockStatus(stock, product.minStock),

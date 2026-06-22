@@ -31,6 +31,7 @@ type InventoryDataGridProps<TData> = {
   searchPlaceholder?: string;
   emptyMessage: string;
   pageSize?: number;
+  toolbar?: React.ReactNode;
 };
 
 export function InventoryDataGrid<TData>({
@@ -41,6 +42,7 @@ export function InventoryDataGrid<TData>({
   searchPlaceholder = "Buscar",
   emptyMessage,
   pageSize = 10,
+  toolbar,
 }: InventoryDataGridProps<TData>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = React.useState("");
@@ -80,29 +82,32 @@ export function InventoryDataGrid<TData>({
           <h2 className="text-sm font-semibold tracking-tight text-foreground">{title}</h2>
           {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
         </div>
-        <div className="relative w-full lg:max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={globalFilter}
-            onChange={(event) => {
-              setGlobalFilter(event.target.value);
-              setPagination((current) => ({ ...current, pageIndex: 0 }));
-            }}
-            placeholder={searchPlaceholder}
-            className="h-9 pl-9 pr-9"
-          />
-          {globalFilter ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="absolute right-1 top-1/2 -translate-y-1/2"
-              onClick={() => setGlobalFilter("")}
-              aria-label="Limpiar busqueda"
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          ) : null}
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto lg:justify-end">
+          {toolbar}
+          <div className="relative w-full sm:max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={globalFilter}
+              onChange={(event) => {
+                setGlobalFilter(event.target.value);
+                setPagination((current) => ({ ...current, pageIndex: 0 }));
+              }}
+              placeholder={searchPlaceholder}
+              className="h-9 pl-9 pr-9"
+            />
+            {globalFilter ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="absolute right-1 top-1/2 -translate-y-1/2"
+                onClick={() => setGlobalFilter("")}
+                aria-label="Limpiar busqueda"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
 

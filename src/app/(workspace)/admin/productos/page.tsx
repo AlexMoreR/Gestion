@@ -3,8 +3,7 @@ import { auth } from "@/auth";
 import { ProductsWorkspace } from "@/components/admin/products-workspace";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
-import { prisma } from "@/lib/prisma";
-import { getPublicAssetUrl } from "@/lib/site";
+import { getProductWorkspaceData } from "@/lib/admin-product-workspace";
 import { getSystemCurrency } from "@/lib/system-settings";
 
 type PageProps = {
@@ -26,36 +25,10 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
-  const [products, categories, suppliers, systemCurrency] = await Promise.all([
-    prisma.product.findMany({
-      orderBy: { createdAt: "desc" },
-      include: {
-        category: true,
-        images: {
-          orderBy: { order: "asc" },
-        },
-        suppliers: {
-          orderBy: [{ isPreferred: "desc" }, { createdAt: "asc" }],
-          include: { supplier: true },
-        },
-        bundleComponents: {
-          orderBy: { sortOrder: "asc" },
-        },
-      },
-    }),
-    prisma.category.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
-    prisma.supplier.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+  const [{ products, categories, suppliers, bundleProducts }, systemCurrency] = await Promise.all([
+    getProductWorkspaceData(),
     getSystemCurrency(),
   ]);
-
-  const bundleProducts = products
-    .filter((product) => !product.isBundle)
-    .map((product) => ({
-      id: product.id,
-      name: product.name,
-      code: product.code,
-      price: Number(product.price),
-    }));
 
   return (
     <section className="w-full space-y-4 overflow-x-hidden">
@@ -70,43 +43,9 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
         currency={systemCurrency}
         okMessage={okMessage}
         bundleProducts={bundleProducts}
-        categories={categories.map((category) => ({
-          id: category.id,
-          name: category.name,
-        }))}
-        suppliers={suppliers.map((supplier) => ({
-          id: supplier.id,
-          name: supplier.name,
-        }))}
-        products={products.map((product) => ({
-          id: product.id,
-          code: product.code,
-          name: product.name,
-          description: product.description,
-          seoTitle: product.seoTitle,
-          seoDescription: product.seoDescription,
-          categoryId: product.categoryId,
-          categoryName: product.category?.name ?? null,
-          supplierId: product.suppliers[0]?.supplier.id ?? null,
-          supplierName: product.suppliers[0]?.supplier.name ?? null,
-          suppliers: product.suppliers.map((supplier) => ({
-            supplierId: supplier.supplierId,
-            supplierCost: supplier.supplierCost === null ? null : Number(supplier.supplierCost),
-          })),
-          isBundle: product.isBundle,
-          components: product.bundleComponents.map((component) => ({
-            childId: component.childId,
-            quantity: component.quantity,
-          })),
-          thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
-          imageUrls: product.images.map((image) => getPublicAssetUrl(image.url)),
-          baseCost: Number(product.baseCost),
-          retailMarginPct: Number(product.retailMarginPct),
-          wholesaleMarginPct: Number(product.wholesaleMarginPct),
-          minWholesaleQty: product.minWholesaleQty,
-          price: Number(product.price),
-          wholesalePrice: Number(product.wholesalePrice),
-        }))}
+        categories={categories}
+        suppliers={suppliers}
+        products={products}
       />
     </section>
   );

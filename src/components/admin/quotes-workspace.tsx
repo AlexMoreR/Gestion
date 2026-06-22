@@ -53,6 +53,8 @@ type QuoteRow = {
   hasSale: boolean;
 };
 
+type FulfillmentMode = "STOCK" | "MANUFACTURE";
+
 type QuoteLine = {
   uid: string;
   productId: string;
@@ -62,6 +64,7 @@ type QuoteLine = {
   description: string;
   additionalCost: number;
   discount: number;
+  fulfillmentMode: FulfillmentMode;
 };
 
 type AccountOption = {
@@ -106,6 +109,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
   const [draftDescription, setDraftDescription] = useState("");
   const [draftAdditionalCost, setDraftAdditionalCost] = useState("0");
   const [draftDiscount, setDraftDiscount] = useState("0");
+  const [draftFulfillmentMode, setDraftFulfillmentMode] = useState<FulfillmentMode>("STOCK");
   const [productFormError, setProductFormError] = useState("");
   const [isManualQuoteSubmit, setIsManualQuoteSubmit] = useState(false);
 
@@ -198,6 +202,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
     setDraftDescription("");
     setDraftAdditionalCost("0");
     setDraftDiscount("0");
+    setDraftFulfillmentMode("STOCK");
     setProductFormError("");
     setShowProductResults(false);
   };
@@ -275,6 +280,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
           description: draftDescription.trim() || `Combo: ${draftProduct.name}`,
           additionalCost: 0,
           discount: 0,
+          fulfillmentMode: draftFulfillmentMode,
         })),
       ]);
 
@@ -294,6 +300,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
         description: draftDescription.trim(),
         additionalCost,
         discount,
+        fulfillmentMode: draftFulfillmentMode,
       },
     ]);
 
@@ -406,6 +413,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
       supplierId: null,
       quantity: line.quantity,
       unitPrice: line.unitPrice,
+      fulfillmentMode: line.fulfillmentMode,
       color: line.color || null,
       additionalCost: line.additionalCost,
       discount: line.discount,
@@ -1117,6 +1125,18 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                   value={draftDiscount}
                   onChange={(event) => setDraftDiscount(event.target.value)}
                 />
+              </label>
+
+              <label className="space-y-1.5">
+                <span className="text-sm font-medium text-foreground">Tipo de venta</span>
+                <select
+                  className="field-select"
+                  value={draftFulfillmentMode}
+                  onChange={(event) => setDraftFulfillmentMode(event.target.value as FulfillmentMode)}
+                >
+                  <option value="STOCK">Por stock (de existencias)</option>
+                  <option value="MANUFACTURE">Por orden (se fabrica)</option>
+                </select>
               </label>
 
               <label className="space-y-1.5">

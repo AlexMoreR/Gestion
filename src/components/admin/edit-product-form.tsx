@@ -455,6 +455,16 @@ export function EditProductForm({
                 {/* Campos SEO ocultos temporalmente (se conserva el valor existente) */}
                 <input type="hidden" name="seoTitle" value={seoTitle} />
                 <input type="hidden" name="seoDescription" value={seoDescription} />
+                <ProductBundleField
+                  isBundle={isBundle}
+                  onToggle={setIsBundle}
+                  products={bundleProducts}
+                  rows={componentRows}
+                  currency={currency}
+                  onAdd={addComponentRow}
+                  onRemove={removeComponentRow}
+                  onChange={updateComponentRow}
+                />
               </div>
             </div>
 
@@ -596,17 +606,6 @@ export function EditProductForm({
                   </p>
                 )}
               </div>
-
-            <ProductBundleField
-              isBundle={isBundle}
-              onToggle={setIsBundle}
-              products={bundleProducts}
-              rows={componentRows}
-              currency={currency}
-              onAdd={addComponentRow}
-              onRemove={removeComponentRow}
-              onChange={updateComponentRow}
-            />
             </div>
 
             <div className="mt-1 flex flex-wrap items-center justify-between gap-3 border-t pt-5">

@@ -16,10 +16,11 @@ export type QuoteItemForExpansion = {
   quantity: number;
   unitPrice: number;
   lineTotal: number;
+  // El modo de cumplimiento se decide en la linea de venta, no en el producto.
+  fulfillmentMode: ProductFulfillmentMode;
   notes: string | null;
   product: {
     name: string;
-    fulfillmentMode: ProductFulfillmentMode;
     isBundle: boolean;
     bundleComponents: Array<{
       quantity: number;
@@ -28,7 +29,6 @@ export type QuoteItemForExpansion = {
         name: string;
         code: string | null;
         price: number;
-        fulfillmentMode: ProductFulfillmentMode;
       };
     }>;
   };
@@ -63,9 +63,6 @@ export function expandQuoteItemToOrderItems(item: QuoteItemForExpansion): OrderI
     );
 
     if (expanded.length > 0) {
-      const modeByChild = new Map(
-        item.product.bundleComponents.map((component) => [component.child.id, component.child.fulfillmentMode]),
-      );
       const baseMeta = parseQuoteItemMeta(item.notes);
       const comboLabel = `Combo: ${item.product.name}`;
 
@@ -77,7 +74,8 @@ export function expandQuoteItemToOrderItems(item: QuoteItemForExpansion): OrderI
         quantity: line.quantity,
         unitPrice: line.unitPrice,
         lineTotal: round2(line.unitPrice * line.quantity),
-        fulfillmentMode: modeByChild.get(line.productId) ?? item.product.fulfillmentMode,
+        // Todos los componentes heredan el modo elegido en la linea del combo.
+        fulfillmentMode: item.fulfillmentMode,
         notes: stringifyQuoteItemMeta({
           description: baseMeta.description ? `${baseMeta.description} - ${comboLabel}` : comboLabel,
           color: baseMeta.color,
@@ -93,7 +91,7 @@ export function expandQuoteItemToOrderItems(item: QuoteItemForExpansion): OrderI
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       lineTotal: item.lineTotal,
-      fulfillmentMode: item.product.fulfillmentMode,
+      fulfillmentMode: item.fulfillmentMode,
       notes: item.notes,
     },
   ];

@@ -30,6 +30,8 @@ type ProductOption = {
   thumbnailUrl?: string | null;
 };
 
+type FulfillmentMode = "STOCK" | "MANUFACTURE";
+
 type InitialLine = {
   productId: string;
   quantity: number;
@@ -38,6 +40,7 @@ type InitialLine = {
   color: string;
   additionalCost: number;
   discount: number;
+  fulfillmentMode: FulfillmentMode;
 };
 
 type EditQuoteData = {
@@ -69,6 +72,7 @@ type QuoteLine = {
   color: string;
   additionalCost: number;
   discount: number;
+  fulfillmentMode: FulfillmentMode;
 };
 
 type EditQuoteWorkspaceProps = {
@@ -102,6 +106,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
       color: item.color,
       additionalCost: item.additionalCost,
       discount: item.discount,
+      fulfillmentMode: item.fulfillmentMode,
     })),
   );
 
@@ -112,6 +117,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
   const [draftDescription, setDraftDescription] = useState("");
   const [draftAdditionalCost, setDraftAdditionalCost] = useState("0");
   const [draftDiscount, setDraftDiscount] = useState("0");
+  const [draftFulfillmentMode, setDraftFulfillmentMode] = useState<FulfillmentMode>("STOCK");
   const [productFormError, setProductFormError] = useState("");
 
   const clientOptions = useMemo(
@@ -210,6 +216,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
         color: draftColor.trim(),
         additionalCost,
         discount,
+        fulfillmentMode: draftFulfillmentMode,
       },
     ]);
     setDraftProductId("");
@@ -219,6 +226,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
     setDraftDescription("");
     setDraftAdditionalCost("0");
     setDraftDiscount("0");
+    setDraftFulfillmentMode("STOCK");
     setProductFormError("");
   };
 
@@ -228,6 +236,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
       supplierId: null,
       quantity: line.quantity,
       unitPrice: line.unitPrice,
+      fulfillmentMode: line.fulfillmentMode,
       color: line.color || null,
       additionalCost: line.additionalCost,
       discount: line.discount,
@@ -318,10 +327,23 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
               <label className="space-y-1.5 block"><span className="text-sm font-medium text-slate-700">Costo adicional</span><Input type="number" min={0} step="0.01" value={draftAdditionalCost} onChange={(e) => setDraftAdditionalCost(e.target.value)} /></label>
               <label className="space-y-1.5 block"><span className="text-sm font-medium text-slate-700">Descuento</span><Input type="number" min={0} step="0.01" value={draftDiscount} onChange={(e) => setDraftDiscount(e.target.value)} /></label>
             </div>
-            <label className="space-y-1.5 block">
-              <span className="text-sm font-medium text-slate-700">Descripcion</span>
-              <Input value={draftDescription} onChange={(e) => setDraftDescription(e.target.value)} />
-            </label>
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="space-y-1.5 block">
+                <span className="text-sm font-medium text-slate-700">Tipo de venta</span>
+                <select
+                  className="field-select"
+                  value={draftFulfillmentMode}
+                  onChange={(e) => setDraftFulfillmentMode(e.target.value as FulfillmentMode)}
+                >
+                  <option value="STOCK">Por stock (de existencias)</option>
+                  <option value="MANUFACTURE">Por orden (se fabrica)</option>
+                </select>
+              </label>
+              <label className="space-y-1.5 block">
+                <span className="text-sm font-medium text-slate-700">Descripcion</span>
+                <Input value={draftDescription} onChange={(e) => setDraftDescription(e.target.value)} />
+              </label>
+            </div>
             <Button type="button" size="lg" onClick={addDraftProduct}>
               <Plus className="h-4 w-4" />Agregar producto
             </Button>
@@ -335,6 +357,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
                     <th className="px-3 py-2 text-left">Descripcion</th>
                     <th className="px-3 py-2 text-left">Cant</th>
                     <th className="px-3 py-2 text-left">Color</th>
+                    <th className="px-3 py-2 text-left">Tipo</th>
                     <th className="px-3 py-2 text-left">Precio</th>
                     <th className="px-3 py-2 text-left">Total</th>
                     <th className="px-3 py-2 text-left">Accion</th>
@@ -347,6 +370,24 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
                       <td className="px-3 py-2 text-slate-700">{line.description || "-"}</td>
                       <td className="px-3 py-2 text-slate-700">{line.quantity}</td>
                       <td className="px-3 py-2 text-slate-700">{line.color || "-"}</td>
+                      <td className="px-3 py-2">
+                        <select
+                          className="field-select h-8 py-0 text-xs"
+                          value={line.fulfillmentMode}
+                          onChange={(e) =>
+                            setLines((current) =>
+                              current.map((item) =>
+                                item.uid === line.uid
+                                  ? { ...item, fulfillmentMode: e.target.value as FulfillmentMode }
+                                  : item,
+                              ),
+                            )
+                          }
+                        >
+                          <option value="STOCK">Por stock</option>
+                          <option value="MANUFACTURE">Por orden</option>
+                        </select>
+                      </td>
                       <td className="px-3 py-2 text-slate-700">{line.unitPrice.toLocaleString("es-CO", { style: "currency", currency })}</td>
                       <td className="px-3 py-2 font-semibold text-slate-900">{lineTotal.toLocaleString("es-CO", { style: "currency", currency })}</td>
                       <td className="px-3 py-2">

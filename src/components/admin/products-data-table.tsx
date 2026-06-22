@@ -315,7 +315,7 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
             {pagedProducts.map((product) => (
               <div
                 key={product.id}
-                className="group relative flex items-stretch overflow-hidden rounded-xl border border-[var(--line)] bg-white transition hover:shadow-md"
+                className="group relative flex items-stretch overflow-hidden border border-[var(--line)] bg-white transition hover:shadow-md"
               >
                 <form data-delete-product-id={product.id} action={adminDeleteProductAction}>
                   <input type="hidden" name="productId" value={product.id} />

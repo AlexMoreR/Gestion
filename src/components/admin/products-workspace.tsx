@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Package, Plus } from "lucide-react";
-import { EditProductForm } from "@/components/admin/edit-product-form";
 import { NEW_PRODUCT_DRAFT_KEY, NewProductForm } from "@/components/admin/new-product-form";
+import { ProductEditModal } from "@/components/admin/product-edit-modal";
 import { ProductImportExportControls } from "@/components/admin/product-import-export-controls";
 import { ProductsDataTable } from "@/components/admin/products-data-table";
 import type { BundleProductOption } from "@/components/admin/product-bundle-field";
+import type { ProductWorkspaceRow } from "@/lib/admin-product-workspace";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "../ui/button";
@@ -20,36 +21,6 @@ type CategoryOption = {
 type SupplierOption = {
   id: string;
   name: string;
-};
-
-type ProductWorkspaceRow = {
-  id: string;
-  code: string | null;
-  name: string;
-  description: string | null;
-  seoTitle: string | null;
-  seoDescription: string | null;
-  categoryId: string | null;
-  categoryName: string | null;
-  supplierId: string | null;
-  supplierName: string | null;
-  suppliers: Array<{
-    supplierId: string;
-    supplierCost: number | null;
-  }>;
-  isBundle: boolean;
-  components: Array<{
-    childId: string;
-    quantity: number;
-  }>;
-  thumbnailUrl: string;
-  imageUrls: string[];
-  baseCost: number;
-  retailMarginPct: number;
-  wholesaleMarginPct: number;
-  minWholesaleQty: number;
-  price: number;
-  wholesalePrice: number;
 };
 
 type ProductsWorkspaceProps = {
@@ -139,42 +110,14 @@ export function ProductsWorkspace({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={modal === "edit"} onOpenChange={(open) => (open ? null : closeModal())}>
-        <DialogContent className="max-h-[92vh] w-full max-w-2xl overflow-y-auto">
-          {activeProduct ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>{activeProduct.name}</DialogTitle>
-              </DialogHeader>
-              <EditProductForm
-                categories={categories}
-                suppliers={suppliers}
-                currency={currency}
-                bundleProducts={bundleProducts.filter((product) => product.id !== activeProduct.id)}
-                initialData={{
-                  id: activeProduct.id,
-                  code: activeProduct.code,
-                  name: activeProduct.name,
-                  description: activeProduct.description,
-                  seoTitle: activeProduct.seoTitle,
-                  seoDescription: activeProduct.seoDescription,
-                  baseCost: activeProduct.baseCost,
-                  price: activeProduct.price,
-                  wholesalePrice: activeProduct.wholesalePrice,
-                  retailMarginPct: activeProduct.retailMarginPct,
-                  wholesaleMarginPct: activeProduct.wholesaleMarginPct,
-                  minWholesaleQty: activeProduct.minWholesaleQty,
-                  categoryId: activeProduct.categoryId,
-                  isBundle: activeProduct.isBundle,
-                  suppliers: activeProduct.suppliers,
-                  components: activeProduct.components,
-                  imageUrls: activeProduct.imageUrls,
-                }}
-              />
-            </>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+      <ProductEditModal
+        product={activeProduct}
+        categories={categories}
+        suppliers={suppliers}
+        bundleProducts={bundleProducts}
+        currency={currency}
+        onClose={closeModal}
+      />
     </>
   );
 }

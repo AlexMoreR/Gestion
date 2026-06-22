@@ -526,6 +526,16 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                 {/* Campos SEO ocultos temporalmente (se mantienen para no perder el dato/borrador) */}
                 <input type="hidden" name="seoTitle" value={seoTitle} />
                 <input type="hidden" name="seoDescription" value={seoDescription} />
+                <ProductBundleField
+                  isBundle={isBundle}
+                  onToggle={setIsBundle}
+                  products={bundleProducts}
+                  rows={componentRows}
+                  currency={currency}
+                  onAdd={addComponentRow}
+                  onRemove={removeComponentRow}
+                  onChange={updateComponentRow}
+                />
               </div>
             </div>
 
@@ -676,17 +686,6 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                   </p>
                 )}
               </div>
-
-            <ProductBundleField
-              isBundle={isBundle}
-              onToggle={setIsBundle}
-              products={bundleProducts}
-              rows={componentRows}
-              currency={currency}
-              onAdd={addComponentRow}
-              onRemove={removeComponentRow}
-              onChange={updateComponentRow}
-            />
             </div>
 
             <div className="mt-1 space-y-2 border-t pt-5">
