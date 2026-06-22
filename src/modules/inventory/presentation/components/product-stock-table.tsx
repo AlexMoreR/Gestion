@@ -185,13 +185,7 @@ export function ProductStockTable({ data, currency, onOpenProduct, onMove, onEdi
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-        <div className="space-y-1">
-          <h2 className="text-sm font-semibold tracking-tight text-foreground">Stock por producto</h2>
-          <p className="text-xs text-muted-foreground">
-            Existencias actuales de los productos tipo Stock. Los combos no manejan inventario.
-          </p>
-        </div>
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-end">
         <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto lg:justify-end">
           <Button
             type="button"
