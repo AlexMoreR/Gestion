@@ -12,8 +12,10 @@ import {
   getStoredRoleModuleAccessMap,
   setStoredRoleModuleAccessMap,
 } from "@/lib/admin-module-access";
+import { randomUUID } from "node:crypto";
 import { createEmailVerificationToken } from "@/lib/email-verification";
-import { sendAccountCreatedEmail, sendEmailVerificationEmail } from "@/lib/mailer";
+import { createInvitationToken, verifyInvitationToken } from "@/lib/invitation";
+import { sendEmailVerificationEmail, sendInvitationEmail } from "@/lib/mailer";
 import { prisma } from "@/lib/prisma";
 import {
   ActionState,
@@ -30,6 +32,23 @@ const roleRedirect: Record<Role, string> = {
 };
 
 const defaultState: ActionState = { ok: false, message: "" };
+
+const adminInviteUserSchema = z.object({
+  name: z.string().trim().min(2, "Nombre invalido").max(120, "Nombre demasiado largo"),
+  email: z.string().trim().email("Correo invalido"),
+  role: z.nativeEnum(Role),
+});
+
+const activateAccountSchema = z
+  .object({
+    token: z.string().trim().min(1, "Token invalido"),
+    password: z.string().min(8, "Minimo 8 caracteres").max(100, "Contrasena demasiado larga"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Las contrasenas no coinciden",
+    path: ["confirmPassword"],
+  });
 
 async function requireAdminSession(): Promise<void> {
   const session = await auth();
@@ -261,10 +280,9 @@ export async function logoutAction(): Promise<void> {
 export async function adminCreateUserAction(formData: FormData): Promise<void> {
   await requireAdminSession();
 
-  const parsed = registerSchema.safeParse({
+  const parsed = adminInviteUserSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
-    password: formData.get("password"),
     role: formData.get("role"),
   });
 
@@ -272,34 +290,97 @@ export async function adminCreateUserAction(formData: FormData): Promise<void> {
     redirect("/admin/configuracion/usuarios?error=Datos+invalidos");
   }
 
-  const { name, email, password, role } = parsed.data;
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const { name, email, role } = parsed.data;
 
+  const baseUrl = (
+    process.env.AUTH_URL ||
+    process.env.NEXTAUTH_URL ||
+    process.env.APP_URL ||
+    ""
+  ).replace(/\/+$/, "");
+  if (!baseUrl) {
+    redirect("/admin/configuracion/usuarios?error=Falta+configurar+AUTH_URL+para+enviar+la+invitacion");
+  }
+
+  const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     redirect("/admin/configuracion/usuarios?error=El+correo+ya+existe");
   }
 
-  const hashedPassword = await bcrypt.hash(password, 12);
+  // Contrasena temporal inutilizable: el usuario define la suya al activar por el enlace.
+  const placeholderPassword = await bcrypt.hash(randomUUID(), 12);
 
-  await prisma.user.create({
+  const createdUser = await prisma.user.create({
     data: {
       name,
       email,
-      password: hashedPassword,
+      password: placeholderPassword,
       role,
+      emailVerified: null,
     },
+    select: { id: true },
   });
 
+  let inviteSent = true;
   try {
-    await sendAccountCreatedEmail({ to: email, name, role });
+    const token = createInvitationToken(createdUser.id, email);
+    const invitationUrl = `${baseUrl}/activar?token=${encodeURIComponent(token)}`;
+    await sendInvitationEmail({ to: email, name, invitationUrl });
   } catch (error) {
-    console.error("No se pudo enviar el correo de bienvenida:", error);
+    console.error("No se pudo enviar la invitacion:", error);
+    inviteSent = false;
   }
 
   revalidatePath("/admin/configuracion");
   revalidatePath("/admin/configuracion/usuarios");
   revalidatePath("/admin/configuracion/permisos");
-  redirect("/admin/configuracion/usuarios?ok=Usuario+creado");
+  redirect(
+    inviteSent
+      ? "/admin/configuracion/usuarios?ok=Invitacion+enviada"
+      : "/admin/configuracion/usuarios?error=Usuario+creado+pero+no+se+pudo+enviar+la+invitacion+(revisa+SMTP)",
+  );
+}
+
+export async function activateAccountAction(formData: FormData): Promise<void> {
+  const parsed = activateAccountSchema.safeParse({
+    token: formData.get("token"),
+    password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
+  });
+
+  if (!parsed.success) {
+    const token = typeof formData.get("token") === "string" ? (formData.get("token") as string) : "";
+    const message = parsed.error.issues[0]?.message ?? "Datos invalidos";
+    redirect(`/activar?token=${encodeURIComponent(token)}&error=${encodeURIComponent(message)}`);
+  }
+
+  const { token, password } = parsed.data;
+  const payload = verifyInvitationToken(token);
+  if (!payload) {
+    redirect("/login?error=El+enlace+de+invitacion+es+invalido+o+expiro");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: { id: true, email: true, emailVerified: true },
+  });
+
+  if (!user || user.email !== payload.email) {
+    redirect("/login?error=No+se+pudo+activar+la+cuenta");
+  }
+
+  // El enlace es de un solo uso: si la cuenta ya fue activada, no se permite de nuevo.
+  if (user.emailVerified) {
+    redirect("/login?error=La+invitacion+ya+fue+usada");
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 12);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { password: hashedPassword, emailVerified: new Date() },
+  });
+
+  redirect("/login?ok=Cuenta+activada.+Ya+puedes+iniciar+sesion");
 }
 
 const updateRoleSchema = z.object({

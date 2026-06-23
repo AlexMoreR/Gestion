@@ -3,6 +3,7 @@
 import {
   BadgeDollarSign,
   ClipboardList,
+  Contact,
   FileText,
   Landmark,
   LayoutDashboard,
@@ -49,6 +50,7 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
   const isAdminConfigRoute = pathname.startsWith("/admin/configuracion");
   const isAdminCategoriesRoute = pathname.startsWith("/admin/categorias");
   const isAdminProductsRoute = pathname.startsWith("/admin/productos");
+  const isAdminClientsRoute = pathname.startsWith("/admin/clientes");
   const isAdminQuotesRoute = pathname.startsWith("/admin/cotizaciones");
   const isAdminSalesRoute = pathname.startsWith("/admin/ventas");
   const isAdminBalancesRoute = pathname.startsWith("/admin/balances");
@@ -68,6 +70,7 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
           !isAdminConfigRoute &&
           !isAdminCategoriesRoute &&
           !isAdminProductsRoute &&
+        !isAdminClientsRoute &&
         !isAdminQuotesRoute &&
         !isAdminSalesRoute &&
         !isAdminBalancesRoute &&
@@ -134,6 +137,16 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
         icon: Warehouse,
         isActive: pathname.startsWith("/admin/inventario"),
         items: [{ title: "Stock", url: "/admin/inventario" }],
+      });
+    }
+
+    if (adminModuleAccess.clients) {
+      navMain.push({
+        title: "Clientes",
+        url: "/admin/clientes",
+        icon: Contact,
+        isActive: isAdminClientsRoute,
+        items: [{ title: "Directorio", url: "/admin/clientes" }],
       });
     }
 

@@ -12,6 +12,12 @@ type VerificationEmailParams = {
   verificationUrl: string;
 };
 
+type InvitationEmailParams = {
+  to: string;
+  name: string;
+  invitationUrl: string;
+};
+
 function getSmtpConfig() {
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT ?? "587");
@@ -52,6 +58,34 @@ export async function sendAccountCreatedEmail(params: AccountEmailParams): Promi
     subject: "Tu cuenta ha sido creada",
     text: `Hola ${displayName}, tu cuenta fue creada con rol ${params.role}. Ya puedes iniciar sesion en la plataforma.`,
     html: `<p>Hola <strong>${displayName}</strong>,</p><p>Tu cuenta fue creada con rol <strong>${params.role}</strong>.</p><p>Ya puedes iniciar sesion en la plataforma.</p>`,
+  });
+}
+
+export async function sendInvitationEmail(params: InvitationEmailParams): Promise<void> {
+  const config = getSmtpConfig();
+  if (!config) {
+    throw new Error("SMTP no configurado");
+  }
+
+  const nodemailer = await import("nodemailer");
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: {
+      user: config.user,
+      pass: config.pass,
+    },
+  });
+
+  const displayName = params.name?.trim() || "usuario";
+
+  await transporter.sendMail({
+    from: config.from,
+    to: params.to,
+    subject: "Invitacion para activar tu cuenta",
+    text: `Hola ${displayName}, fuiste invitado a la plataforma. Crea tu contrasena para activar tu cuenta: ${params.invitationUrl} (el enlace expira en 7 dias).`,
+    html: `<p>Hola <strong>${displayName}</strong>,</p><p>Fuiste invitado a la plataforma. Crea tu contrasena para activar tu cuenta:</p><p><a href="${params.invitationUrl}">${params.invitationUrl}</a></p><p>El enlace expira en 7 dias.</p>`,
   });
 }
 

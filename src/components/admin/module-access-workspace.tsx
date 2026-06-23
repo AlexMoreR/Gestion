@@ -63,6 +63,7 @@ const moduleIconMap = {
   categories: Tags,
   suppliers: Truck,
   inventory: Warehouse,
+  clients: UserRound,
   quotes: Blocks,
   sales: BadgeDollarSign,
   balances: Landmark,

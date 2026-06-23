@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { Users } from "lucide-react";
 import { auth } from "@/auth";
+import { ConfigTabs } from "@/components/admin/config-tabs";
 import { CreateUserModal } from "@/components/admin/create-user-modal";
 import { UsersDataTable } from "@/components/admin/users-data-table";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,7 +27,9 @@ export default async function AdminConfiguracionUsuariosPage({ searchParams }: P
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
+  // Solo el equipo del sistema. Los clientes (rol CLIENTE) se gestionan en el modulo Clientes.
   const users = await prisma.user.findMany({
+    where: { role: { in: ["ADMIN", "EMPLEADO"] } },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
@@ -47,18 +49,7 @@ export default async function AdminConfiguracionUsuariosPage({ searchParams }: P
         errorTitle="Error de usuarios"
       />
 
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="inline-flex items-center gap-1 text-lg font-semibold tracking-tight text-slate-900 md:text-xl">
-            <Users className="h-4 w-4 text-slate-500" />
-            <span>Usuarios</span>
-          </h1>
-          <p className="mt-1 text-xs text-slate-600">
-            Crea cuentas y administra roles de todos los usuarios.
-          </p>
-        </div>
-        <CreateUserModal />
-      </div>
+      <ConfigTabs action={<CreateUserModal />} />
 
       <Card className="space-y-4">
         <CardContent>

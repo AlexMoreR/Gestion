@@ -65,10 +65,9 @@ export function CreateUserModal() {
                 <span className="text-sm font-medium text-slate-700">Correo</span>
                 <Input type="email" name="email" placeholder="correo@empresa.com" required />
               </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-medium text-slate-700">Contrasena</span>
-                <Input type="password" name="password" placeholder="Minimo 8 caracteres" required />
-              </label>
+              <p className="text-xs text-slate-500">
+                Se enviara un correo de invitacion para que la persona cree su propia contrasena.
+              </p>
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium text-slate-700">Rol</span>
                 <select
@@ -85,7 +84,7 @@ export function CreateUserModal() {
                 type="submit"
                 className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--primary-strong)]"
               >
-                Guardar usuario
+                Enviar invitacion
               </Button>
             </form>
           </div>

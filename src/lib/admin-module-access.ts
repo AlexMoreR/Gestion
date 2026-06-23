@@ -54,6 +54,13 @@ export const adminModuleDefinitions = [
     group: "Catalogo",
   },
   {
+    key: "clients",
+    label: "Clientes",
+    description: "Directorio de clientes (se crean al cotizar).",
+    path: "/admin/clientes",
+    group: "Comercial",
+  },
+  {
     key: "quotes",
     label: "Cotizaciones",
     description: "Crea, edita y consulta cotizaciones.",

@@ -7,6 +7,7 @@ import {
   ChevronsUpDown,
   LogOut,
   Settings,
+  Store,
   User,
 } from "lucide-react";
 import {
@@ -98,12 +99,20 @@ export function NavUser({
                 </Link>
               </DropdownMenuItem>
               {user.role === "ADMIN" && canAccessConfig ? (
-                <DropdownMenuItem asChild>
-                  <Link href="/admin/configuracion" className="flex items-center gap-2">
-                    <Settings className="h-4 w-4" />
-                    Configuracion
-                  </Link>
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/configuracion/negocio" className="flex items-center gap-2">
+                      <Store className="h-4 w-4" />
+                      Mi negocio
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/configuracion" className="flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      Configuracion
+                    </Link>
+                  </DropdownMenuItem>
+                </>
               ) : null}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
