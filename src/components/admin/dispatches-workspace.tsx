@@ -5,22 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { OperationsTabs } from "@/components/admin/operations-tabs";
+import { DispatchReviewButton, type DispatchReviewData } from "@/components/admin/dispatch-review-button";
 import { getDispatchStatusBadgeClassName, getDispatchStatusLabel } from "@/lib/orders";
+import type { SupportedCurrencyCode } from "@/lib/currency";
 
-type DispatchRow = {
-  id: string;
-  code: string;
-  orderCode: string;
+type DispatchRow = DispatchReviewData & {
   orderId: string;
-  clientName: string;
-  carrierName: string | null;
-  trackingNumber: string | null;
-  status: "PENDING" | "PACKING" | "SHIPPED" | "DELIVERED" | "RETURNED" | "CANCELLED";
-  createdAt: string;
 };
 
 type DispatchesWorkspaceProps = {
   dispatches: DispatchRow[];
+  currency: SupportedCurrencyCode;
   stats: {
     dispatchesCount: number;
     pendingCount: number;
@@ -85,7 +80,7 @@ function DispatchActions({ dispatch }: { dispatch: DispatchRow }) {
   );
 }
 
-export function DispatchesWorkspace({ dispatches, stats }: DispatchesWorkspaceProps) {
+export function DispatchesWorkspace({ dispatches, currency, stats }: DispatchesWorkspaceProps) {
   return (
     <section className="space-y-4">
       <OperationsTabs />
@@ -160,7 +155,10 @@ export function DispatchesWorkspace({ dispatches, stats }: DispatchesWorkspacePr
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{dispatch.createdAt}</TableCell>
                   <TableCell>
-                    <DispatchActions dispatch={dispatch} />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <DispatchReviewButton dispatch={dispatch} currency={currency} />
+                      <DispatchActions dispatch={dispatch} />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

@@ -4,6 +4,8 @@ import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { DispatchesWorkspace } from "@/components/admin/dispatches-workspace";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
+import { getPublicAssetUrl } from "@/lib/site";
+import { getSystemCurrency } from "@/lib/system-settings";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -24,27 +26,30 @@ export default async function AdminDespachosPage({ searchParams }: PageProps) {
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
-  const dispatches = await prisma.dispatch.findMany({
-    orderBy: { createdAt: "desc" },
-    include: {
-      order: {
-        include: {
-          client: true,
+  const [dispatches, currency] = await Promise.all([
+    prisma.dispatch.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        order: {
+          include: {
+            client: true,
+          },
         },
-      },
-      createdBy: true,
-      items: {
-        include: {
-          orderItem: {
-            include: {
-              product: true,
+        createdBy: true,
+        items: {
+          include: {
+            orderItem: {
+              include: {
+                product: true,
+              },
             },
           },
         },
       },
-    },
-    take: 200,
-  });
+      take: 200,
+    }),
+    getSystemCurrency(),
+  ]);
 
   const stats = dispatches.reduce(
     (acc, dispatch) => {
@@ -79,6 +84,7 @@ export default async function AdminDespachosPage({ searchParams }: PageProps) {
 
       <DispatchesWorkspace
         stats={stats}
+        currency={currency}
         dispatches={dispatches.map((dispatch) => ({
           id: dispatch.id,
           code: dispatch.code,
@@ -89,6 +95,21 @@ export default async function AdminDespachosPage({ searchParams }: PageProps) {
           trackingNumber: dispatch.trackingNumber,
           status: dispatch.status,
           createdAt: dispatch.createdAt.toLocaleDateString("es-CO"),
+          deliveryType: dispatch.deliveryType,
+          shippingCost: dispatch.shippingCost === null ? null : Number(dispatch.shippingCost),
+          shippingAddress: dispatch.shippingAddress,
+          notes: dispatch.notes,
+          packedAt: dispatch.packedAt?.toLocaleDateString("es-CO") ?? null,
+          shippedAt: dispatch.shippedAt?.toLocaleDateString("es-CO") ?? null,
+          deliveredAt: dispatch.deliveredAt?.toLocaleDateString("es-CO") ?? null,
+          shippingReceiptUrl: dispatch.shippingReceiptUrl ? getPublicAssetUrl(dispatch.shippingReceiptUrl) : null,
+          items: dispatch.items.map((item) => ({
+            id: item.id,
+            name: item.orderItem.product.name,
+            code: item.orderItem.product.code,
+            quantity: item.quantity,
+            shippingCost: Number(item.shippingCost),
+          })),
         }))}
       />
     </section>

@@ -533,6 +533,8 @@ model DispatchItem {
   dispatchId  String
   orderItemId String
   quantity    Int
+  // Porcion del costo de envio asignada a este producto (reparte el total del despacho).
+  shippingCost Decimal  @default(0) @db.Decimal(12, 2)
   notes       String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

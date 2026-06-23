@@ -39,7 +39,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     notFound();
   }
 
-  const [items, payments, charges, currency] = await Promise.all([
+  const [items, payments, charges, shippingCharges, currency] = await Promise.all([
     prisma.orderItem.findMany({
       where: { confirmedSupplierId: supplier.id },
       orderBy: { confirmedAt: "desc" },
@@ -57,7 +57,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     }),
     prisma.supplierLedgerEntry.findMany({
       where: { supplierId: supplier.id, type: "PAYMENT" },
-      select: { orderItemId: true, orderId: true, settlesEntryId: true, amount: true, paymentDate: true, createdAt: true, receiptUrl: true },
+      select: { orderItemId: true, orderId: true, dispatchId: true, settlesEntryId: true, amount: true, paymentDate: true, createdAt: true, receiptUrl: true },
     }),
     // Cargos que NO provienen de una orden: compras de inventario y cargos manuales.
     prisma.supplierLedgerEntry.findMany({
@@ -75,6 +75,36 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
           select: {
             change: true,
             product: { select: { name: true, code: true, thumbnailUrl: true } },
+          },
+        },
+      },
+    }),
+    // Cargos de envio (atados a un despacho): se le pagan a la transportadora.
+    // Se trae el detalle de productos del despacho para repartir el costo por item.
+    prisma.supplierLedgerEntry.findMany({
+      where: { supplierId: supplier.id, type: "CHARGE", dispatchId: { not: null } },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        amount: true,
+        paymentDate: true,
+        createdAt: true,
+        orderId: true,
+        dispatchId: true,
+        order: { select: { code: true } },
+        dispatch: {
+          select: {
+            code: true,
+            items: {
+              select: {
+                id: true,
+                quantity: true,
+                shippingCost: true,
+                orderItem: {
+                  select: { product: { select: { name: true, code: true, thumbnailUrl: true } } },
+                },
+              },
+            },
           },
         },
       },
@@ -205,7 +235,89 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     .filter((payment) => !payment.orderId && !payment.orderItemId && !payment.settlesEntryId)
     .reduce((sum, payment) => sum + Number(payment.amount), 0);
 
-  const allRows = [...orderRows, ...chargeRows];
+  // Cargos de envio (despacho) al proveedor. Pagado si lo cubren: el pago directo
+  // del despacho (dispatchId), un abono que lo salde (settlesEntryId), o abonos
+  // generales a la misma orden (sin item/despacho/cargo puntual).
+  const shippingChargeRows: BalanceRow[] = shippingCharges.flatMap((charge): BalanceRow[] => {
+    const amount = Number(charge.amount);
+    const matched = payments.filter(
+      (payment) =>
+        payment.settlesEntryId === charge.id ||
+        (payment.dispatchId != null && payment.dispatchId === charge.dispatchId) ||
+        (charge.orderId != null &&
+          payment.orderId === charge.orderId &&
+          payment.orderItemId == null &&
+          payment.dispatchId == null &&
+          payment.settlesEntryId == null),
+    );
+    const settled = matched.reduce((sum, payment) => sum + Number(payment.amount), 0);
+    const isPaid = settled >= amount - 0.0001;
+    const payDate = matched.reduce<Date | null>((latest, payment) => {
+      const date = payment.paymentDate ?? payment.createdAt;
+      return !latest || date > latest ? date : latest;
+    }, null);
+    const chargeDate = charge.paymentDate ?? charge.createdAt;
+    const bucketMonth = isPaid && payDate ? monthKeyOf(payDate) : currentMonthKey;
+    const dateStr = (isPaid && payDate ? payDate : chargeDate).toLocaleDateString("es-CO");
+    // Cada producto enviado va bajo la misma orden.
+    const orderCode = charge.order?.code ?? charge.dispatch?.code ?? "Envío";
+
+    const items = charge.dispatch?.items ?? [];
+    const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
+    // Si ya se editó el reparto por producto, se usan esos valores; si no, se
+    // reparte proporcional a la cantidad como punto de partida.
+    const storedSum = items.reduce((sum, item) => sum + Number(item.shippingCost), 0);
+    const useStored = storedSum > 0;
+
+    // Sin items: una sola fila de envío.
+    if (items.length === 0 || totalQty === 0) {
+      return [
+        {
+          id: charge.id,
+          orderCode,
+          productName: "Envío",
+          productCode: charge.dispatch?.code ?? null,
+          productImage: null,
+          quantity: 1,
+          amount,
+          isPaid,
+          isFinished: true,
+          bucketMonth,
+          receiptUrl: null,
+          date: dateStr,
+        },
+      ];
+    }
+
+    // Reparte el costo del envío entre los productos (proporcional a la cantidad).
+    // El residuo de redondeo se asigna al último para que la suma cuadre con el total.
+    let assigned = 0;
+    return items.map((item, index) => {
+      const share = useStored
+        ? Number(item.shippingCost)
+        : index === items.length - 1
+          ? amount - assigned
+          : Math.round((amount * item.quantity) / totalQty);
+      assigned += share;
+      const product = item.orderItem.product;
+      return {
+        id: `${charge.id}-${item.id}`,
+        orderCode,
+        productName: product.name,
+        productCode: product.code ? `${product.code} x ${item.quantity}` : `x ${item.quantity}`,
+        productImage: product.thumbnailUrl ? getPublicAssetUrl(product.thumbnailUrl) : null,
+        quantity: item.quantity,
+        amount: share,
+        isPaid,
+        isFinished: true,
+        bucketMonth,
+        receiptUrl: null,
+        date: dateStr,
+      };
+    });
+  });
+
+  const allRows = [...orderRows, ...chargeRows, ...shippingChargeRows];
 
   const monthSet = new Set<string>([currentMonthKey]);
   for (const row of allRows) monthSet.add(row.bucketMonth);

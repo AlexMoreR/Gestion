@@ -566,3 +566,55 @@ export async function adminUpdateDispatchStatusAction(formData: FormData): Promi
   redirect(`${returnTo}?ok=Despacho+actualizado`);
 }
 
+// Reparte el costo de envio del despacho entre sus productos. El total no cambia
+// (es lo que se le paga a la transportadora); solo se distribuye por item.
+export async function adminUpdateDispatchShippingCostsAction(input: {
+  dispatchId: string;
+  items: { id: string; shippingCost: number }[];
+}): Promise<{ ok: boolean; error?: string }> {
+  await requireAdminSession();
+
+  const dispatchId = input?.dispatchId?.trim();
+  if (!dispatchId) {
+    return { ok: false, error: "Despacho invalido" };
+  }
+
+  const dispatch = await prisma.dispatch.findUnique({
+    where: { id: dispatchId },
+    select: { id: true, shippingCost: true, items: { select: { id: true } } },
+  });
+  if (!dispatch) {
+    return { ok: false, error: "Despacho no encontrado" };
+  }
+
+  const itemIds = new Set(dispatch.items.map((item) => item.id));
+  const updates = (input.items ?? []).filter((item) => itemIds.has(item.id));
+  for (const update of updates) {
+    if (!Number.isFinite(update.shippingCost) || update.shippingCost < 0) {
+      return { ok: false, error: "Monto invalido" };
+    }
+  }
+
+  const total = Math.round(Number(dispatch.shippingCost ?? 0));
+  const sum = updates.reduce((acc, update) => acc + Math.round(update.shippingCost), 0);
+  if (total > 0 && Math.abs(sum - total) > 1) {
+    return {
+      ok: false,
+      error: `La suma ($${sum.toLocaleString("es-CO")}) debe ser igual al total ($${total.toLocaleString("es-CO")}).`,
+    };
+  }
+
+  await prisma.$transaction(
+    updates.map((update) =>
+      prisma.dispatchItem.update({
+        where: { id: update.id },
+        data: { shippingCost: Math.round(update.shippingCost) },
+      }),
+    ),
+  );
+
+  revalidatePath("/admin/despachos");
+  revalidatePath("/admin/proveedores");
+  return { ok: true };
+}
+
