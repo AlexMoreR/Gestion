@@ -25,6 +25,9 @@ export type CreateExpenseInput = {
   amount: number;
   description?: string | null;
   reference?: string | null;
+  receiptUrl?: string | null;
+  receiptName?: string | null;
+  employeeId?: string | null;
   expenseDate: Date;
   createdById: string;
 };

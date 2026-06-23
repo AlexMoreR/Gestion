@@ -1,5 +1,8 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -67,6 +70,61 @@ function getReturnTo(formData: FormData, fallback = "/admin/gastos"): string {
 function getStringField(formData: FormData, key: string): string {
   const value = formData.get(key);
   return typeof value === "string" ? value : "";
+}
+
+const RECEIPT_MAX_BYTES = 12 * 1024 * 1024;
+const ALLOWED_RECEIPT_MIME = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+const ALLOWED_RECEIPT_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".pdf"]);
+
+// Guarda el comprobante del gasto en public/uploads/expenses y devuelve su ruta publica.
+async function saveExpenseReceipt(file: File): Promise<{ url: string; name: string }> {
+  if (file.size > RECEIPT_MAX_BYTES) {
+    throw new Error("El comprobante supera el limite de 12 MB.");
+  }
+  const fromName = path.extname(file.name).toLowerCase();
+  const extension =
+    fromName ||
+    (file.type === "application/pdf"
+      ? ".pdf"
+      : file.type === "image/png"
+        ? ".png"
+        : file.type === "image/webp"
+          ? ".webp"
+          : ".jpg");
+  if (!ALLOWED_RECEIPT_MIME.has(file.type) && !ALLOWED_RECEIPT_EXT.has(extension)) {
+    throw new Error("El comprobante no es compatible. Solo JPG, PNG, WEBP o PDF.");
+  }
+
+  const uploadDir = path.join(process.cwd(), "public", "uploads", "expenses");
+  await mkdir(uploadDir, { recursive: true });
+  const fileName = `${Date.now()}-${randomUUID()}${extension}`;
+  await writeFile(path.join(uploadDir, fileName), Buffer.from(await file.arrayBuffer()));
+
+  return { url: `/uploads/expenses/${fileName}`, name: file.name || fileName };
+}
+
+// Lee el archivo de comprobante del formulario (vacio = no se subio nada).
+function getReceiptFile(formData: FormData): File | null {
+  const file = formData.get("receipt");
+  return file instanceof File && file.size > 0 ? file : null;
+}
+
+// El comprobante es obligatorio salvo en cuentas de efectivo (Caja).
+async function accountRequiresReceipt(accountId: string): Promise<boolean> {
+  const account = await prisma.account.findUnique({
+    where: { id: accountId },
+    select: { type: true },
+  });
+  return account ? account.type !== "CASH" : false;
+}
+
+// Un gasto de Nomina exige indicar a que empleado corresponde.
+async function categoryIsPayroll(categoryId: string): Promise<boolean> {
+  const category = await prisma.expenseCategory.findUnique({
+    where: { id: categoryId },
+    select: { name: true },
+  });
+  return category ? /n[oó]mina/i.test(category.name) : false;
 }
 
 export async function adminCreateExpenseCategoryAction(formData: FormData): Promise<void> {
@@ -166,11 +224,30 @@ export async function adminCreateExpenseAction(formData: FormData): Promise<void
     amount: getStringField(formData, "amount"),
     description: getStringField(formData, "description") || undefined,
     reference: getStringField(formData, "reference") || undefined,
+    employeeId: getStringField(formData, "employeeId") || undefined,
     expenseDate: getStringField(formData, "expenseDate"),
   });
 
   if (!parsed.success) {
     redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos invalidos");
+  }
+
+  if (!parsed.data.employeeId && (await categoryIsPayroll(parsed.data.categoryId))) {
+    redirectWithError(returnTo, "Selecciona el empleado para un gasto de nomina.");
+  }
+
+  let receipt: { url: string; name: string } | null = null;
+  const receiptFile = getReceiptFile(formData);
+  if (receiptFile) {
+    try {
+      receipt = await saveExpenseReceipt(receiptFile);
+    } catch (error) {
+      redirectWithError(returnTo, error instanceof Error ? error.message : "Comprobante invalido");
+    }
+  }
+
+  if (!receipt && (await accountRequiresReceipt(parsed.data.accountId))) {
+    redirectWithError(returnTo, "El comprobante es obligatorio salvo en cuentas de efectivo.");
   }
 
   try {
@@ -180,6 +257,9 @@ export async function adminCreateExpenseAction(formData: FormData): Promise<void
       amount: parsed.data.amount,
       description: parsed.data.description ?? null,
       reference: parsed.data.reference ?? null,
+      receiptUrl: receipt?.url ?? null,
+      receiptName: receipt?.name ?? null,
+      employeeId: parsed.data.employeeId ?? null,
       expenseDate: parsed.data.expenseDate,
       createdById,
     });
@@ -206,11 +286,38 @@ export async function adminUpdateExpenseAction(formData: FormData): Promise<void
     amount: getStringField(formData, "amount"),
     description: getStringField(formData, "description") || undefined,
     reference: getStringField(formData, "reference") || undefined,
+    employeeId: getStringField(formData, "employeeId") || undefined,
     expenseDate: getStringField(formData, "expenseDate"),
   });
 
   if (!parsed.success) {
     redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos invalidos");
+  }
+
+  if (!parsed.data.employeeId && (await categoryIsPayroll(parsed.data.categoryId))) {
+    redirectWithError(returnTo, "Selecciona el empleado para un gasto de nomina.");
+  }
+
+  // Comprobante: subir uno nuevo lo reemplaza; "removeReceipt" lo quita; si no, se conserva.
+  let receiptUpdate: { receiptUrl?: string | null; receiptName?: string | null } = {};
+  const receiptFile = getReceiptFile(formData);
+  if (receiptFile) {
+    try {
+      const saved = await saveExpenseReceipt(receiptFile);
+      receiptUpdate = { receiptUrl: saved.url, receiptName: saved.name };
+    } catch (error) {
+      redirectWithError(returnTo, error instanceof Error ? error.message : "Comprobante invalido");
+    }
+  } else if (getStringField(formData, "removeReceipt") === "true") {
+    receiptUpdate = { receiptUrl: null, receiptName: null };
+  }
+
+  // Comprobante resultante tras aplicar el cambio (nuevo, quitado o el existente).
+  const existing = await repository.getExpense(parsed.data.expenseId);
+  const finalReceiptUrl =
+    receiptUpdate.receiptUrl !== undefined ? receiptUpdate.receiptUrl : existing?.receiptUrl ?? null;
+  if (!finalReceiptUrl && (await accountRequiresReceipt(parsed.data.accountId))) {
+    redirectWithError(returnTo, "El comprobante es obligatorio salvo en cuentas de efectivo.");
   }
 
   await updateExpenseUseCase(repository, parsed.data.expenseId, {
@@ -219,7 +326,9 @@ export async function adminUpdateExpenseAction(formData: FormData): Promise<void
     amount: parsed.data.amount,
     description: parsed.data.description ?? null,
     reference: parsed.data.reference ?? null,
+    employeeId: parsed.data.employeeId ?? null,
     expenseDate: parsed.data.expenseDate,
+    ...receiptUpdate,
   });
 
   revalidatePath("/admin/gastos");

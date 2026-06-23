@@ -187,12 +187,11 @@ export function BalancesWorkspace({
             </Tabs>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard title="Ventas totales" value={formatMoney(metrics.salesTotal, currency)} helper={`${metrics.salesCount} ventas analizadas`} accent="info" />
           <MetricCard title="Costos totales" value={formatMoney(metrics.supplierCosts, currency)} helper="Costo proveedores" accent="danger" />
           <MetricCard title="Costos de envio" value={formatMoney(metrics.shippingCosts, currency)} helper="Fletes y transportes" accent="danger" />
           <MetricCard title="Ganancia neta" value={formatMoney(metrics.netProfit, currency)} helper={`${metrics.marginPercentage.toFixed(2)}% de margen`} accent={metrics.netProfit >= 0 ? "success" : "danger"} />
-          <MetricCard title="Ventas rentables" value={`${metrics.profitableSalesCount}`} helper="Ventas positivas" accent="success" />
         </div>
 
         {tab === "overview" ? (

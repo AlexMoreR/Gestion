@@ -47,6 +47,7 @@ model User {
   accountMovements         AccountMovement[]     @relation("AccountMovementCreatedBy")
   expenseCategoriesCreated ExpenseCategory[]     @relation("ExpenseCategoryCreatedBy")
   expensesCreated          Expense[]             @relation("ExpenseCreatedBy")
+  expensesAsEmployee       Expense[]             @relation("ExpenseEmployee")
   inventoryMovements       InventoryMovement[]   @relation("InventoryMovementCreatedBy")
 }
 
@@ -631,16 +632,21 @@ model Expense {
   amount      Decimal         @db.Decimal(14, 2)
   description String?
   reference   String?
+  receiptUrl  String?
+  receiptName String?
   expenseDate DateTime        @default(now())
   createdById String
+  employeeId  String?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   category    ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   account     Account         @relation(fields: [accountId], references: [id], onDelete: Restrict)
   createdBy   User            @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  employee    User?           @relation("ExpenseEmployee", fields: [employeeId], references: [id], onDelete: SetNull)
 
   @@index([categoryId])
   @@index([accountId])
+  @@index([employeeId])
   @@index([expenseDate])
 }
 

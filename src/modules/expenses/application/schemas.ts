@@ -16,6 +16,7 @@ export const expenseCreateSchema = z.object({
   amount: z.coerce.number().positive("El monto debe ser mayor a cero"),
   description: z.string().trim().max(2000, "Descripcion demasiado larga").optional(),
   reference: z.string().trim().max(120, "Referencia muy larga").optional(),
+  employeeId: z.string().trim().min(1).optional(),
   expenseDate: z.coerce.date(),
 });
 

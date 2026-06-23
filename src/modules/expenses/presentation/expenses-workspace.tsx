@@ -28,6 +28,12 @@ import { ExpenseCategoriesTable } from "./components/expense-categories-table";
 type AccountOption = {
   id: string;
   name: string;
+  isCash: boolean;
+};
+
+type EmployeeOption = {
+  id: string;
+  name: string;
 };
 
 type ExpensesWorkspaceProps = {
@@ -37,6 +43,7 @@ type ExpensesWorkspaceProps = {
   categories: ExpenseCategoryWithUsage[];
   categoryTotals: ExpenseCategoryTotal[];
   accounts: AccountOption[];
+  employees: EmployeeOption[];
 };
 
 type TabKey = "gastos" | "categorias";
@@ -79,6 +86,7 @@ export function ExpensesWorkspace({
   categories,
   categoryTotals,
   accounts,
+  employees,
 }: ExpensesWorkspaceProps) {
   const [tab, setTab] = React.useState<TabKey>("gastos");
   const [expenseModal, setExpenseModal] = React.useState<
@@ -247,6 +255,7 @@ export function ExpensesWorkspace({
         returnTo={actionsReturnTo}
         categories={categoryOptions}
         accounts={accounts}
+        employees={employees}
         initialValue={
           expenseModal?.mode === "edit"
             ? {
@@ -256,6 +265,9 @@ export function ExpensesWorkspace({
                 amount: expenseModal.initialValue.amount,
                 description: expenseModal.initialValue.description,
                 reference: expenseModal.initialValue.reference,
+                receiptUrl: expenseModal.initialValue.receiptUrl,
+                receiptName: expenseModal.initialValue.receiptName,
+                employeeId: expenseModal.initialValue.employeeId,
                 expenseDate: new Date(expenseModal.initialValue.expenseDate).toISOString().slice(0, 10),
               }
             : null

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { Pencil, Trash2 } from "lucide-react";
+import { Paperclip, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type { ExpenseRow } from "@/modules/expenses/domain/entities";
@@ -40,6 +40,9 @@ export function ExpensesTable({ data, currency, onEdit, onDelete }: ExpensesTabl
       cell: ({ row }) => (
         <div className="min-w-0">
           <p className="truncate text-sm text-foreground">{row.original.description ?? "Sin descripcion"}</p>
+          {row.original.employeeName ? (
+            <p className="truncate text-xs text-muted-foreground">Empleado: {row.original.employeeName}</p>
+          ) : null}
           {row.original.reference ? (
             <p className="truncate text-xs text-muted-foreground">Ref: {row.original.reference}</p>
           ) : null}
@@ -63,6 +66,18 @@ export function ExpensesTable({ data, currency, onEdit, onDelete }: ExpensesTabl
       header: "",
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-1">
+          {row.original.receiptUrl ? (
+            <a
+              href={row.original.receiptUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              aria-label="Ver comprobante"
+              title="Ver comprobante"
+            >
+              <Paperclip className="h-4 w-4" />
+            </a>
+          ) : null}
           <Button
             type="button"
             variant="ghost"

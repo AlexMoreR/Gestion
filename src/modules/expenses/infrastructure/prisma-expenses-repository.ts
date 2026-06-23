@@ -51,6 +51,9 @@ type ExpenseSelection = {
   amount: Prisma.Decimal;
   description: string | null;
   reference: string | null;
+  receiptUrl: string | null;
+  receiptName: string | null;
+  employeeId: string | null;
   expenseDate: Date;
   createdAt: Date;
 };
@@ -63,6 +66,9 @@ function mapExpense(row: ExpenseSelection): Expense {
     amount: toNumber(row.amount),
     description: row.description,
     reference: row.reference,
+    receiptUrl: row.receiptUrl,
+    receiptName: row.receiptName,
+    employeeId: row.employeeId,
     expenseDate: row.expenseDate,
     createdAt: row.createdAt,
   };
@@ -75,6 +81,9 @@ const expenseSelect = {
   amount: true,
   description: true,
   reference: true,
+  receiptUrl: true,
+  receiptName: true,
+  employeeId: true,
   expenseDate: true,
   createdAt: true,
 } satisfies Prisma.ExpenseSelect;
@@ -172,13 +181,21 @@ export function createPrismaExpensesRepository(): ExpensesRepository {
           ...expenseSelect,
           category: { select: { name: true } },
           account: { select: { name: true } },
+          employee: { select: { name: true, email: true } },
         },
-      })) as Array<ExpenseSelection & { category: { name: string }; account: { name: string } }>;
+      })) as Array<
+        ExpenseSelection & {
+          category: { name: string };
+          account: { name: string };
+          employee: { name: string | null; email: string } | null;
+        }
+      >;
 
       return rows.map((row) => ({
         ...mapExpense(row),
         categoryName: row.category.name,
         accountName: row.account.name,
+        employeeName: row.employee ? row.employee.name ?? row.employee.email : null,
       }));
     },
 
@@ -198,6 +215,9 @@ export function createPrismaExpensesRepository(): ExpensesRepository {
           amount: input.amount,
           description: input.description ?? null,
           reference: input.reference ?? null,
+          receiptUrl: input.receiptUrl ?? null,
+          receiptName: input.receiptName ?? null,
+          employeeId: input.employeeId ?? null,
           expenseDate: input.expenseDate,
           createdById: input.createdById,
         },
@@ -215,7 +235,12 @@ export function createPrismaExpensesRepository(): ExpensesRepository {
           amount: input.amount,
           description: input.description ?? null,
           reference: input.reference ?? null,
+          employeeId: input.employeeId ?? null,
           expenseDate: input.expenseDate,
+          // Solo se toca el comprobante si el caso de uso lo provee (subir o quitar).
+          ...(input.receiptUrl !== undefined
+            ? { receiptUrl: input.receiptUrl, receiptName: input.receiptName ?? null }
+            : {}),
         },
         select: expenseSelect,
       })) as ExpenseSelection;

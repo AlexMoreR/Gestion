@@ -18,6 +18,9 @@ export type Expense = {
   amount: number;
   description: string | null;
   reference: string | null;
+  receiptUrl: string | null;
+  receiptName: string | null;
+  employeeId: string | null;
   expenseDate: Date;
   createdAt: Date;
 };
@@ -25,6 +28,7 @@ export type Expense = {
 export type ExpenseRow = Expense & {
   categoryName: string;
   accountName: string;
+  employeeName: string | null;
 };
 
 export type ExpenseMetrics = {

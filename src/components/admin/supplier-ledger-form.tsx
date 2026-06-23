@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, CalendarDays, ClipboardList, Eye, FileText, ImagePlus, Plus, Trash2, Wallet } from "lucide-react";
+import { BarChart3, CalendarDays, ClipboardList, FileText, ImagePlus, Plus, Trash2, Wallet } from "lucide-react";
 import {
   adminCreateSupplierChargeAction,
   adminCreateSupplierPaymentsAction,
-  adminDeleteSupplierPaymentAction,
 } from "@/app/actions/supplier-ledger-actions";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { SupplierLedgerTable } from "@/components/admin/supplier-ledger-table";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
@@ -86,6 +86,7 @@ export function SupplierLedgerForm({
   currency,
   returnTo,
 }: SupplierLedgerFormProps) {
+  const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"payment" | "charge">("payment");
   const [lines, setLines] = useState<PaymentLine[]>(() => [newLine()]);
   const [ledgerReceiptName, setLedgerReceiptName] = useState("");
@@ -139,44 +140,55 @@ export function SupplierLedgerForm({
   ]);
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="inline-flex rounded-lg border border-[var(--line)] bg-slate-100 p-1">
-            <button
-              type="button"
-              onClick={() => setMode("payment")}
-              className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-                mode === "payment" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              Abono
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("charge")}
-              className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-                mode === "charge" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              Cargo manual
-            </button>
-          </div>
-          {balanceToken ? (
-            <a
-              href={`/proveedores/${balanceToken}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] bg-white px-4 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
-            >
-              <BarChart3 className="h-4 w-4" />
-              Ver balance
-            </a>
-          ) : null}
-        </div>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {balanceToken ? (
+          <a
+            href={`/proveedores/${balanceToken}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] bg-card px-4 py-1.5 text-sm font-medium text-foreground shadow-sm transition hover:bg-muted"
+          >
+            <BarChart3 className="h-4 w-4" />
+            Ver balance
+          </a>
+        ) : null}
+        <Button type="button" onClick={() => setOpen(true)}>
+          <Plus className="h-4 w-4" />
+          Registrar movimiento
+        </Button>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="flex max-h-[92vh] w-full max-w-lg flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b px-6 py-4">
+            <DialogTitle>Registrar movimiento</DialogTitle>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
+            <div className="inline-flex rounded-lg border border-[var(--line)] bg-slate-100 p-1">
+              <button
+                type="button"
+                onClick={() => setMode("payment")}
+                className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                  mode === "payment" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Abono
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("charge")}
+                className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                  mode === "charge" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Cargo manual
+              </button>
+            </div>
 
         {mode === "charge" ? (
           <form
+            id="supplier-charge-form"
             action={adminCreateSupplierChargeAction}
             className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)]"
           >
@@ -250,19 +262,10 @@ export function SupplierLedgerForm({
               />
             </label>
 
-            <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-3 py-2.5">
-              <span className="text-sm font-medium text-slate-700">Total a deber</span>
-              <span className="text-lg font-bold tracking-tight text-red-600">
-                {formatMoney(Number(chargeAmount) || 0, currency)}
-              </span>
-            </div>
-
-            <Button type="submit" className="h-11 w-full text-base" disabled={!canSubmitCharge}>
-              Registrar cargo
-            </Button>
           </form>
         ) : (
         <form
+          id="supplier-payment-form"
           action={adminCreateSupplierPaymentsAction}
           className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)]"
         >
@@ -422,101 +425,52 @@ export function SupplierLedgerForm({
             })}
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border border-[var(--primary)]/20 bg-[var(--primary)]/5 px-3 py-2.5">
-            <span className="text-sm font-medium text-slate-700">Total a pagar</span>
-            <span className="text-lg font-bold tracking-tight text-[var(--primary)]">{formatMoney(total, currency)}</span>
-          </div>
-
-          <Button type="submit" className="h-11 w-full text-base" disabled={!canSubmit}>
-            Registrar pago
-          </Button>
         </form>
         )}
-      </div>
+          </div>
 
-      <div className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Movimientos</p>
-        {ledger.length === 0 ? (
-          <p className="text-sm text-slate-500">Sin movimientos registrados.</p>
-        ) : (
-          ledger.map((entry) => (
-            <div
-              key={entry.id}
-              className={`flex items-start justify-between gap-3 rounded-lg border border-l-4 border-[var(--line)] bg-white p-3 transition-colors hover:bg-slate-50/60 ${
-                entry.type === "CHARGE" ? "border-l-red-400" : "border-l-emerald-400"
-              }`}
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-slate-900">
-                  {entry.type === "CHARGE" ? "Cargo" : "Abono"}
-                  {entry.orderCode ? ` · ${entry.orderCode}` : entry.code ? ` · ${entry.code}` : ""}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {new Date(entry.createdAt).toLocaleDateString("es-CO")}
-                  {entry.note ? ` - ${entry.note}` : ""}
-                </p>
-                <p className="flex items-center gap-1.5 text-xs text-slate-400">
-                  <Avatar className="h-5 w-5">
-                    {entry.createdByImage ? (
-                      <AvatarImage src={entry.createdByImage} alt={entry.createdByName ?? "Usuario"} />
-                    ) : null}
-                    <AvatarFallback className="text-[9px]">
-                      {(entry.createdByName ?? "S").charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span>
-                    {entry.createdByName ?? "Sistema"}
-                    {entry.accountName ? ` - ${entry.accountName}` : ""}
+          {/* Footer fijo: total y boton siempre visibles al fondo del modal. */}
+          <div className="shrink-0 space-y-3 border-t border-border bg-card px-6 py-4">
+            {mode === "charge" ? (
+              <>
+                <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-3 py-2.5">
+                  <span className="text-sm font-medium text-slate-700">Total a deber</span>
+                  <span className="text-lg font-bold tracking-tight text-red-600">
+                    {formatMoney(Number(chargeAmount) || 0, currency)}
                   </span>
-                  {entry.receiptUrl ? (
-                    <a
-                      href={entry.receiptUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      title="Ver comprobante"
-                      className="inline-flex items-center text-primary transition hover:text-primary/80"
-                    >
-                      <Eye className="size-4" />
-                    </a>
-                  ) : null}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <p
-                  className={`text-sm font-semibold ${
-                    entry.type === "CHARGE" ? "text-red-600" : "text-emerald-600"
-                  }`}
+                </div>
+                <Button
+                  type="submit"
+                  form="supplier-charge-form"
+                  className="h-11 w-full text-base"
+                  disabled={!canSubmitCharge}
                 >
-                  {entry.type === "CHARGE" ? "+" : "-"}
-                  {formatMoney(entry.amount, currency)}
-                </p>
-                {entry.type === "PAYMENT" || !entry.orderCode ? (
-                  <form
-                    action={adminDeleteSupplierPaymentAction}
-                    onSubmit={(event) => {
-                      if (!window.confirm(entry.type === "CHARGE" ? "¿Eliminar este cargo?" : "¿Eliminar este abono?")) {
-                        event.preventDefault();
-                      }
-                    }}
-                  >
-                    <input type="hidden" name="paymentId" value={entry.id} />
-                    <input type="hidden" name="returnTo" value={returnTo} />
-                    <Button
-                      type="submit"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-slate-400 hover:text-red-600"
-                      aria-label={entry.type === "CHARGE" ? "Eliminar cargo" : "Eliminar abono"}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </form>
-                ) : null}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+                  Registrar cargo
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between rounded-lg border border-[var(--primary)]/20 bg-[var(--primary)]/5 px-3 py-2.5">
+                  <span className="text-sm font-medium text-slate-700">Total a pagar</span>
+                  <span className="text-lg font-bold tracking-tight text-[var(--primary)]">
+                    {formatMoney(total, currency)}
+                  </span>
+                </div>
+                <Button
+                  type="submit"
+                  form="supplier-payment-form"
+                  className="h-11 w-full text-base"
+                  disabled={!canSubmit}
+                >
+                  Registrar pago
+                </Button>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <SupplierLedgerTable ledger={ledger} currency={currency} returnTo={returnTo} />
     </div>
   );
 }
