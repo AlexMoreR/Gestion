@@ -309,12 +309,12 @@ export function EditProductForm({
   };
 
   return (
-    <div>
-      <div className="mx-auto max-w-2xl">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
         <Tabs
           value={String(currentStep)}
           onValueChange={(value) => goToStep(Number(value))}
-          className="mb-5"
+          className="shrink-0 px-6 pt-5"
         >
           <TabsList className="w-fit">
             {steps.map((step) => (
@@ -325,9 +325,10 @@ export function EditProductForm({
             ))}
           </TabsList>
         </Tabs>
-        <form action={adminUpdateProductAction} className="space-y-7">
+        <form action={adminUpdateProductAction} className="flex min-h-0 flex-1 flex-col">
             <input type="hidden" name="productId" value={initialData.id} />
             <input type="hidden" name="existingImages" value={existingImageUrls.join("\n")} />
+            <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-6 py-5">
 
             <div className={currentStep === 1 ? "space-y-4" : "hidden"}>
               <div className="space-y-4">
@@ -678,7 +679,9 @@ export function EditProductForm({
               </div>
             </div>
 
-            <div className="mt-1 flex flex-wrap items-center justify-between gap-3 border-t pt-5">
+            </div>
+
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t bg-white px-6 py-4">
               <div>
                 {currentStep > 1 ? (
                   <Button

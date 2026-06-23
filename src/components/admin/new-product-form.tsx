@@ -374,12 +374,12 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
   };
 
   return (
-    <div>
-      <div className="mx-auto max-w-2xl">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
         <Tabs
           value={String(currentStep)}
           onValueChange={(value) => goToStep(Number(value))}
-          className="mb-5"
+          className="shrink-0 px-6 pt-5"
         >
           <TabsList className="w-fit">
             {steps.map((step) => (
@@ -390,7 +390,8 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
             ))}
           </TabsList>
         </Tabs>
-        <form action={adminCreateProductAction} className="space-y-7">
+        <form action={adminCreateProductAction} className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-6 py-5">
             <div className={currentStep === 1 ? "space-y-4" : "hidden"}>
               <div className="space-y-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -702,7 +703,9 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
               </p>
             </div>
 
-            <div className="mt-1 space-y-2 border-t pt-5">
+            </div>
+
+            <div className="shrink-0 space-y-2 border-t bg-white px-6 py-4">
               {currentMissing.length > 0 ? (
                 <p className="text-right text-xs text-amber-600">
                   Falta: {currentMissing.join(", ")}

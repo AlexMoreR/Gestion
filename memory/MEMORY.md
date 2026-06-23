@@ -1,3 +1,3 @@
 # Memory Index
 
-- [Prisma schema sync](prisma-schema-sync-db-push.md) — usar `prisma db push` (no `migrate dev`) por historial de migraciones roto.
+- [Prisma schema sync](prisma-schema-sync-db-push.md) — `db push` SOLO en local (migrate dev roto por shadow DB); producción usa `migrate deploy`, nunca `db push`.

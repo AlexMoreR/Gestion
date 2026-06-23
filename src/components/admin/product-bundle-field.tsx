@@ -50,11 +50,7 @@ export function ProductBundleField({
   }, 0);
 
   return (
-    <section className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.35)] sm:p-5">
-      <div className="space-y-1 border-b border-[var(--line)] pb-3">
-        <h2 className="text-sm font-semibold text-slate-900">🧩 Combo</h2>
-      </div>
-
+    <div className="space-y-4">
       {/* Bandera enviada al servidor */}
       <input type="hidden" name="isBundle" value={isBundle ? "true" : "false"} />
 
@@ -65,7 +61,7 @@ export function ProductBundleField({
           checked={isBundle}
           onChange={(event) => onToggle(event.target.checked)}
         />
-        Este producto es un combo (se arma con otros productos)
+        Habilitar combo (se arma con otros productos)
       </label>
 
       {isBundle ? (
@@ -152,6 +148,6 @@ export function ProductBundleField({
           </div>
         </div>
       ) : null}
-    </section>
+    </div>
   );
 }

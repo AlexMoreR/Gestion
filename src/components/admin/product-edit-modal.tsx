@@ -63,10 +63,10 @@ export function ProductEditModal({
 
   return (
     <Dialog open={product !== null} onOpenChange={(open) => (open ? null : onClose())}>
-      <DialogContent className="max-h-[92vh] w-full max-w-2xl overflow-y-auto">
+      <DialogContent className="flex max-h-[92vh] w-full max-w-2xl flex-col gap-0 overflow-hidden p-0">
         {product ? (
           <>
-            <DialogHeader>
+            <DialogHeader className="shrink-0 border-b px-6 py-4">
               <DialogTitle>{product.name}</DialogTitle>
             </DialogHeader>
             <EditProductForm
