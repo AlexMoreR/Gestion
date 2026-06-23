@@ -13,6 +13,8 @@ import {
   setStoredRoleModuleAccessMap,
 } from "@/lib/admin-module-access";
 import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { createEmailVerificationToken } from "@/lib/email-verification";
 import { createInvitationToken, verifyInvitationToken } from "@/lib/invitation";
 import { sendEmailVerificationEmail, sendInvitationEmail } from "@/lib/mailer";
@@ -36,7 +38,8 @@ const defaultState: ActionState = { ok: false, message: "" };
 const adminInviteUserSchema = z.object({
   name: z.string().trim().min(2, "Nombre invalido").max(120, "Nombre demasiado largo"),
   email: z.string().trim().email("Correo invalido"),
-  role: z.nativeEnum(Role),
+  // Solo equipo del sistema; los clientes se gestionan en el modulo Clientes.
+  role: z.enum([Role.ADMIN, Role.EMPLEADO]),
 });
 
 const activateAccountSchema = z
@@ -55,6 +58,29 @@ async function requireAdminSession(): Promise<void> {
   if (session?.user?.role !== "ADMIN") {
     redirect("/unauthorized");
   }
+}
+
+const PROFILE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+// Guarda la foto de perfil en local (public/uploads/avatars) y devuelve su ruta.
+async function saveProfileImage(file: File): Promise<string> {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Solo se permiten archivos de imagen");
+  }
+  if (file.size > PROFILE_IMAGE_MAX_BYTES) {
+    throw new Error("La imagen debe pesar maximo 5MB");
+  }
+
+  const uploadDir = path.join(process.cwd(), "public", "uploads", "avatars");
+  await mkdir(uploadDir, { recursive: true });
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const ext = path.extname(file.name)?.toLowerCase() || ".jpg";
+  const safeExt = ext.length <= 8 ? ext : ".jpg";
+  const fileName = `${Date.now()}-${randomUUID()}${safeExt}`;
+  await writeFile(path.join(uploadDir, fileName), buffer);
+
+  return `/uploads/avatars/${fileName}`;
 }
 
 export async function loginAction(formData: FormData): Promise<ActionState & { redirectTo?: string }> {
@@ -166,10 +192,23 @@ export async function updateProfileAction(
     return { ok: false, message: "No autorizado" };
   }
 
+  // Imagen: si subieron un archivo nuevo se guarda en local; si no, se conserva la actual.
+  const uploadedFile = formData.get("imageFile");
+  const existingImage =
+    typeof formData.get("existingImage") === "string" ? (formData.get("existingImage") as string) : "";
+  let imagePath = existingImage;
+  if (uploadedFile instanceof File && uploadedFile.size > 0) {
+    try {
+      imagePath = await saveProfileImage(uploadedFile);
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : "Imagen invalida" };
+    }
+  }
+
   const parsed = profileSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
-    image: formData.get("image"),
+    image: imagePath,
   });
 
   if (!parsed.success) {

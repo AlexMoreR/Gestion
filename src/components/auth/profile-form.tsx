@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { KeyRound, Mail, ShieldCheck, UserPen, X } from "lucide-react";
+import { ImagePlus, KeyRound, Mail, ShieldCheck, UserPen, X } from "lucide-react";
 import { toast } from "react-toastify";
 import { changePasswordAction, updateProfileAction } from "@/app/actions/auth-actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -28,6 +28,14 @@ export function ProfileForm({
 }: ProfileFormProps) {
   const { update } = useSession();
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
   const [profileState, profileAction, profilePending] = useActionState(
     updateProfileAction,
     initialState,
@@ -109,6 +117,32 @@ export function ProfileForm({
             Informacion personal
           </div>
           <form action={profileAction} className="grid gap-3">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16 rounded-xl border border-[var(--line)]">
+                <AvatarImage src={previewUrl ?? defaultImage} alt={defaultName || email} />
+                <AvatarFallback className="rounded-xl bg-slate-800 text-sm">{initials}</AvatarFallback>
+              </Avatar>
+              <div className="space-y-1.5">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  name="imageFile"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (previewUrl) URL.revokeObjectURL(previewUrl);
+                    setPreviewUrl(file ? URL.createObjectURL(file) : null);
+                  }}
+                />
+                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                  <ImagePlus className="h-4 w-4" />
+                  Cambiar foto
+                </Button>
+                <p className="text-xs text-slate-500">JPG o PNG, maximo 5MB.</p>
+              </div>
+            </div>
+            <input type="hidden" name="existingImage" value={defaultImage} />
             <Input name="name" defaultValue={defaultName} placeholder="Nombre completo" required />
             <Input
               type="email"
@@ -116,11 +150,6 @@ export function ProfileForm({
               defaultValue={email}
               placeholder="correo@empresa.com"
               required
-            />
-            <Input
-              name="image"
-              defaultValue={defaultImage}
-              placeholder="URL de foto de perfil"
             />
             <div className="pt-1">
               <Button type="submit" className="w-full sm:w-auto" disabled={profilePending}>

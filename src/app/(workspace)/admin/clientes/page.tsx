@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Contact } from "lucide-react";
 import { auth } from "@/auth";
 import { ClientsDataTable } from "@/components/admin/clients-data-table";
+import { CreateClientModal } from "@/components/admin/create-client-modal";
 import { Card, CardContent } from "@/components/ui/card";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
@@ -50,14 +51,17 @@ export default async function AdminClientesPage({ searchParams }: PageProps) {
         errorTitle="Error de clientes"
       />
 
-      <div>
-        <h1 className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight md:text-xl">
-          <Contact className="h-5 w-5 text-muted-foreground" />
-          <span>Clientes</span>
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Directorio de clientes. Se crean automaticamente al cotizar.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight md:text-xl">
+            <Contact className="h-5 w-5 text-muted-foreground" />
+            <span>Clientes</span>
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Directorio de clientes. Se crean automaticamente al cotizar o manualmente aqui.
+          </p>
+        </div>
+        <CreateClientModal />
       </div>
 
       <Card>

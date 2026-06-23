@@ -15,7 +15,12 @@ export const registerSchema = z.object({
 export const profileSchema = z.object({
   name: z.string().min(2, "Nombre muy corto").max(100, "Nombre muy largo"),
   email: z.string().email("Correo invalido"),
-  image: z.union([z.string().url("URL invalida"), z.literal("")]),
+  // Acepta una URL externa o una ruta local subida (/uploads/...).
+  image: z.union([
+    z.string().url("URL invalida"),
+    z.string().regex(/^\/uploads\//, "Ruta invalida"),
+    z.literal(""),
+  ]),
 });
 
 export const changePasswordSchema = z
