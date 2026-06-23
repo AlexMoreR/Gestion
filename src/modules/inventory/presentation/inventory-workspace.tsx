@@ -10,7 +10,7 @@ import type {
   InventoryMovementRow,
   ProductStock,
 } from "@/modules/inventory/domain/entities";
-import type { SupportedCurrencyCode } from "@/lib/currency";
+import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import {
   adminCreateInventoryMovementAction,
   adminDeleteInventoryMovementAction,
@@ -155,9 +155,9 @@ export function InventoryWorkspace({
             accent="neutral"
           />
           <MetricCard
-            title="Bajo stock"
-            value={`${metrics.lowStockCount}`}
-            accent={metrics.lowStockCount > 0 ? "warning" : "neutral"}
+            title="Valor inventario"
+            value={formatMoney(metrics.totalValue, currency)}
+            accent="neutral"
           />
           <MetricCard
             title="Agotados"

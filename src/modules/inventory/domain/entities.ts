@@ -23,6 +23,7 @@ export type ProductStock = {
   code: string | null;
   categoryName: string | null;
   price: number;
+  baseCost: number;
   thumbnailUrl: string;
   minStock: number;
   stock: number;
@@ -35,4 +36,6 @@ export type InventoryMetrics = {
   totalUnits: number;
   lowStockCount: number;
   outOfStockCount: number;
+  // Valor total del inventario a costo (suma de stock x costo de compra).
+  totalValue: number;
 };
