@@ -551,6 +551,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                   products={bundleProducts}
                   rows={componentRows}
                   currency={currency}
+                  comboPrice={pricing.finalRetail}
                   onAdd={addComponentRow}
                   onRemove={removeComponentRow}
                   onChange={updateComponentRow}

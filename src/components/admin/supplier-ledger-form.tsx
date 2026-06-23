@@ -21,6 +21,7 @@ type LedgerEntry = {
   createdByName: string | null;
   accountName: string | null;
   orderCode: string | null;
+  code: string | null;
   receiptUrl: string | null;
 };
 
@@ -446,7 +447,7 @@ export function SupplierLedgerForm({
               <div className="min-w-0">
                 <p className="text-sm font-medium text-slate-900">
                   {entry.type === "CHARGE" ? "Cargo" : "Abono"}
-                  {entry.orderCode ? ` · ${entry.orderCode}` : ""}
+                  {entry.orderCode ? ` · ${entry.orderCode}` : entry.code ? ` · ${entry.code}` : ""}
                 </p>
                 <p className="text-xs text-slate-500">
                   {new Date(entry.createdAt).toLocaleDateString("es-CO")}

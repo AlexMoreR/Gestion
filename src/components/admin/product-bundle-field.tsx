@@ -25,6 +25,7 @@ type ProductBundleFieldProps = {
   products: BundleProductOption[];
   rows: ProductComponentDraft[];
   currency: SupportedCurrencyCode;
+  comboPrice: number;
   onAdd: () => void;
   onRemove: (id: string) => void;
   onChange: (id: string, values: Partial<Omit<ProductComponentDraft, "id">>) => void;
@@ -36,6 +37,7 @@ export function ProductBundleField({
   products,
   rows,
   currency,
+  comboPrice,
   onAdd,
   onRemove,
   onChange,
@@ -48,6 +50,9 @@ export function ProductBundleField({
     const quantity = Number(row.quantity) || 0;
     return sum + (product ? product.price * quantity : 0);
   }, 0);
+  // Diferencia = lo que costarian los componentes por separado menos el precio del
+  // combo. Positivo => el cliente ahorra al comprar el combo.
+  const difference = componentsTotal - comboPrice;
 
   return (
     <div className="space-y-4">
@@ -143,8 +148,14 @@ export function ProductBundleField({
           )}
 
           <div className="flex items-center justify-between rounded-lg border border-[var(--line)] bg-slate-50/60 px-3 py-2">
-            <span className="text-xs font-medium text-slate-600">Suma precios individuales (referencia)</span>
-            <span className="text-sm font-semibold text-slate-900">{formatMoney(componentsTotal, currency)}</span>
+            <span className="text-xs font-medium text-slate-600">Diferencia (componentes − precio combo)</span>
+            <span
+              className={`text-sm font-semibold ${
+                difference > 0 ? "text-emerald-600" : difference < 0 ? "text-destructive" : "text-slate-900"
+              }`}
+            >
+              {formatMoney(difference, currency)}
+            </span>
           </div>
         </div>
       ) : null}

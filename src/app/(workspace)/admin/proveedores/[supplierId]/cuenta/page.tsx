@@ -104,17 +104,45 @@ export default async function AdminSupplierLedgerPage({ params, searchParams }: 
     .filter((charge) => charge.pending > 0.0001)
     .sort((a, b) => a.code.localeCompare(b.code, "es", { numeric: true }));
 
-  const ledger = supplier.ledgerEntries.map((entry) => ({
-    id: entry.id,
-    type: entry.type,
-    amount: Number(entry.amount),
-    note: entry.note,
-    createdAt: (entry.paymentDate ?? entry.createdAt).toISOString(),
-    createdByName: entry.createdBy.name ?? entry.createdBy.email,
-    accountName: entry.account?.name ?? null,
-    orderCode: entry.order?.code ?? null,
-    receiptUrl: entry.receiptUrl ?? null,
-  }));
+  // Referencia legible de cada cargo (para que los abonos puedan decir "que saldan").
+  const chargeRefById = new Map(
+    supplier.ledgerEntries
+      .filter((entry) => entry.type === "CHARGE")
+      .map((entry) => [
+        entry.id,
+        entry.order?.code ??
+          entry.code ??
+          (entry.inventoryMovementId || entry.note?.startsWith("Compra inventario") ? "Inventario" : "Manual"),
+      ]),
+  );
+
+  const ledger = supplier.ledgerEntries.map((entry) => {
+    // Referencia que se muestra junto a "Cargo"/"Abono" (los de orden ya usan orderCode).
+    let code: string | null = null;
+    if (!entry.order?.code) {
+      if (entry.type === "CHARGE") {
+        code =
+          entry.code ??
+          (entry.inventoryMovementId || entry.note?.startsWith("Compra inventario") ? "Inventario" : "Manual");
+      } else {
+        // Abono: muestra el cargo que salda, o "General" si no aplica a uno.
+        code = entry.settlesEntryId ? chargeRefById.get(entry.settlesEntryId) ?? "General" : "General";
+      }
+    }
+
+    return {
+      id: entry.id,
+      type: entry.type,
+      amount: Number(entry.amount),
+      note: entry.note,
+      createdAt: (entry.paymentDate ?? entry.createdAt).toISOString(),
+      createdByName: entry.createdBy.name ?? entry.createdBy.email,
+      accountName: entry.account?.name ?? null,
+      orderCode: entry.order?.code ?? null,
+      code,
+      receiptUrl: entry.receiptUrl ?? null,
+    };
+  });
 
   const returnTo = `/admin/proveedores/${supplier.id}/cuenta`;
 

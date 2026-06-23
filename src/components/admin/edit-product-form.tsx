@@ -486,6 +486,7 @@ export function EditProductForm({
                   products={bundleProducts}
                   rows={componentRows}
                   currency={currency}
+                  comboPrice={pricing.finalRetail}
                   onAdd={addComponentRow}
                   onRemove={removeComponentRow}
                   onChange={updateComponentRow}
