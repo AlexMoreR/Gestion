@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { ImagePlus, KeyRound, Mail, ShieldCheck, UserPen, X } from "lucide-react";
+import { Check, ImagePlus, KeyRound, Pencil, ShieldCheck, UserPen, X } from "lucide-react";
 import { toast } from "react-toastify";
 import { changePasswordAction, updateProfileAction } from "@/app/actions/auth-actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -30,6 +30,7 @@ export function ProfileForm({
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [editingFields, setEditingFields] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -80,36 +81,7 @@ export function ProfileForm({
   const initials = (defaultName?.trim()?.charAt(0) || email.charAt(0) || "U").toUpperCase();
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
-      <Card className="space-y-5 p-5">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-14 w-14 rounded-xl border border-[var(--line)]">
-            <AvatarImage src={defaultImage} alt={defaultName || email} />
-            <AvatarFallback className="rounded-xl bg-slate-800 text-sm">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0">
-            <p className="truncate text-base font-semibold text-slate-900">
-              {defaultName || "Usuario"}
-            </p>
-            <p className="truncate text-xs text-slate-600">{email}</p>
-          </div>
-        </div>
-
-        <div className="space-y-3 border-t border-[var(--line)] pt-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Cuenta</p>
-          <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            <Mail className="h-4 w-4 text-slate-500" />
-            <span className="truncate">{email}</span>
-          </div>
-          <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            <ShieldCheck className="h-4 w-4 text-slate-500" />
-            <span>Rol: {role}</span>
-          </div>
-        </div>
-      </Card>
-
+    <div>
       <div className="space-y-4">
         <Card className="space-y-4 p-5">
           <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
@@ -117,40 +89,84 @@ export function ProfileForm({
             Informacion personal
           </div>
           <form action={profileAction} className="grid gap-3">
-            <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16 rounded-xl border border-[var(--line)]">
-                <AvatarImage src={previewUrl ?? defaultImage} alt={defaultName || email} />
-                <AvatarFallback className="rounded-xl bg-slate-800 text-sm">{initials}</AvatarFallback>
-              </Avatar>
-              <div className="space-y-1.5">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  name="imageFile"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (previewUrl) URL.revokeObjectURL(previewUrl);
-                    setPreviewUrl(file ? URL.createObjectURL(file) : null);
-                  }}
-                />
-                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                  <ImagePlus className="h-4 w-4" />
-                  Cambiar foto
-                </Button>
-                <p className="text-xs text-slate-500">JPG o PNG, maximo 5MB.</p>
+            <div className="flex items-stretch gap-4">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                aria-label="Cambiar foto"
+                title="Cambiar foto"
+                className="group relative w-28 shrink-0 self-stretch rounded-xl"
+              >
+                <Avatar className="h-full w-28 rounded-xl border border-[var(--line)]">
+                  <AvatarImage src={previewUrl ?? defaultImage} alt={defaultName || email} />
+                  <AvatarFallback className="rounded-xl bg-slate-800 text-xl">{initials}</AvatarFallback>
+                </Avatar>
+                <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100">
+                  <ImagePlus className="h-6 w-6" />
+                </span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                name="imageFile"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (previewUrl) URL.revokeObjectURL(previewUrl);
+                  setPreviewUrl(file ? URL.createObjectURL(file) : null);
+                }}
+              />
+              <div className="flex flex-1 flex-col gap-2">
+                <div className="flex items-start gap-1.5">
+                  <div className="flex w-fit flex-col">
+                    <Input
+                      name="name"
+                      defaultValue={defaultName}
+                      placeholder="Nombre completo"
+                      required
+                      readOnly={!editingFields}
+                      size={Math.max((defaultName || "Nombre completo").length, 8)}
+                      className={`h-auto w-auto min-w-0 rounded-md px-2 py-1 text-base font-medium dark:bg-transparent ${
+                        editingFields
+                          ? "border border-input bg-transparent"
+                          : "cursor-default border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                      }`}
+                    />
+                    <Input
+                      type="email"
+                      name="email"
+                      defaultValue={email}
+                      placeholder="correo@empresa.com"
+                      required
+                      readOnly={!editingFields}
+                      size={Math.max((email || "correo@empresa.com").length, 12)}
+                      className={`h-auto w-auto min-w-0 rounded-md px-2 py-1 text-sm text-slate-600 dark:bg-transparent ${
+                        editingFields
+                          ? "border border-input bg-transparent"
+                          : "cursor-default border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                      }`}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0 text-slate-500 hover:text-slate-900"
+                    onClick={() => setEditingFields((value) => !value)}
+                    aria-label={editingFields ? "Listo" : "Editar nombre y correo"}
+                    title={editingFields ? "Listo" : "Editar"}
+                  >
+                    {editingFields ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                  <ShieldCheck className="h-4 w-4 text-slate-500" />
+                  <span>Rol: {role}</span>
+                </div>
               </div>
             </div>
             <input type="hidden" name="existingImage" value={defaultImage} />
-            <Input name="name" defaultValue={defaultName} placeholder="Nombre completo" required />
-            <Input
-              type="email"
-              name="email"
-              defaultValue={email}
-              placeholder="correo@empresa.com"
-              required
-            />
             <div className="pt-1">
               <Button type="submit" className="w-full sm:w-auto" disabled={profilePending}>
                 {profilePending ? "Guardando..." : "Guardar perfil"}
@@ -164,9 +180,6 @@ export function ProfileForm({
             <KeyRound className="h-4 w-4 text-slate-500" />
             Seguridad
           </div>
-          <p className="text-sm text-slate-600">
-            Gestiona tu acceso desde una ventana separada para mantener esta informacion protegida.
-          </p>
           <div className="pt-1">
             <Button
               type="button"

@@ -7,6 +7,7 @@ import {
   adminCreateSupplierPaymentsAction,
   adminDeleteSupplierPaymentAction,
 } from "@/app/actions/supplier-ledger-actions";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
@@ -19,6 +20,7 @@ type LedgerEntry = {
   note: string | null;
   createdAt: string;
   createdByName: string | null;
+  createdByImage: string | null;
   accountName: string | null;
   orderCode: string | null;
   code: string | null;
@@ -454,6 +456,14 @@ export function SupplierLedgerForm({
                   {entry.note ? ` - ${entry.note}` : ""}
                 </p>
                 <p className="flex items-center gap-1.5 text-xs text-slate-400">
+                  <Avatar className="h-5 w-5">
+                    {entry.createdByImage ? (
+                      <AvatarImage src={entry.createdByImage} alt={entry.createdByName ?? "Usuario"} />
+                    ) : null}
+                    <AvatarFallback className="text-[9px]">
+                      {(entry.createdByName ?? "S").charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                   <span>
                     {entry.createdByName ?? "Sistema"}
                     {entry.accountName ? ` - ${entry.accountName}` : ""}

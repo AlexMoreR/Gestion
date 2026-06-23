@@ -41,7 +41,7 @@ export default async function AdminSupplierLedgerPage({ params, searchParams }: 
         ledgerEntries: {
           orderBy: { createdAt: "desc" },
           include: {
-            createdBy: { select: { name: true, email: true } },
+            createdBy: { select: { name: true, email: true, image: true } },
             account: { select: { name: true } },
             order: { select: { id: true, code: true } },
           },
@@ -137,6 +137,7 @@ export default async function AdminSupplierLedgerPage({ params, searchParams }: 
       note: entry.note,
       createdAt: (entry.paymentDate ?? entry.createdAt).toISOString(),
       createdByName: entry.createdBy.name ?? entry.createdBy.email,
+      createdByImage: entry.createdBy.image ?? null,
       accountName: entry.account?.name ?? null,
       orderCode: entry.order?.code ?? null,
       code,

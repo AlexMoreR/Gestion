@@ -654,6 +654,9 @@ export async function adminDeleteSaleAction(formData: FormData): Promise<void> {
 
 // ─── VENTA DIRECTA (mostrador, sin cotizacion previa) ──────────────────────
 
+// Correo centinela del cliente generico unico para ventas de mostrador.
+export const CONSUMIDOR_FINAL_EMAIL = "consumidor-final@magilus.local";
+
 function buildQuoteCode(index: number): string {
   return `COT-${String(index).padStart(5, "0")}`;
 }
@@ -714,9 +717,6 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
   const newClientAddress = getTrimmed("clientAddress");
   const newClientDocument = getTrimmed("clientDocument");
   const newClientEmail = getTrimmed("clientEmail");
-
-  // Nombre que se mostrará para el cliente de mostrador (modo "final")
-  const clientName = newClientName || "Consumidor final";
 
   if (clientMode === "existing" && !existingClientId) {
     redirectWithError(returnTo, "Selecciona un cliente existente");
@@ -907,13 +907,16 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
           });
         }
       } else {
-        // Consumidor final: cliente de mostrador desechable (uno por venta para conservar el nombre)
-        const placeholderEmail = `mostrador-${randomUUID().replace(/-/g, "").slice(0, 18)}@magilus.local`;
+        // Consumidor final: registro generico unico (singleton) reutilizado por todas
+        // las ventas de mostrador. No guarda datos propios; la trazabilidad por venta
+        // vive en la venta/cotizacion, no en el cliente.
         const hashedPassword = await bcrypt.hash(randomUUID().replace(/-/g, "").slice(0, 14), 12);
-        client = await tx.user.create({
-          data: {
-            name: clientName,
-            email: placeholderEmail,
+        client = await tx.user.upsert({
+          where: { email: CONSUMIDOR_FINAL_EMAIL },
+          update: {},
+          create: {
+            name: "Consumidor final",
+            email: CONSUMIDOR_FINAL_EMAIL,
             role: Role.CLIENTE,
             password: hashedPassword,
           },
