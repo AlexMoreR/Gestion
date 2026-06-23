@@ -18,6 +18,12 @@ type InvitationEmailParams = {
   invitationUrl: string;
 };
 
+type PasswordResetEmailParams = {
+  to: string;
+  name: string;
+  resetUrl: string;
+};
+
 function getSmtpConfig() {
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT ?? "587");
@@ -86,6 +92,34 @@ export async function sendInvitationEmail(params: InvitationEmailParams): Promis
     subject: "Invitacion para activar tu cuenta",
     text: `Hola ${displayName}, fuiste invitado a la plataforma. Crea tu contrasena para activar tu cuenta: ${params.invitationUrl} (el enlace expira en 7 dias).`,
     html: `<p>Hola <strong>${displayName}</strong>,</p><p>Fuiste invitado a la plataforma. Crea tu contrasena para activar tu cuenta:</p><p><a href="${params.invitationUrl}">${params.invitationUrl}</a></p><p>El enlace expira en 7 dias.</p>`,
+  });
+}
+
+export async function sendPasswordResetEmail(params: PasswordResetEmailParams): Promise<void> {
+  const config = getSmtpConfig();
+  if (!config) {
+    throw new Error("SMTP no configurado");
+  }
+
+  const nodemailer = await import("nodemailer");
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: {
+      user: config.user,
+      pass: config.pass,
+    },
+  });
+
+  const displayName = params.name?.trim() || "usuario";
+
+  await transporter.sendMail({
+    from: config.from,
+    to: params.to,
+    subject: "Restablece tu contrasena",
+    text: `Hola ${displayName}, recibimos una solicitud para restablecer tu contrasena. Crea una nueva aqui: ${params.resetUrl} (el enlace expira en 1 hora). Si no fuiste tu, ignora este correo.`,
+    html: `<p>Hola <strong>${displayName}</strong>,</p><p>Recibimos una solicitud para restablecer tu contrasena. Crea una nueva en el siguiente enlace:</p><p><a href="${params.resetUrl}">${params.resetUrl}</a></p><p>El enlace expira en 1 hora. Si no fuiste tu, ignora este correo.</p>`,
   });
 }
 

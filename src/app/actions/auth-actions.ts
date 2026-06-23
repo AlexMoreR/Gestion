@@ -17,7 +17,12 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createEmailVerificationToken } from "@/lib/email-verification";
 import { createInvitationToken, verifyInvitationToken } from "@/lib/invitation";
-import { sendEmailVerificationEmail, sendInvitationEmail } from "@/lib/mailer";
+import { createPasswordResetToken, verifyPasswordResetToken } from "@/lib/password-reset";
+import {
+  sendEmailVerificationEmail,
+  sendInvitationEmail,
+  sendPasswordResetEmail,
+} from "@/lib/mailer";
 import { prisma } from "@/lib/prisma";
 import {
   ActionState,
@@ -43,6 +48,21 @@ const adminInviteUserSchema = z.object({
 });
 
 const activateAccountSchema = z
+  .object({
+    token: z.string().trim().min(1, "Token invalido"),
+    password: z.string().min(8, "Minimo 8 caracteres").max(100, "Contrasena demasiado larga"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Las contrasenas no coinciden",
+    path: ["confirmPassword"],
+  });
+
+const requestPasswordResetSchema = z.object({
+  email: z.string().trim().email("Correo invalido"),
+});
+
+const resetPasswordSchema = z
   .object({
     token: z.string().trim().min(1, "Token invalido"),
     password: z.string().min(8, "Minimo 8 caracteres").max(100, "Contrasena demasiado larga"),
@@ -420,6 +440,91 @@ export async function activateAccountAction(formData: FormData): Promise<void> {
   });
 
   redirect("/login?ok=Cuenta+activada.+Ya+puedes+iniciar+sesion");
+}
+
+// Mensaje generico para no revelar si el correo existe (evita enumeracion de cuentas).
+const RESET_REQUEST_DONE =
+  "Si el correo esta registrado, te enviamos un enlace para restablecer la contrasena.";
+
+export async function requestPasswordResetAction(formData: FormData): Promise<void> {
+  const parsed = requestPasswordResetSchema.safeParse({
+    email: formData.get("email"),
+  });
+
+  if (!parsed.success) {
+    redirect("/recuperar?error=Correo+invalido");
+  }
+
+  const { email } = parsed.data;
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, name: true, email: true },
+  });
+
+  if (user) {
+    const baseUrl = (
+      process.env.AUTH_URL ||
+      process.env.NEXTAUTH_URL ||
+      process.env.APP_URL ||
+      ""
+    ).replace(/\/+$/, "");
+
+    if (!baseUrl) {
+      redirect("/recuperar?error=Falta+configurar+AUTH_URL+para+enviar+el+correo");
+    }
+
+    try {
+      const token = createPasswordResetToken(user.id, user.email);
+      const resetUrl = `${baseUrl}/restablecer?token=${encodeURIComponent(token)}`;
+      await sendPasswordResetEmail({
+        to: user.email,
+        name: user.name ?? "",
+        resetUrl,
+      });
+    } catch (error) {
+      console.error("No se pudo enviar el correo de recuperacion:", error);
+      redirect("/recuperar?error=No+se+pudo+enviar+el+correo.+Intenta+mas+tarde");
+    }
+  }
+
+  redirect(`/recuperar?ok=${encodeURIComponent(RESET_REQUEST_DONE)}`);
+}
+
+export async function resetPasswordAction(formData: FormData): Promise<void> {
+  const parsed = resetPasswordSchema.safeParse({
+    token: formData.get("token"),
+    password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
+  });
+
+  if (!parsed.success) {
+    const token = typeof formData.get("token") === "string" ? (formData.get("token") as string) : "";
+    const message = parsed.error.issues[0]?.message ?? "Datos invalidos";
+    redirect(`/restablecer?token=${encodeURIComponent(token)}&error=${encodeURIComponent(message)}`);
+  }
+
+  const { token, password } = parsed.data;
+  const payload = verifyPasswordResetToken(token);
+  if (!payload) {
+    redirect("/login?error=El+enlace+de+recuperacion+es+invalido+o+expiro");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: { id: true, email: true },
+  });
+
+  if (!user || user.email !== payload.email) {
+    redirect("/login?error=No+se+pudo+restablecer+la+contrasena");
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 12);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { password: hashedPassword },
+  });
+
+  redirect("/login?ok=Contrasena+actualizada.+Ya+puedes+iniciar+sesion");
 }
 
 const updateRoleSchema = z.object({

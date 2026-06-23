@@ -437,7 +437,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
           <span className="text-sm md:text-base">
             📱
           </span>
-          <h2 className="text-sm font-normal tracking-tight text-slate-900 md:text-lg">
+          <h2 className="text-sm font-normal tracking-tight text-foreground md:text-lg">
             Busca tu <strong className="font-semibold">categoria</strong>
           </h2>
         </div>
@@ -455,7 +455,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                     className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                   />
                 </div>
-                <p className="mt-1.5 break-words text-center text-[11px] font-semibold leading-tight text-slate-900 sm:text-xs">
+                <p className="mt-1.5 break-words text-center text-[11px] font-semibold leading-tight text-foreground sm:text-xs">
                   {item.name}
                 </p>
               </Link>
@@ -465,29 +465,29 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
       ) : null}
 
       {!normalizedQuery && !category ? (
-        <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen bg-slate-50 py-6">
+        <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen bg-muted py-6">
           <div className="mx-auto max-w-6xl px-4 md:px-6">
             <div className="grid grid-cols-3 gap-4 text-center md:grid-cols-3">
               <div className="flex flex-col items-center gap-1.5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--primary)]/10">
                   <Star className="h-5 w-5 text-[var(--primary-strong)]" />
                 </div>
-                <p className="text-lg font-bold text-slate-900">500+</p>
-                <p className="text-xs text-slate-500">Salones equipados</p>
+                <p className="text-lg font-bold text-foreground">500+</p>
+                <p className="text-xs text-muted-foreground">Salones equipados</p>
               </div>
               <div className="flex flex-col items-center gap-1.5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--primary)]/10">
                   <Truck className="h-5 w-5 text-[var(--primary-strong)]" />
                 </div>
-                <p className="text-lg font-bold text-slate-900">Todo Colombia</p>
-                <p className="text-xs text-slate-500">Envio a tu ciudad</p>
+                <p className="text-lg font-bold text-foreground">Todo Colombia</p>
+                <p className="text-xs text-muted-foreground">Envio a tu ciudad</p>
               </div>
               <div className="flex flex-col items-center gap-1.5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--primary)]/10">
                   <Shield className="h-5 w-5 text-[var(--primary-strong)]" />
                 </div>
-                <p className="text-lg font-bold text-slate-900">Garantia</p>
-                <p className="text-xs text-slate-500">Respaldo postventa</p>
+                <p className="text-lg font-bold text-foreground">Garantia</p>
+                <p className="text-xs text-muted-foreground">Respaldo postventa</p>
               </div>
             </div>
           </div>
@@ -496,19 +496,19 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
 
       {products.length === 0 ? (
         <Card>
-          <p className="text-sm text-slate-600">No hay productos publicados todavia.</p>
+          <p className="text-sm text-muted-foreground">No hay productos publicados todavia.</p>
         </Card>
       ) : (
         <div className="space-y-3" id="catalogo">
           {!normalizedQuery && !category ? (
-            <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4 shadow-sm">
+            <div className="rounded-2xl border border-[var(--line)] bg-card px-4 py-4 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--primary-strong)]">
                 Mobiliario profesional premium
               </p>
-              <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">
+              <h2 className="mt-2 text-xl font-semibold tracking-tight text-foreground md:text-2xl">
                 Mobiliario profesional para peluqueria, barberia y salon de belleza
               </h2>
-              <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
                 {`En ${brandName} encuentras sillas, estaciones y mobiliario profesional para equipar tu negocio con imagen, funcionalidad y respaldo.`}
               </p>
             </div>
@@ -517,7 +517,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
           {!category ? (
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
-                <h2 className="text-xl font-semibold tracking-tight text-slate-900">Catalogo de tienda</h2>
+                <h2 className="text-xl font-semibold tracking-tight text-foreground">Catalogo de tienda</h2>
               </div>
             </div>
           ) : null}
@@ -539,7 +539,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                       <img
                         src={getPublicAssetUrl(product.thumbnailUrl)}
                         alt={product.name}
-                        className="h-40 w-full bg-white object-contain p-2 transition duration-500 group-hover:scale-[1.02] md:h-52"
+                        className="h-40 w-full bg-card object-contain p-2 transition duration-500 group-hover:scale-[1.02] md:h-52"
                         loading="lazy"
                       />
                       <div className="absolute -bottom-1 left-2.5 z-10 rounded-md border border-[color-mix(in_srgb,var(--primary)_24%,white)] bg-[linear-gradient(135deg,var(--primary)_0%,var(--primary-strong)_100%)] px-1.5 py-1 text-white shadow-[0_12px_20px_-14px_color-mix(in_srgb,var(--primary)_70%,black)]">
@@ -557,25 +557,25 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                     </div>
 
                     <div className="flex flex-1 flex-col space-y-1.5 px-3 pb-1 pt-2.5">
-                      <p className="line-clamp-1 text-xs font-medium text-slate-500">
+                      <p className="line-clamp-1 text-xs font-medium text-muted-foreground">
                         {product.category?.name ?? "Sin categoria"}
                       </p>
-                      <h3 className="min-h-[2rem] text-[13px] font-semibold leading-4 normal-case tracking-normal text-slate-900">
+                      <h3 className="min-h-[2rem] text-[13px] font-semibold leading-4 normal-case tracking-normal text-foreground">
                         {product.name}
                       </h3>
                       <div className="flex items-start justify-between gap-2 pt-0">
                         <div className="space-y-0.5">
-                          <p className="text-xl font-bold tracking-tight text-slate-950">
+                          <p className="text-xl font-bold tracking-tight text-foreground">
                             {formatCatalogPrice(String(retailPrice), systemCurrency)}
                           </p>
-                          <p className="flex items-center gap-1 text-[12px] font-medium text-slate-500">
-                            <span className="line-through text-slate-400">
+                          <p className="flex items-center gap-1 text-[12px] font-medium text-muted-foreground">
+                            <span className="line-through text-muted-foreground">
                               {formatCatalogPrice(String(comparePrice), systemCurrency)}
                             </span>
                             <span className="line-through">Antes</span>
                           </p>
                         </div>
-                        <p className="text-right text-[9px] font-semibold leading-3 text-slate-400">
+                        <p className="text-right text-[9px] font-semibold leading-3 text-muted-foreground">
                           Cualquier
                           <br />
                           medio
@@ -610,7 +610,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
             <div className="space-y-2">
               <div className="flex items-center justify-center gap-2 px-0.5 text-center">
                 <span className="text-sm md:text-base">📱</span>
-                <h2 className="text-sm font-normal tracking-tight text-slate-900 md:text-lg">
+                <h2 className="text-sm font-normal tracking-tight text-foreground md:text-lg">
                   Busca tu <strong className="font-semibold">categoria</strong>
                 </h2>
               </div>
@@ -628,7 +628,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                         className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                       />
                     </div>
-                    <p className="mt-1.5 break-words text-center text-[11px] font-semibold leading-tight text-slate-900 sm:text-xs">
+                    <p className="mt-1.5 break-words text-center text-[11px] font-semibold leading-tight text-foreground sm:text-xs">
                       {item.name}
                     </p>
                   </Link>
@@ -637,14 +637,14 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
             </div>
           ) : null}
           {!normalizedQuery && category ? (
-            <div className="rounded-2xl border border-[var(--line)] bg-white px-4 py-4 shadow-sm">
+            <div className="rounded-2xl border border-[var(--line)] bg-card px-4 py-4 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--primary-strong)]">
                 {category.name}
               </p>
-              <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">
+              <h2 className="mt-2 text-xl font-semibold tracking-tight text-foreground md:text-2xl">
                 {`${category.name} para peluqueria, barberia y espacios de belleza`}
               </h2>
-              <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
                 {category.description?.trim() ||
                   `Encuentra ${category.name.toLowerCase()} en ${brandName}, con referencias pensadas para negocios que necesitan proyectar calidad, comodidad y una imagen profesional.`}
               </p>

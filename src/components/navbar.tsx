@@ -65,7 +65,7 @@ export function Navbar({
   const navLinkClass = (href: string) =>
     isActiveLink(href)
       ? "rounded-full bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-white shadow-[0_6px_16px_-10px_rgba(15,23,42,0.35)]"
-      : "rounded-full px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-[var(--primary)]";
+      : "rounded-full px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-muted hover:text-[var(--primary)]";
   const socialLinks = [
     {
       label: "Instagram",
@@ -85,13 +85,13 @@ export function Navbar({
   ];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-white/90 backdrop-blur-md">
-      <div className="hidden border-b border-[var(--line)] bg-white/65 md:block">
-        <div className="mx-auto flex h-8 w-full items-center justify-start gap-2 overflow-x-auto whitespace-nowrap px-3 text-[11px] text-slate-600 md:justify-center md:px-7">
-          <span className="font-medium text-slate-700">Servicio al cliente +57 304-648-1994</span>
+    <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-background/90 backdrop-blur-md">
+      <div className="hidden border-b border-[var(--line)] bg-background/65 md:block">
+        <div className="mx-auto flex h-8 w-full items-center justify-start gap-2 overflow-x-auto whitespace-nowrap px-3 text-[11px] text-muted-foreground md:justify-center md:px-7">
+          <span className="font-medium text-foreground">Servicio al cliente +57 304-648-1994</span>
           {topMenuLinks.map((item) => (
             <Fragment key={item.label}>
-              <span className="text-slate-400">|</span>
+              <span className="text-muted-foreground">|</span>
               <Link href={item.href} className="transition hover:text-[var(--primary)]">
                 {item.label}
               </Link>
@@ -133,7 +133,7 @@ export function Navbar({
             <Input
               name="q"
               placeholder="Buscar producto"
-              className="h-9 rounded-full border-[var(--line)] bg-white/95 pl-9 pr-4 text-sm text-slate-800 shadow-[0_10px_24px_-18px_rgba(15,23,42,0.65)] focus-visible:h-10 focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--primary)_24%,white)] md:h-10"
+              className="h-9 rounded-full border-[var(--line)] bg-background/95 pl-9 pr-4 text-sm text-foreground shadow-[0_10px_24px_-18px_rgba(15,23,42,0.65)] focus-visible:h-10 focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--primary)_24%,white)] md:h-10"
             />
           </div>
         </form>
@@ -150,7 +150,7 @@ export function Navbar({
                   rel="noopener noreferrer"
                   aria-label={item.label}
                   title={item.label}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--line)] bg-white/90 text-[var(--primary)] shadow-[0_8px_18px_-14px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:bg-slate-50 md:h-9 md:w-9"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--line)] bg-background/90 text-[var(--primary)] shadow-[0_8px_18px_-14px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:bg-muted md:h-9 md:w-9"
                 >
                   <Icon className="h-3.5 w-3.5 md:h-4 md:w-4" />
                 </Link>
@@ -162,13 +162,13 @@ export function Navbar({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="md:hidden" aria-label="Abrir menu">
-                  <Menu className="h-4 w-4 text-slate-700" />
+                  <Menu className="h-4 w-4 text-foreground" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52 md:hidden">
                 {navLinks.map((item) => (
                   <DropdownMenuItem key={item.href} asChild>
-                    <Link href={item.href} className={isActiveLink(item.href) ? "w-full font-medium text-slate-900" : "w-full"}>
+                    <Link href={item.href} className={isActiveLink(item.href) ? "w-full font-medium text-foreground" : "w-full"}>
                       {item.label}
                     </Link>
                   </DropdownMenuItem>
@@ -178,15 +178,15 @@ export function Navbar({
           ) : null}
 
           {status === "loading" ? (
-            <div className="hidden h-8 w-24 animate-pulse rounded-md bg-slate-100 sm:block" />
+            <div className="hidden h-8 w-24 animate-pulse rounded-md bg-muted sm:block" />
           ) : !user ? (
             <Button
               variant="ghost"
               size="sm"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--line)] bg-white/90 p-0 text-[var(--primary-strong)] shadow-[0_8px_18px_-14px_rgba(15,23,42,0.45)] transition hover:bg-slate-50 md:h-10 md:w-auto md:gap-2 md:px-3"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--line)] bg-background/90 p-0 text-[var(--primary-strong)] shadow-[0_8px_18px_-14px_rgba(15,23,42,0.45)] transition hover:bg-muted md:h-10 md:w-auto md:gap-2 md:px-3"
             >
               <Link href="/login">
-                <UserCircle2 className="h-4 w-4 text-slate-600" />
+                <UserCircle2 className="h-4 w-4 text-muted-foreground" />
                 <span className="hidden md:inline">Cuenta</span>
               </Link>
             </Button>
@@ -196,32 +196,32 @@ export function Navbar({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-9 gap-2 rounded-full border border-[var(--line)] bg-white/90 px-2.5 text-slate-900 shadow-[0_8px_18px_-14px_rgba(15,23,42,0.45)] transition hover:bg-slate-50 md:h-10"
+                  className="h-9 gap-2 rounded-full border border-[var(--line)] bg-background/90 px-2.5 text-foreground shadow-[0_8px_18px_-14px_rgba(15,23,42,0.45)] transition hover:bg-muted md:h-10"
                 >
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-700">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-foreground">
                     {initials}
                   </span>
-                  <span className="hidden max-w-[10rem] truncate text-slate-800 sm:inline">
+                  <span className="hidden max-w-[10rem] truncate text-foreground sm:inline">
                     {user.name ?? user.email}
                   </span>
-                  <ChevronDown className="h-4 w-4 text-slate-500" />
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <div className="border-b border-slate-100 px-2 py-2">
-                  <p className="truncate text-sm font-medium text-slate-900">{user.name ?? "Usuario"}</p>
-                  <p className="truncate text-xs text-slate-500">{user.email}</p>
+                  <p className="truncate text-sm font-medium text-foreground">{user.name ?? "Usuario"}</p>
+                  <p className="truncate text-xs text-muted-foreground">{user.email}</p>
                 </div>
                 <DropdownMenuItem asChild>
                   <Link href="/profile" className="flex items-center gap-2">
-                    <UserCircle2 className="h-4 w-4 text-slate-500" />
+                    <UserCircle2 className="h-4 w-4 text-muted-foreground" />
                     Perfil
                   </Link>
                 </DropdownMenuItem>
                 {dashboardHref && (
                   <DropdownMenuItem asChild>
                     <Link href={dashboardHref} className="flex items-center gap-2">
-                      <LayoutDashboard className="h-4 w-4 text-slate-500" />
+                      <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
                       Dashboard
                     </Link>
                   </DropdownMenuItem>
@@ -229,13 +229,13 @@ export function Navbar({
                 {user.role === "ADMIN" && canAccessConfig && (
                   <DropdownMenuItem asChild>
                     <Link href="/admin/configuracion" className="flex items-center gap-2">
-                      <Settings className="h-4 w-4 text-slate-500" />
+                      <Settings className="h-4 w-4 text-muted-foreground" />
                       Configuracion
                     </Link>
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/login" })} className="flex items-center gap-2">
-                  <LogOut className="h-4 w-4 text-slate-500" />
+                  <LogOut className="h-4 w-4 text-muted-foreground" />
                   Cerrar sesion
                 </DropdownMenuItem>
               </DropdownMenuContent>
