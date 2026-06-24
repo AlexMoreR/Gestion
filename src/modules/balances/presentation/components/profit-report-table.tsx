@@ -72,7 +72,7 @@ export function ProfitReportTable({ data, currency }: ProfitReportTableProps) {
       columns={columns}
       searchPlaceholder="Buscar por venta o cliente"
       emptyMessage="No hay ventas para analizar."
-      pageSize={6}
+      paginate={false}
     />
   );
 }

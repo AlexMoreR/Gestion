@@ -216,13 +216,19 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
             </div>
           </div>
 
-          <div className={isPdf ? "text-right" : "text-right"}>
-            <div className="flex items-baseline justify-end gap-2">
+          <div className="text-right">
+            <div
+              className={
+                isPdf
+                  ? "flex items-baseline justify-end gap-2"
+                  : "flex flex-col items-end sm:flex-row sm:items-baseline sm:justify-end sm:gap-2"
+              }
+            >
               <p
                 className={
                   isPdf
                     ? "text-base font-bold tracking-widest text-slate-700 uppercase"
-                    : "text-2xl font-bold tracking-tight text-slate-900 uppercase"
+                    : "text-lg font-bold tracking-tight text-slate-900 uppercase sm:text-2xl"
                 }
               >
                 Cotización
@@ -231,7 +237,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                 className={
                   isPdf
                     ? "text-base font-bold tracking-tight text-slate-400"
-                    : "max-w-full break-all text-2xl font-extrabold tracking-tight text-slate-400"
+                    : "whitespace-nowrap text-lg font-extrabold tracking-tight text-slate-400 sm:text-2xl"
                 }
               >
                 {quote.code}

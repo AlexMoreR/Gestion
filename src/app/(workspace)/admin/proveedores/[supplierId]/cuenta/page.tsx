@@ -3,6 +3,7 @@ import { Factory, Truck } from "lucide-react";
 import { auth } from "@/auth";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { SupplierLedgerForm } from "@/components/admin/supplier-ledger-form";
+import { SupplierEditButton } from "@/components/admin/supplier-edit-button";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
@@ -37,6 +38,8 @@ export default async function AdminSupplierLedgerPage({ params, searchParams }: 
         name: true,
         displayName: true,
         type: true,
+        email: true,
+        phone: true,
         shareToken: true,
         ledgerEntries: {
           orderBy: { createdAt: "desc" },
@@ -169,7 +172,19 @@ export default async function AdminSupplierLedgerPage({ params, searchParams }: 
           </span>
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-foreground">Transacciones</h1>
-            <p className="text-sm text-muted-foreground">{supplier.displayName || supplier.name}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm text-muted-foreground">{supplier.displayName || supplier.name}</p>
+              <SupplierEditButton
+                supplier={{
+                  id: supplier.id,
+                  name: supplier.name,
+                  displayName: supplier.displayName,
+                  type: supplier.type,
+                  email: supplier.email,
+                  phone: supplier.phone,
+                }}
+              />
+            </div>
           </div>
         </div>
         <div className="text-right">

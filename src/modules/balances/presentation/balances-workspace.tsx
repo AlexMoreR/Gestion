@@ -21,7 +21,6 @@ import { PaymentHistoryTable } from "./components/payment-history-table";
 import { ShippingCostsTable } from "./components/shipping-costs-table";
 import { ProfitReportTable } from "./components/profit-report-table";
 import { ProfitChart } from "./components/profit-chart";
-import { SupplierBalancesTable } from "./components/supplier-balances-table";
 import { AccountBalancesTable } from "./components/account-balances-table";
 import { AccountFormDialog } from "./components/account-form-dialog";
 import { AccountMovementFormDialog } from "./components/account-movement-form-dialog";
@@ -130,7 +129,7 @@ export function BalancesWorkspace({
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <h1 className="inline-flex items-center gap-1 text-lg font-semibold tracking-tight text-foreground md:text-xl">
                 <Landmark className="h-4 w-4 text-primary" />
-                <span>Balances y rentabilidad</span>
+                <span>Balances</span>
               </h1>
 
               <div className="flex flex-wrap gap-2">
@@ -177,7 +176,7 @@ export function BalancesWorkspace({
                 </TabsTrigger>
                 <TabsTrigger value="reports">
                   <Landmark />
-                  Reportes
+                  Ventas
                 </TabsTrigger>
                 <TabsTrigger value="cuentas">
                   <Wallet />
@@ -187,10 +186,9 @@ export function BalancesWorkspace({
             </Tabs>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <MetricCard title="Ventas totales" value={formatMoney(metrics.salesTotal, currency)} helper={`${metrics.salesCount} ventas analizadas`} accent="info" />
-          <MetricCard title="Costos totales" value={formatMoney(metrics.supplierCosts, currency)} helper="Costo proveedores" accent="danger" />
-          <MetricCard title="Costos de envio" value={formatMoney(metrics.shippingCosts, currency)} helper="Fletes y transportes" accent="danger" />
+          <MetricCard title="Gastos" value={formatMoney(metrics.supplierCosts + metrics.shippingCosts, currency)} helper="Costos de proveedores y envios" accent="danger" />
           <MetricCard title="Ganancia neta" value={formatMoney(metrics.netProfit, currency)} helper={`${metrics.marginPercentage.toFixed(2)}% de margen`} accent={metrics.netProfit >= 0 ? "success" : "danger"} />
         </div>
 
@@ -292,7 +290,6 @@ export function BalancesWorkspace({
         {tab === "reports" ? (
           <div className="space-y-4">
             <ProfitReportTable data={profitReport} currency={currency} />
-            <SupplierBalancesTable data={supplierBalances} currency={currency} />
           </div>
         ) : null}
 
