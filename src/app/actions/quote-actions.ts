@@ -120,9 +120,24 @@ async function upsertClientFromData(data: z.infer<typeof createClientSchema>): P
     city: data.city,
   };
 
-  const existing = data.email
+  // Se reutiliza un cliente existente para no duplicarlo: primero por correo
+  // (clave unica), luego por documento (identidad fuerte) y, si no hay
+  // documento, por telefono. Asi un cliente "sin correo" no se vuelve a crear.
+  let existing = data.email
     ? await prisma.user.findUnique({ where: { email: data.email } })
     : null;
+
+  if (!existing && data.document) {
+    existing = await prisma.user.findFirst({
+      where: { role: "CLIENTE", document: data.document },
+    });
+  }
+
+  if (!existing && !data.document && data.phone) {
+    existing = await prisma.user.findFirst({
+      where: { role: "CLIENTE", phone: data.phone },
+    });
+  }
 
   if (existing) {
     const updated = await prisma.user.update({

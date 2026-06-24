@@ -1,62 +1,85 @@
 "use client";
 
+import * as React from "react";
+import { Bar, BarChart, CartesianGrid, Cell, XAxis } from "recharts";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type { SaleProfit } from "@/modules/balances/domain/entities";
 
 type ProfitChartProps = {
   data: SaleProfit[];
+  currency: SupportedCurrencyCode;
 };
 
-export function ProfitChart({ data }: ProfitChartProps) {
-  const visible = [...data].slice(0, 8).reverse();
-  const values = visible.map((item) => item.netProfit);
-  const max = Math.max(1, ...values.map((value) => Math.abs(value)));
-  const width = 640;
-  const height = 180;
-  const gap = 14;
-  const barWidth = visible.length > 0 ? (width - gap * (visible.length + 1)) / visible.length : 0;
+const chartConfig = {
+  netProfit: { label: "Ganancia neta" },
+  positive: { label: "Positiva", color: "#10b981" },
+  negative: { label: "Negativa", color: "var(--destructive)" },
+} satisfies ChartConfig;
+
+export function ProfitChart({ data, currency }: ProfitChartProps) {
+  // Datos vienen ordenados por fecha desc; mostramos todas las ventas del
+  // periodo de izquierda (mas antigua) a derecha (mas reciente).
+  const chartData = [...data].reverse().map((item) => ({
+    saleCode: item.saleCode,
+    netProfit: item.netProfit,
+  }));
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
       <div className="mb-3 flex items-end justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Rentabilidad reciente</h3>
-          <p className="text-xs text-muted-foreground">Venta neta por cada pedido reciente.</p>
+          <h3 className="text-sm font-semibold text-foreground">Rentabilidad por venta</h3>
+          <p className="text-xs text-muted-foreground">Venta neta por cada venta del periodo.</p>
         </div>
       </div>
-      <div className="overflow-hidden rounded-xl border border-border/70 bg-muted/20 p-3">
-        <svg viewBox={`0 0 ${width} ${height}`} className="h-48 w-full">
-          <line x1="0" y1={height - 1} x2={width} y2={height - 1} stroke="currentColor" className="text-border" />
-          {visible.map((item, index) => {
-            const value = item.netProfit;
-            const normalized = Math.abs(value) / max;
-            const barHeight = Math.max(8, normalized * (height - 48));
-            const x = gap + index * (barWidth + gap);
-            const y = height - 24 - barHeight;
-            const positive = value >= 0;
 
-            return (
-              <g key={item.saleId}>
-                <rect
-                  x={x}
-                  y={y}
-                  width={barWidth}
-                  height={barHeight}
-                  rx="12"
-                  className={positive ? "fill-emerald-500/80" : "fill-destructive/70"}
+      {chartData.length === 0 ? (
+        <div className="flex h-48 items-center justify-center rounded-xl border border-border/70 bg-muted/20 text-sm text-muted-foreground">
+          Sin datos suficientes.
+        </div>
+      ) : (
+        <ChartContainer config={chartConfig} className="h-48 w-full">
+          <BarChart accessibilityLayer data={chartData} margin={{ top: 8, left: 4, right: 4 }}>
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="saleCode"
+              tickLine={false}
+              tickMargin={8}
+              axisLine={false}
+              fontSize={10}
+            />
+            <ChartTooltip
+              cursor={false}
+              content={
+                <ChartTooltipContent
+                  formatter={(value) => (
+                    <div className="flex flex-1 items-center justify-between gap-3">
+                      <span className="text-muted-foreground">Ganancia neta</span>
+                      <span className="font-mono font-medium tabular-nums text-foreground">
+                        {formatMoney(Number(value), currency)}
+                      </span>
+                    </div>
+                  )}
                 />
-                <text
-                  x={x + barWidth / 2}
-                  y={height - 8}
-                  textAnchor="middle"
-                  className="fill-muted-foreground text-[10px]"
-                >
-                  {item.saleCode}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
+              }
+            />
+            <Bar dataKey="netProfit" radius={[8, 8, 4, 4]}>
+              {chartData.map((entry) => (
+                <Cell
+                  key={entry.saleCode}
+                  fill={entry.netProfit >= 0 ? "var(--color-positive)" : "var(--color-negative)"}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ChartContainer>
+      )}
     </div>
   );
 }

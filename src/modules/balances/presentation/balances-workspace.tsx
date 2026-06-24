@@ -155,7 +155,7 @@ export function BalancesWorkspace({
 
         {tab === "overview" ? (
           <div className="grid gap-4 xl:grid-cols-[1.4fr_0.9fr]">
-            <ProfitChart data={profitReport} />
+            <ProfitChart data={profitReport} currency={currency} />
             <div className="space-y-4">
               <Card className="border-border bg-card">
                 <CardContent className="space-y-3 p-4">
