@@ -1,7 +1,15 @@
 "use client";
 
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+
+function getInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 
 type HistoryEntry = {
   id: string;
@@ -49,10 +57,15 @@ export function OrderHistoryTabs({ history, payments, currency }: OrderHistoryTa
                 </p>
                 <p className="text-xs text-muted-foreground">{item.date}</p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {item.by}
-                {item.note ? ` - ${item.note}` : ""}
-              </p>
+              <div className="mt-1 flex items-center gap-2">
+                <Avatar className="h-5 w-5">
+                  <AvatarFallback className="rounded-md text-[10px]">{getInitials(item.by)}</AvatarFallback>
+                </Avatar>
+                <p className="text-xs text-muted-foreground">
+                  {item.by}
+                  {item.note ? ` - ${item.note}` : ""}
+                </p>
+              </div>
             </div>
           ))
         )}
