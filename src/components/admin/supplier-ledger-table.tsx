@@ -1,13 +1,38 @@
 "use client";
 
+import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Eye, Trash2 } from "lucide-react";
+import { Eye, Trash2, X } from "lucide-react";
 import { adminDeleteSupplierPaymentAction } from "@/app/actions/supplier-ledger-actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { InventoryDataGrid } from "@/modules/inventory/presentation/components/inventory-data-grid";
+
+// Fecha local (YYYY-MM-DD) a partir del ISO, para comparar con los <input type="date">.
+function localDay(iso: string): string {
+  const date = new Date(iso);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+}
+
+function isImage(url: string): boolean {
+  return /\.(jpe?g|png|webp|gif|avif)$/i.test(url.split("?")[0] ?? "");
+}
+
+function fmtLocal(date: Date): string {
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+}
+
+// Primer y ultimo dia del mes actual (YYYY-MM-DD).
+function currentMonthRange(): { from: string; to: string } {
+  const now = new Date();
+  return {
+    from: fmtLocal(new Date(now.getFullYear(), now.getMonth(), 1)),
+    to: fmtLocal(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+  };
+}
 
 export type SupplierLedgerRow = {
   id: string;
@@ -30,6 +55,59 @@ type SupplierLedgerTableProps = {
 };
 
 export function SupplierLedgerTable({ ledger, currency, returnTo }: SupplierLedgerTableProps) {
+  const [fromDate, setFromDate] = React.useState("");
+  const [toDate, setToDate] = React.useState("");
+  const [viewerUrl, setViewerUrl] = React.useState<string | null>(null);
+
+  // Por defecto muestra el mes actual. Se fija en el cliente para evitar
+  // desajustes de hidratacion por zona horaria.
+  React.useEffect(() => {
+    const { from, to } = currentMonthRange();
+    setFromDate(from);
+    setToDate(to);
+  }, []);
+
+  // Ordena por fecha de mayor a menor (mas reciente primero) y filtra por rango.
+  const sortedLedger = [...ledger]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .filter((entry) => {
+      const day = localDay(entry.createdAt);
+      if (fromDate && day < fromDate) return false;
+      if (toDate && day > toDate) return false;
+      return true;
+    });
+
+  const dateFilter = (
+    <div className="flex items-center gap-1.5">
+      <DateRangePicker
+        from={fromDate}
+        to={toDate}
+        onChange={(range) => {
+          setFromDate(range.from);
+          setToDate(range.to);
+        }}
+        aria-label="Rango de fechas"
+        className="sm:w-64"
+        placeholder="Rango de fechas"
+      />
+      {fromDate || toDate ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => {
+            setFromDate("");
+            setToDate("");
+          }}
+          aria-label="Limpiar fechas"
+          title="Limpiar fechas"
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      ) : null}
+    </div>
+  );
+
   const columns: ColumnDef<SupplierLedgerRow, unknown>[] = [
     {
       accessorKey: "createdAt",
@@ -88,15 +166,27 @@ export function SupplierLedgerTable({ ledger, currency, returnTo }: SupplierLedg
               {entry.accountName ? ` - ${entry.accountName}` : ""}
             </span>
             {entry.receiptUrl ? (
-              <a
-                href={entry.receiptUrl}
-                target="_blank"
-                rel="noreferrer"
-                title="Ver comprobante"
-                className="inline-flex items-center text-primary transition hover:text-primary/80"
-              >
-                <Eye className="size-4" />
-              </a>
+              isImage(entry.receiptUrl) ? (
+                <button
+                  type="button"
+                  onClick={() => setViewerUrl(entry.receiptUrl)}
+                  title="Ver comprobante"
+                  aria-label="Ver comprobante"
+                  className="inline-flex items-center text-primary transition hover:text-primary/80"
+                >
+                  <Eye className="size-4" />
+                </button>
+              ) : (
+                <a
+                  href={entry.receiptUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Ver comprobante"
+                  className="inline-flex items-center text-primary transition hover:text-primary/80"
+                >
+                  <Eye className="size-4" />
+                </a>
+              )
             ) : null}
           </div>
         );
@@ -154,14 +244,58 @@ export function SupplierLedgerTable({ ledger, currency, returnTo }: SupplierLedg
   ];
 
   return (
-    <InventoryDataGrid
-      title="Movimientos"
-      description="Cargos y abonos de la cuenta del proveedor."
-      data={ledger}
-      columns={columns}
-      searchPlaceholder="Buscar movimiento"
-      emptyMessage="Sin movimientos registrados."
-      pageSize={12}
-    />
+    <>
+      <InventoryDataGrid
+        title="Movimientos"
+        description="Cargos y abonos de la cuenta del proveedor."
+        data={sortedLedger}
+        columns={columns}
+        searchPlaceholder="Buscar movimiento"
+        emptyMessage="Sin movimientos registrados."
+        pageSize={12}
+        toolbar={dateFilter}
+      />
+      <ReceiptLightbox url={viewerUrl} onClose={() => setViewerUrl(null)} />
+    </>
+  );
+}
+
+// Visor de comprobante en grande (estilo lightbox de WhatsApp).
+function ReceiptLightbox({ url, onClose }: { url: string | null; onClose: () => void }) {
+  React.useEffect(() => {
+    if (!url) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [url, onClose]);
+
+  if (!url) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Comprobante"
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Cerrar"
+        className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+      >
+        <X className="h-5 w-5" />
+      </button>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt="Comprobante"
+        className="max-h-[90vh] max-w-[95vw] rounded-lg object-contain shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      />
+    </div>
   );
 }

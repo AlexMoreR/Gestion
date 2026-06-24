@@ -22,6 +22,7 @@ import {
 import { adminCreateOrderFromSaleAction } from "@/app/actions/orders-actions";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -638,12 +639,55 @@ function AddSalePaymentSheet({
   );
 }
 
+// Fecha local (YYYY-MM-DD) para comparar con el DateRangePicker.
+function localDay(value: string): string {
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+}
+
 export function SalesDataTable({ sales, currency, accounts }: SalesDataTableProps) {
   const [selectedSale, setSelectedSale] = React.useState<SaleRow | null>(null);
   const [paymentSale, setPaymentSale] = React.useState<SaleRow | null>(null);
+  const [fromDate, setFromDate] = React.useState("");
+  const [toDate, setToDate] = React.useState("");
+
+  const filteredSales = sales.filter((sale) => {
+    const day = localDay(sale.createdAtISO);
+    if (fromDate && day < fromDate) return false;
+    if (toDate && day > toDate) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-3">
+      <div className="flex items-center justify-end gap-1.5">
+        <DateRangePicker
+          from={fromDate}
+          to={toDate}
+          onChange={(range) => {
+            setFromDate(range.from);
+            setToDate(range.to);
+          }}
+          aria-label="Rango de fechas"
+          className="sm:w-64"
+          placeholder="Rango de fechas"
+        />
+        {fromDate || toDate ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => {
+              setFromDate("");
+              setToDate("");
+            }}
+            aria-label="Limpiar fechas"
+            title="Limpiar fechas"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        ) : null}
+      </div>
       <SaleReceiptsSheet
         sale={selectedSale}
         currency={currency}
@@ -681,14 +725,14 @@ export function SalesDataTable({ sales, currency, accounts }: SalesDataTableProp
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sales.length === 0 ? (
+            {filteredSales.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="py-9 text-center text-muted-foreground">
                   No hay ventas con los filtros seleccionados.
                 </TableCell>
               </TableRow>
             ) : (
-              sales.map((sale) => (
+              filteredSales.map((sale) => (
                 <TableRow key={sale.id}>
                   <TableCell>
                     <p className="text-sm font-semibold text-foreground">{sale.code}</p>
@@ -731,12 +775,12 @@ export function SalesDataTable({ sales, currency, accounts }: SalesDataTableProp
       </div>
 
       <div className="space-y-2 md:hidden">
-        {sales.length === 0 ? (
+        {filteredSales.length === 0 ? (
           <div className="rounded-xl border border-border bg-card px-3 py-6 text-center text-sm text-muted-foreground">
             No hay ventas con los filtros seleccionados.
           </div>
         ) : (
-          sales.map((sale) => (
+          filteredSales.map((sale) => (
             <article key={sale.id} className="space-y-2.5 rounded-xl border border-border bg-card p-3">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">

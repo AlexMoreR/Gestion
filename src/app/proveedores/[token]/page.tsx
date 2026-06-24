@@ -48,6 +48,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
         quantity: true,
         purchaseCost: true,
         supplierPaymentStatus: true,
+        supplierReceiptUrl: true,
         confirmedAt: true,
         createdAt: true,
         product: { select: { name: true, code: true, thumbnailUrl: true } },
@@ -152,8 +153,10 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     // Pagado: queda fijo en el mes del pago. Pendiente: se arrastra al mes actual
     // (y sigue avanzando cada mes) hasta que se pague, sin importar su mes de origen.
     const bucketMonth = paidDate ? monthKeyOf(paidDate) : currentMonthKey;
+    // El comprobante del item es la fuente principal (igual que la vista admin de la
+    // orden); si no lo tiene, se recurre al pago a nivel item u orden del ledger.
     const receiptRaw = isPaid
-      ? receiptByItem.get(item.id) ?? receiptByOrder.get(item.order.id) ?? null
+      ? item.supplierReceiptUrl ?? receiptByItem.get(item.id) ?? receiptByOrder.get(item.order.id) ?? null
       : null;
     return {
       id: item.id,

@@ -1,8 +1,10 @@
 "use client";
 
+import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Paperclip, Pencil, Trash2 } from "lucide-react";
+import { Paperclip, Pencil, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type { ExpenseRow } from "@/modules/expenses/domain/entities";
 import { ExpensesDataGrid } from "./expenses-data-grid";
@@ -18,7 +20,54 @@ function formatDate(value: Date): string {
   return new Date(value).toLocaleDateString("es-CO", { year: "numeric", month: "short", day: "2-digit" });
 }
 
+// Fecha local (YYYY-MM-DD) para comparar con el DateRangePicker.
+function localDay(value: Date | string): string {
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+}
+
 export function ExpensesTable({ data, currency, onEdit, onDelete }: ExpensesTableProps) {
+  const [fromDate, setFromDate] = React.useState("");
+  const [toDate, setToDate] = React.useState("");
+
+  const filtered = data.filter((expense) => {
+    const day = localDay(expense.expenseDate);
+    if (fromDate && day < fromDate) return false;
+    if (toDate && day > toDate) return false;
+    return true;
+  });
+
+  const dateFilter = (
+    <div className="flex items-center gap-1.5">
+      <DateRangePicker
+        from={fromDate}
+        to={toDate}
+        onChange={(range) => {
+          setFromDate(range.from);
+          setToDate(range.to);
+        }}
+        aria-label="Rango de fechas"
+        className="sm:w-64"
+        placeholder="Rango de fechas"
+      />
+      {fromDate || toDate ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => {
+            setFromDate("");
+            setToDate("");
+          }}
+          aria-label="Limpiar fechas"
+          title="Limpiar fechas"
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      ) : null}
+    </div>
+  );
+
   const columns: ColumnDef<ExpenseRow>[] = [
     {
       accessorKey: "expenseDate",
@@ -105,11 +154,12 @@ export function ExpensesTable({ data, currency, onEdit, onDelete }: ExpensesTabl
     <ExpensesDataGrid
       title="Gastos registrados"
       description="Cada gasto descuenta del balance de la cuenta seleccionada."
-      data={data}
+      data={filtered}
       columns={columns}
       searchPlaceholder="Buscar gasto"
       emptyMessage="Aun no hay gastos. Registra el primero con 'Nuevo gasto'."
       pageSize={10}
+      toolbar={dateFilter}
     />
   );
 }

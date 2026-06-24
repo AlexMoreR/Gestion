@@ -655,7 +655,7 @@ export async function adminDeleteSaleAction(formData: FormData): Promise<void> {
 // ─── VENTA DIRECTA (mostrador, sin cotizacion previa) ──────────────────────
 
 // Correo centinela del cliente generico unico para ventas de mostrador.
-export const CONSUMIDOR_FINAL_EMAIL = "consumidor-final@magilus.local";
+const CONSUMIDOR_FINAL_EMAIL = "consumidor-final@magilus.local";
 
 function buildQuoteCode(index: number): string {
   return `COT-${String(index).padStart(5, "0")}`;
