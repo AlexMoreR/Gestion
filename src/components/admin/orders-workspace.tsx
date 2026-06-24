@@ -75,7 +75,7 @@ export function OrdersWorkspace({ orders, currency, stats }: OrdersWorkspaceProp
     <section className="space-y-4">
       <OperationsTabs />
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card className="border-border bg-card/95">
           <CardContent className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Ordenes</p>
@@ -92,12 +92,6 @@ export function OrdersWorkspace({ orders, currency, stats }: OrdersWorkspaceProp
           <CardContent className="space-y-2">
             <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Produccion</p>
             <p className="text-2xl font-semibold text-foreground">{stats.productionCount}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border bg-card/95">
-          <CardContent className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Listas</p>
-            <p className="text-2xl font-semibold text-foreground">{stats.readyToDispatchCount}</p>
           </CardContent>
         </Card>
         <Card className="border-border bg-card/95">
@@ -131,7 +125,7 @@ export function OrdersWorkspace({ orders, currency, stats }: OrdersWorkspaceProp
               </TableRow>
             ) : (
               orders.map((order) => (
-                <TableRow key={order.id}>
+                <TableRow key={order.id} className="[&_td]:py-1">
                   <TableCell>
                     <p className="text-sm font-semibold text-foreground">{order.code}</p>
                   </TableCell>

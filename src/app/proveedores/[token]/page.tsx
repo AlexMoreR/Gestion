@@ -262,6 +262,14 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     const chargeDate = charge.paymentDate ?? charge.createdAt;
     const bucketMonth = isPaid && payDate ? monthKeyOf(payDate) : currentMonthKey;
     const dateStr = (isPaid && payDate ? payDate : chargeDate).toLocaleDateString("es-CO");
+    // Comprobante del envio: el del pago mas reciente (entre los que lo saldaron)
+    // que tenga adjunto. Solo se muestra si el cargo esta pagado.
+    const receiptPayment = matched.reduce<{ date: Date; url: string } | null>((latest, payment) => {
+      if (!payment.receiptUrl) return latest;
+      const date = payment.paymentDate ?? payment.createdAt;
+      return !latest || date > latest.date ? { date, url: payment.receiptUrl } : latest;
+    }, null);
+    const shippingReceipt = isPaid && receiptPayment ? getPublicAssetUrl(receiptPayment.url) : null;
     // Cada producto enviado va bajo la misma orden.
     const orderCode = charge.order?.code ?? charge.dispatch?.code ?? "Envío";
 
@@ -286,7 +294,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
           isPaid,
           isFinished: true,
           bucketMonth,
-          receiptUrl: null,
+          receiptUrl: shippingReceipt,
           date: dateStr,
         },
       ];
@@ -314,7 +322,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
         isPaid,
         isFinished: true,
         bucketMonth,
-        receiptUrl: null,
+        receiptUrl: shippingReceipt,
         date: dateStr,
       };
     });
