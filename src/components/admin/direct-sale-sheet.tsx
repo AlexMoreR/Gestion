@@ -104,6 +104,17 @@ export function DirectSaleSheet({
   const [lines, setLines] = React.useState<DraftLine[]>([]);
   const [search, setSearch] = React.useState("");
   const [withPayment, setWithPayment] = React.useState(false);
+  // Fecha de la venta. Vacia en el primer render (servidor) y se completa con la
+  // fecha de hoy en el cliente para evitar mismatch de hidratacion. Editable para
+  // poder cargar ventas de meses anteriores con su fecha real.
+  const [saleDate, setSaleDate] = React.useState("");
+  React.useEffect(() => {
+    if (!saleDate) {
+      const now = new Date();
+      const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+      setSaleDate(local.toISOString().slice(0, 10));
+    }
+  }, [saleDate]);
 
   // Cliente
   const [clientMode, setClientMode] = React.useState<ClientMode>("final");
@@ -485,6 +496,23 @@ export function DirectSaleSheet({
                 </div>
               ))
             )}
+          </div>
+
+          {/* Fecha de la venta (editable para cargar meses anteriores) */}
+          <div className="space-y-1.5">
+            <label htmlFor="direct-sale-date" className="text-sm text-foreground">Fecha de la venta</label>
+            <input
+              id="direct-sale-date"
+              name="saleDate"
+              type="date"
+              required
+              value={saleDate}
+              onChange={(event) => setSaleDate(event.target.value)}
+              className={inputClass}
+            />
+            <p className="text-xs text-muted-foreground">
+              Para cargar ventas anteriores, ajusta esta fecha al mes real.
+            </p>
           </div>
 
           {/* Total */}

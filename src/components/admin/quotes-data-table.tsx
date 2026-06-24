@@ -1194,7 +1194,6 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
               />
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Estados</span>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button type="button" variant="outline" size="sm" className="gap-2">

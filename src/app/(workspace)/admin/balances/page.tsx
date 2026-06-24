@@ -4,6 +4,7 @@ import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { prisma } from "@/lib/prisma";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
+import { createPrismaExpensesRepository } from "@/modules/expenses/infrastructure/prisma-expenses-repository";
 import { BalancesWorkspace } from "@/modules/balances/presentation/balances-workspace";
 import { redirect } from "next/navigation";
 
@@ -23,11 +24,39 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
   }
 
   const repository = createPrismaBalancesRepository();
+  const expensesRepository = createPrismaExpensesRepository();
   const params = await searchParams;
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
-  const [currency, metrics, supplierBalances, paymentHistory, shippingCosts, profitReport, accounts, sales, suppliers] = await Promise.all([
+  // El id del JWT puede apuntar a un usuario que ya no existe; resolvemos un
+  // User real antes de sembrar las categorias de gasto por defecto.
+  const sessionUser =
+    (await prisma.user.findUnique({ where: { id: session.user.id }, select: { id: true } })) ??
+    (session.user.email
+      ? await prisma.user.findUnique({ where: { email: session.user.email }, select: { id: true } })
+      : null);
+  if (sessionUser) {
+    await expensesRepository.ensureDefaultCategories(sessionUser.id);
+  }
+
+  const [
+    currency,
+    metrics,
+    supplierBalances,
+    paymentHistory,
+    shippingCosts,
+    profitReport,
+    accounts,
+    sales,
+    suppliers,
+    expenseMetrics,
+    expenses,
+    expenseCategories,
+    expenseCategoryTotals,
+    activeAccounts,
+    employees,
+  ] = await Promise.all([
     getSystemCurrency(),
     repository.getDashboardMetrics(),
     repository.listSupplierBalances(),
@@ -48,6 +77,16 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
     prisma.supplier.findMany({
       orderBy: { name: "asc" },
       select: { id: true, name: true },
+    }),
+    expensesRepository.getMetrics(),
+    expensesRepository.listExpenses(),
+    expensesRepository.listCategories(),
+    expensesRepository.listCategoryTotals(),
+    repository.listAccounts({ activeOnly: true }),
+    prisma.user.findMany({
+      where: { role: { in: ["ADMIN", "EMPLEADO"] } },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, email: true },
     }),
   ]);
 
@@ -75,6 +114,22 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
           clientName: sale.client.name,
         }))}
         suppliers={suppliers}
+        expensesData={{
+          currency,
+          metrics: expenseMetrics,
+          expenses,
+          categories: expenseCategories,
+          categoryTotals: expenseCategoryTotals,
+          accounts: activeAccounts.map((account) => ({
+            id: account.id,
+            name: account.name,
+            isCash: account.type === "CASH",
+          })),
+          employees: employees.map((employee) => ({
+            id: employee.id,
+            name: employee.name ?? employee.email,
+          })),
+        }}
       />
     </section>
   );

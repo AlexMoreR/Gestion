@@ -44,6 +44,11 @@ type ExpensesWorkspaceProps = {
   categoryTotals: ExpenseCategoryTotal[];
   accounts: AccountOption[];
   employees: EmployeeOption[];
+  /**
+   * Modo embebido (p. ej. dentro de Balances): oculta la cabecera propia,
+   * el boton de alta y las sub-pestañas. Queda solo el contenido informativo.
+   */
+  embedded?: boolean;
 };
 
 type TabKey = "gastos" | "categorias";
@@ -87,6 +92,7 @@ export function ExpensesWorkspace({
   categoryTotals,
   accounts,
   employees,
+  embedded = false,
 }: ExpensesWorkspaceProps) {
   const [tab, setTab] = React.useState<TabKey>("gastos");
   const [expenseModal, setExpenseModal] = React.useState<
@@ -112,41 +118,43 @@ export function ExpensesWorkspace({
   return (
     <>
       <section className="space-y-4">
-        <div className="space-y-3">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <h1 className="inline-flex items-center gap-1 text-lg font-semibold tracking-tight text-foreground md:text-xl">
-              <ReceiptText className="h-4 w-4 text-primary" />
-              <span>Gastos</span>
-            </h1>
+        {embedded ? null : (
+          <div className="space-y-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <h1 className="inline-flex items-center gap-1 text-lg font-semibold tracking-tight text-foreground md:text-xl">
+                <ReceiptText className="h-4 w-4 text-primary" />
+                <span>Gastos</span>
+              </h1>
 
-            <div className="flex flex-wrap gap-2">
-              {tab === "gastos" ? (
-                <Button type="button" onClick={() => setExpenseModal({ mode: "create", initialValue: null })}>
-                  <Plus className="h-4 w-4" />
-                  Nuevo gasto
-                </Button>
-              ) : (
-                <Button type="button" onClick={() => setCategoryModal({ mode: "create", initialValue: null })}>
-                  <Plus className="h-4 w-4" />
-                  Nueva categoria
-                </Button>
-              )}
+              <div className="flex flex-wrap gap-2">
+                {tab === "gastos" ? (
+                  <Button type="button" onClick={() => setExpenseModal({ mode: "create", initialValue: null })}>
+                    <Plus className="h-4 w-4" />
+                    Nuevo gasto
+                  </Button>
+                ) : (
+                  <Button type="button" onClick={() => setCategoryModal({ mode: "create", initialValue: null })}>
+                    <Plus className="h-4 w-4" />
+                    Nueva categoria
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
 
-          <Tabs value={tab} onValueChange={(value) => setTab(value as TabKey)} variant="line">
-            <TabsList>
-              <TabsTrigger value="gastos">
-                <ReceiptText />
-                Gastos
-              </TabsTrigger>
-              <TabsTrigger value="categorias">
-                <Tags />
-                Categorias
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
+            <Tabs value={tab} onValueChange={(value) => setTab(value as TabKey)} variant="line">
+              <TabsList>
+                <TabsTrigger value="gastos">
+                  <ReceiptText />
+                  Gastos
+                </TabsTrigger>
+                <TabsTrigger value="categorias">
+                  <Tags />
+                  Categorias
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        )}
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard

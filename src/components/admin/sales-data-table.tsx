@@ -2,15 +2,23 @@
 
 import Link from "next/link";
 import * as React from "react";
+import type { ColumnDef } from "@tanstack/react-table";
 import {
   ArrowUpRight,
+  Calendar,
+  CircleDollarSign,
+  CircleDot,
   FileText,
+  Filter,
+  Hash,
   ImagePlus,
   MoreHorizontal,
   PlusCircle,
   Eye,
   FileCheck2,
   Trash2,
+  User,
+  Wallet,
   X,
 } from "lucide-react";
 import { useFormStatus } from "react-dom";
@@ -38,13 +46,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DataTable } from "@/components/ui/data-table";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { MoneyInput } from "@/components/ui/money-input";
 
@@ -92,6 +100,7 @@ type SalesDataTableProps = {
   sales: SaleRow[];
   currency: SupportedCurrencyCode;
   accounts: AccountOption[];
+  initialSearch?: string;
 };
 
 function statusLabel(status: SaleStatus): string {
@@ -645,22 +654,170 @@ function localDay(value: string): string {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
 }
 
-export function SalesDataTable({ sales, currency, accounts }: SalesDataTableProps) {
+function HeaderWithIcon({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {icon}
+      {children}
+    </span>
+  );
+}
+
+function SaleRowForms({ sale }: { sale: SaleRow }) {
+  return (
+    <>
+      <form data-create-order-sale-id={sale.id} action={adminCreateOrderFromSaleAction}>
+        <input type="hidden" name="returnTo" value="/admin/ventas" />
+        <input type="hidden" name="saleId" value={sale.id} />
+      </form>
+      <form data-delete-sale-id={sale.id} action={adminDeleteSaleAction}>
+        <input type="hidden" name="returnTo" value="/admin/ventas" />
+        <input type="hidden" name="saleId" value={sale.id} />
+      </form>
+    </>
+  );
+}
+
+function SaleMobileCard({
+  sale,
+  currency,
+  onViewReceipts,
+  onAddPayment,
+}: {
+  sale: SaleRow;
+  currency: SupportedCurrencyCode;
+  onViewReceipts: () => void;
+  onAddPayment: () => void;
+}) {
+  return (
+    <article className="space-y-2.5 rounded-xl border border-border bg-card p-3">
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-foreground">{sale.code}</p>
+          <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(sale.status)}`}>
+            {statusLabel(sale.status)}
+          </span>
+        </div>
+        <p className="text-sm text-foreground">{sale.clientName}</p>
+        <p className="text-xs text-muted-foreground">{sale.createdAt}</p>
+        <p className="text-sm font-semibold text-foreground">{formatMoney(sale.total, currency)}</p>
+        <p className="text-xs text-muted-foreground">Abono: {formatMoney(sale.downPaymentAmount, currency)}</p>
+        <p className="text-xs text-muted-foreground">{getReceiptLabel(sale.paymentReceiptType)}</p>
+      </div>
+      <div className="flex items-center justify-end">
+        <SaleRowForms sale={sale} />
+        <RowActions sale={sale} onViewReceipts={onViewReceipts} onAddPayment={onAddPayment} />
+      </div>
+    </article>
+  );
+}
+
+export function SalesDataTable({ sales, currency, accounts, initialSearch = "" }: SalesDataTableProps) {
   const [selectedSale, setSelectedSale] = React.useState<SaleRow | null>(null);
   const [paymentSale, setPaymentSale] = React.useState<SaleRow | null>(null);
   const [fromDate, setFromDate] = React.useState("");
   const [toDate, setToDate] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState<SaleStatus | "ALL">("ALL");
 
-  const filteredSales = sales.filter((sale) => {
-    const day = localDay(sale.createdAtISO);
-    if (fromDate && day < fromDate) return false;
-    if (toDate && day > toDate) return false;
-    return true;
-  });
+  // El rango de fechas y el estado se aplican antes de la tabla; DataTable se
+  // encarga de busqueda, orden y paginado sobre el resultado.
+  const filteredSales = React.useMemo(
+    () =>
+      sales.filter((sale) => {
+        if (statusFilter !== "ALL" && sale.status !== statusFilter) return false;
+        const day = localDay(sale.createdAtISO);
+        if (fromDate && day < fromDate) return false;
+        if (toDate && day > toDate) return false;
+        return true;
+      }),
+    [sales, fromDate, toDate, statusFilter],
+  );
 
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-end gap-1.5">
+  const columns = React.useMemo<ColumnDef<SaleRow, unknown>[]>(
+    () => [
+      {
+        accessorKey: "code",
+        header: () => <HeaderWithIcon icon={<Hash className="h-3.5 w-3.5" />}>Venta</HeaderWithIcon>,
+        cell: ({ row }) => <p className="text-sm font-semibold text-foreground">{row.original.code}</p>,
+      },
+      {
+        accessorKey: "clientName",
+        header: () => <HeaderWithIcon icon={<User className="h-3.5 w-3.5" />}>Cliente</HeaderWithIcon>,
+        cell: ({ row }) => <span className="text-sm text-foreground">{row.original.clientName}</span>,
+      },
+      {
+        id: "status",
+        accessorFn: (row) => statusLabel(row.status),
+        header: () => <HeaderWithIcon icon={<CircleDot className="h-3.5 w-3.5" />}>Estado</HeaderWithIcon>,
+        cell: ({ row }) => (
+          <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(row.original.status)}`}>
+            {statusLabel(row.original.status)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "total",
+        header: () => <HeaderWithIcon icon={<CircleDollarSign className="h-3.5 w-3.5" />}>Total</HeaderWithIcon>,
+        cell: ({ row }) => (
+          <span className="text-sm font-semibold text-foreground">{formatMoney(row.original.total, currency)}</span>
+        ),
+      },
+      {
+        accessorKey: "downPaymentAmount",
+        header: () => <HeaderWithIcon icon={<Wallet className="h-3.5 w-3.5" />}>Abono</HeaderWithIcon>,
+        cell: ({ row }) => (
+          <span className="text-sm font-semibold text-foreground">{formatMoney(row.original.downPaymentAmount, currency)}</span>
+        ),
+      },
+      {
+        accessorKey: "createdAtISO",
+        header: () => <HeaderWithIcon icon={<Calendar className="h-3.5 w-3.5" />}>Fecha</HeaderWithIcon>,
+        cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.createdAt}</span>,
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        enableGlobalFilter: false,
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end">
+            <SaleRowForms sale={row.original} />
+            <RowActions
+              sale={row.original}
+              onViewReceipts={() => setSelectedSale(row.original)}
+              onAddPayment={() => setPaymentSale(row.original)}
+            />
+          </div>
+        ),
+      },
+    ],
+    [currency],
+  );
+
+  const dateToolbar = (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-1.5">
+      <Select
+        value={statusFilter}
+        onValueChange={(value) => setStatusFilter((value as SaleStatus | "ALL") ?? "ALL")}
+      >
+        <SelectTrigger aria-label="Filtrar por estado" className="h-9 w-full gap-2 sm:w-48">
+          <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <SelectValue>
+            {(value) =>
+              value === "ALL" ? "Todos los estados" : statusLabel(value as SaleStatus)
+            }
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent align="start">
+          <SelectItem value="ALL">Todos los estados</SelectItem>
+          <SelectItem value="DRAFT">Borrador</SelectItem>
+          <SelectItem value="ACTIVE">Activa</SelectItem>
+          <SelectItem value="INVOICED">Facturada</SelectItem>
+          <SelectItem value="COMPLETED">Finalizada</SelectItem>
+          <SelectItem value="CANCELLED">Cancelada</SelectItem>
+        </SelectContent>
+      </Select>
+      <div className="flex items-center gap-1.5">
         <DateRangePicker
           from={fromDate}
           to={toDate}
@@ -688,6 +845,11 @@ export function SalesDataTable({ sales, currency, accounts }: SalesDataTableProp
           </Button>
         ) : null}
       </div>
+    </div>
+  );
+
+  return (
+    <>
       <SaleReceiptsSheet
         sale={selectedSale}
         currency={currency}
@@ -711,111 +873,25 @@ export function SalesDataTable({ sales, currency, accounts }: SalesDataTableProp
         }}
       />
 
-      <div className="hidden overflow-hidden rounded-xl border border-border bg-card md:block">
-        <Table className="min-w-[980px]">
-          <TableHeader>
-            <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead>Venta</TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Total</TableHead>
-              <TableHead>Abono</TableHead>
-              <TableHead>Fecha</TableHead>
-              <TableHead className="sr-only">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredSales.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="py-9 text-center text-muted-foreground">
-                  No hay ventas con los filtros seleccionados.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredSales.map((sale) => (
-                <TableRow key={sale.id}>
-                  <TableCell>
-                    <p className="text-sm font-semibold text-foreground">{sale.code}</p>
-                  </TableCell>
-                  <TableCell className="text-sm text-foreground">{sale.clientName}</TableCell>
-                  <TableCell>
-                    <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(sale.status)}`}>
-                      {statusLabel(sale.status)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-sm font-semibold text-foreground">
-                    {formatMoney(sale.total, currency)}
-                  </TableCell>
-                  <TableCell className="text-sm font-semibold text-foreground">
-                    {formatMoney(sale.downPaymentAmount, currency)}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{sale.createdAt}</TableCell>
-                  <TableCell>
-                    <form data-create-order-sale-id={sale.id} action={adminCreateOrderFromSaleAction}>
-                      <input type="hidden" name="returnTo" value="/admin/ventas" />
-                      <input type="hidden" name="saleId" value={sale.id} />
-                    </form>
-                    <form data-delete-sale-id={sale.id} action={adminDeleteSaleAction}>
-                      <input type="hidden" name="returnTo" value="/admin/ventas" />
-                      <input type="hidden" name="saleId" value={sale.id} />
-                    </form>
-                    <div className="flex items-center">
-                      <RowActions
-                        sale={sale}
-                        onViewReceipts={() => setSelectedSale(sale)}
-                        onAddPayment={() => setPaymentSale(sale)}
-                      />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="space-y-2 md:hidden">
-        {filteredSales.length === 0 ? (
-          <div className="rounded-xl border border-border bg-card px-3 py-6 text-center text-sm text-muted-foreground">
-            No hay ventas con los filtros seleccionados.
-          </div>
-        ) : (
-          filteredSales.map((sale) => (
-            <article key={sale.id} className="space-y-2.5 rounded-xl border border-border bg-card p-3">
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-foreground">{sale.code}</p>
-                  <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(sale.status)}`}>
-                    {statusLabel(sale.status)}
-                  </span>
-                </div>
-                <p className="text-sm text-foreground">{sale.clientName}</p>
-                <p className="text-xs text-muted-foreground">{sale.createdAt}</p>
-                <p className="text-sm font-semibold text-foreground">{formatMoney(sale.total, currency)}</p>
-                <p className="text-xs text-muted-foreground">
-                  Abono: {formatMoney(sale.downPaymentAmount, currency)}
-                </p>
-                <p className="text-xs text-muted-foreground">{getReceiptLabel(sale.paymentReceiptType)}</p>
-              </div>
-              <div className="flex items-center justify-end">
-                <form data-create-order-sale-id={sale.id} action={adminCreateOrderFromSaleAction}>
-                  <input type="hidden" name="returnTo" value="/admin/ventas" />
-                  <input type="hidden" name="saleId" value={sale.id} />
-                </form>
-                <form data-delete-sale-id={sale.id} action={adminDeleteSaleAction}>
-                  <input type="hidden" name="returnTo" value="/admin/ventas" />
-                  <input type="hidden" name="saleId" value={sale.id} />
-                </form>
-                <RowActions
-                  sale={sale}
-                  onViewReceipts={() => setSelectedSale(sale)}
-                  onAddPayment={() => setPaymentSale(sale)}
-                />
-              </div>
-            </article>
-          ))
+      <DataTable
+        data={filteredSales}
+        columns={columns}
+        initialSearch={initialSearch}
+        searchPlaceholder="Buscar por venta, cliente o estado"
+        emptyMessage="No hay ventas con los filtros seleccionados."
+        minWidth="min-w-[980px]"
+        paginate={false}
+        toolbar={dateToolbar}
+        searchFirst
+        renderMobileCard={(sale) => (
+          <SaleMobileCard
+            sale={sale}
+            currency={currency}
+            onViewReceipts={() => setSelectedSale(sale)}
+            onAddPayment={() => setPaymentSale(sale)}
+          />
         )}
-      </div>
-    </div>
+      />
+    </>
   );
 }

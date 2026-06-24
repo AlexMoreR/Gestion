@@ -793,6 +793,19 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
   const subtotal = Number(normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2));
   const total = subtotal;
 
+  // Fecha de la venta (editable para cargar meses anteriores). Si no viene, se usa
+  // la fecha actual por defecto. Sobrescribe createdAt para que la analitica de
+  // Balances ubique la venta en su mes real.
+  const saleDateRaw = getTrimmed("saleDate");
+  let saleDate: Date | undefined;
+  if (saleDateRaw) {
+    const parsedSaleDate = new Date(`${saleDateRaw}T12:00:00`);
+    if (Number.isNaN(parsedSaleDate.getTime())) {
+      redirectWithError(returnTo, "La fecha de la venta es invalida");
+    }
+    saleDate = parsedSaleDate;
+  }
+
   // Abono inicial opcional
   const amountRaw = formData.get("amount");
   const hasInitialPayment = typeof amountRaw === "string" && amountRaw.trim() !== "" && Number(amountRaw) > 0;
@@ -961,6 +974,7 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
           // Si la venta nace ya pagada por completo, se factura de una vez
           // (misma regla que la ruta de abonos posteriores).
           status: downPaymentAmount >= total ? "INVOICED" : "ACTIVE",
+          ...(saleDate ? { createdAt: saleDate } : {}),
           downPaymentAmount,
           grossTotal: new Prisma.Decimal(total),
           discountAmount: new Prisma.Decimal(0),
@@ -979,6 +993,7 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
                       paymentMethod: initialPayment.paymentMethod,
                       accountId: initialPayment.accountId,
                       note: initialPayment.note,
+                      paymentDate: saleDate ?? null,
                       receiptUrl: initialPayment.receipt?.url ?? null,
                       receiptName: initialPayment.receipt?.name ?? null,
                       receiptType: initialPayment.receipt?.type ?? null,
