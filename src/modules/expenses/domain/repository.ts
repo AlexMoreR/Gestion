@@ -1,4 +1,5 @@
 import type {
+  DateRange,
   Expense,
   ExpenseCategory,
   ExpenseCategoryTotal,
@@ -41,12 +42,13 @@ export interface ExpensesRepository {
   deleteCategory(categoryId: string): Promise<void>;
   ensureDefaultCategories(createdById: string): Promise<void>;
 
-  listExpenses(): Promise<ExpenseRow[]>;
+  // Con `period` limita los gastos al rango (por fecha de gasto); sin el, todo el historico.
+  listExpenses(period?: DateRange): Promise<ExpenseRow[]>;
   getExpense(expenseId: string): Promise<Expense | null>;
   createExpense(input: CreateExpenseInput): Promise<Expense>;
   updateExpense(expenseId: string, input: UpdateExpenseInput): Promise<Expense>;
   deleteExpense(expenseId: string): Promise<void>;
 
-  getMetrics(): Promise<ExpenseMetrics>;
-  listCategoryTotals(): Promise<ExpenseCategoryTotal[]>;
+  getMetrics(period?: DateRange): Promise<ExpenseMetrics>;
+  listCategoryTotals(period?: DateRange): Promise<ExpenseCategoryTotal[]>;
 }

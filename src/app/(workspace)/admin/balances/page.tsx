@@ -12,6 +12,31 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+// Resuelve el mes solicitado (YYYY-MM) o el mes en curso por defecto, y devuelve
+// el rango semiabierto [from, to) junto con el valor y la etiqueta para la UI.
+function resolveMonth(monthParam: string | undefined) {
+  const now = new Date();
+  let year = now.getUTCFullYear();
+  let monthIndex = now.getUTCMonth();
+
+  if (typeof monthParam === "string" && /^\d{4}-\d{2}$/.test(monthParam)) {
+    const [parsedYear, parsedMonth] = monthParam.split("-").map(Number);
+    if (parsedMonth >= 1 && parsedMonth <= 12) {
+      year = parsedYear;
+      monthIndex = parsedMonth - 1;
+    }
+  }
+
+  // Limites en UTC: las fechas de gasto se guardan como medianoche UTC, asi que
+  // un gasto del dia 1 cae dentro de su mes y no del anterior.
+  const from = new Date(Date.UTC(year, monthIndex, 1));
+  const to = new Date(Date.UTC(year, monthIndex + 1, 1));
+  const value = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
+  const label = from.toLocaleDateString("es", { month: "long", year: "numeric", timeZone: "UTC" });
+
+  return { period: { from, to }, value, label };
+}
+
 export default async function AdminBalancesPage({ searchParams }: PageProps) {
   const session = await auth();
   if (session?.user?.role !== "ADMIN" || !session.user.id) {
@@ -28,6 +53,9 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
+  const { period, value: monthValue, label: monthLabel } = resolveMonth(
+    typeof params.month === "string" ? params.month : undefined,
+  );
 
   // El id del JWT puede apuntar a un usuario que ya no existe; resolvemos un
   // User real antes de sembrar las categorias de gasto por defecto.
@@ -58,12 +86,12 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
     employees,
   ] = await Promise.all([
     getSystemCurrency(),
-    repository.getDashboardMetrics(),
+    repository.getDashboardMetrics(period),
     repository.listSupplierBalances(),
     repository.listSupplierPayments({ page: 1, pageSize: 500, sortBy: "date", sortDirection: "desc" }),
     repository.listShippingCosts({ page: 1, pageSize: 500, sortBy: "date", sortDirection: "desc" }),
-    repository.listProfitReport({ page: 1, pageSize: 500, sortBy: "date", sortDirection: "desc" }),
-    repository.listAccountBalances(),
+    repository.listProfitReport({ page: 1, pageSize: 500, sortBy: "date", sortDirection: "desc", period }),
+    repository.listAccountBalances(period),
     prisma.sale.findMany({
       orderBy: { createdAt: "desc" },
       take: 200,
@@ -78,10 +106,10 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
-    expensesRepository.getMetrics(),
-    expensesRepository.listExpenses(),
+    expensesRepository.getMetrics(period),
+    expensesRepository.listExpenses(period),
     expensesRepository.listCategories(),
-    expensesRepository.listCategoryTotals(),
+    expensesRepository.listCategoryTotals(period),
     repository.listAccounts({ activeOnly: true }),
     prisma.user.findMany({
       where: { role: { in: ["ADMIN", "EMPLEADO"] } },
@@ -107,6 +135,8 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
         shippingCosts={shippingCosts.items}
         profitReport={profitReport.items}
         accounts={accounts}
+        monthValue={monthValue}
+        monthLabel={monthLabel}
         sales={sales.map((sale) => ({
           id: sale.id,
           code: sale.code,

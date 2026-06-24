@@ -18,6 +18,7 @@ import type {
   AccountTransaction,
   AccountType,
   DashboardMetrics,
+  DateRange,
   PagedResult,
   PaymentHistoryRow,
   SaleProfit,
@@ -216,11 +217,12 @@ function buildShippingWhere(search?: string): Prisma.ShippingCostWhereInput {
   };
 }
 
-function buildProfitWhere(search?: string): Prisma.SaleWhereInput {
+function buildProfitWhere(search?: string, period?: DateRange): Prisma.SaleWhereInput {
   // Solo ventas facturadas con su orden cerrada (entregada).
   const base: Prisma.SaleWhereInput = {
     status: "INVOICED",
     order: { is: { status: "COMPLETED" } },
+    ...(period ? { createdAt: { gte: period.from, lt: period.to } } : {}),
   };
   const normalizedSearch = normalizeSearch(search);
   if (!normalizedSearch) {
@@ -551,7 +553,7 @@ export function createPrismaBalancesRepository(): BalancesRepository {
     async listProfitReport(query: ListBalancesQuery): Promise<PagedResult<SaleProfit>> {
       const page = Math.max(1, query.page || 1);
       const pageSize = Math.max(1, Math.min(query.pageSize || 10, 500));
-      const where = buildProfitWhere(query.search);
+      const where = buildProfitWhere(query.search, query.period);
       const [total, rows] = await Promise.all([
         prisma.sale.count({ where }),
         getSaleProfitRows(where),
@@ -593,11 +595,12 @@ export function createPrismaBalancesRepository(): BalancesRepository {
       );
     },
 
-    async getDashboardMetrics(): Promise<DashboardMetrics> {
+    async getDashboardMetrics(period?: DateRange): Promise<DashboardMetrics> {
       // Solo se contabilizan ventas facturadas cuya orden esta cerrada (entregada).
       const sales = await getSaleProfitRows({
         status: "INVOICED",
         order: { is: { status: "COMPLETED" } },
+        ...(period ? { createdAt: { gte: period.from, lt: period.to } } : {}),
       });
       return summarizeDashboardMetrics(sales);
     },
@@ -620,7 +623,9 @@ export function createPrismaBalancesRepository(): BalancesRepository {
       return rows.map(mapAccount);
     },
 
-    async listAccountBalances(): Promise<AccountBalance[]> {
+    async listAccountBalances(period?: DateRange): Promise<AccountBalance[]> {
+      // Cada flujo se filtra por su propia fecha contable cuando hay periodo.
+      const periodFilter = period ? { gte: period.from, lt: period.to } : undefined;
       const [accounts, incomeByAccount, expenseByAccount, shippingByAccount, operatingExpenseByAccount, movementsByAccount] = await Promise.all([
         prisma.account.findMany({
           orderBy: [{ isActive: "desc" }, { name: "asc" }],
@@ -636,25 +641,27 @@ export function createPrismaBalancesRepository(): BalancesRepository {
         }) as unknown as AccountSelection[],
         prisma.salePayment.groupBy({
           by: ["accountId"],
-          where: { accountId: { not: null } },
+          where: { accountId: { not: null }, ...(periodFilter ? { paymentDate: periodFilter } : {}) },
           _sum: { amount: true },
         }),
         prisma.supplierLedgerEntry.groupBy({
           by: ["accountId"],
-          where: { accountId: { not: null }, type: "PAYMENT" },
+          where: { accountId: { not: null }, type: "PAYMENT", ...(periodFilter ? { paymentDate: periodFilter } : {}) },
           _sum: { amount: true },
         }),
         prisma.shippingCost.groupBy({
           by: ["accountId"],
-          where: { accountId: { not: null } },
+          where: { accountId: { not: null }, ...(periodFilter ? { paymentDate: periodFilter } : {}) },
           _sum: { amount: true },
         }),
         prisma.expense.groupBy({
           by: ["accountId"],
+          where: periodFilter ? { expenseDate: periodFilter } : undefined,
           _sum: { amount: true },
         }),
         prisma.accountMovement.groupBy({
           by: ["accountId", "type"],
+          where: periodFilter ? { movementDate: periodFilter } : undefined,
           _sum: { amount: true },
         }),
       ]);

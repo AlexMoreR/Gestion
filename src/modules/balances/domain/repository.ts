@@ -4,6 +4,7 @@ import type {
   AccountTransaction,
   AccountType,
   DashboardMetrics,
+  DateRange,
   PagedResult,
   PaymentHistoryRow,
   SaleProfit,
@@ -19,6 +20,8 @@ export type ListBalancesQuery = {
   pageSize: number;
   sortBy?: "date" | "supplier" | "sale" | "reference" | "amount";
   sortDirection?: "asc" | "desc";
+  // Filtra por fecha de creacion de la venta cuando se provee (ej. mes en curso).
+  period?: DateRange;
 };
 
 export type CreateSupplierPaymentInput = {
@@ -90,10 +93,12 @@ export interface BalancesRepository {
   calculateSaleProfit(saleId: string): Promise<SaleProfit | null>;
   listProfitReport(query: ListBalancesQuery): Promise<PagedResult<SaleProfit>>;
   listSupplierBalances(): Promise<SupplierBalance[]>;
-  getDashboardMetrics(): Promise<DashboardMetrics>;
+  getDashboardMetrics(period?: DateRange): Promise<DashboardMetrics>;
 
   listAccounts(options?: { activeOnly?: boolean }): Promise<Account[]>;
-  listAccountBalances(): Promise<AccountBalance[]>;
+  // Sin `period` calcula el saldo real acumulado; con `period` limita ingresos,
+  // gastos y movimientos al rango indicado (manteniendo el saldo inicial).
+  listAccountBalances(period?: DateRange): Promise<AccountBalance[]>;
   listAccountTransactions(accountId: string): Promise<AccountTransaction[]>;
   createAccount(input: CreateAccountInput): Promise<Account>;
   updateAccount(accountId: string, input: UpdateAccountInput): Promise<Account>;

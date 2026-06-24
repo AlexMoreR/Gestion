@@ -54,6 +54,12 @@ export type DashboardMetrics = {
   worstSale: SaleProfit | null;
 };
 
+// Rango de fechas semiabierto [from, to): se incluye `from` y se excluye `to`.
+export type DateRange = {
+  from: Date;
+  to: Date;
+};
+
 export type PagedResult<T> = {
   items: T[];
   total: number;

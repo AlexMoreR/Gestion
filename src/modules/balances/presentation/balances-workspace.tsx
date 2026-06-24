@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Landmark, Plus, ReceiptText, TrendingUp, Wallet } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Landmark, ReceiptText, TrendingUp, Wallet } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
@@ -14,12 +13,12 @@ import type {
   ShippingCostRow,
   SupplierBalance,
 } from "@/modules/balances/domain/entities";
-import { adminCreateAccountAction, adminCreateAccountMovementAction, adminUpdateAccountAction } from "@/app/actions/balances-actions";
+import { adminCreateAccountAction, adminUpdateAccountAction } from "@/app/actions/balances-actions";
 import { ProfitReportTable } from "./components/profit-report-table";
 import { ProfitChart } from "./components/profit-chart";
 import { AccountBalancesTable } from "./components/account-balances-table";
 import { AccountFormDialog } from "./components/account-form-dialog";
-import { AccountMovementFormDialog } from "./components/account-movement-form-dialog";
+import { MonthFilter } from "./components/month-filter";
 import { ExpensesWorkspace } from "@/modules/expenses/presentation/expenses-workspace";
 
 type SaleOption = {
@@ -44,6 +43,9 @@ type BalancesWorkspaceProps = {
   sales: SaleOption[];
   suppliers: SupplierOption[];
   accounts: AccountBalance[];
+  // Mes seleccionado (YYYY-MM) y su etiqueta legible para el selector.
+  monthValue: string;
+  monthLabel: string;
   // Datos del modulo de Gastos, reusados en la pestaña "Gastos".
   expensesData: React.ComponentProps<typeof ExpensesWorkspace>;
 };
@@ -86,6 +88,8 @@ export function BalancesWorkspace({
   metrics,
   profitReport,
   accounts,
+  monthValue,
+  monthLabel,
   expensesData,
 }: BalancesWorkspaceProps) {
   const [tab, setTab] = React.useState<TabKey>("overview");
@@ -94,16 +98,16 @@ export function BalancesWorkspace({
     | { mode: "edit"; initialValue: AccountBalance }
     | null
   >(null);
-  const [accountMovementOpen, setAccountMovementOpen] = React.useState(false);
-
-  const accountOptions = React.useMemo(
-    () => accounts.filter((account) => account.isActive).map((account) => ({ id: account.id, name: account.name })),
-    [accounts],
-  );
-
   const actionsReturnTo = "/admin/balances";
   const topSales = [...profitReport].sort((a, b) => b.netProfit - a.netProfit).slice(0, 5);
   const bottomSales = [...profitReport].sort((a, b) => a.netProfit - b.netProfit).slice(0, 5);
+
+  // metrics.netProfit solo descuenta costos de venta (proveedores + envios). La
+  // ganancia real del mes resta ademas los gastos operativos (nomina, etc.).
+  const directCosts = metrics.supplierCosts + metrics.shippingCosts;
+  const operatingExpenses = expensesData.metrics.totalAmount;
+  const realNetProfit = metrics.salesTotal - directCosts - operatingExpenses;
+  const realMargin = metrics.salesTotal > 0 ? (realNetProfit / metrics.salesTotal) * 100 : 0;
 
   return (
     <>
@@ -115,20 +119,7 @@ export function BalancesWorkspace({
                 <span>Balances</span>
               </h1>
 
-              <div className="flex flex-wrap gap-2">
-                {tab === "cuentas" ? (
-                  <>
-                    <Button type="button" variant="outline" onClick={() => setAccountMovementOpen(true)}>
-                      <Wallet className="h-4 w-4" />
-                      Movimiento
-                    </Button>
-                    <Button type="button" onClick={() => setAccountModal({ mode: "create", initialValue: null })}>
-                      <Plus className="h-4 w-4" />
-                      Nueva cuenta
-                    </Button>
-                  </>
-                ) : null}
-              </div>
+              <MonthFilter value={monthValue} label={monthLabel} />
             </div>
 
             <Tabs value={tab} onValueChange={(value) => setTab(value as TabKey)} variant="line">
@@ -154,10 +145,11 @@ export function BalancesWorkspace({
         </div>
 
         {tab === "gastos" ? null : (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <MetricCard title="Ventas totales" value={formatMoney(metrics.salesTotal, currency)} helper={`${metrics.salesCount} ventas analizadas`} accent="info" />
-            <MetricCard title="Gastos" value={formatMoney(metrics.supplierCosts + metrics.shippingCosts, currency)} helper="Costos de proveedores y envios" accent="danger" />
-            <MetricCard title="Ganancia neta" value={formatMoney(metrics.netProfit, currency)} helper={`${metrics.marginPercentage.toFixed(2)}% de margen`} accent={metrics.netProfit >= 0 ? "success" : "danger"} />
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <MetricCard title="Ventas del mes" value={formatMoney(metrics.salesTotal, currency)} helper={`${metrics.salesCount} ventas · ${monthLabel}`} accent="info" />
+            <MetricCard title="Costos del mes" value={formatMoney(directCosts, currency)} helper="Proveedores y envios" accent="danger" />
+            <MetricCard title="Gastos del mes" value={formatMoney(operatingExpenses, currency)} helper="Nomina, marketing y varios" accent="danger" />
+            <MetricCard title="Ganancia neta" value={formatMoney(realNetProfit, currency)} helper={`${realMargin.toFixed(2)}% de margen`} accent={realNetProfit >= 0 ? "success" : "danger"} />
           </div>
         )}
 
@@ -247,14 +239,6 @@ export function BalancesWorkspace({
         onClose={() => setAccountModal(null)}
         returnTo={actionsReturnTo}
         initialValue={accountModal?.mode === "edit" ? accountModal.initialValue : null}
-      />
-
-      <AccountMovementFormDialog
-        open={accountMovementOpen}
-        action={adminCreateAccountMovementAction}
-        onClose={() => setAccountMovementOpen(false)}
-        returnTo={actionsReturnTo}
-        accounts={accountOptions}
       />
     </>
   );

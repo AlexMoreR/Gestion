@@ -14,24 +14,46 @@ type ExpensesTableProps = {
   currency: SupportedCurrencyCode;
   onEdit: (expenseId: string) => void;
   onDelete: (expenseId: string) => void;
+  // Si es true, el rango de fechas arranca filtrado al mes en curso.
+  defaultCurrentMonth?: boolean;
 };
 
+// La fecha del gasto es un dia de calendario guardado como medianoche UTC; se
+// formatea en UTC para mostrar el mismo dia que se eligio, sin desfase horario.
 function formatDate(value: Date): string {
-  return new Date(value).toLocaleDateString("es-CO", { year: "numeric", month: "short", day: "2-digit" });
+  return new Date(value).toLocaleDateString("es-CO", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }
 
-// Fecha local (YYYY-MM-DD) para comparar con el DateRangePicker.
-function localDay(value: Date | string): string {
-  const date = new Date(value);
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+// Dia (YYYY-MM-DD) en UTC para comparar con el DateRangePicker.
+function utcDay(value: Date | string): string {
+  return new Date(value).toISOString().slice(0, 10);
 }
 
-export function ExpensesTable({ data, currency, onEdit, onDelete }: ExpensesTableProps) {
-  const [fromDate, setFromDate] = React.useState("");
-  const [toDate, setToDate] = React.useState("");
+// Primer y ultimo dia del mes en curso (UTC), en formato YYYY-MM-DD.
+function currentMonthRange(): { from: string; to: string } {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return {
+    from: `${year}-${pad(month + 1)}-01`,
+    to: `${year}-${pad(month + 1)}-${pad(lastDay)}`,
+  };
+}
+
+export function ExpensesTable({ data, currency, onEdit, onDelete, defaultCurrentMonth = false }: ExpensesTableProps) {
+  const initialRange = defaultCurrentMonth ? currentMonthRange() : { from: "", to: "" };
+  const [fromDate, setFromDate] = React.useState(initialRange.from);
+  const [toDate, setToDate] = React.useState(initialRange.to);
 
   const filtered = data.filter((expense) => {
-    const day = localDay(expense.expenseDate);
+    const day = utcDay(expense.expenseDate);
     if (fromDate && day < fromDate) return false;
     if (toDate && day > toDate) return false;
     return true;
@@ -152,14 +174,13 @@ export function ExpensesTable({ data, currency, onEdit, onDelete }: ExpensesTabl
 
   return (
     <ExpensesDataGrid
-      title="Gastos registrados"
-      description="Cada gasto descuenta del balance de la cuenta seleccionada."
       data={filtered}
       columns={columns}
       searchPlaceholder="Buscar gasto"
       emptyMessage="Aun no hay gastos. Registra el primero con 'Nuevo gasto'."
       pageSize={10}
       toolbar={dateFilter}
+      searchFirst
     />
   );
 }

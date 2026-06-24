@@ -188,6 +188,7 @@ export function ExpensesWorkspace({
             <ExpensesTable
               data={expenses}
               currency={currency}
+              defaultCurrentMonth={!embedded}
               onEdit={(expenseId) => {
                 const expense = expenses.find((row) => row.id === expenseId);
                 if (expense) {

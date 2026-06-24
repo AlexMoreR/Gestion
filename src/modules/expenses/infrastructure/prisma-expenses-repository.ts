@@ -8,6 +8,7 @@ import type {
   UpdateExpenseInput,
 } from "../domain/repository";
 import type {
+  DateRange,
   Expense,
   ExpenseCategory,
   ExpenseCategoryTotal,
@@ -97,7 +98,9 @@ const categorySelect = {
 } satisfies Prisma.ExpenseCategorySelect;
 
 function startOfCurrentMonth(reference: Date): Date {
-  return new Date(reference.getFullYear(), reference.getMonth(), 1);
+  // En UTC: las fechas de gasto se guardan como medianoche UTC, asi que el corte
+  // de "mes en curso" debe usar el mismo huso para no desfasar el dia 1.
+  return new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth(), 1));
 }
 
 export function createPrismaExpensesRepository(): ExpensesRepository {
@@ -174,8 +177,9 @@ export function createPrismaExpensesRepository(): ExpensesRepository {
       });
     },
 
-    async listExpenses(): Promise<ExpenseRow[]> {
+    async listExpenses(period?: DateRange): Promise<ExpenseRow[]> {
       const rows = (await prisma.expense.findMany({
+        where: period ? { expenseDate: { gte: period.from, lt: period.to } } : undefined,
         orderBy: [{ expenseDate: "desc" }, { createdAt: "desc" }],
         select: {
           ...expenseSelect,
@@ -251,17 +255,18 @@ export function createPrismaExpensesRepository(): ExpensesRepository {
       await prisma.expense.delete({ where: { id: expenseId } });
     },
 
-    async getMetrics(): Promise<ExpenseMetrics> {
+    async getMetrics(period?: DateRange): Promise<ExpenseMetrics> {
       const [expenses, categoryCount] = await Promise.all([
-        this.listExpenses(),
+        this.listExpenses(period),
         prisma.expenseCategory.count(),
       ]);
-      const monthStart = startOfCurrentMonth(new Date());
+      // Con periodo, "del mes" se mide desde el inicio del rango filtrado.
+      const monthStart = period?.from ?? startOfCurrentMonth(new Date());
       return summarizeExpenseMetrics(expenses, categoryCount, monthStart);
     },
 
-    async listCategoryTotals(): Promise<ExpenseCategoryTotal[]> {
-      const expenses = await this.listExpenses();
+    async listCategoryTotals(period?: DateRange): Promise<ExpenseCategoryTotal[]> {
+      const expenses = await this.listExpenses(period);
       return summarizeCategoryTotals(expenses);
     },
   };

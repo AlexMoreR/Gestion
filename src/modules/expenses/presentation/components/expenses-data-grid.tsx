@@ -5,7 +5,7 @@ import * as React from "react";
 import { DataTable } from "@/components/ui/data-table";
 
 type ExpensesDataGridProps<TData> = {
-  title: string;
+  title?: string;
   description?: string;
   data: TData[];
   columns: ColumnDef<TData, unknown>[];
@@ -13,6 +13,7 @@ type ExpensesDataGridProps<TData> = {
   emptyMessage: string;
   pageSize?: number;
   toolbar?: React.ReactNode;
+  searchFirst?: boolean;
 };
 
 export function ExpensesDataGrid<TData>({
