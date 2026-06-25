@@ -1,10 +1,33 @@
 ﻿"use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Boxes, FileText, Link2, Plus, Search, Trash2, UserRound, X } from "lucide-react";
-import { adminCreateQuoteAction, adminResolveClientAction } from "@/app/actions/quote-actions";
+import {
+  AlignLeft,
+  Boxes,
+  Coins,
+  FileText,
+  Hash,
+  ImagePlus,
+  Link2,
+  Loader2,
+  Palette,
+  Percent,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  Truck,
+  UserRound,
+  X,
+} from "lucide-react";
+import {
+  adminCreateQuoteAction,
+  adminResolveClientAction,
+  adminUploadQuoteImageAction,
+} from "@/app/actions/quote-actions";
 import { QuotesDataTable } from "@/components/admin/quotes-data-table";
 import { Input } from "@/components/ui/input";
+import { ProductThumb } from "@/components/admin/product-thumb";
 import { expandComboLines, type ComboComponent } from "@/lib/combo";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { calculateQuoteLineTotal } from "@/lib/quote-item-meta";
@@ -65,6 +88,7 @@ type QuoteLine = {
   additionalCost: number;
   discount: number;
   fulfillmentMode: FulfillmentMode;
+  imageUrl: string;
 };
 
 type AccountOption = {
@@ -99,7 +123,6 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
   const [isResolvingClient, startResolvingClient] = useTransition();
 
   const [openProductModal, setOpenProductModal] = useState(false);
-  const [showProductResults, setShowProductResults] = useState(false);
   const [productLookup, setProductLookup] = useState("");
   const [draftProductId, setDraftProductId] = useState("");
   const [draftQuantity, setDraftQuantity] = useState("1");
@@ -110,6 +133,8 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
   const [draftAdditionalCost, setDraftAdditionalCost] = useState("0");
   const [draftDiscount, setDraftDiscount] = useState("0");
   const [draftFulfillmentMode, setDraftFulfillmentMode] = useState<FulfillmentMode>("STOCK");
+  const [draftImageUrl, setDraftImageUrl] = useState("");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [productFormError, setProductFormError] = useState("");
   const [isManualQuoteSubmit, setIsManualQuoteSubmit] = useState(false);
 
@@ -139,11 +164,11 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
   const filteredProducts = useMemo(() => {
     const q = productLookup.trim().toLowerCase();
     if (!q) {
-      return products.slice(0, 8);
+      return products.slice(0, 24);
     }
     return products
       .filter((product) => `${product.code ?? ""} ${product.name}`.toLowerCase().includes(q))
-      .slice(0, 8);
+      .slice(0, 24);
   }, [products, productLookup]);
 
   const draftProduct = useMemo(
@@ -203,8 +228,9 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
     setDraftAdditionalCost("0");
     setDraftDiscount("0");
     setDraftFulfillmentMode("STOCK");
+    setDraftImageUrl("");
+    setIsUploadingImage(false);
     setProductFormError("");
-    setShowProductResults(false);
   };
 
   const openAddProductModal = () => {
@@ -222,14 +248,42 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
     const useWholesale = draftWholesale && product.wholesalePrice > 0;
     setDraftWholesale(useWholesale);
     setDraftUnitPrice(String(priceForMode(product, useWholesale)));
-    setShowProductResults(false);
     setProductFormError("");
   };
 
-  const toggleWholesale = (checked: boolean) => {
-    setDraftWholesale(checked);
-    if (draftProduct) {
-      setDraftUnitPrice(String(priceForMode(draftProduct, checked)));
+  const clearDraftProductSelection = () => {
+    setDraftProductId("");
+    setProductLookup("");
+    setDraftUnitPrice("");
+    setDraftWholesale(false);
+    setDraftImageUrl("");
+    setProductFormError("");
+  };
+
+  const handleImageUpload = async (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setProductFormError("Solo se permiten archivos de imagen.");
+      return;
+    }
+
+    setIsUploadingImage(true);
+    setProductFormError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const result = await adminUploadQuoteImageAction(formData);
+      if (!result.ok) {
+        setProductFormError(result.error);
+        return;
+      }
+      setDraftImageUrl(result.url);
+    } catch {
+      setProductFormError("No se pudo subir la imagen.");
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -281,6 +335,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
           additionalCost: 0,
           discount: 0,
           fulfillmentMode: draftFulfillmentMode,
+          imageUrl: draftImageUrl.trim(),
         })),
       ]);
 
@@ -301,6 +356,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
         additionalCost,
         discount,
         fulfillmentMode: draftFulfillmentMode,
+        imageUrl: draftImageUrl.trim(),
       },
     ]);
 
@@ -372,10 +428,10 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
     setClientFormError("");
   };
 
-  const goToProductsStep = () => {
+  const goToReviewStep = () => {
     if (clientId) {
       setClientFormError("");
-      setStep(2);
+      setStep(3);
       return;
     }
 
@@ -403,7 +459,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
 
       setClientId(result.clientId);
       setClientFormError("");
-      setStep(2);
+      setStep(3);
     });
   };
 
@@ -418,6 +474,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
       additionalCost: line.additionalCost,
       discount: line.discount,
       notes: line.description || null,
+      imageUrl: line.imageUrl || null,
     })),
   );
 
@@ -499,11 +556,11 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                   <div className={`rounded-lg border p-2 transition ${step >= 1 ? "border-[var(--primary)]/30 bg-[var(--primary)]/5" : "border-border bg-card"}`}>
                     <div className="flex items-center gap-2">
                       <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 1 ? "border-[var(--primary)] bg-[var(--primary)] text-primary-foreground" : "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"}`}>
-                        <UserRound className="h-3.5 w-3.5" />
+                        <Boxes className="h-3.5 w-3.5" />
                       </div>
                       <div>
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Paso 1</p>
-                        <p className="text-xs font-semibold text-foreground">Cliente</p>
+                        <p className="text-xs font-semibold text-foreground">Productos</p>
                       </div>
                     </div>
                   </div>
@@ -511,11 +568,11 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                   <div className={`rounded-lg border p-2 transition ${step >= 2 ? "border-[var(--primary)]/30 bg-[var(--primary)]/5" : "border-border bg-card"}`}>
                     <div className="flex items-center gap-2">
                       <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 2 ? "border-[var(--primary)] bg-[var(--primary)] text-primary-foreground" : step > 2 ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "border-border bg-card text-muted-foreground"}`}>
-                        <Boxes className="h-3.5 w-3.5" />
+                        <UserRound className="h-3.5 w-3.5" />
                       </div>
                       <div>
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Paso 2</p>
-                        <p className="text-xs font-semibold text-foreground">Productos</p>
+                        <p className="text-xs font-semibold text-foreground">Cliente</p>
                       </div>
                     </div>
                   </div>
@@ -540,7 +597,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                 </div>
               </div>
 
-              {step === 1 ? (
+              {step === 2 ? (
                 <div className="space-y-4 rounded-xl border border-border p-3">
                   <div className="space-y-3">
                     <div className="grid gap-3 md:grid-cols-2">
@@ -652,17 +709,22 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
 
                   {clientFormError ? <p className="text-xs font-medium text-destructive">{clientFormError}</p> : null}
 
-                  <Button
-                    type="button"
-                    size="lg"
-                    onClick={goToProductsStep}
-                    disabled={!isClientResolved || isResolvingClient}
-                    className="w-full"
-                  >
-                    {isResolvingClient ? "Guardando cliente..." : "Siguiente"}
-                  </Button>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+                    <Button type="button" variant="outline" size="lg" onClick={() => setStep(1)}>
+                      Atras
+                    </Button>
+                    <Button
+                      type="button"
+                      size="lg"
+                      onClick={goToReviewStep}
+                      disabled={!isClientResolved || isResolvingClient}
+                      className="w-full sm:w-auto"
+                    >
+                      {isResolvingClient ? "Guardando cliente..." : "Siguiente"}
+                    </Button>
+                  </div>
                 </div>
-              ) : step === 2 ? (
+              ) : step === 1 ? (
                 <div className="space-y-4">
                   <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                     <table className="w-full text-sm">
@@ -699,10 +761,10 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                           linesWithMeta.map(({ line, product, lineTotal }) => (
                             <tr key={line.uid} className="border-t border-border bg-card transition hover:bg-muted/40">
                               <td className="px-3 py-2">
-                                {product?.thumbnailUrl ? (
+                                {line.imageUrl || product?.thumbnailUrl ? (
                                   <img
-                                    src={product.thumbnailUrl}
-                                    alt={product.name}
+                                    src={line.imageUrl || product?.thumbnailUrl || ""}
+                                    alt={product?.name || "Producto"}
                                     className="h-11 w-11 rounded-md border border-border object-cover"
                                   />
                                 ) : (
@@ -792,16 +854,13 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
-                    <Button type="button" variant="outline" size="lg" onClick={() => setStep(1)}>
-                      Atras
-                    </Button>
+                  <div className="flex justify-end">
                     <Button
                       type="button"
                       size="lg"
                       onClick={() => {
                         setIsManualQuoteSubmit(false);
-                        setStep(3);
+                        setStep(2);
                       }}
                       className="w-full sm:w-auto"
                       disabled={lines.length === 0}
@@ -871,10 +930,10 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                         {linesWithMeta.map(({ line, product, lineTotal }) => (
                           <tr key={line.uid} className="border-t border-border">
                             <td className="px-3 py-2">
-                              {product?.thumbnailUrl ? (
+                              {line.imageUrl || product?.thumbnailUrl ? (
                                 <img
-                                  src={product.thumbnailUrl}
-                                  alt={product.name}
+                                  src={line.imageUrl || product?.thumbnailUrl || ""}
+                                  alt={product?.name || "Producto"}
                                   className="h-10 w-10 rounded-md border border-border object-cover"
                                 />
                               ) : (
@@ -985,7 +1044,9 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                   <Boxes className="h-4 w-4 text-muted-foreground" />
                   <span>Agregar producto</span>
                 </h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">Selecciona un item, ajusta precio y agrega descripcion.</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {draftProductId ? "Ajusta cantidad, precio y agrega descripcion." : "Busca y selecciona un producto."}
+                </p>
               </div>
               <Button
                 type="button"
@@ -998,59 +1059,93 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
               </Button>
             </div>
 
-            <div className="grid gap-3 rounded-xl border border-border bg-muted/60 p-3 md:grid-cols-2">
-              <label className="relative space-y-1.5">
-                <span className="text-sm font-medium text-foreground">Codigo</span>
+            {!draftProductId ? (
+              <div className="space-y-3">
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     value={productLookup}
-                    onChange={(event) => {
-                      setProductLookup(event.target.value);
-                      setShowProductResults(true);
-                      setDraftProductId("");
-                      setProductFormError("");
-                    }}
-                    onFocus={() => setShowProductResults(true)}
-                    onBlur={() => setTimeout(() => setShowProductResults(false), 120)}
+                    onChange={(event) => setProductLookup(event.target.value)}
                     className="pl-9"
                     placeholder="Buscar codigo o producto"
+                    autoFocus
                   />
                 </div>
 
-                {showProductResults ? (
-                  <div className="absolute left-0 right-0 top-full z-20 mt-1.5 overflow-hidden rounded-lg border border-border bg-card shadow-lg">
-                    <p className="px-3 py-2 text-xs text-muted-foreground">Productos</p>
-                    <div className="max-h-52 overflow-y-auto p-1.5">
-                      {filteredProducts.length > 0 ? (
-                        filteredProducts.map((product) => (
-                          <Button
-                            key={product.id}
-                            type="button"
-                            variant="ghost"
-                            onMouseDown={(event) => event.preventDefault()}
-                            onClick={() => applyProductSelection(product)}
-                            className="h-auto w-full justify-between px-2.5 py-2 text-left font-normal"
-                          >
-                            <span className="font-medium text-foreground">{product.code || "Sin codigo"}</span>
-                            <span className="truncate pl-2 text-xs text-muted-foreground">{product.name}</span>
-                          </Button>
-                        ))
-                      ) : (
-                        <p className="px-2.5 py-2 text-xs text-muted-foreground">Sin coincidencias</p>
-                      )}
-                    </div>
+                {filteredProducts.length > 0 ? (
+                  <div className="grid max-h-[60vh] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3">
+                    {filteredProducts.map((product) => (
+                      <button
+                        key={product.id}
+                        type="button"
+                        onClick={() => applyProductSelection(product)}
+                        className="flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-card p-2 text-left transition hover:border-[var(--primary)]/40 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <ProductThumb
+                          src={product.thumbnailUrl ?? ""}
+                          alt={product.name}
+                          className="h-12 w-12 shrink-0 rounded-md border border-border object-cover"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-foreground">{product.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">{product.code || "Sin codigo"}</p>
+                        </div>
+                        <span className="shrink-0 text-sm font-semibold text-foreground">
+                          {product.retailPrice.toLocaleString("es-CO", { style: "currency", currency })}
+                        </span>
+                      </button>
+                    ))}
                   </div>
-                ) : null}
-              </label>
+                ) : (
+                  <div className="rounded-xl border border-border bg-card px-3 py-10 text-center text-sm text-muted-foreground">
+                    Sin coincidencias
+                  </div>
+                )}
 
-              <label className="space-y-1.5">
-                <span className="text-sm font-medium text-foreground">Producto</span>
-                <Input value={draftProduct?.name || ""} readOnly placeholder="Selecciona codigo" />
-              </label>
+                <div className="flex justify-end">
+                  <Button type="button" variant="outline" size="lg" onClick={() => setOpenProductModal(false)}>
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="mb-3 flex items-center gap-3 rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/5 p-2.5">
+                  <ProductThumb
+                    src={draftProduct?.thumbnailUrl ?? ""}
+                    alt={draftProduct?.name ?? ""}
+                    className="h-12 w-12 shrink-0 rounded-md border border-border object-cover"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-foreground">{draftProduct?.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{draftProduct?.code || "Sin codigo"}</p>
+                  </div>
+                  {draftProduct ? (
+                    <div className="shrink-0 text-right">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Valor</p>
+                      <p className="text-sm font-semibold text-foreground">
+                        {draftProduct.retailPrice.toLocaleString("es-CO", { style: "currency", currency })}
+                      </p>
+                    </div>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={clearDraftProductSelection}
+                    aria-label="Cambiar producto"
+                    title="Cambiar producto"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </div>
 
+                <div className="grid gap-3 rounded-xl border border-border bg-muted/60 p-3 md:grid-cols-2">
               <label className="space-y-1.5">
-                <span className="text-sm font-medium text-foreground">Cantidad</span>
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                  <Hash className="h-3.5 w-3.5 text-muted-foreground" />
+                  Cantidad
+                </span>
                 <Input
                   type="number"
                   min={1}
@@ -1060,53 +1155,18 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
               </label>
 
               <label className="space-y-1.5">
-                <span className="text-sm font-medium text-foreground">Color</span>
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                  <Palette className="h-3.5 w-3.5 text-muted-foreground" />
+                  Color
+                </span>
                 <Input value={draftColor} onChange={(event) => setDraftColor(event.target.value)} placeholder="Color" />
               </label>
 
               <label className="space-y-1.5">
-                <span className="text-sm font-medium text-foreground">Precio</span>
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={draftUnitPrice}
-                  onChange={(event) => {
-                    setDraftUnitPrice(event.target.value);
-                    // Edicion manual: ya no refleja un precio mayorista "puro".
-                    if (draftWholesale) setDraftWholesale(false);
-                  }}
-                />
-                {draftProduct ? (
-                  draftProduct.wholesalePrice > 0 ? (
-                    <label className="flex items-center gap-2 pt-0.5">
-                      <input
-                        type="checkbox"
-                        checked={draftWholesale}
-                        onChange={(event) => toggleWholesale(event.target.checked)}
-                        className="h-4 w-4 rounded border-input accent-[var(--primary)]"
-                      />
-                      <span className="text-xs font-medium text-foreground">
-                        Precio al por mayor{" "}
-                        <span className="text-muted-foreground">
-                          ({draftProduct.wholesalePrice.toLocaleString("es-CO", { style: "currency", currency })}
-                          {draftProduct.minWholesaleQty > 0
-                            ? ` · desde ${draftProduct.minWholesaleQty} und`
-                            : ""}
-                          )
-                        </span>
-                      </span>
-                    </label>
-                  ) : (
-                    <span className="block pt-0.5 text-xs text-muted-foreground">
-                      Este producto no tiene precio al por mayor configurado.
-                    </span>
-                  )
-                ) : null}
-              </label>
-
-              <label className="space-y-1.5">
-                <span className="text-sm font-medium text-foreground">Costo adicional</span>
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                  <Coins className="h-3.5 w-3.5 text-muted-foreground" />
+                  Costo adicional
+                </span>
                 <Input
                   type="number"
                   min={0}
@@ -1117,7 +1177,10 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
               </label>
 
               <label className="space-y-1.5">
-                <span className="text-sm font-medium text-foreground">Descuento</span>
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                  <Percent className="h-3.5 w-3.5 text-muted-foreground" />
+                  Descuento
+                </span>
                 <Input
                   type="number"
                   min={0}
@@ -1128,7 +1191,10 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
               </label>
 
               <label className="space-y-1.5">
-                <span className="text-sm font-medium text-foreground">Tipo de venta</span>
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                  <Truck className="h-3.5 w-3.5 text-muted-foreground" />
+                  Tipo de venta
+                </span>
                 <select
                   className="field-select"
                   value={draftFulfillmentMode}
@@ -1139,28 +1205,72 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                 </select>
               </label>
 
-              <label className="space-y-1.5">
-                <span className="text-sm font-medium text-foreground">Total</span>
-                <Input value={draftLineTotal.toLocaleString("es-CO", { style: "currency", currency })} readOnly />
-              </label>
-
               <div className="grid gap-3 rounded-xl border border-border bg-card p-3 md:col-span-2 md:grid-cols-[7.5rem_minmax(0,1fr)] md:items-start">
-                <div className="flex items-start justify-start">
-                  {draftProduct?.thumbnailUrl ? (
-                    <img
-                      src={draftProduct.thumbnailUrl}
-                      alt={draftProduct.name}
-                      className="h-28 w-28 rounded-lg border border-border object-cover"
+                <div className="flex flex-col items-start gap-1.5">
+                  <label
+                    className="group relative flex h-28 w-28 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-border bg-muted transition hover:border-[var(--primary)]/50"
+                    title="Subir foto para la cotizacion"
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      disabled={isUploadingImage}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        event.target.value = "";
+                        void handleImageUpload(file);
+                      }}
                     />
-                  ) : (
-                    <div className="flex h-28 w-28 items-center justify-center rounded-lg border border-border bg-muted text-[11px] text-muted-foreground">
-                      Sin imagen
-                    </div>
-                  )}
+                    {draftImageUrl || draftProduct?.thumbnailUrl ? (
+                      <>
+                        <ProductThumb
+                          src={draftImageUrl || draftProduct?.thumbnailUrl || ""}
+                          alt={draftProduct?.name ?? "Producto"}
+                          className="h-full w-full object-cover"
+                        />
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/45 text-white opacity-0 transition group-hover:opacity-100">
+                          {isUploadingImage ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <>
+                              <ImagePlus className="h-5 w-5" />
+                              <span className="text-[11px] font-medium">Cambiar foto</span>
+                            </>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-1 text-muted-foreground">
+                        {isUploadingImage ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <>
+                            <ImagePlus className="h-5 w-5" />
+                            <span className="text-[11px] font-medium">Agregar foto</span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </label>
+                  {draftImageUrl ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto px-1 py-0 text-xs text-muted-foreground"
+                      onClick={() => setDraftImageUrl("")}
+                    >
+                      Quitar foto
+                    </Button>
+                  ) : null}
                 </div>
 
                 <label className="space-y-1.5">
-                  <span className="text-sm font-medium text-foreground">Descripcion</span>
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                    <AlignLeft className="h-3.5 w-3.5 text-muted-foreground" />
+                    Descripcion
+                  </span>
                   <textarea
                     value={draftDescription}
                     onChange={(event) => setDraftDescription(event.target.value)}
@@ -1172,20 +1282,29 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
               </div>
             </div>
 
-            {productFormError ? (
-              <p className="mt-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
-                {productFormError}
-              </p>
-            ) : null}
+                {productFormError ? (
+                  <p className="mt-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+                    {productFormError}
+                  </p>
+                ) : null}
 
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" size="lg" onClick={() => setOpenProductModal(false)}>
-                Cancelar
-              </Button>
-              <Button type="button" size="lg" onClick={addDraftProduct}>
-                Agregar producto
-              </Button>
-            </div>
+                <div className="mt-3 flex items-center justify-between rounded-xl border border-[var(--primary)]/20 bg-[var(--primary)]/5 px-4 py-3">
+                  <span className="text-sm font-semibold text-foreground">Total a pagar</span>
+                  <span className="text-xl font-bold text-[var(--primary)]">
+                    {draftLineTotal.toLocaleString("es-CO", { style: "currency", currency })}
+                  </span>
+                </div>
+
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="outline" size="lg" onClick={() => setOpenProductModal(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" size="lg" onClick={addDraftProduct}>
+                    Agregar producto
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       ) : null}

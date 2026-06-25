@@ -41,6 +41,7 @@ type InitialLine = {
   additionalCost: number;
   discount: number;
   fulfillmentMode: FulfillmentMode;
+  imageUrl: string;
 };
 
 type EditQuoteData = {
@@ -73,6 +74,7 @@ type QuoteLine = {
   additionalCost: number;
   discount: number;
   fulfillmentMode: FulfillmentMode;
+  imageUrl: string;
 };
 
 type EditQuoteWorkspaceProps = {
@@ -107,6 +109,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
       additionalCost: item.additionalCost,
       discount: item.discount,
       fulfillmentMode: item.fulfillmentMode,
+      imageUrl: item.imageUrl,
     })),
   );
 
@@ -217,6 +220,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
         additionalCost,
         discount,
         fulfillmentMode: draftFulfillmentMode,
+        imageUrl: "",
       },
     ]);
     setDraftProductId("");
@@ -241,6 +245,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
       additionalCost: line.additionalCost,
       discount: line.discount,
       notes: line.description || null,
+      imageUrl: line.imageUrl || null,
     })),
   );
 

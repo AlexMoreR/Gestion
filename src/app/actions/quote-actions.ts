@@ -1,6 +1,8 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import bcrypt from "bcryptjs";
 import { Prisma, Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -47,7 +49,49 @@ const quoteItemSchema = z.object({
   notes: z.string().trim().max(4000, "Notas demasiado largas").optional().nullable(),
   additionalCost: z.coerce.number().min(0, "Costo adicional invalido").optional().default(0),
   discount: z.coerce.number().min(0, "Descuento invalido").optional().default(0),
+  // Imagen personalizada subida para esta linea (ruta local /uploads/...).
+  imageUrl: z.preprocess(
+    emptyToUndefined,
+    z.string().trim().max(500, "Ruta de imagen demasiado larga").optional().nullable(),
+  ),
 });
+
+const QUOTE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+export async function adminUploadQuoteImageAction(
+  formData: FormData,
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  await requireAdminSession();
+
+  const file = formData.get("file");
+  if (!(file instanceof File)) {
+    return { ok: false, error: "No se recibio ninguna imagen" };
+  }
+  if (!file.type.startsWith("image/")) {
+    return { ok: false, error: "Solo se permiten archivos de imagen" };
+  }
+  if (file.size <= 0) {
+    return { ok: false, error: "Archivo de imagen vacio" };
+  }
+  if (file.size > QUOTE_IMAGE_MAX_BYTES) {
+    return { ok: false, error: "La imagen debe pesar maximo 5MB" };
+  }
+
+  try {
+    const uploadDir = path.join(process.cwd(), "public", "uploads", "quotes");
+    await mkdir(uploadDir, { recursive: true });
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const ext = path.extname(file.name)?.toLowerCase() || ".jpg";
+    const safeExt = ext.length <= 8 ? ext : ".jpg";
+    const fileName = `${Date.now()}-${randomUUID()}${safeExt}`;
+    await writeFile(path.join(uploadDir, fileName), buffer);
+
+    return { ok: true, url: `/uploads/quotes/${fileName}` };
+  } catch {
+    return { ok: false, error: "No se pudo guardar la imagen" };
+  }
+}
 
 const createQuoteSchema = z.object({
   clientId: z.string().trim().optional(),
@@ -312,6 +356,7 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
       description: item.notes ?? "",
       additionalCost: item.additionalCost ?? 0,
       discount: item.discount ?? 0,
+      imageUrl: item.imageUrl ?? "",
     });
 
     return {
@@ -523,6 +568,7 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
       description: item.notes ?? "",
       additionalCost: item.additionalCost ?? 0,
       discount: item.discount ?? 0,
+      imageUrl: item.imageUrl ?? "",
     });
     return {
       productId: item.productId,

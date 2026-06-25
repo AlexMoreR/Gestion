@@ -3,6 +3,8 @@ export type QuoteItemMeta = {
   color: string;
   additionalCost: number;
   discount: number;
+  // Imagen personalizada para la cotizacion. Si esta vacia, se usa la del producto.
+  imageUrl: string;
 };
 
 const EMPTY_QUOTE_ITEM_META: QuoteItemMeta = {
@@ -10,6 +12,7 @@ const EMPTY_QUOTE_ITEM_META: QuoteItemMeta = {
   color: "",
   additionalCost: 0,
   discount: 0,
+  imageUrl: "",
 };
 
 export function parseQuoteItemMeta(value: string | null | undefined): QuoteItemMeta {
@@ -26,6 +29,7 @@ export function parseQuoteItemMeta(value: string | null | undefined): QuoteItemM
         color: typeof parsed.color === "string" ? parsed.color : "",
         additionalCost: typeof parsed.additionalCost === "number" ? parsed.additionalCost : 0,
         discount: typeof parsed.discount === "number" ? parsed.discount : 0,
+        imageUrl: typeof parsed.imageUrl === "string" ? parsed.imageUrl : "",
       };
     }
   } catch {
@@ -44,9 +48,16 @@ export function stringifyQuoteItemMeta(meta: Partial<QuoteItemMeta>): string | n
     color: meta.color?.trim() ?? "",
     additionalCost: Number.isFinite(meta.additionalCost) ? Number(meta.additionalCost) : 0,
     discount: Number.isFinite(meta.discount) ? Number(meta.discount) : 0,
+    imageUrl: meta.imageUrl?.trim() ?? "",
   };
 
-  if (!normalized.description && !normalized.color && normalized.additionalCost === 0 && normalized.discount === 0) {
+  if (
+    !normalized.description &&
+    !normalized.color &&
+    normalized.additionalCost === 0 &&
+    normalized.discount === 0 &&
+    !normalized.imageUrl
+  ) {
     return null;
   }
 

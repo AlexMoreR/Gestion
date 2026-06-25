@@ -391,9 +391,9 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
             {itemsWithMeta.map((item) => (
               <TableRow key={item.id} className="transition-colors">
                 <TableCell className={isPdf ? "p-0 text-center" : "text-center"}>
-                  {item.product.thumbnailUrl ? (
+                  {item.meta.imageUrl || item.product.thumbnailUrl ? (
                     <img
-                      src={getPublicAssetUrl(item.product.thumbnailUrl)}
+                      src={getPublicAssetUrl(item.meta.imageUrl || item.product.thumbnailUrl || "")}
                       alt={item.product.name}
                       className={
                         isPdf
