@@ -233,7 +233,9 @@ export async function adminCreateInventoryMovementAction(formData: FormData): Pr
             supplierId: supplier.id,
             code: buildInventoryChargeCode((invSeq += 1)),
             type: "CHARGE",
-            amount: entry.cost,
+            // entry.cost es el costo por combo del componente; la deuda total es
+            // ese costo por la cantidad de combos comprados.
+            amount: entry.cost * parsed.data.quantity,
             note: `Compra inventario - ${componentNameByChild.get(entry.childId) ?? "componente"} (Combo ${productName} x${parsed.data.quantity})`,
             paymentDate: parsed.data.movementDate,
             inventoryMovementId: componentMovementId,
@@ -258,7 +260,9 @@ export async function adminCreateInventoryMovementAction(formData: FormData): Pr
             supplierId: supplier.id,
             code: buildInventoryChargeCode((invSeq += 1)),
             type: "CHARGE",
-            amount: purchaseCost,
+            // purchaseCost es el costo unitario; la deuda total con el proveedor
+            // es ese costo por la cantidad comprada.
+            amount: purchaseCost * parsed.data.quantity,
             note: `Compra inventario - ${productName} (x${parsed.data.quantity})`,
             paymentDate: parsed.data.movementDate,
             inventoryMovementId: movementId,
@@ -371,7 +375,30 @@ export async function adminUpdateInventoryMovementAction(formData: FormData): Pr
     data: { type, change, note, movementDate },
   });
 
+  // Los cargos de compra ligados a este movimiento se guardan como total
+  // (costo unitario x cantidad). Al cambiar la cantidad, se reajustan de forma
+  // proporcional para que el saldo con el proveedor siga la nueva cantidad.
+  // El costo adicional (transporte) es un monto fijo y su nota no empieza por
+  // "Compra inventario", por lo que queda excluido del reajuste.
+  const oldQty = Math.abs(movement.change);
+  const newQty = Math.abs(change);
+  if (oldQty > 0 && newQty > 0 && newQty !== oldQty) {
+    const linkedCharges = await prisma.supplierLedgerEntry.findMany({
+      where: { inventoryMovementId: id, type: "CHARGE" },
+      select: { id: true, amount: true, note: true },
+    });
+    for (const charge of linkedCharges) {
+      if (!charge.note?.startsWith("Compra inventario")) continue;
+      const rescaled = Math.round((Number(charge.amount) * newQty) / oldQty);
+      await prisma.supplierLedgerEntry.update({
+        where: { id: charge.id },
+        data: { amount: rescaled },
+      });
+    }
+  }
+
   revalidatePath("/admin/inventario");
+  revalidatePath("/admin/proveedores");
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Movimiento actualizado" }).toString()}`);
 }
 
