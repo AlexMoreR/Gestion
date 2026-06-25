@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 const reservedSlugs = new Set(["favicon.ico", "robots.txt", "sitemap.xml"]);
@@ -17,7 +18,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return generateStorefrontMetadata({ categorySlug: slug });
 }
 
-export default async function CategorySlugPage({ params }: PageProps) {
+export default async function CategorySlugPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   if (reservedSlugs.has(slug)) {
     notFound();
@@ -31,5 +32,8 @@ export default async function CategorySlugPage({ params }: PageProps) {
     notFound();
   }
 
-  return <StorefrontCatalog categorySlug={slug} />;
+  const sp = await searchParams;
+  const page = typeof sp.page === "string" ? Number.parseInt(sp.page, 10) || 1 : 1;
+
+  return <StorefrontCatalog categorySlug={slug} page={page} />;
 }

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MessageCircle, Shield, ShoppingCart, Star, Truck } from "lucide-react";
+import { CatalogPagination } from "@/components/store/catalog-pagination";
+import { CategoriesCarousel } from "@/components/store/categories-carousel";
 import { FeaturedProductsCarousel } from "@/components/store/featured-products-carousel";
 import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/currency";
@@ -21,7 +23,12 @@ import {
 type StorefrontCatalogProps = {
   query?: string;
   categorySlug?: string;
+  showFullCatalog?: boolean;
+  page?: number;
+  basePath?: string;
 };
+
+const PRODUCTS_PER_PAGE = 24;
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
@@ -172,7 +179,13 @@ export async function generateStorefrontMetadata({
   };
 }
 
-export async function StorefrontCatalog({ query = "", categorySlug }: StorefrontCatalogProps) {
+export async function StorefrontCatalog({
+  query = "",
+  categorySlug,
+  showFullCatalog = false,
+  page = 1,
+  basePath = "/",
+}: StorefrontCatalogProps) {
   const normalizedQuery = query.trim();
   const normalizedCategorySlug = categorySlug?.trim() ?? "";
   const [
@@ -227,6 +240,10 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
     getSystemStorefrontPromoItems(),
   ]);
 
+  // El grid completo (pesado) solo se renderiza en busquedas, categorias o la pagina /catalogo.
+  // En el inicio basta con los destacados, evitando traer todo el catalogo y mejorando la carga.
+  const showCatalogGrid = Boolean(category || normalizedQuery || showFullCatalog);
+
   const productsResult = await prisma.product.findMany({
     where: {
       ...(normalizedQuery
@@ -242,6 +259,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
       ...(category ? { categoryId: category.id } : {}),
     },
     orderBy: { createdAt: "desc" },
+    ...(showCatalogGrid ? {} : { take: 5 }),
     include: {
       category: true,
       images: {
@@ -262,6 +280,13 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
     thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
     priceLabel: formatCatalogPrice(String(product.price), systemCurrency),
   }));
+
+  // Paginado del catalogo: solo se renderiza y procesa la pagina visible.
+  const totalPages = Math.max(1, Math.ceil(products.length / PRODUCTS_PER_PAGE));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+  const pagedProducts = showCatalogGrid
+    ? products.slice((currentPage - 1) * PRODUCTS_PER_PAGE, currentPage * PRODUCTS_PER_PAGE)
+    : products;
 
   const promoItems = storefrontPromoItems;
 
@@ -288,13 +313,29 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
     `Hola ${brandName}, quiero cotizar mobiliario profesional`,
   );
   const productWhatsAppHrefById = new Map(
-    await Promise.all(
-      products.map(async (product) => [
-        product.id,
-        await buildSystemWhatsAppHref(`Hola ${brandName}, quiero comprar el producto: ${product.name}`),
-      ] as const),
-    ),
+    showCatalogGrid
+      ? await Promise.all(
+          pagedProducts.map(async (product) => [
+            product.id,
+            await buildSystemWhatsAppHref(`Hola ${brandName}, quiero comprar el producto: ${product.name}`),
+          ] as const),
+        )
+      : [],
   );
+
+  // Construye el enlace de cada pagina conservando la categoria y la busqueda actual.
+  const paginationBase = category ? `/${category.slug}` : basePath;
+  const buildPageHref = (targetPage: number) => {
+    const searchParams = new URLSearchParams();
+    if (normalizedQuery) {
+      searchParams.set("q", normalizedQuery);
+    }
+    if (targetPage > 1) {
+      searchParams.set("page", String(targetPage));
+    }
+    const queryString = searchParams.toString();
+    return queryString ? `${paginationBase}?${queryString}` : paginationBase;
+  };
 
   const storefrontSchema = {
     "@context": "https://schema.org",
@@ -326,7 +367,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
         dangerouslySetInnerHTML={{ __html: JSON.stringify(storefrontSchema) }}
       />
 
-      {!normalizedQuery ? (
+      {!normalizedQuery && !showFullCatalog ? (
         <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen">
           <Card className="relative overflow-hidden rounded-none border-0 bg-white p-0 shadow-[0_24px_60px_-42px_rgba(15,23,42,0.18)]">
             <div className="mx-auto max-w-6xl px-4 md:px-6">
@@ -351,7 +392,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                         Cotizar ahora
                       </Link>
                       <Link
-                        href="#catalogo"
+                        href="/catalogo"
                         className="inline-flex h-9 items-center gap-2 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 px-3.5 text-[13px] font-semibold text-[var(--primary)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--primary)]/50 hover:bg-[var(--primary)]/10 active:translate-y-0 md:h-10 md:px-4.5"
                       >
                         <ShoppingCart className="h-4 w-4" />
@@ -375,7 +416,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                         Cotizar ahora
                       </Link>
                       <Link
-                        href="#catalogo"
+                        href="/catalogo"
                         className="inline-flex h-9 items-center gap-2 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 px-3.5 text-[13px] font-semibold text-[var(--primary)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--primary)]/50 hover:bg-[var(--primary)]/10 active:translate-y-0"
                       >
                         <ShoppingCart className="h-4 w-4" />
@@ -424,60 +465,11 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
             Busca tu <strong className="font-semibold">categoria</strong>
           </h2>
         </div>
-          <div className="flex snap-x gap-2.5 overflow-x-auto pb-0.5">
-            {categoriesCarousel.map((item) => (
-              <Link
-                key={item.id}
-                href={`/${item.slug}`}
-                className="group block w-24 shrink-0 snap-start transition hover:-translate-y-0.5 sm:w-28"
-              >
-                <div className="aspect-square overflow-hidden rounded-xl">
-                  <img
-                    src={item.cover}
-                    alt={item.name}
-                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                  />
-                </div>
-                <p className="mt-1.5 break-words text-center text-[11px] font-semibold leading-tight text-foreground sm:text-xs">
-                  {item.name}
-                </p>
-              </Link>
-            ))}
-          </div>
+          <CategoriesCarousel categories={categoriesCarousel} />
         </div>
       ) : null}
 
-      {!normalizedQuery && !category ? (
-        <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen bg-muted py-6">
-          <div className="mx-auto max-w-6xl px-4 md:px-6">
-            <div className="grid grid-cols-3 gap-4 text-center md:grid-cols-3">
-              <div className="flex flex-col items-center gap-1.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--primary)]/10">
-                  <Star className="h-5 w-5 text-[var(--primary-strong)]" />
-                </div>
-                <p className="text-lg font-bold text-foreground">500+</p>
-                <p className="text-xs text-muted-foreground">Salones equipados</p>
-              </div>
-              <div className="flex flex-col items-center gap-1.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--primary)]/10">
-                  <Truck className="h-5 w-5 text-[var(--primary-strong)]" />
-                </div>
-                <p className="text-lg font-bold text-foreground">Todo Colombia</p>
-                <p className="text-xs text-muted-foreground">Envio a tu ciudad</p>
-              </div>
-              <div className="flex flex-col items-center gap-1.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--primary)]/10">
-                  <Shield className="h-5 w-5 text-[var(--primary-strong)]" />
-                </div>
-                <p className="text-lg font-bold text-foreground">Garantia</p>
-                <p className="text-xs text-muted-foreground">Respaldo postventa</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {products.length === 0 ? (
+      {!showCatalogGrid ? null : products.length === 0 ? (
         <Card>
           <p className="text-sm text-muted-foreground">No hay productos publicados todavia.</p>
         </Card>
@@ -507,7 +499,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
           ) : null}
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
-            {products.map((product) => {
+            {pagedProducts.map((product) => {
               const retailPrice = Number(product.price);
               const comparePrice = retailPrice * 1.25;
               const productHref = buildProductPath(product);
@@ -590,6 +582,11 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
               );
             })}
           </div>
+          <CatalogPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            buildHref={buildPageHref}
+          />
           {category ? (
             <div className="space-y-2">
               <div className="flex items-center justify-center gap-2 px-0.5 text-center">
@@ -598,26 +595,7 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
                   Busca tu <strong className="font-semibold">categoria</strong>
                 </h2>
               </div>
-              <div className="flex snap-x gap-2.5 overflow-x-auto pb-0.5">
-                {categoriesCarousel.map((item) => (
-                  <Link
-                    key={item.id}
-                    href={`/${item.slug}`}
-                    className="group block w-24 shrink-0 snap-start transition hover:-translate-y-0.5 sm:w-28"
-                  >
-                    <div className="aspect-square overflow-hidden rounded-xl">
-                      <img
-                        src={item.cover}
-                        alt={item.name}
-                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                      />
-                    </div>
-                    <p className="mt-1.5 break-words text-center text-[11px] font-semibold leading-tight text-foreground sm:text-xs">
-                      {item.name}
-                    </p>
-                  </Link>
-                ))}
-              </div>
+              <CategoriesCarousel categories={categoriesCarousel} />
             </div>
           ) : null}
           {!normalizedQuery && category ? (
@@ -636,6 +614,36 @@ export async function StorefrontCatalog({ query = "", categorySlug }: Storefront
           ) : null}
         </div>
       )}
+
+      {!normalizedQuery && !category ? (
+        <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen bg-muted py-6">
+          <div className="mx-auto max-w-6xl px-4 md:px-6">
+            <div className="grid grid-cols-3 gap-4 text-center md:grid-cols-3">
+              <div className="flex flex-col items-center gap-1.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--primary)]/10">
+                  <Star className="h-5 w-5 text-[var(--primary-strong)]" />
+                </div>
+                <p className="text-lg font-bold text-foreground">500+</p>
+                <p className="text-xs text-muted-foreground">Salones equipados</p>
+              </div>
+              <div className="flex flex-col items-center gap-1.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--primary)]/10">
+                  <Truck className="h-5 w-5 text-[var(--primary-strong)]" />
+                </div>
+                <p className="text-lg font-bold text-foreground">Todo Colombia</p>
+                <p className="text-xs text-muted-foreground">Envio a tu ciudad</p>
+              </div>
+              <div className="flex flex-col items-center gap-1.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--primary)]/10">
+                  <Shield className="h-5 w-5 text-[var(--primary-strong)]" />
+                </div>
+                <p className="text-lg font-bold text-foreground">Garantia</p>
+                <p className="text-xs text-muted-foreground">Respaldo postventa</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
