@@ -1,10 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { X } from "lucide-react";
 import { ProductSearchSelect } from "@/components/admin/product-search-select";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
@@ -22,27 +26,27 @@ type SupplierOption = {
   cost: number | null;
 };
 
+type ComboComponentOption = {
+  childId: string;
+  name: string;
+  code: string | null;
+  quantity: number;
+};
+
 type InventoryMovementFormDialogProps = {
   open: boolean;
   action: (formData: FormData) => Promise<void>;
   onClose: () => void;
   returnTo: string;
   products: ProductOption[];
+  comboComponents: Record<string, ComboComponentOption[]>;
   suppliersByProduct: Record<string, SupplierOption[]>;
   suppliers: { id: string; name: string }[];
   initialProductId?: string | null;
 };
 
-type MovementType = "IN" | "OUT" | "ADJUSTMENT";
-
 const controlClassName =
   "h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
-
-const QUANTITY_LABEL: Record<MovementType, string> = {
-  IN: "Cant",
-  OUT: "Cant",
-  ADJUSTMENT: "Cant",
-};
 
 function today(): string {
   const now = new Date();
@@ -55,24 +59,58 @@ export function InventoryMovementFormDialog({
   onClose,
   returnTo,
   products,
+  comboComponents,
   suppliersByProduct,
   suppliers,
   initialProductId,
 }: InventoryMovementFormDialogProps) {
   const [productId, setProductId] = React.useState(initialProductId ?? "");
-  const [type, setType] = React.useState<MovementType>("IN");
+  const [quantity, setQuantity] = React.useState("");
   const [supplierId, setSupplierId] = React.useState("");
   const [purchaseCost, setPurchaseCost] = React.useState("");
   const [extraConcept, setExtraConcept] = React.useState("");
   const [extraSupplierId, setExtraSupplierId] = React.useState("");
   const [extraCost, setExtraCost] = React.useState("");
+  // Combo: proveedor y costo por cada componente.
+  const [componentCharges, setComponentCharges] = React.useState<
+    Record<string, { supplierId: string; cost: string }>
+  >({});
+  // Combo: componentes que el usuario quito de la lista.
+  const [removedComponents, setRemovedComponents] = React.useState<Record<string, boolean>>({});
 
   const supplierOptions = productId ? suppliersByProduct[productId] ?? [] : [];
+  const allComboParts = productId ? comboComponents[productId] ?? null : null;
+  const comboParts = allComboParts
+    ? allComboParts.filter((part) => !removedComponents[part.childId])
+    : null;
+  const isCombo = Boolean(comboParts && comboParts.length > 0);
+
+  const componentChargesJson = JSON.stringify(
+    (comboParts ?? []).map((part) => ({
+      childId: part.childId,
+      supplierId: componentCharges[part.childId]?.supplierId ?? "",
+      cost: Number(componentCharges[part.childId]?.cost || 0) || 0,
+    })),
+  );
+
+  // Costo unitario: suma de componentes del combo o el costo de compra del producto.
+  const unitCost = isCombo
+    ? (comboParts ?? []).reduce(
+        (sum, part) => sum + (Number(componentCharges[part.childId]?.cost || 0) || 0),
+        0,
+      )
+    : Number(purchaseCost || 0) || 0;
+  const quantityValue = Number(quantity || 0) || 0;
+  const totalToPay = unitCost * quantityValue + (Number(extraCost || 0) || 0);
 
   // Al cambiar de producto, limpia el proveedor elegido (cada producto tiene los suyos).
   const handleProductChange = (nextProductId: string) => {
     setProductId(nextProductId);
+    setQuantity("");
     setSupplierId("");
+    setPurchaseCost("");
+    setComponentCharges({});
+    setRemovedComponents({});
   };
 
   // Al elegir proveedor, autocompleta el costo con el costo de ese proveedor.
@@ -88,35 +126,22 @@ export function InventoryMovementFormDialog({
   React.useEffect(() => {
     if (open) {
       setProductId(initialProductId ?? "");
-      setType("IN");
+      setComponentCharges({});
+      setRemovedComponents({});
     }
   }, [open, initialProductId]);
 
-  if (!open) {
-    return null;
-  }
-
   const hasProducts = products.length > 0;
-  const selectedProduct = products.find((product) => product.id === productId) ?? null;
 
   return (
-    <div
-      className="fixed inset-0 z-[55] flex items-end justify-center bg-black/50 p-3 backdrop-blur-[1px] sm:items-center"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Movimiento de inventario"
-      onClick={onClose}
-    >
-      <Card className="w-full max-w-lg rounded-2xl p-0" onClick={(event) => event.stopPropagation()}>
-        <div className="flex items-start justify-between px-4 py-3">
-          <h3 className="text-base font-semibold text-foreground">Movimiento de inventario</h3>
-          <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Cerrar">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+    <Dialog open={open} onOpenChange={(value) => (value ? null : onClose())}>
+      <DialogContent className="flex max-h-[88vh] max-w-lg flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 border-b px-6 py-4">
+          <DialogTitle>Nuevo Inventario</DialogTitle>
+        </DialogHeader>
 
         {!hasProducts ? (
-          <div className="px-4 py-6 text-sm text-muted-foreground">
+          <div className="px-6 py-5 text-sm text-muted-foreground">
             <p>No hay productos tipo Stock. Crea uno o cambia el modo de cumplimiento de un producto a &quot;Stock&quot;.</p>
             <div className="mt-4 flex justify-end">
               <Button type="button" variant="outline" onClick={onClose}>
@@ -125,7 +150,8 @@ export function InventoryMovementFormDialog({
             </div>
           </div>
         ) : (
-          <form action={action} className="space-y-4 px-4 pb-4 pt-1">
+          <>
+          <form id="inventory-movement-form" action={action} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
             <input type="hidden" name="returnTo" value={returnTo} />
 
             <label className="space-y-1.5">
@@ -136,33 +162,119 @@ export function InventoryMovementFormDialog({
                 onChange={handleProductChange}
               />
               <input type="hidden" name="productId" value={productId} />
-              {selectedProduct ? (
-                <span className="text-xs text-muted-foreground">Stock actual: {selectedProduct.stock}</span>
-              ) : null}
             </label>
 
+            <input type="hidden" name="type" value="IN" />
             <div className="grid gap-3 md:grid-cols-2">
               <label className="space-y-1.5">
-                <span className="text-sm font-medium text-foreground">Tipo</span>
-                <select
-                  name="type"
-                  value={type}
-                  onChange={(event) => setType(event.target.value as MovementType)}
-                  className={cn(controlClassName, "appearance-none")}
-                >
-                  <option value="IN">Entrada (sumar)</option>
-                  <option value="OUT">Salida (restar)</option>
-                  <option value="ADJUSTMENT">Ajuste (conteo)</option>
-                </select>
+                <span className="text-sm font-medium text-foreground">Cantidad</span>
+                <Input
+                  name="quantity"
+                  type="number"
+                  step="1"
+                  min="0"
+                  required
+                  placeholder="0"
+                  value={quantity}
+                  onChange={(event) => setQuantity(event.target.value)}
+                />
               </label>
-
               <label className="space-y-1.5">
-                <span className="text-sm font-medium text-foreground">{QUANTITY_LABEL[type]}</span>
-                <Input name="quantity" type="number" step="1" min="0" required placeholder="0" />
+                <span className="text-sm font-medium text-foreground">Fecha</span>
+                <DatePicker name="movementDate" required defaultValue={today()} />
               </label>
             </div>
 
-            {type === "IN" || type === "ADJUSTMENT" ? (
+            {isCombo ? <input type="hidden" name="componentCharges" value={componentChargesJson} /> : null}
+
+            {isCombo ? (
+              <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
+                <div className="space-y-2.5">
+                  {(comboParts ?? []).map((part) => {
+                    const partSuppliers = suppliersByProduct[part.childId]?.length
+                      ? suppliersByProduct[part.childId]
+                      : suppliers.map((supplier) => ({ ...supplier, cost: null }));
+                    const entry = componentCharges[part.childId] ?? { supplierId: "", cost: "" };
+                    return (
+                      <div key={part.childId} className="grid items-end gap-2 sm:grid-cols-[1fr_minmax(0,9rem)_minmax(0,7rem)_auto]">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-foreground">{part.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {part.code ? `${part.code} · ` : ""}x{part.quantity}
+                          </p>
+                        </div>
+                        <select
+                          value={entry.supplierId}
+                          onChange={(event) => {
+                            const supplierIdValue = event.target.value;
+                            const found = partSuppliers.find((supplier) => supplier.id === supplierIdValue);
+                            setComponentCharges((current) => ({
+                              ...current,
+                              [part.childId]: {
+                                supplierId: supplierIdValue,
+                                cost:
+                                  found && found.cost !== null
+                                    ? String(Math.round(found.cost))
+                                    : current[part.childId]?.cost ?? "",
+                              },
+                            }));
+                          }}
+                          className={cn(controlClassName, "appearance-none")}
+                        >
+                          <option value="">Sin proveedor</option>
+                          {partSuppliers.map((supplier) => (
+                            <option key={supplier.id} value={supplier.id}>
+                              {supplier.name}
+                            </option>
+                          ))}
+                        </select>
+                        <Input
+                          inputMode="numeric"
+                          value={entry.cost ? Number(entry.cost).toLocaleString("es-CO") : ""}
+                          onChange={(event) => {
+                            const cost = event.target.value.replace(/\D/g, "");
+                            setComponentCharges((current) => ({
+                              ...current,
+                              [part.childId]: { supplierId: current[part.childId]?.supplierId ?? "", cost },
+                            }));
+                          }}
+                          placeholder="Precio"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setRemovedComponents((current) => ({ ...current, [part.childId]: true }))
+                          }
+                          aria-label={`Quitar ${part.name}`}
+                          title="Quitar producto"
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-input text-muted-foreground transition-colors hover:border-destructive hover:text-destructive"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M3 6h18" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            <line x1="10" y1="11" x2="10" y2="17" />
+                            <line x1="14" y1="11" x2="14" y2="17" />
+                          </svg>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {!isCombo ? (
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="space-y-1.5">
                   <span className="text-sm font-medium text-foreground">Proveedor (opcional)</span>
@@ -200,9 +312,8 @@ export function InventoryMovementFormDialog({
               </div>
             ) : null}
 
-            {type === "IN" || type === "ADJUSTMENT" ? (
-              <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
-                <span className="text-sm font-medium text-foreground">Costo adicional (opcional)</span>
+            <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
+                <span className="text-sm font-medium text-foreground">Costo adicional</span>
                 <div className="grid gap-3 md:grid-cols-3">
                   <label className="space-y-1.5">
                     <span className="text-xs font-medium text-muted-foreground">Concepto</span>
@@ -240,19 +351,10 @@ export function InventoryMovementFormDialog({
                     <input type="hidden" name="extraCost" value={extraCost} />
                   </label>
                 </div>
-                <span className="text-xs text-muted-foreground">
-                  Genera un cargo aparte al proveedor del costo adicional.
-                </span>
-              </div>
-            ) : null}
+            </div>
 
             <label className="space-y-1.5">
-              <span className="text-sm font-medium text-foreground">Fecha</span>
-              <DatePicker name="movementDate" required defaultValue={today()} />
-            </label>
-
-            <label className="space-y-1.5">
-              <span className="text-sm font-medium text-foreground">Nota (opcional)</span>
+              <span className="text-sm font-medium text-foreground">Nota</span>
               <textarea
                 name="note"
                 rows={2}
@@ -261,15 +363,23 @@ export function InventoryMovementFormDialog({
               />
             </label>
 
-            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancelar
-              </Button>
-              <Button type="submit">Registrar movimiento</Button>
-            </div>
           </form>
+
+          {/* Footer fijo: total y boton siempre visibles al fondo del modal. */}
+          <div className="shrink-0 space-y-2 border-t border-border bg-background px-6 py-4">
+            <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 px-5 py-4">
+              <span className="text-base font-semibold text-foreground">Total</span>
+              <span className="text-2xl font-bold text-primary">
+                ${totalToPay.toLocaleString("es-CO")}
+              </span>
+            </div>
+            <Button type="submit" form="inventory-movement-form" className="w-full">
+              Ingresar
+            </Button>
+          </div>
+          </>
         )}
-      </Card>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

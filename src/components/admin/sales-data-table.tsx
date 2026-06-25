@@ -618,7 +618,7 @@ function AddSalePaymentSheet({
 
             <div className="space-y-1.5">
               <label htmlFor="add-payment-note" className="text-sm font-medium text-foreground">
-                Nota (opcional)
+                Nota
               </label>
               <textarea
                 id="add-payment-note"

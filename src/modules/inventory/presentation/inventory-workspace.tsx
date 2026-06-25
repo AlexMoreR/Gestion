@@ -102,16 +102,62 @@ export function InventoryWorkspace({
   );
 
   const actionsReturnTo = "/admin/inventario";
-  const productOptions = React.useMemo(
-    () =>
-      stocks.map((item) => ({
-        id: item.productId,
-        name: item.name,
-        code: item.code,
-        stock: item.stock,
-      })),
-    [stocks],
-  );
+  const productOptions = React.useMemo(() => {
+    const base = stocks.map((item) => ({
+      id: item.productId,
+      name: item.name,
+      code: item.code,
+      stock: item.stock,
+    }));
+
+    // Los combos no manejan stock propio, pero se pueden comprar como unidad:
+    // se incluyen en el selector y su "stock" es cuantos se pueden armar con los
+    // componentes disponibles. Al registrar la entrada, el stock se reparte a
+    // cada componente.
+    const stockMap = new Map(stocks.map((item) => [item.productId, item.stock]));
+    const combos = editableProducts
+      .filter((product) => product.isBundle && product.components.length > 0)
+      .map((product) => {
+        const buildable = Math.min(
+          ...product.components.map((component) =>
+            component.quantity > 0
+              ? Math.floor((stockMap.get(component.childId) ?? 0) / component.quantity)
+              : 0,
+          ),
+        );
+        return {
+          id: product.id,
+          name: `${product.name} (Combo)`,
+          code: product.code,
+          stock: Number.isFinite(buildable) ? Math.max(0, buildable) : 0,
+        };
+      });
+
+    return [...base, ...combos];
+  }, [stocks, editableProducts]);
+
+  // Componentes de cada combo (para mostrar la lista de productos con su precio
+  // y proveedor en el formulario de movimiento).
+  const comboComponents = React.useMemo(() => {
+    const nameByProduct = new Map(
+      editableProducts.map((product) => [product.id, { name: product.name, code: product.code }]),
+    );
+    const map: Record<
+      string,
+      Array<{ childId: string; name: string; code: string | null; quantity: number }>
+    > = {};
+    for (const product of editableProducts) {
+      if (product.isBundle && product.components.length > 0) {
+        map[product.id] = product.components.map((component) => ({
+          childId: component.childId,
+          quantity: component.quantity,
+          name: nameByProduct.get(component.childId)?.name ?? "Producto",
+          code: nameByProduct.get(component.childId)?.code ?? null,
+        }));
+      }
+    }
+    return map;
+  }, [editableProducts]);
 
   return (
     <>
@@ -192,6 +238,7 @@ export function InventoryWorkspace({
         onClose={() => setMovementModal({ open: false, productId: null })}
         returnTo={actionsReturnTo}
         products={productOptions}
+        comboComponents={comboComponents}
         suppliersByProduct={suppliersByProduct}
         suppliers={suppliers}
         initialProductId={movementModal.productId}

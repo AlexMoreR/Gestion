@@ -102,16 +102,77 @@ export async function adminCreateInventoryMovementAction(formData: FormData): Pr
     redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos invalidos");
   }
 
+  // El combo no maneja stock propio: al comprarlo se reparte el stock a cada
+  // componente (cantidad del combo x unidades del componente). El cargo al
+  // proveedor se hace una sola vez por el combo (ver mas abajo).
+  const product = await prisma.product.findUnique({
+    where: { id: parsed.data.productId },
+    select: {
+      name: true,
+      isBundle: true,
+      bundleComponents: {
+        select: { childId: true, quantity: true, child: { select: { name: true } } },
+      },
+    },
+  });
+  if (!product) {
+    redirectWithError(returnTo, "Producto no encontrado.");
+  }
+  const productName = product.name;
+  // Para combos: mapa de cada componente al movimiento que se le creo, para
+  // poder enlazar el cargo de compra de ese componente a su proveedor.
+  const componentMovementByChild = new Map<string, string>();
+
   let movementId: string;
   try {
-    movementId = await registerInventoryMovementUseCase(repository, {
-      productId: parsed.data.productId,
-      type: parsed.data.type,
-      quantity: parsed.data.quantity,
-      note: parsed.data.note ?? null,
-      movementDate: parsed.data.movementDate,
-      createdById,
-    });
+    if (product.isBundle) {
+      if (parsed.data.type === "ADJUSTMENT") {
+        redirectWithError(returnTo, "Un combo no admite ajuste de conteo; usa entrada o salida.");
+      }
+      const components = product.bundleComponents.filter((component) => component.quantity > 0);
+      if (components.length === 0) {
+        redirectWithError(returnTo, "El combo no tiene componentes configurados.");
+      }
+
+      // Para salidas, valida primero que todos los componentes tengan stock
+      // suficiente (los movimientos no son transaccionales entre si).
+      if (parsed.data.type === "OUT") {
+        for (const component of components) {
+          const need = component.quantity * parsed.data.quantity;
+          const current = await repository.getCurrentStock(component.childId);
+          if (need > current) {
+            redirectWithError(
+              returnTo,
+              `No hay stock suficiente de ${component.child.name}. Disponible: ${current}, requiere ${need}.`,
+            );
+          }
+        }
+      }
+
+      const movementIds: string[] = [];
+      for (const component of components) {
+        const id = await registerInventoryMovementUseCase(repository, {
+          productId: component.childId,
+          type: parsed.data.type,
+          quantity: component.quantity * parsed.data.quantity,
+          note: parsed.data.note ?? `Combo ${productName} (x${parsed.data.quantity})`,
+          movementDate: parsed.data.movementDate,
+          createdById,
+        });
+        movementIds.push(id);
+        componentMovementByChild.set(component.childId, id);
+      }
+      movementId = movementIds[0];
+    } else {
+      movementId = await registerInventoryMovementUseCase(repository, {
+        productId: parsed.data.productId,
+        type: parsed.data.type,
+        quantity: parsed.data.quantity,
+        note: parsed.data.note ?? null,
+        movementDate: parsed.data.movementDate,
+        createdById,
+      });
+    }
   } catch (error) {
     if (error instanceof InventoryError) {
       redirectWithError(returnTo, error.message);
@@ -122,16 +183,68 @@ export async function adminCreateInventoryMovementAction(formData: FormData): Pr
   // Si la compra (entrada/ajuste) se atribuye a un proveedor, genera un cargo
   // (deuda) en su cuenta corriente por el costo de compra.
   if (parsed.data.type === "IN" || parsed.data.type === "ADJUSTMENT") {
-    const product = await prisma.product.findUnique({
-      where: { id: parsed.data.productId },
-      select: { name: true },
-    });
-    const productName = product?.name ?? "producto";
     let createdAnyCharge = false;
     // Código secuencial INV-0000X; se incrementa por cada cargo de inventario creado.
     let invSeq = await getNextInventoryChargeSeq();
 
-    // Cargo por la compra del producto.
+    // Combo: un cargo por cada componente a su proveedor (precio por producto).
+    if (product.isBundle) {
+      const componentNameByChild = new Map(
+        product.bundleComponents.map((component) => [component.childId, component.child.name]),
+      );
+      let componentCharges: Array<{ childId: string; supplierId: string; cost: number }> = [];
+      const rawComponentCharges = getStringField(formData, "componentCharges");
+      if (rawComponentCharges.trim()) {
+        try {
+          const arr = JSON.parse(rawComponentCharges) as unknown;
+          if (Array.isArray(arr)) {
+            componentCharges = arr
+              .filter(
+                (entry): entry is { childId: string; supplierId: string; cost: number } =>
+                  Boolean(entry) &&
+                  typeof entry === "object" &&
+                  typeof (entry as { childId?: unknown }).childId === "string",
+              )
+              .map((entry) => ({
+                childId: entry.childId,
+                supplierId: typeof entry.supplierId === "string" ? entry.supplierId.trim() : "",
+                cost: Number(entry.cost) || 0,
+              }));
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      for (const entry of componentCharges) {
+        const componentMovementId = componentMovementByChild.get(entry.childId);
+        if (!entry.supplierId || entry.cost <= 0 || !componentMovementId) {
+          continue;
+        }
+        const supplier = await prisma.supplier.findFirst({
+          where: { id: entry.supplierId, isActive: true },
+          select: { id: true },
+        });
+        if (!supplier) {
+          continue;
+        }
+        await prisma.supplierLedgerEntry.create({
+          data: {
+            supplierId: supplier.id,
+            code: buildInventoryChargeCode((invSeq += 1)),
+            type: "CHARGE",
+            amount: entry.cost,
+            note: `Compra inventario - ${componentNameByChild.get(entry.childId) ?? "componente"} (Combo ${productName} x${parsed.data.quantity})`,
+            paymentDate: parsed.data.movementDate,
+            inventoryMovementId: componentMovementId,
+            createdById,
+          },
+        });
+        createdAnyCharge = true;
+      }
+    }
+
+    // Cargo por la compra del producto (productos individuales).
     const supplierId = getStringField(formData, "supplierId").trim();
     const purchaseCost = Number(getStringField(formData, "purchaseCost").replace(/\D/g, "")) || 0;
     if (supplierId && purchaseCost > 0) {
