@@ -111,6 +111,32 @@ async function saveDeliveryPhoto(
   };
 }
 
+async function saveTrackingPhoto(
+  file: File,
+  orderId: string,
+): Promise<{ url: string; name: string }> {
+  if (!(file instanceof File) || file.size <= 0) {
+    throw new Error("No se pudo leer la foto de la guia.");
+  }
+  if (file.size > RECEIPT_MAX_BYTES) {
+    throw new Error(`La foto ${file.name} supera el limite de 12 MB.`);
+  }
+  const extension = getReceiptExtension(file);
+  if (!ALLOWED_RECEIPT_MIME_TYPES.has(file.type) && !ALLOWED_RECEIPT_EXTENSIONS.has(extension)) {
+    throw new Error(`La foto ${file.name} no es compatible. Solo JPG, PNG, WEBP o PDF.`);
+  }
+
+  const uploadDir = path.join(process.cwd(), "public", "uploads", "dispatches", "tracking");
+  await mkdir(uploadDir, { recursive: true });
+  const fileName = `${orderId}-${Date.now()}-${randomUUID()}${extension || ".jpg"}`;
+  await writeFile(path.join(uploadDir, fileName), Buffer.from(await file.arrayBuffer()));
+
+  return {
+    url: `/uploads/dispatches/tracking/${fileName}`,
+    name: file.name || fileName,
+  };
+}
+
 function normalizeHandle(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") {
     return null;
@@ -484,6 +510,473 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
   revalidatePath(`/admin/ordenes/${order.id}`);
   revalidatePath("/admin/proveedores");
   redirect(`${returnTo}?ok=Despacho+creado`);
+}
+
+const dispatchOrderItemSchema = z.object({
+  orderId: z.string().trim().min(1, "Orden invalida"),
+  orderItemId: z.string().trim().min(1, "Producto invalido"),
+  deliveryType: z.enum(["COUNTER", "PICKUP", "SHIPPING"]).default("SHIPPING"),
+  carrierSupplierId: z.string().trim().optional(),
+  shippingCost: z.coerce.number().nonnegative("Costo de envio invalido"),
+  shippingMode: z.enum(["PAY_NOW", "PAY_LATER"]).default("PAY_LATER"),
+  trackingNumber: z.string().trim().max(120, "Guia demasiado larga").optional(),
+  shippingAddress: z.string().trim().max(250, "Direccion demasiado larga").optional(),
+  notes: z.string().trim().max(4000, "Notas demasiado largas").optional(),
+});
+
+// Despacho de UN producto de la orden con su propia transportadora. Permite
+// despachos parciales (varios productos pueden salir con transportadoras
+// distintas). La orden pasa a DISPATCHED solo cuando TODOS los items estan
+// despachados.
+export async function adminDispatchOrderItemAction(formData: FormData): Promise<void> {
+  const createdById = await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/despachos");
+
+  const parsed = dispatchOrderItemSchema.safeParse({
+    orderId: formData.get("orderId"),
+    orderItemId: formData.get("orderItemId"),
+    deliveryType: formData.get("deliveryType") || "SHIPPING",
+    carrierSupplierId: formData.get("carrierSupplierId") || undefined,
+    shippingCost: formData.get("shippingCost") || 0,
+    shippingMode: formData.get("shippingMode") || "PAY_LATER",
+    trackingNumber: formData.get("trackingNumber") || undefined,
+    shippingAddress: formData.get("shippingAddress") || undefined,
+    notes: formData.get("notes") || undefined,
+  });
+
+  if (!parsed.success) {
+    redirect(`${returnTo}?error=Datos+de+despacho+invalidos`);
+  }
+
+  const isShipping = parsed.data.deliveryType === "SHIPPING";
+
+  let carrier: { id: string; name: string } | null = null;
+  if (parsed.data.carrierSupplierId) {
+    carrier = await prisma.supplier.findUnique({
+      where: { id: parsed.data.carrierSupplierId },
+      select: { id: true, name: true },
+    });
+    if (!carrier) {
+      redirect(`${returnTo}?error=Transportadora+no+encontrada`);
+    }
+  }
+  if (isShipping && !carrier) {
+    redirect(`${returnTo}?error=Selecciona+la+transportadora+para+el+envio`);
+  }
+
+  const accountIdRaw = formData.get("accountId");
+  const accountId = typeof accountIdRaw === "string" && accountIdRaw.trim() ? accountIdRaw.trim() : null;
+
+  const shippingReceiptFile = formData.get("shippingReceipt");
+  const hasShippingReceipt = shippingReceiptFile instanceof File && shippingReceiptFile.size > 0;
+  if (isShipping && parsed.data.shippingMode === "PAY_NOW" && !hasShippingReceipt) {
+    redirect(`${returnTo}?error=Sube+el+comprobante+del+envio+o+selecciona+pagar+luego`);
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id: parsed.data.orderId },
+    include: {
+      items: {
+        include: {
+          photos: { select: { id: true } },
+        },
+      },
+    },
+  });
+
+  if (!order) {
+    redirect(`${returnTo}?error=Orden+no+encontrada`);
+  }
+
+  if (order.status === "CANCELLED" || order.status === "COMPLETED") {
+    redirect(`${returnTo}?error=La+orden+no+acepta+despachos`);
+  }
+
+  const item = order.items.find((entry) => entry.id === parsed.data.orderItemId);
+  if (!item) {
+    redirect(`${returnTo}?error=Producto+no+encontrado+en+la+orden`);
+  }
+
+  if (!item.confirmedSupplierId || item.purchaseCost === null) {
+    redirect(`${returnTo}?error=Confirma+el+proveedor+y+costo+del+producto+antes+de+despachar`);
+  }
+  if (item.photos.length === 0) {
+    redirect(`${returnTo}?error=Sube+al+menos+una+foto+del+producto+terminado`);
+  }
+  if (item.supplierPaymentStatus === null) {
+    redirect(`${returnTo}?error=Registra+el+pago+al+proveedor+antes+de+despachar`);
+  }
+
+  const alreadyDispatched = await prisma.dispatchItem.findFirst({
+    where: {
+      orderItemId: item.id,
+      dispatch: { status: { notIn: ["CANCELLED", "RETURNED"] } },
+    },
+    select: { id: true },
+  });
+  if (alreadyDispatched) {
+    redirect(`${returnTo}?error=Este+producto+ya+fue+despachado`);
+  }
+
+  const trackingPhotoFile = formData.get("trackingPhoto");
+  const hasTrackingPhoto = trackingPhotoFile instanceof File && trackingPhotoFile.size > 0;
+
+  const shippingCost = isShipping ? parsed.data.shippingCost : 0;
+
+  try {
+    let receipt: { url: string; name: string } | null = null;
+    if (isShipping && parsed.data.shippingMode === "PAY_NOW" && hasShippingReceipt) {
+      receipt = await saveShippingReceipt(shippingReceiptFile, order.id);
+    }
+
+    let trackingPhoto: { url: string; name: string } | null = null;
+    if (isShipping && hasTrackingPhoto) {
+      trackingPhoto = await saveTrackingPhoto(trackingPhotoFile, order.id);
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const code = await getNextDispatchCode(tx);
+      const dispatch = await tx.dispatch.create({
+        data: {
+          code,
+          orderId: order.id,
+          status: "PACKING",
+          deliveryType: parsed.data.deliveryType,
+          carrierName: carrier?.name ?? null,
+          carrierSupplierId: carrier?.id ?? null,
+          shippingCost,
+          shippingReceiptUrl: receipt?.url ?? null,
+          shippingReceiptName: receipt?.name ?? null,
+          trackingNumber: parsed.data.trackingNumber || null,
+          trackingPhotoUrl: trackingPhoto?.url ?? null,
+          trackingPhotoName: trackingPhoto?.name ?? null,
+          shippingAddress: parsed.data.shippingAddress || null,
+          notes: parsed.data.notes || null,
+          createdById,
+          items: {
+            create: [
+              {
+                orderItemId: item.id,
+                quantity: item.quantity,
+                notes: item.notes,
+              },
+            ],
+          },
+        },
+      });
+
+      if (carrier && shippingCost > 0) {
+        const shippingReference =
+          receipt?.name ?? parsed.data.trackingNumber ?? `Despacho ${dispatch.code}`;
+
+        await tx.shippingCost.create({
+          data: {
+            saleId: order.saleId,
+            shippingProvider: carrier.name,
+            amount: shippingCost,
+            transactionReference: shippingReference,
+            paymentDate: new Date(),
+            accountId: parsed.data.shippingMode === "PAY_NOW" ? accountId : null,
+            createdById,
+          },
+        });
+
+        await tx.supplierLedgerEntry.create({
+          data: {
+            supplierId: carrier.id,
+            type: "CHARGE",
+            amount: shippingCost,
+            note: `Envio - Despacho ${dispatch.code} (Orden ${order.code})`,
+            saleId: order.saleId,
+            orderId: order.id,
+            dispatchId: dispatch.id,
+            createdById,
+          },
+        });
+
+        if (parsed.data.shippingMode === "PAY_NOW") {
+          await tx.supplierLedgerEntry.create({
+            data: {
+              supplierId: carrier.id,
+              type: "PAYMENT",
+              amount: shippingCost,
+              note: `Pago envio - Despacho ${dispatch.code}`,
+              saleId: order.saleId,
+              orderId: order.id,
+              dispatchId: dispatch.id,
+              paymentDate: new Date(),
+              receiptUrl: receipt?.url ?? null,
+              receiptName: receipt?.name ?? null,
+              createdById,
+            },
+          });
+        }
+      }
+
+      // La orden pasa a DISPATCHED solo cuando todos los productos estan despachados.
+      const dispatchedCount = await tx.dispatchItem.count({
+        where: {
+          orderItem: { orderId: order.id },
+          dispatch: { status: { notIn: ["CANCELLED", "RETURNED"] } },
+        },
+      });
+
+      if (dispatchedCount >= order.items.length && order.status !== "DISPATCHED") {
+        await tx.order.update({
+          where: { id: order.id },
+          data: { status: "DISPATCHED" },
+        });
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId: order.id,
+            fromStatus: order.status,
+            toStatus: "DISPATCHED",
+            note: "Todos los productos despachados",
+            changedById: createdById,
+          },
+        });
+      }
+    });
+  } catch (error) {
+    console.error("Failed to dispatch order item:", error);
+    redirect(`${returnTo}?error=No+se+pudo+despachar+el+producto`);
+  }
+
+  revalidatePath("/admin/despachos");
+  revalidatePath("/admin/ordenes");
+  revalidatePath(`/admin/ordenes/${order.id}`);
+  revalidatePath("/admin/proveedores");
+  redirect(`${returnTo}?ok=Producto+despachado`);
+}
+
+function parseOrderItemIds(value: FormDataEntryValue | null): string[] {
+  if (typeof value !== "string" || !value.trim()) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (Array.isArray(parsed)) {
+      return parsed.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+const bulkDispatchSchema = z.object({
+  orderId: z.string().trim().min(1, "Orden invalida"),
+  deliveryType: z.enum(["COUNTER", "PICKUP", "SHIPPING"]).default("SHIPPING"),
+  carrierSupplierId: z.string().trim().optional(),
+  shippingCost: z.coerce.number().nonnegative("Costo de envio invalido"),
+  shippingAddress: z.string().trim().max(250, "Direccion demasiado larga").optional(),
+  notes: z.string().trim().max(4000, "Notas demasiado largas").optional(),
+});
+
+// Despacha VARIOS productos en un solo despacho con la misma transportadora.
+// La orden pasa a DISPATCHED solo cuando todos los productos estan despachados.
+export async function adminBulkDispatchOrderItemsAction(formData: FormData): Promise<void> {
+  const createdById = await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/despachos");
+
+  const ids = parseOrderItemIds(formData.get("orderItemIds"));
+  if (ids.length === 0) {
+    redirect(`${returnTo}?error=Selecciona+al+menos+un+producto`);
+  }
+
+  const parsed = bulkDispatchSchema.safeParse({
+    orderId: formData.get("orderId"),
+    deliveryType: formData.get("deliveryType") || "SHIPPING",
+    carrierSupplierId: formData.get("carrierSupplierId") || undefined,
+    shippingCost: formData.get("shippingCost") || 0,
+    shippingAddress: formData.get("shippingAddress") || undefined,
+    notes: formData.get("notes") || undefined,
+  });
+
+  if (!parsed.success) {
+    redirect(`${returnTo}?error=Datos+de+despacho+invalidos`);
+  }
+
+  const isShipping = parsed.data.deliveryType === "SHIPPING";
+
+  let carrier: { id: string; name: string } | null = null;
+  if (parsed.data.carrierSupplierId) {
+    carrier = await prisma.supplier.findUnique({
+      where: { id: parsed.data.carrierSupplierId },
+      select: { id: true, name: true },
+    });
+    if (!carrier) {
+      redirect(`${returnTo}?error=Transportadora+no+encontrada`);
+    }
+  }
+  if (isShipping && !carrier) {
+    redirect(`${returnTo}?error=Selecciona+la+transportadora+para+el+envio`);
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id: parsed.data.orderId },
+    include: {
+      items: { include: { photos: { select: { id: true } } } },
+    },
+  });
+
+  if (!order) {
+    redirect(`${returnTo}?error=Orden+no+encontrada`);
+  }
+  if (order.status === "CANCELLED" || order.status === "COMPLETED") {
+    redirect(`${returnTo}?error=La+orden+no+acepta+despachos`);
+  }
+
+  const selectedItems = order.items.filter((item) => ids.includes(item.id));
+  if (selectedItems.length === 0) {
+    redirect(`${returnTo}?error=Productos+no+encontrados+en+la+orden`);
+  }
+
+  for (const item of selectedItems) {
+    if (!item.confirmedSupplierId || item.purchaseCost === null) {
+      redirect(`${returnTo}?error=Confirma+el+proveedor+y+costo+de+todos+los+productos+antes+de+despachar`);
+    }
+    if (item.photos.length === 0) {
+      redirect(`${returnTo}?error=Sube+al+menos+una+foto+de+cada+producto+terminado`);
+    }
+    if (item.supplierPaymentStatus === null) {
+      redirect(`${returnTo}?error=Registra+el+pago+al+proveedor+de+cada+producto+antes+de+despachar`);
+    }
+  }
+
+  const alreadyDispatched = await prisma.dispatchItem.findFirst({
+    where: {
+      orderItemId: { in: selectedItems.map((item) => item.id) },
+      dispatch: { status: { notIn: ["CANCELLED", "RETURNED"] } },
+    },
+    select: { id: true },
+  });
+  if (alreadyDispatched) {
+    redirect(`${returnTo}?error=Uno+de+los+productos+ya+fue+despachado`);
+  }
+
+  // Costo de envio por producto: el cliente envia un mapa orderItemId -> costo.
+  // El total del despacho es la suma; cada DispatchItem guarda su porcion.
+  const perItemCosts = new Map<string, number>();
+  const rawItemCosts = formData.get("itemShippingCosts");
+  if (typeof rawItemCosts === "string" && rawItemCosts.trim()) {
+    try {
+      const arr = JSON.parse(rawItemCosts) as unknown;
+      if (Array.isArray(arr)) {
+        for (const entry of arr) {
+          if (
+            entry &&
+            typeof entry === "object" &&
+            typeof (entry as { orderItemId?: unknown }).orderItemId === "string"
+          ) {
+            const id = (entry as { orderItemId: string }).orderItemId;
+            const cost = Number((entry as { cost?: unknown }).cost ?? 0);
+            perItemCosts.set(id, Number.isFinite(cost) && cost > 0 ? Math.round(cost) : 0);
+          }
+        }
+      }
+    } catch {
+      // ignore, se usara el costo total plano
+    }
+  }
+
+  const hasPerItemCosts = isShipping && perItemCosts.size > 0;
+  const perItemTotal = selectedItems.reduce((sum, item) => sum + (perItemCosts.get(item.id) ?? 0), 0);
+  const shippingCost = isShipping ? (hasPerItemCosts ? perItemTotal : parsed.data.shippingCost) : 0;
+
+  const trackingPhotoFile = formData.get("trackingPhoto");
+  const hasTrackingPhoto = trackingPhotoFile instanceof File && trackingPhotoFile.size > 0;
+
+  try {
+    let trackingPhoto: { url: string; name: string } | null = null;
+    if (isShipping && hasTrackingPhoto) {
+      trackingPhoto = await saveTrackingPhoto(trackingPhotoFile, order.id);
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const code = await getNextDispatchCode(tx);
+      const dispatch = await tx.dispatch.create({
+        data: {
+          code,
+          orderId: order.id,
+          status: "PACKING",
+          deliveryType: parsed.data.deliveryType,
+          carrierName: carrier?.name ?? null,
+          carrierSupplierId: carrier?.id ?? null,
+          shippingCost,
+          trackingPhotoUrl: trackingPhoto?.url ?? null,
+          trackingPhotoName: trackingPhoto?.name ?? null,
+          shippingAddress: parsed.data.shippingAddress || null,
+          notes: parsed.data.notes || null,
+          createdById,
+          items: {
+            create: selectedItems.map((item) => ({
+              orderItemId: item.id,
+              quantity: item.quantity,
+              notes: item.notes,
+              shippingCost: hasPerItemCosts ? perItemCosts.get(item.id) ?? 0 : 0,
+            })),
+          },
+        },
+      });
+
+      if (carrier && shippingCost > 0) {
+        const shippingReference = trackingPhoto?.name ?? `Despacho ${dispatch.code}`;
+        await tx.shippingCost.create({
+          data: {
+            saleId: order.saleId,
+            shippingProvider: carrier.name,
+            amount: shippingCost,
+            transactionReference: shippingReference,
+            paymentDate: new Date(),
+            accountId: null,
+            createdById,
+          },
+        });
+        await tx.supplierLedgerEntry.create({
+          data: {
+            supplierId: carrier.id,
+            type: "CHARGE",
+            amount: shippingCost,
+            note: `Envio - Despacho ${dispatch.code} (Orden ${order.code})`,
+            saleId: order.saleId,
+            orderId: order.id,
+            dispatchId: dispatch.id,
+            createdById,
+          },
+        });
+      }
+
+      const dispatchedCount = await tx.dispatchItem.count({
+        where: {
+          orderItem: { orderId: order.id },
+          dispatch: { status: { notIn: ["CANCELLED", "RETURNED"] } },
+        },
+      });
+
+      if (dispatchedCount >= order.items.length && order.status !== "DISPATCHED") {
+        await tx.order.update({ where: { id: order.id }, data: { status: "DISPATCHED" } });
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId: order.id,
+            fromStatus: order.status,
+            toStatus: "DISPATCHED",
+            note: "Todos los productos despachados",
+            changedById: createdById,
+          },
+        });
+      }
+    });
+  } catch (error) {
+    console.error("Failed to bulk dispatch order items:", error);
+    redirect(`${returnTo}?error=No+se+pudo+despachar+los+productos`);
+  }
+
+  revalidatePath("/admin/despachos");
+  revalidatePath("/admin/ordenes");
+  revalidatePath(`/admin/ordenes/${order.id}`);
+  revalidatePath("/admin/proveedores");
+  redirect(`${returnTo}?ok=${encodeURIComponent(`Despachados ${selectedItems.length} productos`)}`);
 }
 
 export async function adminUpdateDispatchStatusAction(formData: FormData): Promise<void> {

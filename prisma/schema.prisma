@@ -508,6 +508,8 @@ model Dispatch {
   shippingReceiptUrl    String?
   shippingReceiptName   String?
   trackingNumber        String?
+  trackingPhotoUrl      String?
+  trackingPhotoName     String?
   shippingAddress       String?
   notes                 String?
   deliveryPhotoUrl      String?

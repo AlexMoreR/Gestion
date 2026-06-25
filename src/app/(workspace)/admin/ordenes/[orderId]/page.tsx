@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { OrderActionsMenu } from "@/components/admin/order-actions-menu";
 import { OrderHistoryTabs } from "@/components/admin/order-history-tabs";
-import { OrderItemManager } from "@/components/admin/order-item-manager";
+import { OrderItemsTable } from "@/components/admin/order-items-table";
 import { OrderStepper } from "@/components/admin/order-stepper";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -144,9 +144,29 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   const canDispatch = allItemsConfirmed && allItemsHavePhotos && allItemsPaymentSet;
 
   const latestDispatch = order.dispatches[0] ?? null;
+
+  // Despacho por producto: un item esta despachado si pertenece a un despacho
+  // activo (no cancelado ni devuelto). La orden pasa a "Despachada" solo cuando
+  // todos los productos estan despachados.
+  const dispatchByItemId = new Map<string, { code: string; carrierName: string | null }>();
+  for (const dispatch of order.dispatches) {
+    if (dispatch.status === "CANCELLED" || dispatch.status === "RETURNED") {
+      continue;
+    }
+    for (const dispatchItem of dispatch.items) {
+      if (!dispatchByItemId.has(dispatchItem.orderItemId)) {
+        dispatchByItemId.set(dispatchItem.orderItemId, {
+          code: dispatch.code,
+          carrierName: dispatch.carrierName,
+        });
+      }
+    }
+  }
+  const isItemDespachado = (item: (typeof order.items)[number]) => dispatchByItemId.has(item.id);
+
   const step1Done = allItemsConfirmed;
   const step2Done = allItemsPaymentSet && allItemsHavePhotos;
-  const step3Done = order.dispatches.length > 0;
+  const step3Done = order.items.length > 0 && order.items.every((item) => isItemDespachado(item));
   const step4Done = order.status === "COMPLETED" || latestDispatch?.status === "DELIVERED";
   const displayState = getOrderDisplayState(
     order.status,
@@ -163,15 +183,64 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   const pendingRecoger = order.items.filter(
     (item) => isItemConfirmed(item) && !isItemRecogido(item),
   ).length;
+  const pendingDespachar = order.items.filter(
+    (item) => isItemConfirmed(item) && isItemRecogido(item) && !isItemDespachado(item),
+  ).length;
   const pluralProductos = (n: number) => `${n} producto${n === 1 ? "" : "s"}`;
   const itemsTitle =
     pendingFabricar > 0
       ? `Pendiente fabricar ${pluralProductos(pendingFabricar)}`
       : pendingRecoger > 0
         ? `Pendiente recoger ${pluralProductos(pendingRecoger)}`
-        : !step3Done
-          ? "Listo para despachar"
-          : "Items";
+        : pendingDespachar > 0
+          ? `Pendiente despachar ${pluralProductos(pendingDespachar)}`
+          : "Despachado";
+
+  const orderItemsData = order.items.map((item) => {
+    const preferred = item.product.suppliers[0];
+    const meta = parseQuoteItemMeta(item.notes);
+    const observations = [meta.description, meta.color ? `Color: ${meta.color}` : ""]
+      .filter(Boolean)
+      .join(" - ");
+    return {
+      id: item.id,
+      orderId: order.id,
+      productName: item.product.name,
+      productCode: item.product.code,
+      quantity: item.quantity,
+      unitPrice: Number(item.unitPrice),
+      fulfillmentLabel: getFulfillmentModeLabel(item.fulfillmentMode),
+      observations,
+      isConfirmed: Boolean(item.confirmedSupplierId) && item.purchaseCost !== null,
+      isRecogido: isItemRecogido(item),
+      isDespachado: isItemDespachado(item),
+      dispatchCode: dispatchByItemId.get(item.id)?.code ?? null,
+      dispatchCarrierName: dispatchByItemId.get(item.id)?.carrierName ?? null,
+      requiresManufacturing: item.fulfillmentMode !== "STOCK",
+      hasProductionJob: item.productionJobs.length > 0,
+      suppliers: item.product.suppliers.map((entry) => ({
+        id: entry.supplierId,
+        name: entry.supplier.name,
+      })),
+      defaultSupplierId: item.confirmedSupplierId ?? preferred?.supplierId ?? "",
+      defaultCost: Number(item.purchaseCost ?? preferred?.supplierCost ?? item.product.baseCost),
+      confirmedSupplierName: item.confirmedSupplier?.name ?? null,
+      purchaseCost: item.purchaseCost === null ? null : Number(item.purchaseCost),
+      supplierCostTotal: item.purchaseCost === null ? 0 : Number(item.purchaseCost) * item.quantity,
+      paymentStatus:
+        item.supplierPaymentStatus === "PAID"
+          ? ("PAID" as const)
+          : item.supplierPaymentStatus === "PENDING"
+            ? ("PENDING" as const)
+            : null,
+      receiptUrl: item.supplierReceiptUrl,
+      photos: item.photos.map((photo) => ({
+        id: photo.id,
+        url: photo.url,
+        name: photo.name,
+      })),
+    };
+  });
 
   return (
     <section className="w-full space-y-5">
@@ -262,7 +331,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                 <Badge
                   variant="outline"
                   className={
-                    pendingFabricar > 0 || pendingRecoger > 0
+                    pendingFabricar > 0 || pendingRecoger > 0 || pendingDespachar > 0
                       ? "border-amber-500/30 bg-amber-500/15 text-amber-600 dark:text-amber-400"
                       : "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                   }
@@ -270,63 +339,15 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                   {itemsTitle}
                 </Badge>
               </div>
-              <div className="space-y-2">
-                {order.items.map((item) => {
-                  const preferred = item.product.suppliers[0];
-                  const meta = parseQuoteItemMeta(item.notes);
-                  const observations = [
-                    meta.description,
-                    meta.color ? `Color: ${meta.color}` : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" - ");
-                  return (
-                    <OrderItemManager
-                      key={item.id}
-                      currency={currency}
-                      returnTo={returnTo}
-                      accounts={accounts}
-                      item={{
-                        id: item.id,
-                        orderId: order.id,
-                        productName: item.product.name,
-                        quantity: item.quantity,
-                        unitPrice: Number(item.unitPrice),
-                        fulfillmentLabel: getFulfillmentModeLabel(item.fulfillmentMode),
-                        observations,
-                        isConfirmed: Boolean(item.confirmedSupplierId) && item.purchaseCost !== null,
-                        isRecogido: isItemRecogido(item),
-                        requiresManufacturing: item.fulfillmentMode !== "STOCK",
-                        hasProductionJob: item.productionJobs.length > 0,
-                        suppliers: item.product.suppliers.map((entry) => ({
-                          id: entry.supplierId,
-                          name: entry.supplier.name,
-                        })),
-                        defaultSupplierId: item.confirmedSupplierId ?? preferred?.supplierId ?? "",
-                        defaultCost: Number(
-                          item.purchaseCost ?? preferred?.supplierCost ?? item.product.baseCost,
-                        ),
-                        confirmedSupplierName: item.confirmedSupplier?.name ?? null,
-                        purchaseCost: item.purchaseCost === null ? null : Number(item.purchaseCost),
-                        supplierCostTotal:
-                          item.purchaseCost === null ? 0 : Number(item.purchaseCost) * item.quantity,
-                        paymentStatus:
-                          item.supplierPaymentStatus === "PAID"
-                            ? "PAID"
-                            : item.supplierPaymentStatus === "PENDING"
-                              ? "PENDING"
-                              : null,
-                        receiptUrl: item.supplierReceiptUrl,
-                        photos: item.photos.map((photo) => ({
-                          id: photo.id,
-                          url: photo.url,
-                          name: photo.name,
-                        })),
-                      }}
-                    />
-                  );
-                })}
-              </div>
+              <OrderItemsTable
+                orderId={order.id}
+                items={orderItemsData}
+                currency={currency}
+                returnTo={returnTo}
+                accounts={accounts}
+                carriers={carriers}
+                defaultAddress={order.client.address ?? ""}
+              />
             </div>
           </CardContent>
         </Card>

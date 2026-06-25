@@ -1,7 +1,6 @@
 import { Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { OrderDeliveryManager } from "@/components/admin/order-delivery-manager";
-import { OrderDispatchManager } from "@/components/admin/order-dispatch-manager";
 import { cn } from "@/lib/utils";
 
 type CarrierOption = {
@@ -70,7 +69,6 @@ export function OrderStepper({
   step2Done,
   step3Done,
   step4Done,
-  dispatch,
   delivery,
 }: OrderStepperProps) {
   const done = [step1Done, step2Done, step3Done, step4Done];
@@ -118,22 +116,6 @@ export function OrderStepper({
 
         {allDone ? (
           <p className="text-sm font-medium text-emerald-600">Orden entregada. Pasos completados.</p>
-        ) : current === 3 ? (
-          <OrderDispatchManager
-            display="button"
-            buttonLabel="Despachar orden"
-            buttonClassName="w-full bg-blue-600 text-white hover:bg-blue-700 sm:w-auto"
-            orderId={dispatch.orderId}
-            returnTo={dispatch.returnTo}
-            carriers={dispatch.carriers}
-            accounts={dispatch.accounts}
-            defaultAddress={dispatch.defaultAddress}
-            canDispatch={dispatch.canDispatch}
-            allItemsConfirmed={dispatch.allItemsConfirmed}
-            allItemsPaymentSet={dispatch.allItemsPaymentSet}
-            allItemsHavePhotos={dispatch.allItemsHavePhotos}
-            activeDispatch={null}
-          />
         ) : current === 4 && delivery.dispatchId ? (
           <OrderDeliveryManager
             dispatchId={delivery.dispatchId}

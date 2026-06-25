@@ -2,20 +2,28 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Factory, ImagePlus, Loader2, PackageCheck, Pencil, X } from "lucide-react";
+import { Factory, ImagePlus, Loader2, PackageCheck, Pencil, Truck, X } from "lucide-react";
 import {
   adminConfirmOrderItemAction,
   adminDeleteOrderItemPhotoAction,
   adminDispatchItemAction,
 } from "@/app/actions/order-item-actions";
+import { adminDispatchOrderItemAction } from "@/app/actions/dispatch-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
+import { TableCell, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 
 type SupplierOption = {
+  id: string;
+  name: string;
+};
+
+type CarrierOption = {
   id: string;
   name: string;
 };
@@ -35,12 +43,14 @@ export type OrderItemManagerData = {
   id: string;
   orderId: string;
   productName: string;
+  productCode: string | null;
   quantity: number;
   unitPrice: number;
   fulfillmentLabel: string;
   observations: string;
   isConfirmed: boolean;
   isRecogido: boolean;
+  isDespachado: boolean;
   requiresManufacturing: boolean;
   hasProductionJob: boolean;
   suppliers: SupplierOption[];
@@ -52,6 +62,8 @@ export type OrderItemManagerData = {
   paymentStatus: "PENDING" | "PAID" | null;
   receiptUrl: string | null;
   photos: ItemPhoto[];
+  dispatchCode: string | null;
+  dispatchCarrierName: string | null;
 };
 
 type OrderItemManagerProps = {
@@ -59,6 +71,10 @@ type OrderItemManagerProps = {
   currency: SupportedCurrencyCode;
   returnTo: string;
   accounts: AccountOption[];
+  carriers: CarrierOption[];
+  defaultAddress: string;
+  selected: boolean;
+  onToggleSelected: () => void;
 };
 
 function DispatchSubmitButton({ editing }: { editing: boolean }) {
@@ -83,9 +99,32 @@ function DispatchSubmitButton({ editing }: { editing: boolean }) {
   );
 }
 
-export function OrderItemManager({ item, currency, returnTo, accounts }: OrderItemManagerProps) {
+function DispatchItemSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" className="w-full" disabled={pending}>
+      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Truck className="h-4 w-4" />}
+      {pending ? "Despachando..." : "Despachar producto"}
+    </Button>
+  );
+}
+
+export function OrderItemManager({
+  item,
+  currency,
+  returnTo,
+  accounts,
+  carriers,
+  defaultAddress,
+  selected,
+  onToggleSelected,
+}: OrderItemManagerProps) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [dispatchOpen, setDispatchOpen] = useState(false);
+  const [dispatchDeliveryType, setDispatchDeliveryType] = useState<"COUNTER" | "PICKUP" | "SHIPPING">("SHIPPING");
+  const [dispatchShippingCost, setDispatchShippingCost] = useState("");
+  const isDispatchShipping = dispatchDeliveryType === "SHIPPING";
   // Vista previa de las fotos recien seleccionadas (aun no enviadas al servidor),
   // para que el usuario confirme que la foto quedo adjunta antes de guardar.
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
@@ -106,45 +145,87 @@ export function OrderItemManager({ item, currency, returnTo, accounts }: OrderIt
   };
 
   return (
-    <div className="space-y-2 rounded-lg border border-border p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-medium text-foreground">{item.productName}</p>
-            <Badge
-              variant="outline"
-              className={
-                item.isRecogido
-                  ? "border-blue-500/30 bg-blue-500/15 text-blue-600 dark:text-blue-400"
-                  : item.isConfirmed
-                    ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                    : "border-border bg-muted text-muted-foreground"
-              }
-            >
-              {item.isRecogido ? "Recogido" : item.isConfirmed ? "Fabricando" : "Sin confirmar"}
-            </Badge>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {item.quantity} x {formatMoney(item.unitPrice, currency)} - {item.fulfillmentLabel}
-          </p>
-        </div>
-        <Button
-          type="button"
-          size="sm"
-          variant={item.isRecogido ? "outline" : undefined}
+    <TableRow data-state={selected ? "selected" : undefined}>
+      <TableCell className="w-8">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelected}
+          disabled={item.isDespachado}
+          className="h-4 w-4 rounded border-input accent-[var(--primary)] disabled:opacity-40"
+          aria-label={`Seleccionar ${item.productName}`}
+        />
+      </TableCell>
+      <TableCell>
+        <p className="text-sm font-medium text-foreground">{item.productName}</p>
+      </TableCell>
+      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+        {item.quantity} x {formatMoney(item.unitPrice, currency)} · {item.fulfillmentLabel}
+      </TableCell>
+      <TableCell>
+        <Badge
+          variant="outline"
           className={
-            item.isRecogido
-              ? "h-8 shrink-0"
-              : item.isConfirmed
-                ? "h-8 shrink-0 bg-blue-600 text-white hover:bg-blue-700"
-                : "h-8 shrink-0 bg-emerald-600 text-white hover:bg-emerald-700"
+            item.isDespachado
+              ? "border-violet-500/30 bg-violet-500/15 text-violet-600 dark:text-violet-400"
+              : item.isRecogido
+                ? "border-blue-500/30 bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                : item.isConfirmed
+                  ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                  : "border-border bg-muted text-muted-foreground"
           }
-          onClick={openModal}
         >
-          {item.isConfirmed ? <PackageCheck className="h-4 w-4" /> : <Factory className="h-4 w-4" />}
-          {item.isRecogido ? "Recogido" : item.isConfirmed ? "Recoger" : "Fabricar"}
-        </Button>
-      </div>
+          {item.isDespachado
+            ? "Despachado"
+            : item.isRecogido
+              ? "Recogido"
+              : item.isConfirmed
+                ? "Fabricando"
+                : "Sin confirmar"}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-right">
+        {item.isDespachado ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8"
+            disabled
+            title={
+              item.dispatchCode
+                ? `Despacho ${item.dispatchCode}${item.dispatchCarrierName ? ` - ${item.dispatchCarrierName}` : ""}`
+                : "Despachado"
+            }
+          >
+            <Truck className="h-4 w-4" />
+            Despachado
+          </Button>
+        ) : item.isRecogido ? (
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 bg-violet-600 text-white hover:bg-violet-700"
+            onClick={() => setDispatchOpen(true)}
+          >
+            <Truck className="h-4 w-4" />
+            Despachar
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            className={
+              item.isConfirmed
+                ? "h-8 bg-blue-600 text-white hover:bg-blue-700"
+                : "h-8 bg-emerald-600 text-white hover:bg-emerald-700"
+            }
+            onClick={openModal}
+          >
+            {item.isConfirmed ? <PackageCheck className="h-4 w-4" /> : <Factory className="h-4 w-4" />}
+            {item.isConfirmed ? "Recoger" : "Fabricar"}
+          </Button>
+        )}
 
       {open ? (
         <div
@@ -498,6 +579,139 @@ export function OrderItemManager({ item, currency, returnTo, accounts }: OrderIt
           </Card>
         </div>
       ) : null}
-    </div>
+
+      {dispatchOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#11182752] px-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Despachar ${item.productName}`}
+          onClick={() => setDispatchOpen(false)}
+        >
+          <Card
+            className="flex max-h-[88vh] w-full max-w-lg flex-col gap-0 overflow-y-auto rounded-xl p-5"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Despachar producto</h2>
+                <p className="text-xs text-muted-foreground">
+                  {item.productName} - elige la transportadora y registra el costo del envio.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setDispatchOpen(false)}
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <form action={adminDispatchOrderItemAction} className="space-y-3">
+              <input type="hidden" name="returnTo" value={returnTo} />
+              <input type="hidden" name="orderId" value={item.orderId} />
+              <input type="hidden" name="orderItemId" value={item.id} />
+
+              <div className="space-y-1">
+                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Modalidad de entrega
+                </label>
+                <select
+                  name="deliveryType"
+                  value={dispatchDeliveryType}
+                  onChange={(event) =>
+                    setDispatchDeliveryType(event.target.value as "COUNTER" | "PICKUP" | "SHIPPING")
+                  }
+                  className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                >
+                  <option value="SHIPPING">Envío a domicilio (transportadora)</option>
+                  <option value="COUNTER">Mostrador (Cali) - el cliente recoge</option>
+                  <option value="PICKUP">Recoge en su local</option>
+                </select>
+                {!isDispatchShipping ? (
+                  <p className="text-xs text-muted-foreground">
+                    Sin transportadora ni costo de envío.
+                  </p>
+                ) : null}
+              </div>
+
+              {isDispatchShipping ? (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      Transportadora
+                    </label>
+                    <select
+                      name="carrierSupplierId"
+                      required
+                      defaultValue=""
+                      className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                    >
+                      <option value="" disabled>
+                        Selecciona la transportadora
+                      </option>
+                      {carriers.map((carrier) => (
+                        <option key={carrier.id} value={carrier.id}>
+                          {carrier.name}
+                        </option>
+                      ))}
+                    </select>
+                    {carriers.length === 0 ? (
+                      <p className="text-xs text-destructive">
+                        No hay proveedores registrados. Crea la transportadora en Proveedores.
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      Costo de envio (gasto de la venta)
+                    </label>
+                    <MoneyInput
+                      name="shippingCost"
+                      value={dispatchShippingCost}
+                      onValueChange={setDispatchShippingCost}
+                    />
+                  </div>
+
+                  <input type="hidden" name="shippingMode" value="PAY_LATER" />
+                  <p className="text-xs text-muted-foreground">
+                    El costo del envío queda como saldo pendiente con la transportadora.
+                  </p>
+
+                  <div className="space-y-1">
+                    <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      Foto de la guia
+                    </label>
+                    <Input
+                      type="file"
+                      name="trackingPhoto"
+                      accept="image/*,application/pdf"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Direccion</label>
+                    <Input name="shippingAddress" defaultValue={defaultAddress} />
+                  </div>
+                </>
+              ) : null}
+              <div className="space-y-1">
+                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Notas</label>
+                <Textarea name="notes" placeholder="Observaciones internas" />
+              </div>
+
+              <DispatchItemSubmitButton />
+            </form>
+          </Card>
+        </div>
+      ) : null}
+      </TableCell>
+    </TableRow>
   );
 }
