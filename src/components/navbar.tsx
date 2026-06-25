@@ -64,8 +64,8 @@ export function Navbar({
       : pathname === href || pathname.startsWith(`${href}/`);
   const navLinkClass = (href: string) =>
     isActiveLink(href)
-      ? "rounded-full bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-white shadow-[0_6px_16px_-10px_rgba(15,23,42,0.35)]"
-      : "rounded-full px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-muted hover:text-[var(--primary)]";
+      ? "rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[var(--primary)] shadow-[0_6px_16px_-10px_rgba(15,23,42,0.35)]"
+      : "rounded-full px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/15 hover:text-white";
   const socialLinks = [
     {
       label: "Instagram",
@@ -85,14 +85,14 @@ export function Navbar({
   ];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-background/90 backdrop-blur-md">
-      <div className="hidden border-b border-[var(--line)] bg-background/65 md:block">
-        <div className="mx-auto flex h-8 w-full items-center justify-start gap-2 overflow-x-auto whitespace-nowrap px-3 text-[11px] text-muted-foreground md:justify-center md:px-7">
-          <span className="font-medium text-foreground">Servicio al cliente +57 304-648-1994</span>
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-[var(--primary)] text-white backdrop-blur-md">
+      <div className="hidden border-b border-white/10 bg-black/10 md:block">
+        <div className="mx-auto flex h-8 w-full items-center justify-start gap-2 overflow-x-auto whitespace-nowrap px-3 text-[11px] text-white/80 md:justify-center md:px-7">
+          <span className="font-medium text-white">Servicio al cliente +57 304-648-1994</span>
           {topMenuLinks.map((item) => (
             <Fragment key={item.label}>
-              <span className="text-muted-foreground">|</span>
-              <Link href={item.href} className="transition hover:text-[var(--primary)]">
+              <span className="text-white/40">|</span>
+              <Link href={item.href} className="transition hover:text-white">
                 {item.label}
               </Link>
             </Fragment>
@@ -161,8 +161,8 @@ export function Navbar({
           {user && navLinks.length > 0 ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden" aria-label="Abrir menu">
-                  <Menu className="h-4 w-4 text-foreground" />
+                <Button variant="ghost" size="icon" className="text-white hover:bg-white/15 hover:text-white md:hidden" aria-label="Abrir menu">
+                  <Menu className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52 md:hidden">

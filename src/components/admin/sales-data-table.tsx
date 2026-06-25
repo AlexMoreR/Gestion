@@ -6,6 +6,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import {
   ArrowUpRight,
   Calendar,
+  CheckCircle2,
   CircleDollarSign,
   CircleDot,
   FileText,
@@ -108,7 +109,7 @@ function statusLabel(status: SaleStatus): string {
     case "DRAFT":
       return "Borrador";
     case "ACTIVE":
-      return "Activa";
+      return "Cobrar";
     case "INVOICED":
       return "Facturada";
     case "COMPLETED":
@@ -135,6 +136,30 @@ function statusBadgeClassName(status: SaleStatus): string {
     default:
       return "border-border bg-muted text-muted-foreground";
   }
+}
+
+function StatusBadge({ status }: { status: SaleStatus }) {
+  if (status === "INVOICED") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2 py-0.5 text-[11px] font-medium text-foreground">
+        <CheckCircle2 className="h-3.5 w-3.5 fill-emerald-500 text-white" />
+        {statusLabel(status)}
+      </span>
+    );
+  }
+  if (status === "ACTIVE") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2 py-0.5 text-[11px] font-medium text-foreground">
+        <CircleDollarSign className="h-3.5 w-3.5 fill-amber-500 text-white" />
+        {statusLabel(status)}
+      </span>
+    );
+  }
+  return (
+    <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(status)}`}>
+      {statusLabel(status)}
+    </span>
+  );
 }
 
 function getReceiptLabel(receiptType: string): string {
@@ -694,9 +719,7 @@ function SaleMobileCard({
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm font-semibold text-foreground">{sale.code}</p>
-          <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(sale.status)}`}>
-            {statusLabel(sale.status)}
-          </span>
+          <StatusBadge status={sale.status} />
         </div>
         <p className="text-sm text-foreground">{sale.clientName}</p>
         <p className="text-xs text-muted-foreground">{sale.createdAt}</p>
@@ -749,11 +772,7 @@ export function SalesDataTable({ sales, currency, accounts, initialSearch = "" }
         id: "status",
         accessorFn: (row) => statusLabel(row.status),
         header: () => <HeaderWithIcon icon={<CircleDot className="h-3.5 w-3.5" />}>Estado</HeaderWithIcon>,
-        cell: ({ row }) => (
-          <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(row.original.status)}`}>
-            {statusLabel(row.original.status)}
-          </span>
-        ),
+        cell: ({ row }) => <StatusBadge status={row.original.status} />,
       },
       {
         accessorKey: "total",
@@ -811,7 +830,7 @@ export function SalesDataTable({ sales, currency, accounts, initialSearch = "" }
         <SelectContent align="start">
           <SelectItem value="ALL">Todos los estados</SelectItem>
           <SelectItem value="DRAFT">Borrador</SelectItem>
-          <SelectItem value="ACTIVE">Activa</SelectItem>
+          <SelectItem value="ACTIVE">Cobrar</SelectItem>
           <SelectItem value="INVOICED">Facturada</SelectItem>
           <SelectItem value="COMPLETED">Finalizada</SelectItem>
           <SelectItem value="CANCELLED">Cancelada</SelectItem>
