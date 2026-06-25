@@ -139,7 +139,7 @@ export function OrderDispatchManager({
                       className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
                     >
                       <option value="" disabled>
-                        Selecciona la transportadora
+                        Seleccionar
                       </option>
                       {carriers.map((carrier) => (
                         <option key={carrier.id} value={carrier.id}>

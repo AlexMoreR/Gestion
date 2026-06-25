@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Factory, ImagePlus, Loader2, PackageCheck, Pencil, Truck, X } from "lucide-react";
+import { Factory, ImagePlus, Loader2, MapPin, PackageCheck, Pencil, Truck, X } from "lucide-react";
 import {
   adminConfirmOrderItemAction,
   adminDeleteOrderItemPhotoAction,
@@ -11,7 +11,13 @@ import {
 import { adminDispatchOrderItemAction } from "@/app/actions/dispatch-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -230,36 +236,14 @@ export function OrderItemManager({
           </Button>
         )}
 
-      {open ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#11182752] px-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${item.isConfirmed ? "Recoger" : "Fabricar"} ${item.productName}`}
-          onClick={() => setOpen(false)}
-        >
-          <Card
-            className="flex max-h-[88vh] w-full max-w-lg flex-col gap-0 overflow-y-auto rounded-xl p-5"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">{item.productName}</h2>
-                <p className="text-xs text-muted-foreground">
-                  {item.quantity} x {formatMoney(item.unitPrice, currency)} - {item.fulfillmentLabel}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setOpen(false)}
-                aria-label="Cerrar"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+      <Dialog open={open} onOpenChange={(value) => (value ? null : setOpen(false))}>
+        <DialogContent className="max-h-[88vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{item.productName}</DialogTitle>
+            <DialogDescription>
+              {item.quantity} x {formatMoney(item.unitPrice, currency)} - {item.fulfillmentLabel}
+            </DialogDescription>
+          </DialogHeader>
 
             {/* Confirmacion de compra (solo antes de confirmar) */}
             {!item.isConfirmed ? (
@@ -579,71 +563,54 @@ export function OrderItemManager({
                   : null}
               </div>
             ) : null}
-          </Card>
-        </div>
-      ) : null}
+        </DialogContent>
+      </Dialog>
 
-      {dispatchOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#11182752] px-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Despachar ${item.productName}`}
-          onClick={() => setDispatchOpen(false)}
-        >
-          <Card
-            className="flex max-h-[88vh] w-full max-w-lg flex-col gap-0 overflow-y-auto rounded-xl p-5"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">Despachar producto</h2>
-                <p className="text-xs text-muted-foreground">
-                  {item.productName} - elige la transportadora y registra el costo del envio.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setDispatchOpen(false)}
-                aria-label="Cerrar"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+      <Dialog open={dispatchOpen} onOpenChange={(value) => (value ? null : setDispatchOpen(false))}>
+        <DialogContent className="max-h-[88vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{item.productName}</DialogTitle>
+            <DialogDescription>
+              {item.productCode ? `${item.productCode} · ` : ""}x{item.quantity}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-2.5 text-xs text-muted-foreground">
+            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              <span className="font-medium text-foreground">Entrega:</span> {defaultAddress || "Sin direccion"}
+            </span>
+          </div>
 
             <form action={adminDispatchOrderItemAction} className="space-y-3">
               <input type="hidden" name="returnTo" value={returnTo} />
               <input type="hidden" name="orderId" value={item.orderId} />
               <input type="hidden" name="orderItemId" value={item.id} />
 
-              <div className="space-y-1">
-                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  Modalidad de entrega
-                </label>
-                <select
-                  name="deliveryType"
-                  value={dispatchDeliveryType}
-                  onChange={(event) =>
-                    setDispatchDeliveryType(event.target.value as "COUNTER" | "PICKUP" | "SHIPPING")
-                  }
-                  className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-                >
-                  <option value="SHIPPING">Envío a domicilio (transportadora)</option>
-                  <option value="COUNTER">Mostrador (Cali) - el cliente recoge</option>
-                  <option value="PICKUP">Recoge en su local</option>
-                </select>
-                {!isDispatchShipping ? (
-                  <p className="text-xs text-muted-foreground">
-                    Sin transportadora ni costo de envío.
-                  </p>
-                ) : null}
-              </div>
+              <div className={isDispatchShipping ? "grid gap-3 sm:grid-cols-2" : ""}>
+                <div className="space-y-1">
+                  <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                    Modalidad de entrega
+                  </label>
+                  <select
+                    name="deliveryType"
+                    value={dispatchDeliveryType}
+                    onChange={(event) =>
+                      setDispatchDeliveryType(event.target.value as "COUNTER" | "PICKUP" | "SHIPPING")
+                    }
+                    className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                  >
+                    <option value="SHIPPING">Transportadora</option>
+                    <option value="PICKUP">Recoge en Bodega</option>
+                  </select>
+                  {!isDispatchShipping ? (
+                    <p className="text-xs text-muted-foreground">
+                      Sin transportadora ni costo de envío.
+                    </p>
+                  ) : null}
+                </div>
 
-              {isDispatchShipping ? (
-                <>
+                {isDispatchShipping ? (
                   <div className="space-y-1">
                     <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                       Transportadora
@@ -655,7 +622,7 @@ export function OrderItemManager({
                       className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
                     >
                       <option value="" disabled>
-                        Selecciona la transportadora
+                        Seleccionar
                       </option>
                       {carriers.map((carrier) => (
                         <option key={carrier.id} value={carrier.id}>
@@ -669,6 +636,11 @@ export function OrderItemManager({
                       </p>
                     ) : null}
                   </div>
+                ) : null}
+              </div>
+
+              {isDispatchShipping ? (
+                <>
 
                   <div className="space-y-1">
                     <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
@@ -698,10 +670,7 @@ export function OrderItemManager({
                     />
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Direccion</label>
-                    <Input name="shippingAddress" defaultValue={defaultAddress} />
-                  </div>
+                  <input type="hidden" name="shippingAddress" value={defaultAddress} />
                 </>
               ) : null}
               <div className="space-y-1">
@@ -711,9 +680,8 @@ export function OrderItemManager({
 
               <DispatchItemSubmitButton />
             </form>
-          </Card>
-        </div>
-      ) : null}
+        </DialogContent>
+      </Dialog>
       </TableCell>
     </TableRow>
   );

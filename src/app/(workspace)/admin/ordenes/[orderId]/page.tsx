@@ -299,34 +299,29 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.4fr_0.9fr]">
-        <Card className="border-border bg-card/95">
-          <CardContent className="space-y-4">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-foreground">Productos</p>
-                <Badge
-                  variant="outline"
-                  className={
-                    pendingFabricar > 0 || pendingRecoger > 0 || pendingDespachar > 0
-                      ? "border-amber-500/30 bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                      : "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                  }
-                >
-                  {itemsTitle}
-                </Badge>
-              </div>
-              <OrderItemsTable
-                orderId={order.id}
-                items={orderItemsData}
-                currency={currency}
-                returnTo={returnTo}
-                accounts={accounts}
-                carriers={carriers}
-                defaultAddress={order.client.address ?? ""}
-              />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-3">
+          <div className="flex items-center justify-end gap-2">
+            <Badge
+              variant="outline"
+              className={
+                pendingFabricar > 0 || pendingRecoger > 0 || pendingDespachar > 0
+                  ? "border-amber-500/30 bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                  : "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+              }
+            >
+              {itemsTitle}
+            </Badge>
+          </div>
+          <OrderItemsTable
+            orderId={order.id}
+            items={orderItemsData}
+            currency={currency}
+            returnTo={returnTo}
+            accounts={accounts}
+            carriers={carriers}
+            defaultAddress={order.client.address ?? ""}
+          />
+        </div>
 
         <div className="space-y-4">
           <OrderStepper

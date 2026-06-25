@@ -9,7 +9,13 @@ import {
 } from "@/app/actions/order-item-actions";
 import { adminBulkDispatchOrderItemsAction } from "@/app/actions/dispatch-actions";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Textarea } from "@/components/ui/textarea";
@@ -136,47 +142,9 @@ export function OrderItemsTable({
 
   return (
     <>
-      <div className="overflow-hidden rounded-xl border border-border">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/40 hover:bg-muted/40">
-              <TableHead className="w-8">
-                <input
-                  type="checkbox"
-                  checked={allSelectableChecked}
-                  onChange={toggleAll}
-                  disabled={selectableIds.length === 0}
-                  className="h-4 w-4 rounded border-input accent-[var(--primary)] disabled:opacity-40"
-                  aria-label="Seleccionar todos"
-                />
-              </TableHead>
-              <TableHead>Producto</TableHead>
-              <TableHead>Detalle</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Accion</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((item) => (
-              <OrderItemManager
-                key={item.id}
-                item={item}
-                currency={currency}
-                returnTo={returnTo}
-                accounts={accounts}
-                carriers={carriers}
-                defaultAddress={defaultAddress}
-                selected={selected.has(item.id)}
-                onToggleSelected={() => toggle(item.id)}
-              />
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Barra flotante de accion en lote */}
+      {/* Barra de accion en lote (aparece arriba al seleccionar) */}
       {count > 0 ? (
-        <div className="sticky bottom-3 z-30 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur">
+        <div className="sticky top-3 z-30 mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur">
           <span className="text-sm font-medium text-foreground">
             {count} {count === 1 ? "producto seleccionado" : "productos seleccionados"}
           </span>
@@ -216,90 +184,91 @@ export function OrderItemsTable({
         </div>
       ) : null}
 
+      <div className="overflow-hidden rounded-xl border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/40 hover:bg-muted/40">
+              <TableHead className="w-8">
+                <input
+                  type="checkbox"
+                  checked={allSelectableChecked}
+                  onChange={toggleAll}
+                  disabled={selectableIds.length === 0}
+                  className="h-4 w-4 rounded border-input accent-[var(--primary)] disabled:opacity-40"
+                  aria-label="Seleccionar todos"
+                />
+              </TableHead>
+              <TableHead>Producto</TableHead>
+              <TableHead>Detalle</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="text-right">Accion</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((item) => (
+              <OrderItemManager
+                key={item.id}
+                item={item}
+                currency={currency}
+                returnTo={returnTo}
+                accounts={accounts}
+                carriers={carriers}
+                defaultAddress={defaultAddress}
+                selected={selected.has(item.id)}
+                onToggleSelected={() => toggle(item.id)}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
       {/* Modal: Fabricar en lote */}
-      {modal === "fabricar" ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#11182752] px-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Fabricar productos"
-          onClick={() => setModal(null)}
-        >
-          <Card className="w-full max-w-md rounded-xl p-5" onClick={(event) => event.stopPropagation()}>
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <h2 className="text-lg font-semibold text-foreground">Fabricar {count} productos</h2>
-              <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => setModal(null)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <p className="mb-4 text-sm text-muted-foreground">
+      <Dialog open={modal === "fabricar"} onOpenChange={(open) => (open ? null : setModal(null))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Fabricar {count} productos</DialogTitle>
+            <DialogDescription>
               Se confirmará cada producto con su proveedor sugerido y su costo por defecto, y pasará a producción.
               Podrás ajustar proveedor o costo luego en cada producto.
-            </p>
-            <form action={adminBulkConfirmOrderItemsAction}>
-              <input type="hidden" name="returnTo" value={returnTo} />
-              <input type="hidden" name="orderItemIds" value={selectedIdsJson} />
-              <BulkSubmitButton label="Confirmar y enviar a producción" pendingLabel="Confirmando..." />
-            </form>
-          </Card>
-        </div>
-      ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <form action={adminBulkConfirmOrderItemsAction}>
+            <input type="hidden" name="returnTo" value={returnTo} />
+            <input type="hidden" name="orderItemIds" value={selectedIdsJson} />
+            <BulkSubmitButton label="Confirmar y enviar a producción" pendingLabel="Confirmando..." />
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal: Recoger en lote */}
-      {modal === "recoger" ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#11182752] px-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Recoger productos"
-          onClick={() => setModal(null)}
-        >
-          <Card className="w-full max-w-md rounded-xl p-5" onClick={(event) => event.stopPropagation()}>
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <h2 className="text-lg font-semibold text-foreground">Recoger {count} productos</h2>
-              <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => setModal(null)}>
-                <X className="h-4 w-4" />
-              </Button>
+      <Dialog open={modal === "recoger"} onOpenChange={(open) => (open ? null : setModal(null))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Recoger {count} productos</DialogTitle>
+          </DialogHeader>
+          <form action={adminBulkPickupOrderItemsAction} className="space-y-3">
+            <input type="hidden" name="returnTo" value={returnTo} />
+            <input type="hidden" name="orderItemIds" value={selectedIdsJson} />
+            <div className="space-y-1">
+              <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                Foto del producto terminado (se aplica a todos)
+              </label>
+              <Input type="file" name="photo" accept="image/*" required className="h-8 text-xs" />
             </div>
-            <form action={adminBulkPickupOrderItemsAction} className="space-y-3">
-              <input type="hidden" name="returnTo" value={returnTo} />
-              <input type="hidden" name="orderItemIds" value={selectedIdsJson} />
-              <div className="space-y-1">
-                <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  Foto del producto terminado (se aplica a todos)
-                </label>
-                <Input type="file" name="photo" accept="image/*" required className="h-8 text-xs" />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                El pago al proveedor de cada producto queda como saldo pendiente.
-              </p>
-              <BulkSubmitButton label="Marcar como recogidos" pendingLabel="Guardando..." />
-            </form>
-          </Card>
-        </div>
-      ) : null}
+            <p className="text-xs text-muted-foreground">
+              El pago al proveedor de cada producto queda como saldo pendiente.
+            </p>
+            <BulkSubmitButton label="Marcar como recogidos" pendingLabel="Guardando..." />
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal: Despachar en lote */}
-      {modal === "despachar" ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#11182752] px-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Despachar productos"
-          onClick={() => setModal(null)}
-        >
-          <Card
-            className="flex max-h-[88vh] w-full max-w-lg flex-col gap-0 overflow-y-auto rounded-xl p-5"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">Despachar {count} productos</h2>
-              </div>
-              <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => setModal(null)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+      <Dialog open={modal === "despachar"} onOpenChange={(open) => (open ? null : setModal(null))}>
+        <DialogContent className="max-h-[88vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Despachar {count} productos</DialogTitle>
+          </DialogHeader>
 
             <form action={adminBulkDispatchOrderItemsAction} className="space-y-3">
               <input type="hidden" name="returnTo" value={returnTo} />
@@ -318,9 +287,8 @@ export function OrderItemsTable({
                   }
                   className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
                 >
-                  <option value="SHIPPING">Envío a domicilio (transportadora)</option>
-                  <option value="COUNTER">Mostrador (Cali) - el cliente recoge</option>
-                  <option value="PICKUP">Recoge en su local</option>
+                  <option value="SHIPPING">Transportadora</option>
+                  <option value="PICKUP">Recoge en Bodega</option>
                 </select>
               </div>
 
@@ -399,9 +367,8 @@ export function OrderItemsTable({
 
               <BulkSubmitButton label="Despachar productos" pendingLabel="Despachando..." />
             </form>
-          </Card>
-        </div>
-      ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
