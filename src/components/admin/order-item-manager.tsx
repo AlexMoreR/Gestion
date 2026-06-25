@@ -158,9 +158,12 @@ export function OrderItemManager({
       </TableCell>
       <TableCell>
         <p className="text-sm font-medium text-foreground">{item.productName}</p>
+        <p className="text-xs text-muted-foreground">
+          {item.productCode ? `${item.productCode} · ` : ""}x{item.quantity}
+        </p>
       </TableCell>
       <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-        {item.quantity} x {formatMoney(item.unitPrice, currency)} · {item.fulfillmentLabel}
+        {formatMoney(item.unitPrice, currency)}
       </TableCell>
       <TableCell>
         <Badge

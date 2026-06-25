@@ -298,30 +298,6 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         </Card>
       </div>
 
-      <OrderStepper
-        step1Done={step1Done}
-        step2Done={step2Done}
-        step3Done={step3Done}
-        step4Done={step4Done}
-        dispatch={{
-          orderId: order.id,
-          returnTo,
-          carriers,
-          accounts,
-          defaultAddress: order.client.address ?? "",
-          canDispatch,
-          allItemsConfirmed,
-          allItemsPaymentSet,
-          allItemsHavePhotos,
-        }}
-        delivery={{
-          dispatchId: latestDispatch?.id ?? null,
-          returnTo,
-          defaultInstagram: order.client.instagram ?? "",
-          defaultTiktok: order.client.tiktok ?? "",
-        }}
-      />
-
       <div className="grid gap-4 xl:grid-cols-[1.4fr_0.9fr]">
         <Card className="border-border bg-card/95">
           <CardContent className="space-y-4">
@@ -353,6 +329,30 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         </Card>
 
         <div className="space-y-4">
+          <OrderStepper
+            step1Done={step1Done}
+            step2Done={step2Done}
+            step3Done={step3Done}
+            step4Done={step4Done}
+            dispatch={{
+              orderId: order.id,
+              returnTo,
+              carriers,
+              accounts,
+              defaultAddress: order.client.address ?? "",
+              canDispatch,
+              allItemsConfirmed,
+              allItemsPaymentSet,
+              allItemsHavePhotos,
+            }}
+            delivery={{
+              dispatchId: latestDispatch?.id ?? null,
+              returnTo,
+              defaultInstagram: order.client.instagram ?? "",
+              defaultTiktok: order.client.tiktok ?? "",
+            }}
+          />
+
           <Card className="border-border bg-card/95">
             <CardContent>
               <OrderHistoryTabs
