@@ -5,6 +5,7 @@ import { ImagePlus, Paperclip, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
 
@@ -76,6 +77,9 @@ export function ExpenseFormDialog({
   const [accountId, setAccountId] = React.useState<string>(initialValue?.accountId ?? "");
   const [categoryId, setCategoryId] = React.useState<string>(initialValue?.categoryId ?? "");
   const [employeeId, setEmployeeId] = React.useState<string>(initialValue?.employeeId ?? "");
+  const [amount, setAmount] = React.useState<string>(
+    initialValue?.amount ? String(Math.trunc(initialValue.amount)) : "",
+  );
   const [receiptError, setReceiptError] = React.useState(false);
   const [employeeError, setEmployeeError] = React.useState(false);
 
@@ -92,7 +96,8 @@ export function ExpenseFormDialog({
     setAccountId(initialValue?.accountId ?? "");
     setCategoryId(initialValue?.categoryId ?? "");
     setEmployeeId(initialValue?.employeeId ?? "");
-  }, [open, initialValue?.expenseId, initialValue?.accountId, initialValue?.categoryId, initialValue?.employeeId]);
+    setAmount(initialValue?.amount ? String(Math.trunc(initialValue.amount)) : "");
+  }, [open, initialValue?.expenseId, initialValue?.accountId, initialValue?.categoryId, initialValue?.employeeId, initialValue?.amount]);
 
   function handleReceiptChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
@@ -234,15 +239,7 @@ export function ExpenseFormDialog({
               <div className="grid flex-1 gap-3 sm:grid-cols-2">
                 <label className="space-y-1.5">
                   <span className="text-sm font-medium text-foreground">Monto</span>
-                  <Input
-                    name="amount"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    required
-                    placeholder="0"
-                    defaultValue={initialValue?.amount ?? ""}
-                  />
+                  <MoneyInput name="amount" value={amount} onValueChange={setAmount} placeholder="0" />
                 </label>
 
                 <label className="space-y-1.5">
