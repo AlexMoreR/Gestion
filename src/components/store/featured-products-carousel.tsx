@@ -117,7 +117,7 @@ export function FeaturedProductsCarousel({ products }: FeaturedProductsCarouselP
             <Link
               key={product.id}
               href={product.href}
-              className="group relative block w-full shrink-0 basis-full overflow-hidden rounded-none border border-white/12 bg-[linear-gradient(135deg,rgba(122,30,199,0.34)_0%,rgba(92,18,167,0.3)_36%,rgba(63,10,118,0.38)_100%)] shadow-[0_30px_70px_-42px_rgba(15,23,42,0.82)] transition duration-300 hover:border-white/18 md:rounded-[30px]"
+              className="group relative block w-full shrink-0 basis-full overflow-hidden rounded-none border border-white/12 bg-[linear-gradient(135deg,var(--primary-strong)_0%,var(--primary)_55%,var(--primary-strong)_100%)] shadow-[0_30px_70px_-42px_rgba(15,23,42,0.82)] transition duration-300 hover:border-white/18 md:rounded-[30px]"
               onClick={handleSlideClick}
             >
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_18%,rgba(255,255,255,0.26),transparent_26%),radial-gradient(circle_at_82%_28%,rgba(253,216,255,0.18),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(30,6,56,0.22)_58%,rgba(9,2,26,0.38)_100%)]" />
