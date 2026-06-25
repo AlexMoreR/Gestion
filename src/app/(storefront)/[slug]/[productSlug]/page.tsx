@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
+import { auth } from "@/auth";
 import { ProductDetailContent } from "@/components/store/product-detail-content";
 import { prisma } from "@/lib/prisma";
 import { buildProductPath } from "@/lib/product-slugs";
@@ -61,15 +62,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function CategoryProductPage({ params }: PageProps) {
   const { slug, productSlug } = await params;
-  const [product, currency] = await Promise.all([
+  const [product, currency, session] = await Promise.all([
     prisma.product.findUnique({
       where: { slug: productSlug },
       include: {
         category: true,
         images: { orderBy: { order: "asc" } },
+        reviews: { orderBy: { createdAt: "desc" } },
       },
     }),
     getSystemCurrency(),
+    auth(),
   ]);
 
   if (!product) {
@@ -94,5 +97,14 @@ export default async function CategoryProductPage({ params }: PageProps) {
     include: { category: true },
   });
 
-  return <ProductDetailContent product={product} currency={currency} relatedProducts={relatedProducts} />;
+  const isAdmin = session?.user?.role === "ADMIN";
+
+  return (
+    <ProductDetailContent
+      product={product}
+      currency={currency}
+      relatedProducts={relatedProducts}
+      isAdmin={isAdmin}
+    />
+  );
 }

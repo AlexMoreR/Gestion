@@ -79,6 +79,20 @@ model Product {
   bundleComponents   ProductComponent[]     @relation("BundleParent")
   partOfBundles      ProductComponent[]     @relation("BundleChild")
   inventoryMovements InventoryMovement[]
+  reviews            ProductReview[]
+}
+
+model ProductReview {
+  id         String   @id @default(cuid())
+  productId  String
+  authorName String?
+  rating     Int
+  comment    String
+  photoUrl   String?
+  createdAt  DateTime @default(now())
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
 }
 
 model ProductComponent {

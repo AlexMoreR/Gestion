@@ -3,6 +3,7 @@ import Link from "next/link";
 import { MessageCircle, Shield, ShoppingCart, Star, Truck } from "lucide-react";
 import { CatalogPagination } from "@/components/store/catalog-pagination";
 import { CategoriesCarousel } from "@/components/store/categories-carousel";
+import { GuaranteeBadge } from "@/components/store/guarantee-badge";
 import { FeaturedProductsCarousel } from "@/components/store/featured-products-carousel";
 import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/currency";
@@ -389,7 +390,7 @@ export async function StorefrontCatalog({
                         className="inline-flex h-9 items-center gap-2 rounded-full bg-[var(--primary)] px-3.5 text-[13px] font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--primary-strong)] active:translate-y-0 md:h-10 md:px-4.5"
                       >
                         <MessageCircle className="h-4 w-4" />
-                        Cotizar ahora
+                        Cotiza aqui
                       </Link>
                       <Link
                         href="/catalogo"
@@ -413,7 +414,7 @@ export async function StorefrontCatalog({
                         className="inline-flex h-9 items-center gap-2 rounded-full bg-[var(--primary)] px-3.5 text-[13px] font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--primary-strong)] active:translate-y-0"
                       >
                         <MessageCircle className="h-4 w-4" />
-                        Cotizar ahora
+                        Cotiza aqui
                       </Link>
                       <Link
                         href="/catalogo"
@@ -527,9 +528,10 @@ export async function StorefrontCatalog({
                           Gratis
                         </span>
                       </div>
-                      <span className="absolute right-2 top-2 rounded-full border border-white/20 bg-slate-900/85 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+                      <span className="absolute left-2 top-2 rounded-full border border-white/20 bg-slate-900/85 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
                         {product.code?.trim() || "SKU"}
                       </span>
+                      <GuaranteeBadge className="pointer-events-none absolute right-2 top-2 h-11 w-11 text-slate-900 md:h-12 md:w-12" />
                     </div>
 
                     <div className="flex flex-1 flex-col space-y-1.5 px-3 pb-1 pt-2.5">
