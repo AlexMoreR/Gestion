@@ -6,7 +6,6 @@ import {
   Boxes,
   Coins,
   FileText,
-  Hash,
   ImagePlus,
   Link2,
   Loader2,
@@ -249,6 +248,8 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
     const useWholesale = draftWholesale && product.wholesalePrice > 0;
     setDraftWholesale(useWholesale);
     setDraftUnitPrice(String(priceForMode(product, useWholesale)));
+    // Sin stock -> por orden (se fabrica); con stock -> por existencias.
+    setDraftFulfillmentMode(product.stock > 0 ? "STOCK" : "MANUFACTURE");
     setProductFormError("");
   };
 
@@ -1124,14 +1125,16 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                     <p className="truncate text-sm font-semibold text-foreground">{draftProduct?.name}</p>
                     <p className="truncate text-xs text-muted-foreground">{draftProduct?.code || "Sin codigo"}</p>
                   </div>
-                  {draftProduct ? (
-                    <div className="shrink-0 text-right">
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Valor</p>
-                      <p className="text-sm font-semibold text-foreground">
-                        {draftProduct.retailPrice.toLocaleString("es-CO", { style: "currency", currency })}
-                      </p>
-                    </div>
-                  ) : null}
+                  <label className="flex shrink-0 flex-col gap-1">
+                    <span className="text-[11px] font-medium text-muted-foreground">Cantidad</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={draftQuantity}
+                      onChange={(event) => setDraftQuantity(event.target.value)}
+                      className="h-9 w-20"
+                    />
+                  </label>
                   <Button
                     type="button"
                     variant="outline"
@@ -1147,19 +1150,6 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                 <div className="grid gap-3 rounded-xl border border-border bg-muted/60 p-3 md:grid-cols-2">
               <label className="space-y-1.5">
                 <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-                  <Hash className="h-3.5 w-3.5 text-muted-foreground" />
-                  Cantidad
-                </span>
-                <Input
-                  type="number"
-                  min={1}
-                  value={draftQuantity}
-                  onChange={(event) => setDraftQuantity(event.target.value)}
-                />
-              </label>
-
-              <label className="space-y-1.5">
-                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
                   <Palette className="h-3.5 w-3.5 text-muted-foreground" />
                   Color
                 </span>
@@ -1168,16 +1158,17 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
 
               <label className="space-y-1.5">
                 <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-                  <Coins className="h-3.5 w-3.5 text-muted-foreground" />
-                  Costo adicional
+                  <Truck className="h-3.5 w-3.5 text-muted-foreground" />
+                  Tipo de venta
                 </span>
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={draftAdditionalCost}
-                  onChange={(event) => setDraftAdditionalCost(event.target.value)}
-                />
+                <select
+                  className="field-select"
+                  value={draftFulfillmentMode}
+                  onChange={(event) => setDraftFulfillmentMode(event.target.value as FulfillmentMode)}
+                >
+                  <option value="STOCK">Por stock (de existencias)</option>
+                  <option value="MANUFACTURE">Por orden (se fabrica)</option>
+                </select>
               </label>
 
               <label className="space-y-1.5">
@@ -1196,17 +1187,16 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
 
               <label className="space-y-1.5">
                 <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-                  <Truck className="h-3.5 w-3.5 text-muted-foreground" />
-                  Tipo de venta
+                  <Coins className="h-3.5 w-3.5 text-muted-foreground" />
+                  Costo adicional
                 </span>
-                <select
-                  className="field-select"
-                  value={draftFulfillmentMode}
-                  onChange={(event) => setDraftFulfillmentMode(event.target.value as FulfillmentMode)}
-                >
-                  <option value="STOCK">Por stock (de existencias)</option>
-                  <option value="MANUFACTURE">Por orden (se fabrica)</option>
-                </select>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={draftAdditionalCost}
+                  onChange={(event) => setDraftAdditionalCost(event.target.value)}
+                />
               </label>
 
               <div className="grid gap-3 rounded-xl border border-border bg-card p-3 md:col-span-2 md:grid-cols-[7.5rem_minmax(0,1fr)] md:items-start">

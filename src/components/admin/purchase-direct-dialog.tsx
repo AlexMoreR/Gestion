@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Boxes, Plus, RefreshCw, Search, ShoppingCart, Trash2 } from "lucide-react";
+import { AlignLeft, Boxes, ImagePlus, Loader2, Palette, Plus, RefreshCw, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { adminCreateDirectPurchaseAction } from "@/app/actions/inventory-actions";
+import { adminUploadQuoteImageAction } from "@/app/actions/quote-actions";
 import { ProductThumb } from "@/components/admin/product-thumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,6 +85,9 @@ type PurchaseLine = {
   unitCost: number;
   supplierId: string;
   supplierName: string;
+  color: string;
+  description: string;
+  imageUrl: string;
   components: LineComponent[];
 };
 
@@ -118,6 +122,10 @@ export function PurchaseDirectDialog({
   const [draftSupplierId, setDraftSupplierId] = React.useState("");
   const [draftQuantity, setDraftQuantity] = React.useState("1");
   const [draftCost, setDraftCost] = React.useState("");
+  const [draftColor, setDraftColor] = React.useState("");
+  const [draftDescription, setDraftDescription] = React.useState("");
+  const [draftImageUrl, setDraftImageUrl] = React.useState("");
+  const [isUploadingImage, setIsUploadingImage] = React.useState(false);
   // Combo: proveedor y costo elegidos por cada componente (id de componente -> ...).
   const [componentCharges, setComponentCharges] = React.useState<
     Record<string, { supplierId: string; cost: string }>
@@ -165,8 +173,36 @@ export function PurchaseDirectDialog({
     setDraftSupplierId("");
     setDraftQuantity("1");
     setDraftCost("");
+    setDraftColor("");
+    setDraftDescription("");
+    setDraftImageUrl("");
+    setIsUploadingImage(false);
     setComponentCharges({});
     setProductFormError("");
+  };
+
+  const handleImageUpload = async (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setProductFormError("Solo se permiten archivos de imagen.");
+      return;
+    }
+    setIsUploadingImage(true);
+    setProductFormError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const result = await adminUploadQuoteImageAction(formData);
+      if (!result.ok) {
+        setProductFormError(result.error);
+        return;
+      }
+      setDraftImageUrl(result.url);
+    } catch {
+      setProductFormError("No se pudo subir la imagen.");
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   // Costo por defecto del primer proveedor de un componente (cae al costo base).
@@ -336,6 +372,9 @@ export function PurchaseDirectDialog({
         unitCost: draftUnitCost,
         supplierId: isComboDraft ? "" : draftSupplierId,
         supplierName: isComboDraft ? "" : supplierName,
+        color: isComboDraft ? "" : draftColor.trim(),
+        description: isComboDraft ? "" : draftDescription.trim(),
+        imageUrl: isComboDraft ? "" : draftImageUrl.trim(),
         components,
       },
     ]);
@@ -377,6 +416,9 @@ export function PurchaseDirectDialog({
             quantity: line.quantity,
             cost: line.unitCost,
             supplierId: line.supplierId,
+            color: line.color,
+            description: line.description,
+            imageUrl: line.imageUrl,
           },
     ),
   );
@@ -669,7 +711,7 @@ export function PurchaseDirectDialog({
         onOpenChange={(value) => (value ? null : setOpenProductModal(false))}
       >
         <DialogContent className="flex max-h-[88vh] w-[calc(100%-1.5rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0">
-          <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
+          <DialogHeader className="shrink-0 px-5 py-4">
             <DialogTitle className="inline-flex items-center gap-2 pr-8 text-base font-semibold text-foreground">
               <Boxes className="h-4 w-4 text-muted-foreground" />
               <span>Agregar producto</span>
@@ -743,22 +785,20 @@ export function PurchaseDirectDialog({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-foreground">{draftProduct?.name}</p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {draftProduct?.code || "Sin codigo"} · Stock {draftProduct?.stock ?? 0}
+                      {draftProduct?.code || "Sin codigo"}
                     </p>
                   </div>
-                  {isComboDraft ? (
-                    <label className="flex shrink-0 flex-col gap-1">
-                      <span className="text-[11px] font-medium text-muted-foreground">Cantidad</span>
-                      <Input
-                        type="number"
-                        min={1}
-                        step={1}
-                        value={draftQuantity}
-                        onChange={(event) => setDraftQuantity(event.target.value)}
-                        className="h-9 w-20"
-                      />
-                    </label>
-                  ) : null}
+                  <label className="flex shrink-0 flex-col gap-1">
+                    <span className="text-[11px] font-medium text-muted-foreground">Cantidad</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={draftQuantity}
+                      onChange={(event) => setDraftQuantity(event.target.value)}
+                      className="h-9 w-20"
+                    />
+                  </label>
                   <Button
                     type="button"
                     variant="outline"
@@ -821,8 +861,8 @@ export function PurchaseDirectDialog({
                     </div>
                   </div>
                 ) : (
-                  <div className="grid gap-3 rounded-xl border border-border bg-muted/60 p-3 md:grid-cols-3">
-                    <label className="space-y-1.5 md:col-span-3">
+                  <div className="grid gap-3 rounded-xl border border-border bg-muted/60 p-3 md:grid-cols-2">
+                    <label className="space-y-1.5 md:col-span-2">
                       <span className="text-sm font-medium text-foreground">Proveedor</span>
                       <select
                         value={draftSupplierId}
@@ -839,17 +879,18 @@ export function PurchaseDirectDialog({
                     </label>
 
                     <label className="space-y-1.5">
-                      <span className="text-sm font-medium text-foreground">Cantidad</span>
+                      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                        <Palette className="h-3.5 w-3.5 text-muted-foreground" />
+                        Color
+                      </span>
                       <Input
-                        type="number"
-                        min={1}
-                        step={1}
-                        value={draftQuantity}
-                        onChange={(event) => setDraftQuantity(event.target.value)}
+                        value={draftColor}
+                        onChange={(event) => setDraftColor(event.target.value)}
+                        placeholder="Color"
                       />
                     </label>
 
-                    <label className="space-y-1.5 md:col-span-2">
+                    <label className="space-y-1.5">
                       <span className="text-sm font-medium text-foreground">Costo unitario</span>
                       <Input
                         inputMode="numeric"
@@ -858,6 +899,83 @@ export function PurchaseDirectDialog({
                         placeholder="0"
                       />
                     </label>
+
+                    {/* Foto opcional + descripcion */}
+                    <div className="grid gap-3 rounded-xl border border-border bg-card p-3 md:col-span-2 md:grid-cols-[7rem_minmax(0,1fr)] md:items-start">
+                      <div className="flex flex-col items-start gap-1.5">
+                        <label
+                          className="group relative flex h-24 w-24 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-border bg-muted transition hover:border-[var(--primary)]/50"
+                          title="Subir foto del producto"
+                        >
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="sr-only"
+                            disabled={isUploadingImage}
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              event.target.value = "";
+                              void handleImageUpload(file);
+                            }}
+                          />
+                          {draftImageUrl || draftProduct?.thumbnailUrl ? (
+                            <>
+                              <ProductThumb
+                                src={draftImageUrl || draftProduct?.thumbnailUrl || ""}
+                                alt={draftProduct?.name ?? "Producto"}
+                                className="h-full w-full object-cover"
+                              />
+                              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/45 text-white opacity-0 transition group-hover:opacity-100">
+                                {isUploadingImage ? (
+                                  <Loader2 className="h-5 w-5 animate-spin" />
+                                ) : (
+                                  <>
+                                    <ImagePlus className="h-5 w-5" />
+                                    <span className="text-[11px] font-medium">Cambiar foto</span>
+                                  </>
+                                )}
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center gap-1 text-muted-foreground">
+                              {isUploadingImage ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : (
+                                <>
+                                  <ImagePlus className="h-5 w-5" />
+                                  <span className="text-[11px] font-medium">Agregar foto</span>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </label>
+                        {draftImageUrl ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto px-1 py-0 text-xs text-muted-foreground"
+                            onClick={() => setDraftImageUrl("")}
+                          >
+                            Quitar foto
+                          </Button>
+                        ) : null}
+                      </div>
+
+                      <label className="space-y-1.5">
+                        <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                          <AlignLeft className="h-3.5 w-3.5 text-muted-foreground" />
+                          Descripcion
+                        </span>
+                        <textarea
+                          value={draftDescription}
+                          onChange={(event) => setDraftDescription(event.target.value)}
+                          rows={3}
+                          className={cn(controlClassName, "h-auto resize-none py-2")}
+                          placeholder="Descripcion del item"
+                        />
+                      </label>
+                    </div>
                   </div>
                 )}
 

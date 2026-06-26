@@ -359,6 +359,9 @@ export async function adminCreateDirectPurchaseAction(formData: FormData): Promi
     quantity: number;
     cost: number;
     supplierId: string;
+    color: string;
+    description: string;
+    imageUrl: string;
     components: ComponentCharge[];
   }> = [];
   const rawItems = getStringField(formData, "items");
@@ -374,6 +377,9 @@ export async function adminCreateDirectPurchaseAction(formData: FormData): Promi
           quantity: Math.trunc(Number(entry.quantity) || 0),
           cost: Number(entry.cost) || 0,
           supplierId: typeof entry.supplierId === "string" ? entry.supplierId.trim() : "",
+          color: typeof entry.color === "string" ? entry.color.trim() : "",
+          description: typeof entry.description === "string" ? entry.description.trim() : "",
+          imageUrl: typeof entry.imageUrl === "string" ? entry.imageUrl.trim() : "",
           components: Array.isArray(entry.components)
             ? entry.components
                 .filter(
@@ -611,6 +617,9 @@ export async function adminCreateDirectPurchaseAction(formData: FormData): Promi
       movementIds.push(movementId);
       if (firstMovementId === null) firstMovementId = movementId;
 
+      // Nota del item: combina color y descripcion (si los hay).
+      const itemNotes =
+        [item.color ? `Color: ${item.color}` : "", item.description].filter(Boolean).join(" · ") || null;
       const orderItem = await prisma.orderItem.create({
         data: {
           orderId: purchaseOrderId,
@@ -623,9 +632,16 @@ export async function adminCreateDirectPurchaseAction(formData: FormData): Promi
           purchaseCost: item.cost,
           confirmedAt: movementDate,
           supplierPaymentStatus: supplier ? "PENDING" : null,
+          notes: itemNotes,
         },
         select: { id: true },
       });
+      // Foto opcional del item (sirve tambien para el despacho, que pide fotos).
+      if (item.imageUrl) {
+        await prisma.orderItemPhoto.create({
+          data: { orderItemId: orderItem.id, url: item.imageUrl },
+        });
+      }
 
       if (supplier && item.cost > 0) {
         await prisma.supplierLedgerEntry.create({
