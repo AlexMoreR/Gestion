@@ -702,15 +702,20 @@ export async function adminDeletePurchaseOrderAction(orderId: string): Promise<v
     );
   }
 
-  // 1) Borra los movimientos de inventario de la compra → el stock se revierte
-  //    (deja de sumar) y sus cargos a proveedores se borran en cascada.
-  if (order.purchaseCode) {
-    await prisma.inventoryMovement.deleteMany({ where: { purchaseCode: order.purchaseCode } });
-  }
-  // 2) Limpia cualquier cargo restante ligado a la orden (ej. envio/transportadora).
-  await prisma.supplierLedgerEntry.deleteMany({ where: { orderId } });
-  // 3) Borra la orden (en cascada: items e historial).
-  await prisma.order.delete({ where: { id: orderId } });
+  await prisma.$transaction(async (tx) => {
+    // 1) Borra los movimientos de inventario de la compra → el stock se revierte
+    //    (deja de sumar) y sus cargos a proveedores se borran en cascada.
+    if (order.purchaseCode) {
+      await tx.inventoryMovement.deleteMany({ where: { purchaseCode: order.purchaseCode } });
+    }
+    // 2) Limpia cualquier cargo restante ligado a la orden (ej. envio/transportadora).
+    await tx.supplierLedgerEntry.deleteMany({ where: { orderId } });
+    // 3) Borra despachos (sus DispatchItem se van en cascada). Necesario antes de
+    //    borrar la orden: DispatchItem -> OrderItem es Restrict y bloquearia.
+    await tx.dispatch.deleteMany({ where: { orderId } });
+    // 4) Borra la orden (en cascada: items, fotos, produccion e historial).
+    await tx.order.delete({ where: { id: orderId } });
+  });
 
   revalidatePath("/admin/inventario");
   revalidatePath("/admin/proveedores");
