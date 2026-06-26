@@ -512,7 +512,7 @@ export function PurchaseDirectDialog({
                         key={product.id}
                         type="button"
                         onClick={() => applyProductSelection(product)}
-                        className="flex items-stretch overflow-hidden border border-border bg-card text-left transition hover:border-[var(--primary)]/40 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="flex items-stretch overflow-hidden rounded-md border border-border bg-card text-left transition hover:border-[var(--primary)]/40 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <div className="relative w-14 shrink-0 self-stretch">
                           <ProductThumb
@@ -529,10 +529,13 @@ export function PurchaseDirectDialog({
                             {product.stock}
                           </span>
                         </div>
-                        <div className="flex min-w-0 flex-1 items-center gap-2 p-2.5">
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-foreground">{product.name}</p>
+                        <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 p-2.5">
+                          <p className="truncate text-sm font-medium text-foreground">{product.name}</p>
+                          <div className="flex items-center justify-between gap-2">
                             <p className="truncate text-xs text-muted-foreground">{product.code || "Sin codigo"}</p>
+                            <span className="shrink-0 text-xs font-semibold text-foreground">
+                              {formatMoney(product.baseCost, currency)}
+                            </span>
                           </div>
                         </div>
                       </button>

@@ -54,6 +54,7 @@ type ProductOption = {
   id: string;
   name: string;
   code: string | null;
+  stock: number;
   retailPrice: number;
   wholesalePrice: number;
   minWholesaleQty: number;
@@ -1044,9 +1045,6 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                   <Boxes className="h-4 w-4 text-muted-foreground" />
                   <span>Agregar producto</span>
                 </h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {draftProductId ? "Ajusta cantidad, precio y agrega descripcion." : "Busca y selecciona un producto."}
-                </p>
               </div>
               <Button
                 type="button"
@@ -1079,20 +1077,32 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                         key={product.id}
                         type="button"
                         onClick={() => applyProductSelection(product)}
-                        className="flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-card p-2 text-left transition hover:border-[var(--primary)]/40 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="flex items-stretch overflow-hidden rounded-md border border-border bg-card text-left transition hover:border-[var(--primary)]/40 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
-                        <ProductThumb
-                          src={product.thumbnailUrl ?? ""}
-                          alt={product.name}
-                          className="h-12 w-12 shrink-0 rounded-md border border-border object-cover"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-foreground">{product.name}</p>
-                          <p className="truncate text-xs text-muted-foreground">{product.code || "Sin codigo"}</p>
+                        <div className="relative w-14 shrink-0 self-stretch">
+                          <ProductThumb
+                            src={product.thumbnailUrl ?? ""}
+                            alt={product.name}
+                            className="h-full w-full bg-muted object-cover"
+                          />
+                          {/* Bolita de stock (cuantos hay disponibles). */}
+                          <span
+                            className={`absolute bottom-0.5 right-0 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-semibold text-white shadow ${
+                              product.stock <= 0 ? "bg-red-500" : "bg-emerald-500"
+                            }`}
+                          >
+                            {product.stock}
+                          </span>
                         </div>
-                        <span className="shrink-0 text-sm font-semibold text-foreground">
-                          {product.retailPrice.toLocaleString("es-CO", { style: "currency", currency })}
-                        </span>
+                        <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 p-2.5">
+                          <p className="truncate text-sm font-medium text-foreground">{product.name}</p>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="truncate text-xs text-muted-foreground">{product.code || "Sin codigo"}</p>
+                            <span className="shrink-0 text-xs font-semibold text-foreground">
+                              {product.retailPrice.toLocaleString("es-CO", { style: "currency", currency })}
+                            </span>
+                          </div>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -1101,12 +1111,6 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                     Sin coincidencias
                   </div>
                 )}
-
-                <div className="flex justify-end">
-                  <Button type="button" variant="outline" size="lg" onClick={() => setOpenProductModal(false)}>
-                    Cancelar
-                  </Button>
-                </div>
               </div>
             ) : (
               <>
