@@ -49,35 +49,58 @@ model User {
   expensesCreated          Expense[]             @relation("ExpenseCreatedBy")
   expensesAsEmployee       Expense[]             @relation("ExpenseEmployee")
   inventoryMovements       InventoryMovement[]   @relation("InventoryMovementCreatedBy")
+  activityLogs             ActivityLog[]         @relation("ActivityLogActor")
+}
+
+enum ActivityAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+model ActivityLog {
+  id         String         @id @default(cuid())
+  actorId    String?
+  actorName  String
+  action     ActivityAction
+  entityType String
+  entityId   String?
+  summary    String
+  createdAt  DateTime       @default(now())
+  actor      User?          @relation("ActivityLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt])
+  @@index([entityType, createdAt])
+  @@index([createdAt])
 }
 
 model Product {
-  id                 String                 @id @default(cuid())
-  code               String?                @unique
-  slug               String                 @unique
+  id                 String              @id @default(cuid())
+  code               String?             @unique
+  slug               String              @unique
   name               String
   description        String?
   seoTitle           String?
   seoDescription     String?
-  price              Decimal                @db.Decimal(10, 2)
-  baseCost           Decimal                @default(0) @db.Decimal(10, 2)
-  retailMarginPct    Decimal                @default(0) @db.Decimal(6, 2)
-  wholesaleMarginPct Decimal                @default(0) @db.Decimal(6, 2)
-  wholesalePrice     Decimal                @default(0) @db.Decimal(10, 2)
-  minWholesaleQty    Int                    @default(6)
-  minStock           Int                    @default(0)
-  isBundle           Boolean                @default(false)
+  price              Decimal             @db.Decimal(10, 2)
+  baseCost           Decimal             @default(0) @db.Decimal(10, 2)
+  retailMarginPct    Decimal             @default(0) @db.Decimal(6, 2)
+  wholesaleMarginPct Decimal             @default(0) @db.Decimal(6, 2)
+  wholesalePrice     Decimal             @default(0) @db.Decimal(10, 2)
+  minWholesaleQty    Int                 @default(6)
+  minStock           Int                 @default(0)
+  isBundle           Boolean             @default(false)
   categoryId         String?
   thumbnailUrl       String
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
-  category           Category?              @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  category           Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   images             ProductImage[]
   suppliers          ProductSupplier[]
   quoteItems         QuoteItem[]
   orderItems         OrderItem[]
-  bundleComponents   ProductComponent[]     @relation("BundleParent")
-  partOfBundles      ProductComponent[]     @relation("BundleChild")
+  bundleComponents   ProductComponent[]  @relation("BundleParent")
+  partOfBundles      ProductComponent[]  @relation("BundleChild")
   inventoryMovements InventoryMovement[]
   reviews            ProductReview[]
 }
@@ -165,12 +188,12 @@ enum SupplierLedgerType {
 }
 
 model SupplierLedgerEntry {
-  id                   String             @id @default(cuid())
+  id                   String                @id @default(cuid())
   // Código secuencial legible para cargos de inventario (INV-00001...).
-  code                 String?            @unique
+  code                 String?               @unique
   supplierId           String
   type                 SupplierLedgerType
-  amount               Decimal            @db.Decimal(12, 2)
+  amount               Decimal               @db.Decimal(12, 2)
   saleId               String?
   transactionReference String?
   paymentDate          DateTime?
@@ -186,15 +209,15 @@ model SupplierLedgerEntry {
   receiptName          String?
   accountId            String?
   createdById          String
-  createdAt            DateTime           @default(now())
-  supplier             Supplier           @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  sale                 Sale?              @relation(fields: [saleId], references: [id], onDelete: SetNull)
-  order                Order?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  orderItem            OrderItem?         @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
-  dispatch             Dispatch?          @relation(fields: [dispatchId], references: [id], onDelete: SetNull)
-  inventoryMovement    InventoryMovement? @relation(fields: [inventoryMovementId], references: [id], onDelete: Cascade)
-  account              Account?           @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  createdBy            User               @relation("SupplierLedgerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt            DateTime              @default(now())
+  supplier             Supplier              @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  sale                 Sale?                 @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  order                Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderItem            OrderItem?            @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  dispatch             Dispatch?             @relation(fields: [dispatchId], references: [id], onDelete: SetNull)
+  inventoryMovement    InventoryMovement?    @relation(fields: [inventoryMovementId], references: [id], onDelete: Cascade)
+  account              Account?              @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  createdBy            User                  @relation("SupplierLedgerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   settlesEntry         SupplierLedgerEntry?  @relation("ChargeSettlement", fields: [settlesEntryId], references: [id], onDelete: Cascade)
   settledByEntries     SupplierLedgerEntry[] @relation("ChargeSettlement")
 
@@ -351,12 +374,12 @@ model QuoteItem {
   lineTotal       Decimal                @db.Decimal(12, 2)
   fulfillmentMode ProductFulfillmentMode @default(STOCK)
   notes           String?
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  quote      Quote       @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  product    Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
-  supplier   Supplier?   @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  orderItems OrderItem[]
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  quote           Quote                  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  product         Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
+  supplier        Supplier?              @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  orderItems      OrderItem[]
 
   @@index([quoteId])
   @@index([productId])
@@ -562,17 +585,17 @@ model Dispatch {
 }
 
 model DispatchItem {
-  id          String    @id @default(cuid())
-  dispatchId  String
-  orderItemId String
-  quantity    Int
+  id           String    @id @default(cuid())
+  dispatchId   String
+  orderItemId  String
+  quantity     Int
   // Porcion del costo de envio asignada a este producto (reparte el total del despacho).
-  shippingCost Decimal  @default(0) @db.Decimal(12, 2)
-  notes       String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  dispatch    Dispatch  @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
-  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+  shippingCost Decimal   @default(0) @db.Decimal(12, 2)
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  dispatch     Dispatch  @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+  orderItem    OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
 
   @@index([dispatchId])
   @@index([orderItemId])
@@ -683,20 +706,20 @@ model Expense {
 }
 
 model InventoryMovement {
-  id           String                @id @default(cuid())
-  productId    String
-  type         InventoryMovementType
+  id            String                @id @default(cuid())
+  productId     String
+  type          InventoryMovementType
   // Efecto con signo sobre el stock: +entrada, -salida, +/- ajuste.
-  change       Int
-  note         String?
+  change        Int
+  note          String?
   // Código de compra (COM-00001...) que agrupa los movimientos creados en una
   // misma compra directa a proveedor. Nulo para movimientos sueltos.
-  purchaseCode String?
-  movementDate DateTime              @default(now())
-  createdById  String
-  createdAt    DateTime              @default(now())
-  product      Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
-  createdBy    User                  @relation("InventoryMovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  purchaseCode  String?
+  movementDate  DateTime              @default(now())
+  createdById   String
+  createdAt     DateTime              @default(now())
+  product       Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdBy     User                  @relation("InventoryMovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   ledgerEntries SupplierLedgerEntry[]
 
   @@index([productId, movementDate])

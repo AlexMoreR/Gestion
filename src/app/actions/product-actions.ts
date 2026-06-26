@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
+import { logActivity } from "@/lib/activity-log";
 import { prisma } from "@/lib/prisma";
 import { slugifyProductSegment } from "@/lib/product-slugs";
 import { calculateMarginPctFromPrice, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
@@ -372,8 +373,9 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
   const wholesalePrice = parsed.data.wholesalePrice;
   const effectiveWholesaleMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost, wholesalePrice);
 
+  let createdProductId: string | null = null;
   try {
-    await prisma.product.create({
+    const createdProduct = await prisma.product.create({
       data: {
         name: parsed.data.name,
         code: parsed.data.code || null,
@@ -413,9 +415,17 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
           : undefined,
       },
     });
+    createdProductId = createdProduct.id;
   } catch (error) {
     buildErrorRedirect("/admin/productos", resolveProductMutationError(error));
   }
+
+  await logActivity({
+    action: "CREATE",
+    entityType: "PRODUCT",
+    entityId: createdProductId,
+    summary: `Creó el producto "${parsed.data.name}"${parsed.data.code ? ` (${parsed.data.code})` : ""}`,
+  });
 
   revalidatePath("/");
   revalidatePath("/admin/productos");
@@ -508,6 +518,11 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
   const wholesalePrice = parsed.data.wholesalePrice;
   const effectiveWholesaleMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost, wholesalePrice);
 
+  const previousProduct = await prisma.product.findUnique({
+    where: { id: parsed.data.productId },
+    select: { baseCost: true, price: true, wholesalePrice: true },
+  });
+
   try {
     await prisma.$transaction([
       prisma.product.update({
@@ -572,6 +587,32 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
     buildErrorRedirect(redirectBase, resolveProductMutationError(error));
   }
 
+  const formatPriceChange = (value: number) => `$${Math.round(value).toLocaleString("es-CO")}`;
+  const priceChanges: string[] = [];
+  if (previousProduct) {
+    const prevCost = Number(previousProduct.baseCost);
+    const prevPrice = Number(previousProduct.price);
+    const prevWholesale = Number(previousProduct.wholesalePrice);
+    if (prevCost !== parsed.data.baseCost) {
+      priceChanges.push(`Costo: ${formatPriceChange(prevCost)} → ${formatPriceChange(parsed.data.baseCost)}`);
+    }
+    if (prevPrice !== retailPrice) {
+      priceChanges.push(`Precio detal: ${formatPriceChange(prevPrice)} → ${formatPriceChange(retailPrice)}`);
+    }
+    if (prevWholesale !== wholesalePrice) {
+      priceChanges.push(`Precio mayor: ${formatPriceChange(prevWholesale)} → ${formatPriceChange(wholesalePrice)}`);
+    }
+  }
+
+  await logActivity({
+    action: "UPDATE",
+    entityType: "PRODUCT",
+    entityId: parsed.data.productId,
+    summary: `Actualizó el producto "${parsed.data.name}"${
+      priceChanges.length > 0 ? ` — ${priceChanges.join("; ")}` : ""
+    }`,
+  });
+
   revalidatePath("/");
   revalidatePath("/admin/productos");
   revalidatePath(redirectBase);
@@ -589,6 +630,11 @@ export async function adminDeleteProductAction(formData: FormData): Promise<void
     redirect("/admin/productos?error=Producto+invalido");
   }
 
+  const productToDelete = await prisma.product.findUnique({
+    where: { id: parsed.data.productId },
+    select: { name: true },
+  });
+
   try {
     await prisma.product.delete({
       where: { id: parsed.data.productId },
@@ -596,6 +642,15 @@ export async function adminDeleteProductAction(formData: FormData): Promise<void
   } catch (error) {
     buildErrorRedirect("/admin/productos", resolveProductDeleteError(error));
   }
+
+  await logActivity({
+    action: "DELETE",
+    entityType: "PRODUCT",
+    entityId: parsed.data.productId,
+    summary: productToDelete
+      ? `Eliminó el producto "${productToDelete.name}"`
+      : `Eliminó el producto ${parsed.data.productId}`,
+  });
 
   revalidatePath("/");
   revalidatePath("/admin/productos");
@@ -730,6 +785,12 @@ export async function adminImportProductsCsvAction(formData: FormData): Promise<
   if (created === 0) {
     redirect("/admin/productos?error=No+se+pudo+importar+ningun+producto");
   }
+
+  await logActivity({
+    action: "CREATE",
+    entityType: "PRODUCT",
+    summary: `Importó ${created} producto${created === 1 ? "" : "s"} desde CSV`,
+  });
 
   redirect(
     `/admin/productos?ok=${encodeURIComponent(

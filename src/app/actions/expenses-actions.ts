@@ -7,6 +7,7 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { logActivity } from "@/lib/activity-log";
 import { prisma } from "@/lib/prisma";
 import {
   createCategoryUseCase,
@@ -140,12 +141,14 @@ export async function adminCreateExpenseCategoryAction(formData: FormData): Prom
     redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos invalidos");
   }
 
+  let createdCategoryId: string | null = null;
   try {
-    await createCategoryUseCase(repository, {
+    const createdCategory = await createCategoryUseCase(repository, {
       name: parsed.data.name,
       description: parsed.data.description ?? null,
       createdById,
     });
+    createdCategoryId = createdCategory.id;
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       redirectWithError(returnTo, "Ya existe una categoria con ese nombre");
@@ -155,6 +158,13 @@ export async function adminCreateExpenseCategoryAction(formData: FormData): Prom
     }
     throw error;
   }
+
+  await logActivity({
+    action: "CREATE",
+    entityType: "EXPENSE_CATEGORY",
+    entityId: createdCategoryId,
+    summary: `Creó la categoría de gasto "${parsed.data.name}"`,
+  });
 
   revalidatePath("/admin/gastos");
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Categoria creada" }).toString()}`);
@@ -188,6 +198,13 @@ export async function adminUpdateExpenseCategoryAction(formData: FormData): Prom
     throw error;
   }
 
+  await logActivity({
+    action: "UPDATE",
+    entityType: "EXPENSE_CATEGORY",
+    entityId: parsed.data.categoryId,
+    summary: `Actualizó la categoría de gasto "${parsed.data.name}"`,
+  });
+
   revalidatePath("/admin/gastos");
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Categoria actualizada" }).toString()}`);
 }
@@ -201,6 +218,11 @@ export async function adminDeleteExpenseCategoryAction(formData: FormData): Prom
     redirectWithError(returnTo, "Categoria invalida");
   }
 
+  const categoryToDelete = await prisma.expenseCategory.findUnique({
+    where: { id: categoryId },
+    select: { name: true },
+  });
+
   try {
     await deleteCategoryUseCase(repository, categoryId);
   } catch (error) {
@@ -209,6 +231,15 @@ export async function adminDeleteExpenseCategoryAction(formData: FormData): Prom
     }
     throw error;
   }
+
+  await logActivity({
+    action: "DELETE",
+    entityType: "EXPENSE_CATEGORY",
+    entityId: categoryId,
+    summary: categoryToDelete
+      ? `Eliminó la categoría de gasto "${categoryToDelete.name}"`
+      : `Eliminó la categoría de gasto ${categoryId}`,
+  });
 
   revalidatePath("/admin/gastos");
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Categoria eliminada" }).toString()}`);
@@ -250,8 +281,9 @@ export async function adminCreateExpenseAction(formData: FormData): Promise<void
     redirectWithError(returnTo, "El comprobante es obligatorio salvo en cuentas de efectivo.");
   }
 
+  let createdExpenseId: string | null = null;
   try {
-    await createExpenseUseCase(repository, {
+    const createdExpense = await createExpenseUseCase(repository, {
       categoryId: parsed.data.categoryId,
       accountId: parsed.data.accountId,
       amount: parsed.data.amount,
@@ -263,12 +295,20 @@ export async function adminCreateExpenseAction(formData: FormData): Promise<void
       expenseDate: parsed.data.expenseDate,
       createdById,
     });
+    createdExpenseId = createdExpense.id;
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
       redirectWithError(returnTo, "Categoria o cuenta invalida.");
     }
     throw error;
   }
+
+  await logActivity({
+    action: "CREATE",
+    entityType: "EXPENSE",
+    entityId: createdExpenseId,
+    summary: `Registró un gasto de $${Number(parsed.data.amount).toLocaleString("es-CO")}`,
+  });
 
   revalidatePath("/admin/gastos");
   revalidatePath("/admin/balances");
@@ -331,6 +371,13 @@ export async function adminUpdateExpenseAction(formData: FormData): Promise<void
     ...receiptUpdate,
   });
 
+  await logActivity({
+    action: "UPDATE",
+    entityType: "EXPENSE",
+    entityId: parsed.data.expenseId,
+    summary: `Actualizó un gasto de $${Number(parsed.data.amount).toLocaleString("es-CO")}`,
+  });
+
   revalidatePath("/admin/gastos");
   revalidatePath("/admin/balances");
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Gasto actualizado" }).toString()}`);
@@ -345,7 +392,22 @@ export async function adminDeleteExpenseAction(formData: FormData): Promise<void
     redirectWithError(returnTo, "Gasto invalido");
   }
 
+  const expenseToDelete = await prisma.expense.findUnique({
+    where: { id: expenseId },
+    select: { amount: true },
+  });
+
   await deleteExpenseUseCase(repository, expenseId);
+
+  await logActivity({
+    action: "DELETE",
+    entityType: "EXPENSE",
+    entityId: expenseId,
+    summary: expenseToDelete
+      ? `Eliminó un gasto de $${Number(expenseToDelete.amount).toLocaleString("es-CO")}`
+      : `Eliminó el gasto ${expenseId}`,
+  });
+
   revalidatePath("/admin/gastos");
   revalidatePath("/admin/balances");
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Gasto eliminado" }).toString()}`);

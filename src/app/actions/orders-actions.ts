@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
+import { logActivity } from "@/lib/activity-log";
 import { prisma } from "@/lib/prisma";
 import { buildOrderCode, parseOrderCodeNumber } from "@/lib/orders";
 import { expandQuoteItemsToOrderItems } from "@/lib/order-items";
@@ -230,9 +231,12 @@ export async function adminCreateOrderFromSaleAction(formData: FormData): Promis
     })),
   );
 
+  let createdOrderCode: string | null = null;
+  let createdOrderId: string | null = null;
   try {
     await prisma.$transaction(async (tx) => {
       const code = await getNextOrderCode(tx);
+      createdOrderCode = code;
       const order = await tx.order.create({
         data: {
           code,
@@ -253,6 +257,8 @@ export async function adminCreateOrderFromSaleAction(formData: FormData): Promis
           },
         },
       });
+
+      createdOrderId = order.id;
 
       await tx.orderStatusHistory.create({
         data: {
@@ -294,6 +300,13 @@ export async function adminCreateOrderFromSaleAction(formData: FormData): Promis
     redirect(`${returnTo}?error=No+se+pudo+crear+la+orden`);
   }
 
+  await logActivity({
+    action: "CREATE",
+    entityType: "ORDER",
+    entityId: createdOrderId,
+    summary: createdOrderCode ? `Creó la orden ${createdOrderCode}` : "Creó una orden",
+  });
+
   revalidatePath("/admin/ventas");
   revalidatePath("/admin/ordenes");
   redirect(`${returnTo}?ok=Orden+creada`);
@@ -315,7 +328,7 @@ export async function adminUpdateOrderStatusAction(formData: FormData): Promise<
 
   const order = await prisma.order.findUnique({
     where: { id: parsed.data.orderId },
-    select: { id: true, status: true, createdById: true },
+    select: { id: true, status: true, createdById: true, code: true },
   });
 
   if (!order) {
@@ -356,6 +369,13 @@ export async function adminUpdateOrderStatusAction(formData: FormData): Promise<
     });
   });
 
+  await logActivity({
+    action: "UPDATE",
+    entityType: "ORDER",
+    entityId: order.id,
+    summary: `Actualizó la orden ${order.code} a estado ${parsed.data.status}`,
+  });
+
   revalidatePath("/admin/ordenes");
   revalidatePath(`/admin/ordenes/${order.id}`);
   redirect(`${returnTo}?ok=Orden+actualizada`);
@@ -386,9 +406,17 @@ export async function adminAssignOrderAction(formData: FormData): Promise<void> 
     redirect(`${returnTo}?error=Responsable+invalido`);
   }
 
-  await prisma.order.update({
+  const assignedOrder = await prisma.order.update({
     where: { id: parsed.data.orderId },
     data: { assignedToId: parsed.data.assignedToId },
+    select: { code: true },
+  });
+
+  await logActivity({
+    action: "UPDATE",
+    entityType: "ORDER",
+    entityId: parsed.data.orderId,
+    summary: `Asignó la orden ${assignedOrder.code}`,
   });
 
   revalidatePath("/admin/ordenes");
@@ -409,7 +437,7 @@ export async function adminCancelOrderAction(formData: FormData): Promise<void> 
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, code: true },
   });
 
   if (!order) {
@@ -435,6 +463,13 @@ export async function adminCancelOrderAction(formData: FormData): Promise<void> 
         changedById,
       },
     });
+  });
+
+  await logActivity({
+    action: "DELETE",
+    entityType: "ORDER",
+    entityId: order.id,
+    summary: `Canceló la orden ${order.code}`,
   });
 
   revalidatePath("/admin/ordenes");

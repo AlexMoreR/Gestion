@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
+import { logActivity } from "@/lib/activity-log";
 import { prisma } from "@/lib/prisma";
 
 const createCategorySchema = z.object({
@@ -155,8 +156,9 @@ export async function adminCreateCategoryAction(formData: FormData): Promise<voi
     redirect(`${returnTo}?error=Logo+de+categoria+invalido`);
   }
 
+  let createdCategoryId: string | null = null;
   try {
-    await prisma.category.create({
+    const createdCategory = await prisma.category.create({
         data: {
           name: parsed.data.name,
           slug,
@@ -166,10 +168,18 @@ export async function adminCreateCategoryAction(formData: FormData): Promise<voi
           logoUrl,
         },
     });
+    createdCategoryId = createdCategory.id;
   } catch {
     await deleteCategoryLogoFile(logoUrl);
     redirect(`${returnTo}?error=No+se+pudo+crear+la+categoria`);
   }
+
+  await logActivity({
+    action: "CREATE",
+    entityType: "CATEGORY",
+    entityId: createdCategoryId,
+    summary: `Creó la categoría "${parsed.data.name}"`,
+  });
 
   revalidatePath(returnTo);
   revalidatePath("/admin/configuracion");
@@ -254,6 +264,13 @@ export async function adminUpdateCategoryAction(formData: FormData): Promise<voi
     await deleteCategoryLogoFile(existingCategory.logoUrl);
   }
 
+  await logActivity({
+    action: "UPDATE",
+    entityType: "CATEGORY",
+    entityId: parsed.data.categoryId,
+    summary: `Actualizó la categoría "${parsed.data.name}"`,
+  });
+
   revalidatePath("/");
   revalidatePath(returnTo);
   revalidatePath("/admin/configuracion");
@@ -276,7 +293,7 @@ export async function adminDeleteCategoryAction(formData: FormData): Promise<voi
 
   const existingCategory = await prisma.category.findUnique({
     where: { id: parsed.data.categoryId },
-    select: { logoUrl: true },
+    select: { logoUrl: true, name: true },
   });
 
   if (!existingCategory) {
@@ -290,6 +307,13 @@ export async function adminDeleteCategoryAction(formData: FormData): Promise<voi
   } catch {
     redirect(`${returnTo}?error=No+se+pudo+eliminar+la+categoria`);
   }
+
+  await logActivity({
+    action: "DELETE",
+    entityType: "CATEGORY",
+    entityId: parsed.data.categoryId,
+    summary: `Eliminó la categoría "${existingCategory.name}"`,
+  });
 
   await deleteCategoryLogoFile(existingCategory.logoUrl);
 
@@ -330,8 +354,9 @@ export async function adminCreateSupplierAction(formData: FormData): Promise<voi
     redirect("/admin/proveedores?error=Ya+existe+un+proveedor+con+ese+nombre");
   }
 
+  let createdSupplierId: string | null = null;
   try {
-    await prisma.supplier.create({
+    const createdSupplier = await prisma.supplier.create({
       data: {
         name: parsed.data.name,
         displayName: parsed.data.displayName || null,
@@ -340,9 +365,17 @@ export async function adminCreateSupplierAction(formData: FormData): Promise<voi
         type: parsed.data.type,
       },
     });
+    createdSupplierId = createdSupplier.id;
   } catch {
     redirect("/admin/proveedores?error=No+se+pudo+crear+el+proveedor");
   }
+
+  await logActivity({
+    action: "CREATE",
+    entityType: "SUPPLIER",
+    entityId: createdSupplierId,
+    summary: `Creó el proveedor "${parsed.data.name}"`,
+  });
 
   revalidatePath("/admin/proveedores");
   revalidatePath("/admin/productos");
@@ -405,6 +438,13 @@ export async function adminUpdateSupplierAction(formData: FormData): Promise<voi
     redirect("/admin/proveedores?error=No+se+pudo+actualizar+el+proveedor");
   }
 
+  await logActivity({
+    action: "UPDATE",
+    entityType: "SUPPLIER",
+    entityId: parsed.data.supplierId,
+    summary: `Actualizó el proveedor "${parsed.data.name}"`,
+  });
+
   revalidatePath("/admin/proveedores");
   revalidatePath("/admin/productos");
   revalidatePath("/admin/productos/new");
@@ -424,7 +464,7 @@ export async function adminDeleteSupplierAction(formData: FormData): Promise<voi
 
   const supplier = await prisma.supplier.findUnique({
     where: { id: parsed.data.supplierId },
-    select: { id: true },
+    select: { id: true, name: true },
   });
 
   if (!supplier) {
@@ -438,6 +478,13 @@ export async function adminDeleteSupplierAction(formData: FormData): Promise<voi
   } catch {
     redirect("/admin/proveedores?error=No+se+pudo+eliminar+el+proveedor");
   }
+
+  await logActivity({
+    action: "DELETE",
+    entityType: "SUPPLIER",
+    entityId: parsed.data.supplierId,
+    summary: `Eliminó el proveedor "${supplier.name}"`,
+  });
 
   revalidatePath("/admin/proveedores");
   revalidatePath("/admin/productos");

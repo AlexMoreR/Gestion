@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
+import { logActivity } from "@/lib/activity-log";
 import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 
@@ -335,13 +336,16 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
     }),
   );
 
+  let createdSaleCode: string | null = null;
+  let createdSaleId: string | null = null;
   try {
     await prisma.$transaction(async (tx) => {
       const saleCode = await getNextSaleCode(tx);
+      createdSaleCode = saleCode;
       invoiceToken = randomUUID().replace(/-/g, "");
       const primaryReceipt = savedReceipts.find((receipt) => Boolean(receipt.receiptUrl)) ?? savedReceipts[0];
 
-      await tx.sale.create({
+      const createdSale = await tx.sale.create({
         data: {
           code: saleCode,
           quoteId: quote.id,
@@ -375,7 +379,9 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
           subtotal: quote.subtotal,
           total: netTotal,
         } satisfies Prisma.SaleUncheckedCreateInput,
+        select: { id: true },
       });
+      createdSaleId = createdSale.id;
 
       await tx.quote.update({
         where: { id: quote.id },
@@ -390,6 +396,15 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
     console.error("Failed to create sale:", error);
     redirectWithError(returnTo, "No se pudo crear el registro de venta");
   }
+
+  await logActivity({
+    action: "CREATE",
+    entityType: "SALE",
+    entityId: createdSaleId,
+    summary: createdSaleCode
+      ? `Creó la venta ${createdSaleCode} desde la cotización ${quote.code}`
+      : `Creó una venta desde la cotización ${quote.code}`,
+  });
 
   revalidatePath("/admin/cotizaciones");
   revalidatePath("/admin/ventas");
@@ -642,6 +657,13 @@ export async function adminDeleteSaleAction(formData: FormData): Promise<void> {
     redirectWithError(returnTo, "No se pudo eliminar la venta");
   }
 
+  await logActivity({
+    action: "DELETE",
+    entityType: "SALE",
+    entityId: sale.id,
+    summary: `Eliminó la venta ${sale.code}`,
+  });
+
   revalidatePath("/admin/ventas");
   revalidatePath("/admin/cotizaciones");
   revalidatePath("/admin/ordenes");
@@ -870,6 +892,8 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
 
   const downPaymentAmount = initialPayment?.amount ?? 0;
 
+  let createdSaleCode: string | null = null;
+  let createdSaleId: string | null = null;
   try {
     await prisma.$transaction(async (tx) => {
       let client: { id: string };
@@ -963,9 +987,10 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
       });
 
       const saleCode = await getNextSaleCode(tx);
+      createdSaleCode = saleCode;
       invoiceToken = randomUUID().replace(/-/g, "");
 
-      await tx.sale.create({
+      const createdSale = await tx.sale.create({
         data: {
           code: saleCode,
           quoteId: quote.id,
@@ -1004,7 +1029,9 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
               }
             : {}),
         } satisfies Prisma.SaleUncheckedCreateInput,
+        select: { id: true },
       });
+      createdSaleId = createdSale.id;
     });
   } catch (error) {
     if (error instanceof Error && error.message === "CLIENT_NOT_FOUND") {
@@ -1013,6 +1040,15 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
     console.error("Failed to create direct sale:", error);
     redirectWithError(returnTo, "No se pudo crear la venta");
   }
+
+  await logActivity({
+    action: "CREATE",
+    entityType: "SALE",
+    entityId: createdSaleId,
+    summary: createdSaleCode
+      ? `Creó la venta directa ${createdSaleCode} por $${Number(total).toLocaleString("es-CO")}`
+      : `Creó una venta directa por $${Number(total).toLocaleString("es-CO")}`,
+  });
 
   revalidatePath("/admin/ventas");
   if (invoiceToken) {

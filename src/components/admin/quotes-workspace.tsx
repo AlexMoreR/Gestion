@@ -109,6 +109,8 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
   const [openModal, setOpenModal] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [showClientResults, setShowClientResults] = useState(false);
+  // Muestra el formulario de cliente (al pulsar "Agregar cliente").
+  const [showClientForm, setShowClientForm] = useState(false);
   const [clientId, setClientId] = useState("");
   const [clientName, setClientName] = useState("");
   const [clientDocument, setClientDocument] = useState("");
@@ -384,6 +386,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
 
   const openQuoteModal = () => {
     setStep(1);
+    setShowClientForm(false);
     setOpenModal(true);
   };
 
@@ -601,6 +604,20 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
 
               {step === 2 ? (
                 <div className="space-y-4 rounded-xl border border-border p-3">
+                  {!showClientForm ? (
+                    <div className="flex flex-col items-center gap-3 py-8 text-center">
+                      <div className="rounded-full border border-border bg-muted p-2">
+                        <UserRound className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {clientId ? `Cliente: ${clientName || "seleccionado"}` : "Aun no has agregado un cliente."}
+                      </p>
+                      <Button type="button" size="lg" onClick={() => setShowClientForm(true)}>
+                        <UserRound className="h-4 w-4" />
+                        {clientId ? "Editar cliente" : "Agregar cliente"}
+                      </Button>
+                    </div>
+                  ) : (
                   <div className="space-y-3">
                     <div className="grid gap-3 md:grid-cols-2">
                       <label className="relative block space-y-1.5">
@@ -708,6 +725,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                       </label>
                     </div>
                   </div>
+                  )}
 
                   {clientFormError ? <p className="text-xs font-medium text-destructive">{clientFormError}</p> : null}
 
@@ -732,8 +750,6 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                     <table className="w-full text-sm">
                       <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
                         <tr>
-                          <th className="px-3 py-2 text-left">Imagen</th>
-                          <th className="px-3 py-2 text-left">Codigo</th>
                           <th className="px-3 py-2 text-left">Producto</th>
                           <th className="px-3 py-2 text-left">Descripcion</th>
                           <th className="px-3 py-2 text-left">Cant</th>
@@ -746,7 +762,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                       <tbody>
                         {linesWithMeta.length === 0 ? (
                           <tr>
-                            <td colSpan={9} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                            <td colSpan={7} className="px-3 py-8 text-center text-sm text-muted-foreground">
                               <div className="flex flex-col items-center gap-3">
                                 <div className="rounded-full border border-border bg-muted p-2">
                                   <Boxes className="h-4 w-4 text-muted-foreground" />
@@ -763,20 +779,24 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                           linesWithMeta.map(({ line, product, lineTotal }) => (
                             <tr key={line.uid} className="border-t border-border bg-card transition hover:bg-muted/40">
                               <td className="px-3 py-2">
-                                {line.imageUrl || product?.thumbnailUrl ? (
-                                  <img
-                                    src={line.imageUrl || product?.thumbnailUrl || ""}
-                                    alt={product?.name || "Producto"}
-                                    className="h-11 w-11 rounded-md border border-border object-cover"
-                                  />
-                                ) : (
-                                  <div className="flex h-11 w-11 items-center justify-center rounded-md border border-border bg-muted text-[10px] text-muted-foreground">
-                                    Sin img
+                                <div className="flex items-center gap-2.5">
+                                  {line.imageUrl || product?.thumbnailUrl ? (
+                                    <img
+                                      src={line.imageUrl || product?.thumbnailUrl || ""}
+                                      alt={product?.name || "Producto"}
+                                      className="h-10 w-10 shrink-0 rounded-md border border-border object-cover"
+                                    />
+                                  ) : (
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-[10px] text-muted-foreground">
+                                      Sin img
+                                    </div>
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="truncate font-medium text-foreground">{product?.name || "Producto"}</p>
+                                    <p className="truncate text-xs text-muted-foreground">{product?.code || "Sin codigo"}</p>
                                   </div>
-                                )}
+                                </div>
                               </td>
-                              <td className="px-3 py-2 text-foreground">{product?.code || "-"}</td>
-                              <td className="px-3 py-2 text-foreground">{product?.name || "Producto"}</td>
                               <td className="px-3 py-2 text-foreground">{line.description || "-"}</td>
                               <td className="px-3 py-2 text-foreground">{line.quantity}</td>
                               <td className="px-3 py-2 text-foreground">{line.color || "-"}</td>

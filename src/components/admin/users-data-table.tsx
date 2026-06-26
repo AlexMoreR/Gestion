@@ -25,6 +25,7 @@ type UserRow = {
   id: string;
   name: string | null;
   email: string;
+  image: string | null;
   role: Role;
   createdAt: Date;
 };
@@ -144,9 +145,19 @@ export function UsersDataTable({ users }: UsersDataTableProps) {
               <TableRow key={user.id}>
                 <TableCell>
                   <div className="flex items-center gap-2.5">
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-xs font-semibold text-slate-700">
-                      {(user.name?.charAt(0) || user.email.charAt(0)).toUpperCase()}
-                    </span>
+                    {user.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={user.image}
+                        alt={user.name || user.email}
+                        referrerPolicy="no-referrer"
+                        className="h-8 w-8 rounded-md object-cover"
+                      />
+                    ) : (
+                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-xs font-semibold text-slate-700">
+                        {(user.name?.charAt(0) || user.email.charAt(0)).toUpperCase()}
+                      </span>
+                    )}
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-slate-900">{user.name || "Sin nombre"}</p>
                       <p className="truncate text-xs text-slate-500">{user.email}</p>

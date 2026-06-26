@@ -35,6 +35,7 @@ export default async function AdminConfiguracionUsuariosPage({ searchParams }: P
       id: true,
       name: true,
       email: true,
+      image: true,
       role: true,
       createdAt: true,
     },

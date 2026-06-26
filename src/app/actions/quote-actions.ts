@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
+import { logActivity } from "@/lib/activity-log";
 import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 
@@ -373,6 +374,8 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
   const subtotal = Number(normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2));
   const total = subtotal;
 
+  let createdQuoteCode: string | null = null;
+  let createdQuoteId: string | null = null;
   try {
     await prisma.$transaction(async (tx) => {
       const lastQuote = await tx.quote.findFirst({
@@ -387,7 +390,7 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
         const shareToken = randomUUID().replace(/-/g, "");
 
         try {
-          await tx.quote.create({
+          const createdQuote = await tx.quote.create({
             data: {
               code,
               clientId: resolvedClientId,
@@ -409,7 +412,10 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
                 })),
               },
             },
+            select: { id: true, code: true },
           });
+          createdQuoteCode = createdQuote.code;
+          createdQuoteId = createdQuote.id;
           return;
         } catch (error) {
           if (isQuoteCodeUniqueError(error) && offset < maxCodeAttempts - 1) {
@@ -422,6 +428,13 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
   } catch {
     redirect(`${returnTo}?error=No+se+pudo+crear+la+cotizacion`);
   }
+
+  await logActivity({
+    action: "CREATE",
+    entityType: "QUOTE",
+    entityId: createdQuoteId,
+    summary: createdQuoteCode ? `Creó la cotización ${createdQuoteCode}` : "Creó una cotización",
+  });
 
   revalidatePath(returnTo);
   revalidatePath("/admin/cotizaciones");
@@ -450,13 +463,21 @@ export async function adminUpdateQuoteMetaAction(formData: FormData): Promise<vo
     redirect(`${returnTo}?error=Fecha+de+validez+invalida`);
   }
 
-  await prisma.quote.update({
+  const updatedQuote = await prisma.quote.update({
     where: { id: parsed.data.quoteId },
     data: {
       status: parsed.data.status,
       notes: parsed.data.notes || null,
       validUntil: validUntilDate,
     },
+    select: { code: true },
+  });
+
+  await logActivity({
+    action: "UPDATE",
+    entityType: "QUOTE",
+    entityId: parsed.data.quoteId,
+    summary: `Actualizó la cotización ${updatedQuote.code}`,
   });
 
   revalidatePath("/admin/cotizaciones");
@@ -584,7 +605,7 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
   const subtotal = Number(normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2));
   const total = subtotal;
 
-  await prisma.quote.update({
+  const updatedQuote = await prisma.quote.update({
     where: { id: parsed.data.quoteId },
     data: {
       clientId: resolvedClientId,
@@ -606,6 +627,14 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
         })),
       },
     },
+    select: { code: true },
+  });
+
+  await logActivity({
+    action: "UPDATE",
+    entityType: "QUOTE",
+    entityId: parsed.data.quoteId,
+    summary: `Actualizó la cotización ${updatedQuote.code}`,
   });
 
   revalidatePath("/admin/cotizaciones");
@@ -635,8 +664,22 @@ export async function adminDeleteQuoteAction(formData: FormData): Promise<void> 
     );
   }
 
+  const quoteToDelete = await prisma.quote.findUnique({
+    where: { id: quoteId },
+    select: { code: true },
+  });
+
   await prisma.quote.delete({
     where: { id: quoteId },
+  });
+
+  await logActivity({
+    action: "DELETE",
+    entityType: "QUOTE",
+    entityId: quoteId,
+    summary: quoteToDelete
+      ? `Eliminó la cotización ${quoteToDelete.code}`
+      : `Eliminó la cotización ${quoteId}`,
   });
 
   revalidatePath("/admin/cotizaciones");

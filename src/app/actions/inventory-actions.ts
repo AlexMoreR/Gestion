@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { logActivity } from "@/lib/activity-log";
 import { prisma } from "@/lib/prisma";
 import {
   InventoryError,
@@ -331,6 +332,13 @@ export async function adminCreateInventoryMovementAction(formData: FormData): Pr
       revalidatePath("/admin/proveedores");
     }
   }
+
+  await logActivity({
+    action: "CREATE",
+    entityType: "INVENTORY",
+    entityId: movementId,
+    summary: `Registró un movimiento de inventario (${parsed.data.type}) de "${productName}" x${parsed.data.quantity}`,
+  });
 
   revalidatePath("/admin/inventario");
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Movimiento registrado" }).toString()}`);
@@ -697,6 +705,13 @@ export async function adminCreateDirectPurchaseAction(formData: FormData): Promi
     throw error;
   }
 
+  await logActivity({
+    action: "CREATE",
+    entityType: "PURCHASE",
+    entityId: purchaseOrderId,
+    summary: `Registró la compra ${purchaseCode} (${items.length} producto${items.length === 1 ? "" : "s"})`,
+  });
+
   revalidatePath("/admin/inventario");
   revalidatePath("/admin/proveedores");
   revalidatePath("/admin/ordenes");
@@ -733,6 +748,15 @@ export async function adminDeletePurchaseOrderAction(orderId: string): Promise<v
     await tx.order.delete({ where: { id: orderId } });
   });
 
+  await logActivity({
+    action: "DELETE",
+    entityType: "PURCHASE",
+    entityId: orderId,
+    summary: order.purchaseCode
+      ? `Eliminó la compra ${order.purchaseCode}`
+      : `Eliminó la compra ${orderId}`,
+  });
+
   revalidatePath("/admin/inventario");
   revalidatePath("/admin/proveedores");
   revalidatePath("/admin/ordenes");
@@ -747,12 +771,26 @@ export async function adminDeleteInventoryMovementAction(formData: FormData): Pr
     redirectWithError(returnTo, "Movimiento invalido");
   }
 
+  const movementToDelete = await prisma.inventoryMovement.findUnique({
+    where: { id },
+    select: { product: { select: { name: true } } },
+  });
+
   try {
     // Los cargos al proveedor ligados a este movimiento se borran en cascada (FK).
     await prisma.inventoryMovement.delete({ where: { id } });
   } catch {
     redirectWithError(returnTo, "No se pudo eliminar el movimiento");
   }
+
+  await logActivity({
+    action: "DELETE",
+    entityType: "INVENTORY",
+    entityId: id,
+    summary: movementToDelete?.product
+      ? `Eliminó un movimiento de inventario de "${movementToDelete.product.name}"`
+      : `Eliminó el movimiento de inventario ${id}`,
+  });
 
   revalidatePath("/admin/inventario");
   revalidatePath("/admin/proveedores");
@@ -769,7 +807,7 @@ export async function adminUpdateInventoryMovementAction(formData: FormData): Pr
 
   const movement = await prisma.inventoryMovement.findUnique({
     where: { id },
-    select: { id: true, productId: true, change: true },
+    select: { id: true, productId: true, change: true, product: { select: { name: true } } },
   });
   if (!movement) {
     redirectWithError(returnTo, "Movimiento no encontrado");
@@ -827,6 +865,15 @@ export async function adminUpdateInventoryMovementAction(formData: FormData): Pr
       });
     }
   }
+
+  await logActivity({
+    action: "UPDATE",
+    entityType: "INVENTORY",
+    entityId: id,
+    summary: movement.product
+      ? `Actualizó un movimiento de inventario (${type}) de "${movement.product.name}"`
+      : `Actualizó el movimiento de inventario ${id}`,
+  });
 
   revalidatePath("/admin/inventario");
   revalidatePath("/admin/proveedores");
