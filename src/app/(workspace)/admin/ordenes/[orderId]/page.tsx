@@ -135,9 +135,14 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     return sum + unitCost * item.quantity;
   }, 0);
   const earnedValue = Number(order.total) - totalPurchaseCost;
-  const allItemsConfirmed =
-    order.items.length > 0 &&
-    order.items.every((item) => item.confirmedSupplierId && item.purchaseCost !== null);
+  // En una compra el item ya viene comprado (se confirma al registrarla, aunque
+  // no tenga proveedor); en una venta hay que confirmar proveedor + costo.
+  const isPurchase = order.type === "PURCHASE";
+  const itemIsConfirmed = (item: (typeof order.items)[number]) =>
+    isPurchase
+      ? item.confirmedAt !== null
+      : Boolean(item.confirmedSupplierId) && item.purchaseCost !== null;
+  const allItemsConfirmed = order.items.length > 0 && order.items.every(itemIsConfirmed);
   const allItemsHavePhotos =
     order.items.length > 0 && order.items.every((item) => item.photos.length > 0);
   const allItemsPaymentSet =
@@ -176,8 +181,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       : null,
   );
 
-  const isItemConfirmed = (item: (typeof order.items)[number]) =>
-    Boolean(item.confirmedSupplierId) && item.purchaseCost !== null;
+  const isItemConfirmed = itemIsConfirmed;
   const isItemRecogido = (item: (typeof order.items)[number]) =>
     item.supplierPaymentStatus !== null && item.photos.length > 0;
   const pendingFabricar = order.items.filter((item) => !isItemConfirmed(item)).length;
@@ -212,7 +216,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       unitPrice: Number(item.unitPrice),
       fulfillmentLabel: getFulfillmentModeLabel(item.fulfillmentMode),
       observations,
-      isConfirmed: Boolean(item.confirmedSupplierId) && item.purchaseCost !== null,
+      isConfirmed: itemIsConfirmed(item),
       isRecogido: isItemRecogido(item),
       isDespachado: isItemDespachado(item),
       dispatchCode: dispatchByItemId.get(item.id)?.code ?? null,
