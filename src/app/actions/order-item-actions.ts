@@ -357,7 +357,7 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
   const orderItem = await prisma.orderItem.findUnique({
     where: { id: orderItemId.trim() },
     include: {
-      order: { select: { id: true, code: true, status: true, saleId: true } },
+      order: { select: { id: true, code: true, status: true, saleId: true, type: true } },
       photos: { select: { id: true } },
     },
   });
@@ -370,7 +370,10 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
     redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
   }
 
-  if (!orderItem.confirmedSupplierId || orderItem.purchaseCost === null) {
+  // En una compra el item ya viene comprado (puede no tener proveedor ni foto);
+  // en una venta hay que confirmar proveedor + costo antes de recoger/despachar.
+  const isPurchaseOrder = orderItem.order.type === "PURCHASE";
+  if (!isPurchaseOrder && (!orderItem.confirmedSupplierId || orderItem.purchaseCost === null)) {
     redirect(`${returnTo}?error=Confirma+el+proveedor+y+costo+antes+de+despachar`);
   }
 
@@ -379,7 +382,7 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
     .filter((entry): entry is File => entry instanceof File && entry.size > 0);
 
   const totalPhotos = orderItem.photos.length + newPhotoFiles.length;
-  if (totalPhotos === 0) {
+  if (!isPurchaseOrder && totalPhotos === 0) {
     redirect(`${returnTo}?error=Sube+al+menos+una+foto+del+producto+terminado`);
   }
 
@@ -421,7 +424,7 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
       }
 
       // Genera el cargo (saldo) al proveedor una sola vez por item.
-      if (!alreadyCharged && amount > 0) {
+      if (!alreadyCharged && amount > 0 && supplierId) {
         await tx.supplierLedgerEntry.create({
           data: {
             supplierId,
@@ -437,7 +440,7 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
       }
 
       if (paymentMode === "PAY_NOW") {
-        if (!alreadyPaid && amount > 0) {
+        if (!alreadyPaid && amount > 0 && supplierId) {
           await tx.supplierLedgerEntry.create({
             data: {
               supplierId,
