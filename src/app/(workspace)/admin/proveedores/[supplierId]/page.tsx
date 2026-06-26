@@ -152,6 +152,7 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
     isPaid: boolean;
     isFinished: boolean;
     bucketMonth: string;
+    sortDate: Date;
     date: string;
   };
 
@@ -179,6 +180,7 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
       isPaid,
       isFinished,
       bucketMonth,
+      sortDate: paidDate ?? item.confirmedAt ?? item.createdAt,
       date: (paidDate ?? item.confirmedAt ?? item.createdAt).toLocaleDateString("es-CO"),
     };
   });
@@ -200,6 +202,7 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
       isPaid: false,
       isFinished: true,
       bucketMonth: monthKeyOf(chargeDate),
+      sortDate: chargeDate,
       date: chargeDate.toLocaleDateString("es-CO"),
     };
   });
@@ -223,7 +226,9 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
     .sort((a, b) => b.localeCompare(a))
     .map((key) => ({ value: key, label: monthLabelOf(key) }));
 
-  const rows = allRows.filter((row) => row.bucketMonth === selectedMonth);
+  const rows = allRows
+    .filter((row) => row.bucketMonth === selectedMonth)
+    .sort((a, b) => b.sortDate.getTime() - a.sortDate.getTime());
   const abonosDelMes = generalAbonos
     .filter((abono) => abono.month === selectedMonth)
     .reduce((sum, abono) => sum + abono.amount, 0);

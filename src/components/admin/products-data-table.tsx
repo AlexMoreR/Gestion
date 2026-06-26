@@ -3,6 +3,7 @@
 import Link from "next/link";
 import * as React from "react";
 import {
+  AlertTriangle,
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
@@ -16,11 +17,19 @@ import {
   Search,
   Tag,
   Trash2,
+  TrendingUp,
   X,
 } from "lucide-react";
 import { adminDeleteProductAction } from "@/app/actions/product-actions";
 import { ProductThumb } from "@/components/admin/product-thumb";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -31,6 +40,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { cn } from "@/lib/utils";
 
 type ProductRow = {
   id: string;
@@ -48,10 +58,11 @@ type ProductRow = {
 type ProductsDataTableProps = {
   products: ProductRow[];
   currency: SupportedCurrencyCode;
+  minRetailMarginPct?: number;
   onOpenProduct?: (productId: string) => void;
 };
 
-type SortKey = "producto" | "categoria" | "proveedor" | "costo" | "detal" | "acciones";
+type SortKey = "producto" | "categoria" | "proveedor" | "costo" | "detal" | "margen" | "acciones";
 type SortDirection = "asc" | "desc";
 
 const PAGE_SIZE = 12;
@@ -100,13 +111,32 @@ function HeaderLabel({
   );
 }
 
-export function ProductsDataTable({ products, currency, onOpenProduct }: ProductsDataTableProps) {
+export function ProductsDataTable({
+  products,
+  currency,
+  minRetailMarginPct = 0,
+  onOpenProduct,
+}: ProductsDataTableProps) {
   const [query, setQuery] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState("__all__");
   const [sortKey, setSortKey] = React.useState<SortKey>("producto");
   const [sortDirection, setSortDirection] = React.useState<SortDirection>("asc");
   const [page, setPage] = React.useState(1);
+  const [belowRuleOnly, setBelowRuleOnly] = React.useState(false);
   const [pendingDelete, setPendingDelete] = React.useState<{ id: string; name: string } | null>(null);
+
+  const isBelowRule = React.useCallback(
+    (product: ProductRow) => {
+      const marginPct = product.price > 0 ? ((product.price - product.baseCost) / product.price) * 100 : 0;
+      return marginPct < minRetailMarginPct;
+    },
+    [minRetailMarginPct],
+  );
+
+  const belowRuleCount = React.useMemo(
+    () => products.filter(isBelowRule).length,
+    [products, isBelowRule],
+  );
 
   const categoryOptions = React.useMemo(() => {
     const map = new Map<string, string>();
@@ -141,10 +171,11 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
       const categoryLabel = product.categoryName ?? "Sin categoria";
       const normalizedCategory = normalizeFilterText(categoryLabel);
       const categoryMatches = categoryFilter === "__all__" || categoryFilter === normalizedCategory;
+      const ruleMatches = !belowRuleOnly || isBelowRule(product);
 
-      return queryMatches && categoryMatches;
+      return queryMatches && categoryMatches && ruleMatches;
     });
-  }, [products, query, categoryFilter]);
+  }, [products, query, categoryFilter, belowRuleOnly, isBelowRule]);
 
   const sortedProducts = React.useMemo(() => {
     const list = [...filteredProducts];
@@ -166,6 +197,8 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
           return (a.baseCost - b.baseCost) * directionFactor;
         case "detal":
           return (a.price - b.price) * directionFactor;
+        case "margen":
+          return ((a.price - a.baseCost) - (b.price - b.baseCost)) * directionFactor;
         default:
           return 0;
       }
@@ -178,7 +211,13 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
 
   React.useEffect(() => {
     setPage(1);
-  }, [query, categoryFilter]);
+  }, [query, categoryFilter, belowRuleOnly]);
+
+  React.useEffect(() => {
+    if (belowRuleOnly && belowRuleCount === 0) {
+      setBelowRuleOnly(false);
+    }
+  }, [belowRuleOnly, belowRuleCount]);
 
   React.useEffect(() => {
     if (page > totalPages) {
@@ -250,6 +289,22 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
             </Button>
           ) : null}
         </div>
+        {belowRuleCount > 0 ? (
+          <Button
+            type="button"
+            variant={belowRuleOnly ? "secondary" : "outline"}
+            onClick={() => setBelowRuleOnly((value) => !value)}
+            className={cn(
+              "h-9 shrink-0 gap-1.5 border-red-200 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700",
+              belowRuleOnly && "bg-red-50 text-red-700",
+            )}
+            aria-pressed={belowRuleOnly}
+            title="Productos por debajo del margen minimo"
+          >
+            <AlertTriangle className="h-4 w-4" />
+            {belowRuleCount}
+          </Button>
+        ) : null}
         <div className="flex items-center gap-2 lg:ml-auto">
           <select
             value={categoryFilter}
@@ -332,9 +387,21 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                   />
                   <div className="min-w-0 flex-1 p-3">
                     <p className="line-clamp-2 text-sm font-semibold text-slate-900">{product.name}</p>
-                    <p className="truncate text-xs text-slate-500">
-                      {product.code ?? "Sin codigo"}
-                    </p>
+                    {(() => {
+                      const margin = product.price - product.baseCost;
+                      const marginPct = product.price > 0 ? (margin / product.price) * 100 : 0;
+                      const belowRule = isBelowRule(product);
+                      return (
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate text-xs text-slate-500">
+                            {product.code ?? "Sin codigo"}
+                          </span>
+                          <span className={belowRule ? "shrink-0 text-[11px] font-semibold text-red-600" : "shrink-0 text-[11px] font-semibold text-emerald-600"}>
+                            {formatMoney(margin, currency)} · {marginPct.toFixed(1)}%
+                          </span>
+                        </div>
+                      );
+                    })()}
                     <div className="mt-1 flex items-center justify-between gap-2">
                       <span className="inline-flex max-w-[55%] truncate rounded-md border border-[var(--line)] bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700">
                         {product.categoryName ?? "Sin categoria"}
@@ -482,31 +549,34 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                   onClick={() => toggleSort("detal")}
                   icon={<CircleDollarSign className="h-3.5 w-3.5" />}
                 >
-                  Detal
+                  Precio
                 </HeaderLabel>
               </TableHead>
               <TableHead className="normal-case tracking-normal">
                 <HeaderLabel
-                  active={sortKey === "acciones"}
+                  active={sortKey === "margen"}
                   direction={sortDirection}
-                  onClick={() => toggleSort("acciones")}
-                  icon={<MoreHorizontal className="h-3.5 w-3.5" />}
+                  onClick={() => toggleSort("margen")}
+                  icon={<TrendingUp className="h-3.5 w-3.5" />}
                 >
-                  Acciones
+                  Margen
                 </HeaderLabel>
+              </TableHead>
+              <TableHead className="normal-case tracking-normal">
+                <span className="sr-only">Acciones</span>
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {pagedProducts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-9 text-center text-slate-500">
+                <TableCell colSpan={6} className="py-9 text-center text-slate-500">
                   No hay productos para el filtro actual.
                 </TableCell>
               </TableRow>
             ) : (
               pagedProducts.map((product) => (
-                <TableRow key={product.id}>
+                <TableRow key={product.id} className="[&_td]:py-1.5">
                   <TableCell>
                     <Link
                       href={`/admin/productos/${product.id}`}
@@ -539,31 +609,59 @@ export function ProductsDataTable({ products, currency, onOpenProduct }: Product
                   <TableCell className="text-sm font-semibold text-slate-800">
                     {formatMoney(product.price, currency)}
                   </TableCell>
+                  <TableCell className="text-sm">
+                    {(() => {
+                      const margin = product.price - product.baseCost;
+                      const marginPct = product.price > 0 ? (margin / product.price) * 100 : 0;
+                      const belowRule = isBelowRule(product);
+                      return (
+                        <div className="flex flex-col">
+                          <span className={belowRule ? "font-medium text-red-600" : "font-medium text-emerald-600"}>
+                            {formatMoney(margin, currency)}
+                          </span>
+                          <span className={belowRule ? "text-xs font-medium text-red-600" : "text-xs text-slate-500"}>
+                            {marginPct.toFixed(1)}%
+                          </span>
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
                   <TableCell>
                     <form data-delete-product-id={product.id} action={adminDeleteProductAction}>
                       <input type="hidden" name="productId" value={product.id} />
                     </form>
-                    <div className="flex items-center gap-1">
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 border border-transparent hover:border-[var(--line)]">
-                        <Link
-                          href={`/admin/productos/${product.id}`}
-                          aria-label={`Editar ${product.name}`}
-                          onClick={(event) => handleOpenProduct(event, product.id)}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 border border-transparent hover:border-[var(--line)]"
+                          aria-label={`Acciones de ${product.name}`}
                         >
-                          <Edit3 className="h-4 w-4 text-slate-600" />
-                        </Link>
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 border border-transparent text-red-600 hover:border-red-100 hover:bg-red-50 hover:text-red-700"
-                        onClick={() => setPendingDelete({ id: product.id, name: product.name })}
-                        aria-label={`Eliminar ${product.name}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                          <MoreHorizontal className="h-4 w-4 text-slate-600" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild className="gap-2">
+                          <Link
+                            href={`/admin/productos/${product.id}`}
+                            onClick={(event) => handleOpenProduct(event, product.id)}
+                          >
+                            <Edit3 className="h-4 w-4" />
+                            Editar
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="gap-2 text-red-600 focus:text-red-700"
+                          onSelect={() => setPendingDelete({ id: product.id, name: product.name })}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Eliminar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))

@@ -4,7 +4,7 @@ import { ProductsWorkspace } from "@/components/admin/products-workspace";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { getProductWorkspaceData } from "@/lib/admin-product-workspace";
-import { getSystemCurrency } from "@/lib/system-settings";
+import { getSystemCurrency, getSystemMinRetailMarginPct } from "@/lib/system-settings";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -25,10 +25,12 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
-  const [{ products, categories, suppliers, bundleProducts }, systemCurrency] = await Promise.all([
-    getProductWorkspaceData(),
-    getSystemCurrency(),
-  ]);
+  const [{ products, categories, suppliers, bundleProducts }, systemCurrency, minRetailMarginPct] =
+    await Promise.all([
+      getProductWorkspaceData(),
+      getSystemCurrency(),
+      getSystemMinRetailMarginPct(),
+    ]);
 
   return (
     <section className="w-full space-y-4 overflow-x-hidden">
@@ -41,6 +43,7 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
 
       <ProductsWorkspace
         currency={systemCurrency}
+        minRetailMarginPct={minRetailMarginPct}
         okMessage={okMessage}
         bundleProducts={bundleProducts}
         categories={categories}

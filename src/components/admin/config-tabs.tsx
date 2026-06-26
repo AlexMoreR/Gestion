@@ -3,13 +3,14 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings, Users, Wallet } from "lucide-react";
+import { Percent, Settings, Users, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/admin/configuracion/negocio", label: "Negocio", icon: Settings },
   { href: "/admin/configuracion/usuarios", label: "Empleados", icon: Users },
   { href: "/admin/configuracion/cuentas", label: "Cuentas", icon: Wallet },
+  { href: "/admin/configuracion/reglas", label: "Regla inicial", icon: Percent },
 ];
 
 export function ConfigTabs({ action }: { action?: ReactNode }) {

@@ -12,6 +12,7 @@ import {
   getSystemStorefrontLogoPath,
   setSystemBrandName,
   setSystemCurrency,
+  setSystemMinMargins,
   setSystemPrimaryColor,
   setSystemStorefrontHeroDescription,
   setSystemStorefrontHeroTitle,
@@ -70,6 +71,17 @@ const updateStorefrontPromoItemsSchema = z.object({
         .min(1, "Agrega al menos un mensaje")
         .max(12, "Maximo 12 mensajes"),
     ),
+});
+
+const updateMinMarginsSchema = z.object({
+  minRetailMarginPct: z.coerce
+    .number({ message: "Valor invalido" })
+    .min(0, "Debe ser mayor o igual a 0")
+    .max(100000, "Valor demasiado alto"),
+  minWholesaleMarginPct: z.coerce
+    .number({ message: "Valor invalido" })
+    .min(0, "Debe ser mayor o igual a 0")
+    .max(100000, "Valor demasiado alto"),
 });
 
 async function requireAdminSession(): Promise<void> {
@@ -241,6 +253,26 @@ export async function adminUpdateStorefrontPromoItemsAction(formData: FormData):
 
   revalidateBusinessSurfaces();
   redirect("/admin/configuracion/negocio?ok=Franja+promocional+actualizada");
+}
+
+export async function adminUpdateMinMarginsAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+
+  const parsed = updateMinMarginsSchema.safeParse({
+    minRetailMarginPct: formData.get("minRetailMarginPct"),
+    minWholesaleMarginPct: formData.get("minWholesaleMarginPct"),
+  });
+
+  if (!parsed.success) {
+    redirect("/admin/configuracion/reglas?error=Reglas+de+margen+invalidas");
+  }
+
+  await setSystemMinMargins(parsed.data.minRetailMarginPct, parsed.data.minWholesaleMarginPct);
+
+  revalidatePath("/admin/configuracion/reglas");
+  revalidatePath("/admin/productos");
+  revalidatePath("/admin/productos/new");
+  redirect("/admin/configuracion/reglas?ok=Reglas+actualizadas");
 }
 
 export async function adminUpdateStorefrontLogoAction(formData: FormData): Promise<void> {

@@ -11,6 +11,10 @@ const STOREFRONT_LOGO_PATH_SETTING_KEY = "storefrontLogoPath";
 const STOREFRONT_HERO_TITLE_SETTING_KEY = "storefrontHeroTitle";
 const STOREFRONT_HERO_DESCRIPTION_SETTING_KEY = "storefrontHeroDescription";
 const STOREFRONT_PROMO_ITEMS_SETTING_KEY = "storefrontPromoItems";
+const MIN_RETAIL_MARGIN_SETTING_KEY = "minRetailMarginPct";
+const MIN_WHOLESALE_MARGIN_SETTING_KEY = "minWholesaleMarginPct";
+const DEFAULT_MIN_RETAIL_MARGIN_PCT = 0;
+const DEFAULT_MIN_WHOLESALE_MARGIN_PCT = 0;
 const DEFAULT_SYSTEM_PRIMARY_COLOR = "#6d28d9";
 const DEFAULT_SYSTEM_WHATSAPP_PHONE = siteConfig.phoneDisplay;
 const DEFAULT_STOREFRONT_LOGO_PATH = siteConfig.logoPath;
@@ -293,4 +297,50 @@ export async function setSystemStorefrontPromoItems(items: string[]): Promise<vo
   }
 
   await setAppSettingValue(STOREFRONT_PROMO_ITEMS_SETTING_KEY, JSON.stringify(normalized));
+}
+
+function normalizeMarginPct(value: string | null | undefined, fallback: number): number {
+  if (value == null) {
+    return fallback;
+  }
+
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+
+  return Math.min(parsed, 100000);
+}
+
+export const getSystemMinRetailMarginPct = cache(async (): Promise<number> => {
+  try {
+    return normalizeMarginPct(
+      await getAppSettingValue(MIN_RETAIL_MARGIN_SETTING_KEY),
+      DEFAULT_MIN_RETAIL_MARGIN_PCT,
+    );
+  } catch {
+    return DEFAULT_MIN_RETAIL_MARGIN_PCT;
+  }
+});
+
+export const getSystemMinWholesaleMarginPct = cache(async (): Promise<number> => {
+  try {
+    return normalizeMarginPct(
+      await getAppSettingValue(MIN_WHOLESALE_MARGIN_SETTING_KEY),
+      DEFAULT_MIN_WHOLESALE_MARGIN_PCT,
+    );
+  } catch {
+    return DEFAULT_MIN_WHOLESALE_MARGIN_PCT;
+  }
+});
+
+export async function setSystemMinMargins(retailPct: number, wholesalePct: number): Promise<void> {
+  if (!Number.isFinite(retailPct) || retailPct < 0 || !Number.isFinite(wholesalePct) || wholesalePct < 0) {
+    throw new Error("Reglas de margen invalidas");
+  }
+
+  await Promise.all([
+    setAppSettingValue(MIN_RETAIL_MARGIN_SETTING_KEY, String(Math.min(retailPct, 100000))),
+    setAppSettingValue(MIN_WHOLESALE_MARGIN_SETTING_KEY, String(Math.min(wholesalePct, 100000))),
+  ]);
 }

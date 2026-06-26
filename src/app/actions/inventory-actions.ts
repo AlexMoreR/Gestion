@@ -308,6 +308,210 @@ export async function adminCreateInventoryMovementAction(formData: FormData): Pr
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Movimiento registrado" }).toString()}`);
 }
 
+// Compra directa desde el modal de Ordenes: varios productos en una sola
+// operacion, cada uno con su proveedor. Por cada linea genera una entrada de
+// stock (IN) y, si tiene proveedor y costo, un cargo (deuda) a ese proveedor
+// por su costo de compra (costo unitario x cantidad).
+export async function adminCreateDirectPurchaseAction(formData: FormData): Promise<void> {
+  const createdById = await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/ordenes");
+
+  const rawDate = getStringField(formData, "movementDate").trim();
+  const movementDate = rawDate ? new Date(rawDate) : new Date();
+  if (Number.isNaN(movementDate.getTime())) {
+    redirectWithError(returnTo, "Fecha invalida.");
+  }
+
+  // Lineas de la compra. Producto normal: { productId, quantity, cost, supplierId }.
+  // Combo: { productId, quantity, components: [{ childId, supplierId, cost }] } —
+  // cada componente con su proveedor y costo (costo por combo).
+  type ComponentCharge = { childId: string; supplierId: string; cost: number };
+  let items: Array<{
+    productId: string;
+    quantity: number;
+    cost: number;
+    supplierId: string;
+    components: ComponentCharge[];
+  }> = [];
+  const rawItems = getStringField(formData, "items");
+  try {
+    const parsed = JSON.parse(rawItems) as unknown;
+    if (Array.isArray(parsed)) {
+      items = parsed
+        .filter(
+          (entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object",
+        )
+        .map((entry) => ({
+          productId: typeof entry.productId === "string" ? entry.productId.trim() : "",
+          quantity: Math.trunc(Number(entry.quantity) || 0),
+          cost: Number(entry.cost) || 0,
+          supplierId: typeof entry.supplierId === "string" ? entry.supplierId.trim() : "",
+          components: Array.isArray(entry.components)
+            ? entry.components
+                .filter(
+                  (component): component is Record<string, unknown> =>
+                    Boolean(component) && typeof component === "object",
+                )
+                .map((component) => ({
+                  childId: typeof component.childId === "string" ? component.childId.trim() : "",
+                  supplierId: typeof component.supplierId === "string" ? component.supplierId.trim() : "",
+                  cost: Number(component.cost) || 0,
+                }))
+                .filter((component) => component.childId)
+            : [],
+        }))
+        .filter((entry) => entry.productId && entry.quantity > 0);
+    }
+  } catch {
+    // ignore: se valida abajo con items vacio.
+  }
+
+  if (items.length === 0) {
+    redirectWithError(returnTo, "Agrega al menos un producto con cantidad.");
+  }
+
+  // Pre-valida cada producto antes de escribir nada (los movimientos no son
+  // transaccionales entre si). Un combo es valido si tiene componentes; un
+  // producto normal debe manejar inventario (tipo Stock).
+  const productInfoById = new Map<
+    string,
+    {
+      name: string;
+      isBundle: boolean;
+      components: Array<{ childId: string; quantity: number; name: string }>;
+    }
+  >();
+  for (const item of items) {
+    if (productInfoById.has(item.productId)) continue;
+    const product = await prisma.product.findUnique({
+      where: { id: item.productId },
+      select: {
+        name: true,
+        isBundle: true,
+        bundleComponents: {
+          select: { childId: true, quantity: true, child: { select: { name: true } } },
+        },
+      },
+    });
+    if (!product) {
+      redirectWithError(returnTo, "Uno de los productos no existe.");
+    }
+    if (product.isBundle) {
+      const components = product.bundleComponents
+        .filter((component) => component.quantity > 0)
+        .map((component) => ({
+          childId: component.childId,
+          quantity: component.quantity,
+          name: component.child.name,
+        }));
+      if (components.length === 0) {
+        redirectWithError(returnTo, `El combo ${product.name} no tiene componentes configurados.`);
+      }
+      productInfoById.set(item.productId, { name: product.name, isBundle: true, components });
+    } else {
+      const trackable = await repository.isTrackableProduct(item.productId);
+      if (!trackable) {
+        redirectWithError(returnTo, `${product.name} no maneja inventario (debe ser tipo Stock).`);
+      }
+      productInfoById.set(item.productId, { name: product.name, isBundle: false, components: [] });
+    }
+  }
+
+  // Cache de proveedores activos validados, para no consultar repetido.
+  const activeSupplierById = new Map<string, { id: string; name: string } | null>();
+  const resolveSupplier = async (supplierId: string): Promise<{ id: string; name: string } | null> => {
+    if (!supplierId) return null;
+    if (activeSupplierById.has(supplierId)) return activeSupplierById.get(supplierId)!;
+    const supplier = await prisma.supplier.findFirst({
+      where: { id: supplierId, isActive: true },
+      select: { id: true, name: true },
+    });
+    activeSupplierById.set(supplierId, supplier);
+    return supplier;
+  };
+
+  let invSeq = await getNextInventoryChargeSeq();
+  try {
+    for (const item of items) {
+      const product = productInfoById.get(item.productId)!;
+
+      if (product.isBundle) {
+        // Combo: no hay stock propio. Por cada componente se reparte el stock
+        // (unidades del componente x cantidad de combos) y se carga su costo al
+        // proveedor elegido para ese componente.
+        const chargeByChild = new Map(item.components.map((component) => [component.childId, component]));
+        for (const component of product.components) {
+          const movementId = await registerInventoryMovementUseCase(repository, {
+            productId: component.childId,
+            type: "IN",
+            quantity: component.quantity * item.quantity,
+            note: `Compra combo ${product.name} (x${item.quantity})`,
+            movementDate,
+            createdById,
+          });
+
+          const charge = chargeByChild.get(component.childId);
+          const supplier = charge ? await resolveSupplier(charge.supplierId) : null;
+          if (supplier && charge && charge.cost > 0) {
+            await prisma.supplierLedgerEntry.create({
+              data: {
+                supplierId: supplier.id,
+                code: buildInventoryChargeCode((invSeq += 1)),
+                type: "CHARGE",
+                // Costo del componente por combo x cantidad de combos comprados.
+                amount: charge.cost * item.quantity,
+                note: `Compra inventario - ${component.name} (Combo ${product.name} x${item.quantity})`,
+                paymentDate: movementDate,
+                inventoryMovementId: movementId,
+                createdById,
+              },
+            });
+          }
+        }
+        continue;
+      }
+
+      // Producto normal: una entrada y, si tiene proveedor y costo, un cargo.
+      const supplier = await resolveSupplier(item.supplierId);
+      const movementId = await registerInventoryMovementUseCase(repository, {
+        productId: item.productId,
+        type: "IN",
+        quantity: item.quantity,
+        note: supplier ? `Compra a ${supplier.name}` : "Compra directa",
+        movementDate,
+        createdById,
+      });
+
+      if (supplier && item.cost > 0) {
+        await prisma.supplierLedgerEntry.create({
+          data: {
+            supplierId: supplier.id,
+            code: buildInventoryChargeCode((invSeq += 1)),
+            type: "CHARGE",
+            // Total con el proveedor = costo unitario x cantidad. La nota empieza
+            // por "Compra inventario" para que el reajuste por cantidad la tome.
+            amount: item.cost * item.quantity,
+            note: `Compra inventario - ${product.name} (x${item.quantity})`,
+            paymentDate: movementDate,
+            inventoryMovementId: movementId,
+            createdById,
+          },
+        });
+      }
+    }
+  } catch (error) {
+    if (error instanceof InventoryError) {
+      redirectWithError(returnTo, error.message);
+    }
+    throw error;
+  }
+
+  revalidatePath("/admin/inventario");
+  revalidatePath("/admin/proveedores");
+  revalidatePath("/admin/ordenes");
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Compra registrada" }).toString()}`);
+}
+
 export async function adminDeleteInventoryMovementAction(formData: FormData): Promise<void> {
   await requireAdminSession();
   const returnTo = getReturnTo(formData);

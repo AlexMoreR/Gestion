@@ -21,7 +21,7 @@ function monthLabelOf(key: string): string {
   const [year, month] = key.split("-").map(Number);
   const label = new Date(year, month - 1, 1).toLocaleDateString("es-CO", {
     month: "long",
-    year: "numeric",
+    year: "2-digit",
   });
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
@@ -141,7 +141,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     ? query.month
     : currentMonthKey;
 
-  type BalanceRow = SupplierBalanceRow & { bucketMonth: string };
+  type BalanceRow = SupplierBalanceRow & { bucketMonth: string; sortDate: Date };
 
   const orderRows: BalanceRow[] = items.map((item) => {
     const amount = Number(item.purchaseCost ?? 0) * item.quantity;
@@ -162,8 +162,8 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
       id: item.id,
       orderCode: item.order.code,
       productName: item.product.name,
-      // Debajo del nombre: código + cantidad, ej. "SHV15 x 1".
-      productCode: item.product.code ? `${item.product.code} x ${item.quantity}` : null,
+      // Debajo del nombre: código + cantidad, ej. "SHV15 · x1".
+      productCode: item.product.code ? `${item.product.code} · x${item.quantity}` : null,
       productImage: getPublicAssetUrl(item.product.thumbnailUrl),
       quantity: item.quantity,
       amount,
@@ -171,6 +171,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
       isFinished,
       bucketMonth,
       receiptUrl: receiptRaw ? getPublicAssetUrl(receiptRaw) : null,
+      sortDate: paidDate ?? item.confirmedAt ?? item.createdAt,
       date: (paidDate ?? item.confirmedAt ?? item.createdAt).toLocaleDateString("es-CO"),
     };
   });
@@ -215,9 +216,9 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
       id: charge.id,
       orderCode: charge.code ?? fallbackCode,
       productName: product?.name ?? cleanNote ?? "Cargo",
-      // Debajo del nombre: código + cantidad, ej. "BMV15 x 1". Los cargos manuales
-      // no tienen producto asociado, así que se muestran como "VARIOS x 1".
-      productCode: product?.code ? `${product.code} x ${qty}` : `VARIOS x ${qty}`,
+      // Debajo del nombre: código + cantidad, ej. "BMV15 · x1". Los cargos manuales
+      // no tienen producto asociado, así que se muestran como "VARIOS · x1".
+      productCode: product?.code ? `${product.code} · x${qty}` : `VARIOS · x${qty}`,
       productImage: product?.thumbnailUrl ? getPublicAssetUrl(product.thumbnailUrl) : null,
       quantity: qty,
       amount,
@@ -227,6 +228,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
       // original). El saldo de los pendientes también se reduce con abonos generales.
       bucketMonth: isPaid && settleDate ? monthKeyOf(settleDate) : currentMonthKey,
       receiptUrl: rawReceipt ? getPublicAssetUrl(rawReceipt) : null,
+      sortDate: isPaid && settleDate ? settleDate : chargeDate,
       date: (isPaid && settleDate ? settleDate : chargeDate).toLocaleDateString("es-CO"),
     };
   });
@@ -261,7 +263,8 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     }, null);
     const chargeDate = charge.paymentDate ?? charge.createdAt;
     const bucketMonth = isPaid && payDate ? monthKeyOf(payDate) : currentMonthKey;
-    const dateStr = (isPaid && payDate ? payDate : chargeDate).toLocaleDateString("es-CO");
+    const sortDate = isPaid && payDate ? payDate : chargeDate;
+    const dateStr = sortDate.toLocaleDateString("es-CO");
     // Comprobante del envio: el del pago mas reciente (entre los que lo saldaron)
     // que tenga adjunto. Solo se muestra si el cargo esta pagado.
     const receiptPayment = matched.reduce<{ date: Date; url: string } | null>((latest, payment) => {
@@ -295,6 +298,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
           isFinished: true,
           bucketMonth,
           receiptUrl: shippingReceipt,
+          sortDate,
           date: dateStr,
         },
       ];
@@ -315,7 +319,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
         id: `${charge.id}-${item.id}`,
         orderCode,
         productName: product.name,
-        productCode: product.code ? `${product.code} x ${item.quantity}` : `x ${item.quantity}`,
+        productCode: product.code ? `${product.code} · x${item.quantity}` : `x${item.quantity}`,
         productImage: product.thumbnailUrl ? getPublicAssetUrl(product.thumbnailUrl) : null,
         quantity: item.quantity,
         amount: share,
@@ -323,6 +327,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
         isFinished: true,
         bucketMonth,
         receiptUrl: shippingReceipt,
+        sortDate,
         date: dateStr,
       };
     });
@@ -337,7 +342,9 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     .sort((a, b) => b.localeCompare(a))
     .map((key) => ({ value: key, label: monthLabelOf(key) }));
 
-  const rows = allRows.filter((row) => row.bucketMonth === selectedMonth);
+  const rows = allRows
+    .filter((row) => row.bucketMonth === selectedMonth)
+    .sort((a, b) => b.sortDate.getTime() - a.sortDate.getTime());
   // Los abonos generales se aplican solo en la vista del mes actual (donde viven
   // los cargos arrastrados).
   const abonosAplicados = selectedMonth === currentMonthKey ? totalAbonos : 0;
@@ -365,13 +372,24 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
   return (
     <main className="mx-auto w-full max-w-6xl space-y-5 px-4 py-6">
       <div className="flex flex-col gap-3 overflow-hidden rounded-xl border border-slate-200/60 bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-xl font-black text-white sm:h-12 sm:w-12 sm:text-2xl">
-            M
+        <div className="flex items-center justify-between gap-3 sm:justify-start">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-xl font-black text-white sm:h-12 sm:w-12 sm:text-2xl">
+              M
+            </div>
+            <div>
+              <p className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">{companyInfo.name}</p>
+              <p className="text-xs text-slate-500">NIT {companyInfo.nit}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">{companyInfo.name}</p>
-            <p className="text-xs text-slate-500">NIT {companyInfo.nit}</p>
+          {/* En movil el selector de mes va junto al logo, con la ciudad debajo; en desktop se muestra en el bloque derecho. */}
+          <div className="flex flex-col items-end gap-1 sm:hidden">
+            <div className="w-32 shrink-0">
+              <SupplierBalanceMonthSelect months={months} value={selectedMonth} />
+            </div>
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500">
+              <Building2 className="h-4 w-4" /> {companyInfo.cityOrigin}
+            </span>
           </div>
         </div>
         <div className="flex flex-col gap-1 sm:items-end">
@@ -382,10 +400,10 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500">
+            <span className="hidden items-center gap-1 text-xs font-medium text-slate-500 sm:inline-flex">
               <Building2 className="h-4 w-4" /> {companyInfo.cityOrigin}
             </span>
-            <div className="w-40 shrink-0">
+            <div className="hidden w-40 shrink-0 sm:block">
               <SupplierBalanceMonthSelect months={months} value={selectedMonth} />
             </div>
           </div>

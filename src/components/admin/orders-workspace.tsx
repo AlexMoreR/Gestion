@@ -11,8 +11,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { OperationsTabs } from "@/components/admin/operations-tabs";
+import { PurchaseDirectDialog } from "@/components/admin/purchase-direct-dialog";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { getOrderStatusBadgeClassName, getOrderStatusLabel } from "@/lib/orders";
+
+type PurchaseProductOption = {
+  id: string;
+  name: string;
+  code: string | null;
+  baseCost: number;
+  stock: number;
+  thumbnailUrl: string;
+  isBundle: boolean;
+};
 
 type OrderRow = {
   id: string;
@@ -35,6 +46,12 @@ type OrdersWorkspaceProps = {
     readyToDispatchCount: number;
     completedCount: number;
   };
+  purchaseProducts: PurchaseProductOption[];
+  purchaseSuppliersByProduct: Record<string, { id: string; name: string; cost: number | null }[]>;
+  purchaseComboComponents: Record<
+    string,
+    { childId: string; name: string; code: string | null; quantity: number; thumbnailUrl: string }[]
+  >;
 };
 
 function RowActions({ order }: { order: OrderRow }) {
@@ -70,10 +87,29 @@ function RowActions({ order }: { order: OrderRow }) {
   );
 }
 
-export function OrdersWorkspace({ orders, currency, stats }: OrdersWorkspaceProps) {
+export function OrdersWorkspace({
+  orders,
+  currency,
+  stats,
+  purchaseProducts,
+  purchaseSuppliersByProduct,
+  purchaseComboComponents,
+}: OrdersWorkspaceProps) {
   return (
     <section className="space-y-4">
-      <OperationsTabs />
+      <div className="flex items-end justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <OperationsTabs />
+        </div>
+        <div className="-mb-px shrink-0 pb-1.5">
+          <PurchaseDirectDialog
+            products={purchaseProducts}
+            suppliersByProduct={purchaseSuppliersByProduct}
+            comboComponents={purchaseComboComponents}
+            currency={currency}
+          />
+        </div>
+      </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card className="border-border bg-card/95">

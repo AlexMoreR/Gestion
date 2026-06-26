@@ -170,7 +170,7 @@ export function SupplierBalanceItems({ rows, currency, emptyLabel, header }: Sup
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs text-muted-foreground">
-                  {row.orderCode} · {row.date} · x{row.quantity}
+                  {row.orderCode} · {row.date}
                 </span>
                 <div className="flex items-center gap-1.5">
                   <StateBadge isFinished={row.isFinished} />
