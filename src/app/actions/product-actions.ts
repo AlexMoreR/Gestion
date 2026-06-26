@@ -520,7 +520,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
 
   const previousProduct = await prisma.product.findUnique({
     where: { id: parsed.data.productId },
-    select: { baseCost: true, price: true, wholesalePrice: true },
+    select: { name: true, code: true, baseCost: true, price: true, wholesalePrice: true, minStock: true },
   });
 
   try {
@@ -588,19 +588,33 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
   }
 
   const formatPriceChange = (value: number) => `$${Math.round(value).toLocaleString("es-CO")}`;
-  const priceChanges: string[] = [];
+  const changes: string[] = [];
   if (previousProduct) {
+    const prevName = previousProduct.name ?? "";
+    const prevCode = previousProduct.code ?? "";
+    const nextCode = parsed.data.code || "";
     const prevCost = Number(previousProduct.baseCost);
     const prevPrice = Number(previousProduct.price);
     const prevWholesale = Number(previousProduct.wholesalePrice);
+    const prevMinStock = Number(previousProduct.minStock);
+
+    if (prevName !== parsed.data.name) {
+      changes.push(`"${prevName}" → "${parsed.data.name}"`);
+    }
+    if (prevCode !== nextCode) {
+      changes.push(`Código: "${prevCode || "—"}" → "${nextCode || "—"}"`);
+    }
     if (prevCost !== parsed.data.baseCost) {
-      priceChanges.push(`Costo: ${formatPriceChange(prevCost)} → ${formatPriceChange(parsed.data.baseCost)}`);
+      changes.push(`Costo: ${formatPriceChange(prevCost)} → ${formatPriceChange(parsed.data.baseCost)}`);
     }
     if (prevPrice !== retailPrice) {
-      priceChanges.push(`Precio detal: ${formatPriceChange(prevPrice)} → ${formatPriceChange(retailPrice)}`);
+      changes.push(`Precio detal: ${formatPriceChange(prevPrice)} → ${formatPriceChange(retailPrice)}`);
     }
     if (prevWholesale !== wholesalePrice) {
-      priceChanges.push(`Precio mayor: ${formatPriceChange(prevWholesale)} → ${formatPriceChange(wholesalePrice)}`);
+      changes.push(`Precio mayor: ${formatPriceChange(prevWholesale)} → ${formatPriceChange(wholesalePrice)}`);
+    }
+    if (prevMinStock !== parsed.data.minStock) {
+      changes.push(`Stock mínimo: ${prevMinStock} → ${parsed.data.minStock}`);
     }
   }
 
@@ -608,9 +622,10 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
     action: "UPDATE",
     entityType: "PRODUCT",
     entityId: parsed.data.productId,
-    summary: `Actualizó el producto "${parsed.data.name}"${
-      priceChanges.length > 0 ? ` — ${priceChanges.join("; ")}` : ""
-    }`,
+    summary:
+      changes.length > 0
+        ? `Actualizó el producto "${parsed.data.name}" — ${changes.join("; ")}`
+        : `Actualizó el producto "${parsed.data.name}"`,
   });
 
   revalidatePath("/");
@@ -797,4 +812,40 @@ export async function adminImportProductsCsvAction(formData: FormData): Promise<
       `Importacion completada: ${created} creados${skipped ? `, ${skipped} omitidos` : ""}`,
     )}`,
   );
+}
+
+export type ProductActivityRow = {
+  id: string;
+  action: "CREATE" | "UPDATE" | "DELETE";
+  actorName: string;
+  summary: string;
+  createdAt: string;
+};
+
+export async function getProductActivityAction(productId: string): Promise<ProductActivityRow[]> {
+  await requireAdminSession();
+
+  const id = typeof productId === "string" ? productId.trim() : "";
+  if (!id) {
+    return [];
+  }
+
+  try {
+    const rows = await prisma.activityLog.findMany({
+      where: { entityType: "PRODUCT", entityId: id },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      select: { id: true, action: true, actorName: true, summary: true, createdAt: true },
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      action: row.action,
+      actorName: row.actorName,
+      summary: row.summary,
+      createdAt: row.createdAt.toISOString(),
+    }));
+  } catch {
+    return [];
+  }
 }

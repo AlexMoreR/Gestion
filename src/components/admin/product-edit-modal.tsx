@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { EditProductForm } from "@/components/admin/edit-product-form";
 import { getProductPurchaseHistoryAction } from "@/app/actions/inventory-actions";
+import { getProductActivityAction, type ProductActivityRow } from "@/app/actions/product-actions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import type { ProductPurchaseRow } from "@/lib/product-purchase-history";
@@ -31,6 +32,8 @@ export function ProductEditModal({
 }: ProductEditModalProps) {
   const [purchaseHistory, setPurchaseHistory] = useState<ProductPurchaseRow[]>([]);
   const [purchaseHistoryLoading, setPurchaseHistoryLoading] = useState(false);
+  const [activity, setActivity] = useState<ProductActivityRow[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
   const productId = product?.id ?? null;
 
   useEffect(() => {
@@ -61,6 +64,34 @@ export function ProductEditModal({
     };
   }, [productId]);
 
+  useEffect(() => {
+    if (!productId) {
+      setActivity([]);
+      return;
+    }
+    let active = true;
+    setActivityLoading(true);
+    getProductActivityAction(productId)
+      .then((rows) => {
+        if (active) {
+          setActivity(rows);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setActivity([]);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setActivityLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [productId]);
+
   return (
     <Dialog open={product !== null} onOpenChange={(open) => (open ? null : onClose())}>
       <DialogContent className="flex max-h-[92vh] w-full max-w-2xl flex-col gap-0 overflow-hidden p-0">
@@ -75,6 +106,8 @@ export function ProductEditModal({
               currency={currency}
               purchaseHistory={purchaseHistory}
               purchaseHistoryLoading={purchaseHistoryLoading}
+              activity={activity}
+              activityLoading={activityLoading}
               bundleProducts={bundleProducts.filter((item) => item.id !== product.id)}
               initialData={{
                 id: product.id,

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Activity,
   Banknote,
   Barcode,
   Boxes,
@@ -10,6 +11,7 @@ import {
   Hash,
   ImagePlus,
   Package,
+  Pencil,
   Plus,
   Tag,
   TrendingUp,
@@ -17,7 +19,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import { adminUpdateProductAction } from "@/app/actions/product-actions";
+import { adminUpdateProductAction, type ProductActivityRow } from "@/app/actions/product-actions";
 import {
   ProductBundleField,
   type BundleProductOption,
@@ -78,7 +80,72 @@ type EditProductFormProps = {
   initialData: EditProductInitialData;
   purchaseHistory?: ProductPurchaseRow[];
   purchaseHistoryLoading?: boolean;
+  activity?: ProductActivityRow[];
+  activityLoading?: boolean;
 };
+
+function stripQuotes(value: string): string {
+  return value.replace(/^"([\s\S]*)"$/, "$1").trim();
+}
+
+// Muestra el detalle de actividad con etiquetas "Antes → Después" y valores en negrita.
+function ActivitySummary({ summary }: { summary: string }) {
+  const raw = summary.replace(/^(Actualizó|Creó|Eliminó|Importó)\s+/, "");
+  const dashIdx = raw.indexOf("—");
+
+  if (dashIdx >= 0) {
+    const segments = raw
+      .slice(dashIdx + 1)
+      .trim()
+      .split(/;\s*/)
+      .filter(Boolean);
+
+    return (
+      <>
+        {segments.map((segment, i) => {
+          const labelMatch = segment.match(/^([^:]+):\s+([\s\S]*)$/);
+          let label = "";
+          let body = segment;
+          if (labelMatch && labelMatch[2].includes("→")) {
+            label = labelMatch[1].trim();
+            body = labelMatch[2].trim();
+          }
+          const sides = body.split(/\s*→\s*/);
+          return (
+            <span key={i}>
+              {i > 0 ? " · " : ""}
+              {label ? `${label}: ` : ""}
+              {sides.length === 2 ? (
+                <>
+                  <strong className="font-semibold text-slate-900">{stripQuotes(sides[0])}</strong>
+                  {" → "}
+                  <strong className="font-semibold text-slate-900">{stripQuotes(sides[1])}</strong>
+                </>
+              ) : (
+                stripQuotes(body)
+              )}
+            </span>
+          );
+        })}
+      </>
+    );
+  }
+
+  const display = raw.charAt(0).toUpperCase() + raw.slice(1);
+  return (
+    <>
+      {display.split(/("[^"]*")/g).map((part, i) =>
+        /^"[^"]*"$/.test(part) ? (
+          <strong key={i} className="font-semibold text-slate-900">
+            {part.slice(1, -1)}
+          </strong>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
 
 export function EditProductForm({
   categories,
@@ -88,6 +155,8 @@ export function EditProductForm({
   initialData,
   purchaseHistory = [],
   purchaseHistoryLoading = false,
+  activity = [],
+  activityLoading = false,
 }: EditProductFormProps) {
   const initialWholesaleEnabled =
     initialData.wholesalePrice > 0 ||
@@ -233,10 +302,12 @@ export function EditProductForm({
     { id: 1, label: "Producto", icon: Package },
     { id: 2, label: "Precios y compra", icon: Banknote },
     { id: 3, label: "Inventario", icon: Boxes },
+    { id: 4, label: "Actividad", icon: Activity },
   ] as const;
 
   const maxReachableStep = !step1Ready ? 1 : !step2Ready ? 2 : 3;
-  const canGoToStep = (target: number) => target <= Math.max(currentStep, maxReachableStep);
+  // La pestaña de actividad es solo lectura: siempre accesible.
+  const canGoToStep = (target: number) => target === 4 || target <= Math.max(currentStep, maxReachableStep);
   const goToStep = (target: number) => {
     if (canGoToStep(target)) {
       setCurrentStep(target);
@@ -680,6 +751,65 @@ export function EditProductForm({
               </div>
             </div>
 
+            <div className={currentStep === 4 ? "space-y-3" : "hidden"}>
+              {activityLoading ? (
+                <p className="rounded-lg border border-dashed border-[var(--line)] bg-slate-50/60 px-3 py-3 text-xs text-slate-500">
+                  Cargando actividad...
+                </p>
+              ) : activity.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-[var(--line)] bg-slate-50/60 px-3 py-3 text-xs text-slate-500">
+                  Aun no hay actividad registrada para este producto.
+                </p>
+              ) : (
+                <ul className="space-y-0">
+                  {activity.map((item, index) => {
+                    const dot =
+                      item.action === "CREATE"
+                        ? "border-emerald-500 bg-emerald-500 text-white"
+                        : item.action === "DELETE"
+                          ? "border-red-500 bg-red-500 text-white"
+                          : "border-amber-500 bg-amber-500 text-white";
+                    const isLast = index === activity.length - 1;
+                    return (
+                      <li key={item.id} className="relative flex gap-3 pb-4 last:pb-0">
+                        {!isLast ? (
+                          <span
+                            className="absolute left-[11px] top-6 bottom-0 w-px bg-[var(--line)]"
+                            aria-hidden
+                          />
+                        ) : null}
+                        <span
+                          className={`relative z-10 mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${dot}`}
+                        >
+                          {item.action === "CREATE" ? (
+                            <Plus className="h-3.5 w-3.5" />
+                          ) : item.action === "DELETE" ? (
+                            <X className="h-3.5 w-3.5" />
+                          ) : (
+                            <Pencil className="h-3 w-3" />
+                          )}
+                        </span>
+                        <div className="min-w-0 flex-1 pb-1">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <p className="text-xs text-slate-700">
+                              <ActivitySummary summary={item.summary} />
+                            </p>
+                            <span className="shrink-0 text-[11px] text-slate-500">
+                              {new Date(item.createdAt).toLocaleString("es-CO", {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 text-xs text-slate-500">Por {item.actorName}</p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
             </div>
 
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t bg-white px-6 py-4">
@@ -699,7 +829,7 @@ export function EditProductForm({
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                {currentStep >= 2 ? (
+                {currentStep >= 2 && currentStep !== 4 ? (
                   <Button type="submit" disabled={!canSubmit}>
                     Guardar cambios
                   </Button>
