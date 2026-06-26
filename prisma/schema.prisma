@@ -156,6 +156,7 @@ model Supplier {
   orderItems        OrderItem[]           @relation("OrderItemConfirmedSupplier")
   ledgerEntries     SupplierLedgerEntry[]
   carriedDispatches Dispatch[]            @relation("DispatchCarrier")
+  purchaseOrders    Order[]               @relation("OrderSupplier")
 }
 
 enum SupplierLedgerType {
@@ -384,6 +385,12 @@ enum OrderStatus {
   CANCELLED
 }
 
+// Tipo de orden: venta a cliente (SALE) o compra a proveedor (PURCHASE).
+enum OrderType {
+  SALE
+  PURCHASE
+}
+
 enum ProductionJobStatus {
   PENDING
   IN_PROGRESS
@@ -410,9 +417,16 @@ enum DeliveryType {
 model Order {
   id                    String                @id @default(cuid())
   code                  String                @unique
-  saleId                String                @unique
-  quoteId               String
-  clientId              String
+  type                  OrderType             @default(SALE)
+  // Venta/cotizacion/cliente solo aplican a ordenes de venta (SALE).
+  saleId                String?               @unique
+  quoteId               String?
+  clientId              String?
+  // Proveedor solo aplica a ordenes de compra (PURCHASE).
+  supplierId            String?
+  // Codigo de compra (COM-...) que agrupa los movimientos de inventario de esta
+  // orden de compra; permite revertir stock/cargos al eliminarla.
+  purchaseCode          String?
   createdById           String
   assignedToId          String?
   status                OrderStatus           @default(DRAFT)
@@ -425,9 +439,10 @@ model Order {
   total                 Decimal               @default(0) @db.Decimal(12, 2)
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
-  sale                  Sale                  @relation(fields: [saleId], references: [id], onDelete: Restrict)
-  quote                 Quote                 @relation(fields: [quoteId], references: [id], onDelete: Restrict)
-  client                User                  @relation("OrderClient", fields: [clientId], references: [id], onDelete: Restrict)
+  sale                  Sale?                 @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  quote                 Quote?                @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  client                User?                 @relation("OrderClient", fields: [clientId], references: [id], onDelete: Restrict)
+  supplier              Supplier?             @relation("OrderSupplier", fields: [supplierId], references: [id], onDelete: SetNull)
   createdBy             User                  @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   assignedTo            User?                 @relation("OrderAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
   items                 OrderItem[]
@@ -440,6 +455,7 @@ model Order {
   @@index([createdById, createdAt])
   @@index([assignedToId, createdAt])
   @@index([quoteId, createdAt])
+  @@index([supplierId, createdAt])
 }
 
 model OrderItem {
@@ -673,6 +689,9 @@ model InventoryMovement {
   // Efecto con signo sobre el stock: +entrada, -salida, +/- ajuste.
   change       Int
   note         String?
+  // Código de compra (COM-00001...) que agrupa los movimientos creados en una
+  // misma compra directa a proveedor. Nulo para movimientos sueltos.
+  purchaseCode String?
   movementDate DateTime              @default(now())
   createdById  String
   createdAt    DateTime              @default(now())
@@ -681,4 +700,5 @@ model InventoryMovement {
   ledgerEntries SupplierLedgerEntry[]
 
   @@index([productId, movementDate])
+  @@index([purchaseCode])
 }

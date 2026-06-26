@@ -34,7 +34,7 @@ type SupplierType = "MANUFACTURER" | "SHIPPING";
 type SupplierOrderOption = {
   orderId: string;
   code: string;
-  saleId: string;
+  saleId: string | null;
   pending: number;
 };
 

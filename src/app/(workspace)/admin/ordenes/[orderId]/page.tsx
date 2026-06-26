@@ -49,6 +49,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           },
         },
         client: true,
+        supplier: true,
         createdBy: true,
         assignedTo: true,
         items: {
@@ -254,13 +255,20 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-xl font-semibold tracking-tight text-foreground">{order.code}</h1>
-          <p className="text-sm text-muted-foreground">
-            Venta{" "}
-            <Link href="/admin/ventas" className="font-medium text-foreground hover:underline">
-              {order.sale.code}
-            </Link>{" "}
-            - Cliente {order.client.name || order.client.email}
-          </p>
+          {order.type === "PURCHASE" ? (
+            <p className="text-sm text-muted-foreground">
+              Compra{order.supplier ? ` a ${order.supplier.name}` : " a proveedor"}
+              {order.createdBy ? ` · ${order.createdBy.name || order.createdBy.email}` : ""}
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Venta{" "}
+              <Link href="/admin/ventas" className="font-medium text-foreground hover:underline">
+                {order.sale?.code}
+              </Link>{" "}
+              - Cliente {order.client?.name || order.client?.email}
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -319,7 +327,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             returnTo={returnTo}
             accounts={accounts}
             carriers={carriers}
-            defaultAddress={order.client.address ?? ""}
+            defaultAddress={order.client?.address ?? ""}
           />
         </div>
 
@@ -334,7 +342,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               returnTo,
               carriers,
               accounts,
-              defaultAddress: order.client.address ?? "",
+              defaultAddress: order.client?.address ?? "",
               canDispatch,
               allItemsConfirmed,
               allItemsPaymentSet,
@@ -343,8 +351,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             delivery={{
               dispatchId: latestDispatch?.id ?? null,
               returnTo,
-              defaultInstagram: order.client.instagram ?? "",
-              defaultTiktok: order.client.tiktok ?? "",
+              defaultInstagram: order.client?.instagram ?? "",
+              defaultTiktok: order.client?.tiktok ?? "",
             }}
           />
 
@@ -360,7 +368,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                   by: item.changedBy.name ?? item.changedBy.email,
                   note: item.note,
                 }))}
-                payments={order.sale.salePayments.map((payment) => ({
+                payments={(order.sale?.salePayments ?? []).map((payment) => ({
                   id: payment.id,
                   amount: Number(payment.amount),
                   method: payment.paymentMethod ?? null,

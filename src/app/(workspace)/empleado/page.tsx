@@ -110,7 +110,7 @@ export default async function EmpleadoPage() {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{order.code}</p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {order.client.name ?? "Cliente"} · {order._count.items} ítem(s)
+                      {order.client?.name ?? "Cliente"} · {order._count.items} ítem(s)
                     </p>
                   </div>
                   <Badge variant="outline">{getOrderStatusLabel(order.status)}</Badge>

@@ -28,12 +28,15 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
   const repository = createPrismaInventoryRepository();
-  const [orders, currency, productStocks, bundleProducts, productSupplierRows] = await Promise.all([
+  const [orders, currency, productStocks, bundleProducts, productSupplierRows, allSuppliers] =
+    await Promise.all([
     prisma.order.findMany({
       orderBy: { createdAt: "desc" },
       include: {
         sale: true,
         client: true,
+        supplier: true,
+        createdBy: true,
         assignedTo: true,
       },
       take: 200,
@@ -70,6 +73,12 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
         supplierCost: true,
         supplier: { select: { id: true, name: true } },
       },
+    }),
+    // Todos los proveedores activos (para costos adicionales como el envio).
+    prisma.supplier.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
     }),
   ]);
 
@@ -135,6 +144,25 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
     },
   );
 
+  // Filas: ordenes de venta y de compra (mismo modelo Order, distinto type).
+  const rows = orders.map((order) => {
+    const isPurchase = order.type === "PURCHASE";
+    return {
+      kind: isPurchase ? ("purchase" as const) : ("order" as const),
+      id: order.id,
+      code: order.code,
+      saleCode: isPurchase ? "Compra" : order.sale?.code ?? "—",
+      // En compras, el "cliente" es quien la creo (admin/empleado).
+      clientName: isPurchase
+        ? order.createdBy?.name || order.createdBy?.email || "—"
+        : order.client?.name || order.client?.email || "—",
+      assignedToName: order.assignedTo?.name ?? order.assignedTo?.email ?? null,
+      total: Number(order.total),
+      status: order.status,
+      createdAt: order.createdAt.toLocaleDateString("es-CO"),
+    };
+  });
+
   return (
     <section className="w-full space-y-4">
       <QueryFeedbackToast
@@ -147,16 +175,7 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
       <OrdersWorkspace
         currency={currency}
         stats={stats}
-        orders={orders.map((order) => ({
-          id: order.id,
-          code: order.code,
-          saleCode: order.sale.code,
-          clientName: order.client.name || order.client.email,
-          assignedToName: order.assignedTo?.name ?? order.assignedTo?.email ?? null,
-          total: Number(order.total),
-          status: order.status,
-          createdAt: order.createdAt.toLocaleDateString("es-CO"),
-        }))}
+        orders={rows}
         purchaseProducts={[
           ...productStocks.map((stock) => ({
             id: stock.productId,
@@ -179,6 +198,7 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
         ]}
         purchaseSuppliersByProduct={purchaseSuppliersByProduct}
         purchaseComboComponents={purchaseComboComponents}
+        purchaseSuppliers={allSuppliers}
       />
     </section>
   );

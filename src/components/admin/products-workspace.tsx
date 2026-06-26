@@ -30,6 +30,7 @@ type ProductsWorkspaceProps = {
   bundleProducts: BundleProductOption[];
   currency: SupportedCurrencyCode;
   minRetailMarginPct?: number;
+  minWholesaleMarginPct?: number;
   okMessage?: string;
 };
 
@@ -40,6 +41,7 @@ export function ProductsWorkspace({
   bundleProducts,
   currency,
   minRetailMarginPct,
+  minWholesaleMarginPct,
   okMessage,
 }: ProductsWorkspaceProps) {
   const [modal, setModal] = useState<"edit" | "new" | null>(null);
@@ -91,6 +93,7 @@ export function ProductsWorkspace({
       <ProductsDataTable
         currency={currency}
         minRetailMarginPct={minRetailMarginPct}
+        minWholesaleMarginPct={minWholesaleMarginPct}
         products={products}
         onOpenProduct={openEditModal}
       />

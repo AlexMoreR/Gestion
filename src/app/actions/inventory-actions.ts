@@ -14,7 +14,14 @@ import {
   minStockUpdateSchema,
 } from "@/modules/inventory/application/schemas";
 import { createPrismaInventoryRepository } from "@/modules/inventory/infrastructure/prisma-inventory-repository";
-import { buildInventoryChargeCode, parseInventoryChargeCodeNumber } from "@/lib/orders";
+import {
+  buildInventoryChargeCode,
+  buildOrderCode,
+  buildPurchaseCode,
+  parseInventoryChargeCodeNumber,
+  parseOrderCodeNumber,
+  parsePurchaseCodeNumber,
+} from "@/lib/orders";
 import { getProductPurchaseHistory, type ProductPurchaseRow } from "@/lib/product-purchase-history";
 
 const repository = createPrismaInventoryRepository();
@@ -28,6 +35,27 @@ async function getNextInventoryChargeSeq(): Promise<number> {
     select: { code: true },
   });
   return last?.code ? parseInventoryChargeCodeNumber(last.code) : 0;
+}
+
+// Siguiente código de compra (COM-00001...), a partir del mayor existente.
+async function getNextPurchaseCode(): Promise<string> {
+  const last = await prisma.inventoryMovement.findFirst({
+    where: { purchaseCode: { startsWith: "COM-" } },
+    orderBy: { purchaseCode: "desc" },
+    select: { purchaseCode: true },
+  });
+  const seq = last?.purchaseCode ? parsePurchaseCodeNumber(last.purchaseCode) : 0;
+  return buildPurchaseCode(seq + 1);
+}
+
+// Siguiente código de orden (ORD-00001...): las compras comparten esta secuencia.
+async function getNextOrderCode(): Promise<string> {
+  const last = await prisma.order.findFirst({
+    orderBy: { code: "desc" },
+    select: { code: true },
+  });
+  const seq = last?.code ? parseOrderCodeNumber(last.code) : 0;
+  return buildOrderCode(seq + 1);
 }
 
 function redirectWithError(returnTo: string, message: string): never {
@@ -417,6 +445,25 @@ export async function adminCreateDirectPurchaseAction(formData: FormData): Promi
     }
   }
 
+  // Costos adicionales de la compra (ej. envio): [{ concept, supplierId, amount }].
+  let extraCosts: Array<{ concept: string; supplierId: string; amount: number }> = [];
+  const rawExtraCosts = getStringField(formData, "extraCosts");
+  try {
+    const parsed = JSON.parse(rawExtraCosts) as unknown;
+    if (Array.isArray(parsed)) {
+      extraCosts = parsed
+        .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object")
+        .map((entry) => ({
+          concept: typeof entry.concept === "string" ? entry.concept.trim() : "",
+          supplierId: typeof entry.supplierId === "string" ? entry.supplierId.trim() : "",
+          amount: Number(entry.amount) || 0,
+        }))
+        .filter((entry) => entry.supplierId && entry.amount > 0);
+    }
+  } catch {
+    // ignore
+  }
+
   // Cache de proveedores activos validados, para no consultar repetido.
   const activeSupplierById = new Map<string, { id: string; name: string } | null>();
   const resolveSupplier = async (supplierId: string): Promise<{ id: string; name: string } | null> => {
@@ -431,7 +478,63 @@ export async function adminCreateDirectPurchaseAction(formData: FormData): Promi
   };
 
   let invSeq = await getNextInventoryChargeSeq();
+  // Código que agrupa esta compra y los ids de sus movimientos (para estamparlo).
+  const purchaseCode = await getNextPurchaseCode();
+  const movementIds: string[] = [];
+  // Primer movimiento creado: a el se ligan los costos adicionales (envio, etc.)
+  // para que se borren en cascada si se elimina la compra.
+  let firstMovementId: string | null = null;
+
+  // Subtotal (productos) y total (con costos adicionales) para la orden de compra.
+  let subtotal = 0;
+  const supplierIdSet = new Set<string>();
+  for (const item of items) {
+    const product = productInfoById.get(item.productId)!;
+    if (product.isBundle) {
+      const chargeByChild = new Map(item.components.map((component) => [component.childId, component]));
+      for (const component of product.components) {
+        const charge = chargeByChild.get(component.childId);
+        subtotal += (charge?.cost ?? 0) * item.quantity;
+        if (charge?.supplierId) supplierIdSet.add(charge.supplierId);
+      }
+    } else {
+      subtotal += item.cost * item.quantity;
+      if (item.supplierId) supplierIdSet.add(item.supplierId);
+    }
+  }
+  const extrasTotal = extraCosts.reduce((sum, extra) => sum + extra.amount, 0);
+  for (const extra of extraCosts) if (extra.supplierId) supplierIdSet.add(extra.supplierId);
+  const total = subtotal + extrasTotal;
+
+  // Proveedor de la orden: solo si toda la compra es a un unico proveedor activo.
+  let orderSupplierId: string | null = null;
+  if (supplierIdSet.size === 1) {
+    const candidate = await resolveSupplier(Array.from(supplierIdSet)[0]);
+    orderSupplierId = candidate?.id ?? null;
+  }
+
+  let purchaseOrderId: string;
   try {
+    // Orden de compra (type PURCHASE): sin venta/cotizacion/cliente.
+    const order = await prisma.order.create({
+      data: {
+        code: await getNextOrderCode(),
+        type: "PURCHASE",
+        status: "RELEASED",
+        releasedAt: movementDate,
+        supplierId: orderSupplierId,
+        purchaseCode,
+        createdById,
+        subtotal,
+        total,
+        history: {
+          create: { toStatus: "RELEASED", note: "Compra registrada", changedById: createdById },
+        },
+      },
+      select: { id: true },
+    });
+    purchaseOrderId = order.id;
+
     for (const item of items) {
       const product = productInfoById.get(item.productId)!;
 
@@ -449,9 +552,31 @@ export async function adminCreateDirectPurchaseAction(formData: FormData): Promi
             movementDate,
             createdById,
           });
+          movementIds.push(movementId);
+          if (firstMovementId === null) firstMovementId = movementId;
 
           const charge = chargeByChild.get(component.childId);
           const supplier = charge ? await resolveSupplier(charge.supplierId) : null;
+          const units = component.quantity * item.quantity;
+          const lineTotal = (charge?.cost ?? 0) * item.quantity;
+          const unitPrice = units > 0 ? Math.round(lineTotal / units) : 0;
+          const orderItem = await prisma.orderItem.create({
+            data: {
+              orderId: purchaseOrderId,
+              productId: component.childId,
+              quantity: units,
+              unitPrice,
+              lineTotal,
+              fulfillmentMode: "STOCK",
+              confirmedSupplierId: supplier?.id ?? null,
+              purchaseCost: unitPrice,
+              confirmedAt: movementDate,
+              supplierPaymentStatus: supplier ? "PENDING" : null,
+              notes: `Combo ${product.name}`,
+            },
+            select: { id: true },
+          });
+
           if (supplier && charge && charge.cost > 0) {
             await prisma.supplierLedgerEntry.create({
               data: {
@@ -463,6 +588,8 @@ export async function adminCreateDirectPurchaseAction(formData: FormData): Promi
                 note: `Compra inventario - ${component.name} (Combo ${product.name} x${item.quantity})`,
                 paymentDate: movementDate,
                 inventoryMovementId: movementId,
+                orderId: purchaseOrderId,
+                orderItemId: orderItem.id,
                 createdById,
               },
             });
@@ -481,6 +608,24 @@ export async function adminCreateDirectPurchaseAction(formData: FormData): Promi
         movementDate,
         createdById,
       });
+      movementIds.push(movementId);
+      if (firstMovementId === null) firstMovementId = movementId;
+
+      const orderItem = await prisma.orderItem.create({
+        data: {
+          orderId: purchaseOrderId,
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.cost,
+          lineTotal: item.cost * item.quantity,
+          fulfillmentMode: "STOCK",
+          confirmedSupplierId: supplier?.id ?? null,
+          purchaseCost: item.cost,
+          confirmedAt: movementDate,
+          supplierPaymentStatus: supplier ? "PENDING" : null,
+        },
+        select: { id: true },
+      });
 
       if (supplier && item.cost > 0) {
         await prisma.supplierLedgerEntry.create({
@@ -494,10 +639,40 @@ export async function adminCreateDirectPurchaseAction(formData: FormData): Promi
             note: `Compra inventario - ${product.name} (x${item.quantity})`,
             paymentDate: movementDate,
             inventoryMovementId: movementId,
+            orderId: purchaseOrderId,
+            orderItemId: orderItem.id,
             createdById,
           },
         });
       }
+    }
+
+    // Costos adicionales (ej. envio): un cargo fijo a cada proveedor. La nota NO
+    // empieza por "Compra inventario" para que no entre al reajuste por cantidad.
+    for (const extra of extraCosts) {
+      const supplier = await resolveSupplier(extra.supplierId);
+      if (!supplier) continue;
+      await prisma.supplierLedgerEntry.create({
+        data: {
+          supplierId: supplier.id,
+          code: buildInventoryChargeCode((invSeq += 1)),
+          type: "CHARGE",
+          amount: extra.amount,
+          note: extra.concept || "Costo adicional",
+          paymentDate: movementDate,
+          inventoryMovementId: firstMovementId,
+          orderId: purchaseOrderId,
+          createdById,
+        },
+      });
+    }
+
+    // Agrupa todos los movimientos de esta compra bajo el mismo codigo (COM-...).
+    if (movementIds.length > 0) {
+      await prisma.inventoryMovement.updateMany({
+        where: { id: { in: movementIds } },
+        data: { purchaseCode },
+      });
     }
   } catch (error) {
     if (error instanceof InventoryError) {
@@ -509,7 +684,38 @@ export async function adminCreateDirectPurchaseAction(formData: FormData): Promi
   revalidatePath("/admin/inventario");
   revalidatePath("/admin/proveedores");
   revalidatePath("/admin/ordenes");
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Compra registrada" }).toString()}`);
+  redirect(`/admin/ordenes/${purchaseOrderId}?${new URLSearchParams({ ok: "Compra registrada" }).toString()}`);
+}
+
+// Elimina una orden de compra: revierte el stock (borra sus movimientos de
+// inventario) y elimina los cobros a proveedores ligados a ella.
+export async function adminDeletePurchaseOrderAction(orderId: string): Promise<void> {
+  await requireAdminSession();
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, type: true, purchaseCode: true },
+  });
+  if (!order || order.type !== "PURCHASE") {
+    redirect(
+      `/admin/ordenes?${new URLSearchParams({ error: "Solo se pueden eliminar ordenes de compra." }).toString()}`,
+    );
+  }
+
+  // 1) Borra los movimientos de inventario de la compra → el stock se revierte
+  //    (deja de sumar) y sus cargos a proveedores se borran en cascada.
+  if (order.purchaseCode) {
+    await prisma.inventoryMovement.deleteMany({ where: { purchaseCode: order.purchaseCode } });
+  }
+  // 2) Limpia cualquier cargo restante ligado a la orden (ej. envio/transportadora).
+  await prisma.supplierLedgerEntry.deleteMany({ where: { orderId } });
+  // 3) Borra la orden (en cascada: items e historial).
+  await prisma.order.delete({ where: { id: orderId } });
+
+  revalidatePath("/admin/inventario");
+  revalidatePath("/admin/proveedores");
+  revalidatePath("/admin/ordenes");
+  redirect(`/admin/ordenes?${new URLSearchParams({ ok: "Compra eliminada" }).toString()}`);
 }
 
 export async function adminDeleteInventoryMovementAction(formData: FormData): Promise<void> {

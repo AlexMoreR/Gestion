@@ -1,12 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { Boxes, Plus, RefreshCw, Search, ShoppingCart, Trash2, X } from "lucide-react";
+import { Boxes, Plus, RefreshCw, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { adminCreateDirectPurchaseAction } from "@/app/actions/inventory-actions";
 import { ProductThumb } from "@/components/admin/product-thumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 
@@ -34,13 +40,29 @@ type ComboComponentOption = {
   thumbnailUrl: string;
 };
 
+type SupplierOption = {
+  id: string;
+  name: string;
+};
+
 type PurchaseDirectDialogProps = {
   products: ProductOption[];
   // Proveedores (con su costo) asociados a cada producto, para autocompletar el costo.
   suppliersByProduct: Record<string, SupplierCost[]>;
   // Componentes de cada combo (por id de combo), para listar item por item.
   comboComponents: Record<string, ComboComponentOption[]>;
+  // Todos los proveedores activos (para costos adicionales como el envio).
+  suppliers: SupplierOption[];
   currency: SupportedCurrencyCode;
+};
+
+// Costo adicional de la compra (ej. envio): concepto, proveedor y monto.
+type ExtraCost = {
+  uid: string;
+  concept: string;
+  supplierId: string;
+  supplierName: string;
+  amount: number;
 };
 
 // Cargo por componente de un combo (cada item con su proveedor y costo).
@@ -77,10 +99,17 @@ export function PurchaseDirectDialog({
   products,
   suppliersByProduct,
   comboComponents,
+  suppliers,
   currency,
 }: PurchaseDirectDialogProps) {
   const [open, setOpen] = React.useState(false);
   const [lines, setLines] = React.useState<PurchaseLine[]>([]);
+
+  // Costos adicionales (ej. envio) y borrador del que se esta agregando.
+  const [extraCosts, setExtraCosts] = React.useState<ExtraCost[]>([]);
+  const [extraConcept, setExtraConcept] = React.useState("");
+  const [extraSupplierId, setExtraSupplierId] = React.useState("");
+  const [extraAmount, setExtraAmount] = React.useState("");
 
   // Modal de seleccion de producto (mismo flujo que cotizacion).
   const [openProductModal, setOpenProductModal] = React.useState(false);
@@ -155,6 +184,33 @@ export function PurchaseDirectDialog({
     setLines([]);
     resetDraft();
     setOpenProductModal(false);
+    setExtraCosts([]);
+    setExtraConcept("");
+    setExtraSupplierId("");
+    setExtraAmount("");
+  };
+
+  const addExtraCost = () => {
+    const amount = Number(extraAmount.replace(/\D/g, "")) || 0;
+    if (amount <= 0) return;
+    const supplierName = suppliers.find((s) => s.id === extraSupplierId)?.name ?? "";
+    setExtraCosts((current) => [
+      ...current,
+      {
+        uid: crypto.randomUUID(),
+        concept: extraConcept.trim(),
+        supplierId: extraSupplierId,
+        supplierName,
+        amount,
+      },
+    ]);
+    setExtraConcept("");
+    setExtraSupplierId("");
+    setExtraAmount("");
+  };
+
+  const removeExtraCost = (uid: string) => {
+    setExtraCosts((current) => current.filter((cost) => cost.uid !== uid));
   };
 
   const handleClose = () => {
@@ -292,7 +348,17 @@ export function PurchaseDirectDialog({
   };
 
   const draftLineTotal = draftUnitCost * (Math.trunc(Number(draftQuantity) || 0) || 0);
-  const total = lines.reduce((sum, line) => sum + line.unitCost * line.quantity, 0);
+  const linesTotal = lines.reduce((sum, line) => sum + line.unitCost * line.quantity, 0);
+  const extrasTotal = extraCosts.reduce((sum, cost) => sum + cost.amount, 0);
+  const total = linesTotal + extrasTotal;
+
+  const serializedExtraCosts = JSON.stringify(
+    extraCosts.map((cost) => ({
+      concept: cost.concept,
+      supplierId: cost.supplierId,
+      amount: cost.amount,
+    })),
+  );
 
   const serializedItems = JSON.stringify(
     lines.map((line) =>
@@ -324,42 +390,32 @@ export function PurchaseDirectDialog({
         Nuevo
       </Button>
 
-      {open ? (
-        <div
-          className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/50"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Nueva compra"
-          onClick={handleClose}
-        >
-          <div
-            className="relative mx-auto flex min-h-[100dvh] w-full max-w-3xl flex-col overflow-y-auto overflow-x-hidden rounded-none border border-border bg-card p-3 sm:my-6 sm:min-h-0 sm:max-h-[92vh] sm:rounded-xl sm:p-5"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <form action={adminCreateDirectPurchaseAction} className="space-y-4">
-              <input type="hidden" name="returnTo" value="/admin/ordenes" />
-              <input type="hidden" name="items" value={serializedItems} />
+      <Dialog open={open} onOpenChange={(value) => (value ? null : handleClose())}>
+        <DialogContent className="flex max-h-[92vh] w-[calc(100%-1.5rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0">
+          <form action={adminCreateDirectPurchaseAction} className="flex min-h-0 flex-1 flex-col">
+            <input type="hidden" name="returnTo" value="/admin/ordenes" />
+            <input type="hidden" name="items" value={serializedItems} />
+            <input type="hidden" name="extraCosts" value={serializedExtraCosts} />
 
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-foreground">
-                    <ShoppingCart className="h-4 w-4 text-primary" />
-                    <span>Comprar</span>
-                  </h2>
-                  <DatePicker name="movementDate" required defaultValue={today()} className="w-40" />
-                </div>
-                <Button type="button" variant="outline" size="icon" onClick={handleClose} aria-label="Cerrar">
-                  <X className="h-4 w-4" />
-                </Button>
+            {/* Header fijo */}
+            <DialogHeader className="shrink-0 border-b border-border px-4 py-2.5">
+              <div className="flex flex-wrap items-center gap-3 pr-8">
+                <DialogTitle className="inline-flex items-center gap-2 text-lg font-semibold text-foreground">
+                  <ShoppingCart className="h-4 w-4 text-primary" />
+                  <span>Comprar</span>
+                </DialogTitle>
+                <DatePicker name="movementDate" required defaultValue={today()} className="w-40" />
               </div>
+            </DialogHeader>
 
+            {/* Cuerpo scrolleable */}
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
               {/* Lineas agregadas */}
               <div className="overflow-hidden rounded-xl border border-border bg-card">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2 text-left">Producto</th>
-                      <th className="px-3 py-2 text-left">Proveedor</th>
                       <th className="px-3 py-2 text-right">Cant</th>
                       <th className="px-3 py-2 text-right">Costo unit.</th>
                       <th className="px-3 py-2 text-right">Total</th>
@@ -369,7 +425,7 @@ export function PurchaseDirectDialog({
                   <tbody>
                     {lines.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-3 py-10 text-center text-sm text-muted-foreground">
+                        <td colSpan={5} className="px-3 py-10 text-center text-sm text-muted-foreground">
                           <div className="flex flex-col items-center gap-3">
                             <div className="rounded-full border border-border bg-muted p-2">
                               <Boxes className="h-4 w-4 text-muted-foreground" />
@@ -385,28 +441,93 @@ export function PurchaseDirectDialog({
                     ) : (
                       lines.map((line) => {
                         const product = productById.get(line.productId);
-                        return (
-                          <tr key={line.uid} className="border-t border-border align-top">
-                            <td className="px-3 py-2 text-foreground">
-                              <p className="font-medium">{product?.name ?? "Producto"}</p>
-                              <p className="text-xs text-muted-foreground">{product?.code || "Sin codigo"}</p>
-                              {line.isBundle ? (
-                                <ul className="mt-1 space-y-0.5">
-                                  {line.components.map((component) => (
-                                    <li key={component.childId} className="text-xs text-muted-foreground">
-                                      • {component.name} — {component.supplierName || "Sin proveedor"} ·{" "}
+
+                        // Combo: una fila por cada componente (estilo cotizacion), con su foto.
+                        // Un encabezado agrupa el combo y lleva el boton de quitar.
+                        if (line.isBundle) {
+                          return (
+                            <React.Fragment key={line.uid}>
+                              <tr className="border-t border-border bg-muted/30">
+                                <td className="px-3 py-2" colSpan={4}>
+                                  <div className="flex items-center gap-2">
+                                    <ProductThumb
+                                      src={product?.thumbnailUrl ?? ""}
+                                      alt={product?.name ?? "Combo"}
+                                      className="h-9 w-9 shrink-0 rounded-md border border-border object-cover"
+                                    />
+                                    <div className="min-w-0">
+                                      <p className="truncate text-sm font-semibold text-foreground">
+                                        {product?.name ?? "Combo"}
+                                      </p>
+                                      <p className="truncate text-xs text-muted-foreground">
+                                        {product?.code || "Sin codigo"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2 text-right align-middle">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => removeLine(line.uid)}
+                                    aria-label="Quitar combo"
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </td>
+                              </tr>
+                              {line.components.map((component) => {
+                                const child = productById.get(component.childId);
+                                const units = component.quantity * line.quantity;
+                                return (
+                                  <tr key={component.childId} className="border-t border-border/50">
+                                    <td className="px-3 py-1.5 pl-6 text-foreground">
+                                      <div className="flex items-center gap-2">
+                                        <ProductThumb
+                                          src={child?.thumbnailUrl ?? ""}
+                                          alt={component.name}
+                                          className="h-8 w-8 shrink-0 rounded-md border border-border object-cover"
+                                        />
+                                        <div className="min-w-0">
+                                          <p className="truncate text-sm text-foreground">{component.name}</p>
+                                          <p className="truncate text-xs text-muted-foreground">
+                                            {child?.code || "Sin codigo"}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="px-3 py-1.5 text-right text-foreground">{units}</td>
+                                    <td className="px-3 py-1.5 text-right text-foreground">
                                       {formatMoney(component.cost, currency)}
-                                    </li>
-                                  ))}
-                                </ul>
-                              ) : null}
-                            </td>
+                                    </td>
+                                    <td className="px-3 py-1.5 text-right font-medium text-foreground">
+                                      {formatMoney(component.cost * line.quantity, currency)}
+                                    </td>
+                                    <td className="px-3 py-1.5" />
+                                  </tr>
+                                );
+                              })}
+                            </React.Fragment>
+                          );
+                        }
+
+                        return (
+                          <tr key={line.uid} className="border-t border-border">
                             <td className="px-3 py-2 text-foreground">
-                              {line.isBundle ? (
-                                <span className="text-muted-foreground">Varios (combo)</span>
-                              ) : (
-                                line.supplierName || <span className="text-muted-foreground">Sin proveedor</span>
-                              )}
+                              <div className="flex items-center gap-2">
+                                <ProductThumb
+                                  src={product?.thumbnailUrl ?? ""}
+                                  alt={product?.name ?? "Producto"}
+                                  className="h-9 w-9 shrink-0 rounded-md border border-border object-cover"
+                                />
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium">{product?.name ?? "Producto"}</p>
+                                  <p className="truncate text-xs text-muted-foreground">
+                                    {product?.code || "Sin codigo"}
+                                  </p>
+                                </div>
+                              </div>
                             </td>
                             <td className="px-3 py-2 text-right text-foreground">{line.quantity}</td>
                             <td className="px-3 py-2 text-right text-foreground">
@@ -443,6 +564,87 @@ export function PurchaseDirectDialog({
                 </div>
               ) : null}
 
+              {/* Costos adicionales (ej. envio): concepto, proveedor y monto */}
+              <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-3">
+                <span className="text-sm font-medium text-foreground">Costo adicional</span>
+
+                {extraCosts.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {extraCosts.map((cost) => (
+                      <div
+                        key={cost.uid}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-foreground">
+                            {cost.concept || "Costo adicional"}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {cost.supplierName || "Sin proveedor"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm font-semibold text-foreground">
+                            {formatMoney(cost.amount, currency)}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeExtraCost(cost.uid)}
+                            aria-label="Quitar costo adicional"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="grid items-end gap-2 sm:grid-cols-[1fr_minmax(0,11rem)_7rem_auto]">
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground">Concepto</span>
+                    <Input
+                      value={extraConcept}
+                      onChange={(event) => setExtraConcept(event.target.value)}
+                      placeholder="Ej. Envio"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground">Proveedor</span>
+                    <select
+                      value={extraSupplierId}
+                      onChange={(event) => setExtraSupplierId(event.target.value)}
+                      className={cn(controlClassName, "appearance-none")}
+                    >
+                      <option value="">Sin proveedor</option>
+                      {suppliers.map((supplier) => (
+                        <option key={supplier.id} value={supplier.id}>
+                          {supplier.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground">Monto</span>
+                    <Input
+                      inputMode="numeric"
+                      value={extraAmount ? Number(extraAmount).toLocaleString("es-CO") : ""}
+                      onChange={(event) => setExtraAmount(event.target.value.replace(/\D/g, ""))}
+                      placeholder="0"
+                    />
+                  </div>
+                  <Button type="button" onClick={addExtraCost} aria-label="Agregar costo adicional">
+                    <Plus className="h-4 w-4" />
+                    Agregar
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer fijo */}
+            <div className="shrink-0 space-y-3 border-t border-border bg-background px-5 py-4">
               <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 px-5 py-4">
                 <span className="text-base font-semibold text-foreground">Total compra</span>
                 <span className="text-2xl font-bold text-primary">{formatMoney(total, currency)}</span>
@@ -456,42 +658,25 @@ export function PurchaseDirectDialog({
                   Registrar compra
                 </Button>
               </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de seleccion de producto (mismo flujo que cotizacion) */}
-      {open && openProductModal ? (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-3 backdrop-blur-[1px]"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Agregar producto"
-          onClick={() => setOpenProductModal(false)}
-        >
-          <div
-            className="w-full max-w-3xl rounded-2xl border border-border bg-card p-4 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <h3 className="inline-flex items-center gap-2 text-base font-semibold text-foreground">
-                  <Boxes className="h-4 w-4 text-muted-foreground" />
-                  <span>Agregar producto</span>
-                </h3>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => setOpenProductModal(false)}
-                aria-label="Cerrar modal de producto"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+      <Dialog
+        open={open && openProductModal}
+        onOpenChange={(value) => (value ? null : setOpenProductModal(false))}
+      >
+        <DialogContent className="flex max-h-[88vh] w-[calc(100%-1.5rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
+            <DialogTitle className="inline-flex items-center gap-2 pr-8 text-base font-semibold text-foreground">
+              <Boxes className="h-4 w-4 text-muted-foreground" />
+              <span>Agregar producto</span>
+            </DialogTitle>
+          </DialogHeader>
 
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
             {!draftProductId ? (
               <div className="space-y-3">
                 <div className="relative">
@@ -700,8 +885,8 @@ export function PurchaseDirectDialog({
               </>
             )}
           </div>
-        </div>
-      ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

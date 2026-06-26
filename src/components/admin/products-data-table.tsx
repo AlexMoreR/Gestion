@@ -59,8 +59,11 @@ type ProductsDataTableProps = {
   products: ProductRow[];
   currency: SupportedCurrencyCode;
   minRetailMarginPct?: number;
+  minWholesaleMarginPct?: number;
   onOpenProduct?: (productId: string) => void;
 };
+
+type PriceMode = "detal" | "mayor";
 
 type SortKey = "producto" | "categoria" | "proveedor" | "costo" | "detal" | "margen" | "acciones";
 type SortDirection = "asc" | "desc";
@@ -115,6 +118,7 @@ export function ProductsDataTable({
   products,
   currency,
   minRetailMarginPct = 0,
+  minWholesaleMarginPct = 0,
   onOpenProduct,
 }: ProductsDataTableProps) {
   const [query, setQuery] = React.useState("");
@@ -123,14 +127,23 @@ export function ProductsDataTable({
   const [sortDirection, setSortDirection] = React.useState<SortDirection>("asc");
   const [page, setPage] = React.useState(1);
   const [belowRuleOnly, setBelowRuleOnly] = React.useState(false);
+  const [priceMode, setPriceMode] = React.useState<PriceMode>("detal");
   const [pendingDelete, setPendingDelete] = React.useState<{ id: string; name: string } | null>(null);
+
+  const getActivePrice = React.useCallback(
+    (product: ProductRow) => (priceMode === "mayor" ? product.wholesalePrice : product.price),
+    [priceMode],
+  );
+
+  const activeMinMargin = priceMode === "mayor" ? minWholesaleMarginPct : minRetailMarginPct;
 
   const isBelowRule = React.useCallback(
     (product: ProductRow) => {
-      const marginPct = product.price > 0 ? ((product.price - product.baseCost) / product.price) * 100 : 0;
-      return marginPct < minRetailMarginPct;
+      const price = getActivePrice(product);
+      const marginPct = price > 0 ? ((price - product.baseCost) / price) * 100 : 0;
+      return marginPct < activeMinMargin;
     },
-    [minRetailMarginPct],
+    [getActivePrice, activeMinMargin],
   );
 
   const belowRuleCount = React.useMemo(
@@ -196,16 +209,18 @@ export function ProductsDataTable({
         case "costo":
           return (a.baseCost - b.baseCost) * directionFactor;
         case "detal":
-          return (a.price - b.price) * directionFactor;
+          return (getActivePrice(a) - getActivePrice(b)) * directionFactor;
         case "margen":
-          return ((a.price - a.baseCost) - (b.price - b.baseCost)) * directionFactor;
+          return (
+            (getActivePrice(a) - a.baseCost - (getActivePrice(b) - b.baseCost)) * directionFactor
+          );
         default:
           return 0;
       }
     });
 
     return list;
-  }, [filteredProducts, sortKey, sortDirection]);
+  }, [filteredProducts, sortKey, sortDirection, getActivePrice]);
 
   const totalPages = Math.max(1, Math.ceil(sortedProducts.length / PAGE_SIZE));
 
@@ -307,6 +322,16 @@ export function ProductsDataTable({
         ) : null}
         <div className="flex items-center gap-2 lg:ml-auto">
           <select
+            value={priceMode}
+            onChange={(event) => setPriceMode(event.target.value as PriceMode)}
+            className="h-9 w-full rounded-lg border border-[var(--line)] bg-white px-2.5 text-sm text-slate-700 outline-none transition focus:border-[var(--line-strong)] sm:w-auto"
+            aria-label="Modo de precio"
+            title="Precio a mostrar"
+          >
+            <option value="detal">Detal</option>
+            <option value="mayor">Por mayor</option>
+          </select>
+          <select
             value={categoryFilter}
             onChange={(event) => setCategoryFilter(event.target.value)}
             className="h-9 w-full rounded-lg border border-[var(--line)] bg-white px-2.5 text-sm text-slate-700 outline-none transition focus:border-[var(--line-strong)] sm:min-w-40 sm:w-auto"
@@ -388,8 +413,9 @@ export function ProductsDataTable({
                   <div className="min-w-0 flex-1 p-3">
                     <p className="line-clamp-2 text-sm font-semibold text-slate-900">{product.name}</p>
                     {(() => {
-                      const margin = product.price - product.baseCost;
-                      const marginPct = product.price > 0 ? (margin / product.price) * 100 : 0;
+                      const activePrice = getActivePrice(product);
+                      const margin = activePrice - product.baseCost;
+                      const marginPct = activePrice > 0 ? (margin / activePrice) * 100 : 0;
                       const belowRule = isBelowRule(product);
                       return (
                         <div className="flex items-center justify-between gap-2">
@@ -407,7 +433,7 @@ export function ProductsDataTable({
                         {product.categoryName ?? "Sin categoria"}
                       </span>
                       <span className="text-sm font-semibold text-slate-800">
-                        {formatMoney(product.price, currency)}
+                        {formatMoney(getActivePrice(product), currency)}
                       </span>
                     </div>
                   </div>
@@ -549,7 +575,7 @@ export function ProductsDataTable({
                   onClick={() => toggleSort("detal")}
                   icon={<CircleDollarSign className="h-3.5 w-3.5" />}
                 >
-                  Precio
+                  {priceMode === "mayor" ? "Precio mayor" : "Precio"}
                 </HeaderLabel>
               </TableHead>
               <TableHead className="normal-case tracking-normal">
@@ -607,12 +633,13 @@ export function ProductsDataTable({
                     {formatMoney(product.baseCost, currency)}
                   </TableCell>
                   <TableCell className="text-sm font-semibold text-slate-800">
-                    {formatMoney(product.price, currency)}
+                    {formatMoney(getActivePrice(product), currency)}
                   </TableCell>
                   <TableCell className="text-sm">
                     {(() => {
-                      const margin = product.price - product.baseCost;
-                      const marginPct = product.price > 0 ? (margin / product.price) * 100 : 0;
+                      const activePrice = getActivePrice(product);
+                      const margin = activePrice - product.baseCost;
+                      const marginPct = activePrice > 0 ? (margin / activePrice) * 100 : 0;
                       const belowRule = isBelowRule(product);
                       return (
                         <div className="flex flex-col">

@@ -12,6 +12,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { OperationsTabs } from "@/components/admin/operations-tabs";
 import { PurchaseDirectDialog } from "@/components/admin/purchase-direct-dialog";
+import { PurchaseDeleteMenuItem } from "@/components/admin/purchase-delete-menu-item";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { getOrderStatusBadgeClassName, getOrderStatusLabel } from "@/lib/orders";
 
@@ -26,6 +27,7 @@ type PurchaseProductOption = {
 };
 
 type OrderRow = {
+  kind: "order" | "purchase";
   id: string;
   code: string;
   saleCode: string;
@@ -52,7 +54,18 @@ type OrdersWorkspaceProps = {
     string,
     { childId: string; name: string; code: string | null; quantity: number; thumbnailUrl: string }[]
   >;
+  purchaseSuppliers: { id: string; name: string }[];
 };
+
+function StatusBadge({ order }: { order: OrderRow }) {
+  return (
+    <span
+      className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${getOrderStatusBadgeClassName(order.status)}`}
+    >
+      {getOrderStatusLabel(order.status)}
+    </span>
+  );
+}
 
 function RowActions({ order }: { order: OrderRow }) {
   return (
@@ -69,19 +82,20 @@ function RowActions({ order }: { order: OrderRow }) {
             Abrir
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link href={`/admin/ventas`}>
-            <ShoppingCart className="mr-2 h-4 w-4" />
-            Ver ventas
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href={`/admin/ordenes/${order.id}`}>
-            <ArrowUpRight className="mr-2 h-4 w-4" />
-            Detalle
-          </Link>
-        </DropdownMenuItem>
+        {order.kind === "order" ? (
+          <DropdownMenuItem asChild>
+            <Link href={`/admin/ventas`}>
+              <ShoppingCart className="mr-2 h-4 w-4" />
+              Ver ventas
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
+        {order.kind === "purchase" ? (
+          <>
+            <DropdownMenuSeparator />
+            <PurchaseDeleteMenuItem orderId={order.id} code={order.code} />
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -94,6 +108,7 @@ export function OrdersWorkspace({
   purchaseProducts,
   purchaseSuppliersByProduct,
   purchaseComboComponents,
+  purchaseSuppliers,
 }: OrdersWorkspaceProps) {
   return (
     <section className="space-y-4">
@@ -106,6 +121,7 @@ export function OrdersWorkspace({
             products={purchaseProducts}
             suppliersByProduct={purchaseSuppliersByProduct}
             comboComponents={purchaseComboComponents}
+            suppliers={purchaseSuppliers}
             currency={currency}
           />
         </div>
@@ -169,11 +185,7 @@ export function OrdersWorkspace({
                   <TableCell className="text-sm text-foreground">{order.clientName}</TableCell>
                   <TableCell className="text-sm text-foreground">{order.assignedToName ?? "Sin asignar"}</TableCell>
                   <TableCell>
-                    <span
-                      className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${getOrderStatusBadgeClassName(order.status)}`}
-                    >
-                      {getOrderStatusLabel(order.status)}
-                    </span>
+                    <StatusBadge order={order} />
                   </TableCell>
                   <TableCell className="text-sm font-semibold text-foreground">
                     {formatMoney(order.total, currency)}
@@ -200,11 +212,7 @@ export function OrdersWorkspace({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold text-foreground">{order.code}</p>
-                  <span
-                    className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${getOrderStatusBadgeClassName(order.status)}`}
-                  >
-                    {getOrderStatusLabel(order.status)}
-                  </span>
+                  <StatusBadge order={order} />
                 </div>
                 <p className="text-sm text-foreground">{order.saleCode}</p>
                 <p className="text-sm text-foreground">{order.clientName}</p>

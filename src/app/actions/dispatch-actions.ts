@@ -218,7 +218,7 @@ export async function adminCompleteDeliveryAction(formData: FormData): Promise<v
       });
 
       // Redes sociales: se guardan en la ficha del cliente (reutilizables para marketing).
-      if (instagram || tiktok) {
+      if ((instagram || tiktok) && dispatch.order.clientId) {
         await tx.user.update({
           where: { id: dispatch.order.clientId },
           data: {
@@ -437,19 +437,22 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
         const shippingReference =
           receipt?.name ?? parsed.data.trackingNumber ?? `Despacho ${dispatch.code}`;
 
-        // 1) Modulo balances: registra el envio como gasto de la venta.
-        await tx.shippingCost.create({
-          data: {
-            saleId: order.saleId,
-            shippingProvider: carrier.name,
-            amount: shippingCost,
-            transactionReference: shippingReference,
-            paymentDate: new Date(),
-            // La cuenta solo se asocia cuando se paga ahora (salida real de dinero).
-            accountId: parsed.data.shippingMode === "PAY_NOW" ? accountId : null,
-            createdById,
-          },
-        });
+        // 1) Modulo balances: registra el envio como gasto de la venta. Solo
+        // aplica a ventas; una compra no es venta (no debe entrar a utilidades).
+        if (order.type !== "PURCHASE" && order.saleId) {
+          await tx.shippingCost.create({
+            data: {
+              saleId: order.saleId,
+              shippingProvider: carrier.name,
+              amount: shippingCost,
+              transactionReference: shippingReference,
+              paymentDate: new Date(),
+              // La cuenta solo se asocia cuando se paga ahora (salida real de dinero).
+              accountId: parsed.data.shippingMode === "PAY_NOW" ? accountId : null,
+              createdById,
+            },
+          });
+        }
 
         // 2) Cuenta corriente de la transportadora (proveedor).
         await tx.supplierLedgerEntry.create({
@@ -669,17 +672,19 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
         const shippingReference =
           receipt?.name ?? parsed.data.trackingNumber ?? `Despacho ${dispatch.code}`;
 
-        await tx.shippingCost.create({
-          data: {
-            saleId: order.saleId,
-            shippingProvider: carrier.name,
-            amount: shippingCost,
-            transactionReference: shippingReference,
-            paymentDate: new Date(),
-            accountId: parsed.data.shippingMode === "PAY_NOW" ? accountId : null,
-            createdById,
-          },
-        });
+        if (order.type !== "PURCHASE" && order.saleId) {
+          await tx.shippingCost.create({
+            data: {
+              saleId: order.saleId,
+              shippingProvider: carrier.name,
+              amount: shippingCost,
+              transactionReference: shippingReference,
+              paymentDate: new Date(),
+              accountId: parsed.data.shippingMode === "PAY_NOW" ? accountId : null,
+              createdById,
+            },
+          });
+        }
 
         await tx.supplierLedgerEntry.create({
           data: {
@@ -922,17 +927,19 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
 
       if (carrier && shippingCost > 0) {
         const shippingReference = trackingPhoto?.name ?? `Despacho ${dispatch.code}`;
-        await tx.shippingCost.create({
-          data: {
-            saleId: order.saleId,
-            shippingProvider: carrier.name,
-            amount: shippingCost,
-            transactionReference: shippingReference,
-            paymentDate: new Date(),
-            accountId: null,
-            createdById,
-          },
-        });
+        if (order.type !== "PURCHASE" && order.saleId) {
+          await tx.shippingCost.create({
+            data: {
+              saleId: order.saleId,
+              shippingProvider: carrier.name,
+              amount: shippingCost,
+              transactionReference: shippingReference,
+              paymentDate: new Date(),
+              accountId: null,
+              createdById,
+            },
+          });
+        }
         await tx.supplierLedgerEntry.create({
           data: {
             supplierId: carrier.id,

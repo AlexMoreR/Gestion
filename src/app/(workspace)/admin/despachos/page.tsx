@@ -90,7 +90,7 @@ export default async function AdminDespachosPage({ searchParams }: PageProps) {
           code: dispatch.code,
           orderCode: dispatch.order.code,
           orderId: dispatch.order.id,
-          clientName: dispatch.order.client.name || dispatch.order.client.email,
+          clientName: dispatch.order.client?.name || dispatch.order.client?.email || dispatch.order.code,
           carrierName: dispatch.carrierName,
           trackingNumber: dispatch.trackingNumber,
           status: dispatch.status,

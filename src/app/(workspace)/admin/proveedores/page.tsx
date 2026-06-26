@@ -84,7 +84,7 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
           // Ordenes asociadas a este proveedor con su saldo pendiente (cargos - pagos).
           const ordersMap = new Map<
             string,
-            { orderId: string; code: string; saleId: string; charged: number; paid: number }
+            { orderId: string; code: string; saleId: string | null; charged: number; paid: number }
           >();
           for (const entry of supplier.ledgerEntries) {
             if (!entry.order) continue;

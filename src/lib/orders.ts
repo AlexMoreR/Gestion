@@ -54,6 +54,14 @@ export function buildInventoryChargeCode(index: number): string {
   return buildCode("INV", index);
 }
 
+export function parsePurchaseCodeNumber(code: string): number {
+  return parseCodeNumber(code);
+}
+
+export function buildPurchaseCode(index: number): string {
+  return buildCode("COM", index);
+}
+
 export function parseManualChargeCodeNumber(code: string): number {
   return parseCodeNumber(code);
 }
