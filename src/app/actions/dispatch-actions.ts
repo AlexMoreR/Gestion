@@ -490,6 +490,14 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
             },
           });
         }
+
+        // En ordenes de COMPRA el flete es parte del costo: se suma al total.
+        if (order.type === "PURCHASE") {
+          await tx.order.update({
+            where: { id: order.id },
+            data: { total: { increment: shippingCost } },
+          });
+        }
       }
 
       if (order.status !== "DISPATCHED") {
@@ -721,6 +729,14 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
               receiptName: receipt?.name ?? null,
               createdById,
             },
+          });
+        }
+
+        // En ordenes de COMPRA el flete es parte del costo: se suma al total.
+        if (order.type === "PURCHASE") {
+          await tx.order.update({
+            where: { id: order.id },
+            data: { total: { increment: shippingCost } },
           });
         }
       }
@@ -963,6 +979,14 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
             createdById,
           },
         });
+
+        // En ordenes de COMPRA el flete es parte del costo: se suma al total.
+        if (order.type === "PURCHASE") {
+          await tx.order.update({
+            where: { id: order.id },
+            data: { total: { increment: shippingCost } },
+          });
+        }
       }
 
       const dispatchedCount = await tx.dispatchItem.count({

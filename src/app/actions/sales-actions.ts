@@ -607,7 +607,7 @@ const deleteSaleSchema = z.object({
 });
 
 export async function adminDeleteSaleAction(formData: FormData): Promise<void> {
-  await requireAdminSession();
+  const deletedById = await requireAdminSession();
   const returnTo = getReturnTo(formData);
 
   const parsed = deleteSaleSchema.safeParse({
@@ -620,7 +620,15 @@ export async function adminDeleteSaleAction(formData: FormData): Promise<void> {
 
   const sale = await prisma.sale.findUnique({
     where: { id: parsed.data.saleId },
-    include: { order: { select: { id: true } } },
+    include: {
+      order: {
+        select: {
+          id: true,
+          code: true,
+          items: { select: { productId: true, quantity: true, fulfillmentMode: true } },
+        },
+      },
+    },
   });
 
   if (!sale) {
@@ -640,11 +648,31 @@ export async function adminDeleteSaleAction(formData: FormData): Promise<void> {
       });
 
       if (orderId) {
-        // 2. Borra los despachos (cascade -> items de despacho). Esto libera el
+        // 2. Repone al inventario lo que la orden habia descontado al crearse
+        //    (solo los items "por stock"; los de fabricacion no tocaron stock).
+        const restoreByProduct = new Map<string, number>();
+        for (const item of sale.order?.items ?? []) {
+          if (item.fulfillmentMode === "STOCK") {
+            restoreByProduct.set(item.productId, (restoreByProduct.get(item.productId) ?? 0) + item.quantity);
+          }
+        }
+        if (restoreByProduct.size > 0) {
+          await tx.inventoryMovement.createMany({
+            data: Array.from(restoreByProduct.entries()).map(([productId, quantity]) => ({
+              productId,
+              type: "IN" as const,
+              change: quantity,
+              note: `Reversa por eliminacion de venta ${sale.code}`,
+              createdById: deletedById,
+            })),
+          });
+        }
+
+        // 3. Borra los despachos (cascade -> items de despacho). Esto libera el
         //    Restrict que impide borrar los items de la orden si tienen despacho.
         await tx.dispatch.deleteMany({ where: { orderId } });
 
-        // 3. Borra la orden: cascade elimina items, fotos, producción e historial.
+        // 4. Borra la orden: cascade elimina items, fotos, producción e historial.
         await tx.order.delete({ where: { id: orderId } });
       }
 

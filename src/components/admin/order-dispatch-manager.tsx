@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Truck, X } from "lucide-react";
+import { Truck } from "lucide-react";
 import { adminCreateDispatchAction } from "@/app/actions/dispatch-actions";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +11,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Textarea } from "@/components/ui/textarea";
@@ -68,36 +75,15 @@ export function OrderDispatchManager({
   const [shippingCost, setShippingCost] = useState("");
   const isShipping = deliveryType === "SHIPPING";
 
-  const modal = open ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#11182752] px-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Despachar orden"
-          onClick={() => setOpen(false)}
-        >
-          <Card
-            className="flex max-h-[88vh] w-full max-w-lg flex-col gap-0 overflow-y-auto rounded-xl p-5"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">Despachar orden</h2>
-                <p className="text-xs text-muted-foreground">
-                  Selecciona la transportadora y registra el costo del envio.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setOpen(false)}
-                aria-label="Cerrar"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+  const modal = (
+        <Dialog open={open} onOpenChange={(value) => (value ? null : setOpen(false))}>
+          <DialogContent className="max-h-[88vh] max-w-lg overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Despachar orden</DialogTitle>
+              <DialogDescription>
+                Selecciona la transportadora y registra el costo del envio.
+              </DialogDescription>
+            </DialogHeader>
 
             <form action={adminCreateDispatchAction} className="space-y-3">
               <input type="hidden" name="returnTo" value={returnTo} />
@@ -231,9 +217,9 @@ export function OrderDispatchManager({
                 Crear despacho
               </Button>
             </form>
-          </Card>
-        </div>
-      ) : null;
+          </DialogContent>
+        </Dialog>
+      );
 
   if (display === "button") {
     return (

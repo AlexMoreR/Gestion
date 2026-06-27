@@ -98,11 +98,26 @@ export function createPrismaInventoryRepository(): InventoryRepository {
           type: true,
           change: true,
           note: true,
+          purchaseCode: true,
           movementDate: true,
           createdAt: true,
           product: { select: { name: true, code: true } },
         },
       });
+
+      // Mapa código de compra (COM-) -> código de orden (ORD-) para mostrar ambos.
+      const purchaseCodes = Array.from(
+        new Set(rows.map((row) => row.purchaseCode).filter((code): code is string => Boolean(code))),
+      );
+      const orders = purchaseCodes.length
+        ? await prisma.order.findMany({
+            where: { purchaseCode: { in: purchaseCodes } },
+            select: { code: true, purchaseCode: true },
+          })
+        : [];
+      const orderCodeByPurchase = new Map(
+        orders.map((order) => [order.purchaseCode, order.code] as const),
+      );
 
       return rows.map((row) => ({
         id: row.id,
@@ -110,10 +125,15 @@ export function createPrismaInventoryRepository(): InventoryRepository {
         type: row.type as InventoryMovementType,
         change: row.change,
         note: row.note,
+        purchaseCode: row.purchaseCode,
         movementDate: row.movementDate,
         createdAt: row.createdAt,
         productName: row.product.name,
         productCode: row.product.code,
+        // Compras: ORD- desde el código de compra. Salidas por venta: ORD- desde la nota.
+        orderCode: row.purchaseCode
+          ? orderCodeByPurchase.get(row.purchaseCode) ?? null
+          : row.note?.match(/ORD-\d+/)?.[0] ?? null,
       }));
     },
 

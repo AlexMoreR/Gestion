@@ -231,6 +231,36 @@ export async function adminCreateOrderFromSaleAction(formData: FormData): Promis
     })),
   );
 
+  // Valida que haya stock suficiente para los productos "por stock" antes de
+  // crear la orden. Los de fabricacion no descuentan inventario, no se validan.
+  const stockNeeded = new Map<string, number>();
+  for (const input of orderItemInputs) {
+    if (input.fulfillmentMode === "STOCK") {
+      stockNeeded.set(input.productId, (stockNeeded.get(input.productId) ?? 0) + input.quantity);
+    }
+  }
+  if (stockNeeded.size > 0) {
+    const productIds = Array.from(stockNeeded.keys());
+    const sums = await prisma.inventoryMovement.groupBy({
+      by: ["productId"],
+      where: { productId: { in: productIds } },
+      _sum: { change: true },
+    });
+    const stockById = new Map(sums.map((s) => [s.productId, s._sum.change ?? 0]));
+    const insufficient = productIds.filter((id) => (stockNeeded.get(id) ?? 0) > (stockById.get(id) ?? 0));
+    if (insufficient.length > 0) {
+      const products = await prisma.product.findMany({
+        where: { id: { in: insufficient } },
+        select: { id: true, name: true },
+      });
+      const nameById = new Map(products.map((product) => [product.id, product.name]));
+      const detail = insufficient
+        .map((id) => `${nameById.get(id) ?? id} (necesita ${stockNeeded.get(id)}, hay ${stockById.get(id) ?? 0})`)
+        .join("; ");
+      redirect(`${returnTo}?error=${encodeURIComponent(`Sin stock suficiente para: ${detail}`)}`);
+    }
+  }
+
   let createdOrderCode: string | null = null;
   let createdOrderId: string | null = null;
   try {

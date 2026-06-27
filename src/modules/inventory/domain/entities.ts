@@ -8,6 +8,7 @@ export type InventoryMovement = {
   type: InventoryMovementType;
   change: number;
   note: string | null;
+  purchaseCode: string | null;
   movementDate: Date;
   createdAt: Date;
 };
@@ -15,6 +16,8 @@ export type InventoryMovement = {
 export type InventoryMovementRow = InventoryMovement & {
   productName: string;
   productCode: string | null;
+  // Código de la orden (ORD-...) asociada al código de compra (COM-...), si existe.
+  orderCode: string | null;
 };
 
 export type ProductStock = {
@@ -33,6 +36,7 @@ export type ProductStock = {
 
 export type InventoryMetrics = {
   trackedProducts: number;
+  inStockProducts: number;
   totalUnits: number;
   lowStockCount: number;
   outOfStockCount: number;

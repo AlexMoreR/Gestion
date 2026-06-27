@@ -192,7 +192,7 @@ export function InventoryWorkspace({
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             title="Productos en stock"
-            value={`${metrics.trackedProducts}`}
+            value={`${metrics.inStockProducts}`}
             accent="info"
           />
           <MetricCard

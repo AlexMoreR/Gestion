@@ -35,7 +35,7 @@ const TYPE_BADGE: Record<InventoryMovementType, { label: string; className: stri
 };
 
 function formatDate(value: Date): string {
-  return new Date(value).toLocaleDateString("es-CO", { year: "numeric", month: "short", day: "2-digit" });
+  return new Date(value).toLocaleDateString("es-CO", { year: "numeric", month: "2-digit", day: "2-digit" });
 }
 
 export function MovementsTable({ data, onEdit, onDelete }: MovementsTableProps) {
@@ -81,6 +81,24 @@ export function MovementsTable({ data, onEdit, onDelete }: MovementsTableProps) 
           {row.original.change >= 0 ? `+${row.original.change}` : row.original.change}
         </span>
       ),
+    },
+    {
+      accessorKey: "purchaseCode",
+      header: "Orden",
+      cell: ({ row }) => {
+        const { purchaseCode, orderCode } = row.original;
+        if (!purchaseCode && !orderCode) {
+          return <span className="text-sm text-muted-foreground">-</span>;
+        }
+        return (
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-foreground">{purchaseCode ?? orderCode}</p>
+            {purchaseCode && orderCode ? (
+              <p className="truncate text-xs text-muted-foreground">{orderCode}</p>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "note",

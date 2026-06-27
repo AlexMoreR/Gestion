@@ -12,6 +12,7 @@ export function computeStockStatus(stock: number, minStock: number): StockStatus
 
 export function summarizeInventoryMetrics(stocks: ProductStock[]): InventoryMetrics {
   const trackedProducts = stocks.length;
+  const inStockProducts = stocks.filter((item) => item.stock > 0).length;
   const totalUnits = stocks.reduce((sum, item) => sum + Math.max(0, item.stock), 0);
   const lowStockCount = stocks.filter((item) => item.status === "LOW").length;
   const outOfStockCount = stocks.filter((item) => item.status === "OUT").length;
@@ -19,6 +20,7 @@ export function summarizeInventoryMetrics(stocks: ProductStock[]): InventoryMetr
 
   return {
     trackedProducts,
+    inStockProducts,
     totalUnits,
     lowStockCount,
     outOfStockCount,
