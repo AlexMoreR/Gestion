@@ -380,21 +380,26 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
     redirect(`${returnTo}?error=La+orden+no+tiene+items`);
   }
 
-  const unconfirmedItem = order.items.find(
-    (item) => !item.confirmedSupplierId || item.purchaseCost === null,
-  );
-  if (unconfirmedItem) {
-    redirect(`${returnTo}?error=Confirma+el+proveedor+y+costo+de+todos+los+items+antes+de+despachar`);
-  }
+  // En una compra los items ya vienen comprados (pueden no tener proveedor ni
+  // foto); en una venta hay que confirmar proveedor/costo, foto y pago.
+  const isPurchaseOrder = order.type === "PURCHASE";
+  if (!isPurchaseOrder) {
+    const unconfirmedItem = order.items.find(
+      (item) => !item.confirmedSupplierId || item.purchaseCost === null,
+    );
+    if (unconfirmedItem) {
+      redirect(`${returnTo}?error=Confirma+el+proveedor+y+costo+de+todos+los+items+antes+de+despachar`);
+    }
 
-  const itemWithoutPhoto = order.items.find((item) => item.photos.length === 0);
-  if (itemWithoutPhoto) {
-    redirect(`${returnTo}?error=Sube+al+menos+una+foto+del+producto+terminado+por+cada+item`);
-  }
+    const itemWithoutPhoto = order.items.find((item) => item.photos.length === 0);
+    if (itemWithoutPhoto) {
+      redirect(`${returnTo}?error=Sube+al+menos+una+foto+del+producto+terminado+por+cada+item`);
+    }
 
-  const itemWithoutPayment = order.items.find((item) => item.supplierPaymentStatus === null);
-  if (itemWithoutPayment) {
-    redirect(`${returnTo}?error=Registra+el+pago+al+proveedor+de+cada+item+antes+de+despachar`);
+    const itemWithoutPayment = order.items.find((item) => item.supplierPaymentStatus === null);
+    if (itemWithoutPayment) {
+      redirect(`${returnTo}?error=Registra+el+pago+al+proveedor+de+cada+item+antes+de+despachar`);
+    }
   }
 
   const shippingCost = isShipping ? parsed.data.shippingCost : 0;
@@ -600,13 +605,15 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
     redirect(`${returnTo}?error=Producto+no+encontrado+en+la+orden`);
   }
 
-  if (!item.confirmedSupplierId || item.purchaseCost === null) {
+  // En una compra el item ya viene comprado: no exige proveedor, foto ni pago.
+  const isPurchaseOrder = order.type === "PURCHASE";
+  if (!isPurchaseOrder && (!item.confirmedSupplierId || item.purchaseCost === null)) {
     redirect(`${returnTo}?error=Confirma+el+proveedor+y+costo+del+producto+antes+de+despachar`);
   }
-  if (item.photos.length === 0) {
+  if (!isPurchaseOrder && item.photos.length === 0) {
     redirect(`${returnTo}?error=Sube+al+menos+una+foto+del+producto+terminado`);
   }
-  if (item.supplierPaymentStatus === null) {
+  if (!isPurchaseOrder && item.supplierPaymentStatus === null) {
     redirect(`${returnTo}?error=Registra+el+pago+al+proveedor+antes+de+despachar`);
   }
 
@@ -837,15 +844,19 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
     redirect(`${returnTo}?error=Productos+no+encontrados+en+la+orden`);
   }
 
-  for (const item of selectedItems) {
-    if (!item.confirmedSupplierId || item.purchaseCost === null) {
-      redirect(`${returnTo}?error=Confirma+el+proveedor+y+costo+de+todos+los+productos+antes+de+despachar`);
-    }
-    if (item.photos.length === 0) {
-      redirect(`${returnTo}?error=Sube+al+menos+una+foto+de+cada+producto+terminado`);
-    }
-    if (item.supplierPaymentStatus === null) {
-      redirect(`${returnTo}?error=Registra+el+pago+al+proveedor+de+cada+producto+antes+de+despachar`);
+  // En una compra los items ya vienen comprados: no exige proveedor, foto ni pago.
+  const isPurchaseOrder = order.type === "PURCHASE";
+  if (!isPurchaseOrder) {
+    for (const item of selectedItems) {
+      if (!item.confirmedSupplierId || item.purchaseCost === null) {
+        redirect(`${returnTo}?error=Confirma+el+proveedor+y+costo+de+todos+los+productos+antes+de+despachar`);
+      }
+      if (item.photos.length === 0) {
+        redirect(`${returnTo}?error=Sube+al+menos+una+foto+de+cada+producto+terminado`);
+      }
+      if (item.supplierPaymentStatus === null) {
+        redirect(`${returnTo}?error=Registra+el+pago+al+proveedor+de+cada+producto+antes+de+despachar`);
+      }
     }
   }
 
