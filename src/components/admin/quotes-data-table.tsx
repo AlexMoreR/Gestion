@@ -9,6 +9,8 @@ import {
   ChevronDown,
   BadgeDollarSign,
   Edit3,
+  FileText,
+  ImagePlus,
   MoreHorizontal,
   Plus,
   ShoppingCart,
@@ -298,7 +300,10 @@ function RowActions({
             </Link>
           </DropdownMenuItem>
         ) : (
-          <DropdownMenuItem onClick={onSendToSales}>
+          <DropdownMenuItem
+            onClick={onSendToSales}
+            className="text-emerald-600 hover:text-emerald-600 focus:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-400 dark:focus:text-emerald-400"
+          >
             <ShoppingCart className="mr-2 h-4 w-4" />
             Enviar a ventas
           </DropdownMenuItem>
@@ -438,74 +443,31 @@ function SaleInstallmentEditor({
       ? "Opcional para cuentas de efectivo."
       : "Requerido para cuentas que no son de efectivo.";
 
+  const isImageReceipt = Boolean(installment.previewUrl);
+
   return (
-    <div className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-sm font-semibold text-foreground">Detalle del abono</p>
-          {errors && errors.length > 0 ? <p className="text-xs text-destructive">{errors.join(" · ")}</p> : null}
-        </div>
-        <div className="shrink-0 space-y-1">
-          <DatePicker
-            id={dateId}
-            max={todayInputValue()}
-            value={installment.paymentDate}
-            onChange={onPaymentDateChange}
-            className="w-40"
-          />
-        </div>
+    <div className="space-y-4">
+      {/* Fecha del abono (el título ya lo da el header del modal) */}
+      <div className="space-y-1">
+        <DatePicker
+          id={dateId}
+          max={todayInputValue()}
+          value={installment.paymentDate}
+          onChange={onPaymentDateChange}
+          className="w-40"
+        />
+        {errors && errors.length > 0 ? <p className="text-xs text-destructive">{errors.join(" · ")}</p> : null}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {/* Comprobante a la izquierda, campos a la derecha */}
+      <div className="grid gap-4 sm:grid-cols-[10rem_minmax(0,1fr)]">
         <div className="space-y-1.5">
-          <label htmlFor={amountId} className="text-xs font-medium text-foreground">
-            Monto de abono
-          </label>
-          <MoneyInput
-            id={amountId}
-            value={installment.amount}
-            onValueChange={(raw) => onAmountChange(raw)}
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <label htmlFor={methodId} className="text-xs font-medium text-foreground">
-            Metodo de pago del abono
-          </label>
-          <Select
-            value={installment.accountId || null}
-            onValueChange={(value) => onAccountChange(value ?? "")}
+          <span className="text-xs font-medium text-foreground">Comprobante</span>
+          <label
+            htmlFor={receiptId}
+            className="group relative flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-muted/40 transition hover:border-ring hover:bg-muted/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50"
+            title="Subir comprobante"
           >
-            <SelectTrigger id={methodId} className="h-10 w-full">
-              <SelectValue placeholder="Seleccionar metodo">
-                {(value) =>
-                  accounts.find((account) => account.id === value)?.name ??
-                  "Seleccionar metodo"
-                }
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {accounts.map((account) => (
-                <SelectItem key={account.id} value={account.id}>
-                  {account.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {accounts.length === 0 ? (
-            <p className="text-xs text-destructive">
-              No hay cuentas registradas. Crea una en Balances → Cuentas.
-            </p>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <label htmlFor={receiptId} className="text-xs font-medium text-foreground">
-            Comprobante de pago del abono
-          </label>
-          <div className="relative flex min-h-28 flex-col justify-between rounded-lg border border-dashed border-border bg-background p-3 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 hover:bg-muted/20">
             <Input
               key={
                 installment.file
@@ -520,56 +482,99 @@ function SaleInstallmentEditor({
               className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
               onChange={(event) => onReceiptChange(event.currentTarget.files?.[0] ?? null)}
             />
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/60 text-muted-foreground">
-                <Upload className="h-4 w-4" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium text-foreground">
-                  {installment.file ? "Cambiar comprobante" : "Seleccionar archivo"}
+            {isImageReceipt ? (
+              <>
+                <img src={installment.previewUrl ?? ""} alt="Comprobante" className="h-full w-full object-cover" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/45 text-white opacity-0 transition group-hover:opacity-100">
+                  <ImagePlus className="h-5 w-5" />
+                  <span className="text-[11px] font-medium">Cambiar</span>
+                </div>
+              </>
+            ) : installment.file ? (
+              <div className="flex flex-col items-center gap-1 px-2 text-center text-muted-foreground">
+                <FileText className="h-6 w-6" />
+                <span className="line-clamp-2 break-all text-[11px] font-medium text-foreground" title={installment.file.name}>
+                  {installment.file.name}
                 </span>
-                <span
-                  className="mt-0.5 block truncate text-xs text-muted-foreground"
-                  title={installment.file?.name}
-                >
-                  {installment.file ? installment.file.name : "PDF, JPG, PNG o WEBP (max. 12 MB)"}
-                </span>
-              </span>
-            </div>
-            <div className="mt-3 flex items-end justify-between gap-2">
-              <p id={receiptHelpId} className="text-xs leading-relaxed text-muted-foreground">
-                {receiptHelperText}
-              </p>
-              {installment.file ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  className="relative z-20 shrink-0 text-muted-foreground"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onReceiptChange(null);
-                  }}
-                  aria-label="Quitar comprobante"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              ) : null}
-            </div>
-          </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                <Upload className="h-5 w-5" />
+                <span className="text-[11px] font-medium">Agregar</span>
+              </div>
+            )}
+          </label>
+          {installment.file ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-auto px-1 py-0 text-xs text-muted-foreground"
+              onClick={() => onReceiptChange(null)}
+            >
+              Quitar comprobante
+            </Button>
+          ) : null}
+          <p id={receiptHelpId} className="text-[11px] leading-relaxed text-muted-foreground">
+            {receiptHelperText}
+          </p>
         </div>
 
-        <div className="space-y-1.5">
-          <label htmlFor={noteId} className="text-xs font-medium text-foreground">
-            Observacion opcional
-          </label>
-          <Textarea
-            id={noteId}
-            value={installment.note}
-            onChange={(event) => onNoteChange(event.target.value)}
-            placeholder="Ej: Abono 1 de 3"
-            className="min-h-28 resize-none bg-background"
-          />
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <label htmlFor={amountId} className="text-xs font-medium text-foreground">
+              Monto de abono
+            </label>
+            <MoneyInput
+              id={amountId}
+              value={installment.amount}
+              onValueChange={(raw) => onAmountChange(raw)}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor={methodId} className="text-xs font-medium text-foreground">
+              Metodo de pago del abono
+            </label>
+            <Select
+              value={installment.accountId || null}
+              onValueChange={(value) => onAccountChange(value ?? "")}
+            >
+              <SelectTrigger id={methodId} className="h-10 w-full">
+                <SelectValue placeholder="Seleccionar metodo">
+                  {(value) =>
+                    accounts.find((account) => account.id === value)?.name ??
+                    "Seleccionar metodo"
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {accounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {accounts.length === 0 ? (
+              <p className="text-xs text-destructive">
+                No hay cuentas registradas. Crea una en Balances → Cuentas.
+              </p>
+            ) : null}
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor={noteId} className="text-xs font-medium text-foreground">
+              Observacion opcional
+            </label>
+            <Textarea
+              id={noteId}
+              value={installment.note}
+              onChange={(event) => onNoteChange(event.target.value)}
+              placeholder="Ej: Abono 1 de 3"
+              className="min-h-20 resize-none bg-background"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -663,7 +668,11 @@ function SaleInstallmentsModal({
   onDiscountAmountChange: (value: string) => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
-  const selectedInstallment = installments.find((item) => item.id === selectedInstallmentId) ?? installments[0] ?? null;
+  // El abono en edición se abre en su propio modal; solo existe cuando hay uno
+  // seleccionado explícitamente (sin caer al primero por defecto).
+  const editingInstallment = selectedInstallmentId
+    ? installments.find((item) => item.id === selectedInstallmentId) ?? null
+    : null;
   const fileInputRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
 
   React.useEffect(() => {
@@ -692,11 +701,14 @@ function SaleInstallmentsModal({
     <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
       <div className="relative flex min-h-[100dvh] items-start justify-center p-0 sm:p-4">
-        <div className="flex min-h-[100dvh] w-full max-w-6xl flex-col overflow-hidden bg-background shadow-2xl sm:min-h-0 sm:max-h-[92vh] sm:rounded-2xl sm:border sm:border-border">
+        <div className="flex min-h-[100dvh] w-full max-w-3xl flex-col overflow-hidden bg-background shadow-2xl sm:min-h-0 sm:max-h-[92vh] sm:rounded-2xl sm:border sm:border-border">
           <div className="flex items-start justify-between gap-4 border-b border-border bg-background px-4 py-4 sm:px-6">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-base font-semibold text-foreground">Enviar a ventas</h2>
+                <h2 className="inline-flex items-center gap-2 text-base font-semibold text-foreground">
+                  <ShoppingCart className="h-4 w-4 text-primary" />
+                  <span>Enviar a ventas</span>
+                </h2>
                 <Badge variant="outline" className="border-border bg-muted/40 text-foreground">
                   {quote.code}
                 </Badge>
@@ -704,9 +716,6 @@ function SaleInstallmentsModal({
                   {installments.length} abonos
                 </Badge>
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Registra cada abono con su metodo, comprobante y observacion opcional.
-              </p>
             </div>
             <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={onClose} aria-label="Cerrar">
               <X className="h-4 w-4" />
@@ -718,36 +727,43 @@ function SaleInstallmentsModal({
             <input type="hidden" name="quoteId" value={quote.id} />
             <input type="hidden" name="discountAmount" value={discountAmount} />
 
-            <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[22rem_minmax(0,1fr)]">
-              <aside className="min-h-0 border-b border-border bg-muted/20 p-4 lg:border-b-0 lg:border-r">
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-border bg-card p-3">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Total</p>
-                        <p className="font-semibold text-foreground">{formatMoney(validation.capitalTotal, currency)}</p>
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-foreground" htmlFor="discountAmount">
-                          Descuento
-                        </label>
-                        <MoneyInput
-                          id="discountAmount"
-                          value={discountAmount}
-                          onValueChange={(raw) => onDiscountAmountChange(raw)}
-                        />
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Abonos</p>
-                        <p className="font-semibold text-foreground">{formatMoney(validation.totalInstallments, currency)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Restante</p>
-                        <p className="font-semibold text-foreground">{formatMoney(validation.remainingBalance, currency)}</p>
-                      </div>
+            <div className="min-h-0 flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-5">
+              <div className="mx-auto max-w-2xl space-y-4">
+                <div className="rounded-2xl border border-border bg-card p-3">
+                  <div className="grid gap-3 sm:grid-cols-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total</p>
+                      <p className="font-semibold text-foreground">{formatMoney(validation.capitalTotal, currency)}</p>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-foreground" htmlFor="discountAmount">
+                        Descuento
+                      </label>
+                      <MoneyInput
+                        id="discountAmount"
+                        value={discountAmount}
+                        onValueChange={(raw) => onDiscountAmountChange(raw)}
+                      />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Abonos</p>
+                      <p className="font-semibold text-foreground">{formatMoney(validation.totalInstallments, currency)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Restante</p>
+                      <p className="font-semibold text-foreground">{formatMoney(validation.remainingBalance, currency)}</p>
                     </div>
                   </div>
+                </div>
 
+                {installments.length === 0 ? (
+                  <div className="flex justify-center py-2">
+                    <Button type="button" size="lg" className="gap-2" onClick={onAddInstallment}>
+                      <Plus className="h-4 w-4" />
+                      Agregar abono
+                    </Button>
+                  </div>
+                ) : (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="text-sm font-semibold text-foreground">Abonos</h3>
@@ -764,7 +780,7 @@ function SaleInstallmentsModal({
                           installment={installment}
                           currency={currency}
                           accounts={accounts}
-                          active={installment.id === selectedInstallment?.id}
+                          active={installment.id === editingInstallment?.id}
                           errors={validation.installmentErrors[installment.id]}
                           onClick={() => onSelectInstallment(installment.id)}
                           onRemove={() => onRemoveInstallment(installment.id)}
@@ -772,60 +788,30 @@ function SaleInstallmentsModal({
                       ))}
                     </div>
                   </div>
+                )}
 
-                  {validation.summaryErrors.length > 0 || attachmentError ? (
-                    <div role="alert" className="space-y-2 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                        <p>{attachmentError || validation.summaryErrors[0]}</p>
-                      </div>
-                      {validation.summaryErrors.length > 1 ? (
-                        <ul className="space-y-1 pl-6 text-xs">
-                          {validation.summaryErrors.slice(1).map((message) => (
-                            <li key={message}>{message}</li>
-                          ))}
-                        </ul>
-                      ) : null}
+                {validation.summaryErrors.length > 0 || attachmentError ? (
+                  <div role="alert" className="space-y-2 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <p>{attachmentError || validation.summaryErrors[0]}</p>
                     </div>
-                  ) : null}
-                </div>
-              </aside>
-
-              <section className="min-h-0 bg-background p-4 sm:p-5">
-                <div className="space-y-3">
-                  {selectedInstallment ? (
-                    <SaleInstallmentEditor
-                      installment={selectedInstallment}
-                      currency={currency}
-                      accounts={accounts}
-                      onAmountChange={(value) => onAttachmentAmountChange(selectedInstallment.id, value)}
-                      onAccountChange={(value) => onAccountChange(selectedInstallment.id, value)}
-                      onReceiptChange={(file) => onReceiptChange(selectedInstallment.id, file)}
-                      onNoteChange={(value) => onNoteChange(selectedInstallment.id, value)}
-                      onPaymentDateChange={(value) => onPaymentDateChange(selectedInstallment.id, value)}
-                      errors={validation.installmentErrors[selectedInstallment.id]}
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center">
-                      <div className="max-w-sm space-y-2">
-                        <p className="text-sm font-medium text-foreground">No hay abonos para editar</p>
-                        <p className="text-sm text-muted-foreground">
-                          Agrega un abono para empezar. Cada bloque guarda monto, metodo y comprobante.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </section>
+                    {validation.summaryErrors.length > 1 ? (
+                      <ul className="space-y-1 pl-6 text-xs">
+                        {validation.summaryErrors.slice(1).map((message) => (
+                          <li key={message}>{message}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             <SaleInstallmentSubmissionBridge installments={installments} fileInputRefs={fileInputRefs} />
 
             <footer className="border-t border-border bg-background px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:pb-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-muted-foreground">
-                  El envío se habilita cuando todos los abonos tengan monto, método y comprobante válidos.
-                </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                   <Button type="button" variant="outline" onClick={onClose} className="w-full sm:w-auto">
                     Cancelar
@@ -837,6 +823,55 @@ function SaleInstallmentsModal({
           </form>
         </div>
       </div>
+
+      {editingInstallment ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto overscroll-contain bg-black/50 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Detalle del abono"
+          onClick={() => onSelectInstallment(null)}
+        >
+          <div
+            className="flex min-h-[100dvh] w-full max-w-2xl flex-col bg-background shadow-2xl sm:min-h-0 sm:rounded-2xl sm:border sm:border-border"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
+              <h3 className="text-sm font-semibold text-foreground">Detalle del abono</h3>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                onClick={() => onSelectInstallment(null)}
+                aria-label="Cerrar detalle del abono"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+              <SaleInstallmentEditor
+                installment={editingInstallment}
+                currency={currency}
+                accounts={accounts}
+                onAmountChange={(value) => onAttachmentAmountChange(editingInstallment.id, value)}
+                onAccountChange={(value) => onAccountChange(editingInstallment.id, value)}
+                onReceiptChange={(file) => onReceiptChange(editingInstallment.id, file)}
+                onNoteChange={(value) => onNoteChange(editingInstallment.id, value)}
+                onPaymentDateChange={(value) => onPaymentDateChange(editingInstallment.id, value)}
+                errors={validation.installmentErrors[editingInstallment.id]}
+              />
+            </div>
+            <div className="border-t border-border px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5 sm:pb-3">
+              <div className="flex justify-end">
+                <Button type="button" onClick={() => onSelectInstallment(null)} className="w-full sm:w-auto">
+                  Listo
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -945,17 +980,8 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
       setPendingSale(quote);
       setDiscountAmount("0");
       setAttachmentError("");
-      setSaleAttachments([
-        {
-          id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
-          amount: "",
-          file: null,
-          previewUrl: null,
-          accountId: "",
-          note: "",
-          paymentDate: todayInputValue(),
-        },
-      ]);
+      // Arranca sin abonos: se muestra el botón "Agregar abono" centrado.
+      setSaleAttachments([]);
       setSelectedAttachmentId(null);
     },
     [closeSaleModal],
@@ -976,11 +1002,11 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
   );
 
   const addSaleAttachment = React.useCallback(() => {
-    setSaleAttachments((current) => {
-      const nextAttachments = [...current, createSaleAttachment()];
-      setSelectedAttachmentId(nextAttachments[nextAttachments.length - 1]?.id ?? null);
-      return nextAttachments;
-    });
+    // Se crea el abono con un id estable y se selecciona enseguida para que se
+    // abra su modal de detalle al instante.
+    const attachment = createSaleAttachment();
+    setSaleAttachments((current) => [...current, attachment]);
+    setSelectedAttachmentId(attachment.id);
   }, [createSaleAttachment]);
 
   const removeAttachment = React.useCallback(
@@ -993,11 +1019,9 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
         return nextAttachments;
       });
 
-      setSelectedAttachmentId((currentSelected) => {
-        if (currentSelected !== attachmentId) return currentSelected;
-        const next = saleAttachmentsRef.current.filter((item) => item.id !== attachmentId);
-        return next[0]?.id ?? null;
-      });
+      // Si se borra el abono que estaba abierto en el modal, se cierra (null) en
+      // vez de saltar a otro abono automáticamente.
+      setSelectedAttachmentId((currentSelected) => (currentSelected === attachmentId ? null : currentSelected));
     },
     [],
   );
@@ -1067,7 +1091,6 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
     saleLoadingToastRef.current = toast.loading("Enviando a ventas...");
   };
 
-  const selectedAttachment = saleAttachments.find((item) => item.id === selectedAttachmentId) ?? saleAttachments[0] ?? null;
 
   const columns = React.useMemo<ColumnDef<QuoteRow, unknown>[]>(
     () => [
@@ -1275,7 +1298,7 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
         currency={currency}
         accounts={accounts}
         installments={saleAttachments}
-        selectedInstallmentId={selectedAttachment?.id ?? null}
+        selectedInstallmentId={selectedAttachmentId}
         discountAmount={discountAmount}
         attachmentError={attachmentError}
         validation={saleValidation}

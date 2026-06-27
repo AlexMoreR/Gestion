@@ -25,6 +25,15 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+// Formatea una fecha como YYYY-MM-DD usando componentes locales (sin desfase de
+// zona horaria) para precargar el campo <input type="date">.
+function toDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default async function AdminOrderDetailPage({ params, searchParams }: PageProps) {
   const session = await auth();
   if (session?.user?.role !== "ADMIN" || !session.user.id) {
@@ -297,6 +306,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             orderId={order.id}
             status={order.status}
             returnTo={returnTo}
+            orderDate={toDateInputValue(order.createdAt)}
             items={order.items.map((item) => ({
               id: item.id,
               name: item.product.name,

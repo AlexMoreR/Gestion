@@ -8,6 +8,7 @@ import { es } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Calendar } from "@/components/ui/calendar";
 
 // Las fechas se manejan como strings "yyyy-MM-dd" para encajar con los filtros existentes.
@@ -41,6 +42,8 @@ export function DateRangePicker({
   ...rest
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
+  const isMobile = useIsMobile();
+  const monthsToShow = isMobile ? 1 : numberOfMonths;
 
   const fromDate = parseValue(from);
   const toDate = parseValue(to);
@@ -78,7 +81,7 @@ export function DateRangePicker({
           <Calendar
             mode="range"
             locale={es}
-            numberOfMonths={numberOfMonths}
+            numberOfMonths={monthsToShow}
             selected={selected}
             defaultMonth={fromDate}
             onSelect={(range) =>

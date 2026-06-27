@@ -223,18 +223,60 @@ export async function adminUpdateOrderItemsFulfillmentAction(formData: FormData)
     redirect(`${returnTo}?error=Datos+invalidos`);
   }
 
-  await prisma.$transaction(
-    ids.map((id, index) =>
+  // Fecha de la orden (editable). Si viene, sobrescribe createdAt de la orden y
+  // alinea la fecha de los cobros (abonos) de la venta para que concuerden.
+  const orderDateRaw =
+    typeof formData.get("orderDate") === "string" ? (formData.get("orderDate") as string).trim() : "";
+  let orderDate: Date | undefined;
+  if (orderDateRaw) {
+    const parsedOrderDate = new Date(`${orderDateRaw}T12:00:00`);
+    if (Number.isNaN(parsedOrderDate.getTime())) {
+      redirect(`${returnTo}?error=La+fecha+de+la+orden+es+invalida`);
+    }
+    orderDate = parsedOrderDate;
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, saleId: true },
+  });
+  if (!order) {
+    redirect(`${returnTo}?error=Orden+no+encontrada`);
+  }
+
+  await prisma.$transaction([
+    ...ids.map((id, index) =>
       prisma.orderItem.updateMany({
         // El where con orderId asegura que solo se tocan items de esta orden.
         where: { id, orderId },
         data: { fulfillmentMode: modes[index] === "MANUFACTURE" ? "MANUFACTURE" : "STOCK" },
       }),
     ),
-  );
+    ...(orderDate
+      ? [
+          prisma.order.update({
+            where: { id: orderId },
+            data: { createdAt: orderDate },
+          }),
+          // Alinea los cobros de la venta con la nueva fecha de la orden.
+          ...(order.saleId
+            ? [
+                prisma.salePayment.updateMany({
+                  where: { saleId: order.saleId },
+                  data: { paymentDate: orderDate },
+                }),
+              ]
+            : []),
+        ]
+      : []),
+  ]);
 
   revalidatePath("/admin/ordenes");
   revalidatePath(`/admin/ordenes/${orderId}`);
+  if (orderDate) {
+    revalidatePath("/admin/ventas");
+    revalidatePath("/admin/balances");
+  }
   redirect(`${returnTo}?ok=Orden+actualizada`);
 }
 

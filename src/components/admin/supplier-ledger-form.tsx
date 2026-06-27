@@ -162,7 +162,10 @@ export function SupplierLedgerForm({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="flex max-h-[92vh] w-full max-w-lg flex-col gap-0 overflow-hidden p-0">
           <DialogHeader className="shrink-0 border-b px-6 py-4">
-            <DialogTitle>Registrar movimiento</DialogTitle>
+            <DialogTitle className="inline-flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-primary" />
+              <span>Registrar movimiento</span>
+            </DialogTitle>
           </DialogHeader>
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
             <div className="inline-flex rounded-lg border border-[var(--line)] bg-slate-100 p-1">

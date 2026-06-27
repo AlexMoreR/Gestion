@@ -42,6 +42,8 @@ type OrderActionsMenuProps = {
   status: OrderStatus;
   returnTo: string;
   items: OrderEditItem[];
+  // Fecha actual de la orden (YYYY-MM-DD) para precargar el campo de edicion.
+  orderDate: string;
 };
 
 const STATUS_ACTIONS: Partial<Record<OrderStatus, { status: OrderStatus; label: string }>> = {
@@ -51,12 +53,14 @@ const STATUS_ACTIONS: Partial<Record<OrderStatus, { status: OrderStatus; label: 
   DISPATCHED: { status: "COMPLETED", label: "Cerrar orden" },
 };
 
-export function OrderActionsMenu({ orderId, status, returnTo, items }: OrderActionsMenuProps) {
+export function OrderActionsMenu({ orderId, status, returnTo, items, orderDate }: OrderActionsMenuProps) {
   const statusAction = STATUS_ACTIONS[status];
   const canCancel = status !== "COMPLETED" && status !== "CANCELLED";
   const [editOpen, setEditOpen] = useState(false);
   // Modo elegido por producto dentro del modal (controlado).
   const [modes, setModes] = useState<Record<string, "STOCK" | "MANUFACTURE">>({});
+  // Fecha de la orden dentro del modal (controlada).
+  const [date, setDate] = useState(orderDate);
 
   const openEdit = () => {
     setModes(
@@ -64,6 +68,7 @@ export function OrderActionsMenu({ orderId, status, returnTo, items }: OrderActi
         items.map((item) => [item.id, item.fulfillmentMode === "MANUFACTURE" ? "MANUFACTURE" : "STOCK"]),
       ),
     );
+    setDate(orderDate);
     setEditOpen(true);
   };
 
@@ -117,6 +122,23 @@ export function OrderActionsMenu({ orderId, status, returnTo, items }: OrderActi
           <form action={adminUpdateOrderItemsFulfillmentAction} className="space-y-3">
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="orderId" value={orderId} />
+
+            <div className="space-y-1.5">
+              <label htmlFor="order-edit-date" className="text-sm font-medium text-foreground">
+                Fecha de la orden
+              </label>
+              <input
+                id="order-edit-date"
+                name="orderDate"
+                type="date"
+                value={date}
+                onChange={(event) => setDate(event.target.value)}
+                className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+              />
+              <p className="text-xs text-muted-foreground">
+                Tambien actualiza la fecha de los cobros de la venta para que concuerden.
+              </p>
+            </div>
 
             <div className="space-y-2">
               {items.map((item) => (

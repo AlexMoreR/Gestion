@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { TransactionModal } from "@/components/ui/transaction-modal";
 import { cn } from "@/lib/utils";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 
@@ -380,27 +381,33 @@ export function PurchaseDirectDialog({
         Nuevo
       </Button>
 
-      <Dialog open={open} onOpenChange={(value) => (value ? null : handleClose())}>
-        <DialogContent className="flex max-h-[92vh] w-[calc(100%-1.5rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0">
-          <form action={adminCreateDirectPurchaseAction} className="flex min-h-0 flex-1 flex-col">
+      <TransactionModal
+        open={open}
+        onOpenChange={(value) => (value ? null : handleClose())}
+        title="Comprar"
+        icon={<ShoppingCart className="h-4 w-4" />}
+        headerExtra={<DatePicker name="movementDate" required defaultValue={today()} className="w-40" />}
+        formProps={{ action: adminCreateDirectPurchaseAction }}
+        hiddenFields={
+          <>
             <input type="hidden" name="returnTo" value="/admin/ordenes" />
             <input type="hidden" name="items" value={serializedItems} />
-
-            {/* Header fijo */}
-            <DialogHeader className="shrink-0 border-b border-border px-4 py-2.5">
-              <div className="flex flex-wrap items-center gap-3 pr-8">
-                <DialogTitle className="inline-flex items-center gap-2 text-lg font-semibold text-foreground">
-                  <ShoppingCart className="h-4 w-4 text-primary" />
-                  <span>Comprar</span>
-                </DialogTitle>
-                <DatePicker name="movementDate" required defaultValue={today()} className="w-40" />
-              </div>
-            </DialogHeader>
-
-            {/* Cuerpo scrolleable */}
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
-              {/* Lineas agregadas */}
-              <div className="overflow-hidden rounded-xl border border-border bg-card">
+          </>
+        }
+        total={{ label: "Total compra", value: formatMoney(total, currency) }}
+        actions={
+          <>
+            <Button type="button" variant="outline" size="lg" onClick={handleClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" size="lg" disabled={!canSubmit} className="w-full sm:w-auto">
+              Registrar compra
+            </Button>
+          </>
+        }
+      >
+        {/* Lineas agregadas */}
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
@@ -553,27 +560,7 @@ export function PurchaseDirectDialog({
                 </div>
               ) : null}
 
-            </div>
-
-            {/* Footer fijo */}
-            <div className="shrink-0 space-y-3 border-t border-border bg-background px-5 py-4">
-              <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 px-5 py-4">
-                <span className="text-base font-semibold text-foreground">Total compra</span>
-                <span className="text-2xl font-bold text-primary">{formatMoney(total, currency)}</span>
-              </div>
-
-              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                <Button type="button" variant="outline" size="lg" onClick={handleClose}>
-                  Cancelar
-                </Button>
-                <Button type="submit" size="lg" disabled={!canSubmit} className="w-full sm:w-auto">
-                  Registrar compra
-                </Button>
-              </div>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      </TransactionModal>
 
       {/* Modal de seleccion de producto (mismo flujo que cotizacion) */}
       <Dialog

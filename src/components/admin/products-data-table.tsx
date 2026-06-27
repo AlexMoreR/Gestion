@@ -320,7 +320,7 @@ export function ProductsDataTable({
             {belowRuleCount}
           </Button>
         ) : null}
-        <div className="flex items-center gap-2 lg:ml-auto">
+        <div className="flex flex-wrap items-center gap-2 lg:ml-auto lg:justify-end">
           <select
             value={priceMode}
             onChange={(event) => setPriceMode(event.target.value as PriceMode)}
