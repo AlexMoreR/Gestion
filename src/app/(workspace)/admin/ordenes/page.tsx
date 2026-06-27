@@ -147,11 +147,14 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
   // Filas: ordenes de venta y de compra (mismo modelo Order, distinto type).
   const rows = orders.map((order) => {
     const isPurchase = order.type === "PURCHASE";
+    // Fecha de la orden: en compras es la fecha elegida (releasedAt); si no, la
+    // de creacion. Se entrega tambien en ISO para el filtro por rango.
+    const orderDate = order.releasedAt ?? order.createdAt;
     return {
       kind: isPurchase ? ("purchase" as const) : ("order" as const),
       id: order.id,
       code: order.code,
-      saleCode: isPurchase ? "Compra" : order.sale?.code ?? "—",
+      saleCode: isPurchase ? order.purchaseCode ?? "Compra" : order.sale?.code ?? "—",
       // En compras, el "cliente" es quien la creo (admin/empleado).
       clientName: isPurchase
         ? order.createdBy?.name || order.createdBy?.email || "—"
@@ -159,7 +162,8 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
       assignedToName: order.assignedTo?.name ?? order.assignedTo?.email ?? null,
       total: Number(order.total),
       status: order.status,
-      createdAt: order.createdAt.toLocaleDateString("es-CO"),
+      createdAt: orderDate.toLocaleDateString("es-CO"),
+      orderDateISO: orderDate.toISOString(),
     };
   });
 

@@ -72,6 +72,7 @@ export function ShippingCostsTable({ data, currency, onEdit, onDelete }: Shippin
       columns={columns}
       searchPlaceholder="Buscar por transportador, venta o referencia"
       emptyMessage="No hay costos de envio registrados."
+      getRowDate={(row) => (row.paymentDate ? new Date(row.paymentDate).toISOString() : null)}
     />
   );
 }

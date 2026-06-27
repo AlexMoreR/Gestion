@@ -1021,6 +1021,115 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
   redirect(`${returnTo}?ok=${encodeURIComponent(`Despachados ${selectedItems.length} productos`)}`);
 }
 
+const undoDispatchItemSchema = z.object({
+  orderItemId: z.string().trim().min(1, "Producto invalido"),
+});
+
+// Deshace el despacho de un producto: elimina el despacho al que pertenece
+// (devolviendo todos sus productos a "Recogido") y revierte sus efectos
+// financieros (cargo a la transportadora, costo de envio de la venta y, en
+// compras, el incremento del total). Util cuando se despacho por error.
+export async function adminUndoDispatchItemAction(formData: FormData): Promise<void> {
+  const changedById = await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/ordenes");
+
+  const parsed = undoDispatchItemSchema.safeParse({
+    orderItemId: formData.get("orderItemId"),
+  });
+
+  if (!parsed.success) {
+    redirect(`${returnTo}?error=Producto+invalido`);
+  }
+
+  // Despacho activo (no cancelado ni devuelto) que contiene este producto.
+  const dispatchItem = await prisma.dispatchItem.findFirst({
+    where: {
+      orderItemId: parsed.data.orderItemId,
+      dispatch: { status: { notIn: ["CANCELLED", "RETURNED"] } },
+    },
+    include: {
+      dispatch: {
+        include: {
+          order: { select: { id: true, saleId: true, type: true, status: true } },
+        },
+      },
+    },
+  });
+
+  if (!dispatchItem) {
+    redirect(`${returnTo}?error=El+producto+no+tiene+un+despacho+activo`);
+  }
+
+  const dispatch = dispatchItem.dispatch;
+  const order = dispatch.order;
+
+  // Si ya fue entregado al cliente no se puede deshacer desde aqui.
+  if (dispatch.status === "DELIVERED" || order.status === "COMPLETED") {
+    redirect(`${returnTo}?error=El+despacho+ya+fue+entregado+y+no+se+puede+deshacer`);
+  }
+
+  const shippingCost = Math.round(Number(dispatch.shippingCost ?? 0));
+
+  // Referencias con las que se pudo haber registrado el costo de envio de la venta.
+  const shippingRefs = [
+    dispatch.shippingReceiptName,
+    dispatch.trackingNumber,
+    dispatch.trackingPhotoName,
+    `Despacho ${dispatch.code}`,
+  ].filter((value): value is string => typeof value === "string" && value.length > 0);
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // 1) Revertir movimientos de la cuenta corriente de la transportadora.
+      await tx.supplierLedgerEntry.deleteMany({ where: { dispatchId: dispatch.id } });
+
+      // 2) Revertir el costo de envio registrado como gasto de la venta.
+      if (order.saleId && shippingRefs.length > 0) {
+        await tx.shippingCost.deleteMany({
+          where: { saleId: order.saleId, transactionReference: { in: shippingRefs } },
+        });
+      }
+
+      // 3) En compras, el flete se sumo al total: se descuenta.
+      if (order.type === "PURCHASE" && shippingCost > 0) {
+        await tx.order.update({
+          where: { id: order.id },
+          data: { total: { decrement: shippingCost } },
+        });
+      }
+
+      // 4) Eliminar el despacho (cascade borra sus DispatchItem).
+      await tx.dispatch.delete({ where: { id: dispatch.id } });
+
+      // 5) Si la orden estaba marcada como despachada, vuelve a "Lista para despacho".
+      if (order.status === "DISPATCHED") {
+        await tx.order.update({
+          where: { id: order.id },
+          data: { status: "READY_FOR_DISPATCH" },
+        });
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId: order.id,
+            fromStatus: order.status,
+            toStatus: "READY_FOR_DISPATCH",
+            note: `Despacho ${dispatch.code} deshecho`,
+            changedById,
+          },
+        });
+      }
+    });
+  } catch (error) {
+    console.error("Failed to undo dispatch item:", error);
+    redirect(`${returnTo}?error=No+se+pudo+deshacer+el+despacho`);
+  }
+
+  revalidatePath("/admin/despachos");
+  revalidatePath("/admin/ordenes");
+  revalidatePath(`/admin/ordenes/${order.id}`);
+  revalidatePath("/admin/proveedores");
+  redirect(`${returnTo}?ok=Despacho+deshecho`);
+}
+
 export async function adminUpdateDispatchStatusAction(formData: FormData): Promise<void> {
   const changedById = await requireAdminSession();
   const returnTo = getReturnTo(formData, "/admin/despachos");

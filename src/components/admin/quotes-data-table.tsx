@@ -1,18 +1,14 @@
 ﻿"use client";
 
 import Link from "next/link";
+import type { ColumnDef } from "@tanstack/react-table";
 import * as React from "react";
 import {
   AlertCircle,
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
   ArrowUpRight,
-  CalendarDays,
   ChevronDown,
   BadgeDollarSign,
   Edit3,
-  FileText,
   MoreHorizontal,
   Paintbrush,
   Plus,
@@ -20,7 +16,6 @@ import {
   ShoppingCart,
   Trash2,
   Upload,
-  User2,
   X,
 } from "lucide-react";
 import { adminDeleteQuoteAction } from "@/app/actions/quote-actions";
@@ -28,6 +23,7 @@ import { adminCreateSaleFromQuoteAction } from "@/app/actions/sales-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DataTable } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { MoneyInput } from "@/components/ui/money-input";
@@ -48,21 +44,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { toast } from "react-toastify";
 import { useFormStatus } from "react-dom";
 
 type QuoteStatus = "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED";
-type SortKey = "cotizacion" | "cliente" | "estado" | "total" | "fecha" | "acciones";
-type SortDirection = "asc" | "desc";
 
 type QuoteRow = {
   id: string;
@@ -274,36 +260,6 @@ function validateSaleInstallments({
     summaryErrors,
     installmentErrors,
   };
-}
-
-function HeaderLabel({
-  children,
-  active,
-  direction,
-  onClick,
-  icon,
-}: {
-  children: React.ReactNode;
-  active: boolean;
-  direction: SortDirection;
-  onClick: () => void;
-  icon: React.ReactNode;
-}) {
-  return (
-    <Button type="button" variant="ghost" onClick={onClick} aria-label={`Ordenar por ${String(children)}`}>
-      <span className="text-muted-foreground">{icon}</span>
-      {children}
-      {active ? (
-        direction === "asc" ? (
-          <ArrowUp className="h-3.5 w-3.5 text-foreground" />
-        ) : (
-          <ArrowDown className="h-3.5 w-3.5 text-foreground" />
-        )
-      ) : (
-        <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-      )}
-    </Button>
-  );
 }
 
 function RowActions({
@@ -882,8 +838,6 @@ function SaleInstallmentsModal({
 }
 
 export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableProps) {
-  const [sortKey, setSortKey] = React.useState<SortKey>("cotizacion");
-  const [sortDirection, setSortDirection] = React.useState<SortDirection>("desc");
   const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<QuoteStatus[]>(DEFAULT_STATUS_FILTER);
   const [dateFrom, setDateFrom] = React.useState(firstDayOfMonthInput());
@@ -953,32 +907,6 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
     setDateTo(todayInputValue());
   }, []);
 
-  const sortedQuotes = React.useMemo(() => {
-    const list = [...filteredQuotes];
-    const directionFactor = sortDirection === "asc" ? 1 : -1;
-    const textCompare = (a: string, b: string) => a.localeCompare(b, "es", { sensitivity: "base", numeric: true });
-
-    list.sort((a, b) => {
-      switch (sortKey) {
-        case "cotizacion":
-        case "acciones":
-          return textCompare(a.code, b.code) * directionFactor;
-        case "cliente":
-          return textCompare(a.clientName, b.clientName) * directionFactor;
-        case "estado":
-          return textCompare(statusLabel(a.status), statusLabel(b.status)) * directionFactor;
-        case "total":
-          return (a.total - b.total) * directionFactor;
-        case "fecha":
-          return textCompare(a.createdAt, b.createdAt) * directionFactor;
-        default:
-          return 0;
-      }
-    });
-
-    return list;
-  }, [filteredQuotes, sortDirection, sortKey]);
-
   const saleValidation = React.useMemo(() => {
     return validateSaleInstallments({
       quoteTotal: pendingSale?.total ?? 0,
@@ -994,19 +922,6 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
       setAttachmentError("");
     }
   }, [attachmentError, saleValidation.installmentErrors, saleValidation.summaryErrors]);
-
-  const toggleSort = React.useCallback(
-    (key: SortKey) => {
-      if (sortKey === key) {
-        setSortDirection((currentDirection) => (currentDirection === "asc" ? "desc" : "asc"));
-        return;
-      }
-
-      setSortKey(key);
-      setSortDirection("asc");
-    },
-    [sortKey],
-  );
 
   const closeSaleModal = React.useCallback(() => {
     saleAttachmentsRef.current.forEach((attachment) => {
@@ -1152,6 +1067,63 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
 
   const selectedAttachment = saleAttachments.find((item) => item.id === selectedAttachmentId) ?? saleAttachments[0] ?? null;
 
+  const columns = React.useMemo<ColumnDef<QuoteRow, unknown>[]>(
+    () => [
+      {
+        accessorKey: "code",
+        header: "Cotizacion",
+        cell: ({ row }) => <p className="text-sm font-semibold text-foreground">{row.original.code}</p>,
+      },
+      {
+        accessorKey: "clientName",
+        header: "Cliente",
+        cell: ({ row }) => <span className="text-sm text-foreground">{row.original.clientName}</span>,
+      },
+      {
+        id: "estado",
+        accessorFn: (row) => statusLabel(row.status),
+        header: "Estado",
+        cell: ({ row }) => (
+          <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(row.original.status)}`}>
+            {statusLabel(row.original.status)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "total",
+        header: "Total",
+        cell: ({ row }) => (
+          <span className="text-sm font-semibold text-foreground">{formatMoney(row.original.total, currency)}</span>
+        ),
+      },
+      {
+        id: "fecha",
+        accessorFn: (row) => row.createdAtISO,
+        header: "Fecha",
+        cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.createdAt}</span>,
+      },
+      {
+        id: "actions",
+        header: () => <span className="sr-only">Acciones</span>,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end">
+            <form data-delete-quote-id={row.original.id} action={adminDeleteQuoteAction}>
+              <input type="hidden" name="returnTo" value="/admin/cotizaciones" />
+              <input type="hidden" name="quoteId" value={row.original.id} />
+            </form>
+            <RowActions
+              quote={row.original}
+              onDelete={() => setPendingDelete({ id: row.original.id, code: row.original.code })}
+              onSendToSales={() => openSaleModal(row.original)}
+            />
+          </div>
+        ),
+      },
+    ],
+    [currency, openSaleModal],
+  );
+
   return (
     <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -1253,107 +1225,36 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
         </div>
       </div>
 
-      <div className="hidden overflow-hidden rounded-xl border border-border bg-card md:block">
-        <Table className="min-w-[900px]">
-          <TableHeader>
-            <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead className="normal-case tracking-normal">
-                <HeaderLabel active={sortKey === "cotizacion"} direction={sortDirection} onClick={() => toggleSort("cotizacion")} icon={<FileText className="h-3.5 w-3.5" />}>
-                  Cotizacion
-                </HeaderLabel>
-              </TableHead>
-              <TableHead className="normal-case tracking-normal">
-                <HeaderLabel active={sortKey === "cliente"} direction={sortDirection} onClick={() => toggleSort("cliente")} icon={<User2 className="h-3.5 w-3.5" />}>
-                  Cliente
-                </HeaderLabel>
-              </TableHead>
-              <TableHead className="normal-case tracking-normal">
-                <HeaderLabel active={sortKey === "estado"} direction={sortDirection} onClick={() => toggleSort("estado")} icon={<FileText className="h-3.5 w-3.5" />}>
-                  Estado
-                </HeaderLabel>
-              </TableHead>
-              <TableHead className="normal-case tracking-normal">
-                <HeaderLabel active={sortKey === "total"} direction={sortDirection} onClick={() => toggleSort("total")} icon={<FileText className="h-3.5 w-3.5" />}>
-                  Total
-                </HeaderLabel>
-              </TableHead>
-              <TableHead className="normal-case tracking-normal">
-                <HeaderLabel active={sortKey === "fecha"} direction={sortDirection} onClick={() => toggleSort("fecha")} icon={<CalendarDays className="h-3.5 w-3.5" />}>
-                  Fecha
-                </HeaderLabel>
-              </TableHead>
-              <TableHead className="normal-case tracking-normal">
-                <span className="sr-only">Acciones</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedQuotes.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="py-9 text-center text-muted-foreground">
-                  No hay cotizaciones con los filtros seleccionados.
-                </TableCell>
-              </TableRow>
-            ) : (
-              sortedQuotes.map((quote) => (
-                <TableRow key={quote.id}>
-                  <TableCell>
-                    <p className="text-sm font-semibold text-foreground">{quote.code}</p>
-                  </TableCell>
-                  <TableCell className="text-sm text-foreground">{quote.clientName}</TableCell>
-                  <TableCell>
-                    <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(quote.status)}`}>
-                      {statusLabel(quote.status)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-sm font-semibold text-foreground">{formatMoney(quote.total, currency)}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{quote.createdAt}</TableCell>
-                  <TableCell>
-                    <form data-delete-quote-id={quote.id} action={adminDeleteQuoteAction}>
-                      <input type="hidden" name="returnTo" value="/admin/cotizaciones" />
-                      <input type="hidden" name="quoteId" value={quote.id} />
-                    </form>
-                    <div className="flex items-center">
-                      <RowActions quote={quote} onDelete={() => setPendingDelete({ id: quote.id, code: quote.code })} onSendToSales={() => openSaleModal(quote)} />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="space-y-2 md:hidden">
-        {sortedQuotes.length === 0 ? (
-          <div className="rounded-xl border border-border bg-card px-3 py-6 text-center text-sm text-muted-foreground">
-            No hay cotizaciones con los filtros seleccionados.
-          </div>
-        ) : (
-          sortedQuotes.map((quote) => (
-            <article key={quote.id} className="space-y-2.5 rounded-xl border border-border bg-card p-3">
-              <form data-delete-quote-id={quote.id} action={adminDeleteQuoteAction}>
-                <input type="hidden" name="returnTo" value="/admin/cotizaciones" />
-                <input type="hidden" name="quoteId" value={quote.id} />
-              </form>
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-foreground">{quote.code}</p>
-                  <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(quote.status)}`}>
-                    {statusLabel(quote.status)}
-                  </span>
-                </div>
-                <p className="text-sm text-foreground">{quote.clientName}</p>
-                <p className="text-xs text-muted-foreground">{quote.createdAt}</p>
-                <p className="text-sm font-semibold text-foreground">{formatMoney(quote.total, currency)}</p>
+      <DataTable
+        data={filteredQuotes}
+        columns={columns}
+        searchable={false}
+        emptyMessage="No hay cotizaciones con los filtros seleccionados."
+        initialSorting={[{ id: "code", desc: true }]}
+        minWidth="min-w-[900px]"
+        renderMobileCard={(quote) => (
+          <article className="space-y-2.5 rounded-xl border border-border bg-card p-3">
+            <form data-delete-quote-id={quote.id} action={adminDeleteQuoteAction}>
+              <input type="hidden" name="returnTo" value="/admin/cotizaciones" />
+              <input type="hidden" name="quoteId" value={quote.id} />
+            </form>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-foreground">{quote.code}</p>
+                <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(quote.status)}`}>
+                  {statusLabel(quote.status)}
+                </span>
               </div>
-              <div className="flex items-center justify-end">
-                <RowActions quote={quote} onDelete={() => setPendingDelete({ id: quote.id, code: quote.code })} onSendToSales={() => openSaleModal(quote)} />
-              </div>
-            </article>
-          ))
+              <p className="text-sm text-foreground">{quote.clientName}</p>
+              <p className="text-xs text-muted-foreground">{quote.createdAt}</p>
+              <p className="text-sm font-semibold text-foreground">{formatMoney(quote.total, currency)}</p>
+            </div>
+            <div className="flex items-center justify-end">
+              <RowActions quote={quote} onDelete={() => setPendingDelete({ id: quote.id, code: quote.code })} onSendToSales={() => openSaleModal(quote)} />
+            </div>
+          </article>
         )}
-      </div>
+      />
 
       {pendingDelete ? (
         <div

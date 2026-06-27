@@ -14,6 +14,9 @@ type BalancesDataGridProps<TData> = {
   onRowClick?: (row: TData) => void;
   paginate?: boolean;
   showFooter?: boolean;
+  getRowDate?: (row: TData) => string | null | undefined;
+  initialDateFrom?: string;
+  initialDateTo?: string;
 };
 
 export function BalancesDataGrid<TData>({

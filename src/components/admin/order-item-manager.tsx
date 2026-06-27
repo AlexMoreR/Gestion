@@ -2,13 +2,17 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Factory, ImagePlus, Loader2, MapPin, PackageCheck, Pencil, Truck, X } from "lucide-react";
+import { Factory, ImagePlus, Loader2, MapPin, PackageCheck, Pencil, RotateCcw, Truck, X } from "lucide-react";
 import {
   adminConfirmOrderItemAction,
   adminDeleteOrderItemPhotoAction,
   adminDispatchItemAction,
+  adminUndoPickupOrderItemAction,
 } from "@/app/actions/order-item-actions";
-import { adminDispatchOrderItemAction } from "@/app/actions/dispatch-actions";
+import {
+  adminDispatchOrderItemAction,
+  adminUndoDispatchItemAction,
+} from "@/app/actions/dispatch-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -115,6 +119,36 @@ function DispatchItemSubmitButton() {
   );
 }
 
+function UndoDispatchSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button
+      type="submit"
+      variant="destructive"
+      className="w-full"
+      disabled={pending}
+    >
+      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+      {pending ? "Deshaciendo..." : "Si, deshacer despacho"}
+    </Button>
+  );
+}
+
+function UndoPickupSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button
+      type="submit"
+      variant="destructive"
+      className="w-full"
+      disabled={pending}
+    >
+      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+      {pending ? "Deshaciendo..." : "Si, deshacer recogido"}
+    </Button>
+  );
+}
+
 export function OrderItemManager({
   item,
   currency,
@@ -128,6 +162,8 @@ export function OrderItemManager({
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [dispatchOpen, setDispatchOpen] = useState(false);
+  const [undoOpen, setUndoOpen] = useState(false);
+  const [undoPickupOpen, setUndoPickupOpen] = useState(false);
   const [dispatchDeliveryType, setDispatchDeliveryType] = useState<"COUNTER" | "PICKUP" | "SHIPPING">("SHIPPING");
   const [dispatchShippingCost, setDispatchShippingCost] = useState("");
   const isDispatchShipping = dispatchDeliveryType === "SHIPPING";
@@ -182,26 +218,38 @@ export function OrderItemManager({
         {formatMoney(item.unitPrice, currency)}
       </TableCell>
       <TableCell>
-        <Badge
-          variant="outline"
-          className={
-            item.isDespachado
-              ? "border-violet-500/30 bg-violet-500/15 text-violet-600 dark:text-violet-400"
-              : item.isRecogido
-                ? "border-blue-500/30 bg-blue-500/15 text-blue-600 dark:text-blue-400"
-                : item.isConfirmed
-                  ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                  : "border-border bg-muted text-muted-foreground"
-          }
-        >
-          {item.isDespachado
-            ? "Despachado"
-            : item.isRecogido
-              ? "Recogido"
-              : item.isConfirmed
-                ? "Fabricando"
-                : "Sin confirmar"}
-        </Badge>
+        {item.isDespachado ? (
+          <button
+            type="button"
+            onClick={() => setUndoOpen(true)}
+            title="Despachado - Click para deshacer"
+            className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/15 px-2.5 py-0.5 text-xs font-medium text-violet-600 transition hover:bg-violet-500/25 dark:text-violet-400"
+          >
+            Despachado
+            <RotateCcw className="h-3 w-3" />
+          </button>
+        ) : item.isRecogido ? (
+          <button
+            type="button"
+            onClick={() => setUndoPickupOpen(true)}
+            title="Recogido - Click para deshacer"
+            className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/15 px-2.5 py-0.5 text-xs font-medium text-blue-600 transition hover:bg-blue-500/25 dark:text-blue-400"
+          >
+            Recogido
+            <RotateCcw className="h-3 w-3" />
+          </button>
+        ) : (
+          <Badge
+            variant="outline"
+            className={
+              item.isConfirmed
+                ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                : "border-border bg-muted text-muted-foreground"
+            }
+          >
+            {item.isConfirmed ? "Fabricando" : "Sin confirmar"}
+          </Badge>
+        )}
       </TableCell>
       <TableCell className="text-right">
         {item.isDespachado ? (
@@ -690,6 +738,43 @@ export function OrderItemManager({
 
               <DispatchItemSubmitButton />
             </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={undoOpen} onOpenChange={(value) => (value ? null : setUndoOpen(false))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Deshacer despacho</DialogTitle>
+            <DialogDescription>
+              Se eliminara el despacho{item.dispatchCode ? ` ${item.dispatchCode}` : ""} de{" "}
+              <span className="font-medium text-foreground">{item.productName}</span> y el producto
+              volvera al estado "Recogido" para poder despacharlo de nuevo. Se revertiran los costos
+              de envio asociados.
+            </DialogDescription>
+          </DialogHeader>
+          <form action={adminUndoDispatchItemAction} className="space-y-3">
+            <input type="hidden" name="returnTo" value={returnTo} />
+            <input type="hidden" name="orderItemId" value={item.id} />
+            <UndoDispatchSubmitButton />
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={undoPickupOpen} onOpenChange={(value) => (value ? null : setUndoPickupOpen(false))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Deshacer recogido</DialogTitle>
+            <DialogDescription>
+              <span className="font-medium text-foreground">{item.productName}</span> volvera al
+              estado "Fabricando". Se eliminaran las fotos del producto terminado y se revertira el
+              cargo/pago al proveedor generado al recogerlo.
+            </DialogDescription>
+          </DialogHeader>
+          <form action={adminUndoPickupOrderItemAction} className="space-y-3">
+            <input type="hidden" name="returnTo" value={returnTo} />
+            <input type="hidden" name="orderItemId" value={item.id} />
+            <UndoPickupSubmitButton />
+          </form>
         </DialogContent>
       </Dialog>
       </TableCell>

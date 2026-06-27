@@ -14,6 +14,9 @@ type ExpensesDataGridProps<TData> = {
   pageSize?: number;
   toolbar?: React.ReactNode;
   searchFirst?: boolean;
+  getRowDate?: (row: TData) => string | null | undefined;
+  initialDateFrom?: string;
+  initialDateTo?: string;
 };
 
 export function ExpensesDataGrid<TData>({

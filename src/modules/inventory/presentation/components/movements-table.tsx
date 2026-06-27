@@ -146,6 +146,7 @@ export function MovementsTable({ data, onEdit, onDelete }: MovementsTableProps) 
       searchPlaceholder="Buscar movimiento"
       emptyMessage="Aun no hay movimientos de inventario."
       pageSize={12}
+      getRowDate={(row) => (row.movementDate ? new Date(row.movementDate).toISOString() : null)}
     />
   );
 }

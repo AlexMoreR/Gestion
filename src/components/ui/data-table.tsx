@@ -13,6 +13,7 @@ import {
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -50,7 +51,27 @@ export type DataTableProps<TData> = {
   initialSorting?: SortingState;
   /** Muestra una fila de totales (usa el `footer` definido en cada columna). */
   showFooter?: boolean;
+  /**
+   * Si se entrega, habilita un filtro de rango de fechas (Desde/Hasta) sobre la
+   * fecha que retorne esta función. Acepta "yyyy-MM-dd" o un ISO completo.
+   */
+  getRowDate?: (row: TData) => string | null | undefined;
+  /** Valor inicial del rango de fechas "yyyy-MM-dd". */
+  initialDateFrom?: string;
+  initialDateTo?: string;
 };
+
+// Acepta "yyyy-MM-dd" directo o un ISO (UTC) y lo lleva al día en la zona local.
+function toLocalDay(value: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
 
 export function DataTable<TData>({
   data,
@@ -70,13 +91,38 @@ export function DataTable<TData>({
   renderMobileCard,
   initialSorting = [],
   showFooter = false,
+  getRowDate,
+  initialDateFrom = "",
+  initialDateTo = "",
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = React.useState<SortingState>(initialSorting);
   const [globalFilter, setGlobalFilter] = React.useState(initialSearch);
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize });
+  const [dateFrom, setDateFrom] = React.useState(initialDateFrom);
+  const [dateTo, setDateTo] = React.useState(initialDateTo);
+
+  const dateFiltered = React.useMemo(() => {
+    if (!getRowDate || (!dateFrom && !dateTo)) {
+      return data;
+    }
+    return data.filter((row) => {
+      const raw = getRowDate(row);
+      if (!raw) {
+        return false;
+      }
+      const day = toLocalDay(raw);
+      if (dateFrom && day < dateFrom) {
+        return false;
+      }
+      if (dateTo && day > dateTo) {
+        return false;
+      }
+      return true;
+    });
+  }, [data, getRowDate, dateFrom, dateTo]);
 
   const table = useReactTable({
-    data,
+    data: dateFiltered,
     columns,
     state: { sorting, globalFilter, pagination },
     onSortingChange: setSorting,
@@ -99,7 +145,14 @@ export function DataTable<TData>({
   });
 
   const rows = table.getRowModel().rows;
-  const hasHeaderBar = Boolean(title) || searchable || Boolean(toolbar);
+  const hasDateFilter = Boolean(getRowDate);
+  const hasHeaderBar = Boolean(title) || searchable || Boolean(toolbar) || hasDateFilter;
+
+  const resetDateRange = () => {
+    setDateFrom("");
+    setDateTo("");
+    setPagination((current) => ({ ...current, pageIndex: 0 }));
+  };
 
   return (
     <div className="space-y-3">
@@ -140,6 +193,34 @@ export function DataTable<TData>({
               </div>
             ) : null}
             {searchFirst ? toolbar : null}
+            {hasDateFilter ? (
+              <div className="flex items-center gap-1.5">
+                <DateRangePicker
+                  from={dateFrom}
+                  to={dateTo}
+                  onChange={(range) => {
+                    setDateFrom(range.from);
+                    setDateTo(range.to);
+                    setPagination((current) => ({ ...current, pageIndex: 0 }));
+                  }}
+                  aria-label="Rango de fechas"
+                  className="sm:w-64"
+                  placeholder="Rango de fechas"
+                />
+                {dateFrom || dateTo ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={resetDateRange}
+                    aria-label="Limpiar fechas"
+                    title="Limpiar fechas"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

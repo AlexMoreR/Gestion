@@ -106,6 +106,7 @@ export function PaymentHistoryTable({ data, currency, onEdit, onDelete }: Paymen
       columns={columns}
       searchPlaceholder="Buscar por proveedor, venta o referencia"
       emptyMessage="No hay pagos registrados."
+      getRowDate={(row) => (row.paymentDate ? new Date(row.paymentDate).toISOString() : null)}
     />
   );
 }

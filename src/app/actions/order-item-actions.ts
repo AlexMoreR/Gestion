@@ -799,6 +799,90 @@ export async function adminBulkPickupOrderItemsAction(formData: FormData): Promi
   redirect(`${returnTo}?ok=${encodeURIComponent(`Recogidos ${processed} productos`)}`);
 }
 
+const undoPickupSchema = z.object({
+  orderItemId: z.string().trim().min(1, "Producto invalido"),
+});
+
+// Deshace el "Recogido" de un producto: revierte el cargo/pago al proveedor,
+// borra las fotos del producto terminado, limpia el estado de pago y devuelve
+// las ordenes de produccion a "En progreso". El producto vuelve a "Fabricando".
+export async function adminUndoPickupOrderItemAction(formData: FormData): Promise<void> {
+  const createdById = await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/ordenes");
+
+  const parsed = undoPickupSchema.safeParse({
+    orderItemId: formData.get("orderItemId"),
+  });
+
+  if (!parsed.success) {
+    redirect(`${returnTo}?error=Producto+invalido`);
+  }
+
+  const orderItem = await prisma.orderItem.findUnique({
+    where: { id: parsed.data.orderItemId },
+    include: {
+      order: { select: { id: true, status: true } },
+      photos: { select: { id: true } },
+      dispatchItems: {
+        where: { dispatch: { status: { notIn: ["CANCELLED", "RETURNED"] } } },
+        select: { id: true },
+      },
+    },
+  });
+
+  if (!orderItem) {
+    redirect(`${returnTo}?error=Producto+no+encontrado`);
+  }
+
+  if (orderItem.order.status === "CANCELLED" || orderItem.order.status === "COMPLETED") {
+    redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
+  }
+
+  // No se puede deshacer el recogido si el producto ya esta despachado.
+  if (orderItem.dispatchItems.length > 0) {
+    redirect(`${returnTo}?error=Deshaz+primero+el+despacho+del+producto`);
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // 1) Revertir cargo/pago al proveedor generado al recoger.
+      await tx.supplierLedgerEntry.deleteMany({
+        where: { orderItemId: orderItem.id, dispatchId: null },
+      });
+
+      // 2) Borrar las fotos del producto terminado.
+      await tx.orderItemPhoto.deleteMany({ where: { orderItemId: orderItem.id } });
+
+      // 3) Limpiar el estado de pago al proveedor.
+      await tx.orderItem.update({
+        where: { id: orderItem.id },
+        data: {
+          supplierPaymentStatus: null,
+          supplierReceiptUrl: null,
+          supplierReceiptName: null,
+        },
+      });
+
+      // 4) Devolver las ordenes de produccion a "En progreso".
+      await tx.productionJob.updateMany({
+        where: { orderItemId: orderItem.id, status: "DONE" },
+        data: { status: "IN_PROGRESS", completedAt: null },
+      });
+
+      await syncOrderStatusAfterProduction(tx, orderItem.order.id, createdById);
+    });
+  } catch (error) {
+    console.error("Failed to undo pickup order item:", error);
+    redirect(`${returnTo}?error=No+se+pudo+deshacer+el+recogido`);
+  }
+
+  revalidatePath("/admin/ordenes");
+  revalidatePath(`/admin/ordenes/${orderItem.order.id}`);
+  revalidatePath("/admin/produccion");
+  revalidatePath("/admin/proveedores");
+  redirect(`${returnTo}?ok=Recogido+deshecho`);
+}
+
 export async function adminDeleteOrderItemPhotoAction(formData: FormData): Promise<void> {
   await requireAdminSession();
   const returnTo = getReturnTo(formData, "/admin/ordenes");

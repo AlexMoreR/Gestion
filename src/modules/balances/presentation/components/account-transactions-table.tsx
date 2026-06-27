@@ -89,6 +89,7 @@ export function AccountTransactionsTable({ data, currency }: AccountTransactions
         emptyMessage="Esta cuenta aun no tiene transacciones registradas."
         paginate={false}
         onRowClick={setSelected}
+        getRowDate={(row) => (row.date ? new Date(row.date).toISOString() : null)}
       />
 
       <TransactionDetailDialog transaction={selected} currency={currency} onClose={() => setSelected(null)} />
