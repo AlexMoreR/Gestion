@@ -279,7 +279,18 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           <Badge className={displayState.className} variant="outline">
             {displayState.label}
           </Badge>
-          <OrderActionsMenu orderId={order.id} status={order.status} returnTo={returnTo} />
+          <OrderActionsMenu
+            orderId={order.id}
+            status={order.status}
+            returnTo={returnTo}
+            items={order.items.map((item) => ({
+              id: item.id,
+              name: item.product.name,
+              code: item.product.code,
+              quantity: item.quantity,
+              fulfillmentMode: item.fulfillmentMode,
+            }))}
+          />
         </div>
       </div>
 

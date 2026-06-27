@@ -170,6 +170,74 @@ async function saveOrderItemPhoto(
   };
 }
 
+const updateOrderItemFulfillmentSchema = z.object({
+  orderItemId: z.string().trim().min(1, "Item invalido"),
+  fulfillmentMode: z.enum(["STOCK", "MANUFACTURE"]),
+});
+
+// Cambia el modo (Stock/Fabricacion) de un producto de la orden. Solo actualiza
+// la etiqueta; el ajuste de inventario se maneja aparte (durante el cuadre).
+export async function adminUpdateOrderItemFulfillmentAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/ordenes");
+
+  const parsed = updateOrderItemFulfillmentSchema.safeParse({
+    orderItemId: formData.get("orderItemId"),
+    fulfillmentMode: formData.get("fulfillmentMode"),
+  });
+
+  if (!parsed.success) {
+    redirect(`${returnTo}?error=Datos+invalidos`);
+  }
+
+  const orderItem = await prisma.orderItem.findUnique({
+    where: { id: parsed.data.orderItemId },
+    select: { id: true, orderId: true },
+  });
+
+  if (!orderItem) {
+    redirect(`${returnTo}?error=Producto+no+encontrado`);
+  }
+
+  await prisma.orderItem.update({
+    where: { id: orderItem.id },
+    data: { fulfillmentMode: parsed.data.fulfillmentMode },
+  });
+
+  revalidatePath("/admin/ordenes");
+  revalidatePath(`/admin/ordenes/${orderItem.orderId}`);
+  redirect(`${returnTo}?ok=Modo+actualizado`);
+}
+
+// Edita en lote el modo (Stock/Fabricacion) de los productos de una orden, desde
+// el modal "Editar orden". Solo cambia la etiqueta; no mueve inventario.
+export async function adminUpdateOrderItemsFulfillmentAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/ordenes");
+
+  const orderId = typeof formData.get("orderId") === "string" ? (formData.get("orderId") as string).trim() : "";
+  const ids = formData.getAll("orderItemId").map((value) => String(value));
+  const modes = formData.getAll("fulfillmentMode").map((value) => String(value));
+
+  if (!orderId || ids.length === 0 || ids.length !== modes.length) {
+    redirect(`${returnTo}?error=Datos+invalidos`);
+  }
+
+  await prisma.$transaction(
+    ids.map((id, index) =>
+      prisma.orderItem.updateMany({
+        // El where con orderId asegura que solo se tocan items de esta orden.
+        where: { id, orderId },
+        data: { fulfillmentMode: modes[index] === "MANUFACTURE" ? "MANUFACTURE" : "STOCK" },
+      }),
+    ),
+  );
+
+  revalidatePath("/admin/ordenes");
+  revalidatePath(`/admin/ordenes/${orderId}`);
+  redirect(`${returnTo}?ok=Orden+actualizada`);
+}
+
 export async function adminConfirmOrderItemAction(formData: FormData): Promise<void> {
   const createdById = await requireAdminSession();
   const returnTo = getReturnTo(formData, "/admin/ordenes");
