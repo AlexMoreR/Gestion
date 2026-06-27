@@ -58,11 +58,15 @@ export function InventoryMovementFormDialog({
           <p className="text-sm text-muted-foreground">
             Genera el inventario con Orden de Comprar
           </p>
-          <Button asChild className="w-full" onClick={onClose}>
-            <Link href="/admin/ordenes" className="inline-flex items-center justify-center gap-2">
-              <ShoppingCart className="h-4 w-4" />
-              Ir a Ordenes
-            </Link>
+          <Button
+            className="w-full"
+            onClick={onClose}
+            render={
+              <Link href="/admin/ordenes" className="inline-flex items-center justify-center gap-2" />
+            }
+          >
+            <ShoppingCart className="h-4 w-4" />
+            Ir a Ordenes
           </Button>
         </div>
       </DialogContent>
