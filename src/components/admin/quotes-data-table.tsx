@@ -478,7 +478,12 @@ function SaleInstallmentEditor({
             onValueChange={(value) => onAccountChange(value ?? "")}
           >
             <SelectTrigger id={methodId} className="h-10 w-full">
-              <SelectValue placeholder="Seleccionar metodo" />
+              <SelectValue placeholder="Seleccionar metodo">
+                {(value) =>
+                  accounts.find((account) => account.id === value)?.name ??
+                  "Seleccionar metodo"
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {accounts.map((account) => (

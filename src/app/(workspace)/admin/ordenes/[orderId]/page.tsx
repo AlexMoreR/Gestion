@@ -17,6 +17,7 @@ import {
   getOrderStatusLabel,
 } from "@/lib/orders";
 import { getSystemCurrency } from "@/lib/system-settings";
+import { getPublicAssetUrl } from "@/lib/site";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 
 type PageProps = {
@@ -212,6 +213,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       orderId: order.id,
       productName: item.product.name,
       productCode: item.product.code,
+      productImageUrl: item.product.thumbnailUrl ? getPublicAssetUrl(item.product.thumbnailUrl) : null,
       quantity: item.quantity,
       unitPrice: Number(item.unitPrice),
       fulfillmentLabel: getFulfillmentModeLabel(item.fulfillmentMode),

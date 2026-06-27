@@ -255,7 +255,7 @@ export async function adminConfirmOrderItemAction(formData: FormData): Promise<v
   const orderItem = await prisma.orderItem.findUnique({
     where: { id: parsed.data.orderItemId },
     include: {
-      order: { select: { id: true, status: true } },
+      order: { select: { id: true, code: true, status: true, saleId: true } },
       product: { select: { suppliers: { select: { supplierId: true } } } },
       productionJobs: { select: { id: true } },
     },
@@ -282,6 +282,11 @@ export async function adminConfirmOrderItemAction(formData: FormData): Promise<v
     .join(" - ");
 
   try {
+    // El cargo (saldo) al proveedor se genera al confirmar la compra/fabricacion,
+    // una sola vez por item. Antes se generaba al recoger.
+    const chargeAmount = Number(parsed.data.purchaseCost) * orderItem.quantity;
+    const shouldCharge = orderItem.supplierPaymentStatus === null && chargeAmount > 0;
+
     await prisma.$transaction(async (tx) => {
       await tx.orderItem.update({
         where: { id: orderItem.id },
@@ -289,8 +294,24 @@ export async function adminConfirmOrderItemAction(formData: FormData): Promise<v
           confirmedSupplierId: parsed.data.supplierId,
           purchaseCost: parsed.data.purchaseCost,
           confirmedAt: new Date(),
+          ...(shouldCharge ? { supplierPaymentStatus: "PENDING" } : {}),
         },
       });
+
+      if (shouldCharge) {
+        await tx.supplierLedgerEntry.create({
+          data: {
+            supplierId: parsed.data.supplierId,
+            type: "CHARGE",
+            amount: chargeAmount,
+            note: `Compra item - Orden ${orderItem.order.code}`,
+            saleId: orderItem.order.saleId,
+            orderId: orderItem.order.id,
+            orderItemId: orderItem.id,
+            createdById,
+          },
+        });
+      }
 
       // Al confirmar (Fabricar) se envia el item a produccion, una sola vez.
       if (orderItem.productionJobs.length === 0) {
@@ -468,7 +489,6 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
     redirect(`${returnTo}?error=Selecciona+la+cuenta+de+salida+del+pago`);
   }
   const alreadyPaid = orderItem.supplierPaymentStatus === "PAID";
-  const alreadyCharged = orderItem.supplierPaymentStatus !== null;
 
   try {
     const savedPhotos = await Promise.all(
@@ -491,22 +511,8 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
         });
       }
 
-      // Genera el cargo (saldo) al proveedor una sola vez por item.
-      if (!alreadyCharged && amount > 0 && supplierId) {
-        await tx.supplierLedgerEntry.create({
-          data: {
-            supplierId,
-            type: "CHARGE",
-            amount,
-            note: `Despacho item - Orden ${orderItem.order.code}`,
-            saleId: orderItem.order.saleId,
-            orderId: orderItem.order.id,
-            orderItemId: orderItem.id,
-            createdById,
-          },
-        });
-      }
-
+      // El cargo (saldo) al proveedor ya se genero al confirmar (Fabricar/Compra);
+      // al recoger solo se registra el pago si se elige pagar ahora.
       if (paymentMode === "PAY_NOW") {
         if (!alreadyPaid && amount > 0 && supplierId) {
           await tx.supplierLedgerEntry.create({
@@ -534,11 +540,6 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
             supplierReceiptUrl: receipt?.url ?? orderItem.supplierReceiptUrl ?? null,
             supplierReceiptName: receipt?.name ?? orderItem.supplierReceiptName ?? null,
           },
-        });
-      } else if (!alreadyPaid) {
-        await tx.orderItem.update({
-          where: { id: orderItem.id },
-          data: { supplierPaymentStatus: "PENDING" },
         });
       }
 
@@ -597,7 +598,7 @@ export async function adminBulkConfirmOrderItemsAction(formData: FormData): Prom
   const items = await prisma.orderItem.findMany({
     where: { id: { in: ids } },
     include: {
-      order: { select: { id: true, status: true } },
+      order: { select: { id: true, code: true, status: true, saleId: true } },
       product: {
         select: {
           baseCost: true,
@@ -642,14 +643,33 @@ export async function adminBulkConfirmOrderItemsAction(formData: FormData): Prom
         }
 
         const cost = Number(preferred.supplierCost ?? item.product.baseCost ?? 0);
+        // El cargo (saldo) al proveedor se genera al confirmar, una sola vez.
+        const chargeAmount = cost * item.quantity;
+        const shouldCharge = item.supplierPaymentStatus === null && chargeAmount > 0;
         await tx.orderItem.update({
           where: { id: item.id },
           data: {
             confirmedSupplierId: preferred.supplierId,
             purchaseCost: cost,
             confirmedAt: new Date(),
+            ...(shouldCharge ? { supplierPaymentStatus: "PENDING" } : {}),
           },
         });
+
+        if (shouldCharge) {
+          await tx.supplierLedgerEntry.create({
+            data: {
+              supplierId: preferred.supplierId,
+              type: "CHARGE",
+              amount: chargeAmount,
+              note: `Compra item - Orden ${item.order.code}`,
+              saleId: item.order.saleId,
+              orderId,
+              orderItemId: item.id,
+              createdById,
+            },
+          });
+        }
 
         if (item.productionJobs.length === 0) {
           const meta = parseQuoteItemMeta(item.notes);
@@ -750,29 +770,8 @@ export async function adminBulkPickupOrderItemsAction(formData: FormData): Promi
           data: { orderItemId: item.id, url: savedPhoto.url, name: savedPhoto.name },
         });
 
-        const amount = Number(item.purchaseCost) * item.quantity;
-        const alreadyCharged = item.supplierPaymentStatus !== null;
-        if (!alreadyCharged && amount > 0 && item.confirmedSupplierId) {
-          await tx.supplierLedgerEntry.create({
-            data: {
-              supplierId: item.confirmedSupplierId,
-              type: "CHARGE",
-              amount,
-              note: `Despacho item - Orden ${item.order.code}`,
-              saleId: item.order.saleId,
-              orderId,
-              orderItemId: item.id,
-              createdById,
-            },
-          });
-        }
-
-        if (item.supplierPaymentStatus === null) {
-          await tx.orderItem.update({
-            where: { id: item.id },
-            data: { supplierPaymentStatus: "PENDING" },
-          });
-        }
+        // El cargo (saldo) al proveedor ya se genero al confirmar (Fabricar);
+        // recoger solo adjunta la foto y cierra la produccion.
 
         await tx.productionJob.updateMany({
           where: {
@@ -797,6 +796,114 @@ export async function adminBulkPickupOrderItemsAction(formData: FormData): Promi
   revalidatePath("/admin/produccion");
   revalidatePath("/admin/proveedores");
   redirect(`${returnTo}?ok=${encodeURIComponent(`Recogidos ${processed} productos`)}`);
+}
+
+const undoConfirmSchema = z.object({
+  orderItemId: z.string().trim().min(1, "Producto invalido"),
+});
+
+// Deshace el "Fabricar" (confirmacion) de un producto: borra su orden de
+// produccion, limpia el proveedor/costo confirmado y, si la orden ya no tiene
+// produccion, la regresa a "Liberada". El producto vuelve a "Sin confirmar".
+export async function adminUndoConfirmOrderItemAction(formData: FormData): Promise<void> {
+  const createdById = await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/ordenes");
+
+  const parsed = undoConfirmSchema.safeParse({
+    orderItemId: formData.get("orderItemId"),
+  });
+
+  if (!parsed.success) {
+    redirect(`${returnTo}?error=Producto+invalido`);
+  }
+
+  const orderItem = await prisma.orderItem.findUnique({
+    where: { id: parsed.data.orderItemId },
+    include: {
+      order: { select: { id: true, status: true } },
+      photos: { select: { id: true } },
+      dispatchItems: {
+        where: { dispatch: { status: { notIn: ["CANCELLED", "RETURNED"] } } },
+        select: { id: true },
+      },
+    },
+  });
+
+  if (!orderItem) {
+    redirect(`${returnTo}?error=Producto+no+encontrado`);
+  }
+
+  if (orderItem.order.status === "CANCELLED" || orderItem.order.status === "COMPLETED") {
+    redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
+  }
+
+  // No se puede deshacer la fabricacion si el producto ya avanzo de etapa.
+  if (orderItem.dispatchItems.length > 0) {
+    redirect(`${returnTo}?error=Deshaz+primero+el+despacho+del+producto`);
+  }
+  // El pago ya realizado o el recogido (foto) deben deshacerse antes que la fabricacion.
+  if (orderItem.supplierPaymentStatus === "PAID" || orderItem.photos.length > 0) {
+    redirect(`${returnTo}?error=Deshaz+primero+el+recogido+del+producto`);
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // 1) Borrar las ordenes de produccion del producto.
+      await tx.productionJob.deleteMany({ where: { orderItemId: orderItem.id } });
+
+      // 2) Revertir el cargo (saldo) al proveedor generado al confirmar.
+      await tx.supplierLedgerEntry.deleteMany({
+        where: {
+          orderItemId: orderItem.id,
+          type: "CHARGE",
+          dispatchId: null,
+          inventoryMovementId: null,
+        },
+      });
+
+      // 3) Limpiar el proveedor/costo confirmado y el estado de pago.
+      await tx.orderItem.update({
+        where: { id: orderItem.id },
+        data: {
+          confirmedSupplierId: null,
+          purchaseCost: null,
+          confirmedAt: null,
+          supplierPaymentStatus: null,
+        },
+      });
+
+      // 4) Si la orden estaba en produccion y ya no le queda ninguna, vuelve a "Liberada".
+      if (orderItem.order.status === "IN_PRODUCTION") {
+        const remainingJobs = await tx.productionJob.count({
+          where: { orderId: orderItem.order.id },
+        });
+        if (remainingJobs === 0) {
+          await tx.order.update({
+            where: { id: orderItem.order.id },
+            data: { status: "RELEASED" },
+          });
+          await tx.orderStatusHistory.create({
+            data: {
+              orderId: orderItem.order.id,
+              fromStatus: "IN_PRODUCTION",
+              toStatus: "RELEASED",
+              note: "Fabricacion deshecha",
+              changedById: createdById,
+            },
+          });
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Failed to undo confirm order item:", error);
+    redirect(`${returnTo}?error=No+se+pudo+deshacer+la+fabricacion`);
+  }
+
+  revalidatePath("/admin/ordenes");
+  revalidatePath(`/admin/ordenes/${orderItem.order.id}`);
+  revalidatePath("/admin/produccion");
+  revalidatePath("/admin/proveedores");
+  redirect(`${returnTo}?ok=Fabricacion+deshecha`);
 }
 
 const undoPickupSchema = z.object({
@@ -845,19 +952,26 @@ export async function adminUndoPickupOrderItemAction(formData: FormData): Promis
 
   try {
     await prisma.$transaction(async (tx) => {
-      // 1) Revertir cargo/pago al proveedor generado al recoger.
+      // 1) Revertir solo el pago al proveedor hecho al recoger. El cargo (saldo)
+      // se genero al confirmar (Fabricar), asi que se conserva y el item vuelve
+      // a quedar con el saldo pendiente.
       await tx.supplierLedgerEntry.deleteMany({
-        where: { orderItemId: orderItem.id, dispatchId: null },
+        where: {
+          orderItemId: orderItem.id,
+          type: "PAYMENT",
+          dispatchId: null,
+          inventoryMovementId: null,
+        },
       });
 
       // 2) Borrar las fotos del producto terminado.
       await tx.orderItemPhoto.deleteMany({ where: { orderItemId: orderItem.id } });
 
-      // 3) Limpiar el estado de pago al proveedor.
+      // 3) El item vuelve a "saldo pendiente" con el proveedor (no a sin cargo).
       await tx.orderItem.update({
         where: { id: orderItem.id },
         data: {
-          supplierPaymentStatus: null,
+          supplierPaymentStatus: "PENDING",
           supplierReceiptUrl: null,
           supplierReceiptName: null,
         },

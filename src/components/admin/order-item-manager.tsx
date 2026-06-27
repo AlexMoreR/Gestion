@@ -7,6 +7,7 @@ import {
   adminConfirmOrderItemAction,
   adminDeleteOrderItemPhotoAction,
   adminDispatchItemAction,
+  adminUndoConfirmOrderItemAction,
   adminUndoPickupOrderItemAction,
 } from "@/app/actions/order-item-actions";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/app/actions/dispatch-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ProductThumb } from "@/components/admin/product-thumb";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +56,7 @@ export type OrderItemManagerData = {
   orderId: string;
   productName: string;
   productCode: string | null;
+  productImageUrl: string | null;
   quantity: number;
   unitPrice: number;
   fulfillmentLabel: string;
@@ -149,11 +152,25 @@ function UndoPickupSubmitButton() {
   );
 }
 
+function UndoConfirmSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button
+      type="submit"
+      variant="destructive"
+      className="w-full"
+      disabled={pending}
+    >
+      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+      {pending ? "Deshaciendo..." : "Si, deshacer fabricacion"}
+    </Button>
+  );
+}
+
 export function OrderItemManager({
   item,
   currency,
   returnTo,
-  accounts,
   carriers,
   defaultAddress,
   selected,
@@ -164,18 +181,18 @@ export function OrderItemManager({
   const [dispatchOpen, setDispatchOpen] = useState(false);
   const [undoOpen, setUndoOpen] = useState(false);
   const [undoPickupOpen, setUndoPickupOpen] = useState(false);
+  const [undoConfirmOpen, setUndoConfirmOpen] = useState(false);
   const [dispatchDeliveryType, setDispatchDeliveryType] = useState<"COUNTER" | "PICKUP" | "SHIPPING">("SHIPPING");
   const [dispatchShippingCost, setDispatchShippingCost] = useState("");
   const isDispatchShipping = dispatchDeliveryType === "SHIPPING";
   // Vista previa de las fotos recien seleccionadas (aun no enviadas al servidor),
   // para que el usuario confirme que la foto quedo adjunta antes de guardar.
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
-  const [paymentMode, setPaymentMode] = useState<"PAY_NOW" | "PAY_LATER">(
-    item.paymentStatus === "PAID" ? "PAY_NOW" : "PAY_LATER",
-  );
   const [purchaseCost, setPurchaseCost] = useState(
     item.defaultCost ? String(Math.trunc(item.defaultCost)) : "",
   );
+  // Total a pagar al proveedor = costo unitario (digitos crudos) x cantidad.
+  const confirmTotal = (Number(purchaseCost) || 0) * item.quantity;
   const hasSuppliers = item.suppliers.length > 0;
   // Cuando el item ya esta recogido se muestra un resumen de solo lectura;
   // el lapiz habilita el formulario para editar el despacho.
@@ -238,16 +255,19 @@ export function OrderItemManager({
             Recogido
             <RotateCcw className="h-3 w-3" />
           </button>
-        ) : (
-          <Badge
-            variant="outline"
-            className={
-              item.isConfirmed
-                ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                : "border-border bg-muted text-muted-foreground"
-            }
+        ) : item.isConfirmed ? (
+          <button
+            type="button"
+            onClick={() => setUndoConfirmOpen(true)}
+            title="Fabricando - Click para deshacer"
+            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-medium text-emerald-600 transition hover:bg-emerald-500/25 dark:text-emerald-400"
           >
-            {item.isConfirmed ? "Fabricando" : "Sin confirmar"}
+            Fabricando
+            <RotateCcw className="h-3 w-3" />
+          </button>
+        ) : (
+          <Badge variant="outline" className="border-border bg-muted text-muted-foreground">
+            Sin confirmar
           </Badge>
         )}
       </TableCell>
@@ -297,63 +317,88 @@ export function OrderItemManager({
       <Dialog open={open} onOpenChange={(value) => (value ? null : setOpen(false))}>
         <DialogContent className="max-h-[88vh] max-w-lg overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{item.productName}</DialogTitle>
-            <DialogDescription>
-              {item.quantity} x {formatMoney(item.unitPrice, currency)} - {item.fulfillmentLabel}
-            </DialogDescription>
+            <div className="flex items-center gap-3 rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/5 p-2.5">
+              <ProductThumb
+                src={item.productImageUrl ?? ""}
+                alt={item.productName}
+                className="h-12 w-12 shrink-0 rounded-md border border-border bg-muted object-cover"
+              />
+              <div className="min-w-0 space-y-0.5">
+                <DialogTitle>{item.productName}</DialogTitle>
+                <DialogDescription>
+                  {item.quantity} x {formatMoney(item.unitPrice, currency)} - {item.fulfillmentLabel}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
             {/* Confirmacion de compra (solo antes de confirmar) */}
             {!item.isConfirmed ? (
-            <div className="space-y-2 rounded-md border border-dashed border-border p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs uppercase tracking-[0.2em] font-semibold text-foreground">
-                  Confirmacion de compra
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Precio de venta: {formatMoney(item.unitPrice, currency)}
-                </p>
-              </div>
-              {hasSuppliers ? (
-                <form
-                  action={adminConfirmOrderItemAction}
-                  className="grid items-end gap-2 sm:grid-cols-[1fr_auto_auto]"
-                >
+              hasSuppliers ? (
+                <form action={adminConfirmOrderItemAction} className="space-y-3">
                   <input type="hidden" name="returnTo" value={returnTo} />
                   <input type="hidden" name="orderItemId" value={item.id} />
-                  <label className="space-y-1">
-                    <span className="text-xs text-muted-foreground">Proveedor</span>
-                    <select
-                      name="supplierId"
-                      defaultValue={item.defaultSupplierId}
-                      className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-                    >
-                      {item.suppliers.map((supplier) => (
-                        <option key={supplier.id} value={supplier.id}>
-                          {supplier.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="space-y-1">
-                    <span className="text-xs text-muted-foreground">Costo de compra</span>
-                    <MoneyInput
-                      name="purchaseCost"
-                      value={purchaseCost}
-                      onValueChange={setPurchaseCost}
-                      className="sm:w-32"
-                    />
-                  </label>
-                  <Button type="submit" size="sm" variant="outline" className="h-8">
-                    {item.isConfirmed ? "Actualizar" : "Confirmar"}
-                  </Button>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs uppercase tracking-[0.2em] font-semibold text-foreground">
+                      Confirmacion de compra
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Precio de venta: {formatMoney(item.unitPrice, currency)}
+                    </p>
+                  </div>
+
+                  <div className="grid gap-3 rounded-xl border border-border bg-muted/40 p-3 sm:grid-cols-2">
+                    <label className="space-y-1.5">
+                      <span className="text-sm font-medium text-foreground">Proveedor</span>
+                      <select
+                        name="supplierId"
+                        defaultValue={item.defaultSupplierId}
+                        className="field-select"
+                      >
+                        {item.suppliers.map((supplier) => (
+                          <option key={supplier.id} value={supplier.id}>
+                            {supplier.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-1.5">
+                      <span className="text-sm font-medium text-foreground">Costo de compra</span>
+                      <MoneyInput
+                        name="purchaseCost"
+                        value={purchaseCost}
+                        onValueChange={setPurchaseCost}
+                        className="h-9"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-xl border border-[var(--primary)]/20 bg-[var(--primary)]/5 px-4 py-3">
+                    <span className="text-sm font-semibold text-foreground">Total a pagar</span>
+                    <span className="text-xl font-bold text-[var(--primary)]">
+                      {formatMoney(confirmTotal, currency)}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Al confirmar se generara un saldo de cobro al proveedor por este monto.
+                  </p>
+
+                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                    <Button type="button" variant="outline" size="lg" onClick={() => setOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit" size="lg">
+                      Confirmar compra
+                    </Button>
+                  </div>
                 </form>
               ) : (
-                <p className="text-xs text-destructive">
+                <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
                   El producto no tiene proveedores. Agregalos en el catalogo para confirmar.
                 </p>
-              )}
-            </div>
+              )
             ) : null}
 
             {/* Despacho: pago al proveedor + foto */}
@@ -469,56 +514,12 @@ export function OrderItemManager({
                           </>
                         ) : null}
                       </p>
-                    ) : (
+                    ) : item.paymentStatus === "PENDING" ? (
                       <p className="text-xs text-muted-foreground">
-                        {item.paymentStatus === "PENDING"
-                          ? "Saldo pendiente con el proveedor."
-                          : "Aun sin registrar el pago."}
+                        Saldo pendiente con el proveedor.
                       </p>
-                    )}
-                    <div className="flex flex-col gap-1 text-sm">
-                      <label className="inline-flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="paymentMode"
-                          value="PAY_LATER"
-                          checked={paymentMode === "PAY_LATER"}
-                          onChange={() => setPaymentMode("PAY_LATER")}
-                        />
-                        <span>Pagar luego (genera saldo pendiente)</span>
-                      </label>
-                      <label className="inline-flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="paymentMode"
-                          value="PAY_NOW"
-                          checked={paymentMode === "PAY_NOW"}
-                          onChange={() => setPaymentMode("PAY_NOW")}
-                        />
-                        <span>Subir recibo de pago</span>
-                      </label>
-                    </div>
-                    {paymentMode === "PAY_NOW" ? (
-                      <div className="space-y-2">
-                        <Input type="file" name="receipt" accept="image/*,application/pdf" className="h-8 text-xs" />
-                        <label className="space-y-1">
-                          <span className="text-xs font-medium text-muted-foreground">Cuenta de salida</span>
-                          <select
-                            name="accountId"
-                            defaultValue=""
-                            required
-                            className="h-8 w-full rounded-lg border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                          >
-                            <option value="">Seleccionar cuenta</option>
-                            {accounts.map((account) => (
-                              <option key={account.id} value={account.id}>
-                                {account.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
                     ) : null}
+                    <input type="hidden" name="paymentMode" value="PAY_LATER" />
                   </div>
 
                   <div className="space-y-2">
@@ -627,10 +628,19 @@ export function OrderItemManager({
       <Dialog open={dispatchOpen} onOpenChange={(value) => (value ? null : setDispatchOpen(false))}>
         <DialogContent className="max-h-[88vh] max-w-lg overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{item.productName}</DialogTitle>
-            <DialogDescription>
-              {item.productCode ? `${item.productCode} · ` : ""}x{item.quantity}
-            </DialogDescription>
+            <div className="flex items-center gap-3">
+              <ProductThumb
+                src={item.productImageUrl ?? ""}
+                alt={item.productName}
+                className="h-11 w-11 shrink-0 rounded-md border border-border bg-muted object-cover"
+              />
+              <div className="min-w-0 space-y-0.5">
+                <DialogTitle>{item.productName}</DialogTitle>
+                <DialogDescription>
+                  {item.productCode ? `${item.productCode} · ` : ""}x{item.quantity}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
           <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-2.5 text-xs text-muted-foreground">
@@ -774,6 +784,24 @@ export function OrderItemManager({
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="orderItemId" value={item.id} />
             <UndoPickupSubmitButton />
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={undoConfirmOpen} onOpenChange={(value) => (value ? null : setUndoConfirmOpen(false))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Deshacer fabricacion</DialogTitle>
+            <DialogDescription>
+              <span className="font-medium text-foreground">{item.productName}</span> volvera al
+              estado "Sin confirmar". Se eliminara su orden de produccion y se limpiara el proveedor
+              y costo confirmado.
+            </DialogDescription>
+          </DialogHeader>
+          <form action={adminUndoConfirmOrderItemAction} className="space-y-3">
+            <input type="hidden" name="returnTo" value={returnTo} />
+            <input type="hidden" name="orderItemId" value={item.id} />
+            <UndoConfirmSubmitButton />
           </form>
         </DialogContent>
       </Dialog>
