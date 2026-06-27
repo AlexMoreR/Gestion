@@ -10,9 +10,7 @@ import {
   BadgeDollarSign,
   Edit3,
   MoreHorizontal,
-  Paintbrush,
   Plus,
-  Search,
   ShoppingCart,
   Trash2,
   Upload,
@@ -26,6 +24,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { MoneyInput } from "@/components/ui/money-input";
 import {
   Select,
@@ -843,7 +842,6 @@ function SaleInstallmentsModal({
 }
 
 export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableProps) {
-  const [search, setSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<QuoteStatus[]>(DEFAULT_STATUS_FILTER);
   const [dateFrom, setDateFrom] = React.useState(firstDayOfMonthInput());
   const [dateTo, setDateTo] = React.useState(todayInputValue());
@@ -877,17 +875,17 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
     }
   }, [pendingSale]);
 
+  // El filtro por estado y fecha vive aquí (alimenta las tarjetas de stats); la
+  // búsqueda de texto la maneja el buscador integrado del DataTable.
   const filteredQuotes = React.useMemo(() => {
-    const term = search.trim().toLowerCase();
     return quotes.filter((quote) => {
       if (!statusFilter.includes(quote.status)) return false;
       const day = isoToLocalDay(quote.createdAtISO);
       if (dateFrom && day < dateFrom) return false;
       if (dateTo && day > dateTo) return false;
-      if (term && !`${quote.code} ${quote.clientName}`.toLowerCase().includes(term)) return false;
       return true;
     });
-  }, [quotes, search, statusFilter, dateFrom, dateTo]);
+  }, [quotes, statusFilter, dateFrom, dateTo]);
 
   const stats = React.useMemo(() => {
     const accepted = filteredQuotes.filter((quote) => quote.status === "ACCEPTED");
@@ -906,7 +904,6 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
   }, []);
 
   const resetFilters = React.useCallback(() => {
-    setSearch("");
     setStatusFilter(DEFAULT_STATUS_FILTER);
     setDateFrom(firstDayOfMonthInput());
     setDateTo(todayInputValue());
@@ -1158,85 +1155,69 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
         </Card>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-3">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative w-full sm:max-w-xs">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                className="pl-9"
-                placeholder="Buscar por código o cliente"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button type="button" variant="outline" size="sm" className="gap-2">
-                    <span>
-                      {statusFilter.length === 0
-                        ? "Ninguno"
-                        : statusFilter.length === STATUS_FILTER_OPTIONS.length
-                          ? "Todos los estados"
-                          : `${statusFilter.length} seleccionados`}
-                    </span>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-52">
-                  <DropdownMenuLabel>Filtrar por estado</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {STATUS_FILTER_OPTIONS.map((status) => (
-                    <DropdownMenuCheckboxItem
-                      key={status}
-                      checked={statusFilter.includes(status)}
-                      onCheckedChange={() => toggleStatusFilter(status)}
-                      onSelect={(event) => event.preventDefault()}
-                    >
-                      {statusLabel(status)}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <DatePicker
-              value={dateFrom}
-              onChange={setDateFrom}
-              className="w-40"
-              placeholder="Desde"
-              aria-label="Desde"
-            />
-            <DatePicker
-              value={dateTo}
-              onChange={setDateTo}
-              className="w-40"
-              placeholder="Hasta"
-              aria-label="Hasta"
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={resetFilters}
-              aria-label="Limpiar filtros"
-              title="Limpiar filtros"
-            >
-              <Paintbrush className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
       <DataTable
         data={filteredQuotes}
         columns={columns}
-        searchable={false}
+        searchPlaceholder="Buscar por código o cliente"
         emptyMessage="No hay cotizaciones con los filtros seleccionados."
         initialSorting={[{ id: "code", desc: true }]}
         minWidth="min-w-[900px]"
+        searchFirst
+        toolbar={
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-1.5">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" size="sm" className="h-9 gap-2">
+                  <span>
+                    {statusFilter.length === 0
+                      ? "Ninguno"
+                      : statusFilter.length === STATUS_FILTER_OPTIONS.length
+                        ? "Todos los estados"
+                        : `${statusFilter.length} seleccionados`}
+                  </span>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuLabel>Filtrar por estado</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {STATUS_FILTER_OPTIONS.map((status) => (
+                  <DropdownMenuCheckboxItem
+                    key={status}
+                    checked={statusFilter.includes(status)}
+                    onCheckedChange={() => toggleStatusFilter(status)}
+                    onSelect={(event) => event.preventDefault()}
+                  >
+                    {statusLabel(status)}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <div className="flex items-center gap-1.5">
+              <DateRangePicker
+                from={dateFrom}
+                to={dateTo}
+                onChange={(range) => {
+                  setDateFrom(range.from);
+                  setDateTo(range.to);
+                }}
+                aria-label="Rango de fechas"
+                className="sm:w-64"
+                placeholder="Rango de fechas"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={resetFilters}
+                aria-label="Limpiar filtros"
+                title="Limpiar filtros"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        }
         renderMobileCard={(quote) => (
           <article className="space-y-2.5 rounded-xl border border-border bg-card p-3">
             <form data-delete-quote-id={quote.id} action={adminDeleteQuoteAction}>
