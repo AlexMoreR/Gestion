@@ -47,6 +47,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         sale: {
           include: {
             salePayments: { orderBy: { sortOrder: "asc" } },
+            shippingCosts: { select: { amount: true } },
           },
         },
         client: true,
@@ -139,7 +140,13 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     const unitCost = Number(item.purchaseCost ?? preferred?.supplierCost ?? item.product.baseCost);
     return sum + unitCost * item.quantity;
   }, 0);
-  const earnedValue = Number(order.total) - totalPurchaseCost;
+  // Costo de envio pagado al proveedor de transporte (registrado en la venta).
+  // Debe restarse de la ganancia, igual que en el modulo de balances.
+  const totalShippingCost = (order.sale?.shippingCosts ?? []).reduce(
+    (sum, cost) => sum + Number(cost.amount),
+    0,
+  );
+  const earnedValue = Number(order.total) - totalPurchaseCost - totalShippingCost;
   // En una compra el item ya viene comprado (se confirma al registrarla, aunque
   // no tenga proveedor); en una venta hay que confirmar proveedor + costo.
   const isPurchase = order.type === "PURCHASE";
