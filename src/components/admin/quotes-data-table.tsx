@@ -5,9 +5,11 @@ import type { ColumnDef } from "@tanstack/react-table";
 import * as React from "react";
 import {
   AlertCircle,
+  AlignLeft,
   ArrowUpRight,
   ChevronDown,
   BadgeDollarSign,
+  Coins,
   Edit3,
   FileText,
   ImagePlus,
@@ -16,6 +18,7 @@ import {
   ShoppingCart,
   Trash2,
   Upload,
+  Wallet,
   X,
 } from "lucide-react";
 import { adminDeleteQuoteAction } from "@/app/actions/quote-actions";
@@ -357,7 +360,11 @@ function SaleInstallmentCard({
   onRemove: () => void;
 }) {
   const hasFile = Boolean(installment.file);
+  const isImageReceipt = Boolean(installment.previewUrl) && (installment.file?.type.startsWith("image/") ?? false);
   const accountName = accounts.find((account) => account.id === installment.accountId)?.name ?? "";
+  // Abono "sin tocar": no se muestran errores hasta que el usuario empiece a llenarlo.
+  const isPristine = !installment.amount && !installment.accountId && !installment.file;
+  const showErrors = !isPristine && Boolean(errors && errors.length > 0);
 
   return (
     <div
@@ -374,8 +381,14 @@ function SaleInstallmentCard({
         active ? "border-ring bg-muted/60 shadow-sm" : "border-border bg-background hover:bg-muted/30"
       }`}
     >
-      <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-border bg-muted/60 text-muted-foreground">
-        <BadgeDollarSign className="h-6 w-6" />
+      <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted/60 text-muted-foreground">
+        {isImageReceipt ? (
+          <img src={installment.previewUrl ?? ""} alt="Comprobante" className="h-full w-full object-cover" />
+        ) : hasFile ? (
+          <FileText className="h-6 w-6" />
+        ) : (
+          <BadgeDollarSign className="h-6 w-6" />
+        )}
       </div>
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex items-start justify-between gap-2">
@@ -403,7 +416,7 @@ function SaleInstallmentCard({
           </Button>
         </div>
         {installment.note ? <p className="text-xs text-muted-foreground">{installment.note}</p> : null}
-        {errors && errors.length > 0 ? <p className="text-xs text-destructive">{errors.join(" · ")}</p> : null}
+        {showErrors ? <p className="text-xs text-destructive">{errors!.join(" · ")}</p> : null}
       </div>
     </div>
   );
@@ -443,26 +456,15 @@ function SaleInstallmentEditor({
       ? "Opcional para cuentas de efectivo."
       : "Requerido para cuentas que no son de efectivo.";
 
-  const isImageReceipt = Boolean(installment.previewUrl);
+  const isImageReceipt = Boolean(installment.previewUrl) && (installment.file?.type.startsWith("image/") ?? false);
 
   return (
     <div className="space-y-4">
-      {/* Fecha del abono (el título ya lo da el header del modal) */}
-      <div className="space-y-1">
-        <DatePicker
-          id={dateId}
-          max={todayInputValue()}
-          value={installment.paymentDate}
-          onChange={onPaymentDateChange}
-          className="w-40"
-        />
-        {errors && errors.length > 0 ? <p className="text-xs text-destructive">{errors.join(" · ")}</p> : null}
-      </div>
+      {/* Titulo y fecha los da el header del modal */}
 
       {/* Comprobante a la izquierda, campos a la derecha */}
       <div className="grid gap-4 sm:grid-cols-[10rem_minmax(0,1fr)]">
         <div className="space-y-1.5">
-          <span className="text-xs font-medium text-foreground">Comprobante</span>
           <label
             htmlFor={receiptId}
             className="group relative flex aspect-square w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-muted/40 transition hover:border-ring hover:bg-muted/60 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50"
@@ -522,8 +524,9 @@ function SaleInstallmentEditor({
 
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <label htmlFor={amountId} className="text-xs font-medium text-foreground">
-              Monto de abono
+            <label htmlFor={amountId} className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground">
+              <Coins className="h-3.5 w-3.5 text-muted-foreground" />
+              Monto
             </label>
             <MoneyInput
               id={amountId}
@@ -533,8 +536,9 @@ function SaleInstallmentEditor({
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor={methodId} className="text-xs font-medium text-foreground">
-              Metodo de pago del abono
+            <label htmlFor={methodId} className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground">
+              <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
+              Metodo
             </label>
             <Select
               value={installment.accountId || null}
@@ -564,8 +568,9 @@ function SaleInstallmentEditor({
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor={noteId} className="text-xs font-medium text-foreground">
-              Observacion opcional
+            <label htmlFor={noteId} className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground">
+              <AlignLeft className="h-3.5 w-3.5 text-muted-foreground" />
+              Nota
             </label>
             <Textarea
               id={noteId}
@@ -673,6 +678,17 @@ function SaleInstallmentsModal({
   const editingInstallment = selectedInstallmentId
     ? installments.find((item) => item.id === selectedInstallmentId) ?? null
     : null;
+
+  // Al cerrar el detalle, si el abono quedó vacío (sin monto, método ni
+  // comprobante) se descarta para no dejar una card sin datos.
+  const closeEditor = () => {
+    if (editingInstallment && !editingInstallment.amount && !editingInstallment.accountId && !editingInstallment.file) {
+      onRemoveInstallment(editingInstallment.id);
+    } else {
+      onSelectInstallment(null);
+    }
+  };
+
   const fileInputRefs = React.useRef<Record<string, HTMLInputElement | null>>({});
 
   React.useEffect(() => {
@@ -830,20 +846,32 @@ function SaleInstallmentsModal({
           role="dialog"
           aria-modal="true"
           aria-label="Detalle del abono"
-          onClick={() => onSelectInstallment(null)}
+          onClick={closeEditor}
         >
           <div
             className="flex min-h-[100dvh] w-full max-w-2xl flex-col bg-background shadow-2xl sm:min-h-0 sm:rounded-2xl sm:border sm:border-border"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
-              <h3 className="text-sm font-semibold text-foreground">Detalle del abono</h3>
+              <div className="flex flex-wrap items-center gap-3">
+                <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <BadgeDollarSign className="h-4 w-4 text-primary" />
+                  <span>Detalle del abono</span>
+                </h3>
+                <DatePicker
+                  max={todayInputValue()}
+                  value={editingInstallment.paymentDate}
+                  onChange={(value) => onPaymentDateChange(editingInstallment.id, value)}
+                  className="w-40"
+                  aria-label="Fecha del abono"
+                />
+              </div>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 className="shrink-0"
-                onClick={() => onSelectInstallment(null)}
+                onClick={closeEditor}
                 aria-label="Cerrar detalle del abono"
               >
                 <X className="h-4 w-4" />
@@ -862,9 +890,23 @@ function SaleInstallmentsModal({
                 errors={validation.installmentErrors[editingInstallment.id]}
               />
             </div>
-            <div className="border-t border-border px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5 sm:pb-3">
+            <div className="space-y-3 border-t border-border px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5 sm:pb-3">
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+                <div>
+                  <span className="text-xs text-muted-foreground">Total abono</span>
+                  <p className="text-xl font-bold text-primary">
+                    {formatMoney(Number(editingInstallment.amount || 0), currency)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-muted-foreground">Pendiente</span>
+                  <p className="text-xl font-bold text-foreground">
+                    {formatMoney(validation.remainingBalance, currency)}
+                  </p>
+                </div>
+              </div>
               <div className="flex justify-end">
-                <Button type="button" onClick={() => onSelectInstallment(null)} className="w-full sm:w-auto">
+                <Button type="button" onClick={closeEditor} className="w-full sm:w-auto">
                   Listo
                 </Button>
               </div>

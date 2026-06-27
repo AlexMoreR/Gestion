@@ -250,6 +250,7 @@ function RowActions({
               const form = document.querySelector<HTMLFormElement>(`form[data-create-order-sale-id="${sale.id}"]`);
               form?.requestSubmit();
             }}
+            className="text-emerald-600 hover:text-emerald-600 focus:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-400 dark:focus:text-emerald-400"
           >
             <FileText className="mr-2 h-4 w-4" />
             Crear orden
