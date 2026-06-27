@@ -65,6 +65,10 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             },
             confirmedSupplier: true,
             photos: { orderBy: { createdAt: "asc" } },
+            supplierLedgerEntries: {
+              where: { type: "PAYMENT" },
+              select: { amount: true },
+            },
             productionJobs: {
               include: {
                 assignedTo: true,
@@ -234,6 +238,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       confirmedSupplierName: item.confirmedSupplier?.name ?? null,
       purchaseCost: item.purchaseCost === null ? null : Number(item.purchaseCost),
       supplierCostTotal: item.purchaseCost === null ? 0 : Number(item.purchaseCost) * item.quantity,
+      supplierPaidTotal: item.supplierLedgerEntries.reduce((sum, entry) => sum + Number(entry.amount), 0),
       paymentStatus:
         item.supplierPaymentStatus === "PAID"
           ? ("PAID" as const)

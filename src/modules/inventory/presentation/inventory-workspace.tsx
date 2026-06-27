@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Boxes, History, Plus, Warehouse } from "lucide-react";
+import Link from "next/link";
+import { Boxes, History, ShoppingCart, Warehouse } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -176,10 +177,17 @@ export function InventoryWorkspace({
               <span>Inventario</span>
             </h1>
 
-            <Button type="button" onClick={() => setMovementModal({ open: true, productId: null })}>
-              <Plus className="h-4 w-4" />
-              Nuevo movimiento
-            </Button>
+            <div className="flex flex-col gap-1 lg:items-end">
+              <span className="text-sm text-muted-foreground">
+                Genera el inventario con Orden de Comprar
+              </span>
+              <Button asChild type="button">
+                <Link href="/admin/ordenes">
+                  <ShoppingCart className="h-4 w-4" />
+                  Ir a Ordenes
+                </Link>
+              </Button>
+            </div>
           </div>
 
           <Tabs value={tab} onValueChange={(value) => setTab(value as TabKey)} variant="line">

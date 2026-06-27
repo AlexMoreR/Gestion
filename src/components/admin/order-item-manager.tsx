@@ -72,6 +72,7 @@ export type OrderItemManagerData = {
   confirmedSupplierName: string | null;
   purchaseCost: number | null;
   supplierCostTotal: number;
+  supplierPaidTotal: number;
   paymentStatus: "PENDING" | "PAID" | null;
   receiptUrl: string | null;
   photos: ItemPhoto[];
@@ -483,44 +484,14 @@ export function OrderItemManager({
                   <input type="hidden" name="returnTo" value={returnTo} />
                   <input type="hidden" name="orderItemId" value={item.id} />
 
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-xs uppercase tracking-[0.2em] font-semibold text-foreground">
-                        Pago al proveedor
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Costo: {formatMoney(item.supplierCostTotal, currency)}
-                      </p>
-                    </div>
-                    {item.confirmedSupplierName ? (
-                      <p className="text-xs text-muted-foreground">
-                        Proveedor: {item.confirmedSupplierName}
-                      </p>
-                    ) : null}
-                    {item.paymentStatus === "PAID" ? (
-                      <p className="text-xs font-medium text-emerald-600">
-                        Pagado al proveedor.
-                        {item.receiptUrl ? (
-                          <>
-                            {" "}
-                            <a
-                              href={item.receiptUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="underline"
-                            >
-                              Ver recibo
-                            </a>
-                          </>
-                        ) : null}
-                      </p>
-                    ) : item.paymentStatus === "PENDING" ? (
-                      <p className="text-xs text-muted-foreground">
-                        Saldo pendiente con el proveedor.
-                      </p>
-                    ) : null}
-                    <input type="hidden" name="paymentMode" value="PAY_LATER" />
-                  </div>
+                  <input type="hidden" name="paymentMode" value="PAY_LATER" />
+
+                  <p className="text-sm text-foreground">
+                    {item.confirmedSupplierName ? `${item.confirmedSupplierName}: ` : ""}
+                    {formatMoney(item.supplierCostTotal, currency)}
+                    {" - "}
+                    Abono: {formatMoney(item.supplierPaidTotal, currency)}
+                  </p>
 
                   <div className="space-y-2">
                     <p className="text-xs uppercase tracking-[0.2em] font-semibold text-foreground">
