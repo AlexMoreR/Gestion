@@ -24,7 +24,7 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
 
   const { quoteId } = await params;
 
-  const [quote, clients, products, currency] = await Promise.all([
+  const [quote, clients, products, currency, stockRows] = await Promise.all([
     prisma.quote.findUnique({
       where: { id: quoteId },
       include: {
@@ -61,11 +61,34 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
             supplier: true,
           },
         },
+        bundleComponents: {
+          orderBy: { sortOrder: "asc" },
+          include: { child: true },
+        },
       },
       take: 500,
     }),
     getSystemCurrency(),
+    // Stock por producto (suma de movimientos) para la bolita del selector.
+    prisma.inventoryMovement.groupBy({
+      by: ["productId"],
+      _sum: { change: true },
+    }),
   ]);
+
+  // Stock de productos normales; para combos, cuantos se pueden armar con sus
+  // componentes (minimo de stock del componente / unidades requeridas).
+  const stockByProduct = new Map(stockRows.map((row) => [row.productId, row._sum.change ?? 0]));
+  const stockFor = (product: (typeof products)[number]): number => {
+    if (product.isBundle) {
+      const valid = product.bundleComponents.filter((component) => component.quantity > 0);
+      if (valid.length === 0) return 0;
+      return Math.min(
+        ...valid.map((component) => Math.floor((stockByProduct.get(component.childId) ?? 0) / component.quantity)),
+      );
+    }
+    return stockByProduct.get(product.id) ?? 0;
+  };
 
   if (!quote) {
     notFound();
@@ -126,7 +149,7 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
         id: product.id,
         name: product.name,
         code: product.code,
-        stock: Number(product.stock),
+        stock: stockFor(product),
         retailPrice: Number(product.price),
         thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
       }))}
