@@ -167,6 +167,16 @@ export function OrderItemManager({
         <p className="text-xs text-muted-foreground">
           {item.productCode ? `${item.productCode} · ` : ""}x{item.quantity}
         </p>
+        <Badge
+          variant="outline"
+          className={`mt-1 text-[10px] ${
+            item.requiresManufacturing
+              ? "border-amber-500/30 bg-amber-500/15 text-amber-600 dark:text-amber-400"
+              : "border-sky-500/30 bg-sky-500/15 text-sky-600 dark:text-sky-400"
+          }`}
+        >
+          {item.fulfillmentLabel}
+        </Badge>
       </TableCell>
       <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
         {formatMoney(item.unitPrice, currency)}
