@@ -84,6 +84,9 @@ model Product {
   seoDescription     String?
   price              Decimal             @db.Decimal(10, 2)
   baseCost           Decimal             @default(0) @db.Decimal(10, 2)
+  // Costo adicional por unidad (ej. flete/transporte de la compra). El costo de
+  // compra real del producto = baseCost (proveedor) + additionalCost (flete).
+  additionalCost     Decimal             @default(0) @db.Decimal(10, 2)
   retailMarginPct    Decimal             @default(0) @db.Decimal(6, 2)
   wholesaleMarginPct Decimal             @default(0) @db.Decimal(6, 2)
   wholesalePrice     Decimal             @default(0) @db.Decimal(10, 2)

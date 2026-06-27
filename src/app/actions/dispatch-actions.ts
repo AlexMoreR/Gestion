@@ -1116,7 +1116,12 @@ export async function adminUpdateDispatchShippingCostsAction(input: {
 
   const dispatch = await prisma.dispatch.findUnique({
     where: { id: dispatchId },
-    select: { id: true, shippingCost: true, items: { select: { id: true } } },
+    select: {
+      id: true,
+      shippingCost: true,
+      order: { select: { type: true } },
+      items: { select: { id: true, quantity: true, orderItem: { select: { productId: true } } } },
+    },
   });
   if (!dispatch) {
     return { ok: false, error: "Despacho no encontrado" };
@@ -1148,8 +1153,33 @@ export async function adminUpdateDispatchShippingCostsAction(input: {
     ),
   );
 
+  // En ordenes de COMPRA, el flete asignado a cada item se capitaliza como costo
+  // adicional (por unidad) del producto, para que el margen de venta sea real.
+  // Se fija (no se acumula), asi recalcular el reparto deja el valor correcto.
+  if (dispatch.order?.type === "PURCHASE") {
+    const itemById = new Map(dispatch.items.map((item) => [item.id, item]));
+    const productUpdates = [];
+    for (const update of updates) {
+      const item = itemById.get(update.id);
+      if (!item?.orderItem || item.quantity <= 0) {
+        continue;
+      }
+      productUpdates.push(
+        prisma.product.update({
+          where: { id: item.orderItem.productId },
+          data: { additionalCost: Math.round(update.shippingCost / item.quantity) },
+        }),
+      );
+    }
+    if (productUpdates.length > 0) {
+      await prisma.$transaction(productUpdates);
+    }
+  }
+
   revalidatePath("/admin/despachos");
   revalidatePath("/admin/proveedores");
+  revalidatePath("/admin/inventario");
+  revalidatePath("/admin/productos");
   return { ok: true };
 }
 

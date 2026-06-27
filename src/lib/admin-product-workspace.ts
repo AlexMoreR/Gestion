@@ -24,6 +24,7 @@ export type ProductWorkspaceRow = {
   thumbnailUrl: string;
   imageUrls: string[];
   baseCost: number;
+  additionalCost: number;
   retailMarginPct: number;
   wholesaleMarginPct: number;
   minWholesaleQty: number;
@@ -110,6 +111,7 @@ export async function getProductWorkspaceData(): Promise<ProductWorkspaceData> {
       thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
       imageUrls: product.images.map((image) => getPublicAssetUrl(image.url)),
       baseCost: Number(product.baseCost),
+      additionalCost: Number(product.additionalCost),
       retailMarginPct: Number(product.retailMarginPct),
       wholesaleMarginPct: Number(product.wholesaleMarginPct),
       minWholesaleQty: product.minWholesaleQty,

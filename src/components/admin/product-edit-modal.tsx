@@ -117,6 +117,7 @@ export function ProductEditModal({
                 seoTitle: product.seoTitle,
                 seoDescription: product.seoDescription,
                 baseCost: product.baseCost,
+                additionalCost: product.additionalCost,
                 price: product.price,
                 wholesalePrice: product.wholesalePrice,
                 retailMarginPct: product.retailMarginPct,

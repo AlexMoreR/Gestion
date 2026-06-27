@@ -6,6 +6,9 @@ export type ProductPurchaseRow = {
   quantity: number;
   purchaseCost: number;
   isPaid: boolean;
+  // Codigo de compra (COM-) y de la orden (ORD-) de origen, si existen.
+  purchaseCode: string | null;
+  orderCode: string | null;
 };
 
 /**
@@ -27,6 +30,7 @@ export async function getProductPurchaseHistory(productId: string): Promise<Prod
       id: true,
       movementDate: true,
       change: true,
+      purchaseCode: true,
       ledgerEntries: {
         where: { type: "CHARGE" },
         select: { id: true, amount: true },
@@ -38,6 +42,18 @@ export async function getProductPurchaseHistory(productId: string): Promise<Prod
   if (chargeIds.length === 0) {
     return [];
   }
+
+  // Mapa codigo de compra (COM-) -> codigo de orden (ORD-).
+  const purchaseCodes = Array.from(
+    new Set(movements.map((m) => m.purchaseCode).filter((code): code is string => Boolean(code))),
+  );
+  const orders = purchaseCodes.length
+    ? await prisma.order.findMany({
+        where: { purchaseCode: { in: purchaseCodes } },
+        select: { code: true, purchaseCode: true },
+      })
+    : [];
+  const orderCodeByPurchase = new Map(orders.map((o) => [o.purchaseCode, o.code] as const));
 
   const payments = await prisma.supplierLedgerEntry.groupBy({
     by: ["settlesEntryId"],
@@ -61,6 +77,8 @@ export async function getProductPurchaseHistory(productId: string): Promise<Prod
       quantity: movement.change,
       purchaseCost,
       isPaid,
+      purchaseCode: movement.purchaseCode,
+      orderCode: movement.purchaseCode ? orderCodeByPurchase.get(movement.purchaseCode) ?? null : null,
     };
   });
 }

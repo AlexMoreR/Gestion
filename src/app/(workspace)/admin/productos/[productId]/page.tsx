@@ -99,6 +99,7 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
             seoTitle: product.seoTitle,
             seoDescription: product.seoDescription,
             baseCost: Number(product.baseCost),
+            additionalCost: Number(product.additionalCost),
             price: Number(product.price),
             wholesalePrice: Number(product.wholesalePrice),
             retailMarginPct: Number(product.retailMarginPct),

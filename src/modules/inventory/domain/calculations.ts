@@ -16,7 +16,11 @@ export function summarizeInventoryMetrics(stocks: ProductStock[]): InventoryMetr
   const totalUnits = stocks.reduce((sum, item) => sum + Math.max(0, item.stock), 0);
   const lowStockCount = stocks.filter((item) => item.status === "LOW").length;
   const outOfStockCount = stocks.filter((item) => item.status === "OUT").length;
-  const totalValue = stocks.reduce((sum, item) => sum + Math.max(0, item.stock) * item.baseCost, 0);
+  // Valor del inventario = stock x costo total (proveedor + flete/adicional).
+  const totalValue = stocks.reduce(
+    (sum, item) => sum + Math.max(0, item.stock) * (item.baseCost + item.additionalCost),
+    0,
+  );
 
   return {
     trackedProducts,

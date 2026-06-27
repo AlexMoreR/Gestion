@@ -23,6 +23,7 @@ import { InventoryMovementFormDialog } from "./components/inventory-movement-for
 import { InventoryMovementEditDialog } from "./components/inventory-movement-edit-dialog";
 import { MinStockFormDialog } from "./components/min-stock-form-dialog";
 import { ProductEditModal } from "@/components/admin/product-edit-modal";
+import { ProductCostModal } from "@/components/admin/product-cost-modal";
 import type {
   BundleProductOption,
   ProductWorkspaceOption,
@@ -95,10 +96,16 @@ export function InventoryWorkspace({
   const [editMovement, setEditMovement] = React.useState<InventoryMovementRow | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState<InventoryMovementRow | null>(null);
   const [editProductId, setEditProductId] = React.useState<string | null>(null);
+  // Modal de costo/rentabilidad que se abre al hacer clic en un producto del stock.
+  const [costProductId, setCostProductId] = React.useState<string | null>(null);
 
   const editProduct = React.useMemo(
     () => editableProducts.find((product) => product.id === editProductId) ?? null,
     [editableProducts, editProductId],
+  );
+  const costProduct = React.useMemo(
+    () => stocks.find((row) => row.productId === costProductId) ?? null,
+    [stocks, costProductId],
   );
 
   const actionsReturnTo = "/admin/inventario";
@@ -216,7 +223,7 @@ export function InventoryWorkspace({
           <ProductStockTable
             data={stocks}
             currency={currency}
-            onOpenProduct={(productId) => setEditProductId(productId)}
+            onOpenProduct={(productId) => setCostProductId(productId)}
             onMove={(productId) => setMovementModal({ open: true, productId })}
             onEditMin={(productId) => {
               const product = stocks.find((row) => row.productId === productId);
@@ -258,6 +265,16 @@ export function InventoryWorkspace({
         action={adminUpdateInventoryMovementAction}
         onClose={() => setEditMovement(null)}
         returnTo={actionsReturnTo}
+      />
+
+      <ProductCostModal
+        product={costProduct}
+        currency={currency}
+        onClose={() => setCostProductId(null)}
+        onEdit={(productId) => {
+          setCostProductId(null);
+          setEditProductId(productId);
+        }}
       />
 
       <ProductEditModal

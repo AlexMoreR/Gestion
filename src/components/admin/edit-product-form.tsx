@@ -53,6 +53,7 @@ type EditProductInitialData = {
   seoTitle: string | null;
   seoDescription: string | null;
   baseCost: number;
+  additionalCost: number;
   price: number;
   wholesalePrice: number;
   retailMarginPct: number;
@@ -168,6 +169,8 @@ export function EditProductForm({
   const [seoTitle] = useState(initialData.seoTitle ?? "");
   const [seoDescription] = useState(initialData.seoDescription ?? "");
   const [baseCost, setBaseCost] = useState(String(Math.round(initialData.baseCost)));
+  // Costo adicional por unidad (flete/transporte). Costo total = baseCost + additionalCost.
+  const [additionalCost, setAdditionalCost] = useState(String(Math.round(initialData.additionalCost)));
   const [retailMarginPct, setRetailMarginPct] = useState(initialData.retailMarginPct.toFixed(2));
   const [retailPriceInput, setRetailPriceInput] = useState(String(Math.round(initialData.price)));
   const [retailPriceDirty, setRetailPriceDirty] = useState(true);
@@ -224,7 +227,8 @@ export function EditProductForm({
   }, [newImageUrls]);
 
   const pricing = useMemo(() => {
-    const cost = Number(baseCost) || 0;
+    // Costo total = costo del proveedor + costo adicional (flete).
+    const cost = (Number(baseCost) || 0) + (Number(additionalCost) || 0);
     const retailMargin = Number(retailMarginPct) || 0;
     const wholesaleMargin = wholesaleEnabled ? Number(wholesaleMarginPct) || 0 : 0;
     const suggestedRetail = calculateRetailPrice(cost, retailMargin);
@@ -250,6 +254,7 @@ export function EditProductForm({
     };
   }, [
     baseCost,
+    additionalCost,
     retailMarginPct,
     retailPriceInput,
     retailPriceDirty,
@@ -260,25 +265,25 @@ export function EditProductForm({
     wholesaleEnabled,
   ]);
 
-  // El % Detal es el margen sobre el precio: % = (precio - costo) / precio * 100.
+  // El % Detal es el margen sobre el precio: % = (precio - costo total) / precio * 100.
   useEffect(() => {
     const price = Number(retailPriceInput) || 0;
-    const cost = Number(baseCost) || 0;
+    const cost = (Number(baseCost) || 0) + (Number(additionalCost) || 0);
     if (cost <= 0 || price <= 0) {
       return;
     }
     setRetailMarginPct(String(Math.round(((price - cost) / price) * 10000) / 100));
-  }, [baseCost, retailPriceInput]);
+  }, [baseCost, additionalCost, retailPriceInput]);
 
   // El % Mayor tambien es el margen sobre el precio mayorista.
   useEffect(() => {
     const price = Number(wholesalePriceInput) || 0;
-    const cost = Number(baseCost) || 0;
+    const cost = (Number(baseCost) || 0) + (Number(additionalCost) || 0);
     if (cost <= 0 || price <= 0) {
       return;
     }
     setWholesaleMarginPct(String(Math.round(((price - cost) / price) * 10000) / 100));
-  }, [baseCost, wholesalePriceInput]);
+  }, [baseCost, additionalCost, wholesalePriceInput]);
 
   const allImageUrls = useMemo(
     () => [...existingImageUrls, ...newImageUrls],
@@ -567,7 +572,7 @@ export function EditProductForm({
 
             <div className={currentStep === 2 ? "space-y-4" : "hidden"}>
               <div className="grid gap-4 md:grid-cols-12">
-                <label className="space-y-1.5 md:col-span-6">
+                <label className="space-y-1.5 md:col-span-5">
                   <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Tag className="h-4 w-4 text-slate-500" />Precio final</span>
                   <MoneyInput
                     name="retailPrice"
@@ -579,22 +584,65 @@ export function EditProductForm({
                   />
                 </label>
                 <label className="space-y-1.5 md:col-span-4">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Wallet className="h-4 w-4 text-slate-500" />Costo compra ({currency})</span>
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Wallet className="h-4 w-4 text-slate-500" />Costo proveedor ({currency})</span>
                   <MoneyInput
                     name="baseCost"
                     value={baseCost}
                     onValueChange={setBaseCost}
                   />
                 </label>
-                <label className="space-y-1.5 md:col-span-2">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><TrendingUp className="h-4 w-4 text-slate-500" />% Detal</span>
-                  <Input
-                    value={retailMarginPct ? `${retailMarginPct}%` : ""}
-                    readOnly
-                    className="bg-slate-100 text-slate-600"
+                <label className="space-y-1.5 md:col-span-3">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Truck className="h-4 w-4 text-slate-500" />Flete / adicional</span>
+                  <MoneyInput
+                    name="additionalCost"
+                    value={additionalCost}
+                    onValueChange={setAdditionalCost}
                   />
-                  <input type="hidden" name="retailMarginPct" value={retailMarginPct} />
                 </label>
+              </div>
+
+              {/* Resumen de costo de compra y rentabilidad */}
+              <div className="rounded-lg border border-[var(--line)] bg-slate-50/70 p-3">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3 lg:grid-cols-6">
+                  <div>
+                    <p className="text-xs text-slate-500">Costo proveedor</p>
+                    <p className="text-sm font-medium text-slate-700">{formatMoney(Number(baseCost) || 0, currency)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">+ Flete / adicional</p>
+                    <p className="text-sm font-medium text-slate-700">{formatMoney(Number(additionalCost) || 0, currency)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">= Costo de compra</p>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {formatMoney((Number(baseCost) || 0) + (Number(additionalCost) || 0), currency)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Precio final</p>
+                    <p className="text-sm font-semibold text-slate-900">{pricing.retail}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Ganancia</p>
+                    <p className="text-sm font-semibold text-emerald-700">{formatMoney(pricing.profit, currency)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">% Detal (margen)</p>
+                    <p className="text-sm font-semibold text-slate-900">{retailMarginPct ? `${retailMarginPct}%` : "—"}</p>
+                  </div>
+                </div>
+                {purchaseHistory && purchaseHistory[0] ? (
+                  <p className="mt-2 border-t border-[var(--line)] pt-2 text-xs text-slate-500">
+                    Origen:{" "}
+                    <span className="font-medium text-slate-700">
+                      {purchaseHistory[0].orderCode ?? purchaseHistory[0].purchaseCode ?? "—"}
+                    </span>
+                    {purchaseHistory[0].purchaseCode && purchaseHistory[0].orderCode
+                      ? ` · ${purchaseHistory[0].purchaseCode}`
+                      : ""}
+                  </p>
+                ) : null}
+                <input type="hidden" name="retailMarginPct" value={retailMarginPct} />
               </div>
               <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
                 <input
@@ -620,9 +668,9 @@ export function EditProductForm({
                       />
                     </label>
                     <label className="space-y-1.5 md:col-span-4">
-                      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Wallet className="h-4 w-4 text-slate-500" />Costo compra ({currency})</span>
+                      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Wallet className="h-4 w-4 text-slate-500" />Costo de compra ({currency})</span>
                       <Input
-                        value={baseCost ? Number(baseCost).toLocaleString("es-CO") : ""}
+                        value={((Number(baseCost) || 0) + (Number(additionalCost) || 0)).toLocaleString("es-CO")}
                         readOnly
                         className="bg-slate-100 text-slate-600"
                       />

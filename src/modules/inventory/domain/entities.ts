@@ -27,6 +27,7 @@ export type ProductStock = {
   categoryName: string | null;
   price: number;
   baseCost: number;
+  additionalCost: number;
   thumbnailUrl: string;
   minStock: number;
   stock: number;

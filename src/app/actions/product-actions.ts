@@ -25,6 +25,7 @@ const baseProductSchema = z.object({
   seoTitle: z.string().trim().max(70, "SEO title demasiado largo").optional().or(z.literal("")),
   seoDescription: z.string().trim().max(180, "SEO description demasiado largo").optional().or(z.literal("")),
   baseCost: z.coerce.number().positive("El costo debe ser mayor que 0"),
+  additionalCost: z.coerce.number().min(0, "El costo adicional no puede ser negativo").optional().default(0),
   retailMarginPct: z.coerce.number().min(0, "El margen detal no puede ser negativo").max(1000),
   retailPrice: z.coerce.number().positive("El precio final debe ser mayor que 0"),
   wholesaleMarginPct: z.coerce.number().min(0, "El margen mayorista no puede ser negativo").max(1000),
@@ -325,6 +326,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
     seoTitle: formData.get("seoTitle") ?? "",
     seoDescription: formData.get("seoDescription") ?? "",
     baseCost: formData.get("baseCost"),
+    additionalCost: formData.get("additionalCost") ?? undefined,
     retailMarginPct: formData.get("retailMarginPct"),
     retailPrice: formData.get("retailPrice"),
     wholesaleMarginPct: formData.get("wholesaleMarginPct"),
@@ -369,9 +371,9 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
   }
   const slug = await generateUniqueProductSlug(parsed.data.name, parsed.data.code);
   const retailPrice = parsed.data.retailPrice;
-  const effectiveRetailMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost, retailPrice);
+  const effectiveRetailMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost + parsed.data.additionalCost, retailPrice);
   const wholesalePrice = parsed.data.wholesalePrice;
-  const effectiveWholesaleMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost, wholesalePrice);
+  const effectiveWholesaleMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost + parsed.data.additionalCost, wholesalePrice);
 
   let createdProductId: string | null = null;
   try {
@@ -384,6 +386,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
         seoTitle: parsed.data.seoTitle || null,
         seoDescription: parsed.data.seoDescription || null,
         baseCost: parsed.data.baseCost,
+        additionalCost: parsed.data.additionalCost,
         retailMarginPct: effectiveRetailMarginPct,
         wholesaleMarginPct: effectiveWholesaleMarginPct,
         minWholesaleQty: parsed.data.minWholesaleQty,
@@ -447,6 +450,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
     seoTitle: formData.get("seoTitle") ?? "",
     seoDescription: formData.get("seoDescription") ?? "",
     baseCost: formData.get("baseCost"),
+    additionalCost: formData.get("additionalCost") ?? undefined,
     retailMarginPct: formData.get("retailMarginPct"),
     retailPrice: formData.get("retailPrice"),
     wholesaleMarginPct: formData.get("wholesaleMarginPct"),
@@ -514,9 +518,9 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
   }
   const slug = await generateUniqueProductSlug(parsed.data.name, parsed.data.code, parsed.data.productId);
   const retailPrice = parsed.data.retailPrice;
-  const effectiveRetailMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost, retailPrice);
+  const effectiveRetailMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost + parsed.data.additionalCost, retailPrice);
   const wholesalePrice = parsed.data.wholesalePrice;
-  const effectiveWholesaleMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost, wholesalePrice);
+  const effectiveWholesaleMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost + parsed.data.additionalCost, wholesalePrice);
 
   const previousProduct = await prisma.product.findUnique({
     where: { id: parsed.data.productId },
@@ -535,6 +539,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
           seoTitle: parsed.data.seoTitle || null,
           seoDescription: parsed.data.seoDescription || null,
           baseCost: parsed.data.baseCost,
+        additionalCost: parsed.data.additionalCost,
           retailMarginPct: effectiveRetailMarginPct,
           wholesaleMarginPct: effectiveWholesaleMarginPct,
           minWholesaleQty: parsed.data.minWholesaleQty,
