@@ -39,7 +39,7 @@ describe("balances calculations", () => {
     expect(result.lastSaleCode).toBe("SAL-002");
   });
 
-  it("summarizes account balance: opening + ingreso - gasto + movimientos", () => {
+  it("summarizes account balance: ingreso - gasto + movimientos (sin saldo inicial)", () => {
     const account: Account = {
       id: "acc-1",
       name: "Nequi1",
@@ -60,7 +60,8 @@ describe("balances calculations", () => {
     expect(result.ingreso).toBe(500);
     expect(result.gasto).toBe(200);
     expect(result.movimientos).toBe(20);
-    expect(result.balance).toBe(420);
+    expect(result.periodOpening).toBe(100);
+    expect(result.balance).toBe(320);
   });
 
   it("summarizes dashboard metrics", () => {

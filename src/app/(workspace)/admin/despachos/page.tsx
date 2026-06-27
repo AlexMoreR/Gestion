@@ -26,7 +26,7 @@ export default async function AdminDespachosPage({ searchParams }: PageProps) {
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
-  const [dispatches, currency] = await Promise.all([
+  const [dispatches, currency, paidSales] = await Promise.all([
     prisma.dispatch.findMany({
       orderBy: { createdAt: "desc" },
       include: {
@@ -49,7 +49,62 @@ export default async function AdminDespachosPage({ searchParams }: PageProps) {
       take: 200,
     }),
     getSystemCurrency(),
+    // Ventas no canceladas con sus pagos y el estado de despacho de su orden,
+    // para detectar las que el cliente ya pago al 100% pero aun no han salido.
+    prisma.sale.findMany({
+      where: { status: { not: "CANCELLED" } },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        code: true,
+        total: true,
+        client: { select: { name: true, email: true } },
+        salePayments: { select: { amount: true, paymentDate: true, createdAt: true } },
+        order: {
+          select: {
+            id: true,
+            code: true,
+            status: true,
+            dispatches: { select: { status: true } },
+          },
+        },
+      },
+      take: 500,
+    }),
   ]);
+
+  // Pagada al 100% y sin un despacho enviado/entregado = pendiente de despachar.
+  const paidNotDispatched = paidSales
+    .filter((sale) => {
+      const total = Number(sale.total);
+      if (total <= 0) {
+        return false;
+      }
+      const paid = sale.salePayments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+      if (paid < total) {
+        return false;
+      }
+      const dispatched = sale.order?.dispatches.some(
+        (dispatch) => dispatch.status === "SHIPPED" || dispatch.status === "DELIVERED",
+      );
+      return !dispatched;
+    })
+    .map((sale) => {
+      const lastPaidAt = sale.salePayments.reduce<Date | null>((latest, payment) => {
+        const date = payment.paymentDate ?? payment.createdAt;
+        return !latest || date > latest ? date : latest;
+      }, null);
+      return {
+        saleId: sale.id,
+        saleCode: sale.code,
+        clientName: sale.client.name || sale.client.email,
+        total: Number(sale.total),
+        paidAt: lastPaidAt ? lastPaidAt.toLocaleDateString("es-CO") : null,
+        orderId: sale.order?.id ?? null,
+        orderCode: sale.order?.code ?? null,
+        orderStatus: sale.order?.status ?? null,
+      };
+    });
 
   const stats = dispatches.reduce(
     (acc, dispatch) => {
@@ -85,6 +140,7 @@ export default async function AdminDespachosPage({ searchParams }: PageProps) {
       <DispatchesWorkspace
         stats={stats}
         currency={currency}
+        paidNotDispatched={paidNotDispatched}
         dispatches={dispatches.map((dispatch) => ({
           id: dispatch.id,
           code: dispatch.code,

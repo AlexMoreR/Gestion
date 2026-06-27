@@ -290,12 +290,14 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             <p className="text-lg font-semibold text-foreground">{formatMoney(Number(order.total), currency)}</p>
           </CardContent>
         </Card>
-        <Card className="border-border bg-card/95 py-2">
-          <CardContent className="space-y-0.5">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Valor ganado</p>
-            <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">{formatMoney(earnedValue, currency)}</p>
-          </CardContent>
-        </Card>
+        {!isPurchase && (
+          <Card className="border-border bg-card/95 py-2">
+            <CardContent className="space-y-0.5">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Valor ganado</p>
+              <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">{formatMoney(earnedValue, currency)}</p>
+            </CardContent>
+          </Card>
+        )}
         <Card className="border-border bg-card/95 py-2">
           <CardContent className="space-y-0.5">
             <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Produccion</p>

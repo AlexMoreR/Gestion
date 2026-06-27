@@ -1,12 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 import { Wallet } from "lucide-react";
 import { auth } from "@/auth";
-import { Card, CardContent } from "@/components/ui/card";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
-import { formatMoney } from "@/lib/currency";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
-import { AccountTransactionsTable } from "@/modules/balances/presentation/components/account-transactions-table";
+import { AccountBalanceView } from "@/modules/balances/presentation/components/account-balance-view";
 
 type PageProps = {
   params: Promise<{ accountId: string }>;
@@ -18,23 +16,6 @@ const ACCOUNT_TYPE_LABEL: Record<string, string> = {
   WALLET: "Billetera",
   OTHER: "Otro",
 };
-
-function SummaryCard({ title, value, tone = "neutral" }: { title: string; value: string; tone?: "neutral" | "success" | "danger" }) {
-  const valueClass =
-    tone === "success"
-      ? "text-emerald-600 dark:text-emerald-400"
-      : tone === "danger"
-        ? "text-destructive"
-        : "text-foreground";
-  return (
-    <Card className="border-border bg-card py-2">
-      <CardContent className="space-y-0.5">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
-        <p className={`text-lg font-semibold ${valueClass}`}>{value}</p>
-      </CardContent>
-    </Card>
-  );
-}
 
 export default async function AdminAccountTransactionsPage({ params }: PageProps) {
   const session = await auth();
@@ -79,19 +60,11 @@ export default async function AdminAccountTransactionsPage({ params }: PageProps
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <SummaryCard title="Saldo inicial" value={formatMoney(account.openingBalance, currency)} />
-        <SummaryCard title="Ingresos" value={formatMoney(account.ingreso, currency)} tone="success" />
-        <SummaryCard title="Gastos" value={formatMoney(account.gasto, currency)} tone="danger" />
-        <SummaryCard title="Movimientos" value={formatMoney(account.movimientos, currency)} />
-        <SummaryCard
-          title="Balance"
-          value={formatMoney(account.balance, currency)}
-          tone={account.balance >= 0 ? "success" : "danger"}
-        />
-      </div>
-
-      <AccountTransactionsTable data={transactions} currency={currency} />
+      <AccountBalanceView
+        transactions={transactions}
+        openingBalance={account.openingBalance}
+        currency={currency}
+      />
     </section>
   );
 }

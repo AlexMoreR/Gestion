@@ -83,6 +83,8 @@ export type Account = {
 };
 
 export type AccountBalance = Account & {
+  // Saldo inicial del periodo = saldo de cierre del mes anterior (acumulado).
+  periodOpening: number;
   ingreso: number;
   gasto: number;
   movimientos: number;

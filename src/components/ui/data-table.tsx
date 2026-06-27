@@ -48,6 +48,8 @@ export type DataTableProps<TData> = {
   /** Si se entrega, en movil se ocultan las filas y se renderiza esta tarjeta por fila. */
   renderMobileCard?: (row: TData) => React.ReactNode;
   initialSorting?: SortingState;
+  /** Muestra una fila de totales (usa el `footer` definido en cada columna). */
+  showFooter?: boolean;
 };
 
 export function DataTable<TData>({
@@ -67,6 +69,7 @@ export function DataTable<TData>({
   minWidth = "min-w-[760px]",
   renderMobileCard,
   initialSorting = [],
+  showFooter = false,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = React.useState<SortingState>(initialSorting);
   const [globalFilter, setGlobalFilter] = React.useState(initialSearch);
@@ -198,6 +201,21 @@ export function DataTable<TData>({
               ))
             )}
           </TableBody>
+          {showFooter && rows.length > 0 ? (
+            <tfoot>
+              {table.getFooterGroups().map((footerGroup) => (
+                <TableRow key={footerGroup.id} className="border-t-2 border-border bg-muted/50 font-semibold hover:bg-muted/50">
+                  {footerGroup.headers.map((header) => (
+                    <TableCell key={header.id} className="py-2.5">
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.footer, header.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </tfoot>
+          ) : null}
         </Table>
       </div>
 

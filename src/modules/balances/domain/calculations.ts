@@ -61,12 +61,18 @@ export function summarizeSupplierBalance(
 export function summarizeAccountBalance(
   account: Account,
   totals: { ingreso: number; gasto: number; movimientosIn: number; movimientosOut: number },
+  // Saldo inicial del periodo (cierre del mes anterior). Por defecto, el saldo
+  // inicial configurado de la cuenta (vista sin periodo / todo el historial).
+  periodOpening: number = account.openingBalance,
 ): AccountBalance {
   const movimientos = totals.movimientosIn - totals.movimientosOut;
-  const balance = account.openingBalance + totals.ingreso - totals.gasto + movimientos;
+  // Balance = neto del periodo (ingresos - gastos +/- movimientos). El saldo
+  // inicial se muestra aparte como referencia, no se suma aqui.
+  const balance = totals.ingreso - totals.gasto + movimientos;
 
   return {
     ...account,
+    periodOpening,
     ingreso: totals.ingreso,
     gasto: totals.gasto,
     movimientos,

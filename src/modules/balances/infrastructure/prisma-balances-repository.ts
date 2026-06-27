@@ -697,13 +697,66 @@ export function createPrismaBalancesRepository(): BalancesRepository {
         }
       }
 
+      // Saldo inicial del periodo = saldo de cierre del mes anterior: el saldo
+      // inicial configurado mas TODOS los flujos anteriores al inicio del periodo.
+      const openingById = new Map<string, number>();
+      for (const account of accounts) {
+        openingById.set(account.id, toNumber(account.openingBalance));
+      }
+      if (period) {
+        const priorFilter = { lt: period.from };
+        const [pIncome, pSupplierPay, pShipping, pExpense, pMovements] = await Promise.all([
+          prisma.salePayment.groupBy({
+            by: ["accountId"],
+            where: { accountId: { not: null }, paymentDate: priorFilter },
+            _sum: { amount: true },
+          }),
+          prisma.supplierLedgerEntry.groupBy({
+            by: ["accountId"],
+            where: { accountId: { not: null }, type: "PAYMENT", paymentDate: priorFilter },
+            _sum: { amount: true },
+          }),
+          prisma.shippingCost.groupBy({
+            by: ["accountId"],
+            where: { accountId: { not: null }, paymentDate: priorFilter },
+            _sum: { amount: true },
+          }),
+          prisma.expense.groupBy({
+            by: ["accountId"],
+            where: { expenseDate: priorFilter },
+            _sum: { amount: true },
+          }),
+          prisma.accountMovement.groupBy({
+            by: ["accountId", "type"],
+            where: { movementDate: priorFilter },
+            _sum: { amount: true },
+          }),
+        ]);
+        const addPrior = (accountId: string, delta: number) => {
+          openingById.set(accountId, (openingById.get(accountId) ?? 0) + delta);
+        };
+        for (const row of pIncome) if (row.accountId) addPrior(row.accountId, toNumber(row._sum.amount));
+        for (const row of pSupplierPay) if (row.accountId) addPrior(row.accountId, -toNumber(row._sum.amount));
+        for (const row of pShipping) if (row.accountId) addPrior(row.accountId, -toNumber(row._sum.amount));
+        for (const row of pExpense) addPrior(row.accountId, -toNumber(row._sum.amount));
+        for (const row of pMovements) {
+          const amount = toNumber(row._sum.amount);
+          if (row.type === "IN") addPrior(row.accountId, amount);
+          else if (row.type === "OUT") addPrior(row.accountId, -amount);
+        }
+      }
+
       return accounts.map((account) =>
-        summarizeAccountBalance(mapAccount(account), {
-          ingreso: incomeMap.get(account.id) ?? 0,
-          gasto: expenseMap.get(account.id) ?? 0,
-          movimientosIn: movementInMap.get(account.id) ?? 0,
-          movimientosOut: movementOutMap.get(account.id) ?? 0,
-        }),
+        summarizeAccountBalance(
+          mapAccount(account),
+          {
+            ingreso: incomeMap.get(account.id) ?? 0,
+            gasto: expenseMap.get(account.id) ?? 0,
+            movimientosIn: movementInMap.get(account.id) ?? 0,
+            movimientosOut: movementOutMap.get(account.id) ?? 0,
+          },
+          openingById.get(account.id) ?? toNumber(account.openingBalance),
+        ),
       );
     },
 

@@ -57,15 +57,6 @@ type PurchaseDirectDialogProps = {
   currency: SupportedCurrencyCode;
 };
 
-// Costo adicional de la compra (ej. envio): concepto, proveedor y monto.
-type ExtraCost = {
-  uid: string;
-  concept: string;
-  supplierId: string;
-  supplierName: string;
-  amount: number;
-};
-
 // Cargo por componente de un combo (cada item con su proveedor y costo).
 type LineComponent = {
   childId: string;
@@ -103,17 +94,10 @@ export function PurchaseDirectDialog({
   products,
   suppliersByProduct,
   comboComponents,
-  suppliers,
   currency,
 }: PurchaseDirectDialogProps) {
   const [open, setOpen] = React.useState(false);
   const [lines, setLines] = React.useState<PurchaseLine[]>([]);
-
-  // Costos adicionales (ej. envio) y borrador del que se esta agregando.
-  const [extraCosts, setExtraCosts] = React.useState<ExtraCost[]>([]);
-  const [extraConcept, setExtraConcept] = React.useState("");
-  const [extraSupplierId, setExtraSupplierId] = React.useState("");
-  const [extraAmount, setExtraAmount] = React.useState("");
 
   // Modal de seleccion de producto (mismo flujo que cotizacion).
   const [openProductModal, setOpenProductModal] = React.useState(false);
@@ -220,33 +204,6 @@ export function PurchaseDirectDialog({
     setLines([]);
     resetDraft();
     setOpenProductModal(false);
-    setExtraCosts([]);
-    setExtraConcept("");
-    setExtraSupplierId("");
-    setExtraAmount("");
-  };
-
-  const addExtraCost = () => {
-    const amount = Number(extraAmount.replace(/\D/g, "")) || 0;
-    if (amount <= 0) return;
-    const supplierName = suppliers.find((s) => s.id === extraSupplierId)?.name ?? "";
-    setExtraCosts((current) => [
-      ...current,
-      {
-        uid: crypto.randomUUID(),
-        concept: extraConcept.trim(),
-        supplierId: extraSupplierId,
-        supplierName,
-        amount,
-      },
-    ]);
-    setExtraConcept("");
-    setExtraSupplierId("");
-    setExtraAmount("");
-  };
-
-  const removeExtraCost = (uid: string) => {
-    setExtraCosts((current) => current.filter((cost) => cost.uid !== uid));
   };
 
   const handleClose = () => {
@@ -388,16 +345,7 @@ export function PurchaseDirectDialog({
 
   const draftLineTotal = draftUnitCost * (Math.trunc(Number(draftQuantity) || 0) || 0);
   const linesTotal = lines.reduce((sum, line) => sum + line.unitCost * line.quantity, 0);
-  const extrasTotal = extraCosts.reduce((sum, cost) => sum + cost.amount, 0);
-  const total = linesTotal + extrasTotal;
-
-  const serializedExtraCosts = JSON.stringify(
-    extraCosts.map((cost) => ({
-      concept: cost.concept,
-      supplierId: cost.supplierId,
-      amount: cost.amount,
-    })),
-  );
+  const total = linesTotal;
 
   const serializedItems = JSON.stringify(
     lines.map((line) =>
@@ -437,7 +385,6 @@ export function PurchaseDirectDialog({
           <form action={adminCreateDirectPurchaseAction} className="flex min-h-0 flex-1 flex-col">
             <input type="hidden" name="returnTo" value="/admin/ordenes" />
             <input type="hidden" name="items" value={serializedItems} />
-            <input type="hidden" name="extraCosts" value={serializedExtraCosts} />
 
             {/* Header fijo */}
             <DialogHeader className="shrink-0 border-b border-border px-4 py-2.5">
@@ -606,83 +553,6 @@ export function PurchaseDirectDialog({
                 </div>
               ) : null}
 
-              {/* Costos adicionales (ej. envio): concepto, proveedor y monto */}
-              <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-3">
-                <span className="text-sm font-medium text-foreground">Costo adicional</span>
-
-                {extraCosts.length > 0 ? (
-                  <div className="space-y-1.5">
-                    {extraCosts.map((cost) => (
-                      <div
-                        key={cost.uid}
-                        className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-foreground">
-                            {cost.concept || "Costo adicional"}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {cost.supplierName || "Sin proveedor"}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-sm font-semibold text-foreground">
-                            {formatMoney(cost.amount, currency)}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeExtraCost(cost.uid)}
-                            aria-label="Quitar costo adicional"
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-
-                <div className="grid items-end gap-2 sm:grid-cols-[1fr_minmax(0,11rem)_7rem_auto]">
-                  <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground">Concepto</span>
-                    <Input
-                      value={extraConcept}
-                      onChange={(event) => setExtraConcept(event.target.value)}
-                      placeholder="Ej. Envio"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground">Proveedor</span>
-                    <select
-                      value={extraSupplierId}
-                      onChange={(event) => setExtraSupplierId(event.target.value)}
-                      className={cn(controlClassName, "appearance-none")}
-                    >
-                      <option value="">Sin proveedor</option>
-                      {suppliers.map((supplier) => (
-                        <option key={supplier.id} value={supplier.id}>
-                          {supplier.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground">Monto</span>
-                    <Input
-                      inputMode="numeric"
-                      value={extraAmount ? Number(extraAmount).toLocaleString("es-CO") : ""}
-                      onChange={(event) => setExtraAmount(event.target.value.replace(/\D/g, ""))}
-                      placeholder="0"
-                    />
-                  </div>
-                  <Button type="button" onClick={addExtraCost} aria-label="Agregar costo adicional">
-                    <Plus className="h-4 w-4" />
-                    Agregar
-                  </Button>
-                </div>
-              </div>
             </div>
 
             {/* Footer fijo */}

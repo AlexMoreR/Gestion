@@ -720,7 +720,10 @@ export async function adminCreateDirectPurchaseAction(formData: FormData): Promi
 
 // Elimina una orden de compra: revierte el stock (borra sus movimientos de
 // inventario) y elimina los cobros a proveedores ligados a ella.
-export async function adminDeletePurchaseOrderAction(orderId: string): Promise<void> {
+export async function adminDeletePurchaseOrderAction(
+  orderId: string,
+  keepInventoryMovements = false,
+): Promise<void> {
   await requireAdminSession();
 
   const order = await prisma.order.findUnique({
@@ -736,11 +739,26 @@ export async function adminDeletePurchaseOrderAction(orderId: string): Promise<v
   await prisma.$transaction(async (tx) => {
     // 1) Borra los movimientos de inventario de la compra → el stock se revierte
     //    (deja de sumar) y sus cargos a proveedores se borran en cascada.
+    //    Si keepInventoryMovements es true, se conservan: el stock ingresado y
+    //    sus cargos a proveedores permanecen aunque se borre la orden. Se
+    //    desliga purchaseCode/orderId para que no queden referencias rotas.
     if (order.purchaseCode) {
-      await tx.inventoryMovement.deleteMany({ where: { purchaseCode: order.purchaseCode } });
+      if (keepInventoryMovements) {
+        await tx.inventoryMovement.updateMany({
+          where: { purchaseCode: order.purchaseCode },
+          data: { purchaseCode: null },
+        });
+      } else {
+        await tx.inventoryMovement.deleteMany({ where: { purchaseCode: order.purchaseCode } });
+      }
     }
     // 2) Limpia cualquier cargo restante ligado a la orden (ej. envio/transportadora).
-    await tx.supplierLedgerEntry.deleteMany({ where: { orderId } });
+    //    Si se conservan los movimientos, se mantienen sus cargos de compra a
+    //    proveedores (los ligados a un inventoryMovement); su orderId queda en
+    //    null al borrar la orden (FK SetNull).
+    await tx.supplierLedgerEntry.deleteMany({
+      where: keepInventoryMovements ? { orderId, inventoryMovementId: null } : { orderId },
+    });
     // 3) Borra despachos (sus DispatchItem se van en cascada). Necesario antes de
     //    borrar la orden: DispatchItem -> OrderItem es Restrict y bloquearia.
     await tx.dispatch.deleteMany({ where: { orderId } });

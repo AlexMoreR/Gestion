@@ -17,10 +17,23 @@ type AccountBalancesTableProps = {
 const accountHref = (accountId: string) => `/admin/balances/cuentas/${accountId}`;
 
 export function AccountBalancesTable({ data, currency, onEdit }: AccountBalancesTableProps) {
+  // Totales para la fila de pie de tabla.
+  const totals = data.reduce(
+    (acc, row) => ({
+      periodOpening: acc.periodOpening + row.periodOpening,
+      ingreso: acc.ingreso + row.ingreso,
+      gasto: acc.gasto + row.gasto,
+      movimientos: acc.movimientos + row.movimientos,
+      balance: acc.balance + row.balance,
+    }),
+    { periodOpening: 0, ingreso: 0, gasto: 0, movimientos: 0, balance: 0 },
+  );
+
   const columns: ColumnDef<AccountBalance>[] = [
     {
       accessorKey: "name",
       header: "Cuenta",
+      footer: () => <span className="text-sm font-semibold text-foreground">Total</span>,
       cell: ({ row }) => (
         <div className="min-w-0">
           <Link
@@ -39,10 +52,13 @@ export function AccountBalancesTable({ data, currency, onEdit }: AccountBalances
       ),
     },
     {
-      accessorKey: "openingBalance",
+      accessorKey: "periodOpening",
       header: "Saldo inicial",
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{formatMoney(row.original.openingBalance, currency)}</span>
+        <span className="text-sm text-muted-foreground">{formatMoney(row.original.periodOpening, currency)}</span>
+      ),
+      footer: () => (
+        <span className="text-sm font-semibold text-foreground">{formatMoney(totals.periodOpening, currency)}</span>
       ),
     },
     {
@@ -53,12 +69,20 @@ export function AccountBalancesTable({ data, currency, onEdit }: AccountBalances
           {formatMoney(row.original.ingreso, currency)}
         </span>
       ),
+      footer: () => (
+        <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+          {formatMoney(totals.ingreso, currency)}
+        </span>
+      ),
     },
     {
       accessorKey: "gasto",
       header: "Gastos",
       cell: ({ row }) => (
         <span className="text-sm font-medium text-destructive">{formatMoney(row.original.gasto, currency)}</span>
+      ),
+      footer: () => (
+        <span className="text-sm font-semibold text-destructive">{formatMoney(totals.gasto, currency)}</span>
       ),
     },
     {
@@ -67,6 +91,9 @@ export function AccountBalancesTable({ data, currency, onEdit }: AccountBalances
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">{formatMoney(row.original.movimientos, currency)}</span>
       ),
+      footer: () => (
+        <span className="text-sm font-semibold text-foreground">{formatMoney(totals.movimientos, currency)}</span>
+      ),
     },
     {
       accessorKey: "balance",
@@ -74,6 +101,11 @@ export function AccountBalancesTable({ data, currency, onEdit }: AccountBalances
       cell: ({ row }) => (
         <span className={`text-sm font-semibold ${row.original.balance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>
           {formatMoney(row.original.balance, currency)}
+        </span>
+      ),
+      footer: () => (
+        <span className={`text-sm font-bold ${totals.balance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>
+          {formatMoney(totals.balance, currency)}
         </span>
       ),
     },
@@ -106,12 +138,13 @@ export function AccountBalancesTable({ data, currency, onEdit }: AccountBalances
   return (
     <BalancesDataGrid
       title="Cuentas y balance"
-      description="Saldo real por cuenta: saldo inicial + ingresos - gastos +/- movimientos."
+      description="Saldo inicial (cierre del mes anterior). Balance del mes = ingresos - gastos +/- movimientos."
       data={data}
       columns={columns}
       searchPlaceholder="Buscar cuenta"
       emptyMessage="Aun no hay cuentas. Crea la primera con 'Nueva cuenta'."
-      pageSize={8}
+      paginate={false}
+      showFooter
     />
   );
 }

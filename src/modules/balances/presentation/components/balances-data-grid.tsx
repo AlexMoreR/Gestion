@@ -13,6 +13,7 @@ type BalancesDataGridProps<TData> = {
   pageSize?: number;
   onRowClick?: (row: TData) => void;
   paginate?: boolean;
+  showFooter?: boolean;
 };
 
 export function BalancesDataGrid<TData>({
