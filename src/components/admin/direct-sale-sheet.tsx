@@ -180,7 +180,7 @@ export function DirectSaleSheet({
           code: line.code,
           quantity: line.quantity,
           unitPrice: line.unitPrice,
-          description: `Combo: ${product.name}`,
+          description: "",
         })),
       ]);
       setSearch("");

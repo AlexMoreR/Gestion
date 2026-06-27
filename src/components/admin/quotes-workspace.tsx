@@ -335,7 +335,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
           quantity: line.quantity,
           color: draftColor.trim(),
           unitPrice: line.unitPrice,
-          description: draftDescription.trim() || `Combo: ${draftProduct.name}`,
+          description: draftDescription.trim(),
           additionalCost: 0,
           discount: 0,
           fulfillmentMode: draftFulfillmentMode,
@@ -938,8 +938,6 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                     <table className="w-full text-sm">
                       <thead className="bg-card text-xs uppercase tracking-wide text-muted-foreground">
                         <tr>
-                          <th className="px-3 py-2 text-left">Imagen</th>
-                          <th className="px-3 py-2 text-left">Codigo</th>
                           <th className="px-3 py-2 text-left">Producto</th>
                           <th className="px-3 py-2 text-left">Descripcion</th>
                           <th className="px-3 py-2 text-left">Cant</th>
@@ -952,20 +950,24 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                         {linesWithMeta.map(({ line, product, lineTotal }) => (
                           <tr key={line.uid} className="border-t border-border">
                             <td className="px-3 py-2">
-                              {line.imageUrl || product?.thumbnailUrl ? (
-                                <img
-                                  src={line.imageUrl || product?.thumbnailUrl || ""}
-                                  alt={product?.name || "Producto"}
-                                  className="h-10 w-10 rounded-md border border-border object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-muted text-[10px] text-muted-foreground">
-                                  Sin img
+                              <div className="flex items-center gap-2.5">
+                                {line.imageUrl || product?.thumbnailUrl ? (
+                                  <img
+                                    src={line.imageUrl || product?.thumbnailUrl || ""}
+                                    alt={product?.name || "Producto"}
+                                    className="h-10 w-10 shrink-0 rounded-md border border-border object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-[10px] text-muted-foreground">
+                                    Sin img
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium text-foreground">{product?.name || "Producto"}</p>
+                                  <p className="truncate text-xs text-muted-foreground">{product?.code || "Sin codigo"}</p>
                                 </div>
-                              )}
+                              </div>
                             </td>
-                            <td className="px-3 py-2 text-foreground">{product?.code || "-"}</td>
-                            <td className="px-3 py-2 text-foreground">{product?.name || "Producto"}</td>
                             <td className="px-3 py-2 text-foreground">{line.description || "-"}</td>
                             <td className="px-3 py-2 text-foreground">{line.quantity}</td>
                             <td className="px-3 py-2 text-foreground">{line.color || "-"}</td>
@@ -1186,7 +1188,10 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
                   value={draftFulfillmentMode}
                   onChange={(event) => setDraftFulfillmentMode(event.target.value as FulfillmentMode)}
                 >
-                  <option value="STOCK">Por stock (de existencias)</option>
+                  {/* Sin stock solo se puede fabricar por orden. */}
+                  {(draftProduct?.stock ?? 0) > 0 ? (
+                    <option value="STOCK">Por stock (de existencias)</option>
+                  ) : null}
                   <option value="MANUFACTURE">Por orden (se fabrica)</option>
                 </select>
               </label>

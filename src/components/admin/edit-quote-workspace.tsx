@@ -26,6 +26,7 @@ type ProductOption = {
   id: string;
   name: string;
   code: string | null;
+  stock: number;
   retailPrice: number;
   thumbnailUrl?: string | null;
 };
@@ -320,7 +321,11 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
                   onChange={(productId) => {
                     setDraftProductId(productId);
                     const product = products.find((p) => p.id === productId);
-                    if (product) setDraftUnitPrice(String(product.retailPrice));
+                    if (product) {
+                      setDraftUnitPrice(String(product.retailPrice));
+                      // Sin stock -> por orden (se fabrica); con stock -> por existencias.
+                      setDraftFulfillmentMode(product.stock > 0 ? "STOCK" : "MANUFACTURE");
+                    }
                   }}
                 />
               </label>
@@ -340,7 +345,10 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
                   value={draftFulfillmentMode}
                   onChange={(e) => setDraftFulfillmentMode(e.target.value as FulfillmentMode)}
                 >
-                  <option value="STOCK">Por stock (de existencias)</option>
+                  {/* Sin stock solo se puede fabricar por orden. */}
+                  {(products.find((p) => p.id === draftProductId)?.stock ?? 0) > 0 ? (
+                    <option value="STOCK">Por stock (de existencias)</option>
+                  ) : null}
                   <option value="MANUFACTURE">Por orden (se fabrica)</option>
                 </select>
               </label>
@@ -389,7 +397,10 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
                             )
                           }
                         >
-                          <option value="STOCK">Por stock</option>
+                          {/* Sin stock solo se puede fabricar por orden. */}
+                          {(product?.stock ?? 0) > 0 ? (
+                            <option value="STOCK">Por stock</option>
+                          ) : null}
                           <option value="MANUFACTURE">Por orden</option>
                         </select>
                       </td>

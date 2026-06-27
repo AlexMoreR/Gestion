@@ -723,7 +723,7 @@ export async function adminCreateDirectPurchaseAction(formData: FormData): Promi
 export async function adminDeletePurchaseOrderAction(
   orderId: string,
   keepInventoryMovements = false,
-): Promise<void> {
+): Promise<{ ok: boolean; error?: string }> {
   await requireAdminSession();
 
   const order = await prisma.order.findUnique({
@@ -731,9 +731,7 @@ export async function adminDeletePurchaseOrderAction(
     select: { id: true, type: true, purchaseCode: true },
   });
   if (!order || order.type !== "PURCHASE") {
-    redirect(
-      `/admin/ordenes?${new URLSearchParams({ error: "Solo se pueden eliminar ordenes de compra." }).toString()}`,
-    );
+    return { ok: false, error: "Solo se pueden eliminar ordenes de compra." };
   }
 
   await prisma.$transaction(async (tx) => {
@@ -778,7 +776,7 @@ export async function adminDeletePurchaseOrderAction(
   revalidatePath("/admin/inventario");
   revalidatePath("/admin/proveedores");
   revalidatePath("/admin/ordenes");
-  redirect(`/admin/ordenes?${new URLSearchParams({ ok: "Compra eliminada" }).toString()}`);
+  return { ok: true };
 }
 
 export async function adminDeleteInventoryMovementAction(formData: FormData): Promise<void> {

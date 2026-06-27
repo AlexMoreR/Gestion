@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { OperationsTabs } from "@/components/admin/operations-tabs";
 import { PurchaseDirectDialog } from "@/components/admin/purchase-direct-dialog";
-import { PurchaseDeleteMenuItem } from "@/components/admin/purchase-delete-menu-item";
+import { PurchaseDeleteMenuItem, PurchaseDeleteDialog } from "@/components/admin/purchase-delete-menu-item";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { getOrderStatusBadgeClassName, getOrderStatusLabel } from "@/lib/orders";
 
@@ -81,36 +81,49 @@ function StatusBadge({ order }: { order: OrderRow }) {
 }
 
 function RowActions({ order }: { order: OrderRow }) {
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones ${order.code}`}>
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem asChild>
-          <Link href={`/admin/ordenes/${order.id}`}>
-            <ArrowUpRight className="mr-2 h-4 w-4" />
-            Abrir
-          </Link>
-        </DropdownMenuItem>
-        {order.kind === "order" ? (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones ${order.code}`}>
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
           <DropdownMenuItem asChild>
-            <Link href={`/admin/ventas`}>
-              <ShoppingCart className="mr-2 h-4 w-4" />
-              Ver ventas
+            <Link href={`/admin/ordenes/${order.id}`}>
+              <ArrowUpRight className="mr-2 h-4 w-4" />
+              Abrir
             </Link>
           </DropdownMenuItem>
-        ) : null}
-        {order.kind === "purchase" ? (
-          <>
-            <DropdownMenuSeparator />
-            <PurchaseDeleteMenuItem orderId={order.id} code={order.code} />
-          </>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+          {order.kind === "order" ? (
+            <DropdownMenuItem asChild>
+              <Link href={`/admin/ventas`}>
+                <ShoppingCart className="mr-2 h-4 w-4" />
+                Ver ventas
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
+          {order.kind === "purchase" ? (
+            <>
+              <DropdownMenuSeparator />
+              <PurchaseDeleteMenuItem onSelect={() => setDeleteOpen(true)} />
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {order.kind === "purchase" ? (
+        <PurchaseDeleteDialog
+          orderId={order.id}
+          code={order.code}
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+        />
+      ) : null}
+    </>
   );
 }
 

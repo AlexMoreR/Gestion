@@ -126,6 +126,7 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
         id: product.id,
         name: product.name,
         code: product.code,
+        stock: Number(product.stock),
         retailPrice: Number(product.price),
         thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
       }))}
