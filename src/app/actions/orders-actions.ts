@@ -231,35 +231,9 @@ export async function adminCreateOrderFromSaleAction(formData: FormData): Promis
     })),
   );
 
-  // Valida que haya stock suficiente para los productos "por stock" antes de
-  // crear la orden. Los de fabricacion no descuentan inventario, no se validan.
-  const stockNeeded = new Map<string, number>();
-  for (const input of orderItemInputs) {
-    if (input.fulfillmentMode === "STOCK") {
-      stockNeeded.set(input.productId, (stockNeeded.get(input.productId) ?? 0) + input.quantity);
-    }
-  }
-  if (stockNeeded.size > 0) {
-    const productIds = Array.from(stockNeeded.keys());
-    const sums = await prisma.inventoryMovement.groupBy({
-      by: ["productId"],
-      where: { productId: { in: productIds } },
-      _sum: { change: true },
-    });
-    const stockById = new Map(sums.map((s) => [s.productId, s._sum.change ?? 0]));
-    const insufficient = productIds.filter((id) => (stockNeeded.get(id) ?? 0) > (stockById.get(id) ?? 0));
-    if (insufficient.length > 0) {
-      const products = await prisma.product.findMany({
-        where: { id: { in: insufficient } },
-        select: { id: true, name: true },
-      });
-      const nameById = new Map(products.map((product) => [product.id, product.name]));
-      const detail = insufficient
-        .map((id) => `${nameById.get(id) ?? id} (necesita ${stockNeeded.get(id)}, hay ${stockById.get(id) ?? 0})`)
-        .join("; ");
-      redirect(`${returnTo}?error=${encodeURIComponent(`Sin stock suficiente para: ${detail}`)}`);
-    }
-  }
+  // El inventario de los productos "por stock" ya no se valida ni se descuenta al
+  // crear la orden: la salida se registra cuando el operador confirma el item
+  // (adminConfirmStockOrderItemAction), que es donde se valida el stock suficiente.
 
   let createdOrderCode: string | null = null;
   let createdOrderId: string | null = null;
@@ -300,30 +274,8 @@ export async function adminCreateOrderFromSaleAction(formData: FormData): Promis
         },
       });
 
-      // Las lineas "por stock" se surten de existencias: descuentan inventario
-      // automaticamente (un movimiento OUT por producto). Las "por orden" se
-      // fabrican y no tocan stock.
-      const stockOutByProduct = new Map<string, number>();
-      for (const input of orderItemInputs) {
-        if (input.fulfillmentMode === "STOCK") {
-          stockOutByProduct.set(
-            input.productId,
-            (stockOutByProduct.get(input.productId) ?? 0) + input.quantity,
-          );
-        }
-      }
-
-      if (stockOutByProduct.size > 0) {
-        await tx.inventoryMovement.createMany({
-          data: Array.from(stockOutByProduct.entries()).map(([productId, quantity]) => ({
-            productId,
-            type: "OUT" as const,
-            change: -quantity,
-            note: `Salida por orden ${code}`,
-            createdById,
-          })),
-        });
-      }
+      // Las lineas "por stock" ya no descuentan inventario aqui: la salida se
+      // registra cuando el operador confirma cada item en el detalle de la orden.
     });
   } catch (error) {
     console.error("Failed to create order:", error);

@@ -381,24 +381,38 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
   }
 
   // En una compra los items ya vienen comprados (pueden no tener proveedor ni
-  // foto); en una venta hay que confirmar proveedor/costo, foto y pago.
+  // foto), y los productos de stock ya estan en bodega (no pasan por proveedor,
+  // foto ni pago); en una venta de fabricacion hay que confirmar todo eso.
   const isPurchaseOrder = order.type === "PURCHASE";
-  if (!isPurchaseOrder) {
+  const itemNeedsSupplierFlow = (item: { fulfillmentMode: string }) =>
+    !isPurchaseOrder && item.fulfillmentMode !== "STOCK";
+  {
     const unconfirmedItem = order.items.find(
-      (item) => !item.confirmedSupplierId || item.purchaseCost === null,
+      (item) => itemNeedsSupplierFlow(item) && (!item.confirmedSupplierId || item.purchaseCost === null),
     );
     if (unconfirmedItem) {
       redirect(`${returnTo}?error=Confirma+el+proveedor+y+costo+de+todos+los+items+antes+de+despachar`);
     }
 
-    const itemWithoutPhoto = order.items.find((item) => item.photos.length === 0);
+    const itemWithoutPhoto = order.items.find(
+      (item) => itemNeedsSupplierFlow(item) && item.photos.length === 0,
+    );
     if (itemWithoutPhoto) {
       redirect(`${returnTo}?error=Sube+al+menos+una+foto+del+producto+terminado+por+cada+item`);
     }
 
-    const itemWithoutPayment = order.items.find((item) => item.supplierPaymentStatus === null);
+    const itemWithoutPayment = order.items.find(
+      (item) => itemNeedsSupplierFlow(item) && item.supplierPaymentStatus === null,
+    );
     if (itemWithoutPayment) {
       redirect(`${returnTo}?error=Registra+el+pago+al+proveedor+de+cada+item+antes+de+despachar`);
+    }
+
+    const unconfirmedStock = order.items.find(
+      (item) => !isPurchaseOrder && item.fulfillmentMode === "STOCK" && item.confirmedAt === null,
+    );
+    if (unconfirmedStock) {
+      redirect(`${returnTo}?error=Confirma+la+salida+de+stock+de+todos+los+productos+antes+de+despachar`);
     }
   }
 
@@ -613,15 +627,22 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
     redirect(`${returnTo}?error=Producto+no+encontrado+en+la+orden`);
   }
 
-  // En una compra el item ya viene comprado: no exige proveedor, foto ni pago.
+  // En una compra el item ya viene comprado, y un producto de stock ya esta en
+  // bodega: no exigen proveedor, foto ni pago (el de stock solo debe estar
+  // confirmado, es decir descontado del inventario).
   const isPurchaseOrder = order.type === "PURCHASE";
-  if (!isPurchaseOrder && (!item.confirmedSupplierId || item.purchaseCost === null)) {
+  const isStockItem = item.fulfillmentMode === "STOCK";
+  if (!isPurchaseOrder && isStockItem && item.confirmedAt === null) {
+    redirect(`${returnTo}?error=Confirma+la+salida+de+stock+antes+de+despachar`);
+  }
+  const skipSupplierFlow = isPurchaseOrder || isStockItem;
+  if (!skipSupplierFlow && (!item.confirmedSupplierId || item.purchaseCost === null)) {
     redirect(`${returnTo}?error=Confirma+el+proveedor+y+costo+del+producto+antes+de+despachar`);
   }
-  if (!isPurchaseOrder && item.photos.length === 0) {
+  if (!skipSupplierFlow && item.photos.length === 0) {
     redirect(`${returnTo}?error=Sube+al+menos+una+foto+del+producto+terminado`);
   }
-  if (!isPurchaseOrder && item.supplierPaymentStatus === null) {
+  if (!skipSupplierFlow && item.supplierPaymentStatus === null) {
     redirect(`${returnTo}?error=Registra+el+pago+al+proveedor+antes+de+despachar`);
   }
 
@@ -860,10 +881,18 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
     redirect(`${returnTo}?error=Productos+no+encontrados+en+la+orden`);
   }
 
-  // En una compra los items ya vienen comprados: no exige proveedor, foto ni pago.
+  // En una compra los items ya vienen comprados, y los de stock ya estan en
+  // bodega: no exigen proveedor, foto ni pago (los de stock solo deben estar
+  // confirmados, es decir descontados del inventario).
   const isPurchaseOrder = order.type === "PURCHASE";
-  if (!isPurchaseOrder) {
-    for (const item of selectedItems) {
+  for (const item of selectedItems) {
+    if (!isPurchaseOrder && item.fulfillmentMode === "STOCK") {
+      if (item.confirmedAt === null) {
+        redirect(`${returnTo}?error=Confirma+la+salida+de+stock+de+todos+los+productos+antes+de+despachar`);
+      }
+      continue;
+    }
+    if (!isPurchaseOrder) {
       if (!item.confirmedSupplierId || item.purchaseCost === null) {
         redirect(`${returnTo}?error=Confirma+el+proveedor+y+costo+de+todos+los+productos+antes+de+despachar`);
       }

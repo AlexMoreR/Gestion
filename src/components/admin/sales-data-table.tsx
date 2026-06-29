@@ -102,6 +102,12 @@ type SalesDataTableProps = {
   currency: SupportedCurrencyCode;
   accounts: AccountOption[];
   initialSearch?: string;
+  fromDate: string;
+  toDate: string;
+  statusFilter: SaleStatus | "ALL";
+  onFromDateChange: (value: string) => void;
+  onToDateChange: (value: string) => void;
+  onStatusFilterChange: (value: SaleStatus | "ALL") => void;
 };
 
 function statusLabel(status: SaleStatus): string {
@@ -674,12 +680,6 @@ function AddSalePaymentSheet({
   );
 }
 
-// Fecha local (YYYY-MM-DD) para comparar con el DateRangePicker.
-function localDay(value: string): string {
-  const date = new Date(value);
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-}
-
 function HeaderWithIcon({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <span className="inline-flex items-center gap-1.5">
@@ -736,26 +736,24 @@ function SaleMobileCard({
   );
 }
 
-export function SalesDataTable({ sales, currency, accounts, initialSearch = "" }: SalesDataTableProps) {
+export function SalesDataTable({
+  sales,
+  currency,
+  accounts,
+  initialSearch = "",
+  fromDate,
+  toDate,
+  statusFilter,
+  onFromDateChange,
+  onToDateChange,
+  onStatusFilterChange,
+}: SalesDataTableProps) {
   const [selectedSale, setSelectedSale] = React.useState<SaleRow | null>(null);
   const [paymentSale, setPaymentSale] = React.useState<SaleRow | null>(null);
-  const [fromDate, setFromDate] = React.useState("");
-  const [toDate, setToDate] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState<SaleStatus | "ALL">("ALL");
 
-  // El rango de fechas y el estado se aplican antes de la tabla; DataTable se
-  // encarga de busqueda, orden y paginado sobre el resultado.
-  const filteredSales = React.useMemo(
-    () =>
-      sales.filter((sale) => {
-        if (statusFilter !== "ALL" && sale.status !== statusFilter) return false;
-        const day = localDay(sale.createdAtISO);
-        if (fromDate && day < fromDate) return false;
-        if (toDate && day > toDate) return false;
-        return true;
-      }),
-    [sales, fromDate, toDate, statusFilter],
-  );
+  // El padre (SalesWorkspace) ya aplica el filtro de fecha/estado; aqui solo
+  // mostramos los controles y dejamos que DataTable busque, ordene y pagine.
+  const filteredSales = sales;
 
   const columns = React.useMemo<ColumnDef<SaleRow, unknown>[]>(
     () => [
@@ -818,7 +816,7 @@ export function SalesDataTable({ sales, currency, accounts, initialSearch = "" }
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-1.5">
       <Select
         value={statusFilter}
-        onValueChange={(value) => setStatusFilter((value as SaleStatus | "ALL") ?? "ALL")}
+        onValueChange={(value) => onStatusFilterChange((value as SaleStatus | "ALL") ?? "ALL")}
       >
         <SelectTrigger aria-label="Filtrar por estado" className="h-9 w-full gap-2 sm:w-48">
           <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -842,8 +840,8 @@ export function SalesDataTable({ sales, currency, accounts, initialSearch = "" }
           from={fromDate}
           to={toDate}
           onChange={(range) => {
-            setFromDate(range.from);
-            setToDate(range.to);
+            onFromDateChange(range.from);
+            onToDateChange(range.to);
           }}
           aria-label="Rango de fechas"
           className="sm:w-64"
@@ -855,8 +853,8 @@ export function SalesDataTable({ sales, currency, accounts, initialSearch = "" }
             variant="ghost"
             size="icon-sm"
             onClick={() => {
-              setFromDate("");
-              setToDate("");
+              onFromDateChange("");
+              onToDateChange("");
             }}
             aria-label="Limpiar fechas"
             title="Limpiar fechas"

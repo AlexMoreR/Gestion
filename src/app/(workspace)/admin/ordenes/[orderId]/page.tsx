@@ -156,18 +156,25 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     0,
   );
   const earnedValue = Number(order.total) - totalPurchaseCost - totalShippingCost;
+  // Un producto de stock ya esta en bodega: no pasa por proveedor, pago ni
+  // recogido (foto). Solo los de fabricacion requieren ese flujo.
+  const needsSupplierFlow = (item: (typeof order.items)[number]) =>
+    item.fulfillmentMode !== "STOCK";
   // En una compra el item ya viene comprado (se confirma al registrarla, aunque
-  // no tenga proveedor); en una venta hay que confirmar proveedor + costo.
+  // no tenga proveedor); en una venta hay que confirmar proveedor + costo. Para
+  // stock basta con que se haya confirmado (descontado del inventario).
   const isPurchase = order.type === "PURCHASE";
   const itemIsConfirmed = (item: (typeof order.items)[number]) =>
-    isPurchase
+    isPurchase || !needsSupplierFlow(item)
       ? item.confirmedAt !== null
       : Boolean(item.confirmedSupplierId) && item.purchaseCost !== null;
   const allItemsConfirmed = order.items.length > 0 && order.items.every(itemIsConfirmed);
   const allItemsHavePhotos =
-    order.items.length > 0 && order.items.every((item) => item.photos.length > 0);
+    order.items.length > 0 &&
+    order.items.every((item) => !needsSupplierFlow(item) || item.photos.length > 0);
   const allItemsPaymentSet =
-    order.items.length > 0 && order.items.every((item) => item.supplierPaymentStatus !== null);
+    order.items.length > 0 &&
+    order.items.every((item) => !needsSupplierFlow(item) || item.supplierPaymentStatus !== null);
   const canDispatch = allItemsConfirmed && allItemsHavePhotos && allItemsPaymentSet;
 
   const latestDispatch = order.dispatches[0] ?? null;
@@ -203,8 +210,12 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   );
 
   const isItemConfirmed = itemIsConfirmed;
+  // Un producto de stock confirmado queda listo para despachar (no pasa por
+  // recogido). Para fabricacion, recogido = pago registrado + foto subida.
   const isItemRecogido = (item: (typeof order.items)[number]) =>
-    item.supplierPaymentStatus !== null && item.photos.length > 0;
+    !needsSupplierFlow(item)
+      ? itemIsConfirmed(item)
+      : item.supplierPaymentStatus !== null && item.photos.length > 0;
   const pendingFabricar = order.items.filter((item) => !isItemConfirmed(item)).length;
   const pendingRecoger = order.items.filter(
     (item) => isItemConfirmed(item) && !isItemRecogido(item),
@@ -244,6 +255,10 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       dispatchCode: dispatchByItemId.get(item.id)?.code ?? null,
       dispatchCarrierName: dispatchByItemId.get(item.id)?.carrierName ?? null,
       requiresManufacturing: item.fulfillmentMode !== "STOCK",
+      // Para el modal de stock: precio de fabrica (costo proveedor) y costo real
+      // de compra del inventario (proveedor + flete).
+      factoryPrice: Number(item.product.baseCost),
+      inventoryCost: Number(item.product.baseCost) + Number(item.product.additionalCost),
       hasProductionJob: item.productionJobs.length > 0,
       suppliers: item.product.suppliers.map((entry) => ({
         id: entry.supplierId,

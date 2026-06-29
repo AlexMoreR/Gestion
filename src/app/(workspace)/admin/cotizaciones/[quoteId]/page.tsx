@@ -100,6 +100,12 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
         .slice(0, 10)
     : "";
 
+  const createdAtValue = new Date(
+    quote.createdAt.getTime() - quote.createdAt.getTimezoneOffset() * 60000,
+  )
+    .toISOString()
+    .slice(0, 10);
+
   return (
     <EditQuoteWorkspace
       quote={{
@@ -107,6 +113,7 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
         code: quote.code,
         status: quote.status,
         validUntil: validUntilValue,
+        createdAt: createdAtValue,
         notes: quote.notes ?? "",
         client: {
           id: quote.client.id,

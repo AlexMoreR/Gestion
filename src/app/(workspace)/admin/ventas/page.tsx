@@ -57,7 +57,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
   const errorMessage = typeof params.error === "string" ? params.error : "";
   const initialSearch = typeof params.q === "string" ? params.q : "";
 
-  const [sales, products, clients, currency, accounts] = await Promise.all([
+  const [sales, products, clients, currency, accounts, stockRows] = await Promise.all([
     prisma.sale.findMany({
       orderBy: { createdAt: "desc" },
       include: {
@@ -99,7 +99,26 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true },
     }),
+    // Stock por producto (suma de movimientos) para la bolita del selector.
+    prisma.inventoryMovement.groupBy({
+      by: ["productId"],
+      _sum: { change: true },
+    }),
   ]);
+
+  // Stock de productos normales; para combos, cuantos se pueden armar con sus
+  // componentes (minimo de stock del componente / unidades requeridas).
+  const stockByProduct = new Map(stockRows.map((row) => [row.productId, row._sum.change ?? 0]));
+  const stockFor = (product: (typeof products)[number]): number => {
+    if (product.isBundle) {
+      const valid = product.bundleComponents.filter((component) => component.quantity > 0);
+      if (valid.length === 0) return 0;
+      return Math.min(
+        ...valid.map((component) => Math.floor((stockByProduct.get(component.childId) ?? 0) / component.quantity)),
+      );
+    }
+    return stockByProduct.get(product.id) ?? 0;
+  };
 
   return (
     <section className="w-full space-y-4">
@@ -126,6 +145,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
           id: product.id,
           name: product.name,
           code: product.code,
+          stock: stockFor(product),
           retailPrice: Number(product.price),
           thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
           isBundle: product.isBundle,

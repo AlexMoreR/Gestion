@@ -134,7 +134,7 @@ export function OrderItemsTable({
   );
 
   const stageLabel: Record<Stage, string> = {
-    fabricar: "Fabricar",
+    fabricar: "Confirmar",
     recoger: "Recoger",
     despachar: "Despachar",
     done: "",
@@ -222,20 +222,20 @@ export function OrderItemsTable({
         </Table>
       </div>
 
-      {/* Modal: Fabricar en lote */}
+      {/* Modal: Confirmar en lote */}
       <Dialog open={modal === "fabricar"} onOpenChange={(open) => (open ? null : setModal(null))}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Fabricar {count} productos</DialogTitle>
+            <DialogTitle>Confirmar {count} productos</DialogTitle>
             <DialogDescription>
-              Se confirmará cada producto con su proveedor sugerido y su costo por defecto, y pasará a producción.
-              Podrás ajustar proveedor o costo luego en cada producto.
+              Los productos de fabricación se confirman con su proveedor sugerido y pasan a producción.
+              Los de stock se descuentan del inventario. Podrás ajustar el detalle luego en cada producto.
             </DialogDescription>
           </DialogHeader>
           <form action={adminBulkConfirmOrderItemsAction}>
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="orderItemIds" value={selectedIdsJson} />
-            <BulkSubmitButton label="Confirmar y enviar a producción" pendingLabel="Confirmando..." />
+            <BulkSubmitButton label="Confirmar productos" pendingLabel="Confirmando..." />
           </form>
         </DialogContent>
       </Dialog>

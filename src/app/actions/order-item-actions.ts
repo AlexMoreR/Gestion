@@ -420,6 +420,98 @@ export async function adminConfirmOrderItemAction(formData: FormData): Promise<v
   redirect(`${returnTo}?ok=Item+confirmado+y+enviado+a+produccion`);
 }
 
+const confirmStockOrderItemSchema = z.object({
+  orderItemId: z.string().trim().min(1, "Item invalido"),
+});
+
+// Confirma un item "por stock": descuenta el inventario (movimiento OUT) y deja
+// el item listo para despachar. A diferencia de la confirmacion de fabricacion,
+// NO genera saldo al proveedor ni orden de produccion, porque el producto ya se
+// compro antes y esta en bodega.
+export async function adminConfirmStockOrderItemAction(formData: FormData): Promise<void> {
+  const createdById = await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/ordenes");
+
+  const parsed = confirmStockOrderItemSchema.safeParse({
+    orderItemId: formData.get("orderItemId"),
+  });
+
+  if (!parsed.success) {
+    redirect(`${returnTo}?error=Datos+de+confirmacion+invalidos`);
+  }
+
+  const orderItem = await prisma.orderItem.findUnique({
+    where: { id: parsed.data.orderItemId },
+    include: {
+      order: { select: { id: true, code: true, status: true } },
+      product: { select: { name: true, baseCost: true, additionalCost: true } },
+    },
+  });
+
+  if (!orderItem) {
+    redirect(`${returnTo}?error=Item+no+encontrado`);
+  }
+
+  if (orderItem.fulfillmentMode !== "STOCK") {
+    redirect(`${returnTo}?error=El+producto+no+es+de+stock`);
+  }
+
+  if (orderItem.order.status === "CANCELLED" || orderItem.order.status === "COMPLETED") {
+    redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
+  }
+
+  if (orderItem.confirmedAt !== null) {
+    redirect(`${returnTo}?error=El+item+ya+esta+confirmado`);
+  }
+
+  // Valida que haya stock suficiente al momento de confirmar (suma de movimientos).
+  const stockAgg = await prisma.inventoryMovement.aggregate({
+    where: { productId: orderItem.productId },
+    _sum: { change: true },
+  });
+  const available = stockAgg._sum.change ?? 0;
+  if (available < orderItem.quantity) {
+    redirect(
+      `${returnTo}?error=${encodeURIComponent(
+        `Sin stock suficiente para ${orderItem.product.name} (necesita ${orderItem.quantity}, hay ${available})`,
+      )}`,
+    );
+  }
+
+  // Costo real de compra del inventario = costo proveedor + flete.
+  const inventoryCost = Number(orderItem.product.baseCost) + Number(orderItem.product.additionalCost);
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.inventoryMovement.create({
+        data: {
+          productId: orderItem.productId,
+          type: "OUT",
+          change: -orderItem.quantity,
+          note: `Salida por orden ${orderItem.order.code}`,
+          createdById,
+        },
+      });
+
+      await tx.orderItem.update({
+        where: { id: orderItem.id },
+        data: {
+          confirmedAt: new Date(),
+          purchaseCost: inventoryCost,
+        },
+      });
+    });
+  } catch (error) {
+    console.error("Failed to confirm stock order item:", error);
+    redirect(`${returnTo}?error=No+se+pudo+confirmar+el+item`);
+  }
+
+  revalidatePath("/admin/ordenes");
+  revalidatePath("/admin/inventario");
+  revalidatePath(`/admin/ordenes/${orderItem.order.id}`);
+  redirect(`${returnTo}?ok=Producto+descontado+de+stock`);
+}
+
 export async function adminUploadOrderItemPhotosAction(formData: FormData): Promise<void> {
   await requireAdminSession();
   const returnTo = getReturnTo(formData, "/admin/ordenes");
@@ -501,10 +593,12 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
     redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
   }
 
-  // En una compra el item ya viene comprado (puede no tener proveedor ni foto);
-  // en una venta hay que confirmar proveedor + costo antes de recoger/despachar.
+  // En una compra el item ya viene comprado (puede no tener proveedor ni foto), y
+  // un producto de stock ya esta en bodega (no pasa por proveedor ni recogido);
+  // en una venta de fabricacion hay que confirmar proveedor + costo + foto.
   const isPurchaseOrder = orderItem.order.type === "PURCHASE";
-  if (!isPurchaseOrder && (!orderItem.confirmedSupplierId || orderItem.purchaseCost === null)) {
+  const skipSupplierFlow = isPurchaseOrder || orderItem.fulfillmentMode === "STOCK";
+  if (!skipSupplierFlow && (!orderItem.confirmedSupplierId || orderItem.purchaseCost === null)) {
     redirect(`${returnTo}?error=Confirma+el+proveedor+y+costo+antes+de+despachar`);
   }
 
@@ -513,7 +607,7 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
     .filter((entry): entry is File => entry instanceof File && entry.size > 0);
 
   const totalPhotos = orderItem.photos.length + newPhotoFiles.length;
-  if (!isPurchaseOrder && totalPhotos === 0) {
+  if (!skipSupplierFlow && totalPhotos === 0) {
     redirect(`${returnTo}?error=Sube+al+menos+una+foto+del+producto+terminado`);
   }
 
@@ -643,7 +737,9 @@ export async function adminBulkConfirmOrderItemsAction(formData: FormData): Prom
       order: { select: { id: true, code: true, status: true, saleId: true } },
       product: {
         select: {
+          name: true,
           baseCost: true,
+          additionalCost: true,
           suppliers: {
             select: { supplierId: true, supplierCost: true },
             orderBy: { isPreferred: "desc" },
@@ -664,6 +760,22 @@ export async function adminBulkConfirmOrderItemsAction(formData: FormData): Prom
     redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
   }
 
+  // Stock disponible por producto (para los items "por stock"); se decrementa a
+  // medida que se confirma cada item dentro del lote.
+  const stockProductIds = Array.from(
+    new Set(items.filter((item) => item.fulfillmentMode === "STOCK").map((item) => item.productId)),
+  );
+  const stockAvailable = new Map<string, number>();
+  if (stockProductIds.length > 0) {
+    const sums = await prisma.inventoryMovement.groupBy({
+      by: ["productId"],
+      where: { productId: { in: stockProductIds } },
+      _sum: { change: true },
+    });
+    for (const id of stockProductIds) stockAvailable.set(id, 0);
+    for (const sum of sums) stockAvailable.set(sum.productId, sum._sum.change ?? 0);
+  }
+
   let confirmed = 0;
   let skipped = 0;
 
@@ -677,6 +789,37 @@ export async function adminBulkConfirmOrderItemsAction(formData: FormData): Prom
       let createdAnyJob = false;
 
       for (const item of items) {
+        // Productos por stock: descuentan inventario, sin proveedor ni produccion.
+        if (item.fulfillmentMode === "STOCK") {
+          if (item.confirmedAt !== null) {
+            skipped += 1;
+            continue;
+          }
+          const available = stockAvailable.get(item.productId) ?? 0;
+          if (available < item.quantity) {
+            skipped += 1;
+            continue;
+          }
+          const inventoryCost =
+            Number(item.product.baseCost) + Number(item.product.additionalCost);
+          await tx.inventoryMovement.create({
+            data: {
+              productId: item.productId,
+              type: "OUT",
+              change: -item.quantity,
+              note: `Salida por orden ${item.order.code}`,
+              createdById,
+            },
+          });
+          await tx.orderItem.update({
+            where: { id: item.id },
+            data: { confirmedAt: new Date(), purchaseCost: inventoryCost },
+          });
+          stockAvailable.set(item.productId, available - item.quantity);
+          confirmed += 1;
+          continue;
+        }
+
         const alreadyConfirmed = Boolean(item.confirmedSupplierId) && item.purchaseCost !== null;
         const preferred = item.product.suppliers[0];
         if (alreadyConfirmed || !preferred) {
@@ -862,7 +1005,7 @@ export async function adminUndoConfirmOrderItemAction(formData: FormData): Promi
   const orderItem = await prisma.orderItem.findUnique({
     where: { id: parsed.data.orderItemId },
     include: {
-      order: { select: { id: true, status: true } },
+      order: { select: { id: true, code: true, status: true } },
       photos: { select: { id: true } },
       dispatchItems: {
         where: { dispatch: { status: { notIn: ["CANCELLED", "RETURNED"] } } },
@@ -879,10 +1022,41 @@ export async function adminUndoConfirmOrderItemAction(formData: FormData): Promi
     redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
   }
 
-  // No se puede deshacer la fabricacion si el producto ya avanzo de etapa.
+  // No se puede deshacer la confirmacion si el producto ya avanzo de etapa.
   if (orderItem.dispatchItems.length > 0) {
     redirect(`${returnTo}?error=Deshaz+primero+el+despacho+del+producto`);
   }
+
+  // Stock: la confirmacion solo descuenta inventario. Se revierte con un
+  // movimiento compensatorio IN y se limpia la confirmacion del item.
+  if (orderItem.fulfillmentMode === "STOCK") {
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.inventoryMovement.create({
+          data: {
+            productId: orderItem.productId,
+            type: "IN",
+            change: orderItem.quantity,
+            note: `Reversa salida por orden ${orderItem.order.code}`,
+            createdById,
+          },
+        });
+        await tx.orderItem.update({
+          where: { id: orderItem.id },
+          data: { confirmedAt: null, purchaseCost: null },
+        });
+      });
+    } catch (error) {
+      console.error("Failed to undo stock confirm order item:", error);
+      redirect(`${returnTo}?error=No+se+pudo+deshacer+la+confirmacion`);
+    }
+
+    revalidatePath("/admin/ordenes");
+    revalidatePath("/admin/inventario");
+    revalidatePath(`/admin/ordenes/${orderItem.order.id}`);
+    redirect(`${returnTo}?ok=Confirmacion+deshecha+y+stock+restituido`);
+  }
+
   // El pago ya realizado o el recogido (foto) deben deshacerse antes que la fabricacion.
   if (orderItem.supplierPaymentStatus === "PAID" || orderItem.photos.length > 0) {
     redirect(`${returnTo}?error=Deshaz+primero+el+recogido+del+producto`);

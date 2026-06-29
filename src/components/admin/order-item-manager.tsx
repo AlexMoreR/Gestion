@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Factory, ImagePlus, Loader2, MapPin, PackageCheck, Pencil, RotateCcw, Truck, X } from "lucide-react";
+import { Check, Factory, ImagePlus, Loader2, MapPin, PackageCheck, Pencil, RotateCcw, Truck, X } from "lucide-react";
 import {
   adminConfirmOrderItemAction,
+  adminConfirmStockOrderItemAction,
   adminDeleteOrderItemPhotoAction,
   adminDispatchItemAction,
   adminUndoConfirmOrderItemAction,
@@ -65,6 +66,8 @@ export type OrderItemManagerData = {
   isRecogido: boolean;
   isDespachado: boolean;
   requiresManufacturing: boolean;
+  factoryPrice: number;
+  inventoryCost: number;
   hasProductionJob: boolean;
   suppliers: SupplierOption[];
   defaultSupplierId: string;
@@ -310,8 +313,14 @@ export function OrderItemManager({
             }
             onClick={openModal}
           >
-            {item.isConfirmed ? <PackageCheck className="h-4 w-4" /> : <Factory className="h-4 w-4" />}
-            {item.isConfirmed ? "Recoger" : "Fabricar"}
+            {item.isConfirmed ? (
+              <PackageCheck className="h-4 w-4" />
+            ) : item.requiresManufacturing ? (
+              <Factory className="h-4 w-4" />
+            ) : (
+              <Check className="h-4 w-4" />
+            )}
+            {item.isConfirmed ? "Recoger" : item.requiresManufacturing ? "Fabricar" : "Confirmar"}
           </Button>
         )}
 
@@ -335,7 +344,51 @@ export function OrderItemManager({
 
             {/* Confirmacion de compra (solo antes de confirmar) */}
             {!item.isConfirmed ? (
-              hasSuppliers ? (
+              !item.requiresManufacturing ? (
+                <form action={adminConfirmStockOrderItemAction} className="space-y-3">
+                  <input type="hidden" name="returnTo" value={returnTo} />
+                  <input type="hidden" name="orderItemId" value={item.id} />
+
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs uppercase tracking-[0.2em] font-semibold text-foreground">
+                      Confirmar salida de stock
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Precio de venta: {formatMoney(item.unitPrice, currency)}
+                    </p>
+                  </div>
+
+                  <div className="grid gap-3 rounded-xl border border-border bg-muted/40 p-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <span className="text-sm font-medium text-foreground">Precio de fabrica</span>
+                      <p className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground">
+                        {formatMoney(item.factoryPrice, currency)}
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <span className="text-sm font-medium text-foreground">Costo de compra (inventario)</span>
+                      <p className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground">
+                        {formatMoney(item.inventoryCost, currency)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Este producto ya esta en bodega. Al confirmar se descontaran {item.quantity}{" "}
+                    {item.quantity === 1 ? "unidad" : "unidades"} del inventario. No genera saldo al proveedor.
+                  </p>
+
+                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                    <Button type="button" variant="outline" size="lg" onClick={() => setOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit" size="lg" className="bg-emerald-600 text-white hover:bg-emerald-700">
+                      <Check className="h-4 w-4" />
+                      Confirmar y descontar de stock
+                    </Button>
+                  </div>
+                </form>
+              ) : hasSuppliers ? (
                 <form action={adminConfirmOrderItemAction} className="space-y-3">
                   <input type="hidden" name="returnTo" value={returnTo} />
                   <input type="hidden" name="orderItemId" value={item.id} />

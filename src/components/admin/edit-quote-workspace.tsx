@@ -50,6 +50,7 @@ type EditQuoteData = {
   code: string;
   status: "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED";
   validUntil: string;
+  createdAt: string;
   notes: string;
   client: {
     id: string;
@@ -98,6 +99,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
   const [clientCity, setClientCity] = useState(quote.client.city);
   const [status, setStatus] = useState(quote.status);
   const [validUntil, setValidUntil] = useState(quote.validUntil);
+  const [createdAt, setCreatedAt] = useState(quote.createdAt);
   const [notes, setNotes] = useState(quote.notes);
   const [lines, setLines] = useState<QuoteLine[]>(
     quote.items.map((item) => ({
@@ -252,11 +254,15 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
 
   return (
     <section className="w-full space-y-4">
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="inline-flex items-center gap-2 text-xl font-semibold text-slate-900">
           <FileText className="h-4 w-4 text-slate-500" />
           Editar cotizacion {quote.code}
         </h1>
+        <label className="inline-flex items-center gap-2">
+          <span className="text-sm font-medium text-slate-700">Fecha</span>
+          <DatePicker value={createdAt} onChange={setCreatedAt} />
+        </label>
       </div>
 
       <form action={adminUpdateQuoteFullAction} className="space-y-4 rounded-xl border border-[var(--line)] bg-white p-4">
@@ -274,6 +280,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
         <input type="hidden" name="items" value={serializedItems} />
         <input type="hidden" name="status" value={status} />
         <input type="hidden" name="validUntil" value={validUntil} />
+        <input type="hidden" name="createdAt" value={createdAt} />
         <input type="hidden" name="notes" value={notes} />
 
         <div className="grid gap-1.5 md:grid-cols-3">

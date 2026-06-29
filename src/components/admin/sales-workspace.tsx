@@ -56,14 +56,50 @@ type SalesWorkspaceProps = {
   initialSearch?: string;
 };
 
+// Fecha local (YYYY-MM-DD) para comparar con el DateRangePicker.
+function localDay(value: string): string {
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+}
+
+// Rango por defecto: primer y ultimo dia del mes actual (en hora local).
+function currentMonthRange(): { from: string; to: string } {
+  const now = new Date();
+  const toLocalISO = (date: Date) =>
+    new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return { from: toLocalISO(first), to: toLocalISO(last) };
+}
+
 export function SalesWorkspace({ sales, currency, accounts, products, clients, initialSearch = "" }: SalesWorkspaceProps) {
+  const defaultRange = React.useMemo(() => currentMonthRange(), []);
+  const [fromDate, setFromDate] = React.useState(defaultRange.from);
+  const [toDate, setToDate] = React.useState(defaultRange.to);
+  const [statusFilter, setStatusFilter] = React.useState<SaleStatus | "ALL">("ALL");
+
+  // El rango de fechas y el estado se aplican aqui para que las tarjetas y la
+  // tabla compartan exactamente el mismo conjunto de ventas.
+  const filteredSales = React.useMemo(
+    () =>
+      sales.filter((sale) => {
+        if (statusFilter !== "ALL" && sale.status !== statusFilter) return false;
+        const day = localDay(sale.createdAtISO);
+        if (fromDate && day < fromDate) return false;
+        if (toDate && day > toDate) return false;
+        return true;
+      }),
+    [sales, fromDate, toDate, statusFilter],
+  );
+
   const stats = React.useMemo(() => {
     return {
-      salesCount: sales.length,
-      downPaymentTotal: sales.reduce((sum, sale) => sum + sale.downPaymentAmount, 0),
-      remainingTotal: sales.reduce((sum, sale) => sum + sale.remainingBalance, 0),
+      salesCount: filteredSales.length,
+      toCollectCount: filteredSales.filter((sale) => sale.status === "ACTIVE").length,
+      downPaymentTotal: filteredSales.reduce((sum, sale) => sum + sale.downPaymentAmount, 0),
+      remainingTotal: filteredSales.reduce((sum, sale) => sum + sale.remainingBalance, 0),
     };
-  }, [sales]);
+  }, [filteredSales]);
 
   return (
     <section className="space-y-4">
@@ -75,11 +111,17 @@ export function SalesWorkspace({ sales, currency, accounts, products, clients, i
         <DirectSaleSheet products={products} clients={clients} currency={currency} accounts={accounts} />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="border-border bg-card/95 py-2">
           <CardContent className="space-y-0.5">
             <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Ventas</p>
             <p className="text-lg font-semibold text-foreground">{stats.salesCount}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border bg-card/95 py-2">
+          <CardContent className="space-y-0.5">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Cobrar</p>
+            <p className="text-lg font-semibold text-foreground">{stats.toCollectCount}</p>
           </CardContent>
         </Card>
         <Card className="border-border bg-card/95 py-2">
@@ -96,7 +138,18 @@ export function SalesWorkspace({ sales, currency, accounts, products, clients, i
         </Card>
       </div>
 
-      <SalesDataTable sales={sales} currency={currency} accounts={accounts} initialSearch={initialSearch} />
+      <SalesDataTable
+        sales={filteredSales}
+        currency={currency}
+        accounts={accounts}
+        initialSearch={initialSearch}
+        fromDate={fromDate}
+        toDate={toDate}
+        statusFilter={statusFilter}
+        onFromDateChange={setFromDate}
+        onToDateChange={setToDate}
+        onStatusFilterChange={setStatusFilter}
+      />
     </section>
   );
 }

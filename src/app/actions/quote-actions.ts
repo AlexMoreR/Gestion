@@ -98,6 +98,7 @@ const createQuoteSchema = z.object({
   clientId: z.string().trim().optional(),
   notes: z.string().trim().max(2000, "Notas demasiado largas").optional(),
   validUntil: z.string().trim().optional(),
+  createdAt: z.string().trim().optional(),
   items: z.array(quoteItemSchema).min(1, "Debes agregar al menos un producto"),
 });
 
@@ -114,6 +115,7 @@ const updateQuoteFullSchema = z.object({
   status: z.enum(["DRAFT", "SENT", "ACCEPTED", "REJECTED", "EXPIRED"]),
   notes: z.string().trim().max(2000, "Notas demasiado largas").optional(),
   validUntil: z.string().trim().optional(),
+  createdAt: z.string().trim().optional(),
   items: z.array(quoteItemSchema).min(1, "Debes agregar al menos un producto"),
 });
 
@@ -271,6 +273,7 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
     clientId: formData.get("clientId"),
     notes: formData.get("notes") || undefined,
     validUntil: formData.get("validUntil") || undefined,
+    createdAt: formData.get("createdAt") || undefined,
     items: parsedItems,
   });
 
@@ -314,6 +317,13 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
 
   if (validUntilDate && Number.isNaN(validUntilDate.getTime())) {
     redirect(`${returnTo}?error=Fecha+de+validez+invalida`);
+  }
+
+  const createdAtDate =
+    parsed.data.createdAt && parsed.data.createdAt.length > 0 ? new Date(parsed.data.createdAt) : null;
+
+  if (createdAtDate && Number.isNaN(createdAtDate.getTime())) {
+    redirect(`${returnTo}?error=Fecha+de+cotizacion+invalida`);
   }
 
   const productIds = Array.from(new Set(parsed.data.items.map((item) => item.productId)));
@@ -397,6 +407,7 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
               createdById,
               notes: parsed.data.notes || null,
               validUntil: validUntilDate,
+              ...(createdAtDate ? { createdAt: createdAtDate } : {}),
               subtotal: new Prisma.Decimal(subtotal),
               total: new Prisma.Decimal(total),
               shareToken,
@@ -505,6 +516,7 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
     status: formData.get("status"),
     notes: formData.get("notes") || undefined,
     validUntil: formData.get("validUntil") || undefined,
+    createdAt: formData.get("createdAt") || undefined,
     items: parsedItems,
   });
 
@@ -548,6 +560,13 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
 
   if (validUntilDate && Number.isNaN(validUntilDate.getTime())) {
     redirect(`${returnTo}?error=Fecha+de+validez+invalida`);
+  }
+
+  const createdAtDate =
+    parsed.data.createdAt && parsed.data.createdAt.length > 0 ? new Date(parsed.data.createdAt) : null;
+
+  if (createdAtDate && Number.isNaN(createdAtDate.getTime())) {
+    redirect(`${returnTo}?error=Fecha+de+cotizacion+invalida`);
   }
 
   const productIds = Array.from(new Set(parsed.data.items.map((item) => item.productId)));
@@ -612,6 +631,7 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
       status: parsed.data.status,
       notes: parsed.data.notes || null,
       validUntil: validUntilDate,
+      ...(createdAtDate ? { createdAt: createdAtDate } : {}),
       subtotal: new Prisma.Decimal(subtotal),
       total: new Prisma.Decimal(total),
       items: {

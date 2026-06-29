@@ -25,6 +25,7 @@ import {
   adminUploadQuoteImageAction,
 } from "@/app/actions/quote-actions";
 import { QuotesDataTable } from "@/components/admin/quotes-data-table";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { ProductThumb } from "@/components/admin/product-thumb";
 import { expandComboLines, type ComboComponent } from "@/lib/combo";
@@ -121,6 +122,9 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
   const [clientDepartment, setClientDepartment] = useState("");
   const [clientCity, setClientCity] = useState("");
   const [clientFormError, setClientFormError] = useState("");
+  const [createdAt, setCreatedAt] = useState(() =>
+    new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10),
+  );
   const [lines, setLines] = useState<QuoteLine[]>([]);
   const [isResolvingClient, startResolvingClient] = useTransition();
 
@@ -515,12 +519,16 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
             className="relative flex min-h-[100dvh] w-full max-w-6xl flex-col overflow-y-auto overflow-x-hidden rounded-none border border-border bg-card p-3 sm:mx-auto sm:min-h-0 sm:max-h-[92vh] sm:rounded-xl sm:p-4 md:p-5"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="mb-4 flex items-center justify-between">
-              <div>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-foreground">
                   <FileText className="h-4 w-4 text-muted-foreground" />
                   <span>Nueva cotizacion</span>
                 </h2>
+                <label className="inline-flex items-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">Fecha</span>
+                  <DatePicker value={createdAt} onChange={setCreatedAt} />
+                </label>
               </div>
               <Button
                 type="button"
@@ -545,6 +553,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
               }}
             >
               <input type="hidden" name="returnTo" value="/admin/cotizaciones" />
+              <input type="hidden" name="createdAt" value={createdAt} />
               <input type="hidden" name="items" value={serializedItems} />
               <input type="hidden" name="clientId" value={clientId} />
               <input type="hidden" name="name" value={clientName} />
