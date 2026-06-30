@@ -5,6 +5,13 @@ export type QuoteItemMeta = {
   discount: number;
   // Imagen personalizada para la cotizacion. Si esta vacia, se usa la del producto.
   imageUrl: string;
+  // Agrupacion de combo: las lineas con el mismo comboKey son componentes del
+  // mismo combo y se muestran como una sola fila (con el nombre/codigo del combo).
+  // Vacio = producto suelto.
+  comboKey: string;
+  comboName: string;
+  comboCode: string;
+  comboQuantity: number;
 };
 
 const EMPTY_QUOTE_ITEM_META: QuoteItemMeta = {
@@ -13,6 +20,10 @@ const EMPTY_QUOTE_ITEM_META: QuoteItemMeta = {
   additionalCost: 0,
   discount: 0,
   imageUrl: "",
+  comboKey: "",
+  comboName: "",
+  comboCode: "",
+  comboQuantity: 0,
 };
 
 export function parseQuoteItemMeta(value: string | null | undefined): QuoteItemMeta {
@@ -30,6 +41,10 @@ export function parseQuoteItemMeta(value: string | null | undefined): QuoteItemM
         additionalCost: typeof parsed.additionalCost === "number" ? parsed.additionalCost : 0,
         discount: typeof parsed.discount === "number" ? parsed.discount : 0,
         imageUrl: typeof parsed.imageUrl === "string" ? parsed.imageUrl : "",
+        comboKey: typeof parsed.comboKey === "string" ? parsed.comboKey : "",
+        comboName: typeof parsed.comboName === "string" ? parsed.comboName : "",
+        comboCode: typeof parsed.comboCode === "string" ? parsed.comboCode : "",
+        comboQuantity: typeof parsed.comboQuantity === "number" ? parsed.comboQuantity : 0,
       };
     }
   } catch {
@@ -49,6 +64,10 @@ export function stringifyQuoteItemMeta(meta: Partial<QuoteItemMeta>): string | n
     additionalCost: Number.isFinite(meta.additionalCost) ? Number(meta.additionalCost) : 0,
     discount: Number.isFinite(meta.discount) ? Number(meta.discount) : 0,
     imageUrl: meta.imageUrl?.trim() ?? "",
+    comboKey: meta.comboKey?.trim() ?? "",
+    comboName: meta.comboName?.trim() ?? "",
+    comboCode: meta.comboCode?.trim() ?? "",
+    comboQuantity: Number.isFinite(meta.comboQuantity) ? Number(meta.comboQuantity) : 0,
   };
 
   if (
@@ -56,7 +75,8 @@ export function stringifyQuoteItemMeta(meta: Partial<QuoteItemMeta>): string | n
     !normalized.color &&
     normalized.additionalCost === 0 &&
     normalized.discount === 0 &&
-    !normalized.imageUrl
+    !normalized.imageUrl &&
+    !normalized.comboKey
   ) {
     return null;
   }

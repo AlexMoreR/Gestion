@@ -80,6 +80,12 @@ type QuoteLine = {
   discount: number;
   fulfillmentMode: FulfillmentMode;
   imageUrl: string;
+  // Agrupacion de combo (vacio = producto suelto). Las lineas con el mismo
+  // comboKey son componentes del mismo combo y se muestran como una sola fila.
+  comboKey: string;
+  comboName: string;
+  comboCode: string;
+  comboQuantity: number;
 };
 
 export type QuoteWizardInitialLine = {
@@ -92,6 +98,10 @@ export type QuoteWizardInitialLine = {
   discount: number;
   fulfillmentMode: FulfillmentMode;
   imageUrl: string;
+  comboKey?: string;
+  comboName?: string;
+  comboCode?: string;
+  comboQuantity?: number;
 };
 
 type QuoteWizardModalProps = {
@@ -180,6 +190,10 @@ export function QuoteWizardModal({
       discount: item.discount,
       fulfillmentMode: item.fulfillmentMode,
       imageUrl: item.imageUrl,
+      comboKey: item.comboKey ?? "",
+      comboName: item.comboName ?? "",
+      comboCode: item.comboCode ?? "",
+      comboQuantity: item.comboQuantity ?? 0,
     })),
   );
   const [isResolvingClient, startResolvingClient] = useTransition();
@@ -269,6 +283,57 @@ export function QuoteWizardModal({
     [lines],
   );
 
+  // Agrupa para la tabla: un combo se muestra como UNA sola fila (con el nombre
+  // y codigo del combo); los productos sueltos quedan como una fila normal.
+  type LineWithMeta = (typeof linesWithMeta)[number];
+  type LineGroup =
+    | { type: "single"; key: string; item: LineWithMeta }
+    | {
+        type: "combo";
+        key: string;
+        comboName: string;
+        comboCode: string;
+        comboQuantity: number;
+        fulfillmentMode: FulfillmentMode;
+        color: string;
+        description: string;
+        thumbnailUrl: string;
+        total: number;
+      };
+  const groupedLines = useMemo<LineGroup[]>(() => {
+    const groups: LineGroup[] = [];
+    const indexByCombo = new Map<string, number>();
+    for (const item of linesWithMeta) {
+      const ck = item.line.comboKey;
+      if (!ck) {
+        groups.push({ type: "single", key: item.line.uid, item });
+        continue;
+      }
+      const existing = indexByCombo.get(ck);
+      if (existing !== undefined) {
+        const group = groups[existing];
+        if (group.type === "combo") {
+          group.total += item.lineTotal;
+        }
+      } else {
+        indexByCombo.set(ck, groups.length);
+        groups.push({
+          type: "combo",
+          key: ck,
+          comboName: item.line.comboName || "Combo",
+          comboCode: item.line.comboCode,
+          comboQuantity: item.line.comboQuantity || 1,
+          fulfillmentMode: item.line.fulfillmentMode,
+          color: item.line.color,
+          description: item.line.description,
+          thumbnailUrl: item.line.imageUrl || item.product?.thumbnailUrl || "",
+          total: item.lineTotal,
+        });
+      }
+    }
+    return groups;
+  }, [linesWithMeta]);
+
   const quoteSubtotal = useMemo(
     () => lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0),
     [lines],
@@ -286,6 +351,11 @@ export function QuoteWizardModal({
 
   const removeLine = (uid: string) => {
     setLines((current) => current.filter((line) => line.uid !== uid));
+  };
+
+  // Quita de una vez todas las lineas (componentes) de un combo.
+  const removeCombo = (comboKey: string) => {
+    setLines((current) => current.filter((line) => line.comboKey !== comboKey));
   };
 
   const resetDraftProduct = () => {
@@ -393,22 +463,32 @@ export function QuoteWizardModal({
 
     // Si es un combo, se separa en sus componentes (cada uno conserva su
     // producto real y su proveedor); el precio del combo se reparte entre las
-    // lineas. Los ajustes de combo no usan costo adicional ni descuento.
+    // lineas. El descuento y costo adicional del combo se aplican una vez (sobre
+    // la primera linea) para que afecten el total del combo.
     if (draftProduct?.isBundle && draftProduct.components && draftProduct.components.length > 0) {
       const expanded = expandComboLines(draftProduct.components, quantity, unitPrice);
+      // Todas las lineas del combo comparten un comboKey para mostrarse como una
+      // sola fila (con el nombre y codigo del combo).
+      const comboKey = crypto.randomUUID();
+      const comboName = draftProduct.name;
+      const comboCode = draftProduct.code ?? "";
       setLines((current) => [
         ...current,
-        ...expanded.map((line) => ({
+        ...expanded.map((line, index) => ({
           uid: crypto.randomUUID(),
           productId: line.productId,
           quantity: line.quantity,
           color: draftColor.trim(),
           unitPrice: line.unitPrice,
           description: draftDescription.trim(),
-          additionalCost: 0,
-          discount: 0,
+          additionalCost: index === 0 ? additionalCost : 0,
+          discount: index === 0 ? discount : 0,
           fulfillmentMode: draftFulfillmentMode,
           imageUrl: draftImageUrl.trim(),
+          comboKey,
+          comboName,
+          comboCode,
+          comboQuantity: quantity,
         })),
       ]);
 
@@ -430,6 +510,10 @@ export function QuoteWizardModal({
         discount,
         fulfillmentMode: draftFulfillmentMode,
         imageUrl: draftImageUrl.trim(),
+        comboKey: "",
+        comboName: "",
+        comboCode: "",
+        comboQuantity: 0,
       },
     ]);
 
@@ -538,6 +622,10 @@ export function QuoteWizardModal({
       discount: line.discount,
       notes: line.description || null,
       imageUrl: line.imageUrl || null,
+      comboKey: line.comboKey || null,
+      comboName: line.comboName || null,
+      comboCode: line.comboCode || null,
+      comboQuantity: line.comboQuantity || null,
     })),
   );
 
@@ -814,7 +902,7 @@ export function QuoteWizardModal({
                       </tr>
                     </thead>
                     <tbody>
-                      {linesWithMeta.length === 0 ? (
+                      {groupedLines.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="px-3 py-8 text-center text-sm text-muted-foreground">
                             <div className="flex flex-col items-center gap-3">
@@ -830,52 +918,108 @@ export function QuoteWizardModal({
                           </td>
                         </tr>
                       ) : (
-                        linesWithMeta.map(({ line, product, lineTotal }) => (
-                          <tr key={line.uid} className="border-t border-border bg-card transition hover:bg-muted/40">
-                            <td className="px-3 py-2">
-                              <div className="flex items-center gap-2.5">
-                                {line.imageUrl || product?.thumbnailUrl ? (
-                                  <img
-                                    src={line.imageUrl || product?.thumbnailUrl || ""}
-                                    alt={product?.name || "Producto"}
-                                    className="h-10 w-10 shrink-0 rounded-md border border-border object-cover"
-                                  />
-                                ) : (
-                                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-[10px] text-muted-foreground">
-                                    Sin img
-                                  </div>
-                                )}
-                                <div className="min-w-0">
-                                  <p className="truncate font-medium text-foreground">{product?.name || "Producto"}</p>
-                                  <div className="flex items-center gap-2">
-                                    <span className="truncate text-xs text-muted-foreground">{product?.code || "Sin codigo"}</span>
-                                    <FulfillmentBadge mode={line.fulfillmentMode} />
+                        groupedLines.map((group) =>
+                          group.type === "combo" ? (
+                            // Combo: una sola fila con el nombre y codigo del combo.
+                            <tr key={group.key} className="border-t border-border bg-card transition hover:bg-muted/40">
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-2.5">
+                                  {group.thumbnailUrl ? (
+                                    <img
+                                      src={group.thumbnailUrl}
+                                      alt={group.comboName}
+                                      className="h-10 w-10 shrink-0 rounded-md border border-border object-cover"
+                                    />
+                                  ) : (
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted">
+                                      <Boxes className="h-4 w-4 text-primary" />
+                                    </div>
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="truncate font-medium text-foreground">{group.comboName}</p>
+                                    <div className="flex items-center gap-2">
+                                      <span className="truncate text-xs text-muted-foreground">{group.comboCode || "Sin codigo"}</span>
+                                      <FulfillmentBadge mode={group.fulfillmentMode} />
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            </td>
-                            <td className="px-3 py-2 text-foreground">{line.description || "-"}</td>
-                            <td className="px-3 py-2 text-foreground">{line.quantity}</td>
-                            <td className="px-3 py-2 text-foreground">{line.color || "-"}</td>
-                            <td className="px-3 py-2 text-foreground">
-                              {line.unitPrice.toLocaleString("es-CO", { style: "currency", currency })}
-                            </td>
-                            <td className="px-3 py-2 font-semibold text-foreground">
-                              {lineTotal.toLocaleString("es-CO", { style: "currency", currency })}
-                            </td>
-                            <td className="px-3 py-2">
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                size="icon"
-                                onClick={() => removeLine(line.uid)}
-                                aria-label="Quitar producto"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </td>
-                          </tr>
-                        ))
+                              </td>
+                              <td className="px-3 py-2 text-foreground">{group.description || "-"}</td>
+                              <td className="px-3 py-2 text-foreground">{group.comboQuantity}</td>
+                              <td className="px-3 py-2 text-foreground">{group.color || "-"}</td>
+                              <td className="px-3 py-2 text-foreground">
+                                {(group.comboQuantity > 0 ? group.total / group.comboQuantity : group.total).toLocaleString(
+                                  "es-CO",
+                                  { style: "currency", currency },
+                                )}
+                              </td>
+                              <td className="px-3 py-2 font-semibold text-foreground">
+                                {group.total.toLocaleString("es-CO", { style: "currency", currency })}
+                              </td>
+                              <td className="px-3 py-2">
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  size="icon"
+                                  onClick={() => removeCombo(group.key)}
+                                  aria-label="Quitar combo"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </td>
+                            </tr>
+                          ) : (
+                            (() => {
+                              const { line, product, lineTotal } = group.item;
+                              return (
+                                <tr key={line.uid} className="border-t border-border bg-card transition hover:bg-muted/40">
+                                  <td className="px-3 py-2">
+                                    <div className="flex items-center gap-2.5">
+                                      {line.imageUrl || product?.thumbnailUrl ? (
+                                        <img
+                                          src={line.imageUrl || product?.thumbnailUrl || ""}
+                                          alt={product?.name || "Producto"}
+                                          className="h-10 w-10 shrink-0 rounded-md border border-border object-cover"
+                                        />
+                                      ) : (
+                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-[10px] text-muted-foreground">
+                                          Sin img
+                                        </div>
+                                      )}
+                                      <div className="min-w-0">
+                                        <p className="truncate font-medium text-foreground">{product?.name || "Producto"}</p>
+                                        <div className="flex items-center gap-2">
+                                          <span className="truncate text-xs text-muted-foreground">{product?.code || "Sin codigo"}</span>
+                                          <FulfillmentBadge mode={line.fulfillmentMode} />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-3 py-2 text-foreground">{line.description || "-"}</td>
+                                  <td className="px-3 py-2 text-foreground">{line.quantity}</td>
+                                  <td className="px-3 py-2 text-foreground">{line.color || "-"}</td>
+                                  <td className="px-3 py-2 text-foreground">
+                                    {line.unitPrice.toLocaleString("es-CO", { style: "currency", currency })}
+                                  </td>
+                                  <td className="px-3 py-2 font-semibold text-foreground">
+                                    {lineTotal.toLocaleString("es-CO", { style: "currency", currency })}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <Button
+                                      type="button"
+                                      variant="destructive"
+                                      size="icon"
+                                      onClick={() => removeLine(line.uid)}
+                                      aria-label="Quitar producto"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </td>
+                                </tr>
+                              );
+                            })()
+                          ),
+                        )
                       )}
                     </tbody>
                   </table>
@@ -1034,41 +1178,84 @@ export function QuoteWizardModal({
                       </tr>
                     </thead>
                     <tbody>
-                      {linesWithMeta.map(({ line, product, lineTotal }) => (
-                        <tr key={line.uid} className="border-t border-border">
-                          <td className="px-3 py-2">
-                            <div className="flex items-center gap-2.5">
-                              {line.imageUrl || product?.thumbnailUrl ? (
-                                <img
-                                  src={line.imageUrl || product?.thumbnailUrl || ""}
-                                  alt={product?.name || "Producto"}
-                                  className="h-10 w-10 shrink-0 rounded-md border border-border object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-[10px] text-muted-foreground">
-                                  Sin img
-                                </div>
-                              )}
-                              <div className="min-w-0">
-                                <p className="truncate font-medium text-foreground">{product?.name || "Producto"}</p>
-                                <div className="flex items-center gap-2">
-                                  <span className="truncate text-xs text-muted-foreground">{product?.code || "Sin codigo"}</span>
-                                  <FulfillmentBadge mode={line.fulfillmentMode} canStock={(product?.stock ?? 0) > 0} />
+                      {groupedLines.map((group) =>
+                        group.type === "combo" ? (
+                          <tr key={group.key} className="border-t border-border">
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-2.5">
+                                {group.thumbnailUrl ? (
+                                  <img
+                                    src={group.thumbnailUrl}
+                                    alt={group.comboName}
+                                    className="h-10 w-10 shrink-0 rounded-md border border-border object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted">
+                                    <Boxes className="h-4 w-4 text-primary" />
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium text-foreground">{group.comboName}</p>
+                                  <div className="flex items-center gap-2">
+                                    <span className="truncate text-xs text-muted-foreground">{group.comboCode || "Sin codigo"}</span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-foreground">{line.description || "-"}</td>
-                          <td className="px-3 py-2 text-foreground">{line.quantity}</td>
-                          <td className="px-3 py-2 text-foreground">{line.color || "-"}</td>
-                          <td className="px-3 py-2 text-foreground">
-                            {line.unitPrice.toLocaleString("es-CO", { style: "currency", currency })}
-                          </td>
-                          <td className="px-3 py-2 font-semibold text-foreground">
-                            {lineTotal.toLocaleString("es-CO", { style: "currency", currency })}
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td className="px-3 py-2 text-foreground">{group.description || "-"}</td>
+                            <td className="px-3 py-2 text-foreground">{group.comboQuantity}</td>
+                            <td className="px-3 py-2 text-foreground">{group.color || "-"}</td>
+                            <td className="px-3 py-2 text-foreground">
+                              {(group.comboQuantity > 0 ? group.total / group.comboQuantity : group.total).toLocaleString(
+                                "es-CO",
+                                { style: "currency", currency },
+                              )}
+                            </td>
+                            <td className="px-3 py-2 font-semibold text-foreground">
+                              {group.total.toLocaleString("es-CO", { style: "currency", currency })}
+                            </td>
+                          </tr>
+                        ) : (
+                          (() => {
+                            const { line, product, lineTotal } = group.item;
+                            return (
+                              <tr key={line.uid} className="border-t border-border">
+                                <td className="px-3 py-2">
+                                  <div className="flex items-center gap-2.5">
+                                    {line.imageUrl || product?.thumbnailUrl ? (
+                                      <img
+                                        src={line.imageUrl || product?.thumbnailUrl || ""}
+                                        alt={product?.name || "Producto"}
+                                        className="h-10 w-10 shrink-0 rounded-md border border-border object-cover"
+                                      />
+                                    ) : (
+                                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-[10px] text-muted-foreground">
+                                        Sin img
+                                      </div>
+                                    )}
+                                    <div className="min-w-0">
+                                      <p className="truncate font-medium text-foreground">{product?.name || "Producto"}</p>
+                                      <div className="flex items-center gap-2">
+                                        <span className="truncate text-xs text-muted-foreground">{product?.code || "Sin codigo"}</span>
+                                        <FulfillmentBadge mode={line.fulfillmentMode} canStock={(product?.stock ?? 0) > 0} />
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2 text-foreground">{line.description || "-"}</td>
+                                <td className="px-3 py-2 text-foreground">{line.quantity}</td>
+                                <td className="px-3 py-2 text-foreground">{line.color || "-"}</td>
+                                <td className="px-3 py-2 text-foreground">
+                                  {line.unitPrice.toLocaleString("es-CO", { style: "currency", currency })}
+                                </td>
+                                <td className="px-3 py-2 font-semibold text-foreground">
+                                  {lineTotal.toLocaleString("es-CO", { style: "currency", currency })}
+                                </td>
+                              </tr>
+                            );
+                          })()
+                        ),
+                      )}
                     </tbody>
                   </table>
                 </div>

@@ -55,6 +55,11 @@ const quoteItemSchema = z.object({
     emptyToUndefined,
     z.string().trim().max(500, "Ruta de imagen demasiado larga").optional().nullable(),
   ),
+  // Agrupacion de combo (las lineas con el mismo comboKey se muestran como una sola fila).
+  comboKey: z.string().trim().max(120).optional().nullable(),
+  comboName: z.string().trim().max(200).optional().nullable(),
+  comboCode: z.string().trim().max(120).optional().nullable(),
+  comboQuantity: z.coerce.number().int().min(0).optional().default(0),
 });
 
 const QUOTE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
@@ -368,6 +373,10 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
       additionalCost: item.additionalCost ?? 0,
       discount: item.discount ?? 0,
       imageUrl: item.imageUrl ?? "",
+      comboKey: item.comboKey ?? "",
+      comboName: item.comboName ?? "",
+      comboCode: item.comboCode ?? "",
+      comboQuantity: item.comboQuantity ?? 0,
     });
 
     return {
@@ -609,6 +618,10 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
       additionalCost: item.additionalCost ?? 0,
       discount: item.discount ?? 0,
       imageUrl: item.imageUrl ?? "",
+      comboKey: item.comboKey ?? "",
+      comboName: item.comboName ?? "",
+      comboCode: item.comboCode ?? "",
+      comboQuantity: item.comboQuantity ?? 0,
     });
     return {
       productId: item.productId,

@@ -138,6 +138,10 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
             discount: meta.discount,
             fulfillmentMode: item.fulfillmentMode === "MANUFACTURE" ? "MANUFACTURE" : "STOCK",
             imageUrl: meta.imageUrl,
+            comboKey: meta.comboKey,
+            comboName: meta.comboName,
+            comboCode: meta.comboCode,
+            comboQuantity: meta.comboQuantity,
           };
         }),
       }}
