@@ -39,17 +39,23 @@ const createClientSchema = z.object({
   city: z.string().trim().min(2, "Ciudad invalida").max(120, "Ciudad demasiado larga"),
 });
 
+// Tope superior razonable para montos (mil millones) — evita Infinity/Decimal roto
+// ante un payload manipulado.
+const MAX_MONEY = 1_000_000_000;
+
 const quoteItemSchema = z.object({
   productId: z.string().trim().min(1, "Producto invalido"),
   supplierId: z.string().trim().optional().nullable(),
   quantity: z.coerce.number().int().min(1, "Cantidad invalida").max(10000),
-  unitPrice: z.coerce.number().positive("Precio invalido"),
+  // Un componente de combo puede valer 0 (reparto/precio 0); el wizard exige
+  // precio > 0 para productos sueltos, asi que aqui basta con >= 0.
+  unitPrice: z.coerce.number().min(0, "Precio invalido").max(MAX_MONEY, "Precio fuera de rango"),
   // "por stock" (STOCK) o "por orden" (MANUFACTURE), elegido por linea de venta.
   fulfillmentMode: z.enum(["STOCK", "MANUFACTURE"]).optional().default("STOCK"),
   color: z.string().trim().max(120, "Color demasiado largo").optional().nullable(),
   notes: z.string().trim().max(4000, "Notas demasiado largas").optional().nullable(),
-  additionalCost: z.coerce.number().min(0, "Costo adicional invalido").optional().default(0),
-  discount: z.coerce.number().min(0, "Descuento invalido").optional().default(0),
+  additionalCost: z.coerce.number().min(0, "Costo adicional invalido").max(MAX_MONEY, "Costo adicional fuera de rango").optional().default(0),
+  discount: z.coerce.number().min(0, "Descuento invalido").max(MAX_MONEY, "Descuento fuera de rango").optional().default(0),
   // Imagen personalizada subida para esta linea (ruta local /uploads/...).
   imageUrl: z.preprocess(
     emptyToUndefined,

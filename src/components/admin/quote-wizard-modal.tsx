@@ -126,6 +126,27 @@ type QuoteWizardModalProps = {
 const todayLocal = () =>
   new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
+// Reparte un monto (descuento o costo adicional del combo) entre las lineas en
+// proporcion a su peso. El ultimo elemento absorbe el redondeo para que la suma
+// sea exacta. Asi ninguna linea concentra todo el descuento (evita el recorte a
+// 0) y el desglose Subtotal/Descuento/Adicional cuadra con el Total.
+function distributeAmount(amount: number, weights: number[]): number[] {
+  if (weights.length === 0) return [];
+  const totalWeight = weights.reduce((sum, w) => sum + Math.max(0, w), 0);
+  let allocated = 0;
+  return weights.map((w, index) => {
+    if (index === weights.length - 1) {
+      return Math.round(amount - allocated);
+    }
+    const part =
+      totalWeight > 0
+        ? Math.round((amount * Math.max(0, w)) / totalWeight)
+        : Math.round(amount / weights.length);
+    allocated += part;
+    return part;
+  });
+}
+
 // Badge del tipo de cumplimiento (solo lectura) para la revision.
 function FulfillmentBadge({ mode }: { mode: FulfillmentMode; canStock?: boolean }) {
   const isStock = mode === "STOCK";
@@ -463,10 +484,14 @@ export function QuoteWizardModal({
 
     // Si es un combo, se separa en sus componentes (cada uno conserva su
     // producto real y su proveedor); el precio del combo se reparte entre las
-    // lineas. El descuento y costo adicional del combo se aplican una vez (sobre
-    // la primera linea) para que afecten el total del combo.
+    // lineas. El descuento y costo adicional del combo se REPARTEN entre las
+    // lineas (proporcional a su valor) para que ninguna linea quede recortada a
+    // 0 y el desglose cuadre con el total.
     if (draftProduct?.isBundle && draftProduct.components && draftProduct.components.length > 0) {
       const expanded = expandComboLines(draftProduct.components, quantity, unitPrice);
+      const weights = expanded.map((line) => line.quantity * line.unitPrice);
+      const discountParts = distributeAmount(discount, weights);
+      const additionalParts = distributeAmount(additionalCost, weights);
       // Todas las lineas del combo comparten un comboKey para mostrarse como una
       // sola fila (con el nombre y codigo del combo).
       const comboKey = crypto.randomUUID();
@@ -481,8 +506,8 @@ export function QuoteWizardModal({
           color: draftColor.trim(),
           unitPrice: line.unitPrice,
           description: draftDescription.trim(),
-          additionalCost: index === 0 ? additionalCost : 0,
-          discount: index === 0 ? discount : 0,
+          additionalCost: Math.max(0, additionalParts[index] ?? 0),
+          discount: Math.max(0, discountParts[index] ?? 0),
           fulfillmentMode: draftFulfillmentMode,
           imageUrl: draftImageUrl.trim(),
           comboKey,

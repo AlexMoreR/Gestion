@@ -141,7 +141,10 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
   );
   const additionalCost = itemsWithMeta.reduce((sum, item) => sum + item.meta.additionalCost, 0);
   const discount = itemsWithMeta.reduce((sum, item) => sum + item.meta.discount, 0);
-  const total = Number(quote.total);
+  // El total mostrado se deriva del propio desglose (Subtotal − Descuento +
+  // Cargos) para que el recibo siempre cuadre. En el flujo normal coincide con
+  // quote.total guardado.
+  const total = Math.max(0, subtotal - discount + additionalCost);
 
   const dynamicSupportHref = await buildSystemWhatsAppHref(
     `Hola, necesito ayuda con la cotización ${quote.code}.`
