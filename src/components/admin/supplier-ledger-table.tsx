@@ -58,6 +58,19 @@ export function SupplierLedgerTable({ ledger, currency, returnTo }: SupplierLedg
   const [fromDate, setFromDate] = React.useState("");
   const [toDate, setToDate] = React.useState("");
   const [viewerUrl, setViewerUrl] = React.useState<string | null>(null);
+  // Orden seleccionada para ver todos sus movimientos en un modal.
+  const [detailOrder, setDetailOrder] = React.useState<string | null>(null);
+
+  // Todos los movimientos de la orden seleccionada (sin filtro de fecha).
+  const detailEntries = React.useMemo(
+    () =>
+      detailOrder
+        ? [...ledger]
+            .filter((entry) => entry.orderCode === detailOrder)
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        : [],
+    [ledger, detailOrder],
+  );
 
   // Por defecto muestra el mes actual. Se fija en el cliente para evitar
   // desajustes de hidratacion por zona horaria.
@@ -169,7 +182,10 @@ export function SupplierLedgerTable({ ledger, currency, returnTo }: SupplierLedg
               isImage(entry.receiptUrl) ? (
                 <button
                   type="button"
-                  onClick={() => setViewerUrl(entry.receiptUrl)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setViewerUrl(entry.receiptUrl);
+                  }}
                   title="Ver comprobante"
                   aria-label="Ver comprobante"
                   className="inline-flex items-center text-primary transition hover:text-primary/80"
@@ -181,6 +197,7 @@ export function SupplierLedgerTable({ ledger, currency, returnTo }: SupplierLedg
                   href={entry.receiptUrl}
                   target="_blank"
                   rel="noreferrer"
+                  onClick={(event) => event.stopPropagation()}
                   title="Ver comprobante"
                   className="inline-flex items-center text-primary transition hover:text-primary/80"
                 >
@@ -219,6 +236,7 @@ export function SupplierLedgerTable({ ledger, currency, returnTo }: SupplierLedg
         return (
           <form
             action={adminDeleteSupplierPaymentAction}
+            onClick={(event) => event.stopPropagation()}
             onSubmit={(event) => {
               if (!window.confirm(entry.type === "CHARGE" ? "¿Eliminar este cargo?" : "¿Eliminar este abono?")) {
                 event.preventDefault();
@@ -254,9 +272,124 @@ export function SupplierLedgerTable({ ledger, currency, returnTo }: SupplierLedg
         emptyMessage="Sin movimientos registrados."
         pageSize={12}
         toolbar={dateFilter}
+        onRowClick={(row) => {
+          // Solo los movimientos ligados a una orden abren el detalle.
+          if (row.orderCode) setDetailOrder(row.orderCode);
+        }}
       />
       <ReceiptLightbox url={viewerUrl} onClose={() => setViewerUrl(null)} />
+      <OrderMovementsModal
+        orderCode={detailOrder}
+        entries={detailEntries}
+        currency={currency}
+        onClose={() => setDetailOrder(null)}
+      />
     </>
+  );
+}
+
+// Modal con todos los movimientos (cargos/abonos) de una misma orden.
+function OrderMovementsModal({
+  orderCode,
+  entries,
+  currency,
+  onClose,
+}: {
+  orderCode: string | null;
+  entries: SupplierLedgerRow[];
+  currency: SupportedCurrencyCode;
+  onClose: () => void;
+}) {
+  React.useEffect(() => {
+    if (!orderCode) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [orderCode, onClose]);
+
+  if (!orderCode) return null;
+
+  const chargesTotal = entries
+    .filter((entry) => entry.type === "CHARGE")
+    .reduce((sum, entry) => sum + entry.amount, 0);
+  const paymentsTotal = entries
+    .filter((entry) => entry.type === "PAYMENT")
+    .reduce((sum, entry) => sum + entry.amount, 0);
+  const balance = chargesTotal - paymentsTotal;
+
+  return (
+    <div
+      className="fixed inset-0 z-[75] flex items-center justify-center bg-black/50 p-4 backdrop-blur-[1px]"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Movimientos de la orden ${orderCode}`}
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Movimientos de la orden</p>
+            <p className="text-xs text-muted-foreground">{orderCode} · {entries.length} movimiento{entries.length === 1 ? "" : "s"}</p>
+          </div>
+          <Button type="button" variant="outline" size="icon" onClick={onClose} aria-label="Cerrar">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+          {entries.map((entry) => (
+            <div key={entry.id} className="rounded-xl border border-border bg-background p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 space-y-1">
+                  <Badge
+                    variant="outline"
+                    className={
+                      entry.type === "CHARGE"
+                        ? "border-destructive/30 bg-destructive/15 text-destructive"
+                        : "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                    }
+                  >
+                    {entry.type === "CHARGE" ? "Cargo" : "Abono"}
+                  </Badge>
+                  <p className="truncate text-sm text-foreground">{entry.note ?? "-"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(entry.createdAt).toLocaleDateString("es-CO")}
+                    {entry.createdByName ? ` · ${entry.createdByName}` : ""}
+                    {entry.accountName ? ` · ${entry.accountName}` : ""}
+                  </p>
+                </div>
+                <span
+                  className={`shrink-0 text-sm font-semibold ${entry.type === "CHARGE" ? "text-red-600" : "text-emerald-600"}`}
+                >
+                  {entry.type === "CHARGE" ? "+" : "-"}
+                  {formatMoney(entry.amount, currency)}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 border-t border-border bg-muted/30 px-4 py-3 text-center">
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Cargos</p>
+            <p className="text-sm font-semibold text-red-600">{formatMoney(chargesTotal, currency)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Abonos</p>
+            <p className="text-sm font-semibold text-emerald-600">{formatMoney(paymentsTotal, currency)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Saldo</p>
+            <p className="text-sm font-bold text-foreground">{formatMoney(balance, currency)}</p>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -13,6 +13,7 @@ type InventoryDataGridProps<TData> = {
   emptyMessage: string;
   pageSize?: number;
   toolbar?: React.ReactNode;
+  onRowClick?: (row: TData) => void;
   getRowDate?: (row: TData) => string | null | undefined;
   initialDateFrom?: string;
   initialDateTo?: string;
