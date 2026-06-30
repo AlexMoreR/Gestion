@@ -138,6 +138,7 @@ export function OrdersWorkspace({
 }: OrdersWorkspaceProps) {
   const [fromDate, setFromDate] = React.useState("");
   const [toDate, setToDate] = React.useState("");
+  const [searchQuery, setSearchQuery] = React.useState("");
 
   const filtered = orders.filter((order) => {
     const day = localDay(order.orderDateISO);
@@ -145,6 +146,10 @@ export function OrdersWorkspace({
     if (toDate && day > toDate) return false;
     return true;
   });
+
+  // Al buscar, la busqueda abarca TODAS las ordenes (el filtro de fechas solo
+  // aplica por defecto, cuando no hay texto de busqueda).
+  const tableData = searchQuery.trim() ? orders : filtered;
 
   const dateFilter = (
     <div className="flex items-center gap-1.5">
@@ -292,9 +297,10 @@ export function OrdersWorkspace({
       </div>
 
       <DataTable
-        data={filtered}
+        data={tableData}
         columns={columns}
         searchPlaceholder="Buscar orden, venta o cliente"
+        onSearchChange={setSearchQuery}
         emptyMessage="Aun no hay ordenes."
         pageSize={12}
         minWidth="min-w-[980px]"

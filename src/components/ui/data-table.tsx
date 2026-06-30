@@ -35,6 +35,8 @@ export type DataTableProps<TData> = {
   searchPlaceholder?: string;
   /** Valor inicial del buscador global. */
   initialSearch?: string;
+  /** Notifica cambios en el texto del buscador global (para filtros externos). */
+  onSearchChange?: (value: string) => void;
   emptyMessage: string;
   pageSize?: number;
   /** Activa el paginado. Por defecto true. */
@@ -81,6 +83,7 @@ export function DataTable<TData>({
   searchable = true,
   searchPlaceholder = "Buscar",
   initialSearch = "",
+  onSearchChange,
   emptyMessage,
   pageSize = 10,
   paginate = true,
@@ -100,6 +103,12 @@ export function DataTable<TData>({
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize });
   const [dateFrom, setDateFrom] = React.useState(initialDateFrom);
   const [dateTo, setDateTo] = React.useState(initialDateTo);
+
+  // Notifica el texto de busqueda hacia afuera para que el contenedor pueda, por
+  // ejemplo, ignorar sus filtros propios (mes/estado) mientras hay una busqueda.
+  React.useEffect(() => {
+    onSearchChange?.(globalFilter);
+  }, [globalFilter, onSearchChange]);
 
   const dateFiltered = React.useMemo(() => {
     if (!getRowDate || (!dateFrom && !dateTo)) {

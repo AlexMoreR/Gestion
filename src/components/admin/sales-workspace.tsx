@@ -77,6 +77,7 @@ export function SalesWorkspace({ sales, currency, accounts, products, clients, i
   const [fromDate, setFromDate] = React.useState(defaultRange.from);
   const [toDate, setToDate] = React.useState(defaultRange.to);
   const [statusFilter, setStatusFilter] = React.useState<SaleStatus | "ALL">("ALL");
+  const [searchQuery, setSearchQuery] = React.useState(initialSearch);
 
   // El rango de fechas y el estado se aplican aqui para que las tarjetas y la
   // tabla compartan exactamente el mismo conjunto de ventas.
@@ -91,6 +92,10 @@ export function SalesWorkspace({ sales, currency, accounts, products, clients, i
       }),
     [sales, fromDate, toDate, statusFilter],
   );
+
+  // Al buscar, la busqueda abarca TODAS las ventas (el filtro de mes/estado solo
+  // aplica por defecto). Las tarjetas siguen reflejando el mes filtrado.
+  const tableSales = searchQuery.trim() ? sales : filteredSales;
 
   const stats = React.useMemo(() => {
     return {
@@ -139,10 +144,11 @@ export function SalesWorkspace({ sales, currency, accounts, products, clients, i
       </div>
 
       <SalesDataTable
-        sales={filteredSales}
+        sales={tableSales}
         currency={currency}
         accounts={accounts}
         initialSearch={initialSearch}
+        onSearchChange={setSearchQuery}
         fromDate={fromDate}
         toDate={toDate}
         statusFilter={statusFilter}

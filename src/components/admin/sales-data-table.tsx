@@ -102,6 +102,7 @@ type SalesDataTableProps = {
   currency: SupportedCurrencyCode;
   accounts: AccountOption[];
   initialSearch?: string;
+  onSearchChange?: (value: string) => void;
   fromDate: string;
   toDate: string;
   statusFilter: SaleStatus | "ALL";
@@ -741,6 +742,7 @@ export function SalesDataTable({
   currency,
   accounts,
   initialSearch = "",
+  onSearchChange,
   fromDate,
   toDate,
   statusFilter,
@@ -895,6 +897,7 @@ export function SalesDataTable({
         data={filteredSales}
         columns={columns}
         initialSearch={initialSearch}
+        onSearchChange={onSearchChange}
         searchPlaceholder="Buscar por venta, cliente o estado"
         emptyMessage="No hay ventas con los filtros seleccionados."
         minWidth="min-w-[980px]"

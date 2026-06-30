@@ -158,7 +158,22 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
         code: product.code,
         stock: stockFor(product),
         retailPrice: Number(product.price),
+        wholesalePrice: Number(product.wholesalePrice),
+        minWholesaleQty: product.minWholesaleQty,
         thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
+        suppliers: product.suppliers.map((row) => ({
+          id: row.supplierId,
+          name: row.supplier.name,
+        })),
+        isBundle: product.isBundle,
+        components: product.bundleComponents.map((component) => ({
+          productId: component.childId,
+          name: component.child.name,
+          code: component.child.code,
+          quantity: component.quantity,
+          retailPrice: Number(component.child.price),
+          thumbnailUrl: getPublicAssetUrl(component.child.thumbnailUrl),
+        })),
       }))}
       currency={currency}
     />

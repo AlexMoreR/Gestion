@@ -954,6 +954,8 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
 
   // El filtro por estado y fecha vive aquí (alimenta las tarjetas de stats); la
   // búsqueda de texto la maneja el buscador integrado del DataTable.
+  const [searchQuery, setSearchQuery] = React.useState("");
+
   const filteredQuotes = React.useMemo(() => {
     return quotes.filter((quote) => {
       if (!statusFilter.includes(quote.status)) return false;
@@ -963,6 +965,11 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
       return true;
     });
   }, [quotes, statusFilter, dateFrom, dateTo]);
+
+  // Al buscar, la búsqueda debe abarcar TODAS las cotizaciones (el filtro de mes
+  // y estado solo aplica por defecto). Las tarjetas de stats siguen reflejando el
+  // mes filtrado.
+  const tableData = searchQuery.trim() ? quotes : filteredQuotes;
 
   const stats = React.useMemo(() => {
     const accepted = filteredQuotes.filter((quote) => quote.status === "ACCEPTED");
@@ -1221,9 +1228,10 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
       </div>
 
       <DataTable
-        data={filteredQuotes}
+        data={tableData}
         columns={columns}
         searchPlaceholder="Buscar por código o cliente"
+        onSearchChange={setSearchQuery}
         emptyMessage="No hay cotizaciones con los filtros seleccionados."
         initialSorting={[{ id: "code", desc: true }]}
         minWidth="min-w-[900px]"
