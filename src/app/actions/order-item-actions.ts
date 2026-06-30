@@ -279,7 +279,25 @@ export async function adminUpdateOrderItemsFulfillmentAction(formData: FormData)
       ? [
           prisma.order.update({
             where: { id: orderId },
+            // La lista muestra releasedAt ?? createdAt, así que se alinean ambos
+            // para que la fecha editada se refleje siempre.
+            data: { createdAt: orderDate, releasedAt: orderDate },
+          }),
+          // Alinea las fechas del historial de la orden (la línea de tiempo).
+          prisma.orderStatusHistory.updateMany({
+            where: { orderId },
             data: { createdAt: orderDate },
+          }),
+          // Alinea los cargos/pagos a proveedores generados por esta orden
+          // (la tabla de proveedores los muestra por createdAt).
+          prisma.supplierLedgerEntry.updateMany({
+            where: { orderId },
+            data: { createdAt: orderDate },
+          }),
+          // Y la fecha de pago de los que ya la tengan (abonos a proveedor).
+          prisma.supplierLedgerEntry.updateMany({
+            where: { orderId, paymentDate: { not: null } },
+            data: { paymentDate: orderDate },
           }),
           // Alinea los cobros de la venta con la nueva fecha de la orden.
           ...(order.saleId
@@ -299,6 +317,7 @@ export async function adminUpdateOrderItemsFulfillmentAction(formData: FormData)
   if (orderDate) {
     revalidatePath("/admin/ventas");
     revalidatePath("/admin/balances");
+    revalidatePath("/admin/proveedores");
   }
   redirect(`${returnTo}?ok=Orden+actualizada`);
 }
