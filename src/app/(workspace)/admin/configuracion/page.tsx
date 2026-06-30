@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LockKeyhole, Settings, Users } from "lucide-react";
+import { CalendarCheck, LockKeyhole, Settings, Users } from "lucide-react";
 import { auth } from "@/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { getAdminModuleAccess } from "@/lib/admin-module-access";
@@ -76,6 +76,22 @@ export default async function AdminConfiguracionPage() {
             </Card>
           </Link>
         ) : null}
+
+        <Link href="/admin/configuracion/cierre-mes" className="group">
+          <Card className="h-full space-y-3 border border-[var(--line)] transition hover:border-[var(--primary)] hover:shadow-lg">
+            <CardContent>
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color-mix(in_srgb,var(--primary)_12%,white)] text-[var(--primary)]">
+                <CalendarCheck className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <h2 className="text-base font-semibold text-slate-900">Cierre de mes</h2>
+                <p className="text-sm text-slate-600">
+                  Genera el informe de ventas y ganancia de un mes y envialo por correo.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {!moduleAccess.config_users && !moduleAccess.config_business && !moduleAccess.config_permissions ? (

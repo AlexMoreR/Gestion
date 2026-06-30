@@ -141,7 +141,7 @@ function UndoDispatchSubmitButton() {
   );
 }
 
-function UndoPickupSubmitButton() {
+function UndoPickupSubmitButton({ label = "Si, deshacer recogido" }: { label?: string }) {
   const { pending } = useFormStatus();
   return (
     <Button
@@ -151,7 +151,7 @@ function UndoPickupSubmitButton() {
       disabled={pending}
     >
       {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-      {pending ? "Deshaciendo..." : "Si, deshacer recogido"}
+      {pending ? "Deshaciendo..." : label}
     </Button>
   );
 }
@@ -797,17 +797,27 @@ export function OrderItemManager({
       <Dialog open={undoPickupOpen} onOpenChange={(value) => (value ? null : setUndoPickupOpen(false))}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Deshacer recogido</DialogTitle>
+            <DialogTitle>{item.requiresManufacturing ? "Deshacer recogido" : "Devolver a stock"}</DialogTitle>
             <DialogDescription>
-              <span className="font-medium text-foreground">{item.productName}</span> volvera al
-              estado "Fabricando". Se eliminaran las fotos del producto terminado y se revertira el
-              cargo/pago al proveedor generado al recogerlo.
+              {item.requiresManufacturing ? (
+                <>
+                  <span className="font-medium text-foreground">{item.productName}</span> volvera al
+                  estado "Fabricando". Se eliminaran las fotos del producto terminado y se revertira el
+                  cargo/pago al proveedor generado al recogerlo.
+                </>
+              ) : (
+                <>
+                  <span className="font-medium text-foreground">{item.productName}</span> se devolvera al
+                  inventario (x{item.quantity}) y volvera al estado "Sin confirmar". No genera ni revierte
+                  cargos al proveedor.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
           <form action={adminUndoPickupOrderItemAction} className="space-y-3">
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="orderItemId" value={item.id} />
-            <UndoPickupSubmitButton />
+            <UndoPickupSubmitButton label={item.requiresManufacturing ? "Si, deshacer recogido" : "Si, devolver a stock"} />
           </form>
         </DialogContent>
       </Dialog>

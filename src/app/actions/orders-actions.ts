@@ -419,7 +419,14 @@ export async function adminCancelOrderAction(formData: FormData): Promise<void> 
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    select: { id: true, status: true, code: true },
+    select: {
+      id: true,
+      status: true,
+      code: true,
+      items: {
+        select: { productId: true, quantity: true, fulfillmentMode: true, confirmedAt: true },
+      },
+    },
   });
 
   if (!order) {
@@ -428,6 +435,16 @@ export async function adminCancelOrderAction(formData: FormData): Promise<void> 
 
   if (order.status === "COMPLETED" || order.status === "CANCELLED") {
     redirect(`${returnTo}?error=La+orden+no+puede+cancelarse`);
+  }
+
+  // Repone el inventario de los items "por stock" que ya se habian confirmado
+  // (su salida OUT se registro al confirmar). Los no confirmados nunca tocaron
+  // stock y los de fabricacion tampoco.
+  const restoreByProduct = new Map<string, number>();
+  for (const item of order.items) {
+    if (item.fulfillmentMode === "STOCK" && item.confirmedAt !== null) {
+      restoreByProduct.set(item.productId, (restoreByProduct.get(item.productId) ?? 0) + item.quantity);
+    }
   }
 
   await prisma.$transaction(async (tx) => {
@@ -445,6 +462,18 @@ export async function adminCancelOrderAction(formData: FormData): Promise<void> 
         changedById,
       },
     });
+
+    if (restoreByProduct.size > 0) {
+      await tx.inventoryMovement.createMany({
+        data: Array.from(restoreByProduct.entries()).map(([productId, quantity]) => ({
+          productId,
+          type: "IN" as const,
+          change: quantity,
+          note: `Reversa por cancelacion de orden ${order.code}`,
+          createdById: changedById,
+        })),
+      });
+    }
   });
 
   await logActivity({
@@ -455,6 +484,9 @@ export async function adminCancelOrderAction(formData: FormData): Promise<void> 
   });
 
   revalidatePath("/admin/ordenes");
+  if (restoreByProduct.size > 0) {
+    revalidatePath("/admin/inventario");
+  }
   revalidatePath(`${returnTo}`);
   redirect(`${returnTo}?ok=Orden+cancelada`);
 }

@@ -24,6 +24,12 @@ type PasswordResetEmailParams = {
   resetUrl: string;
 };
 
+type MonthClosureEmailParams = {
+  to: string;
+  periodLabel: string;
+  reportUrl: string;
+};
+
 function getSmtpConfig() {
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT ?? "587");
@@ -120,6 +126,32 @@ export async function sendPasswordResetEmail(params: PasswordResetEmailParams): 
     subject: "Restablece tu contrasena",
     text: `Hola ${displayName}, recibimos una solicitud para restablecer tu contrasena. Crea una nueva aqui: ${params.resetUrl} (el enlace expira en 1 hora). Si no fuiste tu, ignora este correo.`,
     html: `<p>Hola <strong>${displayName}</strong>,</p><p>Recibimos una solicitud para restablecer tu contrasena. Crea una nueva en el siguiente enlace:</p><p><a href="${params.resetUrl}">${params.resetUrl}</a></p><p>El enlace expira en 1 hora. Si no fuiste tu, ignora este correo.</p>`,
+  });
+}
+
+export async function sendMonthClosureEmail(params: MonthClosureEmailParams): Promise<void> {
+  const config = getSmtpConfig();
+  if (!config) {
+    throw new Error("SMTP no configurado");
+  }
+
+  const nodemailer = await import("nodemailer");
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: {
+      user: config.user,
+      pass: config.pass,
+    },
+  });
+
+  await transporter.sendMail({
+    from: config.from,
+    to: params.to,
+    subject: `Informe de cierre de mes - ${params.periodLabel}`,
+    text: `Se generó el informe de cierre de mes de ${params.periodLabel}. Puedes verlo en: ${params.reportUrl} (requiere iniciar sesión).`,
+    html: `<p>Se generó el <strong>informe de cierre de mes</strong> de <strong>${params.periodLabel}</strong>.</p><p><a href="${params.reportUrl}">Ver el informe</a></p><p style="color:#64748b;font-size:12px">El enlace requiere iniciar sesión en la plataforma.</p>`,
   });
 }
 

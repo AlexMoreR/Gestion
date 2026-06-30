@@ -192,11 +192,17 @@ export async function adminUpdateOrderItemFulfillmentAction(formData: FormData):
 
   const orderItem = await prisma.orderItem.findUnique({
     where: { id: parsed.data.orderItemId },
-    select: { id: true, orderId: true },
+    select: { id: true, orderId: true, fulfillmentMode: true, confirmedAt: true },
   });
 
   if (!orderItem) {
     redirect(`${returnTo}?error=Producto+no+encontrado`);
+  }
+
+  // No se puede cambiar el modo de un item ya confirmado: el inventario (stock) o
+  // el saldo/produccion (fabricacion) ya se movieron. Hay que deshacer primero.
+  if (orderItem.confirmedAt !== null && orderItem.fulfillmentMode !== parsed.data.fulfillmentMode) {
+    redirect(`${returnTo}?error=Deshaz+la+confirmacion+antes+de+cambiar+el+modo+del+producto`);
   }
 
   await prisma.orderItem.update({
@@ -242,6 +248,23 @@ export async function adminUpdateOrderItemsFulfillmentAction(formData: FormData)
   });
   if (!order) {
     redirect(`${returnTo}?error=Orden+no+encontrada`);
+  }
+
+  // No se puede cambiar el modo de un item ya confirmado (inventario/saldo ya
+  // movidos). Se bloquea solo si el modo realmente cambia respecto al actual.
+  const currentItems = await prisma.orderItem.findMany({
+    where: { id: { in: ids }, orderId },
+    select: { id: true, fulfillmentMode: true, confirmedAt: true },
+  });
+  const currentById = new Map(currentItems.map((item) => [item.id, item]));
+  const blocked = ids.some((id, index) => {
+    const current = currentById.get(id);
+    if (!current || current.confirmedAt === null) return false;
+    const nextMode = modes[index] === "MANUFACTURE" ? "MANUFACTURE" : "STOCK";
+    return current.fulfillmentMode !== nextMode;
+  });
+  if (blocked) {
+    redirect(`${returnTo}?error=Deshaz+la+confirmacion+de+los+productos+antes+de+cambiar+su+modo`);
   }
 
   await prisma.$transaction([
@@ -1144,7 +1167,7 @@ export async function adminUndoPickupOrderItemAction(formData: FormData): Promis
   const orderItem = await prisma.orderItem.findUnique({
     where: { id: parsed.data.orderItemId },
     include: {
-      order: { select: { id: true, status: true } },
+      order: { select: { id: true, code: true, status: true } },
       photos: { select: { id: true } },
       dispatchItems: {
         where: { dispatch: { status: { notIn: ["CANCELLED", "RETURNED"] } } },
@@ -1164,6 +1187,37 @@ export async function adminUndoPickupOrderItemAction(formData: FormData): Promis
   // No se puede deshacer el recogido si el producto ya esta despachado.
   if (orderItem.dispatchItems.length > 0) {
     redirect(`${returnTo}?error=Deshaz+primero+el+despacho+del+producto`);
+  }
+
+  // Stock: el producto nunca pasa por proveedor ni recogido real; su salida de
+  // inventario se hizo al confirmar. Deshacerlo devuelve las unidades al stock
+  // (movimiento IN compensatorio) y deja el item "Sin confirmar".
+  if (orderItem.fulfillmentMode === "STOCK") {
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.inventoryMovement.create({
+          data: {
+            productId: orderItem.productId,
+            type: "IN",
+            change: orderItem.quantity,
+            note: `Reversa salida por orden ${orderItem.order.code}`,
+            createdById,
+          },
+        });
+        await tx.orderItem.update({
+          where: { id: orderItem.id },
+          data: { confirmedAt: null, purchaseCost: null },
+        });
+      });
+    } catch (error) {
+      console.error("Failed to undo stock pickup order item:", error);
+      redirect(`${returnTo}?error=No+se+pudo+devolver+el+producto+a+stock`);
+    }
+
+    revalidatePath("/admin/ordenes");
+    revalidatePath("/admin/inventario");
+    revalidatePath(`/admin/ordenes/${orderItem.order.id}`);
+    redirect(`${returnTo}?ok=Producto+devuelto+a+stock`);
   }
 
   try {

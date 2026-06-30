@@ -625,7 +625,7 @@ export async function adminDeleteSaleAction(formData: FormData): Promise<void> {
         select: {
           id: true,
           code: true,
-          items: { select: { productId: true, quantity: true, fulfillmentMode: true } },
+          items: { select: { productId: true, quantity: true, fulfillmentMode: true, confirmedAt: true } },
         },
       },
     },
@@ -648,11 +648,12 @@ export async function adminDeleteSaleAction(formData: FormData): Promise<void> {
       });
 
       if (orderId) {
-        // 2. Repone al inventario lo que la orden habia descontado al crearse
-        //    (solo los items "por stock"; los de fabricacion no tocaron stock).
+        // 2. Repone al inventario lo que la orden habia descontado: solo los items
+        //    "por stock" que se confirmaron (su salida OUT se registro al confirmar).
+        //    Los no confirmados nunca tocaron stock y los de fabricacion tampoco.
         const restoreByProduct = new Map<string, number>();
         for (const item of sale.order?.items ?? []) {
-          if (item.fulfillmentMode === "STOCK") {
+          if (item.fulfillmentMode === "STOCK" && item.confirmedAt !== null) {
             restoreByProduct.set(item.productId, (restoreByProduct.get(item.productId) ?? 0) + item.quantity);
           }
         }

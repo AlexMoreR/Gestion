@@ -50,6 +50,7 @@ model User {
   expensesAsEmployee       Expense[]             @relation("ExpenseEmployee")
   inventoryMovements       InventoryMovement[]   @relation("InventoryMovementCreatedBy")
   activityLogs             ActivityLog[]         @relation("ActivityLogActor")
+  monthClosures            MonthClosure[]        @relation("MonthClosureGeneratedBy")
 }
 
 enum ActivityAction {
@@ -727,4 +728,26 @@ model InventoryMovement {
 
   @@index([productId, movementDate])
   @@index([purchaseCode])
+}
+
+// Cierre de mes: snapshot del resumen de ventas y ganancia de un periodo, que se
+// genera manualmente y se comparte por correo (enlace al informe congelado).
+model MonthClosure {
+  id                String   @id @default(cuid())
+  year              Int
+  month             Int // 1-12
+  periodLabel       String // "junio de 2026"
+  salesCount        Int
+  salesTotal        Decimal  @db.Decimal(14, 2)
+  supplierCosts     Decimal  @db.Decimal(14, 2)
+  shippingCosts     Decimal  @db.Decimal(14, 2)
+  operatingExpenses Decimal  @db.Decimal(14, 2)
+  netProfit         Decimal  @db.Decimal(14, 2)
+  marginPct         Decimal  @db.Decimal(6, 2)
+  recipients        String // JSON: string[] de correos
+  generatedById     String
+  generatedBy       User     @relation("MonthClosureGeneratedBy", fields: [generatedById], references: [id], onDelete: Restrict)
+  createdAt         DateTime @default(now())
+
+  @@index([year, month])
 }
