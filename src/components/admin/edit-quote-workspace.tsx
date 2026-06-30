@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   QuoteWizardModal,
@@ -31,17 +30,17 @@ type EditQuoteWorkspaceProps = {
 
 export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQuoteWorkspaceProps) {
   const router = useRouter();
-  const [open, setOpen] = useState(true);
 
+  // Al cerrar volvemos al listado. No desmontamos el modal aqui (no usamos un
+  // estado `open` local) para que el modal siga visible durante la navegacion y
+  // no se vea el destello en blanco de esta ruta (que solo contiene el modal).
   const close = () => {
-    setOpen(false);
-    // Al cerrar el modal de edicion volvemos al listado de cotizaciones.
     router.push("/admin/cotizaciones");
   };
 
   return (
     <QuoteWizardModal
-      open={open}
+      open
       onClose={close}
       mode="edit"
       currency={currency}
