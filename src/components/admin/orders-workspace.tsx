@@ -51,6 +51,21 @@ function localDay(iso: string): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+// Rango por defecto: primer y ultimo dia del mes actual (hora local).
+function currentMonthRange(): { from: string; to: string } {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  const fmt = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return { from: fmt(first), to: fmt(last) };
+}
+
+// Dia de hoy (hora local).
+function todayLocalDay(): string {
+  return localDay(new Date().toISOString());
+}
+
 type OrdersWorkspaceProps = {
   orders: OrderRow[];
   currency: SupportedCurrencyCode;
@@ -136,12 +151,19 @@ export function OrdersWorkspace({
   purchaseComboComponents,
   purchaseSuppliers,
 }: OrdersWorkspaceProps) {
-  const [fromDate, setFromDate] = React.useState("");
-  const [toDate, setToDate] = React.useState("");
+  const defaultRange = React.useMemo(() => currentMonthRange(), []);
+  const [fromDate, setFromDate] = React.useState(defaultRange.from);
+  const [toDate, setToDate] = React.useState(defaultRange.to);
   const [searchQuery, setSearchQuery] = React.useState("");
+  const todayDay = React.useMemo(() => todayLocalDay(), []);
 
   const filtered = orders.filter((order) => {
-    const day = localDay(order.orderDateISO);
+    // Las ordenes activas (no cerradas ni canceladas) se "arrastran" al mes
+    // actual: se filtran por hoy (no por su fecha real), asi las que siguen en
+    // produccion/proceso quedan visibles hasta cerrarse. Las cerradas/canceladas
+    // usan su fecha real.
+    const isActive = order.status !== "COMPLETED" && order.status !== "CANCELLED";
+    const day = isActive ? todayDay : localDay(order.orderDateISO);
     if (fromDate && day < fromDate) return false;
     if (toDate && day > toDate) return false;
     return true;

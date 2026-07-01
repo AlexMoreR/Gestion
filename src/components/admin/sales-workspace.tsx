@@ -79,18 +79,25 @@ export function SalesWorkspace({ sales, currency, accounts, products, clients, i
   const [statusFilter, setStatusFilter] = React.useState<SaleStatus | "ALL">("ALL");
   const [searchQuery, setSearchQuery] = React.useState(initialSearch);
 
+  // Dia de hoy (hora local) para arrastrar las ventas pendientes al presente.
+  const todayDay = React.useMemo(() => localDay(new Date().toISOString()), []);
+
   // El rango de fechas y el estado se aplican aqui para que las tarjetas y la
   // tabla compartan exactamente el mismo conjunto de ventas.
   const filteredSales = React.useMemo(
     () =>
       sales.filter((sale) => {
         if (statusFilter !== "ALL" && sale.status !== statusFilter) return false;
-        const day = localDay(sale.createdAtISO);
+        // Las ventas con saldo por cobrar se "arrastran" al mes actual: se
+        // filtran por la fecha de hoy (no por su fecha real), asi siguen
+        // visibles hasta que se cobren. Las saldadas usan su fecha real.
+        const isPending = sale.remainingBalance > 0 && sale.status !== "CANCELLED";
+        const day = isPending ? todayDay : localDay(sale.createdAtISO);
         if (fromDate && day < fromDate) return false;
         if (toDate && day > toDate) return false;
         return true;
       }),
-    [sales, fromDate, toDate, statusFilter],
+    [sales, fromDate, toDate, statusFilter, todayDay],
   );
 
   // Al buscar, la busqueda abarca TODAS las ventas (el filtro de mes/estado solo
