@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { InventoryDataGrid } from "@/modules/inventory/presentation/components/inventory-data-grid";
 
@@ -393,42 +394,3 @@ function OrderMovementsModal({
   );
 }
 
-// Visor de comprobante en grande (estilo lightbox de WhatsApp).
-function ReceiptLightbox({ url, onClose }: { url: string | null; onClose: () => void }) {
-  React.useEffect(() => {
-    if (!url) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [url, onClose]);
-
-  if (!url) return null;
-
-  return (
-    <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Comprobante"
-      onClick={onClose}
-    >
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Cerrar"
-        className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
-      >
-        <X className="h-5 w-5" />
-      </button>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={url}
-        alt="Comprobante"
-        className="max-h-[90vh] max-w-[95vw] rounded-lg object-contain shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      />
-    </div>
-  );
-}

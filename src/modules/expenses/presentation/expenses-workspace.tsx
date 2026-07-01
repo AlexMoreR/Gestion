@@ -184,7 +184,7 @@ export function ExpensesWorkspace({
         </div>
 
         {tab === "gastos" ? (
-          <div className="grid gap-4 xl:grid-cols-[1.6fr_0.8fr]">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(15rem,0.7fr)]">
             <ExpensesTable
               data={expenses}
               currency={currency}
@@ -203,11 +203,10 @@ export function ExpensesWorkspace({
               }}
             />
 
-            <Card className="border-border bg-card">
+            <Card className="border-border bg-card xl:self-start">
               <CardContent className="space-y-3 p-4">
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">Gasto por categoria</h3>
-                  <p className="text-xs text-muted-foreground">Donde se concentra tu gasto.</p>
                 </div>
                 <div className="space-y-2">
                   {categoryTotals.length === 0 ? (
@@ -216,8 +215,8 @@ export function ExpensesWorkspace({
                     categoryTotals.map((item) => (
                       <div key={item.categoryId} className="space-y-1">
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-sm font-medium text-foreground">{item.categoryName}</span>
-                          <span className="text-sm font-semibold text-destructive">
+                          <span className="min-w-0 truncate text-sm font-medium text-foreground">{item.categoryName}</span>
+                          <span className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums text-destructive">
                             {formatMoney(item.totalAmount, currency)}
                           </span>
                         </div>

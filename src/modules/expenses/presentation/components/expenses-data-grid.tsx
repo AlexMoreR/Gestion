@@ -17,11 +17,12 @@ type ExpensesDataGridProps<TData> = {
   getRowDate?: (row: TData) => string | null | undefined;
   initialDateFrom?: string;
   initialDateTo?: string;
+  onRowClick?: (row: TData) => void;
 };
 
 export function ExpensesDataGrid<TData>({
   pageSize = 8,
   ...props
 }: ExpensesDataGridProps<TData>) {
-  return <DataTable {...props} pageSize={pageSize} minWidth="min-w-[860px]" />;
+  return <DataTable {...props} pageSize={pageSize} minWidth="min-w-[640px]" />;
 }

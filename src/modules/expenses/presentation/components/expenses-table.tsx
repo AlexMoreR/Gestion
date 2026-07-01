@@ -4,7 +4,14 @@ import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Paperclip, Pencil, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type { ExpenseRow } from "@/modules/expenses/domain/entities";
 import { ExpensesDataGrid } from "./expenses-data-grid";
@@ -54,6 +61,8 @@ export function ExpensesTable({ data, currency, onEdit, onDelete, defaultCurrent
   const initialRange = defaultCurrentMonth ? currentMonthRange() : { from: "", to: "" };
   const [fromDate, setFromDate] = React.useState(initialRange.from);
   const [toDate, setToDate] = React.useState(initialRange.to);
+  const [actionsRow, setActionsRow] = React.useState<ExpenseRow | null>(null);
+  const [receiptUrl, setReceiptUrl] = React.useState<string | null>(null);
 
   const filtered = data.filter((expense) => {
     const day = utcDay(expense.expenseDate);
@@ -112,7 +121,7 @@ export function ExpensesTable({ data, currency, onEdit, onDelete, defaultCurrent
       accessorKey: "description",
       header: "Detalle",
       cell: ({ row }) => (
-        <div className="min-w-0">
+        <div className="min-w-0 max-w-[220px]">
           <p className="truncate text-sm text-foreground">{row.original.description ?? "Sin descripcion"}</p>
           {row.original.employeeName ? (
             <p className="truncate text-xs text-muted-foreground">Empleado: {row.original.employeeName}</p>
@@ -124,66 +133,94 @@ export function ExpensesTable({ data, currency, onEdit, onDelete, defaultCurrent
       ),
     },
     {
-      accessorKey: "accountName",
-      header: "Cuenta",
-      cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.accountName}</span>,
-    },
-    {
       accessorKey: "amount",
       header: "Monto",
       cell: ({ row }) => (
-        <span className="text-sm font-semibold text-destructive">{formatMoney(row.original.amount, currency)}</span>
-      ),
-    },
-    {
-      id: "actions",
-      header: "",
-      cell: ({ row }) => (
-        <div className="flex items-center justify-end gap-1">
-          {row.original.receiptUrl ? (
-            <a
-              href={row.original.receiptUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              aria-label="Ver comprobante"
-              title="Ver comprobante"
-            >
-              <Paperclip className="h-4 w-4" />
-            </a>
-          ) : null}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => onEdit(row.original.id)}
-            aria-label="Editar gasto"
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => onDelete(row.original.id)}
-            aria-label="Eliminar gasto"
-          >
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-destructive">{formatMoney(row.original.amount, currency)}</p>
+          <p className="truncate text-xs text-muted-foreground">{row.original.accountName}</p>
         </div>
       ),
     },
   ];
 
   return (
-    <ExpensesDataGrid
-      data={filtered}
-      columns={columns}
-      searchPlaceholder="Buscar gasto"
-      emptyMessage="Aun no hay gastos. Registra el primero con 'Nuevo gasto'."
-      pageSize={10}
-      toolbar={dateFilter}
-      searchFirst
-    />
+    <>
+      <ExpensesDataGrid
+        data={filtered}
+        columns={columns}
+        searchPlaceholder="Buscar gasto"
+        emptyMessage="Aun no hay gastos. Registra el primero con 'Nuevo gasto'."
+        pageSize={10}
+        toolbar={dateFilter}
+        searchFirst
+        onRowClick={(row) => setActionsRow(row)}
+      />
+
+      <Dialog open={Boolean(actionsRow)} onOpenChange={(open) => (open ? null : setActionsRow(null))}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Acciones del gasto</DialogTitle>
+          </DialogHeader>
+          {actionsRow ? (
+            <div className="space-y-2">
+              <div className="rounded-lg border border-border p-3">
+                <p className="text-sm font-medium text-foreground">
+                  {actionsRow.description || "Sin descripcion"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {actionsRow.categoryName} · {formatMoney(actionsRow.amount, currency)}
+                </p>
+              </div>
+
+              {actionsRow.receiptUrl ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    setReceiptUrl(actionsRow.receiptUrl);
+                    setActionsRow(null);
+                  }}
+                >
+                  <Paperclip className="mr-2 h-4 w-4" />
+                  Ver comprobante
+                </Button>
+              ) : null}
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => {
+                  const id = actionsRow.id;
+                  setActionsRow(null);
+                  onEdit(id);
+                }}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Editar
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-start text-destructive hover:text-destructive"
+                onClick={() => {
+                  const id = actionsRow.id;
+                  setActionsRow(null);
+                  onDelete(id);
+                }}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar
+              </Button>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <ReceiptLightbox url={receiptUrl} onClose={() => setReceiptUrl(null)} />
+    </>
   );
 }
