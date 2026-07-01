@@ -16,8 +16,12 @@ type PageProps = {
 // el rango semiabierto [from, to) junto con el valor y la etiqueta para la UI.
 function resolveMonth(monthParam: string | undefined) {
   const now = new Date();
-  let year = now.getUTCFullYear();
-  let monthIndex = now.getUTCMonth();
+  // Mes en curso en hora de Colombia (UTC-5). Sin este ajuste, la noche del
+  // ultimo dia del mes ya cae en el mes siguiente segun UTC (ej. 30/06 8pm
+  // local = 01/07 en UTC), mostrando el mes equivocado por defecto.
+  const bogotaNow = new Date(now.getTime() - 5 * 60 * 60 * 1000);
+  let year = bogotaNow.getUTCFullYear();
+  let monthIndex = bogotaNow.getUTCMonth();
 
   if (typeof monthParam === "string" && /^\d{4}-\d{2}$/.test(monthParam)) {
     const [parsedYear, parsedMonth] = monthParam.split("-").map(Number);

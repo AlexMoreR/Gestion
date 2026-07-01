@@ -34,11 +34,14 @@ function utcDay(value: Date | string): string {
   return new Date(value).toISOString().slice(0, 10);
 }
 
-// Primer y ultimo dia del mes en curso (UTC), en formato YYYY-MM-DD.
+// Primer y ultimo dia del mes en curso, en formato YYYY-MM-DD. Se calcula en
+// hora de Colombia (UTC-5) para que la noche del ultimo dia del mes no salte al
+// mes siguiente (como pasaria usando UTC directo).
 function currentMonthRange(): { from: string; to: string } {
   const now = new Date();
-  const year = now.getUTCFullYear();
-  const month = now.getUTCMonth();
+  const bogotaNow = new Date(now.getTime() - 5 * 60 * 60 * 1000);
+  const year = bogotaNow.getUTCFullYear();
+  const month = bogotaNow.getUTCMonth();
   const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   const pad = (value: number) => String(value).padStart(2, "0");
   return {
