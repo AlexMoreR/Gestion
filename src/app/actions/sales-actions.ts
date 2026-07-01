@@ -1085,3 +1085,78 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
   }
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Venta creada" }).toString()}`);
 }
+
+// Edita la fecha de una venta (sale.createdAt, usada en Balances). Opcionalmente
+// alinea a esa fecha los cobros de la venta, y si la venta tiene una orden, la
+// fecha de la orden, su historial y los cargos/pagos a proveedores, para que
+// todo concuerde en la analitica.
+export async function adminUpdateSaleDateAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const returnTo = getReturnTo(formData);
+
+  const saleId = typeof formData.get("saleId") === "string" ? (formData.get("saleId") as string).trim() : "";
+  const dateRaw = typeof formData.get("date") === "string" ? (formData.get("date") as string).trim() : "";
+  const alignAll = formData.get("alignAll") != null;
+
+  if (!saleId) {
+    redirect(`${returnTo}?${new URLSearchParams({ error: "Venta invalida" }).toString()}`);
+  }
+
+  const parsedDate = new Date(`${dateRaw}T12:00:00`);
+  if (!dateRaw || Number.isNaN(parsedDate.getTime())) {
+    redirect(`${returnTo}?${new URLSearchParams({ error: "La fecha es invalida" }).toString()}`);
+  }
+
+  const sale = await prisma.sale.findUnique({
+    where: { id: saleId },
+    select: { id: true, order: { select: { id: true } } },
+  });
+  if (!sale) {
+    redirect(`${returnTo}?${new URLSearchParams({ error: "Venta no encontrada" }).toString()}`);
+  }
+
+  const orderIds = sale.order ? [sale.order.id] : [];
+
+  await prisma.$transaction([
+    prisma.sale.update({ where: { id: saleId }, data: { createdAt: parsedDate } }),
+    ...(alignAll
+      ? [
+          // Cobros de la venta.
+          prisma.salePayment.updateMany({
+            where: { saleId },
+            data: { paymentDate: parsedDate },
+          }),
+          // Orden(es) ligada(s): fecha + fecha de liberacion.
+          ...(orderIds.length > 0
+            ? [
+                prisma.order.updateMany({
+                  where: { id: { in: orderIds } },
+                  data: { createdAt: parsedDate, releasedAt: parsedDate },
+                }),
+                prisma.orderStatusHistory.updateMany({
+                  where: { orderId: { in: orderIds } },
+                  data: { createdAt: parsedDate },
+                }),
+                // Cargos y pagos a proveedores generados por la(s) orden(es).
+                prisma.supplierLedgerEntry.updateMany({
+                  where: { orderId: { in: orderIds } },
+                  data: { createdAt: parsedDate },
+                }),
+                prisma.supplierLedgerEntry.updateMany({
+                  where: { orderId: { in: orderIds }, paymentDate: { not: null } },
+                  data: { paymentDate: parsedDate },
+                }),
+              ]
+            : []),
+        ]
+      : []),
+  ]);
+
+  revalidatePath("/admin/ventas");
+  revalidatePath("/admin/balances");
+  if (alignAll) {
+    revalidatePath("/admin/ordenes");
+    revalidatePath("/admin/proveedores");
+  }
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Fecha de la venta actualizada" }).toString()}`);
+}

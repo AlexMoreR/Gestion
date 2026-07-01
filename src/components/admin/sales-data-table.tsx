@@ -27,10 +27,18 @@ import {
   adminAddSalePaymentAction,
   adminDeleteSalePaymentAction,
   adminDeleteSaleAction,
+  adminUpdateSaleDateAction,
 } from "@/app/actions/sales-actions";
 import { adminCreateOrderFromSaleAction } from "@/app/actions/orders-actions";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import {
   DropdownMenu,
@@ -215,10 +223,12 @@ function RowActions({
   sale,
   onViewReceipts,
   onAddPayment,
+  onEditDate,
 }: {
   sale: SaleRow;
   onViewReceipts: () => void;
   onAddPayment: () => void;
+  onEditDate: () => void;
 }) {
   const hasReceipts =
     sale.salePayments.length > 0 ||
@@ -264,6 +274,10 @@ function RowActions({
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onEditDate}>
+          <Calendar className="mr-2 h-4 w-4" />
+          Editar fecha
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={onViewReceipts} disabled={!hasReceipts}>
           <Eye className="mr-2 h-4 w-4" />
           {hasReceipts ? "Ver comprobantes" : "Sin comprobantes"}
@@ -710,11 +724,13 @@ function SaleMobileCard({
   currency,
   onViewReceipts,
   onAddPayment,
+  onEditDate,
 }: {
   sale: SaleRow;
   currency: SupportedCurrencyCode;
   onViewReceipts: () => void;
   onAddPayment: () => void;
+  onEditDate: () => void;
 }) {
   return (
     <article className="space-y-2.5 rounded-xl border border-border bg-card p-3">
@@ -731,7 +747,7 @@ function SaleMobileCard({
       </div>
       <div className="flex items-center justify-end">
         <SaleRowForms sale={sale} />
-        <RowActions sale={sale} onViewReceipts={onViewReceipts} onAddPayment={onAddPayment} />
+        <RowActions sale={sale} onViewReceipts={onViewReceipts} onAddPayment={onAddPayment} onEditDate={onEditDate} />
       </div>
     </article>
   );
@@ -752,6 +768,7 @@ export function SalesDataTable({
 }: SalesDataTableProps) {
   const [selectedSale, setSelectedSale] = React.useState<SaleRow | null>(null);
   const [paymentSale, setPaymentSale] = React.useState<SaleRow | null>(null);
+  const [dateSale, setDateSale] = React.useState<SaleRow | null>(null);
 
   // El padre (SalesWorkspace) ya aplica el filtro de fecha/estado; aqui solo
   // mostramos los controles y dejamos que DataTable busque, ordene y pagine.
@@ -806,6 +823,7 @@ export function SalesDataTable({
               sale={row.original}
               onViewReceipts={() => setSelectedSale(row.original)}
               onAddPayment={() => setPaymentSale(row.original)}
+              onEditDate={() => setDateSale(row.original)}
             />
           </div>
         ),
@@ -910,9 +928,62 @@ export function SalesDataTable({
             currency={currency}
             onViewReceipts={() => setSelectedSale(sale)}
             onAddPayment={() => setPaymentSale(sale)}
+            onEditDate={() => setDateSale(sale)}
           />
         )}
       />
+
+      <Dialog open={Boolean(dateSale)} onOpenChange={(open) => (open ? null : setDateSale(null))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar fecha de la venta</DialogTitle>
+          </DialogHeader>
+          {dateSale ? (
+            <form action={adminUpdateSaleDateAction} className="space-y-3">
+              <input type="hidden" name="returnTo" value="/admin/ventas" />
+              <input type="hidden" name="saleId" value={dateSale.id} />
+
+              <p className="text-sm text-muted-foreground">
+                Venta <span className="font-medium text-foreground">{dateSale.code}</span> — {dateSale.clientName}
+              </p>
+
+              <div className="space-y-1.5">
+                <label htmlFor="sale-edit-date" className="text-sm font-medium text-foreground">
+                  Fecha de la venta
+                </label>
+                <input
+                  id="sale-edit-date"
+                  name="date"
+                  type="date"
+                  defaultValue={dateSale.createdAtISO.slice(0, 10)}
+                  required
+                  className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Es la fecha usada en Balances (rentabilidad por venta).
+                </p>
+              </div>
+
+              <label className="flex items-start gap-2 rounded-md border border-border p-3 text-sm">
+                <input type="checkbox" name="alignAll" defaultChecked className="mt-0.5" />
+                <span>
+                  Alinear también la orden, cobros y cargos a proveedores
+                  <span className="block text-xs text-muted-foreground">
+                    Pone a esta fecha la orden ligada, sus movimientos, los cobros de la venta y los cargos/pagos a proveedores.
+                  </span>
+                </span>
+              </label>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setDateSale(null)}>
+                  Cancelar
+                </Button>
+                <Button type="submit">Guardar</Button>
+              </DialogFooter>
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
