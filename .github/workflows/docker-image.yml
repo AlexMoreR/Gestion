@@ -33,3 +33,14 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: ghcr.io/alexmorer/gestion:latest
+
+      - name: Trigger Portainer redeploy
+        env:
+          WEBHOOK: ${{ secrets.PORTAINER_GESTION }}
+        run: |
+          if [ -n "$WEBHOOK" ]; then
+            echo "Avisando a Portainer para redesplegar..."
+            curl -fsSL -X POST "$WEBHOOK"
+          else
+            echo "PORTAINER_GESTION no configurado; se omite el redeploy automatico."
+          fi

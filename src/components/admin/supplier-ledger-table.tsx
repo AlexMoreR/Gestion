@@ -2,11 +2,17 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Eye, Trash2, X } from "lucide-react";
+import { BarChart3, Eye, MoreHorizontal, Plus, Trash2, X } from "lucide-react";
 import { adminDeleteSupplierPaymentAction } from "@/app/actions/supplier-ledger-actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
@@ -53,9 +59,18 @@ type SupplierLedgerTableProps = {
   ledger: SupplierLedgerRow[];
   currency: SupportedCurrencyCode;
   returnTo: string;
+  // Token para "Ver balance" (link publico) y callback de "Registrar movimiento".
+  balanceToken?: string | null;
+  onRegisterMovement?: () => void;
 };
 
-export function SupplierLedgerTable({ ledger, currency, returnTo }: SupplierLedgerTableProps) {
+export function SupplierLedgerTable({
+  ledger,
+  currency,
+  returnTo,
+  balanceToken = null,
+  onRegisterMovement,
+}: SupplierLedgerTableProps) {
   const [fromDate, setFromDate] = React.useState("");
   const [toDate, setToDate] = React.useState("");
   const [viewerUrl, setViewerUrl] = React.useState<string | null>(null);
@@ -118,6 +133,33 @@ export function SupplierLedgerTable({ ledger, currency, returnTo }: SupplierLedg
         >
           <X className="h-3.5 w-3.5" />
         </Button>
+      ) : null}
+
+      {/* Menu de acciones (Ver balance / Registrar movimiento) a la derecha del buscador. */}
+      {balanceToken || onRegisterMovement ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="outline" size="icon" className="h-9 w-9" aria-label="Acciones">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {balanceToken ? (
+              <DropdownMenuItem asChild>
+                <a href={`/proveedores/${balanceToken}`} target="_blank" rel="noopener noreferrer">
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  Ver balance
+                </a>
+              </DropdownMenuItem>
+            ) : null}
+            {onRegisterMovement ? (
+              <DropdownMenuItem onClick={onRegisterMovement}>
+                <Plus className="mr-2 h-4 w-4" />
+                Registrar movimiento
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
       ) : null}
     </div>
   );
@@ -273,6 +315,7 @@ export function SupplierLedgerTable({ ledger, currency, returnTo }: SupplierLedg
         emptyMessage="Sin movimientos registrados."
         pageSize={12}
         toolbar={dateFilter}
+        searchFirst
         onRowClick={(row) => {
           // Solo los movimientos ligados a una orden abren el detalle.
           if (row.orderCode) setDetailOrder(row.orderCode);

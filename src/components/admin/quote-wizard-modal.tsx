@@ -225,7 +225,8 @@ export function QuoteWizardModal({
   const [draftQuantity, setDraftQuantity] = useState("1");
   const [draftColor, setDraftColor] = useState("");
   const [draftUnitPrice, setDraftUnitPrice] = useState("");
-  const [draftWholesale, setDraftWholesale] = useState(false);
+  // Modo mayorista a nivel de cotizacion: usa el wholesalePrice de cada producto.
+  const [wholesaleMode, setWholesaleMode] = useState(false);
   const [draftDescription, setDraftDescription] = useState("");
   const [draftAdditionalCost, setDraftAdditionalCost] = useState("0");
   const [draftDiscount, setDraftDiscount] = useState("0");
@@ -385,7 +386,6 @@ export function QuoteWizardModal({
     setDraftQuantity("1");
     setDraftColor("");
     setDraftUnitPrice("");
-    setDraftWholesale(false);
     setDraftDescription("");
     setDraftAdditionalCost("0");
     setDraftDiscount("0");
@@ -406,20 +406,31 @@ export function QuoteWizardModal({
   const applyProductSelection = (product: QuoteWizardProduct) => {
     setDraftProductId(product.id);
     setProductLookup(product.code || product.name);
-    // Si el producto no tiene precio mayorista configurado, se cae a precio detal.
-    const useWholesale = draftWholesale && product.wholesalePrice > 0;
-    setDraftWholesale(useWholesale);
-    setDraftUnitPrice(String(priceForMode(product, useWholesale)));
+    // En modo mayorista usa el wholesalePrice (si el producto lo tiene configurado).
+    setDraftUnitPrice(String(priceForMode(product, wholesaleMode)));
     // Sin stock -> por orden (se fabrica); con stock -> por existencias.
     setDraftFulfillmentMode(product.stock > 0 ? "STOCK" : "MANUFACTURE");
     setProductFormError("");
+  };
+
+  // Cambia el modo mayorista y re-precia las lineas sueltas (los combos conservan
+  // el precio configurado por componente).
+  const applyWholesaleMode = (next: boolean) => {
+    setWholesaleMode(next);
+    setLines((current) =>
+      current.map((line) => {
+        if (line.comboKey) return line;
+        const product = products.find((item) => item.id === line.productId);
+        if (!product) return line;
+        return { ...line, unitPrice: priceForMode(product, next) };
+      }),
+    );
   };
 
   const clearDraftProductSelection = () => {
     setDraftProductId("");
     setProductLookup("");
     setDraftUnitPrice("");
-    setDraftWholesale(false);
     setDraftImageUrl("");
     setProductFormError("");
   };
@@ -913,6 +924,18 @@ export function QuoteWizardModal({
               </div>
             ) : step === 1 ? (
               <div className="space-y-4">
+                {/* Interruptor de precios al por mayor (afecta toda la cotizacion). */}
+                <label className="flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-[var(--primary)]"
+                    checked={wholesaleMode}
+                    onChange={(event) => applyWholesaleMode(event.target.checked)}
+                  />
+                  <span className="font-medium text-foreground">Precios al por mayor</span>
+                  <span className="text-xs text-muted-foreground">Usa el precio mayorista de cada producto.</span>
+                </label>
+
                 <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                   <table className="w-full text-sm">
                     <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
@@ -1605,6 +1628,16 @@ export function QuoteWizardModal({
                 {productFormError ? (
                   <p className="mt-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
                     {productFormError}
+                  </p>
+                ) : null}
+
+                {/* Aviso (no bloquea) si la cantidad no llega al minimo mayorista. */}
+                {wholesaleMode &&
+                draftProduct &&
+                draftProduct.wholesalePrice > 0 &&
+                (Number(draftQuantity) || 0) < draftProduct.minWholesaleQty ? (
+                  <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+                    Cantidad menor al minimo mayorista ({draftProduct.minWholesaleQty}) para este producto.
                   </p>
                 ) : null}
 

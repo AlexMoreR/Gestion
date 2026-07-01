@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, CalendarDays, ClipboardList, FileText, ImagePlus, Plus, Trash2, Wallet } from "lucide-react";
+import { CalendarDays, ClipboardList, FileText, ImagePlus, Plus, Trash2, Wallet } from "lucide-react";
 import {
   adminCreateSupplierChargeAction,
   adminCreateSupplierPaymentsAction,
@@ -141,24 +141,6 @@ export function SupplierLedgerForm({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {balanceToken ? (
-          <a
-            href={`/proveedores/${balanceToken}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg border border-[var(--line)] bg-card px-4 py-1.5 text-sm font-medium text-foreground shadow-sm transition hover:bg-muted"
-          >
-            <BarChart3 className="h-4 w-4" />
-            Ver balance
-          </a>
-        ) : null}
-        <Button type="button" onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4" />
-          Registrar movimiento
-        </Button>
-      </div>
-
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="flex max-h-[92vh] w-full max-w-lg flex-col gap-0 overflow-hidden p-0">
           <DialogHeader className="shrink-0 border-b px-6 py-4">
@@ -473,7 +455,13 @@ export function SupplierLedgerForm({
         </DialogContent>
       </Dialog>
 
-      <SupplierLedgerTable ledger={ledger} currency={currency} returnTo={returnTo} />
+      <SupplierLedgerTable
+        ledger={ledger}
+        currency={currency}
+        returnTo={returnTo}
+        balanceToken={balanceToken}
+        onRegisterMovement={() => setOpen(true)}
+      />
     </div>
   );
 }

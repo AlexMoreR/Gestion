@@ -31,6 +31,8 @@ export type DirectSaleProduct = {
   code: string | null;
   stock: number;
   retailPrice: number;
+  wholesalePrice: number;
+  minWholesaleQty: number;
   thumbnailUrl?: string | null;
   isBundle?: boolean;
   components?: ComboComponent[];
@@ -113,6 +115,8 @@ export function DirectSaleSheet({
   const [lines, setLines] = React.useState<DraftLine[]>([]);
   const [withPayment, setWithPayment] = React.useState(false);
   const [saleDate, setSaleDate] = React.useState(todayInputValue());
+  // Modo mayorista: usa el wholesalePrice de cada producto.
+  const [wholesaleMode, setWholesaleMode] = React.useState(false);
 
   // Modal de selección de producto (mismo flujo que cotización).
   const [openProductModal, setOpenProductModal] = React.useState(false);
@@ -188,11 +192,29 @@ export function DirectSaleSheet({
     setOpenProductModal(true);
   };
 
+  const priceForMode = (product: DirectSaleProduct): number =>
+    wholesaleMode && product.wholesalePrice > 0 ? product.wholesalePrice : product.retailPrice;
+
   const applyProductSelection = (product: DirectSaleProduct) => {
     setDraftProductId(product.id);
     setProductLookup(product.code || product.name);
-    setDraftUnitPrice(String(product.retailPrice));
+    setDraftUnitPrice(String(priceForMode(product)));
     setProductFormError("");
+  };
+
+  // Cambia el modo mayorista y re-precia las lineas ya agregadas.
+  const applyWholesaleMode = (next: boolean) => {
+    setWholesaleMode(next);
+    setLines((current) =>
+      current.map((line) => {
+        const product = products.find((item) => item.id === line.productId);
+        if (!product) return line;
+        return {
+          ...line,
+          unitPrice: next && product.wholesalePrice > 0 ? product.wholesalePrice : product.retailPrice,
+        };
+      }),
+    );
   };
 
   const clearDraftSelection = () => {
@@ -459,7 +481,18 @@ export function DirectSaleSheet({
 
         {/* Productos */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground">Productos</label>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className="text-sm font-medium text-foreground">Productos</label>
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-[var(--primary)]"
+                checked={wholesaleMode}
+                onChange={(event) => applyWholesaleMode(event.target.checked)}
+              />
+              <span className="font-medium text-foreground">Al por mayor</span>
+            </label>
+          </div>
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <table className="w-full text-sm">
               <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
@@ -744,6 +777,16 @@ export function DirectSaleSheet({
                 {productFormError ? (
                   <p className="mt-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
                     {productFormError}
+                  </p>
+                ) : null}
+
+                {/* Aviso (no bloquea) si la cantidad no llega al minimo mayorista. */}
+                {wholesaleMode &&
+                draftProduct &&
+                draftProduct.wholesalePrice > 0 &&
+                (Number(draftQuantity) || 0) < draftProduct.minWholesaleQty ? (
+                  <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+                    Cantidad menor al minimo mayorista ({draftProduct.minWholesaleQty}) para este producto.
                   </p>
                 ) : null}
 

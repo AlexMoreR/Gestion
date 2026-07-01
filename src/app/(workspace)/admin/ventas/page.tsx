@@ -147,6 +147,8 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
           code: product.code,
           stock: stockFor(product),
           retailPrice: Number(product.price),
+          wholesalePrice: Number(product.wholesalePrice),
+          minWholesaleQty: product.minWholesaleQty,
           thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
           isBundle: product.isBundle,
           components: product.bundleComponents.map((component) => ({
