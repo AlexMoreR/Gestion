@@ -294,6 +294,11 @@ export async function adminUpdateOrderItemsFulfillmentAction(formData: FormData)
             where: { orderId },
             data: { createdAt: orderDate },
           }),
+          // La fecha del producto en el balance de proveedores es su confirmedAt.
+          prisma.orderItem.updateMany({
+            where: { orderId, confirmedAt: { not: null } },
+            data: { confirmedAt: orderDate },
+          }),
           // Y la fecha de pago de los que ya la tengan (abonos a proveedor).
           prisma.supplierLedgerEntry.updateMany({
             where: { orderId, paymentDate: { not: null } },
@@ -366,6 +371,11 @@ export async function adminUpdateOrderHistoryDateAction(formData: FormData): Pro
           prisma.supplierLedgerEntry.updateMany({
             where: { orderId, paymentDate: { not: null } },
             data: { paymentDate: parsedDate },
+          }),
+          // La fecha del producto en el balance de proveedores es su confirmedAt.
+          prisma.orderItem.updateMany({
+            where: { orderId, confirmedAt: { not: null } },
+            data: { confirmedAt: parsedDate },
           }),
         ]
       : []),

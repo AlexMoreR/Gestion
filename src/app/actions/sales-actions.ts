@@ -1146,6 +1146,11 @@ export async function adminUpdateSaleDateAction(formData: FormData): Promise<voi
                   where: { orderId: { in: orderIds }, paymentDate: { not: null } },
                   data: { paymentDate: parsedDate },
                 }),
+                // La fecha del producto en el balance de proveedores es su confirmedAt.
+                prisma.orderItem.updateMany({
+                  where: { orderId: { in: orderIds }, confirmedAt: { not: null } },
+                  data: { confirmedAt: parsedDate },
+                }),
               ]
             : []),
         ]
