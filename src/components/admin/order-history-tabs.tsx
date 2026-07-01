@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 
@@ -53,6 +54,7 @@ type OrderHistoryTabsProps = {
 export function OrderHistoryTabs({ history, payments, currency, orderId, returnTo }: OrderHistoryTabsProps) {
   const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
   const [editing, setEditing] = React.useState<HistoryEntry | null>(null);
+  const [receiptUrl, setReceiptUrl] = React.useState<string | null>(null);
 
   return (
     <Tabs defaultValue="historial">
@@ -116,14 +118,13 @@ export function OrderHistoryTabs({ history, payments, currency, orderId, returnT
                   {payment.note ? ` - ${payment.note}` : ""}
                 </p>
                 {payment.receiptUrl ? (
-                  <a
-                    href={payment.receiptUrl}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => setReceiptUrl(payment.receiptUrl)}
                     className="text-xs font-medium text-primary hover:underline"
                   >
                     Ver comprobante
-                  </a>
+                  </button>
                 ) : null}
               </div>
             ))}
@@ -184,6 +185,8 @@ export function OrderHistoryTabs({ history, payments, currency, orderId, returnT
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <ReceiptLightbox url={receiptUrl} onClose={() => setReceiptUrl(null)} />
     </Tabs>
   );
 }

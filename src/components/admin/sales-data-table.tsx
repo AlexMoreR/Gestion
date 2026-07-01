@@ -54,6 +54,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import {
   Select,
   SelectContent,
@@ -315,6 +316,7 @@ function SaleReceiptsSheet({
   open: boolean;
   onOpenChange: (value: boolean) => void;
 }) {
+  const [receiptUrl, setReceiptUrl] = React.useState<string | null>(null);
   const receipts = sale
     ? sale.salePayments.length > 0
       ? sale.salePayments
@@ -335,6 +337,7 @@ function SaleReceiptsSheet({
     : [];
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md">
         <SheetHeader className="border-b border-border pb-4">
@@ -378,15 +381,14 @@ function SaleReceiptsSheet({
                         </div>
                         <div className="flex items-center gap-2">
                           {receipt.receiptUrl ? (
-                            <a
-                              href={receipt.receiptUrl}
-                              target="_blank"
-                              rel="noreferrer"
+                            <button
+                              type="button"
+                              onClick={() => setReceiptUrl(receipt.receiptUrl)}
                               className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
                             >
                               <FileCheck2 className="h-3.5 w-3.5" />
-                              Abrir
-                            </a>
+                              Ver
+                            </button>
                           ) : (
                             <span className="text-xs text-muted-foreground">Sin archivo</span>
                           )}
@@ -412,6 +414,8 @@ function SaleReceiptsSheet({
         </div>
       </SheetContent>
     </Sheet>
+    <ReceiptLightbox url={receiptUrl} onClose={() => setReceiptUrl(null)} />
+    </>
   );
 }
 

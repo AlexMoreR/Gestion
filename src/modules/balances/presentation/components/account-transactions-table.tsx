@@ -5,6 +5,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { ArrowDownLeft, ArrowUpRight, ExternalLink, FileText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type { AccountTransaction, AccountTransactionType } from "@/modules/balances/domain/entities";
 import { BalancesDataGrid } from "./balances-data-grid";
@@ -106,6 +107,8 @@ function TransactionDetailDialog({
   currency: SupportedCurrencyCode;
   onClose: () => void;
 }) {
+  const [receiptUrl, setReceiptUrl] = React.useState<string | null>(null);
+
   if (!transaction) {
     return null;
   }
@@ -113,6 +116,7 @@ function TransactionDetailDialog({
   const isPositive = transaction.amount >= 0;
 
   return (
+    <>
     <div
       className="fixed inset-0 z-[55] flex items-end justify-center bg-black/50 p-3 backdrop-blur-[1px] sm:items-center"
       role="dialog"
@@ -154,27 +158,26 @@ function TransactionDetailDialog({
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Comprobante</p>
             {transaction.receiptUrl ? (
               isImageReceipt(transaction.receiptUrl) ? (
-                <a href={transaction.receiptUrl} target="_blank" rel="noreferrer" className="block">
+                <button type="button" onClick={() => setReceiptUrl(transaction.receiptUrl)} className="block w-full">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={transaction.receiptUrl}
                     alt={transaction.receiptName ?? "Comprobante"}
-                    className="max-h-80 w-full rounded-xl border border-border object-contain"
+                    className="max-h-80 w-full cursor-zoom-in rounded-xl border border-border object-contain"
                   />
-                </a>
+                </button>
               ) : (
-                <a
-                  href={transaction.receiptUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-3 transition hover:bg-muted"
+                <button
+                  type="button"
+                  onClick={() => setReceiptUrl(transaction.receiptUrl)}
+                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-border px-3 py-3 text-left transition hover:bg-muted"
                 >
                   <span className="flex min-w-0 items-center gap-2">
                     <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <span className="truncate text-sm text-foreground">{transaction.receiptName ?? "Ver comprobante"}</span>
                   </span>
                   <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </a>
+                </button>
               )
             ) : (
               <p className="rounded-xl border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
@@ -191,6 +194,8 @@ function TransactionDetailDialog({
         </div>
       </Card>
     </div>
+    <ReceiptLightbox url={receiptUrl} onClose={() => setReceiptUrl(null)} />
+    </>
   );
 }
 

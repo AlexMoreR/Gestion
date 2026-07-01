@@ -7,6 +7,7 @@ import { adminUpdateDispatchShippingCostsAction } from "@/app/actions/dispatch-a
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MoneyInput } from "@/components/ui/money-input";
+import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { getDispatchStatusBadgeClassName, getDispatchStatusLabel } from "@/lib/orders";
 
@@ -56,6 +57,7 @@ export function DispatchReviewButton({
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
 
   const total = dispatch.shippingCost ?? 0;
 
@@ -227,19 +229,20 @@ export function DispatchReviewButton({
             {dispatch.notes ? <Field label="Notas" value={dispatch.notes} /> : null}
 
             {dispatch.shippingReceiptUrl ? (
-              <a
-                href={dispatch.shippingReceiptUrl}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
+                onClick={() => setReceiptUrl(dispatch.shippingReceiptUrl)}
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
               >
                 <Eye className="h-4 w-4" />
                 Ver comprobante de envío
-              </a>
+              </button>
             ) : null}
           </div>
         </DialogContent>
       </Dialog>
+
+      <ReceiptLightbox url={receiptUrl} onClose={() => setReceiptUrl(null)} />
     </>
   );
 }

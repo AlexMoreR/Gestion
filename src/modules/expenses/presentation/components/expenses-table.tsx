@@ -154,6 +154,7 @@ export function ExpensesTable({ data, currency, onEdit, onDelete, defaultCurrent
         pageSize={10}
         toolbar={dateFilter}
         searchFirst
+        paginate={false}
         onRowClick={(row) => setActionsRow(row)}
       />
 

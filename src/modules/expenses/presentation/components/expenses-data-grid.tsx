@@ -18,6 +18,7 @@ type ExpensesDataGridProps<TData> = {
   initialDateFrom?: string;
   initialDateTo?: string;
   onRowClick?: (row: TData) => void;
+  paginate?: boolean;
 };
 
 export function ExpensesDataGrid<TData>({

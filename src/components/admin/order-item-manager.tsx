@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
+import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
@@ -182,6 +183,7 @@ export function OrderItemManager({
 }: OrderItemManagerProps) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [dispatchOpen, setDispatchOpen] = useState(false);
   const [undoOpen, setUndoOpen] = useState(false);
   const [undoPickupOpen, setUndoPickupOpen] = useState(false);
@@ -491,14 +493,14 @@ export function OrderItemManager({
                         <div className="space-y-2">
                           <p className="text-xs font-medium text-emerald-600">Pagado al proveedor.</p>
                           {item.receiptUrl ? (
-                            <a href={item.receiptUrl} target="_blank" rel="noreferrer" className="inline-block">
+                            <button type="button" onClick={() => setReceiptUrl(item.receiptUrl)} className="inline-block">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={item.receiptUrl}
                                 alt="Comprobante del proveedor"
-                                className="h-28 w-28 rounded-md border border-border object-cover"
+                                className="h-28 w-28 cursor-zoom-in rounded-md border border-border object-cover"
                               />
-                            </a>
+                            </button>
                           ) : null}
                         </div>
                       ) : (
@@ -839,6 +841,8 @@ export function OrderItemManager({
           </form>
         </DialogContent>
       </Dialog>
+
+      <ReceiptLightbox url={receiptUrl} onClose={() => setReceiptUrl(null)} />
       </TableCell>
     </TableRow>
   );

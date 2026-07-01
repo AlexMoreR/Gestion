@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Textarea } from "@/components/ui/textarea";
+import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { cn } from "@/lib/utils";
 import { adminSupplierSalePendingAction } from "@/app/actions/balances-actions";
 import {
@@ -83,6 +84,7 @@ export function SupplierPaymentFormDialog({
   const formRef = React.useRef<HTMLFormElement | null>(null);
   const submitBypassRef = React.useRef(false);
   const [formKey, setFormKey] = React.useState(0);
+  const [receiptUrl, setReceiptUrl] = React.useState<string | null>(null);
 
   const form = useForm<SupplierPaymentFormState>({
     resolver: zodResolver(supplierPaymentCreateSchema) as any,
@@ -191,6 +193,7 @@ export function SupplierPaymentFormDialog({
   const selectedSupplier = supplierLabelById.get(selectedSupplierId);
 
   return (
+    <>
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-3 backdrop-blur-[1px] sm:items-center"
       role="dialog"
@@ -306,14 +309,13 @@ export function SupplierPaymentFormDialog({
               <span className="text-sm font-medium text-foreground">Comprobante (opcional)</span>
               <Input type="file" name="receipt" accept="image/*,application/pdf" className="h-9" />
               {initialValue?.receiptUrl ? (
-                <a
-                  href={initialValue.receiptUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs font-medium text-primary hover:underline"
+                <button
+                  type="button"
+                  onClick={() => setReceiptUrl(initialValue.receiptUrl ?? null)}
+                  className="text-left text-xs font-medium text-primary hover:underline"
                 >
                   Ver comprobante actual{initialValue.receiptName ? `: ${initialValue.receiptName}` : ""}
-                </a>
+                </button>
               ) : null}
             </label>
 
@@ -340,5 +342,7 @@ export function SupplierPaymentFormDialog({
         </form>
       </Card>
     </div>
+    <ReceiptLightbox url={receiptUrl} onClose={() => setReceiptUrl(null)} />
+    </>
   );
 }
