@@ -1092,10 +1092,8 @@ export async function adminUndoDispatchItemAction(formData: FormData): Promise<v
   const dispatch = dispatchItem.dispatch;
   const order = dispatch.order;
 
-  // Si ya fue entregado al cliente no se puede deshacer desde aqui.
-  if (dispatch.status === "DELIVERED" || order.status === "COMPLETED") {
-    redirect(`${returnTo}?error=El+despacho+ya+fue+entregado+y+no+se+puede+deshacer`);
-  }
+  // Se permite deshacer aunque la orden ya este entregada/cerrada: se revierte
+  // el despacho y la orden vuelve a "Lista para despacho".
 
   const shippingCost = Math.round(Number(dispatch.shippingCost ?? 0));
 
@@ -1130,11 +1128,15 @@ export async function adminUndoDispatchItemAction(formData: FormData): Promise<v
       // 4) Eliminar el despacho (cascade borra sus DispatchItem).
       await tx.dispatch.delete({ where: { id: dispatch.id } });
 
-      // 5) Si la orden estaba marcada como despachada, vuelve a "Lista para despacho".
-      if (order.status === "DISPATCHED") {
+      // 5) Si la orden estaba despachada o entregada, vuelve a "Lista para
+      //    despacho" (y se limpia la fecha de completado si estaba cerrada).
+      if (order.status === "DISPATCHED" || order.status === "COMPLETED") {
         await tx.order.update({
           where: { id: order.id },
-          data: { status: "READY_FOR_DISPATCH" },
+          data: {
+            status: "READY_FOR_DISPATCH",
+            ...(order.status === "COMPLETED" ? { completedAt: null } : {}),
+          },
         });
         await tx.orderStatusHistory.create({
           data: {
