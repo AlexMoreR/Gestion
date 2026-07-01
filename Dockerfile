@@ -17,8 +17,12 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
+# Zona horaria de Colombia para que las fechas y el agrupamiento por mes
+# coincidan con la operacion (sin esto el server corre en UTC y las fechas se
+# corren un dia / al mes siguiente en la noche).
+ENV TZ=America/Bogota
 
-RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont tzdata
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 COPY package*.json ./
