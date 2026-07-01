@@ -322,6 +322,64 @@ export async function adminUpdateOrderItemsFulfillmentAction(formData: FormData)
   redirect(`${returnTo}?ok=Orden+actualizada`);
 }
 
+// Edita la fecha de UNA entrada del historial de la orden (al hacer clic en la
+// tarjeta). Opcionalmente alinea a esa misma fecha los cargos/pagos a
+// proveedores generados por la orden.
+export async function adminUpdateOrderHistoryDateAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/ordenes");
+
+  const historyId = typeof formData.get("historyId") === "string" ? (formData.get("historyId") as string).trim() : "";
+  const orderId = typeof formData.get("orderId") === "string" ? (formData.get("orderId") as string).trim() : "";
+  const dateRaw = typeof formData.get("date") === "string" ? (formData.get("date") as string).trim() : "";
+  const updateSupplierCharges = formData.get("updateSupplierCharges") != null;
+
+  if (!historyId || !orderId) {
+    redirect(`${returnTo}?error=Datos+invalidos`);
+  }
+
+  const parsedDate = new Date(`${dateRaw}T12:00:00`);
+  if (!dateRaw || Number.isNaN(parsedDate.getTime())) {
+    redirect(`${returnTo}?error=La+fecha+es+invalida`);
+  }
+
+  // Verifica que la entrada pertenezca a la orden indicada.
+  const entry = await prisma.orderStatusHistory.findUnique({
+    where: { id: historyId },
+    select: { id: true, orderId: true },
+  });
+  if (!entry || entry.orderId !== orderId) {
+    redirect(`${returnTo}?error=Movimiento+no+encontrado`);
+  }
+
+  await prisma.$transaction([
+    prisma.orderStatusHistory.update({
+      where: { id: historyId },
+      data: { createdAt: parsedDate },
+    }),
+    ...(updateSupplierCharges
+      ? [
+          prisma.supplierLedgerEntry.updateMany({
+            where: { orderId },
+            data: { createdAt: parsedDate },
+          }),
+          prisma.supplierLedgerEntry.updateMany({
+            where: { orderId, paymentDate: { not: null } },
+            data: { paymentDate: parsedDate },
+          }),
+        ]
+      : []),
+  ]);
+
+  revalidatePath("/admin/ordenes");
+  revalidatePath(`/admin/ordenes/${orderId}`);
+  if (updateSupplierCharges) {
+    revalidatePath("/admin/proveedores");
+    revalidatePath("/admin/balances");
+  }
+  redirect(`${returnTo}?ok=Fecha+del+movimiento+actualizada`);
+}
+
 export async function adminConfirmOrderItemAction(formData: FormData): Promise<void> {
   const createdById = await requireAdminSession();
   const returnTo = getReturnTo(formData, "/admin/ordenes");

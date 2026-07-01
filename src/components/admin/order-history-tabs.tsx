@@ -1,6 +1,17 @@
 "use client";
 
+import * as React from "react";
+import { Pencil } from "lucide-react";
+import { adminUpdateOrderHistoryDateAction } from "@/app/actions/order-item-actions";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 
@@ -16,6 +27,8 @@ type HistoryEntry = {
   fromLabel: string;
   toLabel: string;
   date: string;
+  // Fecha en formato yyyy-MM-dd para el input al editar.
+  dateValue: string;
   by: string;
   note: string | null;
 };
@@ -33,10 +46,13 @@ type OrderHistoryTabsProps = {
   history: HistoryEntry[];
   payments: PaymentEntry[];
   currency: SupportedCurrencyCode;
+  orderId: string;
+  returnTo: string;
 };
 
-export function OrderHistoryTabs({ history, payments, currency }: OrderHistoryTabsProps) {
+export function OrderHistoryTabs({ history, payments, currency, orderId, returnTo }: OrderHistoryTabsProps) {
   const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
+  const [editing, setEditing] = React.useState<HistoryEntry | null>(null);
 
   return (
     <Tabs defaultValue="historial">
@@ -50,12 +66,21 @@ export function OrderHistoryTabs({ history, payments, currency }: OrderHistoryTa
           <p className="text-sm text-muted-foreground">Sin movimientos registrados.</p>
         ) : (
           history.map((item) => (
-            <div key={item.id} className="rounded-lg border border-border p-3">
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setEditing(item)}
+              className="group w-full rounded-lg border border-border p-3 text-left transition-colors hover:border-ring hover:bg-muted/40"
+              title="Editar fecha del movimiento"
+            >
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-medium text-foreground">
                   {item.fromLabel} <span className="text-muted-foreground">-&gt;</span> {item.toLabel}
                 </p>
-                <p className="text-xs text-muted-foreground">{item.date}</p>
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  {item.date}
+                  <Pencil className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
+                </span>
               </div>
               <div className="mt-1 flex items-center gap-2">
                 <Avatar className="h-5 w-5">
@@ -66,7 +91,7 @@ export function OrderHistoryTabs({ history, payments, currency }: OrderHistoryTa
                   {item.note ? ` - ${item.note}` : ""}
                 </p>
               </div>
-            </div>
+            </button>
           ))
         )}
       </TabsContent>
@@ -109,6 +134,56 @@ export function OrderHistoryTabs({ history, payments, currency }: OrderHistoryTa
           </>
         )}
       </TabsContent>
+
+      <Dialog open={Boolean(editing)} onOpenChange={(value) => (value ? null : setEditing(null))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar fecha del movimiento</DialogTitle>
+          </DialogHeader>
+          {editing ? (
+            <form action={adminUpdateOrderHistoryDateAction} className="space-y-3">
+              <input type="hidden" name="returnTo" value={returnTo} />
+              <input type="hidden" name="orderId" value={orderId} />
+              <input type="hidden" name="historyId" value={editing.id} />
+
+              <p className="text-sm text-muted-foreground">
+                {editing.fromLabel} <span className="text-muted-foreground">-&gt;</span> {editing.toLabel}
+              </p>
+
+              <div className="space-y-1.5">
+                <label htmlFor="history-date" className="text-sm font-medium text-foreground">
+                  Fecha
+                </label>
+                <input
+                  id="history-date"
+                  name="date"
+                  type="date"
+                  defaultValue={editing.dateValue}
+                  required
+                  className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                />
+              </div>
+
+              <label className="flex items-start gap-2 rounded-md border border-border p-3 text-sm">
+                <input type="checkbox" name="updateSupplierCharges" className="mt-0.5" />
+                <span>
+                  También cambiar la fecha de los cargos a proveedores
+                  <span className="block text-xs text-muted-foreground">
+                    Alinea a esta fecha los cargos y pagos a proveedores generados por esta orden.
+                  </span>
+                </span>
+              </label>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditing(null)}>
+                  Cancelar
+                </Button>
+                <Button type="submit">Guardar</Button>
+              </DialogFooter>
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </Tabs>
   );
 }

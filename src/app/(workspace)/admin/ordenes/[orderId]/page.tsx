@@ -416,11 +416,14 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             <CardContent>
               <OrderHistoryTabs
                 currency={currency}
+                orderId={order.id}
+                returnTo={returnTo}
                 history={order.history.map((item) => ({
                   id: item.id,
                   fromLabel: item.fromStatus ? getOrderStatusLabel(item.fromStatus) : "Nuevo",
                   toLabel: getOrderStatusLabel(item.toStatus),
                   date: item.createdAt.toLocaleDateString("es-CO"),
+                  dateValue: toDateInputValue(item.createdAt),
                   by: item.changedBy.name ?? item.changedBy.email,
                   note: item.note,
                 }))}
