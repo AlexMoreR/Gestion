@@ -172,6 +172,12 @@ export function SupplierLedgerForm({
   );
 
   const total = lineSummaries.reduce((sum, line) => sum + line.amount, 0);
+  const selectedDebt = lineSummaries.reduce((sum, line) => sum + (line.target?.pending ?? 0), 0);
+  const selectedRemaining = lineSummaries.reduce(
+    (sum, line) => sum + (line.remaining === null ? 0 : Math.max(0, line.remaining)),
+    0,
+  );
+  const hasTargetLines = lineSummaries.some((line) => line.target !== null);
   const hasOverpayment = lineSummaries.some((line) => line.exceedsPending);
   const hasStaleTarget = lineSummaries.some((line) => line.staleTarget);
   const canSubmit = Boolean(ledgerReceiptName) && Boolean(accountId) && total > 0 && !hasOverpayment && !hasStaleTarget;
@@ -382,6 +388,24 @@ export function SupplierLedgerForm({
           </div>
 
           <div className="shrink-0 space-y-3 border-t bg-card px-6 py-4">
+                <div className="grid gap-2 rounded-lg border bg-muted/30 px-3 py-2.5 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Debe seleccionado</p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {hasTargetLines ? formatMoney(selectedDebt, currency) : "Sin orden"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total a pagar</p>
+                    <p className="text-lg font-bold tracking-tight text-primary">{formatMoney(total, currency)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Queda pendiente</p>
+                    <p className={hasOverpayment ? "text-sm font-semibold text-destructive" : "text-sm font-semibold text-foreground"}>
+                      {hasTargetLines ? formatMoney(selectedRemaining, currency) : "No aplica"}
+                    </p>
+                  </div>
+                </div>
                 <Button type="submit" form="supplier-payment-form" className="h-11 w-full text-base" disabled={!canSubmit}>
                   Registrar pago
                 </Button>
