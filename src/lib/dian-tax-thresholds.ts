@@ -1,11 +1,11 @@
 // Topes tributarios DIAN para persona natural (no responsable de IVA).
-// Ambos limites se miden en UVT sobre el acumulado del ANIO y se comparan
+// Ambos límites se miden en UVT sobre el acumulado del AÑO y se comparan
 // contra los ingresos brutos (ventas reales) del periodo.
 //
 //  - IVA:   3.500 UVT -> si se supera, hay que pasar a responsable de IVA.
 //  - Renta: 1.400 UVT -> si se supera, hay obligacion de declarar renta.
 //
-// La UVT cambia cada anio (la fija la DIAN), por eso se recibe como parametro
+// La UVT cambia cada año (la fija la DIAN), por eso se recibe como parámetro
 // configurable en lugar de quemarla aqui.
 
 export const IVA_UVT_LIMIT = 3500;
@@ -17,7 +17,7 @@ export const THRESHOLD_DANGER_PCT = 90;
 
 export type ThresholdStatus = "ok" | "warning" | "danger" | "over";
 
-export type TaxThresholdMeter = {
+export type DianTaxThresholdMeter = {
   key: "iva" | "renta";
   label: string;
   description: string;
@@ -44,13 +44,13 @@ export function resolveThresholdStatus(percent: number): ThresholdStatus {
 }
 
 function buildMeter(
-  key: TaxThresholdMeter["key"],
+  key: DianTaxThresholdMeter["key"],
   label: string,
   description: string,
   usedAmount: number,
   limitUvt: number,
   uvt: number,
-): TaxThresholdMeter {
+): DianTaxThresholdMeter {
   const limitAmount = limitUvt * uvt;
   const percent = limitAmount > 0 ? (usedAmount / limitAmount) * 100 : 0;
 
@@ -68,7 +68,7 @@ function buildMeter(
 }
 
 // Calcula ambos medidores (IVA y renta) para un total anual de ventas dado.
-export function computeTaxThresholds(annualSales: number, uvt: number): TaxThresholdMeter[] {
+export function computeDianTaxThresholds(annualSales: number, uvt: number): DianTaxThresholdMeter[] {
   const safeSales = Number.isFinite(annualSales) && annualSales > 0 ? annualSales : 0;
   const safeUvt = Number.isFinite(uvt) && uvt > 0 ? uvt : 0;
 

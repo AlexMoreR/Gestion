@@ -12,6 +12,7 @@ import {
   adminUpdateStorefrontPromoItemsAction,
   adminUpdateWhatsAppPhoneAction,
 } from "@/app/actions/settings-actions";
+import { DianTaxThresholdMeter } from "@/components/admin/dian-tax-threshold-meter";
 import { ConfigTabs } from "@/components/admin/config-tabs";
 import { StorefrontPromoItemsForm } from "@/components/admin/storefront-promo-items-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +22,7 @@ import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { getPublicAssetUrl } from "@/lib/site";
+import { prisma } from "@/lib/prisma";
 import {
   getSystemBrandName,
   getSystemCurrency,
@@ -38,6 +40,18 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+// Año en curso en hora de Colombia (UTC-5) y su rango [from, to) para el
+// acumulado anual de ventas que alimenta el control DIAN del negocio.
+function resolveCurrentYear() {
+  const bogotaNow = new Date(Date.now() - 5 * 60 * 60 * 1000);
+  const year = bogotaNow.getUTCFullYear();
+  return {
+    year,
+    from: new Date(Date.UTC(year, 0, 1)),
+    to: new Date(Date.UTC(year + 1, 0, 1)),
+  };
+}
+
 export default async function AdminConfiguracionNegocioPage({ searchParams }: PageProps) {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") {
@@ -52,6 +66,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
   const params = await searchParams;
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
+  const currentYear = resolveCurrentYear();
 
   const [
     systemCurrency,
@@ -63,6 +78,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
     storefrontHeroDescription,
     storefrontPromoItems,
     dianUvt,
+    annualSalesAgg,
   ] = await Promise.all([
     getSystemCurrency(),
     getSystemPrimaryColor(),
@@ -73,6 +89,14 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
     getSystemStorefrontHeroDescription(),
     getSystemStorefrontPromoItems(),
     getSystemDianUvt(),
+    prisma.sale.aggregate({
+      _sum: { total: true },
+      _count: { _all: true },
+      where: {
+        status: { notIn: ["DRAFT", "CANCELLED"] },
+        createdAt: { gte: currentYear.from, lt: currentYear.to },
+      },
+    }),
   ]);
 
   return (
@@ -80,8 +104,8 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
       <QueryFeedbackToast
         okMessage={okMessage}
         errorMessage={errorMessage}
-        okTitle="Configuracion guardada"
-        errorTitle="Error de configuracion"
+        okTitle="Configuración guardada"
+        errorTitle="Error de configuración"
       />
 
       <ConfigTabs />
@@ -122,7 +146,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
 
           <form action={adminUpdateWhatsAppPhoneAction} className="flex items-end gap-2">
             <label className="flex-1 space-y-1.5">
-              <span className="text-sm font-medium">Numero de WhatsApp</span>
+              <span className="text-sm font-medium">Número de WhatsApp</span>
               <Input name="whatsappPhone" defaultValue={systemWhatsAppPhone} placeholder="+57 300 123 4567" required />
             </label>
             <Button type="submit" size="icon" aria-label="Guardar WhatsApp">
@@ -155,11 +179,11 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
         <CardHeader>
           <CardTitle>Topes tributarios (DIAN)</CardTitle>
           <CardDescription>
-            UVT vigente para calcular los topes de IVA (3.500 UVT) y renta (1.400 UVT) en Balances.
-            La DIAN la actualiza cada anio.
+            UVT vigente para calcular los topes de IVA (3.500 UVT) y renta (1.400 UVT).
+            La DIAN la actualiza cada año.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <form action={adminUpdateDianUvtAction} className="flex items-end gap-2 md:max-w-sm">
             <label className="flex-1 space-y-1.5">
               <span className="text-sm font-medium">Valor de la UVT</span>
@@ -177,13 +201,21 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
               <Save className="h-4 w-4" />
             </Button>
           </form>
+
+          <DianTaxThresholdMeter
+            currency={systemCurrency}
+            annualSales={Number(annualSalesAgg._sum.total ?? 0)}
+            salesCount={annualSalesAgg._count._all}
+            uvt={dianUvt}
+            year={currentYear.year}
+          />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
           <CardTitle>Portada del sitio</CardTitle>
-          <CardDescription>Logo, titulo y descripcion del home publico.</CardDescription>
+          <CardDescription>Logo, título y descripción del home público.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-5 md:grid-cols-[300px_minmax(0,1fr)]">
           <form action={adminUpdateStorefrontLogoAction} className="space-y-3">
@@ -209,7 +241,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
 
           <form action={adminUpdateStorefrontHeroAction} className="space-y-4">
             <label className="block space-y-1.5">
-              <span className="text-sm font-medium">Titulo principal del home</span>
+              <span className="text-sm font-medium">Título principal del home</span>
               <Input
                 name="heroTitle"
                 defaultValue={storefrontHeroTitle}
@@ -219,11 +251,11 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
             </label>
 
             <label className="block space-y-1.5">
-              <span className="text-sm font-medium">Descripcion principal del home</span>
+              <span className="text-sm font-medium">Descripción principal del home</span>
               <Textarea
                 name="heroDescription"
                 defaultValue={storefrontHeroDescription}
-                placeholder="Texto de apoyo que acompana el titulo principal"
+                placeholder="Texto de apoyo que acompaña el título principal"
                 rows={4}
                 required
               />

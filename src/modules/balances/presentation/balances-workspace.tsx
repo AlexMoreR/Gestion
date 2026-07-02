@@ -19,7 +19,6 @@ import { ProfitChart } from "./components/profit-chart";
 import { AccountBalancesTable } from "./components/account-balances-table";
 import { AccountFormDialog } from "./components/account-form-dialog";
 import { MonthFilter } from "./components/month-filter";
-import { TaxThresholdMeter } from "./components/tax-threshold-meter";
 import { ExpensesWorkspace } from "@/modules/expenses/presentation/expenses-workspace";
 
 type SaleOption = {
@@ -47,13 +46,6 @@ type BalancesWorkspaceProps = {
   // Mes seleccionado (YYYY-MM) y su etiqueta legible para el selector.
   monthValue: string;
   monthLabel: string;
-  // Acumulado anual de ventas para el medidor de topes DIAN.
-  taxThresholds: {
-    annualSales: number;
-    salesCount: number;
-    uvt: number;
-    year: number;
-  };
   // Datos del modulo de Gastos, reusados en la pestaña "Gastos".
   expensesData: React.ComponentProps<typeof ExpensesWorkspace>;
 };
@@ -98,7 +90,6 @@ export function BalancesWorkspace({
   accounts,
   monthValue,
   monthLabel,
-  taxThresholds,
   expensesData,
 }: BalancesWorkspaceProps) {
   const [tab, setTab] = React.useState<TabKey>("overview");
@@ -163,14 +154,6 @@ export function BalancesWorkspace({
         )}
 
         {tab === "overview" ? (
-          <>
-          <TaxThresholdMeter
-            currency={currency}
-            annualSales={taxThresholds.annualSales}
-            salesCount={taxThresholds.salesCount}
-            uvt={taxThresholds.uvt}
-            year={taxThresholds.year}
-          />
           <div className="grid gap-4 xl:grid-cols-[1.4fr_0.9fr]">
             <ProfitChart data={profitReport} currency={currency} />
             <div className="space-y-4">
@@ -225,7 +208,6 @@ export function BalancesWorkspace({
               </Card>
             </div>
           </div>
-          </>
         ) : null}
 
         {tab === "reports" ? (

@@ -298,7 +298,6 @@ export async function adminUpdateDianUvtAction(formData: FormData): Promise<void
   await setSystemDianUvt(parsed.data.dianUvt);
 
   revalidatePath("/admin/configuracion/negocio");
-  revalidatePath("/admin/balances");
   redirect("/admin/configuracion/negocio?ok=UVT+actualizada");
 }
 

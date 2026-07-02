@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
-import { getSystemCurrency, getSystemDianUvt } from "@/lib/system-settings";
+import { getSystemCurrency } from "@/lib/system-settings";
 import { prisma } from "@/lib/prisma";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import { createPrismaExpensesRepository } from "@/modules/expenses/infrastructure/prisma-expenses-repository";
@@ -41,18 +41,6 @@ function resolveMonth(monthParam: string | undefined) {
   return { period: { from, to }, value, label };
 }
 
-// Anio en curso en hora de Colombia (UTC-5) y su rango [from, to) para el
-// acumulado anual de ventas que alimenta el medidor de topes DIAN.
-function resolveCurrentYear() {
-  const bogotaNow = new Date(Date.now() - 5 * 60 * 60 * 1000);
-  const year = bogotaNow.getUTCFullYear();
-  return {
-    year,
-    from: new Date(Date.UTC(year, 0, 1)),
-    to: new Date(Date.UTC(year + 1, 0, 1)),
-  };
-}
-
 export default async function AdminBalancesPage({ searchParams }: PageProps) {
   const session = await auth();
   if (session?.user?.role !== "ADMIN" || !session.user.id) {
@@ -72,8 +60,6 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
   const { period, value: monthValue, label: monthLabel } = resolveMonth(
     typeof params.month === "string" ? params.month : undefined,
   );
-  const currentYear = resolveCurrentYear();
-
   // El id del JWT puede apuntar a un usuario que ya no existe; resolvemos un
   // User real antes de sembrar las categorias de gasto por defecto.
   const sessionUser =
@@ -101,8 +87,6 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
     expenseCategoryTotals,
     activeAccounts,
     employees,
-    dianUvt,
-    annualSalesAgg,
   ] = await Promise.all([
     getSystemCurrency(),
     repository.getDashboardMetrics(period),
@@ -135,16 +119,6 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
       orderBy: { name: "asc" },
       select: { id: true, name: true, email: true },
     }),
-    getSystemDianUvt(),
-    // Ventas reales del anio (sin borradores ni canceladas) para el tope DIAN.
-    prisma.sale.aggregate({
-      _sum: { total: true },
-      _count: { _all: true },
-      where: {
-        status: { notIn: ["DRAFT", "CANCELLED"] },
-        createdAt: { gte: currentYear.from, lt: currentYear.to },
-      },
-    }),
   ]);
 
   return (
@@ -166,12 +140,6 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
         accounts={accounts}
         monthValue={monthValue}
         monthLabel={monthLabel}
-        taxThresholds={{
-          annualSales: Number(annualSalesAgg._sum.total ?? 0),
-          salesCount: annualSalesAgg._count._all,
-          uvt: dianUvt,
-          year: currentYear.year,
-        }}
         sales={sales.map((sale) => ({
           id: sale.id,
           code: sale.code,
