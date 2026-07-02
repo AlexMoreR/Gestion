@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
-import { CalendarDays, ClipboardList, FileText, ImagePlus, Plus, Trash2, Wallet } from "lucide-react";
+import { CalendarDays, ClipboardList, ClipboardPlus, FileText, ImagePlus, Plus, Trash2, Wallet } from "lucide-react";
 import {
   adminCreateSupplierChargeAction,
   adminCreateSupplierPaymentsAction,
@@ -16,7 +16,6 @@ import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 
 type LedgerEntry = {
@@ -111,8 +110,8 @@ export function SupplierLedgerForm({
   currency,
   returnTo,
 }: SupplierLedgerFormProps) {
-  const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<"payment" | "charge">("payment");
+  const [movementOpen, setMovementOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
   const [lines, setLines] = useState<PaymentLine[]>([]);
   const [lineDialogOpen, setLineDialogOpen] = useState(false);
   const [lineDraft, setLineDraft] = useState<LineDraft>({ id: null, target: "", amount: "" });
@@ -243,7 +242,7 @@ export function SupplierLedgerForm({
 
   return (
     <div className="space-y-5">
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={movementOpen} onOpenChange={setMovementOpen}>
         <DialogContent className="flex max-h-[92vh] w-full max-w-2xl flex-col gap-0 overflow-hidden p-0">
           <DialogHeader className="shrink-0 border-b px-6 py-4">
             <DialogTitle className="inline-flex items-center gap-2">
@@ -253,75 +252,6 @@ export function SupplierLedgerForm({
           </DialogHeader>
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
-            <Tabs value={mode} onValueChange={(value) => setMode(value as "payment" | "charge")}>
-              <TabsList>
-                <TabsTrigger value="payment">Abono</TabsTrigger>
-                <TabsTrigger value="charge">Cargo manual</TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            {mode === "charge" ? (
-              <form id="supplier-charge-form" action={adminCreateSupplierChargeAction} className="space-y-4">
-                <input type="hidden" name="supplierId" value={supplierId} />
-                <input type="hidden" name="returnTo" value={returnTo} />
-
-                <p className="text-xs text-muted-foreground">
-                  Registra una deuda al proveedor por un servicio o trabajo que no proviene de una orden.
-                </p>
-
-                <div className="flex items-start gap-3 sm:gap-4">
-                  <div className="shrink-0 space-y-1.5">
-                    <label
-                      className="relative flex h-20 w-20 cursor-pointer flex-col items-center justify-center gap-1 overflow-hidden rounded-lg border bg-muted text-muted-foreground transition hover:bg-muted/80 sm:h-24 sm:w-24"
-                      title="Subir comprobante (opcional)"
-                    >
-                      {chargeReceiptPreview ? (
-                        <Image
-                          src={chargeReceiptPreview}
-                          alt="Comprobante"
-                          fill
-                          sizes="(min-width: 640px) 96px, 80px"
-                          className="object-cover"
-                          unoptimized
-                        />
-                      ) : (
-                        <>
-                          <ImagePlus className="size-5" />
-                          <span className="text-center text-[11px] font-medium leading-tight">Foto opcional</span>
-                        </>
-                      )}
-                      <input type="file" name="receipt" accept="image/*,application/pdf" className="hidden" onChange={handleChargeReceiptChange} />
-                    </label>
-                    {chargeReceiptName ? <p className="w-20 truncate text-xs text-muted-foreground sm:w-24">{chargeReceiptName}</p> : null}
-                  </div>
-
-                  <div className="min-w-0 flex-1 space-y-3">
-                    <label className="block space-y-1.5">
-                      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-                        <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                        Fecha del cargo
-                      </span>
-                      <DatePicker name="paymentDate" value={chargeDate} onChange={setChargeDate} required />
-                    </label>
-                    <label className="block space-y-1.5">
-                      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-                        <Wallet className="h-4 w-4 text-muted-foreground" />
-                        Monto
-                      </span>
-                      <MoneyInput value={chargeAmount} onValueChange={setChargeAmount} name="amount" className="text-right" />
-                    </label>
-                  </div>
-                </div>
-
-                <label className="block space-y-1.5">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    Nota
-                  </span>
-                  <Input name="note" value={chargeNote} onChange={(event) => setChargeNote(event.target.value)} placeholder="Detalle del cargo" />
-                </label>
-              </form>
-            ) : (
               <form id="supplier-payment-form" action={adminCreateSupplierPaymentsAction} className="space-y-4">
                 <input type="hidden" name="supplierId" value={supplierId} />
                 <input type="hidden" name="returnTo" value={returnTo} />
@@ -455,24 +385,9 @@ export function SupplierLedgerForm({
                   })}
                 </div>
               </form>
-            )}
           </div>
 
           <div className="shrink-0 space-y-3 border-t bg-card px-6 py-4">
-            {mode === "charge" ? (
-              <>
-                <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2.5">
-                  <span className="text-sm font-medium text-foreground">Total a deber</span>
-                  <span className="text-lg font-bold tracking-tight text-destructive">
-                    {formatMoney(Number(chargeAmount) || 0, currency)}
-                  </span>
-                </div>
-                <Button type="submit" form="supplier-charge-form" className="h-11 w-full text-base" disabled={!canSubmitCharge}>
-                  Registrar cargo
-                </Button>
-              </>
-            ) : (
-              <>
                 <div className="grid gap-2 rounded-lg border bg-muted/30 px-3 py-2.5 sm:grid-cols-3">
                   <div>
                     <p className="text-xs text-muted-foreground">Debe seleccionado</p>
@@ -494,8 +409,92 @@ export function SupplierLedgerForm({
                 <Button type="submit" form="supplier-payment-form" className="h-11 w-full text-base" disabled={!canSubmit}>
                   Registrar pago
                 </Button>
-              </>
-            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={manualOpen} onOpenChange={setManualOpen}>
+        <DialogContent className="flex max-h-[92vh] w-full max-w-lg flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b px-6 py-4">
+            <DialogTitle className="inline-flex items-center gap-2">
+              <ClipboardPlus className="h-4 w-4 text-primary" />
+              <span>Registro manual</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
+            <form id="supplier-charge-form" action={adminCreateSupplierChargeAction} className="space-y-4">
+              <input type="hidden" name="supplierId" value={supplierId} />
+              <input type="hidden" name="returnTo" value={returnTo} />
+
+              <p className="text-xs text-muted-foreground">
+                Registra una deuda al proveedor por un servicio o trabajo que no proviene de una orden.
+              </p>
+
+              <div className="flex items-start gap-3 sm:gap-4">
+                <div className="shrink-0 space-y-1.5">
+                  <label
+                    className="relative flex h-20 w-20 cursor-pointer flex-col items-center justify-center gap-1 overflow-hidden rounded-lg border bg-muted text-muted-foreground transition hover:bg-muted/80 sm:h-24 sm:w-24"
+                    title="Subir comprobante opcional"
+                  >
+                    {chargeReceiptPreview ? (
+                      <Image
+                        src={chargeReceiptPreview}
+                        alt="Comprobante"
+                        fill
+                        sizes="(min-width: 640px) 96px, 80px"
+                        className="object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      <>
+                        <ImagePlus className="size-5" />
+                        <span className="text-center text-[11px] font-medium leading-tight">Foto opcional</span>
+                      </>
+                    )}
+                    <input type="file" name="receipt" accept="image/*,application/pdf" className="hidden" onChange={handleChargeReceiptChange} />
+                  </label>
+                  {chargeReceiptName ? <p className="w-20 truncate text-xs text-muted-foreground sm:w-24">{chargeReceiptName}</p> : null}
+                </div>
+
+                <div className="min-w-0 flex-1 space-y-3">
+                  <label className="block space-y-1.5">
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                      <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                      Fecha del cargo
+                    </span>
+                    <DatePicker name="paymentDate" value={chargeDate} onChange={setChargeDate} required />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                      <Wallet className="h-4 w-4 text-muted-foreground" />
+                      Monto
+                    </span>
+                    <MoneyInput value={chargeAmount} onValueChange={setChargeAmount} name="amount" className="text-right" />
+                  </label>
+                </div>
+              </div>
+
+              <label className="block space-y-1.5">
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  Nota
+                </span>
+                <Input name="note" value={chargeNote} onChange={(event) => setChargeNote(event.target.value)} placeholder="Detalle del cargo" />
+              </label>
+            </form>
+          </div>
+
+          <div className="shrink-0 space-y-3 border-t bg-card px-6 py-4">
+            <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2.5">
+              <span className="text-sm font-medium text-foreground">Total a deber</span>
+              <span className="text-lg font-bold tracking-tight text-destructive">
+                {formatMoney(Number(chargeAmount) || 0, currency)}
+              </span>
+            </div>
+            <Button type="submit" form="supplier-charge-form" className="h-11 w-full text-base" disabled={!canSubmitCharge}>
+              Registrar cargo
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -616,7 +615,8 @@ export function SupplierLedgerForm({
         currency={currency}
         returnTo={returnTo}
         balanceToken={balanceToken}
-        onRegisterMovement={() => setOpen(true)}
+        onRegisterMovement={() => setMovementOpen(true)}
+        onRegisterManual={() => setManualOpen(true)}
       />
     </div>
   );

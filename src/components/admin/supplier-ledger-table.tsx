@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { BarChart3, Eye, MoreHorizontal, Plus, Trash2, X } from "lucide-react";
+import { BarChart3, ClipboardPlus, Eye, Plus, Trash2, X } from "lucide-react";
 import { adminDeleteSupplierPaymentAction } from "@/app/actions/supplier-ledger-actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -59,9 +59,10 @@ type SupplierLedgerTableProps = {
   ledger: SupplierLedgerRow[];
   currency: SupportedCurrencyCode;
   returnTo: string;
-  // Token para "Ver balance" (link publico) y callback de "Registrar movimiento".
+  // Token para "Balance" (link público) y callbacks de registro.
   balanceToken?: string | null;
   onRegisterMovement?: () => void;
+  onRegisterManual?: () => void;
 };
 
 export function SupplierLedgerTable({
@@ -70,6 +71,7 @@ export function SupplierLedgerTable({
   returnTo,
   balanceToken = null,
   onRegisterMovement,
+  onRegisterManual,
 }: SupplierLedgerTableProps) {
   const [fromDate, setFromDate] = React.useState("");
   const [toDate, setToDate] = React.useState("");
@@ -135,12 +137,12 @@ export function SupplierLedgerTable({
         </Button>
       ) : null}
 
-      {/* Menu de acciones (Ver balance / Registrar movimiento) a la derecha del buscador. */}
-      {balanceToken || onRegisterMovement ? (
+      {/* Menú de acciones a la derecha del buscador. */}
+      {balanceToken || onRegisterMovement || onRegisterManual ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button type="button" variant="outline" size="icon" className="h-9 w-9" aria-label="Acciones">
-              <MoreHorizontal className="h-4 w-4" />
+              <Plus className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -148,7 +150,7 @@ export function SupplierLedgerTable({
               <DropdownMenuItem asChild>
                 <a href={`/proveedores/${balanceToken}`} target="_blank" rel="noopener noreferrer">
                   <BarChart3 className="mr-2 h-4 w-4" />
-                  Ver balance
+                  Balance
                 </a>
               </DropdownMenuItem>
             ) : null}
@@ -156,6 +158,12 @@ export function SupplierLedgerTable({
               <DropdownMenuItem onClick={onRegisterMovement}>
                 <Plus className="mr-2 h-4 w-4" />
                 Registrar movimiento
+              </DropdownMenuItem>
+            ) : null}
+            {onRegisterManual ? (
+              <DropdownMenuItem onClick={onRegisterManual}>
+                <ClipboardPlus className="mr-2 h-4 w-4" />
+                Registro manual
               </DropdownMenuItem>
             ) : null}
           </DropdownMenuContent>
@@ -436,4 +444,3 @@ function OrderMovementsModal({
     </div>
   );
 }
-
