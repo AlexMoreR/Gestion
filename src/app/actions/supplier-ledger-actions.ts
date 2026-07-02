@@ -30,7 +30,7 @@ async function saveSupplierPaymentReceipt(file: File): Promise<{ url: string; na
     throw new Error("No se pudo leer el comprobante.");
   }
   if (file.size > RECEIPT_MAX_BYTES) {
-    throw new Error("El comprobante supera el limite de 12 MB.");
+    throw new Error("El comprobante supera el límite de 12 MB.");
   }
   const fromName = path.extname(file.name).toLowerCase();
   const extension =
@@ -55,7 +55,7 @@ async function saveSupplierPaymentReceipt(file: File): Promise<{ url: string; na
 }
 
 const createPaymentSchema = z.object({
-  supplierId: z.string().trim().min(1, "Proveedor invalido"),
+  supplierId: z.string().trim().min(1, "Proveedor inválido"),
   amount: z.coerce.number().positive("El monto debe ser mayor a cero"),
   note: z.string().trim().max(2000, "Nota demasiado larga").optional(),
   accountId: z.string().trim().min(1).optional(),
@@ -96,7 +96,7 @@ export async function adminCreateSupplierPaymentAction(formData: FormData): Prom
   });
 
   if (!parsed.success) {
-    redirect(`${returnTo}?error=Datos+del+abono+invalidos`);
+    redirect(`${returnTo}?error=${encodeURIComponent("Datos del abono inválidos")}`);
   }
 
   const supplier = await prisma.supplier.findUnique({
@@ -166,7 +166,7 @@ export async function adminCreateSupplierPaymentAction(formData: FormData): Prom
   } catch (error) {
     redirect(
       `${returnTo}?error=${encodeURIComponent(
-        error instanceof Error ? error.message : "Comprobante invalido",
+        error instanceof Error ? error.message : "Comprobante inválido",
       )}`,
     );
   }
@@ -188,7 +188,7 @@ export async function adminCreateSupplierPaymentAction(formData: FormData): Prom
   });
 
   // Si el abono cubre el saldo de la orden con este proveedor, marcamos sus
-  // productos como pagados (asi el balance/orden reflejan el pago).
+  // productos como pagados (así el balance/orden reflejan el pago).
   if (orderId) {
     const [chargeAgg, payAgg] = await Promise.all([
       prisma.supplierLedgerEntry.aggregate({
@@ -214,14 +214,14 @@ export async function adminCreateSupplierPaymentAction(formData: FormData): Prom
 }
 
 const createChargeSchema = z.object({
-  supplierId: z.string().trim().min(1, "Proveedor invalido"),
+  supplierId: z.string().trim().min(1, "Proveedor inválido"),
   amount: z.coerce.number().positive("El monto debe ser mayor a cero"),
   note: z.string().trim().max(2000, "Nota demasiado larga").optional(),
   paymentDate: z.coerce.date().optional(),
 });
 
 // Registra un cargo (deuda) manual al proveedor que no proviene de una orden,
-// por ejemplo un servicio o trabajo suelto (tapizado, reparacion, etc.).
+// como un servicio o trabajo suelto (tapizado, reparación, etc.).
 export async function adminCreateSupplierChargeAction(formData: FormData): Promise<void> {
   const createdById = await requireAdminSession();
   const returnTo = getReturnTo(formData, "/admin/proveedores");
@@ -234,7 +234,7 @@ export async function adminCreateSupplierChargeAction(formData: FormData): Promi
   });
 
   if (!parsed.success) {
-    redirect(`${returnTo}?error=Datos+del+cargo+invalidos`);
+    redirect(`${returnTo}?error=${encodeURIComponent("Datos del cargo inválidos")}`);
   }
 
   const supplier = await prisma.supplier.findUnique({
@@ -246,7 +246,7 @@ export async function adminCreateSupplierChargeAction(formData: FormData): Promi
     redirect(`${returnTo}?error=Proveedor+no+encontrado`);
   }
 
-  // El comprobante es opcional para un cargo manual (puede no existir todavia).
+  // El comprobante es opcional para un cargo manual (puede no existir todavía).
   let receipt: { url: string; name: string } | null = null;
   const receiptFile = formData.get("receipt");
   if (receiptFile instanceof File && receiptFile.size > 0) {
@@ -255,7 +255,7 @@ export async function adminCreateSupplierChargeAction(formData: FormData): Promi
     } catch (error) {
       redirect(
         `${returnTo}?error=${encodeURIComponent(
-          error instanceof Error ? error.message : "Comprobante invalido",
+          error instanceof Error ? error.message : "Comprobante inválido",
         )}`,
       );
     }
@@ -285,7 +285,7 @@ export async function adminDeleteSupplierPaymentAction(formData: FormData): Prom
 
   const paymentId = formData.get("paymentId");
   if (typeof paymentId !== "string" || !paymentId.trim()) {
-    redirect(`${returnTo}?error=Movimiento+invalido`);
+    redirect(`${returnTo}?error=${encodeURIComponent("Movimiento inválido")}`);
   }
 
   const entry = await prisma.supplierLedgerEntry.findUnique({
@@ -296,7 +296,7 @@ export async function adminDeleteSupplierPaymentAction(formData: FormData): Prom
     redirect(`${returnTo}?error=Movimiento+no+encontrado`);
   }
   // Se pueden eliminar abonos (pagos) y cargos manuales (sin orden ligada).
-  // Los cargos generados por una orden no se pueden borrar aqui.
+  // Los cargos generados por una orden no se pueden borrar aquí.
   if (entry.type === "CHARGE" && entry.orderId) {
     redirect(`${returnTo}?error=${encodeURIComponent("No se puede eliminar un cargo ligado a una orden")}`);
   }
@@ -304,8 +304,8 @@ export async function adminDeleteSupplierPaymentAction(formData: FormData): Prom
   await prisma.supplierLedgerEntry.delete({ where: { id: entry.id } });
 
   // Si el abono estaba ligado a una orden y al eliminarlo queda saldo pendiente,
-  // revertimos a "pendiente" los productos que se habian marcado pagados por este abono
-  // (no los que tienen un pago propio a nivel de item).
+  // revertimos a "pendiente" los productos que se habían marcado pagados por este abono
+  // (no los que tienen un pago propio a nivel de ítem).
   if (entry.orderId) {
     const [chargeAgg, payAgg] = await Promise.all([
       prisma.supplierLedgerEntry.aggregate({
@@ -345,14 +345,14 @@ export async function adminDeleteSupplierPaymentAction(formData: FormData): Prom
   redirect(`${returnTo}?ok=Abono+eliminado`);
 }
 
-// Registra un pago grande repartido en varias ordenes (o abono general).
+// Registra un pago grande repartido en varias órdenes (o abono general).
 export async function adminCreateSupplierPaymentsAction(formData: FormData): Promise<void> {
   const createdById = await requireAdminSession();
   const returnTo = getReturnTo(formData, "/admin/proveedores");
 
   const supplierId = formData.get("supplierId");
   if (typeof supplierId !== "string" || !supplierId.trim()) {
-    redirect(`${returnTo}?error=Proveedor+invalido`);
+    redirect(`${returnTo}?error=${encodeURIComponent("Proveedor inválido")}`);
   }
 
   const supplier = await prisma.supplier.findUnique({
@@ -363,7 +363,7 @@ export async function adminCreateSupplierPaymentsAction(formData: FormData): Pro
     redirect(`${returnTo}?error=Proveedor+no+encontrado`);
   }
 
-  // Lineas: targets[] + amounts[] en el mismo orden. target = "" (abono general)
+  // Líneas: targets[] + amounts[] en el mismo orden. target = "" (abono general)
   // | "order:<id>" | "charge:<id>".
   const rawTargets = formData.getAll("targets").map((value) => String(value).trim());
   const rawAmounts = formData.getAll("amounts").map((value) => Number(String(value).replace(/\D/g, "")));
@@ -373,6 +373,15 @@ export async function adminCreateSupplierPaymentsAction(formData: FormData): Pro
 
   if (allocations.length === 0) {
     redirect(`${returnTo}?error=${encodeURIComponent("Agrega al menos una línea con monto")}`);
+  }
+
+  const usedTargets = new Set<string>();
+  for (const line of allocations) {
+    if (!line.target) continue;
+    if (usedTargets.has(line.target)) {
+      redirect(`${returnTo}?error=${encodeURIComponent("No repitas la misma orden o cargo en el abono")}`);
+    }
+    usedTargets.add(line.target);
   }
 
   let accountId: string | null = null;
@@ -386,6 +395,9 @@ export async function adminCreateSupplierPaymentsAction(formData: FormData): Pro
       redirect(`${returnTo}?error=Cuenta+no+encontrada`);
     }
     accountId = account.id;
+  }
+  if (!accountId) {
+    redirect(`${returnTo}?error=${encodeURIComponent("Selecciona la cuenta desde donde sale el dinero")}`);
   }
 
   const note = typeof formData.get("note") === "string" ? String(formData.get("note")).trim() : "";
@@ -401,34 +413,100 @@ export async function adminCreateSupplierPaymentsAction(formData: FormData): Pro
   try {
     receipt = await saveSupplierPaymentReceipt(receiptFile as File);
   } catch (error) {
-    redirect(`${returnTo}?error=${encodeURIComponent(error instanceof Error ? error.message : "Comprobante invalido")}`);
+    redirect(`${returnTo}?error=${encodeURIComponent(error instanceof Error ? error.message : "Comprobante inválido")}`);
   }
+
+  type PreparedAllocation = {
+    amount: number;
+    orderId: string | null;
+    saleId: string | null;
+    settlesEntryId: string | null;
+  };
+
+  const preparedAllocations: PreparedAllocation[] = [];
 
   for (const line of allocations) {
     let orderId: string | null = null;
     let saleId: string | null = null;
     let settlesEntryId: string | null = null;
 
+    if (!line.target) {
+      preparedAllocations.push({ amount: line.amount, orderId, saleId, settlesEntryId });
+      continue;
+    }
+
     if (line.target.startsWith("order:")) {
       const order = await prisma.order.findUnique({
         where: { id: line.target.slice("order:".length) },
-        select: { id: true, saleId: true },
+        select: { id: true, code: true, saleId: true },
       });
-      if (order) {
-        orderId = order.id;
-        saleId = order.saleId;
+      if (!order) {
+        redirect(`${returnTo}?error=${encodeURIComponent("La orden seleccionada ya no existe")}`);
+      }
+      orderId = order.id;
+      saleId = order.saleId;
+
+      const [charges, payments] = await Promise.all([
+        prisma.supplierLedgerEntry.aggregate({
+          _sum: { amount: true },
+          where: { orderId: order.id, supplierId: supplier.id, type: "CHARGE" },
+        }),
+        prisma.supplierLedgerEntry.aggregate({
+          _sum: { amount: true },
+          where: { orderId: order.id, supplierId: supplier.id, type: "PAYMENT" },
+        }),
+      ]);
+      const pending = Number(charges._sum.amount ?? 0) - Number(payments._sum.amount ?? 0);
+      if (pending <= 0.0001) {
+        redirect(`${returnTo}?error=${encodeURIComponent(`La orden ${order.code} ya no tiene saldo pendiente`)}`);
+      }
+      if (line.amount > pending + 0.5) {
+        redirect(
+          `${returnTo}?error=${encodeURIComponent(
+            `El abono para ${order.code} supera el saldo pendiente (${pending.toLocaleString("es-CO")})`,
+          )}`,
+        );
       }
     } else if (line.target.startsWith("charge:")) {
       // Abono que salda un cargo de inventario/manual específico.
       const charge = await prisma.supplierLedgerEntry.findFirst({
         where: { id: line.target.slice("charge:".length), supplierId: supplier.id, type: "CHARGE" },
-        select: { id: true },
+        select: { id: true, amount: true, code: true, note: true, orderId: true, inventoryMovementId: true },
       });
-      if (charge) {
-        settlesEntryId = charge.id;
+      if (!charge || charge.orderId) {
+        redirect(`${returnTo}?error=${encodeURIComponent("El cargo seleccionado ya no está disponible")}`);
       }
+      settlesEntryId = charge.id;
+
+      const paid = await prisma.supplierLedgerEntry.aggregate({
+        _sum: { amount: true },
+        where: { supplierId: supplier.id, type: "PAYMENT", settlesEntryId: charge.id },
+      });
+      const pending = Number(charge.amount) - Number(paid._sum.amount ?? 0);
+      const label =
+        charge.code ??
+        (charge.inventoryMovementId || charge.note?.startsWith("Compra inventario") ? "Inventario" : "Cargo manual");
+
+      if (pending <= 0.0001) {
+        redirect(`${returnTo}?error=${encodeURIComponent(`${label} ya no tiene saldo pendiente`)}`);
+      }
+      if (line.amount > pending + 0.5) {
+        redirect(
+          `${returnTo}?error=${encodeURIComponent(
+            `El abono para ${label} supera el saldo pendiente (${pending.toLocaleString("es-CO")})`,
+          )}`,
+        );
+      }
+    } else {
+      redirect(`${returnTo}?error=${encodeURIComponent("Selecciona una orden o cargo válido")}`);
     }
 
+    preparedAllocations.push({ amount: line.amount, orderId, saleId, settlesEntryId });
+  }
+
+  const affectedOrderIds = new Set<string>();
+
+  for (const line of preparedAllocations) {
     await prisma.supplierLedgerEntry.create({
       data: {
         supplierId: supplier.id,
@@ -436,9 +514,9 @@ export async function adminCreateSupplierPaymentsAction(formData: FormData): Pro
         amount: line.amount,
         note: note || null,
         accountId,
-        orderId,
-        saleId,
-        settlesEntryId,
+        orderId: line.orderId,
+        saleId: line.saleId,
+        settlesEntryId: line.settlesEntryId,
         receiptUrl: receipt?.url ?? null,
         receiptName: receipt?.name ?? null,
         paymentDate,
@@ -446,24 +524,28 @@ export async function adminCreateSupplierPaymentsAction(formData: FormData): Pro
       },
     });
 
-    if (orderId) {
-      const [chargeAgg, payAgg] = await Promise.all([
-        prisma.supplierLedgerEntry.aggregate({
-          _sum: { amount: true },
-          where: { orderId, supplierId: supplier.id, type: "CHARGE" },
-        }),
-        prisma.supplierLedgerEntry.aggregate({
-          _sum: { amount: true },
-          where: { orderId, supplierId: supplier.id, type: "PAYMENT" },
-        }),
-      ]);
-      const pending = Number(chargeAgg._sum.amount ?? 0) - Number(payAgg._sum.amount ?? 0);
-      if (pending <= 0.0001) {
-        await prisma.orderItem.updateMany({
-          where: { orderId, confirmedSupplierId: supplier.id },
-          data: { supplierPaymentStatus: "PAID" },
-        });
-      }
+    if (line.orderId) {
+      affectedOrderIds.add(line.orderId);
+    }
+  }
+
+  for (const orderId of affectedOrderIds) {
+    const [chargeAgg, payAgg] = await Promise.all([
+      prisma.supplierLedgerEntry.aggregate({
+        _sum: { amount: true },
+        where: { orderId, supplierId: supplier.id, type: "CHARGE" },
+      }),
+      prisma.supplierLedgerEntry.aggregate({
+        _sum: { amount: true },
+        where: { orderId, supplierId: supplier.id, type: "PAYMENT" },
+      }),
+    ]);
+    const pending = Number(chargeAgg._sum.amount ?? 0) - Number(payAgg._sum.amount ?? 0);
+    if (pending <= 0.0001) {
+      await prisma.orderItem.updateMany({
+        where: { orderId, confirmedSupplierId: supplier.id },
+        data: { supplierPaymentStatus: "PAID" },
+      });
     }
   }
 
