@@ -75,6 +75,7 @@ export function SupplierLedgerTable({
 }: SupplierLedgerTableProps) {
   const [fromDate, setFromDate] = React.useState("");
   const [toDate, setToDate] = React.useState("");
+  const [search, setSearch] = React.useState("");
   const [viewerUrl, setViewerUrl] = React.useState<string | null>(null);
   // Orden seleccionada para ver todos sus movimientos en un modal.
   const [detailOrder, setDetailOrder] = React.useState<string | null>(null);
@@ -98,15 +99,21 @@ export function SupplierLedgerTable({
     setToDate(to);
   }, []);
 
-  // Ordena por fecha de mayor a menor (mas reciente primero) y filtra por rango.
-  const sortedLedger = [...ledger]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .filter((entry) => {
-      const day = localDay(entry.createdAt);
-      if (fromDate && day < fromDate) return false;
-      if (toDate && day > toDate) return false;
-      return true;
-    });
+  // Ordena por fecha de mayor a menor (mas reciente primero).
+  const sortedLedger = [...ledger].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+
+  // Al buscar se ignora el filtro de fecha para poder encontrar cualquier
+  // movimiento (p. ej. una orden de otro mes); sin busqueda, se filtra por rango.
+  const gridData = search.trim()
+    ? sortedLedger
+    : sortedLedger.filter((entry) => {
+        const day = localDay(entry.createdAt);
+        if (fromDate && day < fromDate) return false;
+        if (toDate && day > toDate) return false;
+        return true;
+      });
 
   const dateFilter = (
     <div className="flex items-center gap-1.5">
@@ -183,7 +190,10 @@ export function SupplierLedgerTable({
       ),
     },
     {
-      accessorKey: "type",
+      id: "type",
+      // Incluye el codigo de orden/cargo en el valor para que el buscador lo
+      // encuentre (los abonos no lo muestran en el detalle).
+      accessorFn: (row) => `${row.type === "CHARGE" ? "Cargo" : "Abono"} ${row.orderCode ?? row.code ?? ""}`,
       header: "Tipo",
       cell: ({ row }) => {
         const entry = row.original;
@@ -317,13 +327,14 @@ export function SupplierLedgerTable({
       <InventoryDataGrid
         title="Movimientos"
         description="Cargos y abonos de la cuenta del proveedor."
-        data={sortedLedger}
+        data={gridData}
         columns={columns}
         searchPlaceholder="Buscar movimiento"
         emptyMessage="Sin movimientos registrados."
         pageSize={12}
         toolbar={dateFilter}
         searchFirst
+        onSearchChange={setSearch}
         onRowClick={(row) => {
           // Solo los movimientos ligados a una orden abren el detalle.
           if (row.orderCode) setDetailOrder(row.orderCode);

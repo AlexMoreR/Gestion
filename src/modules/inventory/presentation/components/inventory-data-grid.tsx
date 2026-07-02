@@ -14,6 +14,7 @@ type InventoryDataGridProps<TData> = {
   pageSize?: number;
   toolbar?: React.ReactNode;
   searchFirst?: boolean;
+  onSearchChange?: (value: string) => void;
   onRowClick?: (row: TData) => void;
   getRowDate?: (row: TData) => string | null | undefined;
   initialDateFrom?: string;
