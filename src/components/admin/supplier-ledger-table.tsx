@@ -346,6 +346,7 @@ export function SupplierLedgerTable({
         entries={detailEntries}
         currency={currency}
         onClose={() => setDetailOrder(null)}
+        onViewReceipt={(url) => setViewerUrl(url)}
       />
     </>
   );
@@ -357,11 +358,13 @@ function OrderMovementsModal({
   entries,
   currency,
   onClose,
+  onViewReceipt,
 }: {
   orderCode: string | null;
   entries: SupplierLedgerRow[];
   currency: SupportedCurrencyCode;
   onClose: () => void;
+  onViewReceipt: (url: string) => void;
 }) {
   React.useEffect(() => {
     if (!orderCode) return;
@@ -405,36 +408,52 @@ function OrderMovementsModal({
         </div>
 
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-          {entries.map((entry) => (
-            <div key={entry.id} className="rounded-xl border border-border bg-background p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 space-y-1">
-                  <Badge
-                    variant="outline"
-                    className={
-                      entry.type === "CHARGE"
-                        ? "border-destructive/30 bg-destructive/15 text-destructive"
-                        : "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                    }
+          {entries.map((entry) => {
+            const receiptUrl = entry.receiptUrl;
+            return (
+              <div
+                key={entry.id}
+                className={`rounded-xl border border-border bg-background p-3 ${
+                  receiptUrl ? "cursor-pointer transition hover:border-primary/40 hover:bg-muted/40" : ""
+                }`}
+                role={receiptUrl ? "button" : undefined}
+                onClick={receiptUrl ? () => onViewReceipt(receiptUrl) : undefined}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-1">
+                    <Badge
+                      variant="outline"
+                      className={
+                        entry.type === "CHARGE"
+                          ? "border-destructive/30 bg-destructive/15 text-destructive"
+                          : "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                      }
+                    >
+                      {entry.type === "CHARGE" ? "Cargo" : "Abono"}
+                    </Badge>
+                    <p className="truncate text-sm text-foreground">{entry.note ?? "-"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(entry.createdAt).toLocaleDateString("es-CO")}
+                      {entry.createdByName ? ` · ${entry.createdByName}` : ""}
+                      {entry.accountName ? ` · ${entry.accountName}` : ""}
+                    </p>
+                    {receiptUrl ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+                        <Eye className="h-3.5 w-3.5" />
+                        Ver comprobante
+                      </span>
+                    ) : null}
+                  </div>
+                  <span
+                    className={`shrink-0 text-sm font-semibold ${entry.type === "CHARGE" ? "text-red-600" : "text-emerald-600"}`}
                   >
-                    {entry.type === "CHARGE" ? "Cargo" : "Abono"}
-                  </Badge>
-                  <p className="truncate text-sm text-foreground">{entry.note ?? "-"}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(entry.createdAt).toLocaleDateString("es-CO")}
-                    {entry.createdByName ? ` · ${entry.createdByName}` : ""}
-                    {entry.accountName ? ` · ${entry.accountName}` : ""}
-                  </p>
+                    {entry.type === "CHARGE" ? "+" : "-"}
+                    {formatMoney(entry.amount, currency)}
+                  </span>
                 </div>
-                <span
-                  className={`shrink-0 text-sm font-semibold ${entry.type === "CHARGE" ? "text-red-600" : "text-emerald-600"}`}
-                >
-                  {entry.type === "CHARGE" ? "+" : "-"}
-                  {formatMoney(entry.amount, currency)}
-                </span>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="grid grid-cols-3 gap-2 border-t border-border bg-muted/30 px-4 py-3 text-center">
