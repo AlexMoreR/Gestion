@@ -356,7 +356,6 @@ export function SupplierLedgerForm({
 
                   {lineSummaries.map((line, index) => {
                     const usedTargets = new Set(lines.filter((item) => item.id !== line.id && item.target).map((item) => item.target));
-                    const remaining = line.remaining === null ? null : Math.max(0, line.remaining);
 
                     return (
                       <div key={line.id} className="space-y-3 rounded-lg border bg-background p-3">
@@ -445,31 +444,12 @@ export function SupplierLedgerForm({
                           </div>
                         </div>
 
-                        {line.target ? (
-                          <div className="grid gap-2 rounded-lg border bg-muted/30 p-2 text-xs sm:grid-cols-3">
-                            <div>
-                              <p className="text-muted-foreground">Debe</p>
-                              <p className="font-semibold text-foreground">{formatMoney(line.target.pending, currency)}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">Abona</p>
-                              <p className={line.exceedsPending ? "font-semibold text-destructive" : "font-semibold text-foreground"}>
-                                {formatMoney(line.amount, currency)}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">Queda</p>
-                              <p className={line.exceedsPending ? "font-semibold text-destructive" : "font-semibold text-foreground"}>
-                                {formatMoney(remaining ?? 0, currency)}
-                              </p>
-                            </div>
-                          </div>
-                        ) : (
+                        {!line.target ? (
                           <div className="flex items-center justify-between gap-2 rounded-lg border border-dashed bg-muted/20 p-2 text-xs text-muted-foreground">
                             <span>Abono general sin orden o cargo específico.</span>
                             <Badge variant="outline">Línea {index + 1}</Badge>
                           </div>
-                        )}
+                        ) : null}
 
                         {line.exceedsPending ? <p className="text-xs text-destructive">El abono supera el saldo pendiente de esta línea.</p> : null}
                         {line.staleTarget ? <p className="text-xs text-destructive">Esta orden o cargo ya no está disponible.</p> : null}

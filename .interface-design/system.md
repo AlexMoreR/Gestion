@@ -29,7 +29,7 @@ Esta guía guarda decisiones de diseño para mantener la aplicación consistente
 
 ## Proveedores
 
-- En abonos a proveedores, mostrar claramente: `Debe`, `Abona` y `Queda`.
+- En abonos a proveedores, mostrar `Debe`, `Abona` y `Queda` solo en el resumen inferior del modal, no dentro de cada card de línea.
 - Permitir seleccionar orden o cargo antes de abonar.
 - Bloquear visualmente y validar en servidor cuando el abono supera el saldo pendiente.
 - Mantener la opción de abono general, pero dejar claro que no está ligado a una orden.
