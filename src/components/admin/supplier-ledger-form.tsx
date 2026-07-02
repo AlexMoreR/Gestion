@@ -519,8 +519,6 @@ export function SupplierLedgerForm({
                     </p>
                   </div>
                 </div>
-                {!ledgerReceiptName ? <p className="text-xs text-muted-foreground">Adjunta el comprobante para registrar el abono.</p> : null}
-                {!accountId ? <p className="text-xs text-muted-foreground">Selecciona la cuenta desde donde sale el dinero.</p> : null}
                 <Button type="submit" form="supplier-payment-form" className="h-11 w-full text-base" disabled={!canSubmit}>
                   Registrar pago
                 </Button>

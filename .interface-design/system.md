@@ -33,6 +33,7 @@ Esta guía guarda decisiones de diseño para mantener la aplicación consistente
 - Permitir seleccionar orden o cargo antes de abonar.
 - Bloquear visualmente y validar en servidor cuando el abono supera el saldo pendiente.
 - Mantener la opción de abono general, pero dejar claro que no está ligado a una orden.
+- No mostrar avisos inferiores redundantes como `Adjunta el comprobante` o `Selecciona la cuenta`; el botón deshabilitado y los campos ya comunican el estado.
 
 ## DIAN
 
