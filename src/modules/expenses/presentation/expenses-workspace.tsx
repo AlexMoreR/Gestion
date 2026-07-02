@@ -7,7 +7,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type {
-  ExpenseCategoryTotal,
   ExpenseCategoryWithUsage,
   ExpenseMetrics,
   ExpenseRow,
@@ -41,7 +40,6 @@ type ExpensesWorkspaceProps = {
   metrics: ExpenseMetrics;
   expenses: ExpenseRow[];
   categories: ExpenseCategoryWithUsage[];
-  categoryTotals: ExpenseCategoryTotal[];
   accounts: AccountOption[];
   employees: EmployeeOption[];
   /**
@@ -52,6 +50,21 @@ type ExpensesWorkspaceProps = {
 };
 
 type TabKey = "gastos" | "categorias";
+
+// Primer y ultimo dia del mes en curso (YYYY-MM-DD), en hora de Colombia
+// (UTC-5) para que la noche del ultimo dia no salte al mes siguiente.
+function currentMonthRange(): { from: string; to: string } {
+  const now = new Date();
+  const bogotaNow = new Date(now.getTime() - 5 * 60 * 60 * 1000);
+  const year = bogotaNow.getUTCFullYear();
+  const month = bogotaNow.getUTCMonth();
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return {
+    from: `${year}-${pad(month + 1)}-01`,
+    to: `${year}-${pad(month + 1)}-${pad(lastDay)}`,
+  };
+}
 
 function MetricCard({
   title,
@@ -89,7 +102,6 @@ export function ExpensesWorkspace({
   metrics,
   expenses,
   categories,
-  categoryTotals,
   accounts,
   employees,
   embedded = false,
@@ -108,12 +120,44 @@ export function ExpensesWorkspace({
   const [pendingExpenseDelete, setPendingExpenseDelete] = React.useState<ExpenseRow | null>(null);
   const [pendingCategoryDelete, setPendingCategoryDelete] = React.useState<ExpenseCategoryWithUsage | null>(null);
 
+  // Rango de fechas: en modo standalone arranca en el mes en curso; embebido
+  // (Balances) no filtra en cliente porque los datos ya vienen por periodo.
+  const [fromDate, setFromDate] = React.useState(() => (embedded ? "" : currentMonthRange().from));
+  const [toDate, setToDate] = React.useState(() => (embedded ? "" : currentMonthRange().to));
+
   const actionsReturnTo = "/admin/gastos";
   const categoryOptions = React.useMemo(
     () => categories.filter((category) => category.isActive).map((category) => ({ id: category.id, name: category.name })),
     [categories],
   );
-  const maxCategoryTotal = categoryTotals[0]?.totalAmount ?? 0;
+
+  // Gastos dentro del rango seleccionado (la fecha es un dia UTC).
+  const filteredExpenses = React.useMemo(
+    () =>
+      expenses.filter((expense) => {
+        const day = new Date(expense.expenseDate).toISOString().slice(0, 10);
+        if (fromDate && day < fromDate) return false;
+        if (toDate && day > toDate) return false;
+        return true;
+      }),
+    [expenses, fromDate, toDate],
+  );
+
+  // "Gasto por categoria" calculado desde los gastos ya filtrados, para que
+  // refleje el mes en curso por defecto y cambie con el filtro de fechas.
+  const categoryBreakdown = React.useMemo(() => {
+    const totals = new Map<string, { categoryId: string; categoryName: string; totalAmount: number }>();
+    for (const expense of filteredExpenses) {
+      const current =
+        totals.get(expense.categoryId) ??
+        { categoryId: expense.categoryId, categoryName: expense.categoryName, totalAmount: 0 };
+      current.totalAmount += expense.amount;
+      totals.set(expense.categoryId, current);
+    }
+    return [...totals.values()].sort((a, b) => b.totalAmount - a.totalAmount);
+  }, [filteredExpenses]);
+
+  const maxCategoryTotal = categoryBreakdown[0]?.totalAmount ?? 0;
 
   return (
     <>
@@ -186,9 +230,14 @@ export function ExpensesWorkspace({
         {tab === "gastos" ? (
           <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(15rem,0.7fr)]">
             <ExpensesTable
-              data={expenses}
+              data={filteredExpenses}
               currency={currency}
-              defaultCurrentMonth={!embedded}
+              fromDate={fromDate}
+              toDate={toDate}
+              onDateChange={(range) => {
+                setFromDate(range.from);
+                setToDate(range.to);
+              }}
               onEdit={(expenseId) => {
                 const expense = expenses.find((row) => row.id === expenseId);
                 if (expense) {
@@ -207,12 +256,13 @@ export function ExpensesWorkspace({
               <CardContent className="space-y-3 p-4">
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">Gasto por categoria</h3>
+                  <p className="text-xs text-muted-foreground">Segun el rango de fechas seleccionado.</p>
                 </div>
                 <div className="space-y-2">
-                  {categoryTotals.length === 0 ? (
+                  {categoryBreakdown.length === 0 ? (
                     <p className="text-sm text-muted-foreground">Sin datos suficientes.</p>
                   ) : (
-                    categoryTotals.map((item) => (
+                    categoryBreakdown.map((item) => (
                       <div key={item.categoryId} className="space-y-1">
                         <div className="flex items-center justify-between gap-3">
                           <span className="min-w-0 truncate text-sm font-medium text-foreground">{item.categoryName}</span>

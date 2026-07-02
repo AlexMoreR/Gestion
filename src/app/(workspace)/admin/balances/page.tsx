@@ -84,7 +84,6 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
     expenseMetrics,
     expenses,
     expenseCategories,
-    expenseCategoryTotals,
     activeAccounts,
     employees,
   ] = await Promise.all([
@@ -112,7 +111,6 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
     expensesRepository.getMetrics(period),
     expensesRepository.listExpenses(period),
     expensesRepository.listCategories(),
-    expensesRepository.listCategoryTotals(period),
     repository.listAccounts({ activeOnly: true }),
     prisma.user.findMany({
       where: { role: { in: ["ADMIN", "EMPLEADO"] } },
@@ -152,7 +150,6 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
           metrics: expenseMetrics,
           expenses,
           categories: expenseCategories,
-          categoryTotals: expenseCategoryTotals,
           accounts: activeAccounts.map((account) => ({
             id: account.id,
             name: account.name,

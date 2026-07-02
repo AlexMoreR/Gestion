@@ -43,12 +43,11 @@ export default async function AdminExpensesPage({ searchParams }: PageProps) {
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
-  const [currency, metrics, expenses, categories, categoryTotals, accounts, employees] = await Promise.all([
+  const [currency, metrics, expenses, categories, accounts, employees] = await Promise.all([
     getSystemCurrency(),
     expensesRepository.getMetrics(),
     expensesRepository.listExpenses(),
     expensesRepository.listCategories(),
-    expensesRepository.listCategoryTotals(),
     balancesRepository.listAccounts({ activeOnly: true }),
     prisma.user.findMany({
       where: { role: { in: ["ADMIN", "EMPLEADO"] } },
@@ -71,7 +70,6 @@ export default async function AdminExpensesPage({ searchParams }: PageProps) {
         metrics={metrics}
         expenses={expenses}
         categories={categories}
-        categoryTotals={categoryTotals}
         accounts={accounts.map((account) => ({
           id: account.id,
           name: account.name,

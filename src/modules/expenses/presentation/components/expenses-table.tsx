@@ -21,8 +21,11 @@ type ExpensesTableProps = {
   currency: SupportedCurrencyCode;
   onEdit: (expenseId: string) => void;
   onDelete: (expenseId: string) => void;
-  // Si es true, el rango de fechas arranca filtrado al mes en curso.
-  defaultCurrentMonth?: boolean;
+  // Rango de fechas controlado por el contenedor, para sincronizar la tabla con
+  // el panel "Gasto por categoria". La data ya llega filtrada.
+  fromDate: string;
+  toDate: string;
+  onDateChange: (range: { from: string; to: string }) => void;
 };
 
 // La fecha del gasto es un dia de calendario guardado como medianoche UTC; se
@@ -36,50 +39,16 @@ function formatDate(value: Date): string {
   });
 }
 
-// Dia (YYYY-MM-DD) en UTC para comparar con el DateRangePicker.
-function utcDay(value: Date | string): string {
-  return new Date(value).toISOString().slice(0, 10);
-}
-
-// Primer y ultimo dia del mes en curso, en formato YYYY-MM-DD. Se calcula en
-// hora de Colombia (UTC-5) para que la noche del ultimo dia del mes no salte al
-// mes siguiente (como pasaria usando UTC directo).
-function currentMonthRange(): { from: string; to: string } {
-  const now = new Date();
-  const bogotaNow = new Date(now.getTime() - 5 * 60 * 60 * 1000);
-  const year = bogotaNow.getUTCFullYear();
-  const month = bogotaNow.getUTCMonth();
-  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return {
-    from: `${year}-${pad(month + 1)}-01`,
-    to: `${year}-${pad(month + 1)}-${pad(lastDay)}`,
-  };
-}
-
-export function ExpensesTable({ data, currency, onEdit, onDelete, defaultCurrentMonth = false }: ExpensesTableProps) {
-  const initialRange = defaultCurrentMonth ? currentMonthRange() : { from: "", to: "" };
-  const [fromDate, setFromDate] = React.useState(initialRange.from);
-  const [toDate, setToDate] = React.useState(initialRange.to);
+export function ExpensesTable({ data, currency, onEdit, onDelete, fromDate, toDate, onDateChange }: ExpensesTableProps) {
   const [actionsRow, setActionsRow] = React.useState<ExpenseRow | null>(null);
   const [receiptUrl, setReceiptUrl] = React.useState<string | null>(null);
-
-  const filtered = data.filter((expense) => {
-    const day = utcDay(expense.expenseDate);
-    if (fromDate && day < fromDate) return false;
-    if (toDate && day > toDate) return false;
-    return true;
-  });
 
   const dateFilter = (
     <div className="flex items-center gap-1.5">
       <DateRangePicker
         from={fromDate}
         to={toDate}
-        onChange={(range) => {
-          setFromDate(range.from);
-          setToDate(range.to);
-        }}
+        onChange={onDateChange}
         aria-label="Rango de fechas"
         className="sm:w-64"
         placeholder="Rango de fechas"
@@ -89,10 +58,7 @@ export function ExpensesTable({ data, currency, onEdit, onDelete, defaultCurrent
           type="button"
           variant="ghost"
           size="icon-sm"
-          onClick={() => {
-            setFromDate("");
-            setToDate("");
-          }}
+          onClick={() => onDateChange({ from: "", to: "" })}
           aria-label="Limpiar fechas"
           title="Limpiar fechas"
         >
@@ -147,7 +113,7 @@ export function ExpensesTable({ data, currency, onEdit, onDelete, defaultCurrent
   return (
     <>
       <ExpensesDataGrid
-        data={filtered}
+        data={data}
         columns={columns}
         searchPlaceholder="Buscar gasto"
         emptyMessage="Aun no hay gastos. Registra el primero con 'Nuevo gasto'."
