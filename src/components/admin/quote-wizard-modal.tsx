@@ -933,7 +933,6 @@ export function QuoteWizardModal({
                     onChange={(event) => applyWholesaleMode(event.target.checked)}
                   />
                   <span className="font-medium text-foreground">Precios al por mayor</span>
-                  <span className="text-xs text-muted-foreground">Usa el precio mayorista de cada producto.</span>
                 </label>
 
                 <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
