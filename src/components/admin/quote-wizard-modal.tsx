@@ -27,6 +27,7 @@ import {
   adminUploadQuoteImageAction,
 } from "@/app/actions/quote-actions";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ProductThumb } from "@/components/admin/product-thumb";
 import { expandComboLines, type ComboComponent } from "@/lib/combo";
@@ -1373,36 +1374,16 @@ export function QuoteWizardModal({
         </div>
       </div>
 
-      {openProductModal ? (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-3 backdrop-blur-[1px]"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Agregar producto"
-          onClick={() => setOpenProductModal(false)}
-        >
-          <div
-            className="w-full max-w-3xl rounded-2xl border border-border bg-card p-4 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <h3 className="inline-flex items-center gap-2 text-base font-semibold text-foreground">
-                  <Boxes className="h-4 w-4 text-muted-foreground" />
-                  <span>Agregar producto</span>
-                </h3>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => setOpenProductModal(false)}
-                aria-label="Cerrar modal de producto"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+      <Dialog open={openProductModal} onOpenChange={setOpenProductModal}>
+        <DialogContent className="flex max-h-[92vh] w-full max-w-3xl flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b px-6 py-4">
+            <DialogTitle className="inline-flex items-center gap-2">
+              <Boxes className="h-4 w-4 text-muted-foreground" />
+              <span>Agregar producto</span>
+            </DialogTitle>
+          </DialogHeader>
 
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
             {!draftProductId ? (
               <div className="space-y-3">
                 <div className="relative">
@@ -1640,26 +1621,30 @@ export function QuoteWizardModal({
                   </p>
                 ) : null}
 
-                <div className="mt-3 flex items-center justify-between rounded-xl border border-[var(--primary)]/20 bg-[var(--primary)]/5 px-4 py-3">
-                  <span className="text-sm font-semibold text-foreground">Total a pagar</span>
-                  <span className="text-xl font-bold text-[var(--primary)]">
-                    {draftLineTotal.toLocaleString("es-CO", { style: "currency", currency })}
-                  </span>
-                </div>
-
-                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
-                  <Button type="button" variant="outline" size="lg" onClick={() => setOpenProductModal(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="button" size="lg" onClick={addDraftProduct}>
-                    Agregar producto
-                  </Button>
-                </div>
               </>
             )}
           </div>
-        </div>
-      ) : null}
+
+          {draftProductId ? (
+            <div className="shrink-0 space-y-3 border-t bg-card px-6 py-4">
+              <div className="flex items-center justify-between rounded-xl border border-[var(--primary)]/20 bg-[var(--primary)]/5 px-4 py-3">
+                <span className="text-sm font-semibold text-foreground">Total a pagar</span>
+                <span className="text-xl font-bold text-[var(--primary)]">
+                  {draftLineTotal.toLocaleString("es-CO", { style: "currency", currency })}
+                </span>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <Button type="button" variant="outline" size="lg" onClick={() => setOpenProductModal(false)}>
+                  Cancelar
+                </Button>
+                <Button type="button" size="lg" onClick={addDraftProduct}>
+                  Agregar producto
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
