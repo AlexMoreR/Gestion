@@ -69,6 +69,12 @@ type PaymentLine = {
   amount: string;
 };
 
+type LineDraft = {
+  id: string | null;
+  target: string;
+  amount: string;
+};
+
 type TargetOption = {
   target: string;
   kind: "order" | "charge";
@@ -107,7 +113,9 @@ export function SupplierLedgerForm({
 }: SupplierLedgerFormProps) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"payment" | "charge">("payment");
-  const [lines, setLines] = useState<PaymentLine[]>(() => [newLine()]);
+  const [lines, setLines] = useState<PaymentLine[]>([]);
+  const [lineDialogOpen, setLineDialogOpen] = useState(false);
+  const [lineDraft, setLineDraft] = useState<LineDraft>({ id: null, target: "", amount: "" });
   const [ledgerReceiptName, setLedgerReceiptName] = useState("");
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
   const [paymentDate, setPaymentDate] = useState(todayInputValue());
@@ -153,6 +161,7 @@ export function SupplierLedgerForm({
         return {
           id: line.id,
           targetValue: line.target,
+          rawAmount: line.amount,
           amount,
           target,
           remaining,
@@ -174,6 +183,19 @@ export function SupplierLedgerForm({
   const hasStaleTarget = lineSummaries.some((line) => line.staleTarget);
   const canSubmit = Boolean(ledgerReceiptName) && Boolean(accountId) && total > 0 && !hasOverpayment && !hasStaleTarget;
   const canSubmitCharge = (Number(chargeAmount) || 0) > 0;
+  const draftAmount = parseAmount(lineDraft.amount);
+  const draftTarget = lineDraft.target ? targetById.get(lineDraft.target) ?? null : null;
+  const draftRemaining = draftTarget ? draftTarget.pending - draftAmount : null;
+  const draftDuplicate = Boolean(
+    lineDraft.target && lines.some((line) => line.id !== lineDraft.id && line.target === lineDraft.target),
+  );
+  const draftExceedsPending = Boolean(draftTarget && draftAmount > draftTarget.pending + 0.5);
+  const draftStaleTarget = Boolean(lineDraft.target && !draftTarget);
+  const canSaveLine = draftAmount > 0 && !draftDuplicate && !draftExceedsPending && !draftStaleTarget;
+  const draftUsedTargets = useMemo(
+    () => new Set(lines.filter((line) => line.id !== lineDraft.id && line.target).map((line) => line.target)),
+    [lineDraft.id, lines],
+  );
 
   const handleChargeReceiptChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -193,12 +215,31 @@ export function SupplierLedgerForm({
     });
   };
 
-  const updateLine = (id: string, values: Partial<Omit<PaymentLine, "id">>) => {
-    setLines((current) => current.map((line) => (line.id === id ? { ...line, ...values } : line)));
+  const firstAvailableTarget = (editingId?: string | null) =>
+    targetOptions.find((option) => !lines.some((line) => line.id !== editingId && line.target === option.target))?.target ?? "";
+
+  const openNewLineDialog = () => {
+    const target = firstAvailableTarget();
+    const option = target ? targetById.get(target) : null;
+    setLineDraft({ id: null, target, amount: option ? String(Math.round(option.pending)) : "" });
+    setLineDialogOpen(true);
   };
-  const addLine = () => setLines((current) => [...current, newLine()]);
-  const removeLine = (id: string) =>
-    setLines((current) => (current.length > 1 ? current.filter((line) => line.id !== id) : current));
+
+  const openEditLineDialog = (line: PaymentLine) => {
+    setLineDraft({ id: line.id, target: line.target, amount: line.amount });
+    setLineDialogOpen(true);
+  };
+
+  const saveLineDraft = () => {
+    if (!canSaveLine) return;
+    const nextLine = { id: lineDraft.id ?? newLine().id, target: lineDraft.target, amount: lineDraft.amount };
+    setLines((current) =>
+      lineDraft.id ? current.map((line) => (line.id === lineDraft.id ? nextLine : line)) : [...current, nextLine],
+    );
+    setLineDialogOpen(false);
+  };
+
+  const removeLine = (id: string) => setLines((current) => current.filter((line) => line.id !== id));
 
   return (
     <div className="space-y-5">
@@ -348,114 +389,67 @@ export function SupplierLedgerForm({
                       <ClipboardList className="h-4 w-4 text-muted-foreground" />
                       Órdenes y cargos a pagar
                     </span>
-                    <Button type="button" size="sm" variant="outline" className="gap-1.5" onClick={addLine}>
+                    <Button type="button" size="sm" variant="outline" className="gap-1.5" onClick={openNewLineDialog}>
                       <Plus className="h-3.5 w-3.5" />
                       Agregar línea
                     </Button>
                   </div>
 
                   {lineSummaries.map((line, index) => {
-                    const usedTargets = new Set(lines.filter((item) => item.id !== line.id && item.target).map((item) => item.target));
+                    const remaining = line.remaining === null ? null : Math.max(0, line.remaining);
+                    const kind =
+                      line.target?.kind === "order" ? "Orden" : line.target?.kind === "charge" ? "Cargo" : "General";
 
                     return (
-                      <div key={line.id} className="space-y-3 rounded-lg border bg-background p-3">
-                        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_11rem_2rem] sm:items-start">
-                          <label className="space-y-1.5">
-                            <span className="text-xs font-medium text-muted-foreground">Orden o cargo</span>
-                            <Select
-                              value={line.targetValue || "general"}
-                              onValueChange={(value) => {
-                                const target = value === "general" || value === null ? "" : String(value);
-                                const option = target ? targetById.get(target) : null;
-                                updateLine(line.id, {
-                                  target,
-                                  amount: option ? String(Math.round(option.pending)) : line.amount ? String(line.amount) : "",
-                                });
-                              }}
-                            >
-                              <SelectTrigger className="w-full bg-background">
-                                <SelectValue>
-                                  {(value) => {
-                                    if (value === "general") return "Abono general";
-                                    return targetById.get(String(value))?.label ?? "Seleccionar";
-                                  }}
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent align="start">
-                                <SelectItem value="general">Abono general (sin orden)</SelectItem>
-                                {orders.length > 0 ? (
-                                  <>
-                                    <SelectSeparator />
-                                    <SelectGroup>
-                                      <SelectLabel>Órdenes</SelectLabel>
-                                      {orders.map((order) => {
-                                        const target = `order:${order.orderId}`;
-                                        return (
-                                          <SelectItem key={order.orderId} value={target} disabled={usedTargets.has(target)}>
-                                            {order.code} - {formatMoney(order.pending, currency)}
-                                          </SelectItem>
-                                        );
-                                      })}
-                                    </SelectGroup>
-                                  </>
-                                ) : null}
-                                {charges.length > 0 ? (
-                                  <>
-                                    <SelectSeparator />
-                                    <SelectGroup>
-                                      <SelectLabel>Cargos</SelectLabel>
-                                      {charges.map((charge) => {
-                                        const target = `charge:${charge.chargeId}`;
-                                        return (
-                                          <SelectItem key={charge.chargeId} value={target} disabled={usedTargets.has(target)}>
-                                            {charge.code} - {formatMoney(charge.pending, currency)}
-                                          </SelectItem>
-                                        );
-                                      })}
-                                    </SelectGroup>
-                                  </>
-                                ) : null}
-                              </SelectContent>
-                            </Select>
-                          </label>
-
-                          <label className="space-y-1.5">
-                            <span className="text-xs font-medium text-muted-foreground">Abono</span>
-                            <MoneyInput
-                              value={line.amount ? String(line.amount) : ""}
-                              onValueChange={(raw) => updateLine(line.id, { amount: raw })}
-                              placeholder={line.target?.pending ? Math.round(line.target.pending).toLocaleString("es-CO") : "0"}
-                              className="bg-background text-right"
-                            />
-                          </label>
-
-                          <div className="flex justify-end pt-5">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                              onClick={() => removeLine(line.id)}
-                              aria-label="Quitar línea"
-                              disabled={lines.length <= 1}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                      <div key={line.id} className="space-y-1.5">
+                        <div className="relative">
+                          <button
+                            type="button"
+                            className="w-full rounded-lg border bg-background p-3 text-left transition hover:bg-muted/30 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                            onClick={() => openEditLineDialog({ id: line.id, target: line.targetValue, amount: line.rawAmount })}
+                          >
+                            <div className="flex items-start gap-2 pr-9">
+                              <Badge variant="outline" className="shrink-0">
+                                {kind}
+                              </Badge>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold text-foreground">
+                                  {line.target?.label ?? "Abono general"}
+                                </p>
+                                <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                                  <div>
+                                    <p className="text-muted-foreground">Abono</p>
+                                    <p className={line.exceedsPending ? "font-semibold text-destructive" : "font-semibold text-foreground"}>
+                                      {formatMoney(line.amount, currency)}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-muted-foreground">Saldo</p>
+                                    <p className={line.exceedsPending ? "font-semibold text-destructive" : "font-semibold text-foreground"}>
+                                      {line.target ? formatMoney(remaining ?? 0, currency) : "No aplica"}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-2 top-2 z-10 h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => removeLine(line.id)}
+                            aria-label={`Quitar línea ${index + 1}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-
-                        {!line.target ? (
-                          <div className="flex items-center justify-between gap-2 rounded-lg border border-dashed bg-muted/20 p-2 text-xs text-muted-foreground">
-                            <span>Abono general sin orden o cargo específico.</span>
-                            <Badge variant="outline">Línea {index + 1}</Badge>
-                          </div>
-                        ) : null}
 
                         {line.exceedsPending ? <p className="text-xs text-destructive">El abono supera el saldo pendiente de esta línea.</p> : null}
                         {line.staleTarget ? <p className="text-xs text-destructive">Esta orden o cargo ya no está disponible.</p> : null}
 
                         <input type="hidden" name="targets" value={line.targetValue} />
-                        <input type="hidden" name="amounts" value={line.amount} />
+                        <input type="hidden" name="amounts" value={line.rawAmount} />
                       </div>
                     );
                   })}
@@ -502,6 +496,117 @@ export function SupplierLedgerForm({
                 </Button>
               </>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={lineDialogOpen} onOpenChange={setLineDialogOpen}>
+        <DialogContent className="w-full max-w-sm gap-0 overflow-hidden p-0">
+          <DialogHeader className="border-b px-6 py-4">
+            <DialogTitle className="inline-flex items-center gap-2">
+              <ClipboardList className="h-4 w-4 text-primary" />
+              <span>{lineDraft.id ? "Editar línea" : "Agregar línea"}</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 px-6 py-5">
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium text-foreground">Orden o cargo</span>
+              <Select
+                value={lineDraft.target || "general"}
+                onValueChange={(value) => {
+                  const target = value === "general" || value === null ? "" : String(value);
+                  const option = target ? targetById.get(target) : null;
+                  setLineDraft((current) => ({
+                    ...current,
+                    target,
+                    amount: option ? String(Math.round(option.pending)) : current.amount,
+                  }));
+                }}
+              >
+                <SelectTrigger className="w-full bg-background">
+                  <SelectValue>
+                    {(value) => {
+                      if (value === "general") return "Abono general";
+                      return targetById.get(String(value))?.label ?? "Seleccionar";
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent align="start">
+                  <SelectItem value="general">Abono general</SelectItem>
+                  {orders.length > 0 ? (
+                    <>
+                      <SelectSeparator />
+                      <SelectGroup>
+                        <SelectLabel>Órdenes</SelectLabel>
+                        {orders.map((order) => {
+                          const target = `order:${order.orderId}`;
+                          return (
+                            <SelectItem key={order.orderId} value={target} disabled={draftUsedTargets.has(target)}>
+                              {order.code} - {formatMoney(order.pending, currency)}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectGroup>
+                    </>
+                  ) : null}
+                  {charges.length > 0 ? (
+                    <>
+                      <SelectSeparator />
+                      <SelectGroup>
+                        <SelectLabel>Cargos</SelectLabel>
+                        {charges.map((charge) => {
+                          const target = `charge:${charge.chargeId}`;
+                          return (
+                            <SelectItem key={charge.chargeId} value={target} disabled={draftUsedTargets.has(target)}>
+                              {charge.code} - {formatMoney(charge.pending, currency)}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectGroup>
+                    </>
+                  ) : null}
+                </SelectContent>
+              </Select>
+            </label>
+
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium text-foreground">Monto a abonar</span>
+              <MoneyInput
+                value={lineDraft.amount}
+                onValueChange={(amount) => setLineDraft((current) => ({ ...current, amount }))}
+                placeholder={draftTarget ? Math.round(draftTarget.pending).toLocaleString("es-CO") : "0"}
+                className="bg-background text-right"
+              />
+            </label>
+
+            <div className="grid gap-2 rounded-lg border bg-muted/30 p-3 text-xs">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Debe</span>
+                <span className="font-semibold text-foreground">
+                  {draftTarget ? formatMoney(draftTarget.pending, currency) : "Sin orden"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Saldo calculado</span>
+                <span className={draftExceedsPending ? "font-semibold text-destructive" : "font-semibold text-foreground"}>
+                  {draftTarget ? formatMoney(Math.max(0, draftRemaining ?? 0), currency) : "No aplica"}
+                </span>
+              </div>
+            </div>
+
+            {draftDuplicate ? <p className="text-xs text-destructive">Esta orden o cargo ya está agregado.</p> : null}
+            {draftExceedsPending ? <p className="text-xs text-destructive">El abono supera el saldo pendiente.</p> : null}
+            {draftStaleTarget ? <p className="text-xs text-destructive">Esta orden o cargo ya no está disponible.</p> : null}
+          </div>
+
+          <div className="flex justify-end gap-2 border-t bg-card px-6 py-4">
+            <Button type="button" variant="outline" onClick={() => setLineDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={saveLineDraft} disabled={!canSaveLine}>
+              Guardar línea
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

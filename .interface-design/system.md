@@ -30,6 +30,8 @@ Esta guía guarda decisiones de diseño para mantener la aplicación consistente
 ## Proveedores
 
 - En abonos a proveedores, mostrar `Debe`, `Abona` y `Queda` solo en el resumen inferior del modal, no dentro de cada card de línea.
+- Agregar o editar líneas de abono desde un modal secundario con orden/cargo, monto y saldo calculado.
+- Mostrar las líneas guardadas como cards resumidas, editables al hacer clic, con el icono de basura arriba a la derecha.
 - Permitir seleccionar orden o cargo antes de abonar.
 - Bloquear visualmente y validar en servidor cuando el abono supera el saldo pendiente.
 - Mantener la opción de abono general, pero dejar claro que no está ligado a una orden.
