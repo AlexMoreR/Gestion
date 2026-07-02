@@ -33,6 +33,10 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: ghcr.io/alexmorer/gestion:latest
+          # Cachea las capas entre builds: si no cambian package*.json, el paso
+          # lento de "npm ci" se reutiliza y solo se recompila lo que cambio.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Trigger Portainer redeploy
         env:
