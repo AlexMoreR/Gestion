@@ -432,17 +432,16 @@ function OrderMovementsModal({
                       {entry.type === "CHARGE" ? "Cargo" : "Abono"}
                     </Badge>
                     <p className="truncate text-sm text-foreground">{entry.note ?? "-"}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(entry.createdAt).toLocaleDateString("es-CO")}
-                      {entry.createdByName ? ` · ${entry.createdByName}` : ""}
-                      {entry.accountName ? ` · ${entry.accountName}` : ""}
-                    </p>
-                    {receiptUrl ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
-                        <Eye className="h-3.5 w-3.5" />
-                        Ver comprobante
+                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className="min-w-0 truncate">
+                        {new Date(entry.createdAt).toLocaleDateString("es-CO")}
+                        {entry.createdByName ? ` · ${entry.createdByName}` : ""}
+                        {entry.accountName ? ` · ${entry.accountName}` : ""}
                       </span>
-                    ) : null}
+                      {receiptUrl ? (
+                        <Eye className="h-4 w-4 shrink-0 text-primary" aria-label="Ver comprobante" />
+                      ) : null}
+                    </p>
                   </div>
                   <span
                     className={`shrink-0 text-sm font-semibold ${entry.type === "CHARGE" ? "text-red-600" : "text-emerald-600"}`}
