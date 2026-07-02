@@ -66,6 +66,14 @@ function currentMonthRange(): { from: string; to: string } {
   };
 }
 
+// Dia de hoy (YYYY-MM-DD) en hora de Colombia, para el "Gasto del dia".
+function todayBogota(): string {
+  const now = new Date();
+  const bogotaNow = new Date(now.getTime() - 5 * 60 * 60 * 1000);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${bogotaNow.getUTCFullYear()}-${pad(bogotaNow.getUTCMonth() + 1)}-${pad(bogotaNow.getUTCDate())}`;
+}
+
 function MetricCard({
   title,
   value,
@@ -159,6 +167,18 @@ export function ExpensesWorkspace({
 
   const maxCategoryTotal = categoryBreakdown[0]?.totalAmount ?? 0;
 
+  // Total del rango filtrado (tarjeta "Gasto del mes") y total de hoy.
+  const rangeTotal = React.useMemo(
+    () => filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0),
+    [filteredExpenses],
+  );
+  const todayTotal = React.useMemo(() => {
+    const today = todayBogota();
+    return expenses
+      .filter((expense) => new Date(expense.expenseDate).toISOString().slice(0, 10) === today)
+      .reduce((sum, expense) => sum + expense.amount, 0);
+  }, [expenses]);
+
   return (
     <>
       <section className="space-y-4">
@@ -202,16 +222,16 @@ export function ExpensesWorkspace({
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
-            title="Gasto total"
-            value={formatMoney(metrics.totalAmount, currency)}
-            helper={`${metrics.expenseCount} gastos registrados`}
-            accent="danger"
+            title="Gasto del mes"
+            value={formatMoney(rangeTotal, currency)}
+            helper={`${filteredExpenses.length} gastos · rango seleccionado`}
+            accent="info"
           />
           <MetricCard
-            title="Gasto del mes"
-            value={formatMoney(metrics.currentMonthAmount, currency)}
-            helper="Mes en curso"
-            accent="info"
+            title="Gasto del dia"
+            value={formatMoney(todayTotal, currency)}
+            helper="Hoy"
+            accent="danger"
           />
           <MetricCard
             title="Categoria principal"
