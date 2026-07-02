@@ -228,26 +228,33 @@ export function SupplierLedgerForm({
                   Registra una deuda al proveedor por un servicio o trabajo que no proviene de una orden.
                 </p>
 
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                <div className="flex items-start gap-3 sm:gap-4">
                   <div className="shrink-0 space-y-1.5">
                     <label
-                      className="relative flex h-32 w-32 cursor-pointer flex-col items-center justify-center gap-1.5 overflow-hidden rounded-lg border bg-muted text-muted-foreground transition hover:bg-muted/80"
+                      className="relative flex h-20 w-20 cursor-pointer flex-col items-center justify-center gap-1 overflow-hidden rounded-lg border bg-muted text-muted-foreground transition hover:bg-muted/80 sm:h-24 sm:w-24"
                       title="Subir comprobante (opcional)"
                     >
                       {chargeReceiptPreview ? (
-                        <Image src={chargeReceiptPreview} alt="Comprobante" fill sizes="128px" className="object-cover" unoptimized />
+                        <Image
+                          src={chargeReceiptPreview}
+                          alt="Comprobante"
+                          fill
+                          sizes="(min-width: 640px) 96px, 80px"
+                          className="object-cover"
+                          unoptimized
+                        />
                       ) : (
                         <>
-                          <ImagePlus className="size-6" />
-                          <span className="text-xs font-medium">Foto (opcional)</span>
+                          <ImagePlus className="size-5" />
+                          <span className="text-center text-[11px] font-medium leading-tight">Foto opcional</span>
                         </>
                       )}
                       <input type="file" name="receipt" accept="image/*,application/pdf" className="hidden" onChange={handleChargeReceiptChange} />
                     </label>
-                    {chargeReceiptName ? <p className="w-32 truncate text-xs text-muted-foreground">{chargeReceiptName}</p> : null}
+                    {chargeReceiptName ? <p className="w-20 truncate text-xs text-muted-foreground sm:w-24">{chargeReceiptName}</p> : null}
                   </div>
 
-                  <div className="flex-1 space-y-3">
+                  <div className="min-w-0 flex-1 space-y-3">
                     <label className="block space-y-1.5">
                       <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
                         <CalendarDays className="h-4 w-4 text-muted-foreground" />
@@ -279,26 +286,33 @@ export function SupplierLedgerForm({
                 <input type="hidden" name="returnTo" value={returnTo} />
                 <input type="hidden" name="accountId" value={accountId} />
 
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                <div className="flex items-start gap-3 sm:gap-4">
                   <div className="shrink-0 space-y-1.5">
                     <label
-                      className="relative flex h-32 w-32 cursor-pointer flex-col items-center justify-center gap-1.5 overflow-hidden rounded-lg border bg-muted text-muted-foreground transition hover:bg-muted/80"
+                      className="relative flex h-20 w-20 cursor-pointer flex-col items-center justify-center gap-1 overflow-hidden rounded-lg border bg-muted text-muted-foreground transition hover:bg-muted/80 sm:h-24 sm:w-24"
                       title="Subir comprobante"
                     >
                       {receiptPreview ? (
-                        <Image src={receiptPreview} alt="Comprobante" fill sizes="128px" className="object-cover" unoptimized />
+                        <Image
+                          src={receiptPreview}
+                          alt="Comprobante"
+                          fill
+                          sizes="(min-width: 640px) 96px, 80px"
+                          className="object-cover"
+                          unoptimized
+                        />
                       ) : (
                         <>
-                          <ImagePlus className="size-6" />
-                          <span className="text-xs font-medium">Foto</span>
+                          <ImagePlus className="size-5" />
+                          <span className="text-[11px] font-medium leading-tight">Foto</span>
                         </>
                       )}
                       <input type="file" name="receipt" accept="image/*,application/pdf" className="hidden" onChange={handleReceiptChange} />
                     </label>
-                    {ledgerReceiptName ? <p className="w-32 truncate text-xs text-muted-foreground">{ledgerReceiptName}</p> : null}
+                    {ledgerReceiptName ? <p className="w-20 truncate text-xs text-muted-foreground sm:w-24">{ledgerReceiptName}</p> : null}
                   </div>
 
-                  <div className="flex-1 space-y-3">
+                  <div className="min-w-0 flex-1 space-y-3">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="block space-y-1.5">
                         <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
