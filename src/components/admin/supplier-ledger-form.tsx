@@ -313,30 +313,28 @@ export function SupplierLedgerForm({
                   </div>
 
                   <div className="min-w-0 flex-1 space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <DatePicker
-                        name="paymentDate"
-                        value={paymentDate}
-                        onChange={setPaymentDate}
-                        required
-                        aria-label="Fecha del pago"
-                        className="bg-background"
-                      />
-                      <Select value={accountId || null} onValueChange={(value) => setAccountId(value ?? "")}>
-                        <SelectTrigger className="w-full min-w-0 bg-background" aria-label="Cuenta">
-                          <SelectValue placeholder="Cuenta">
-                            {(value) => accounts.find((account) => account.id === value)?.name ?? "Cuenta"}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent align="start">
-                          {accounts.map((account) => (
-                            <SelectItem key={account.id} value={account.id}>
-                              {account.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <DatePicker
+                      name="paymentDate"
+                      value={paymentDate}
+                      onChange={setPaymentDate}
+                      required
+                      aria-label="Fecha del pago"
+                      className="bg-background"
+                    />
+                    <Select value={accountId || null} onValueChange={(value) => setAccountId(value ?? "")}>
+                      <SelectTrigger className="w-full min-w-0 bg-background" aria-label="Cuenta">
+                        <SelectValue placeholder="Cuenta">
+                          {(value) => accounts.find((account) => account.id === value)?.name ?? "Cuenta"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent align="start">
+                        {accounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Input name="note" aria-label="Nota" placeholder="Referencia" className="bg-background" />
                     {accounts.length === 0 ? <p className="text-xs text-destructive">Crea una cuenta activa antes de registrar abonos.</p> : null}
                   </div>

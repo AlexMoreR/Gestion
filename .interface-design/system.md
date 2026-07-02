@@ -20,7 +20,7 @@ Esta guía guarda decisiones de diseño para mantener la aplicación consistente
 ## Formularios
 
 - En móvil, preferir formularios compactos cuando el usuario necesita registrar datos rápido.
-- Mantener fecha y cuenta en la misma fila cuando el ancho lo permita sin romper el texto.
+- En abonos a proveedores, ubicar `Cuenta` debajo de la fecha para evitar campos apretados en móvil.
 - Cuando se quiten labels visibles para compactar un formulario, mantener `aria-label` en cada campo.
 - Las fotos o comprobantes deben ser pequeños y funcionales, no dominar el formulario.
 - Usar iconos de `lucide-react` dentro de botones y labels cuando ya se usa ese patrón.
