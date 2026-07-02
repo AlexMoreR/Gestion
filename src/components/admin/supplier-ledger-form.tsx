@@ -261,7 +261,7 @@ export function SupplierLedgerForm({
             </Tabs>
 
             {mode === "charge" ? (
-              <form id="supplier-charge-form" action={adminCreateSupplierChargeAction} className="space-y-4 rounded-lg border bg-card p-4">
+              <form id="supplier-charge-form" action={adminCreateSupplierChargeAction} className="space-y-4">
                 <input type="hidden" name="supplierId" value={supplierId} />
                 <input type="hidden" name="returnTo" value={returnTo} />
 
@@ -322,7 +322,7 @@ export function SupplierLedgerForm({
                 </label>
               </form>
             ) : (
-              <form id="supplier-payment-form" action={adminCreateSupplierPaymentsAction} className="space-y-4 rounded-lg border bg-card p-4">
+              <form id="supplier-payment-form" action={adminCreateSupplierPaymentsAction} className="space-y-4">
                 <input type="hidden" name="supplierId" value={supplierId} />
                 <input type="hidden" name="returnTo" value={returnTo} />
                 <input type="hidden" name="accountId" value={accountId} />
