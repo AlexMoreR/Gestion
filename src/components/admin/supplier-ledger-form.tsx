@@ -312,44 +312,33 @@ export function SupplierLedgerForm({
                     {ledgerReceiptName ? <p className="w-20 truncate text-xs text-muted-foreground sm:w-24">{ledgerReceiptName}</p> : null}
                   </div>
 
-                  <div className="min-w-0 flex-1 space-y-3">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="block space-y-1.5">
-                        <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-                          <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                          Fecha del pago
-                        </span>
-                        <DatePicker name="paymentDate" value={paymentDate} onChange={setPaymentDate} required />
-                      </label>
-                      <label className="block space-y-1.5">
-                        <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-                          <Wallet className="h-4 w-4 text-muted-foreground" />
-                          Cuenta
-                        </span>
-                        <Select value={accountId || null} onValueChange={(value) => setAccountId(value ?? "")}>
-                          <SelectTrigger className="w-full bg-background">
-                            <SelectValue placeholder="Seleccionar cuenta">
-                              {(value) => accounts.find((account) => account.id === value)?.name ?? "Seleccionar cuenta"}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent align="start">
-                            {accounts.map((account) => (
-                              <SelectItem key={account.id} value={account.id}>
-                                {account.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {accounts.length === 0 ? <p className="text-xs text-destructive">Crea una cuenta activa antes de registrar abonos.</p> : null}
-                      </label>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <DatePicker
+                        name="paymentDate"
+                        value={paymentDate}
+                        onChange={setPaymentDate}
+                        required
+                        aria-label="Fecha del pago"
+                        className="bg-background"
+                      />
+                      <Select value={accountId || null} onValueChange={(value) => setAccountId(value ?? "")}>
+                        <SelectTrigger className="w-full min-w-0 bg-background" aria-label="Cuenta">
+                          <SelectValue placeholder="Cuenta">
+                            {(value) => accounts.find((account) => account.id === value)?.name ?? "Cuenta"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent align="start">
+                          {accounts.map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <label className="block space-y-1.5">
-                      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                        Nota
-                      </span>
-                      <Input name="note" placeholder="Referencia del pago" />
-                    </label>
+                    <Input name="note" aria-label="Nota" placeholder="Referencia" className="bg-background" />
+                    {accounts.length === 0 ? <p className="text-xs text-destructive">Crea una cuenta activa antes de registrar abonos.</p> : null}
                   </div>
                 </div>
 
