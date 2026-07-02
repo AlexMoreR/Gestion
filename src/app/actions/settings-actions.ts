@@ -12,6 +12,7 @@ import {
   getSystemStorefrontLogoPath,
   setSystemBrandName,
   setSystemCurrency,
+  setSystemDianUvt,
   setSystemMinMargins,
   setSystemPrimaryColor,
   setSystemStorefrontHeroDescription,
@@ -82,6 +83,14 @@ const updateMinMarginsSchema = z.object({
     .number({ message: "Valor invalido" })
     .min(0, "Debe ser mayor o igual a 0")
     .max(100000, "Valor demasiado alto"),
+});
+
+const updateDianUvtSchema = z.object({
+  dianUvt: z.coerce
+    .number({ message: "UVT invalida" })
+    .int("La UVT debe ser un numero entero")
+    .min(1, "La UVT debe ser mayor a 0")
+    .max(1000000, "Valor demasiado alto"),
 });
 
 async function requireAdminSession(): Promise<void> {
@@ -273,6 +282,24 @@ export async function adminUpdateMinMarginsAction(formData: FormData): Promise<v
   revalidatePath("/admin/productos");
   revalidatePath("/admin/productos/new");
   redirect("/admin/configuracion/reglas?ok=Reglas+actualizadas");
+}
+
+export async function adminUpdateDianUvtAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+
+  const parsed = updateDianUvtSchema.safeParse({
+    dianUvt: formData.get("dianUvt"),
+  });
+
+  if (!parsed.success) {
+    redirect("/admin/configuracion/negocio?error=UVT+invalida");
+  }
+
+  await setSystemDianUvt(parsed.data.dianUvt);
+
+  revalidatePath("/admin/configuracion/negocio");
+  revalidatePath("/admin/balances");
+  redirect("/admin/configuracion/negocio?ok=UVT+actualizada");
 }
 
 export async function adminUpdateStorefrontLogoAction(formData: FormData): Promise<void> {

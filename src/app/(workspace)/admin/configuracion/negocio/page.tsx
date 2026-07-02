@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import {
   adminUpdateBrandNameAction,
   adminUpdateCurrencyAction,
+  adminUpdateDianUvtAction,
   adminUpdatePrimaryColorAction,
   adminUpdateStorefrontHeroAction,
   adminUpdateStorefrontLogoAction,
@@ -23,6 +24,7 @@ import { getPublicAssetUrl } from "@/lib/site";
 import {
   getSystemBrandName,
   getSystemCurrency,
+  getSystemDianUvt,
   getSystemPrimaryColor,
   getSystemStorefrontHeroDescription,
   getSystemStorefrontHeroTitle,
@@ -60,6 +62,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
     storefrontHeroTitle,
     storefrontHeroDescription,
     storefrontPromoItems,
+    dianUvt,
   ] = await Promise.all([
     getSystemCurrency(),
     getSystemPrimaryColor(),
@@ -69,6 +72,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
     getSystemStorefrontHeroTitle(),
     getSystemStorefrontHeroDescription(),
     getSystemStorefrontPromoItems(),
+    getSystemDianUvt(),
   ]);
 
   return (
@@ -141,6 +145,35 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
               </div>
             </label>
             <Button type="submit" size="icon" aria-label="Guardar color">
+              <Save className="h-4 w-4" />
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Topes tributarios (DIAN)</CardTitle>
+          <CardDescription>
+            UVT vigente para calcular los topes de IVA (3.500 UVT) y renta (1.400 UVT) en Balances.
+            La DIAN la actualiza cada anio.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={adminUpdateDianUvtAction} className="flex items-end gap-2 md:max-w-sm">
+            <label className="flex-1 space-y-1.5">
+              <span className="text-sm font-medium">Valor de la UVT</span>
+              <Input
+                name="dianUvt"
+                type="number"
+                min={1}
+                step={1}
+                defaultValue={dianUvt}
+                placeholder="49799"
+                required
+              />
+            </label>
+            <Button type="submit" size="icon" aria-label="Guardar UVT">
               <Save className="h-4 w-4" />
             </Button>
           </form>

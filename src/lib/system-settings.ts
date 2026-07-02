@@ -13,8 +13,12 @@ const STOREFRONT_HERO_DESCRIPTION_SETTING_KEY = "storefrontHeroDescription";
 const STOREFRONT_PROMO_ITEMS_SETTING_KEY = "storefrontPromoItems";
 const MIN_RETAIL_MARGIN_SETTING_KEY = "minRetailMarginPct";
 const MIN_WHOLESALE_MARGIN_SETTING_KEY = "minWholesaleMarginPct";
+const DIAN_UVT_SETTING_KEY = "dianUvtValue";
 const DEFAULT_MIN_RETAIL_MARGIN_PCT = 0;
 const DEFAULT_MIN_WHOLESALE_MARGIN_PCT = 0;
+// UVT vigente (Unidad de Valor Tributario). La fija la DIAN cada anio; este es
+// el valor por defecto y se puede actualizar desde Configuracion > Negocio.
+const DEFAULT_DIAN_UVT = 49799;
 const DEFAULT_SYSTEM_PRIMARY_COLOR = "#6d28d9";
 const DEFAULT_SYSTEM_WHATSAPP_PHONE = siteConfig.phoneDisplay;
 const DEFAULT_STOREFRONT_LOGO_PATH = siteConfig.logoPath;
@@ -333,6 +337,28 @@ export const getSystemMinWholesaleMarginPct = cache(async (): Promise<number> =>
     return DEFAULT_MIN_WHOLESALE_MARGIN_PCT;
   }
 });
+
+export const getSystemDianUvt = cache(async (): Promise<number> => {
+  try {
+    const raw = await getAppSettingValue(DIAN_UVT_SETTING_KEY);
+    if (raw == null) {
+      return DEFAULT_DIAN_UVT;
+    }
+
+    const parsed = Number.parseFloat(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_DIAN_UVT;
+  } catch {
+    return DEFAULT_DIAN_UVT;
+  }
+});
+
+export async function setSystemDianUvt(uvt: number): Promise<void> {
+  if (!Number.isFinite(uvt) || uvt <= 0) {
+    throw new Error("UVT invalida");
+  }
+
+  await setAppSettingValue(DIAN_UVT_SETTING_KEY, String(Math.round(uvt)));
+}
 
 export async function setSystemMinMargins(retailPct: number, wholesalePct: number): Promise<void> {
   if (!Number.isFinite(retailPct) || retailPct < 0 || !Number.isFinite(wholesalePct) || wholesalePct < 0) {
