@@ -4,6 +4,13 @@ import * as React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type { AccountTransaction } from "@/modules/balances/domain/entities";
+import {
+  accountMonthKey,
+  accountMonthRange,
+  computeAccountBalanceMetrics,
+  currentBogotaMonthKey,
+  toAccountDate,
+} from "../account-balance-metrics";
 import { AccountTransactionsTable } from "./account-transactions-table";
 
 type AccountBalanceViewProps = {
@@ -20,76 +27,9 @@ type MonthOption = {
   label: string;
 };
 
-function toDate(value: Date | string): Date {
-  return value instanceof Date ? value : new Date(value);
-}
-
-function monthKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
 function monthLabel(date: Date): string {
-  const label = date.toLocaleDateString("es-CO", { month: "long", year: "numeric" });
+  const label = date.toLocaleDateString("es-CO", { month: "long", year: "numeric", timeZone: "UTC" });
   return label.charAt(0).toUpperCase() + label.slice(1);
-}
-
-// Limites [from, to) del mes a partir de su clave "YYYY-MM".
-function monthRange(key: string): { from: Date; to: Date } {
-  const [year, month] = key.split("-").map(Number);
-  return { from: new Date(year, month - 1, 1), to: new Date(year, month, 1) };
-}
-
-type Metrics = {
-  periodOpening: number;
-  ingreso: number;
-  gasto: number;
-  movimientos: number;
-  balance: number;
-};
-
-// Misma logica que summarizeAccountBalance, pero a partir de las transacciones.
-function computeMetrics(
-  transactions: AccountTransaction[],
-  openingBalance: number,
-  range: { from: Date; to: Date } | null,
-): Metrics {
-  let periodOpening = openingBalance;
-  let ingreso = 0;
-  let gasto = 0;
-  let movimientos = 0;
-
-  for (const txn of transactions) {
-    const date = toDate(txn.date);
-    if (range && date < range.from) {
-      // Saldo de cierre del periodo anterior: apertura + todos los flujos previos.
-      periodOpening += txn.amount;
-      continue;
-    }
-    if (range && date >= range.to) {
-      continue;
-    }
-
-    switch (txn.type) {
-      case "INCOME":
-        ingreso += txn.amount;
-        break;
-      case "EXPENSE":
-        gasto += -txn.amount;
-        break;
-      case "MOVEMENT_IN":
-      case "MOVEMENT_OUT":
-        movimientos += txn.amount;
-        break;
-    }
-  }
-
-  return {
-    periodOpening,
-    ingreso,
-    gasto,
-    movimientos,
-    balance: ingreso - gasto + movimientos,
-  };
 }
 
 function SummaryCard({
@@ -121,25 +61,28 @@ export function AccountBalanceView({ transactions, openingBalance, currency }: A
   // Opciones de mes: meses con transacciones + el mes actual, en orden descendente.
   const monthOptions = React.useMemo<MonthOption[]>(() => {
     const keys = new Set<string>();
-    keys.add(monthKey(new Date()));
+    keys.add(currentBogotaMonthKey());
     for (const txn of transactions) {
-      keys.add(monthKey(toDate(txn.date)));
+      keys.add(accountMonthKey(toAccountDate(txn.date)));
     }
     const sorted = Array.from(keys).sort((a, b) => (a < b ? 1 : -1));
     return [
       { value: ALL_MONTHS, label: "Todos los meses" },
-      ...sorted.map((key) => ({ value: key, label: monthLabel(monthRange(key).from) })),
+      ...sorted.map((key) => ({ value: key, label: monthLabel(accountMonthRange(key).from) })),
     ];
   }, [transactions]);
 
   // Por defecto: mes actual.
-  const [selectedMonth, setSelectedMonth] = React.useState<string>(() => monthKey(new Date()));
+  const [selectedMonth, setSelectedMonth] = React.useState<string>(() => currentBogotaMonthKey());
 
-  const range = selectedMonth === ALL_MONTHS ? null : monthRange(selectedMonth);
+  const range = React.useMemo(
+    () => (selectedMonth === ALL_MONTHS ? null : accountMonthRange(selectedMonth)),
+    [selectedMonth],
+  );
 
   const metrics = React.useMemo(
-    () => computeMetrics(transactions, openingBalance, range),
-    [transactions, openingBalance, selectedMonth],
+    () => computeAccountBalanceMetrics(transactions, openingBalance, range),
+    [transactions, openingBalance, range],
   );
 
   const filteredTransactions = React.useMemo(() => {
@@ -147,10 +90,10 @@ export function AccountBalanceView({ transactions, openingBalance, currency }: A
       return transactions;
     }
     return transactions.filter((txn) => {
-      const date = toDate(txn.date);
+      const date = toAccountDate(txn.date);
       return date >= range.from && date < range.to;
     });
-  }, [transactions, selectedMonth]);
+  }, [transactions, range]);
 
   return (
     <div className="space-y-5">
