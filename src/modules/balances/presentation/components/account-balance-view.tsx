@@ -127,7 +127,11 @@ export function AccountBalanceView({ transactions, openingBalance, currency }: A
         />
       </div>
 
-      <AccountTransactionsTable data={filteredTransactions} currency={currency} />
+      <AccountTransactionsTable
+        data={filteredTransactions}
+        openingBalance={metrics.periodOpening}
+        currency={currency}
+      />
     </div>
   );
 }

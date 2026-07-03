@@ -8,10 +8,15 @@ import { Card } from "@/components/ui/card";
 import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type { AccountTransaction, AccountTransactionType } from "@/modules/balances/domain/entities";
+import {
+  attachAccountTransactionBalances,
+  type AccountTransactionWithBalance,
+} from "../account-balance-metrics";
 import { BalancesDataGrid } from "./balances-data-grid";
 
 type AccountTransactionsTableProps = {
   data: AccountTransaction[];
+  openingBalance: number;
   currency: SupportedCurrencyCode;
 };
 
@@ -26,10 +31,14 @@ function isImageReceipt(url: string): boolean {
   return /\.(jpe?g|png|webp|gif|avif)$/i.test(url.split("?")[0] ?? "");
 }
 
-export function AccountTransactionsTable({ data, currency }: AccountTransactionsTableProps) {
-  const [selected, setSelected] = React.useState<AccountTransaction | null>(null);
+export function AccountTransactionsTable({ data, openingBalance, currency }: AccountTransactionsTableProps) {
+  const [selected, setSelected] = React.useState<AccountTransactionWithBalance | null>(null);
+  const rows = React.useMemo(
+    () => attachAccountTransactionBalances(data, openingBalance),
+    [data, openingBalance],
+  );
 
-  const columns: ColumnDef<AccountTransaction>[] = [
+  const columns: ColumnDef<AccountTransactionWithBalance>[] = [
     {
       accessorKey: "date",
       header: "Fecha",
@@ -78,17 +87,34 @@ export function AccountTransactionsTable({ data, currency }: AccountTransactions
         );
       },
     },
+    {
+      accessorKey: "runningBalance",
+      header: "Saldo",
+      cell: ({ row }) => {
+        const isPositive = row.original.runningBalance >= 0;
+        return (
+          <span
+            className={`block text-right text-sm font-semibold ${
+              isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"
+            }`}
+          >
+            {formatMoney(row.original.runningBalance, currency)}
+          </span>
+        );
+      },
+    },
   ];
 
   return (
     <>
       <BalancesDataGrid
         title="Transacciones"
-        data={data}
+        data={rows}
         columns={columns}
-        searchPlaceholder="Buscar transaccion"
-        emptyMessage="Esta cuenta aun no tiene transacciones registradas."
+        searchPlaceholder="Buscar transacción"
+        emptyMessage="Esta cuenta aún no tiene transacciones registradas."
         paginate={false}
+        minWidth="min-w-[980px]"
         onRowClick={setSelected}
         getRowDate={(row) => (row.date ? new Date(row.date).toISOString() : null)}
       />
@@ -103,7 +129,7 @@ function TransactionDetailDialog({
   currency,
   onClose,
 }: {
-  transaction: AccountTransaction | null;
+  transaction: AccountTransactionWithBalance | null;
   currency: SupportedCurrencyCode;
   onClose: () => void;
 }) {
@@ -121,7 +147,7 @@ function TransactionDetailDialog({
       className="fixed inset-0 z-[55] flex items-end justify-center bg-black/50 p-3 backdrop-blur-[1px] sm:items-center"
       role="dialog"
       aria-modal="true"
-      aria-label="Detalle de transaccion"
+      aria-label="Detalle de transacción"
       onClick={onClose}
     >
       <Card className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl p-0" onClick={(event) => event.stopPropagation()}>
@@ -152,6 +178,7 @@ function TransactionDetailDialog({
                 {formatMoney(Math.abs(transaction.amount), currency)}
               </dd>
             </div>
+            <DetailRow label="Saldo" value={formatMoney(transaction.runningBalance, currency)} />
           </dl>
 
           <div className="mt-4 border-t border-border pt-4">
@@ -181,7 +208,7 @@ function TransactionDetailDialog({
               )
             ) : (
               <p className="rounded-xl border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
-                Esta transaccion no tiene comprobante.
+                Esta transacción no tiene comprobante.
               </p>
             )}
           </div>

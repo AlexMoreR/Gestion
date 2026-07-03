@@ -10,6 +10,10 @@ export type AccountBalanceMetrics = {
   balance: number;
 };
 
+export type AccountTransactionWithBalance = AccountTransaction & {
+  runningBalance: number;
+};
+
 export function toAccountDate(value: Date | string): Date {
   return value instanceof Date ? value : new Date(value);
 }
@@ -72,4 +76,22 @@ export function computeAccountBalanceMetrics(
     movimientos,
     balance: ingreso - gasto + movimientos,
   };
+}
+
+export function attachAccountTransactionBalances(
+  transactions: AccountTransaction[],
+  openingBalance: number,
+): AccountTransactionWithBalance[] {
+  const balancesByIndex = new Map<number, number>();
+  let runningBalance = openingBalance;
+
+  for (const [index, transaction] of Array.from(transactions.entries()).reverse()) {
+    runningBalance += transaction.amount;
+    balancesByIndex.set(index, runningBalance);
+  }
+
+  return transactions.map((transaction, index) => ({
+    ...transaction,
+    runningBalance: balancesByIndex.get(index) ?? openingBalance + transaction.amount,
+  }));
 }
