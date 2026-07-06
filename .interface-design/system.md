@@ -40,6 +40,12 @@ Esta guía guarda decisiones de diseño para mantener la aplicación consistente
 - Mantener la opción de abono general, pero dejar claro que no está ligado a una orden.
 - No mostrar avisos inferiores redundantes como `Adjunta el comprobante` o `Selecciona la cuenta`; el botón deshabilitado y los campos ya comunican el estado.
 
+## Cotizaciones
+
+- En el link público y en el PDF de cotización, los combos deben mostrarse como una sola línea.
+- Para combos, usar el nombre y código real del producto combo guardado en `comboName` y `comboCode`; no inventar códigos `CMB`.
+- No mostrar los componentes internos del combo como productos separados en tablas visibles al cliente.
+
 ## DIAN
 
 - Los topes o datos de DIAN pertenecen a `Mi negocio`.

@@ -9,17 +9,15 @@ import {
   ShieldCheck,
   Truck,
   Wrench,
-  WalletCards,
   MapPin,
   Building2,
-  FileText,
-  Calendar,
   User,
   CreditCard,
   CheckCircle2,
 } from "lucide-react";
 import { DownloadQuotePdfButton } from "@/components/quotes/download-quote-pdf-button";
 import { formatMoney } from "@/lib/currency";
+import { groupQuoteDisplayItems } from "@/lib/quote-display-items";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl, getSiteUrl } from "@/lib/site";
@@ -28,11 +26,9 @@ import {
   getSystemBrandName,
   getSystemCurrency,
   getSystemWhatsAppPhoneDisplay,
-  getSystemWhatsAppPhoneHref,
 } from "@/lib/system-settings";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -108,7 +104,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
   const { pdf } = await searchParams;
   const isPdf = pdf === "true";
 
-  const [quote, currency, whatsAppPhoneDisplay, whatsAppPhoneHref] = await Promise.all([
+  const [quote, currency, whatsAppPhoneDisplay] = await Promise.all([
     prisma.quote.findUnique({
       where: { shareToken: token },
       include: {
@@ -123,17 +119,15 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
     }),
     getSystemCurrency(),
     getSystemWhatsAppPhoneDisplay(),
-    getSystemWhatsAppPhoneHref(),
   ]);
 
   if (!quote) notFound();
-
-  const issuedDate = quote.createdAt.toLocaleDateString("es-CO", { dateStyle: "long" });
 
   const itemsWithMeta = quote.items.map((item) => ({
     ...item,
     meta: parseQuoteItemMeta(item.notes),
   }));
+  const displayItems = groupQuoteDisplayItems(itemsWithMeta);
 
   const subtotal = itemsWithMeta.reduce(
     (sum, item) => sum + item.quantity * Number(item.unitPrice),
@@ -313,8 +307,8 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {itemsWithMeta.map((item) => (
-                  <TableRow key={item.id} className="transition-colors">
+                {displayItems.map((item) => (
+                  <TableRow key={item.key} className="transition-colors">
                     <TableCell
                       className={
                         isPdf ? "py-1 px-2 text-center font-bold" : "text-center font-bold text-slate-700"
@@ -325,11 +319,11 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                     <TableCell className={isPdf ? "py-1 px-2" : ""}>
                       <div className="leading-tight">
                         <p className="font-semibold text-slate-900">
-                          {item.product.name}
+                          {item.productName}
                         </p>
-                        {item.product.code && (
+                        {item.productCode && (
                           <p className={isPdf ? "text-[10px] text-slate-400" : "text-xs text-slate-400"}>
-                            {item.product.code}
+                            {item.productCode}
                           </p>
                         )}
                       </div>
@@ -342,7 +336,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                       }
                     >
                       <span className={isPdf ? "line-clamp-2" : "line-clamp-2"}>
-                        {item.meta.description || "—"}
+                        {item.description || "—"}
                       </span>
                     </TableCell>
                     <TableCell
@@ -352,7 +346,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                           : "text-right whitespace-nowrap text-slate-600"
                       }
                     >
-                      {formatMoney(String(item.unitPrice), currency)}
+                      {formatMoney(item.unitPrice, currency)}
                     </TableCell>
                     <TableCell
                       className={
@@ -361,7 +355,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                           : "text-right font-bold text-slate-900 whitespace-nowrap"
                       }
                     >
-                      {formatMoney(String(item.lineTotal), currency)}
+                      {formatMoney(item.lineTotal, currency)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -391,13 +385,13 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
             </TableRow>
           </TableHeader>
           <TableBody>
-            {itemsWithMeta.map((item) => (
-              <TableRow key={item.id} className="transition-colors">
+            {displayItems.map((item) => (
+              <TableRow key={item.key} className="transition-colors">
                 <TableCell className={isPdf ? "p-0 text-center" : "text-center"}>
-                  {item.meta.imageUrl || item.product.thumbnailUrl ? (
+                  {item.imageUrl ? (
                     <img
-                      src={getPublicAssetUrl(item.meta.imageUrl || item.product.thumbnailUrl || "")}
-                      alt={item.product.name}
+                      src={getPublicAssetUrl(item.imageUrl)}
+                      alt={item.imageAlt}
                       className={
                         isPdf
                           ? "h-8 w-8 rounded object-cover border mx-auto"
@@ -410,17 +404,17 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                 </TableCell>
                 <TableCell className={isPdf ? "py-1 px-2" : ""}>
                   <div className="leading-tight">
-                    <p className="font-semibold text-slate-900">{item.product.name}</p>
-                    {item.product.code && (
+                    <p className="font-semibold text-slate-900">{item.productName}</p>
+                    {item.productCode && (
                       <p className={isPdf ? "text-[10px] text-slate-400" : "text-xs text-slate-400"}>
-                        {item.product.code}
+                        {item.productCode}
                       </p>
                     )}
                   </div>
                 </TableCell>
                 <TableCell className={isPdf ? "py-1 px-2" : ""}>
-                  {item.product.description?.trim() ? (
-                    <span className="text-slate-900">{item.product.description}</span>
+                  {item.observation ? (
+                    <span className="text-slate-900">{item.observation}</span>
                   ) : (
                     <span className="italic text-slate-400">(No hay ninguna observación)</span>
                   )}
