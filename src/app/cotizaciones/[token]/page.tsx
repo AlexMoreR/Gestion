@@ -127,7 +127,23 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
     ...item,
     meta: parseQuoteItemMeta(item.notes),
   }));
-  const displayItems = groupQuoteDisplayItems(itemsWithMeta);
+  const comboCodes = Array.from(
+    new Set(itemsWithMeta.map((item) => item.meta.comboCode.trim()).filter(Boolean)),
+  );
+  const comboProducts =
+    comboCodes.length > 0
+      ? await prisma.product.findMany({
+          where: { code: { in: comboCodes }, isBundle: true },
+          select: { code: true, thumbnailUrl: true },
+        })
+      : [];
+  const comboImageByCode = new Map(comboProducts.map((product) => [product.code, product.thumbnailUrl]));
+  const displayItems = groupQuoteDisplayItems(
+    itemsWithMeta.map((item) => ({
+      ...item,
+      comboImageUrl: comboImageByCode.get(item.meta.comboCode.trim()) ?? "",
+    })),
+  );
 
   const subtotal = itemsWithMeta.reduce(
     (sum, item) => sum + item.quantity * Number(item.unitPrice),

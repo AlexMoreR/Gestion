@@ -134,4 +134,49 @@ describe("groupQuoteDisplayItems", () => {
 
     expect(result[0].productCode).toBeNull();
   });
+
+  it("uses the combo product image before falling back to component images", () => {
+    const result = groupQuoteDisplayItems([
+      quoteItem({
+        id: "line-1",
+        lineTotal: 100,
+        comboImageUrl: "/uploads/combo-real.jpg",
+        product: {
+          name: "Componente",
+          code: "CMP01",
+          thumbnailUrl: "/uploads/componente.jpg",
+          description: null,
+        },
+        meta: {
+          ...emptyMeta,
+          comboKey: "combo-3",
+          comboName: "Combo real",
+          comboCode: "CMB05",
+          comboQuantity: 1,
+        },
+      }),
+    ]);
+
+    expect(result[0].imageUrl).toBe("/uploads/combo-real.jpg");
+  });
+
+  it("keeps a custom quote image over the combo product image", () => {
+    const result = groupQuoteDisplayItems([
+      quoteItem({
+        id: "line-1",
+        lineTotal: 100,
+        comboImageUrl: "/uploads/combo-real.jpg",
+        meta: {
+          ...emptyMeta,
+          imageUrl: "/uploads/foto-personalizada.jpg",
+          comboKey: "combo-4",
+          comboName: "Combo real",
+          comboCode: "CMB05",
+          comboQuantity: 1,
+        },
+      }),
+    ]);
+
+    expect(result[0].imageUrl).toBe("/uploads/foto-personalizada.jpg");
+  });
 });

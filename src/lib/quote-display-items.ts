@@ -14,6 +14,7 @@ export type QuoteDisplayItemInput = {
   lineTotal: unknown;
   product: QuoteDisplayProduct;
   meta: QuoteItemMeta;
+  comboImageUrl?: string | null;
 };
 
 export type QuoteDisplayItem = {
@@ -72,7 +73,9 @@ export function groupQuoteDisplayItems(items: QuoteDisplayItemInput[]): QuoteDis
       group.lineTotal = roundMoney(group.lineTotal + lineTotal);
       group.unitPrice = group.quantity > 0 ? roundMoney(group.lineTotal / group.quantity) : group.lineTotal;
       if (!group.description) group.description = clean(item.meta.description);
-      if (!group.imageUrl) group.imageUrl = clean(item.meta.imageUrl) || clean(item.product.thumbnailUrl);
+      if (!group.imageUrl) {
+        group.imageUrl = clean(item.meta.imageUrl) || clean(item.comboImageUrl) || clean(item.product.thumbnailUrl);
+      }
       if (!group.observation) group.observation = clean(item.meta.description) || clean(item.product.description);
       if (!group.productCode) group.productCode = clean(item.meta.comboCode) || null;
       continue;
@@ -80,7 +83,7 @@ export function groupQuoteDisplayItems(items: QuoteDisplayItemInput[]): QuoteDis
 
     const quantity = item.meta.comboQuantity > 0 ? item.meta.comboQuantity : item.quantity;
     const productName = clean(item.meta.comboName) || item.product.name;
-    const imageUrl = clean(item.meta.imageUrl) || clean(item.product.thumbnailUrl);
+    const imageUrl = clean(item.meta.imageUrl) || clean(item.comboImageUrl) || clean(item.product.thumbnailUrl);
 
     indexByCombo.set(comboKey, groups.length);
     groups.push({

@@ -44,6 +44,7 @@ Esta guía guarda decisiones de diseño para mantener la aplicación consistente
 
 - En el link público y en el PDF de cotización, los combos deben mostrarse como una sola línea.
 - Para combos, usar el nombre y código real del producto combo guardado en `comboName` y `comboCode`; no inventar códigos `CMB`.
+- Para combos, mostrar la imagen del producto combo real; no usar la imagen de sus componentes internos salvo como último recurso.
 - No mostrar los componentes internos del combo como productos separados en tablas visibles al cliente.
 
 ## DIAN
