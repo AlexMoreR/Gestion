@@ -16,22 +16,48 @@ const MIN_WHOLESALE_MARGIN_SETTING_KEY = "minWholesaleMarginPct";
 const DIAN_UVT_SETTING_KEY = "dianUvtValue";
 const DEFAULT_MIN_RETAIL_MARGIN_PCT = 0;
 const DEFAULT_MIN_WHOLESALE_MARGIN_PCT = 0;
-// UVT vigente (Unidad de Valor Tributario). La fija la DIAN cada anio; este es
-// el valor por defecto y se puede actualizar desde Configuracion > Negocio.
+// UVT vigente (Unidad de Valor Tributario). La fija la DIAN cada año; este es
+// el valor por defecto y se puede actualizar desde Configuración > Negocio.
 const DEFAULT_DIAN_UVT = 49799;
 const DEFAULT_SYSTEM_PRIMARY_COLOR = "#6d28d9";
 const DEFAULT_SYSTEM_WHATSAPP_PHONE = siteConfig.phoneDisplay;
 const DEFAULT_STOREFRONT_LOGO_PATH = siteConfig.logoPath;
-const DEFAULT_STOREFRONT_HERO_TITLE = "Equipa tu peluqueria, barberia o salon de belleza";
+const DEFAULT_STOREFRONT_HERO_TITLE = "Equipa tu peluquería, barbería o salón de belleza";
 const DEFAULT_STOREFRONT_HERO_DESCRIPTION =
-  "Sillas, camillas, tocadores y mobiliario profesional con garantia y envio a toda Colombia.";
+  "Sillas, camillas, tocadores y mobiliario profesional con garantía y envío a toda Colombia.";
 const DEFAULT_STOREFRONT_PROMO_ITEMS = [
   "Combos especiales de temporada",
-  "Envio gratis en productos seleccionados",
+  "Envío gratis en productos seleccionados",
   "Te ayudamos por WhatsApp a elegir tu mobiliario",
   "Descuentos por compras al por mayor",
-  "Instalacion y asesoria para tu salon",
+  "Instalación y asesoría para tu salón",
 ] as const;
+
+function normalizePublicSpanishCopy(value: string): string {
+  return value
+    .replace(/\bpeluqueria\b/g, "peluquería")
+    .replace(/\bPeluqueria\b/g, "Peluquería")
+    .replace(/\bbarberia\b/g, "barbería")
+    .replace(/\bBarberia\b/g, "Barbería")
+    .replace(/\bsalon\b/g, "salón")
+    .replace(/\bSalon\b/g, "Salón")
+    .replace(/\bgarantia\b/g, "garantía")
+    .replace(/\bGarantia\b/g, "Garantía")
+    .replace(/\benvios\b/g, "envíos")
+    .replace(/\bEnvios\b/g, "Envíos")
+    .replace(/\benvio\b/g, "envío")
+    .replace(/\bEnvio\b/g, "Envío")
+    .replace(/\bcatalogo\b/g, "catálogo")
+    .replace(/\bCatalogo\b/g, "Catálogo")
+    .replace(/\bcategorias\b/g, "categorías")
+    .replace(/\bCategorias\b/g, "Categorías")
+    .replace(/\bcategoria\b/g, "categoría")
+    .replace(/\bCategoria\b/g, "Categoría")
+    .replace(/\bInstalacion\b/g, "Instalación")
+    .replace(/\binstalacion\b/g, "instalación")
+    .replace(/\basesoria\b/g, "asesoría")
+    .replace(/\bAsesoria\b/g, "Asesoría");
+}
 
 async function ensureAppSettingTable(): Promise<void> {
   await prisma.$executeRawUnsafe(`
@@ -237,7 +263,7 @@ export async function setSystemStorefrontLogoPath(logoPath: string): Promise<voi
 export const getSystemStorefrontHeroTitle = cache(async (): Promise<string> => {
   try {
     const value = (await getAppSettingValue(STOREFRONT_HERO_TITLE_SETTING_KEY))?.trim();
-    return value || DEFAULT_STOREFRONT_HERO_TITLE;
+    return normalizePublicSpanishCopy(value || DEFAULT_STOREFRONT_HERO_TITLE);
   } catch {
     return DEFAULT_STOREFRONT_HERO_TITLE;
   }
@@ -255,7 +281,7 @@ export async function setSystemStorefrontHeroTitle(title: string): Promise<void>
 export const getSystemStorefrontHeroDescription = cache(async (): Promise<string> => {
   try {
     const value = (await getAppSettingValue(STOREFRONT_HERO_DESCRIPTION_SETTING_KEY))?.trim();
-    return value || DEFAULT_STOREFRONT_HERO_DESCRIPTION;
+    return normalizePublicSpanishCopy(value || DEFAULT_STOREFRONT_HERO_DESCRIPTION);
   } catch {
     return DEFAULT_STOREFRONT_HERO_DESCRIPTION;
   }
@@ -288,7 +314,7 @@ export const getSystemStorefrontPromoItems = cache(async (): Promise<string[]> =
       .filter(Boolean)
       .slice(0, 12);
 
-    return items.length > 0 ? items : [...DEFAULT_STOREFRONT_PROMO_ITEMS];
+    return items.length > 0 ? items.map(normalizePublicSpanishCopy) : [...DEFAULT_STOREFRONT_PROMO_ITEMS];
   } catch {
     return [...DEFAULT_STOREFRONT_PROMO_ITEMS];
   }

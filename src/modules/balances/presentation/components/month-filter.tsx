@@ -14,7 +14,7 @@ type MonthFilterProps = {
 
 function shiftMonth(value: string, delta: number): string {
   const [year, month] = value.split("-").map(Number);
-  // month es 1-based; Date normaliza el desborde de mes/anio automaticamente.
+  // month es 1-based; Date normaliza el desborde de mes/año automáticamente.
   const next = new Date(year, month - 1 + delta, 1);
   return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
 }

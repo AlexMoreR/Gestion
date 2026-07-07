@@ -39,7 +39,7 @@ export function WholesaleCatalog({ products, categories, currency }: WholesaleCa
       );
       const queryMatches = !normalizedQuery || haystack.includes(normalizedQuery);
       const categoryMatches =
-        category === "__all__" || (product.categoryName ?? "Sin categoria") === category;
+        category === "__all__" || (product.categoryName ?? "Sin categoría") === category;
       return queryMatches && categoryMatches;
     });
   }, [products, query, category]);
@@ -52,7 +52,7 @@ export function WholesaleCatalog({ products, categories, currency }: WholesaleCa
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Buscar por nombre, codigo o categoria"
+            placeholder="Buscar por nombre, código o categoría"
             className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-9 text-sm outline-none transition focus:border-slate-400"
           />
           {query ? (
@@ -60,7 +60,7 @@ export function WholesaleCatalog({ products, categories, currency }: WholesaleCa
               type="button"
               onClick={() => setQuery("")}
               className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-              aria-label="Limpiar busqueda"
+              aria-label="Limpiar búsqueda"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -72,9 +72,9 @@ export function WholesaleCatalog({ products, categories, currency }: WholesaleCa
             value={category}
             onChange={(event) => setCategory(event.target.value)}
             className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-            aria-label="Filtrar por categoria"
+            aria-label="Filtrar por categoría"
           >
-            <option value="__all__">Todas las categorias</option>
+            <option value="__all__">Todas las categorías</option>
             {categories.map((name) => (
               <option key={name} value={name}>
                 {name}
@@ -90,7 +90,7 @@ export function WholesaleCatalog({ products, categories, currency }: WholesaleCa
 
       {filtered.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-12 text-center text-sm text-slate-500">
-          No encontramos productos para tu busqueda.
+          No encontramos productos para tu búsqueda.
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

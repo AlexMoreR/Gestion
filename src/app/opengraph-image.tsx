@@ -140,7 +140,7 @@ export default async function OpenGraphImage() {
               color: "rgba(255,255,255,0.96)",
             }}
           >
-            Catalogo online
+            Catálogo online
           </div>
         </div>
       </div>

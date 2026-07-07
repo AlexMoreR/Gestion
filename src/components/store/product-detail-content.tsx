@@ -71,10 +71,10 @@ export async function ProductDetailContent({
   const whatsAppHref = await buildSystemWhatsAppHref(`Hola ${brandName}, quiero comprar el producto: ${product.name}`);
   const productDescription = sanitizeDescription(
     product.seoDescription || product.description,
-    `${product.name} disponible en ${brandName} para proyectos de salon, barberia y mobiliario profesional premium.`,
+    `${product.name} disponible en ${brandName} para proyectos de salón, barbería y mobiliario profesional premium.`,
   );
   const canonicalPath = buildProductPath(product);
-  // Precio "antes" decorativo (+25%) para mostrar el ahorro, consistente con el grid del catalogo.
+  // Precio "antes" decorativo (+25%) para mostrar el ahorro, consistente con el grid del catálogo.
   const retailPrice = Number(product.price);
   const comparePrice = retailPrice * 1.25;
   const savings = Math.max(0, comparePrice - retailPrice);
@@ -165,7 +165,7 @@ export async function ProductDetailContent({
             {product.description || product.seoDescription ? (
               <p className="text-sm leading-6 text-slate-600">{product.description || product.seoDescription}</p>
             ) : (
-              <p className="text-sm text-slate-500">Este producto no tiene descripcion disponible.</p>
+              <p className="text-sm text-slate-500">Este producto no tiene descripción disponible.</p>
             )}
           </div>
 
@@ -204,14 +204,14 @@ export async function ProductDetailContent({
                 </Button>
               </div>
               <div className="grid grid-cols-3 border-t border-[var(--line)] bg-[var(--primary)]/[0.06] px-2 py-2.5 text-center text-[11px] font-medium text-slate-600">
-                <span>Garantia 1 año</span>
-                <span className="border-x border-[var(--line)]">Envio gratis</span>
+                <span>Garantía 1 año</span>
+                <span className="border-x border-[var(--line)]">Envío gratis</span>
                 <span>Soporte directo</span>
               </div>
             </Card>
             {product.code ? (
               <p className="text-xs text-slate-500">
-                Codigo de referencia: <span className="font-medium text-slate-700">{product.code}</span>
+                Código de referencia: <span className="font-medium text-slate-700">{product.code}</span>
               </p>
             ) : null}
           </div>
@@ -221,7 +221,7 @@ export async function ProductDetailContent({
       <div className="rounded-2xl border border-[var(--line)] bg-white px-5 py-4">
         <h2 className="text-lg font-semibold tracking-tight text-slate-900">Detalle profesional</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          {productDescription} Esta referencia forma parte del catalogo premium de {siteConfig.name}, enfocado en
+          {productDescription} Esta referencia forma parte del catálogo premium de {siteConfig.name}, enfocado en
           sillas, estaciones y mobiliario profesional para negocios que cuidan la experiencia del cliente y la imagen
           del espacio.
         </p>

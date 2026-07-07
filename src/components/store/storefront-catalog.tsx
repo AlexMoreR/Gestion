@@ -119,14 +119,14 @@ export async function generateStorefrontMetadata({
     : category
       ? category.seoTitle?.trim() || category.name
       : {
-          absolute: `${brandName} | Mobiliario profesional para peluqueria, barberia y salon de belleza`,
+          absolute: `${brandName} | Mobiliario profesional para peluquería, barbería y salón de belleza`,
         };
   const description = normalizedQuery
-    ? `Explora en ${brandName} resultados para ${normalizedQuery} en sillas, estaciones y mobiliario profesional para salon y barberia.`
+    ? `Explora en ${brandName} resultados para ${normalizedQuery} en sillas, estaciones y mobiliario profesional para salón y barbería.`
     : category
       ? category.seoDescription?.trim() ||
         category.description?.trim() ||
-        `Explora ${category.name.toLowerCase()} en ${brandName}, mobiliario profesional para peluqueria, salon de belleza y barberia.`
+        `Explora ${category.name.toLowerCase()} en ${brandName}, mobiliario profesional para peluquería, salón de belleza y barbería.`
       : storefrontHeroDescription;
   const canonical = normalizedQuery
     ? getSiteUrl(
@@ -140,7 +140,7 @@ export async function generateStorefrontMetadata({
   const socialTitle =
     normalizedQuery || category
       ? `${typeof title === "string" ? title : brandName} | ${brandName}`
-      : `${brandName} | Mobiliario profesional para peluqueria, barberia y salon de belleza`;
+      : `${brandName} | Mobiliario profesional para peluquería, barbería y salón de belleza`;
   const socialImagePath =
     category?.logoUrl?.trim() || category?.products[0]?.thumbnailUrl?.trim() || siteConfig.ogImagePath;
   const socialImage = socialImagePath.startsWith("http") ? socialImagePath : getSiteUrl(socialImagePath);
@@ -241,8 +241,8 @@ export async function StorefrontCatalog({
     getSystemStorefrontPromoItems(),
   ]);
 
-  // El grid completo (pesado) solo se renderiza en busquedas, categorias o la pagina /catalogo.
-  // En el inicio basta con los destacados, evitando traer todo el catalogo y mejorando la carga.
+  // El grid completo (pesado) solo se renderiza en búsquedas, categorías o la página /catalogo.
+  // En el inicio basta con los destacados, evitando traer todo el catálogo y mejorando la carga.
   const showCatalogGrid = Boolean(category || normalizedQuery || showFullCatalog);
 
   const productsResult = await prisma.product.findMany({
@@ -282,7 +282,7 @@ export async function StorefrontCatalog({
     priceLabel: formatCatalogPrice(String(product.price), systemCurrency),
   }));
 
-  // Paginado del catalogo: solo se renderiza y procesa la pagina visible.
+  // Paginado del catálogo: solo se renderiza y procesa la página visible.
   const totalPages = Math.max(1, Math.ceil(products.length / PRODUCTS_PER_PAGE));
   const currentPage = Math.min(Math.max(1, page), totalPages);
   const pagedProducts = showCatalogGrid
@@ -303,12 +303,12 @@ export async function StorefrontCatalog({
     : storefrontHeroTitle;
   const pageIntro = category
     ? category.description?.trim() ||
-      `Explora ${category.name.toLowerCase()} en ${brandName}, con referencias para peluqueria, salon de belleza y barberia.`
+      `Explora ${category.name.toLowerCase()} en ${brandName}, con referencias para peluquería, salón de belleza y barbería.`
     : storefrontHeroDescription;
   const collectionDescription = category
     ? category.description?.trim() ||
       `${category.name} para negocios que buscan imagen, funcionalidad y experiencia premium en cada servicio.`
-    : "Catalogo de sillas, estaciones y mobiliario profesional premium para salon de belleza, barberia y espacios de alto nivel.";
+    : "Catálogo de sillas, estaciones y mobiliario profesional premium para salón de belleza, barbería y espacios de alto nivel.";
   const baseUrl = category ? `/${category.slug}` : "/";
   const storefrontWhatsAppHref = await buildSystemWhatsAppHref(
     `Hola ${brandName}, quiero cotizar mobiliario profesional`,
@@ -324,7 +324,7 @@ export async function StorefrontCatalog({
       : [],
   );
 
-  // Construye el enlace de cada pagina conservando la categoria y la busqueda actual.
+  // Construye el enlace de cada página conservando la categoría y la búsqueda actual.
   const paginationBase = category ? `/${category.slug}` : basePath;
   const buildPageHref = (targetPage: number) => {
     const searchParams = new URLSearchParams();
@@ -348,14 +348,14 @@ export async function StorefrontCatalog({
         legalName: brandName,
         url: getSiteUrl("/"),
         logo: getSiteUrl(storefrontLogoPath),
-        description: `${brandName} ofrece mobiliario profesional para peluqueria, barberia y salon de belleza.`,
+        description: `${brandName} ofrece mobiliario profesional para peluquería, barbería y salón de belleza.`,
         telephone: whatsAppPhoneDisplay,
       },
       {
         "@type": "CollectionPage",
         "@id": `${getSiteUrl(baseUrl)}#catalog`,
         url: getSiteUrl(baseUrl),
-        name: category ? `${category.name} | ${brandName}` : `Catalogo de ${brandName}`,
+        name: category ? `${category.name} | ${brandName}` : `Catálogo de ${brandName}`,
         description: collectionDescription,
       },
     ],
@@ -397,7 +397,7 @@ export async function StorefrontCatalog({
                         className="inline-flex h-9 items-center gap-2 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 px-3.5 text-[13px] font-semibold text-[var(--primary)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--primary)]/50 hover:bg-[var(--primary)]/10 active:translate-y-0 md:h-10 md:px-4.5"
                       >
                         <ShoppingCart className="h-4 w-4" />
-                        Ver catalogo
+                        Ver catálogo
                       </Link>
                       </div>
                     ) : null}
@@ -421,7 +421,7 @@ export async function StorefrontCatalog({
                         className="inline-flex h-9 items-center gap-2 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 px-3.5 text-[13px] font-semibold text-[var(--primary)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--primary)]/50 hover:bg-[var(--primary)]/10 active:translate-y-0"
                       >
                         <ShoppingCart className="h-4 w-4" />
-                        Ver catalogo
+                        Ver catálogo
                       </Link>
                     </div>
                     </div>
@@ -463,7 +463,7 @@ export async function StorefrontCatalog({
             📱
           </span>
           <h2 className="text-sm font-normal tracking-tight text-foreground md:text-lg">
-            Busca tu <strong className="font-semibold">categoria</strong>
+            Busca tu <strong className="font-semibold">categoría</strong>
           </h2>
         </div>
           <CategoriesCarousel categories={categoriesCarousel} />
@@ -482,7 +482,7 @@ export async function StorefrontCatalog({
                 Mobiliario profesional premium
               </p>
               <h2 className="mt-2 text-xl font-semibold tracking-tight text-foreground md:text-2xl">
-                Mobiliario profesional para peluqueria, barberia y salon de belleza
+                Mobiliario profesional para peluquería, barbería y salón de belleza
               </h2>
               <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
                 {`En ${brandName} encuentras sillas, estaciones y mobiliario profesional para equipar tu negocio con imagen, funcionalidad y respaldo.`}
@@ -494,7 +494,7 @@ export async function StorefrontCatalog({
             <div className="flex items-center justify-center gap-2 px-0.5 text-center">
               <span className="text-sm md:text-base">🛍️</span>
               <h2 className="text-sm font-normal tracking-tight text-foreground md:text-lg">
-                Catalogo de <strong className="font-semibold">tienda</strong>
+                Catálogo de <strong className="font-semibold">tienda</strong>
               </h2>
             </div>
           ) : null}
@@ -522,7 +522,7 @@ export async function StorefrontCatalog({
                       <div className="absolute -bottom-1 left-2.5 z-10 rounded-md border border-[color-mix(in_srgb,var(--primary)_24%,white)] bg-[linear-gradient(135deg,var(--primary)_0%,var(--primary-strong)_100%)] px-1.5 py-1 text-white shadow-[0_12px_20px_-14px_color-mix(in_srgb,var(--primary)_70%,black)]">
                         <span className="flex items-center gap-1 text-[7px] font-black uppercase leading-none tracking-[0.08em]">
                           <Truck className="h-2.5 w-2.5" />
-                          Envio
+                          Envío
                         </span>
                         <span className="mt-0.5 block text-[9px] font-black uppercase leading-none tracking-[0.08em]">
                           Gratis
@@ -536,7 +536,7 @@ export async function StorefrontCatalog({
 
                     <div className="flex flex-1 flex-col space-y-1.5 px-3 pb-1 pt-2.5">
                       <p className="line-clamp-1 text-xs font-medium text-muted-foreground">
-                        {product.category?.name ?? "Sin categoria"}
+                        {product.category?.name ?? "Sin categoría"}
                       </p>
                       <h3 className="min-h-[2rem] text-[13px] font-semibold leading-4 normal-case tracking-normal text-foreground">
                         {product.name}
@@ -594,7 +594,7 @@ export async function StorefrontCatalog({
               <div className="flex items-center justify-center gap-2 px-0.5 text-center">
                 <span className="text-sm md:text-base">📱</span>
                 <h2 className="text-sm font-normal tracking-tight text-foreground md:text-lg">
-                  Busca tu <strong className="font-semibold">categoria</strong>
+                  Busca tu <strong className="font-semibold">categoría</strong>
                 </h2>
               </div>
               <CategoriesCarousel categories={categoriesCarousel} />
@@ -606,7 +606,7 @@ export async function StorefrontCatalog({
                 {category.name}
               </p>
               <h2 className="mt-2 text-xl font-semibold tracking-tight text-foreground md:text-2xl">
-                {`${category.name} para peluqueria, barberia y espacios de belleza`}
+                {`${category.name} para peluquería, barbería y espacios de belleza`}
               </h2>
               <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
                 {category.description?.trim() ||
@@ -633,13 +633,13 @@ export async function StorefrontCatalog({
                   <Truck className="h-5 w-5 text-[var(--primary-strong)]" />
                 </div>
                 <p className="text-lg font-bold text-foreground">Todo Colombia</p>
-                <p className="text-xs text-muted-foreground">Envio a tu ciudad</p>
+                <p className="text-xs text-muted-foreground">Envío a tu ciudad</p>
               </div>
               <div className="flex flex-col items-center gap-1.5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--primary)]/10">
                   <Shield className="h-5 w-5 text-[var(--primary-strong)]" />
                 </div>
-                <p className="text-lg font-bold text-foreground">Garantia</p>
+                <p className="text-lg font-bold text-foreground">Garantía</p>
                 <p className="text-xs text-muted-foreground">Respaldo postventa</p>
               </div>
             </div>

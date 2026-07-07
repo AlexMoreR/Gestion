@@ -133,7 +133,7 @@ export function FeaturedProductsCarousel({ products }: FeaturedProductsCarouselP
                   </div>
                   <div className="space-y-1">
                     <p className="text-[0.82rem] font-semibold tabular-nums text-white/92 md:text-base">{product.priceLabel}</p>
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-white/54 md:text-[11px]">Garantia 1 Año</p>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-white/54 md:text-[11px]">Garantía 1 Año</p>
                   </div>
                 </div>
                 <div className="relative flex items-center justify-end">

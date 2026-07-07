@@ -3,13 +3,12 @@ import type { CSSProperties } from "react";
 import { Geist_Mono, Poppins } from "next/font/google";
 import { auth } from "@/auth";
 import { Providers } from "@/components/providers";
-import { getPublicAssetUrl, getSiteUrl, siteConfig } from "@/lib/site";
+import { getSiteUrl, siteConfig } from "@/lib/site";
 import {
   getSystemBrandName,
   getSystemPrimaryColor,
   getSystemPrimaryStrongColor,
   getSystemStorefrontHeroDescription,
-  getSystemStorefrontLogoPath,
 } from "@/lib/system-settings";
 import "./globals.css";
 
@@ -31,18 +30,18 @@ export const viewport: Viewport = {
 };
 
 export async function generateMetadata(): Promise<Metadata> {
-  const [brandName, storefrontLogoPath, heroDescription] = await Promise.all([
+  const [brandName, heroDescription] = await Promise.all([
     getSystemBrandName(),
-    getSystemStorefrontLogoPath(),
     getSystemStorefrontHeroDescription(),
   ]);
   const description = heroDescription;
+  const title = `${brandName} | Mobiliario profesional para peluquería, barbería y salón de belleza`;
   const socialImageUrl = getSiteUrl("/opengraph-image");
 
   return {
     metadataBase: new URL(siteConfig.domain),
     title: {
-      default: `${brandName} | Mobiliario profesional para peluqueria, barberia y salon de belleza`,
+      default: title,
       template: `%s | ${brandName}`,
     },
     description,
@@ -54,12 +53,21 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     icons: {
       icon: [
-        { url: "/favicon.ico", sizes: "32x32", type: "image/x-icon" },
-        { url: getPublicAssetUrl(storefrontLogoPath) },
+        { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+        { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+        { url: "/favicon.ico", sizes: "96x96", type: "image/x-icon" },
       ],
-      shortcut: ["/favicon.ico"],
-      apple: [getPublicAssetUrl(storefrontLogoPath)],
+      shortcut: [{ url: "/favicon.ico", sizes: "96x96", type: "image/x-icon" }],
+      apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+      other: [
+        {
+          rel: "apple-touch-icon-precomposed",
+          url: "/apple-icon-precomposed.png",
+          sizes: "180x180",
+        },
+      ],
     },
+    manifest: "/manifest.json",
     alternates: {
       canonical: getSiteUrl("/"),
     },
@@ -79,18 +87,18 @@ export async function generateMetadata(): Promise<Metadata> {
       locale: siteConfig.locale,
       url: getSiteUrl("/"),
       siteName: brandName,
-      title: `${brandName} | Mobiliario profesional para peluqueria, barberia y salon de belleza`,
+      title,
       description,
       images: [
         {
           url: socialImageUrl,
-          alt: `${brandName} catalogo online`,
+          alt: `${brandName} catálogo online`,
         },
       ],
     },
     twitter: {
       card: "summary_large_image",
-      title: `${brandName} | Mobiliario profesional para peluqueria, barberia y salon de belleza`,
+      title,
       description,
       images: [socialImageUrl],
     },

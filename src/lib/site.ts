@@ -26,7 +26,7 @@ export const siteConfig = {
   name: "Magilus",
   legalName: "Magilus",
   description:
-    "Magilus ofrece sillas barberas e hidraulicas, camillas, tocadores, salas de espera y mobiliario profesional para peluqueria, barberia y salon de belleza, con envio a toda Colombia.",
+    "Magilus ofrece sillas barberas e hidráulicas, camillas, tocadores, salas de espera y mobiliario profesional para peluquería, barbería y salón de belleza, con envío a toda Colombia.",
   domain: normalizeSiteDomain(process.env.NEXT_PUBLIC_SITE_URL),
   phoneDisplay: "+57 304 648 1994",
   phoneHref: "+573046481994",
@@ -38,13 +38,13 @@ export const siteConfig = {
   locale: "es_CO",
   coreKeywords: [
     "magilus",
-    "sillas para salon de belleza",
+    "sillas para salón de belleza",
     "estaciones de belleza",
-    "mobiliario para barberia",
-    "mobiliario profesional para salon",
-    "muebles para peluqueria",
-    "sillas de barberia premium",
-    "catalogo mobiliario de belleza",
+    "mobiliario para barbería",
+    "mobiliario profesional para salón",
+    "muebles para peluquería",
+    "sillas de barbería premium",
+    "catálogo mobiliario de belleza",
   ],
 } as const;
 
