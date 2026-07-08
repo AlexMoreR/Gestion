@@ -12,6 +12,7 @@ type InventoryDataGridProps<TData> = {
   searchPlaceholder?: string;
   emptyMessage: string;
   pageSize?: number;
+  paginate?: boolean;
   toolbar?: React.ReactNode;
   searchFirst?: boolean;
   onSearchChange?: (value: string) => void;

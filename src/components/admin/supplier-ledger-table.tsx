@@ -332,6 +332,7 @@ export function SupplierLedgerTable({
         searchPlaceholder="Buscar movimiento"
         emptyMessage="Sin movimientos registrados."
         pageSize={12}
+        paginate={false}
         toolbar={dateFilter}
         searchFirst
         onSearchChange={setSearch}

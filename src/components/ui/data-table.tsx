@@ -345,7 +345,7 @@ export function DataTable<TData>({
               Anterior
             </Button>
             <span className="text-xs text-muted-foreground">
-              Pagina {table.getState().pagination.pageIndex + 1} de {table.getPageCount() || 1}
+              Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount() || 1}
             </span>
             <Button
               type="button"
