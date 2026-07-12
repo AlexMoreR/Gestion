@@ -341,12 +341,18 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           </CardContent>
         </Card>
         {!isPurchase && (
-          <Card className="border-border bg-card/95 py-2">
-            <CardContent className="space-y-0.5">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Valor ganado</p>
-              <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">{formatMoney(earnedValue, currency)}</p>
-            </CardContent>
-          </Card>
+          <Link
+            href={`/admin/ordenes/${order.id}/ganancia`}
+            className="rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Card className="h-full cursor-pointer border-border bg-card/95 py-2 transition-colors hover:border-emerald-500/40 hover:bg-emerald-500/5">
+              <CardContent className="space-y-0.5">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Valor ganado</p>
+                <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">{formatMoney(earnedValue, currency)}</p>
+                <p className="text-[10px] text-muted-foreground">Ver desglose →</p>
+              </CardContent>
+            </Card>
+          </Link>
         )}
         <Card className="border-border bg-card/95 py-2">
           <CardContent className="space-y-0.5">
