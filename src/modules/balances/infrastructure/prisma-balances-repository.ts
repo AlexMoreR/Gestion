@@ -218,11 +218,17 @@ function buildShippingWhere(search?: string): Prisma.ShippingCostWhereInput {
 }
 
 function buildProfitWhere(search?: string, period?: DateRange): Prisma.SaleWhereInput {
-  // Solo ventas facturadas con su orden cerrada (entregada).
+  // Solo ventas facturadas con su orden cerrada (entregada). La venta se
+  // reconoce en el mes en que se ENTREGO (order.completedAt), no cuando se creo,
+  // para que un mes ya cerrado no cambie de forma retroactiva.
   const base: Prisma.SaleWhereInput = {
     status: "INVOICED",
-    order: { is: { status: "COMPLETED" } },
-    ...(period ? { createdAt: { gte: period.from, lt: period.to } } : {}),
+    order: {
+      is: {
+        status: "COMPLETED",
+        ...(period ? { completedAt: { gte: period.from, lt: period.to } } : {}),
+      },
+    },
   };
   const normalizedSearch = normalizeSearch(search);
   if (!normalizedSearch) {
@@ -251,6 +257,7 @@ async function getSaleProfitRows(where?: Prisma.SaleWhereInput): Promise<SalePro
       client: { select: { name: true } },
       order: {
         select: {
+          completedAt: true,
           items: {
             select: {
               quantity: true,
@@ -272,7 +279,8 @@ async function getSaleProfitRows(where?: Prisma.SaleWhereInput): Promise<SalePro
       saleId: sale.id,
       saleCode: sale.code,
       saleAmount: toNumber(sale.total),
-      createdAt: sale.createdAt,
+      // Fecha de reconocimiento = entrega de la orden; si faltara, la de creacion.
+      createdAt: sale.order?.completedAt ?? sale.createdAt,
       clientName: sale.client.name,
       orderItems: sale.order?.items.map((item) => ({
         quantity: item.quantity,
@@ -596,11 +604,16 @@ export function createPrismaBalancesRepository(): BalancesRepository {
     },
 
     async getDashboardMetrics(period?: DateRange): Promise<DashboardMetrics> {
-      // Solo se contabilizan ventas facturadas cuya orden esta cerrada (entregada).
+      // Solo se contabilizan ventas facturadas cuya orden esta entregada. Se
+      // reconocen en el mes de ENTREGA (order.completedAt), no de creacion.
       const sales = await getSaleProfitRows({
         status: "INVOICED",
-        order: { is: { status: "COMPLETED" } },
-        ...(period ? { createdAt: { gte: period.from, lt: period.to } } : {}),
+        order: {
+          is: {
+            status: "COMPLETED",
+            ...(period ? { completedAt: { gte: period.from, lt: period.to } } : {}),
+          },
+        },
       });
       return summarizeDashboardMetrics(sales);
     },
