@@ -33,14 +33,16 @@ export function StatList({ items, className }: { items: StatItem[]; className?: 
   return (
     <div
       className={cn(
-        "divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10",
+        // Movil: filas apiladas con divisor horizontal. Escritorio (md+): celdas
+        // en una sola fila, del mismo ancho, con divisor vertical.
+        "flex flex-col divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10 md:flex-row md:divide-x md:divide-y-0",
         className,
       )}
     >
       {items.map((item) => {
         const Icon = item.icon;
         return (
-          <div key={item.label} className="flex items-center justify-between gap-3 px-4 py-3">
+          <div key={item.label} className="flex items-center justify-between gap-3 px-4 py-3 md:flex-1">
             <div className="flex min-w-0 items-center gap-2.5">
               <Icon className={cn("h-4 w-4 shrink-0", iconToneClass(item.tone))} />
               <div className="min-w-0">
