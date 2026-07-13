@@ -788,6 +788,7 @@ export function createPrismaBalancesRepository(): BalancesRepository {
             receiptUrl: true,
             receiptName: true,
             supplier: { select: { name: true } },
+            sale: { select: { code: true } },
           },
         }),
         prisma.shippingCost.findMany({
@@ -840,7 +841,7 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           id: `supplier-payment:${row.id}`,
           date: row.paymentDate ?? row.createdAt,
           type: "EXPENSE" as const,
-          concept: `Pago proveedor ${row.supplier.name}`,
+          concept: `Pago proveedor ${row.supplier.name}${row.sale ? ` (${row.sale.code})` : ""}`,
           reference: row.transactionReference ?? row.note ?? null,
           amount: -toNumber(row.amount),
           receiptUrl: row.receiptUrl ?? null,
