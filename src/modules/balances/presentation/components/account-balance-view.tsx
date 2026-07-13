@@ -115,11 +115,10 @@ export function AccountBalanceView({ transactions, openingBalance, currency }: A
         </label>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard title="Saldo inicial" value={formatMoney(metrics.periodOpening, currency)} />
         <SummaryCard title="Ingresos" value={formatMoney(metrics.ingreso, currency)} tone="success" />
         <SummaryCard title="Gastos" value={formatMoney(metrics.gasto, currency)} tone="danger" />
-        <SummaryCard title="Movimientos" value={formatMoney(metrics.movimientos, currency)} />
         <SummaryCard
           title="Balance"
           value={formatMoney(metrics.balance, currency)}
