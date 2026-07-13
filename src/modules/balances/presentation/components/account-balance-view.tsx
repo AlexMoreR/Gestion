@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { ArrowDownLeft, ArrowUpRight, Scale, Wallet, type LucideIcon } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Scale, Wallet } from "lucide-react";
+import { StatList } from "@/components/ui/stat-list";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type { AccountTransaction } from "@/modules/balances/domain/entities";
 import {
@@ -30,38 +31,6 @@ type MonthOption = {
 function monthLabel(date: Date): string {
   const label = date.toLocaleDateString("es-CO", { month: "long", year: "numeric", timeZone: "UTC" });
   return label.charAt(0).toUpperCase() + label.slice(1);
-}
-
-type SummaryTone = "neutral" | "success" | "danger";
-
-// Fila compacta del resumen: icono pequeno + etiqueta a la izquierda y el valor
-// a la derecha, todas dentro de un mismo contenedor (estilo lista).
-function SummaryRow({
-  title,
-  value,
-  icon: Icon,
-  tone = "neutral",
-}: {
-  title: string;
-  value: string;
-  icon: LucideIcon;
-  tone?: SummaryTone;
-}) {
-  const toneClass =
-    tone === "success"
-      ? "text-emerald-600 dark:text-emerald-400"
-      : tone === "danger"
-        ? "text-rose-600 dark:text-rose-400"
-        : "text-foreground";
-  return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3">
-      <div className="flex items-center gap-2.5">
-        <Icon className={`h-4 w-4 shrink-0 ${tone === "neutral" ? "text-muted-foreground" : toneClass}`} />
-        <span className="text-sm font-medium text-foreground">{title}</span>
-      </div>
-      <span className={`text-sm font-semibold ${toneClass}`}>{value}</span>
-    </div>
-  );
 }
 
 export function AccountBalanceView({ transactions, openingBalance, currency }: AccountBalanceViewProps) {
@@ -122,31 +91,19 @@ export function AccountBalanceView({ transactions, openingBalance, currency }: A
         </label>
       </div>
 
-      <div className="divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
-        <SummaryRow
-          title="Saldo inicial"
-          value={formatMoney(metrics.periodOpening, currency)}
-          icon={Wallet}
-        />
-        <SummaryRow
-          title="Ingresos"
-          value={formatMoney(metrics.ingreso, currency)}
-          icon={ArrowDownLeft}
-          tone="success"
-        />
-        <SummaryRow
-          title="Gastos"
-          value={formatMoney(metrics.gasto, currency)}
-          icon={ArrowUpRight}
-          tone="danger"
-        />
-        <SummaryRow
-          title="Balance"
-          value={formatMoney(metrics.balance, currency)}
-          icon={Scale}
-          tone={metrics.balance >= 0 ? "success" : "danger"}
-        />
-      </div>
+      <StatList
+        items={[
+          { label: "Saldo inicial", value: formatMoney(metrics.periodOpening, currency), icon: Wallet },
+          { label: "Ingresos", value: formatMoney(metrics.ingreso, currency), icon: ArrowDownLeft, tone: "success" },
+          { label: "Gastos", value: formatMoney(metrics.gasto, currency), icon: ArrowUpRight, tone: "danger" },
+          {
+            label: "Balance",
+            value: formatMoney(metrics.balance, currency),
+            icon: Scale,
+            tone: metrics.balance >= 0 ? "success" : "danger",
+          },
+        ]}
+      />
 
       <AccountTransactionsTable
         data={filteredTransactions}

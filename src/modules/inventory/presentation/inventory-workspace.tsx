@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { Boxes, History, Plus } from "lucide-react";
+import { Boxes, History, Layers, PackageX, Plus, Wallet } from "lucide-react";
+import { StatList } from "@/components/ui/stat-list";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type {
   InventoryMetrics,
@@ -44,36 +45,6 @@ type InventoryWorkspaceProps = {
 };
 
 type TabKey = "stock" | "movimientos";
-
-function MetricCard({
-  title,
-  value,
-  accent = "neutral",
-}: {
-  title: string;
-  value: string;
-  accent?: "neutral" | "success" | "danger" | "warning" | "info";
-}) {
-  const toneClass =
-    accent === "success"
-      ? "border-emerald-500/20 bg-emerald-500/5"
-      : accent === "danger"
-        ? "border-destructive/20 bg-destructive/5"
-        : accent === "warning"
-          ? "border-amber-500/20 bg-amber-500/5"
-          : accent === "info"
-            ? "border-primary/20 bg-primary/5"
-            : "border-border bg-card";
-
-  return (
-    <Card className={`${toneClass} py-2`}>
-      <CardContent className="space-y-0.5">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
-        <p className="text-lg font-semibold text-foreground">{value}</p>
-      </CardContent>
-    </Card>
-  );
-}
 
 export function InventoryWorkspace({
   metrics,
@@ -191,28 +162,19 @@ export function InventoryWorkspace({
           </Tabs>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            title="Productos en stock"
-            value={`${metrics.inStockProducts}`}
-            accent="info"
-          />
-          <MetricCard
-            title="Unidades totales"
-            value={`${metrics.totalUnits}`}
-            accent="neutral"
-          />
-          <MetricCard
-            title="Valor inventario"
-            value={formatMoney(metrics.totalValue, currency)}
-            accent="neutral"
-          />
-          <MetricCard
-            title="Agotados"
-            value={`${metrics.outOfStockCount}`}
-            accent={metrics.outOfStockCount > 0 ? "danger" : "neutral"}
-          />
-        </div>
+        <StatList
+          items={[
+            { label: "Productos en stock", value: `${metrics.inStockProducts}`, icon: Boxes, tone: "info" },
+            { label: "Unidades totales", value: `${metrics.totalUnits}`, icon: Layers },
+            { label: "Valor inventario", value: formatMoney(metrics.totalValue, currency), icon: Wallet },
+            {
+              label: "Agotados",
+              value: `${metrics.outOfStockCount}`,
+              icon: PackageX,
+              tone: metrics.outOfStockCount > 0 ? "danger" : "neutral",
+            },
+          ]}
+        />
 
         {tab === "stock" ? (
           <ProductStockTable

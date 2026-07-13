@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Landmark, ReceiptText, TrendingUp, Wallet } from "lucide-react";
+import { BadgeDollarSign, Landmark, ReceiptText, Scale, TrendingUp, Truck, Wallet } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { StatList } from "@/components/ui/stat-list";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type {
@@ -51,37 +52,6 @@ type BalancesWorkspaceProps = {
 };
 
 type TabKey = "overview" | "reports" | "cuentas" | "gastos";
-
-function MetricCard({
-  title,
-  value,
-  helper,
-  accent = "neutral",
-}: {
-  title: string;
-  value: string;
-  helper: string;
-  accent?: "neutral" | "success" | "danger" | "info";
-}) {
-  const toneClass =
-    accent === "success"
-      ? "border-emerald-500/20 bg-emerald-500/5"
-      : accent === "danger"
-        ? "border-destructive/20 bg-destructive/5"
-        : accent === "info"
-          ? "border-primary/20 bg-primary/5"
-          : "border-border bg-card";
-
-  return (
-    <Card className={`${toneClass} py-2`}>
-      <CardContent className="space-y-0.5">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
-        <p className="text-lg font-semibold text-foreground">{value}</p>
-        <p className="text-[10px] text-muted-foreground">{helper}</p>
-      </CardContent>
-    </Card>
-  );
-}
 
 export function BalancesWorkspace({
   currency,
@@ -140,12 +110,38 @@ export function BalancesWorkspace({
         </div>
 
         {tab === "gastos" ? null : (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <MetricCard title="Ventas del mes" value={formatMoney(metrics.salesTotal, currency)} helper={`${metrics.salesCount} ventas · ${monthLabel}`} accent="info" />
-            <MetricCard title="Costos del mes" value={formatMoney(directCosts, currency)} helper="Proveedores y envios" accent="danger" />
-            <MetricCard title="Gastos del mes" value={formatMoney(operatingExpenses, currency)} helper="Nomina, marketing y varios" accent="danger" />
-            <MetricCard title="Ganancia neta" value={formatMoney(realNetProfit, currency)} helper={`${realMargin.toFixed(2)}% de margen`} accent={realNetProfit >= 0 ? "success" : "danger"} />
-          </div>
+          <StatList
+            items={[
+              {
+                label: "Ventas del mes",
+                value: formatMoney(metrics.salesTotal, currency),
+                helper: `${metrics.salesCount} ventas · ${monthLabel}`,
+                icon: BadgeDollarSign,
+                tone: "info",
+              },
+              {
+                label: "Costos del mes",
+                value: formatMoney(directCosts, currency),
+                helper: "Proveedores y envios",
+                icon: Truck,
+                tone: "danger",
+              },
+              {
+                label: "Gastos del mes",
+                value: formatMoney(operatingExpenses, currency),
+                helper: "Nomina, marketing y varios",
+                icon: ReceiptText,
+                tone: "danger",
+              },
+              {
+                label: "Ganancia neta",
+                value: formatMoney(realNetProfit, currency),
+                helper: `${realMargin.toFixed(2)}% de margen`,
+                icon: Scale,
+                tone: realNetProfit >= 0 ? "success" : "danger",
+              },
+            ]}
+          />
         )}
 
         {tab === "overview" ? (

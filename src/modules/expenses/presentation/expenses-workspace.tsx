@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Plus, ReceiptText, Tags } from "lucide-react";
+import { CalendarDays, Plus, ReceiptText, Tags } from "lucide-react";
+import { StatList } from "@/components/ui/stat-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -72,37 +73,6 @@ function todayBogota(): string {
   const bogotaNow = new Date(now.getTime() - 5 * 60 * 60 * 1000);
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${bogotaNow.getUTCFullYear()}-${pad(bogotaNow.getUTCMonth() + 1)}-${pad(bogotaNow.getUTCDate())}`;
-}
-
-function MetricCard({
-  title,
-  value,
-  helper,
-  accent = "neutral",
-}: {
-  title: string;
-  value: string;
-  helper: string;
-  accent?: "neutral" | "success" | "danger" | "info";
-}) {
-  const toneClass =
-    accent === "success"
-      ? "border-emerald-500/20 bg-emerald-500/5"
-      : accent === "danger"
-        ? "border-destructive/20 bg-destructive/5"
-        : accent === "info"
-          ? "border-primary/20 bg-primary/5"
-          : "border-border bg-card";
-
-  return (
-    <Card className={`${toneClass} py-2`}>
-      <CardContent className="space-y-0.5">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
-        <p className="text-lg font-semibold text-foreground">{value}</p>
-        <p className="text-[10px] text-muted-foreground">{helper}</p>
-      </CardContent>
-    </Card>
-  );
 }
 
 export function ExpensesWorkspace({
@@ -215,32 +185,36 @@ export function ExpensesWorkspace({
           </div>
         )}
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            title="Gasto del mes"
-            value={formatMoney(rangeTotal, currency)}
-            helper={`${filteredExpenses.length} gastos · rango seleccionado`}
-            accent="info"
-          />
-          <MetricCard
-            title="Gasto del dia"
-            value={formatMoney(todayTotal, currency)}
-            helper="Hoy"
-            accent="danger"
-          />
-          <MetricCard
-            title="Categoria principal"
-            value={metrics.topCategoryName ?? "Sin datos"}
-            helper={metrics.topCategoryName ? formatMoney(metrics.topCategoryAmount, currency) : "Sin gastos aun"}
-            accent="neutral"
-          />
-          <MetricCard
-            title="Categorias"
-            value={`${metrics.categoryCount}`}
-            helper="Tipos de gasto definidos"
-            accent="neutral"
-          />
-        </div>
+        <StatList
+          items={[
+            {
+              label: "Gasto del mes",
+              value: formatMoney(rangeTotal, currency),
+              helper: `${filteredExpenses.length} gastos · rango seleccionado`,
+              icon: ReceiptText,
+              tone: "info",
+            },
+            {
+              label: "Gasto del dia",
+              value: formatMoney(todayTotal, currency),
+              helper: "Hoy",
+              icon: CalendarDays,
+              tone: "danger",
+            },
+            {
+              label: "Categoria principal",
+              value: metrics.topCategoryName ?? "Sin datos",
+              helper: metrics.topCategoryName ? formatMoney(metrics.topCategoryAmount, currency) : "Sin gastos aun",
+              icon: Tags,
+            },
+            {
+              label: "Categorias",
+              value: `${metrics.categoryCount}`,
+              helper: "Tipos de gasto definidos",
+              icon: Tags,
+            },
+          ]}
+        />
 
         {tab === "gastos" ? (
           <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(15rem,0.7fr)]">

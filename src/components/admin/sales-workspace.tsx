@@ -3,7 +3,8 @@
 import * as React from "react";
 import { SalesDataTable } from "@/components/admin/sales-data-table";
 import { DirectSaleSheet, type DirectSaleProduct, type DirectSaleClient } from "@/components/admin/direct-sale-sheet";
-import { Card, CardContent } from "@/components/ui/card";
+import { ArrowDownLeft, Clock, ShoppingCart, Wallet } from "lucide-react";
+import { StatList } from "@/components/ui/stat-list";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 
 type SaleStatus = "DRAFT" | "ACTIVE" | "INVOICED" | "COMPLETED" | "CANCELLED";
@@ -118,32 +119,14 @@ export function SalesWorkspace({ sales, currency, accounts, products, clients, i
         <DirectSaleSheet products={products} clients={clients} currency={currency} accounts={accounts} />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-border bg-card/95 py-2">
-          <CardContent className="space-y-0.5">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Ventas</p>
-            <p className="text-lg font-semibold text-foreground">{stats.salesCount}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border bg-card/95 py-2">
-          <CardContent className="space-y-0.5">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Cobrar</p>
-            <p className="text-lg font-semibold text-foreground">{stats.toCollectCount}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border bg-card/95 py-2">
-          <CardContent className="space-y-0.5">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Abonos</p>
-            <p className="text-lg font-semibold text-foreground">{formatMoney(stats.downPaymentTotal, currency)}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border bg-card/95 py-2">
-          <CardContent className="space-y-0.5">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Saldo</p>
-            <p className="text-lg font-semibold text-foreground">{formatMoney(stats.remainingTotal, currency)}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <StatList
+        items={[
+          { label: "Ventas", value: String(stats.salesCount), icon: ShoppingCart },
+          { label: "Cobrar", value: String(stats.toCollectCount), icon: Clock },
+          { label: "Abonos", value: formatMoney(stats.downPaymentTotal, currency), icon: ArrowDownLeft, tone: "success" },
+          { label: "Saldo", value: formatMoney(stats.remainingTotal, currency), icon: Wallet },
+        ]}
+      />
 
       <SalesDataTable
         sales={tableSales}
