@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Boxes, History, Plus, Warehouse } from "lucide-react";
+import { Boxes, History, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -170,12 +170,7 @@ export function InventoryWorkspace({
     <>
       <section className="space-y-4">
         <div className="space-y-3">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <h1 className="inline-flex items-center gap-1 text-lg font-semibold tracking-tight text-foreground md:text-xl">
-              <Warehouse className="h-4 w-4 text-primary" />
-              <span>Inventario</span>
-            </h1>
-
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
             <Button type="button" onClick={() => setMovementModal({ open: true, productId: null })}>
               <Plus className="h-4 w-4" />
               Nuevo movimiento

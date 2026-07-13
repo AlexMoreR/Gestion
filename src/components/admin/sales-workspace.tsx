@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { BadgeDollarSign } from "lucide-react";
 import { SalesDataTable } from "@/components/admin/sales-data-table";
 import { DirectSaleSheet, type DirectSaleProduct, type DirectSaleClient } from "@/components/admin/direct-sale-sheet";
 import { Card, CardContent } from "@/components/ui/card";
@@ -115,11 +114,7 @@ export function SalesWorkspace({ sales, currency, accounts, products, clients, i
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="inline-flex items-center gap-1 text-lg font-semibold tracking-tight text-foreground md:text-xl">
-          <BadgeDollarSign className="h-4 w-4 text-primary" />
-          <span>Ventas</span>
-        </h1>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <DirectSaleSheet products={products} clients={clients} currency={currency} accounts={accounts} />
       </div>
 

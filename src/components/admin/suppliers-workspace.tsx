@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Truck, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import {
   adminCreateSupplierAction,
   adminUpdateSupplierAction,
@@ -86,11 +86,7 @@ export function SuppliersWorkspace({ suppliers, currency }: SuppliersWorkspacePr
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="inline-flex items-center gap-1 text-lg font-semibold tracking-tight text-slate-900 md:text-xl">
-            <Truck className="h-4 w-4 text-slate-500" />
-            <span>Proveedores</span>
-          </h1>
-          <p className="mt-1 text-xs text-slate-600">
+          <p className="text-xs text-slate-600">
             Crea, edita y elimina proveedores del catalogo.
           </p>
         </div>

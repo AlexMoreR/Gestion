@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, ReceiptText, Tags, Wallet } from "lucide-react";
+import { Plus, ReceiptText, Tags } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -184,12 +184,7 @@ export function ExpensesWorkspace({
       <section className="space-y-4">
         {embedded ? null : (
           <div className="space-y-3">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <h1 className="inline-flex items-center gap-1 text-lg font-semibold tracking-tight text-foreground md:text-xl">
-                <ReceiptText className="h-4 w-4 text-primary" />
-                <span>Gastos</span>
-              </h1>
-
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
               <div className="flex flex-wrap gap-2">
                 {tab === "gastos" ? (
                   <Button type="button" onClick={() => setExpenseModal({ mode: "create", initialValue: null })}>

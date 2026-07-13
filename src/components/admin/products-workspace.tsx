@@ -70,13 +70,7 @@ export function ProductsWorkspace({
 
   return (
     <>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="inline-flex items-center gap-1 text-lg font-semibold tracking-tight text-slate-900 md:text-xl">
-            <Package className="h-4 w-4 text-slate-500" />
-            <span>Productos</span>
-          </h1>
-        </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-end">
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <ProductImportExportControls />
           <button

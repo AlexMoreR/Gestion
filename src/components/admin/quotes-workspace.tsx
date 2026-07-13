@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { QuotesDataTable } from "@/components/admin/quotes-data-table";
 import {
   QuoteWizardModal,
@@ -43,13 +43,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
 
   return (
     <>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="inline-flex items-center gap-1 text-lg font-semibold tracking-tight text-foreground md:text-xl">
-            <FileText className="h-4 w-4 text-primary" />
-            <span>Cotizaciones</span>
-          </h1>
-        </div>
+      <div className="flex flex-wrap items-start justify-end gap-3">
         <Button type="button" onClick={() => setOpenModal(true)}>
           <Plus className="h-4 w-4" />
           Nueva cotizacion

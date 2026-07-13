@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Tag, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { adminCreateCategoryAction, adminUpdateCategoryAction } from "@/app/actions/catalog-actions";
 import { CategoriesDataTable } from "@/components/admin/categories-data-table";
 import { Input } from "@/components/ui/input";
@@ -82,11 +82,7 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="inline-flex items-center gap-1 text-lg font-semibold tracking-tight text-slate-900 md:text-xl">
-            <Tag className="h-4 w-4 text-slate-500" />
-            <span>Categorias</span>
-          </h1>
-          <p className="mt-1 text-xs text-slate-600">Gestiona categorias del catalogo.</p>
+          <p className="text-xs text-slate-600">Gestiona categorias del catalogo.</p>
         </div>
         <Button
           type="button"

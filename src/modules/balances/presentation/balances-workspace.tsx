@@ -113,12 +113,7 @@ export function BalancesWorkspace({
     <>
       <section className="space-y-4">
         <div className="space-y-3">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <h1 className="inline-flex items-center gap-1 text-lg font-semibold tracking-tight text-foreground md:text-xl">
-                <Landmark className="h-4 w-4 text-primary" />
-                <span>Balances</span>
-              </h1>
-
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
               <MonthFilter value={monthValue} label={monthLabel} />
             </div>
 
