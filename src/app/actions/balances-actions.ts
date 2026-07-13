@@ -27,6 +27,7 @@ import {
   shippingCostUpdateSchema,
   supplierPaymentCreateSchema,
   supplierPaymentUpdateSchema,
+  transactionDateUpdateSchema,
 } from "@/modules/balances/application/schemas";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
 
@@ -413,6 +414,81 @@ export async function adminUpdateAccountAction(formData: FormData): Promise<void
 
   revalidatePath("/admin/balances");
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Cuenta actualizada" }).toString()}`);
+}
+
+// Edita la fecha de una sola transaccion desde el detalle de la cuenta. A
+// diferencia de editar la fecha en la orden (que arrastra la orden, sus items y
+// todos sus pagos/fletes a la misma fecha), esto solo mueve el registro
+// seleccionado. Se invoca directamente desde el cliente con argumentos simples.
+export async function adminUpdateTransactionDateAction(
+  transactionId: string,
+  date: string,
+): Promise<{ ok: boolean; error?: string }> {
+  await requireAdminSession();
+
+  const parsed = transactionDateUpdateSchema.safeParse({ transactionId, date });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos invalidos" };
+  }
+
+  // El id llega como "tipo:idReal"; el id real puede contener ":" en teoria,
+  // por eso reconstruimos todo lo que va despues del primer segmento.
+  const separatorIndex = parsed.data.transactionId.indexOf(":");
+  const kind = separatorIndex === -1 ? "" : parsed.data.transactionId.slice(0, separatorIndex);
+  const id = separatorIndex === -1 ? "" : parsed.data.transactionId.slice(separatorIndex + 1);
+  const newDate = parsed.data.date;
+  if (!id) {
+    return { ok: false, error: "Transaccion invalida" };
+  }
+
+  try {
+    switch (kind) {
+      case "sale-payment":
+        await prisma.salePayment.update({ where: { id }, data: { paymentDate: newDate } });
+        break;
+      case "supplier-payment":
+        await prisma.supplierLedgerEntry.update({ where: { id }, data: { paymentDate: newDate } });
+        break;
+      case "shipping":
+        await prisma.shippingCost.update({ where: { id }, data: { paymentDate: newDate } });
+        break;
+      case "expense":
+        await prisma.expense.update({ where: { id }, data: { expenseDate: newDate } });
+        break;
+      case "movement": {
+        const movement = await prisma.accountMovement.findUnique({
+          where: { id },
+          select: { transferId: true },
+        });
+        if (!movement) {
+          return { ok: false, error: "El movimiento ya no existe" };
+        }
+        // Un traslado son dos movimientos (entra/sale) enlazados por transferId:
+        // se mueven juntos para no quedar en fechas distintas.
+        if (movement.transferId) {
+          await prisma.accountMovement.updateMany({
+            where: { transferId: movement.transferId },
+            data: { movementDate: newDate },
+          });
+        } else {
+          await prisma.accountMovement.update({ where: { id }, data: { movementDate: newDate } });
+        }
+        break;
+      }
+      default:
+        return { ok: false, error: "Tipo de transaccion no soportado" };
+    }
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return { ok: false, error: "La transaccion ya no existe" };
+    }
+    throw error;
+  }
+
+  // "layout" revalida tambien el detalle de cada cuenta (ruta anidada dinamica).
+  revalidatePath("/admin/balances", "layout");
+  revalidatePath("/admin/proveedores");
+  return { ok: true };
 }
 
 export async function adminCreateAccountMovementAction(formData: FormData): Promise<void> {

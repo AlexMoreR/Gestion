@@ -3,6 +3,7 @@
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ArrowDownLeft, ArrowUpRight, ExternalLink, FileText, X } from "lucide-react";
+import { adminUpdateTransactionDateAction } from "@/app/actions/balances-actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
@@ -29,6 +30,12 @@ const TYPE_LABEL: Record<AccountTransactionType, string> = {
 
 function isImageReceipt(url: string): boolean {
   return /\.(jpe?g|png|webp|gif|avif)$/i.test(url.split("?")[0] ?? "");
+}
+
+// Las fechas contables se guardan como medianoche UTC; usar los componentes UTC
+// evita que el <input type="date"> muestre el dia anterior.
+function toDateInputValue(date: Date | string): string {
+  return new Date(date).toISOString().slice(0, 10);
 }
 
 export function AccountTransactionsTable({ data, openingBalance, currency }: AccountTransactionsTableProps) {
@@ -134,12 +141,36 @@ function TransactionDetailDialog({
   onClose: () => void;
 }) {
   const [receiptUrl, setReceiptUrl] = React.useState<string | null>(null);
+  const [dateValue, setDateValue] = React.useState("");
+  const [dateError, setDateError] = React.useState<string | null>(null);
+  const [isSavingDate, startSaveDate] = React.useTransition();
+
+  // Al abrir (o cambiar de) transaccion, precargar su fecha en el editor.
+  React.useEffect(() => {
+    if (transaction) {
+      setDateValue(toDateInputValue(transaction.date));
+      setDateError(null);
+    }
+  }, [transaction]);
 
   if (!transaction) {
     return null;
   }
 
   const isPositive = transaction.amount >= 0;
+  const dateChanged = Boolean(dateValue) && dateValue !== toDateInputValue(transaction.date);
+
+  const handleSaveDate = () => {
+    setDateError(null);
+    startSaveDate(async () => {
+      const result = await adminUpdateTransactionDateAction(transaction.id, dateValue);
+      if (result.ok) {
+        onClose();
+      } else {
+        setDateError(result.error ?? "No se pudo actualizar la fecha.");
+      }
+    });
+  };
 
   return (
     <>
@@ -165,7 +196,30 @@ function TransactionDetailDialog({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
           <dl className="space-y-3">
-            <DetailRow label="Concepto" value={transaction.concept} />
+            <div className="flex items-start justify-between gap-3">
+              <dt className="pt-1.5 text-sm text-muted-foreground">Fecha</dt>
+              <dd className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={dateValue}
+                    onChange={(event) => setDateValue(event.target.value)}
+                    disabled={isSavingDate}
+                    className="h-9 rounded-lg border border-border bg-card px-2 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-60"
+                  />
+                  {dateChanged && (
+                    <Button type="button" size="sm" onClick={handleSaveDate} disabled={isSavingDate || !dateValue}>
+                      {isSavingDate ? "Guardando…" : "Guardar"}
+                    </Button>
+                  )}
+                </div>
+                {dateError ? (
+                  <p className="text-xs text-destructive">{dateError}</p>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">Solo cambia esta transacción.</p>
+                )}
+              </dd>
+            </div>
             <DetailRow label="Referencia" value={transaction.reference ?? "-"} />
             <div className="flex items-center justify-between gap-3">
               <dt className="text-sm text-muted-foreground">Monto</dt>

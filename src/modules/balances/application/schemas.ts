@@ -70,6 +70,14 @@ export const accountMovementCreateSchema = z
     }
   });
 
+// Edicion puntual de la fecha de una transaccion desde el detalle de la cuenta.
+// El id viene prefijado por tipo (ej. "supplier-payment:xxx") para saber que
+// registro subyacente actualizar.
+export const transactionDateUpdateSchema = z.object({
+  transactionId: z.string().trim().min(1, "Transaccion invalida"),
+  date: z.coerce.date(),
+});
+
 export type SupplierPaymentFormValues = z.infer<typeof supplierPaymentCreateSchema>;
 export type ShippingCostFormValues = z.infer<typeof shippingCostCreateSchema>;
 export type AccountFormValues = z.infer<typeof accountCreateSchema>;
