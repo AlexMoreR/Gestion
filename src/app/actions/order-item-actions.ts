@@ -351,17 +351,30 @@ export async function adminUpdateOrderHistoryDateAction(formData: FormData): Pro
   // Verifica que la entrada pertenezca a la orden indicada.
   const entry = await prisma.orderStatusHistory.findUnique({
     where: { id: historyId },
-    select: { id: true, orderId: true },
+    select: { id: true, orderId: true, toStatus: true },
   });
   if (!entry || entry.orderId !== orderId) {
     redirect(`${returnTo}?error=Movimiento+no+encontrado`);
   }
+
+  // Si el movimiento editado es la entrega (paso a "Cerrada"/COMPLETED), tambien
+  // se mueve order.completedAt: es la fecha con la que Balances reconoce la venta
+  // en su mes. Sin esto, editar la fecha del historial no cambia el reporte.
+  const isCompletionEntry = entry.toStatus === "COMPLETED";
 
   await prisma.$transaction([
     prisma.orderStatusHistory.update({
       where: { id: historyId },
       data: { createdAt: parsedDate },
     }),
+    ...(isCompletionEntry
+      ? [
+          prisma.order.update({
+            where: { id: orderId },
+            data: { completedAt: parsedDate },
+          }),
+        ]
+      : []),
     ...(updateSupplierCharges
       ? [
           prisma.supplierLedgerEntry.updateMany({
@@ -383,9 +396,12 @@ export async function adminUpdateOrderHistoryDateAction(formData: FormData): Pro
 
   revalidatePath("/admin/ordenes");
   revalidatePath(`/admin/ordenes/${orderId}`);
+  // La fecha de entrega mueve el mes de reconocimiento de la venta en Balances.
+  if (updateSupplierCharges || isCompletionEntry) {
+    revalidatePath("/admin/balances");
+  }
   if (updateSupplierCharges) {
     revalidatePath("/admin/proveedores");
-    revalidatePath("/admin/balances");
   }
   redirect(`${returnTo}?ok=Fecha+del+movimiento+actualizada`);
 }
