@@ -84,23 +84,6 @@ type ShippingSelection = {
   sale: { code: string; client: { name: string | null } };
 };
 
-type SaleForProfitSelection = {
-  id: string;
-  code: string;
-  total: Prisma.Decimal;
-  createdAt: Date;
-  client: { name: string | null };
-  order: {
-    items: Array<{
-      quantity: number;
-      purchaseCost: Prisma.Decimal | null;
-    }>;
-  } | null;
-  shippingCosts: Array<{
-    amount: Prisma.Decimal;
-  }>;
-};
-
 function toNumber(value: Prisma.Decimal | number | string | null | undefined): number {
   if (value === null || value === undefined) {
     return 0;
@@ -217,18 +200,14 @@ function buildShippingWhere(search?: string): Prisma.ShippingCostWhereInput {
   };
 }
 
-function buildProfitWhere(search?: string, period?: DateRange): Prisma.SaleWhereInput {
-  // Solo ventas facturadas con su orden cerrada (entregada). La venta se
-  // reconoce en el mes en que se ENTREGO (order.completedAt), no cuando se creo,
-  // para que un mes ya cerrado no cambie de forma retroactiva.
+function buildProfitWhere(search?: string): Prisma.SaleWhereInput {
+  // Solo ventas facturadas con su orden entregada (COMPLETED). El filtro por mes
+  // NO se hace aqui: se aplica luego en JS con la fecha de entrega real (la ultima
+  // linea "Cerrada" del historial), para no depender de un campo que los ciclos
+  // de "deshacer / re-entregar" pueden dejar desajustado o nulo.
   const base: Prisma.SaleWhereInput = {
     status: "INVOICED",
-    order: {
-      is: {
-        status: "COMPLETED",
-        ...(period ? { completedAt: { gte: period.from, lt: period.to } } : {}),
-      },
-    },
+    order: { is: { status: "COMPLETED" } },
   };
   const normalizedSearch = normalizeSearch(search);
   if (!normalizedSearch) {
@@ -245,6 +224,16 @@ function buildProfitWhere(search?: string, period?: DateRange): Prisma.SaleWhere
   };
 }
 
+// Fecha de reconocimiento = mes de ENTREGA (SaleProfit.createdAt ya viene con la
+// fecha de la ultima linea "Cerrada"). Se filtra en JS para tomar SIEMPRE la
+// ultima entrega y evitar doble conteo si una orden se entrego en meses distintos.
+function filterByDeliveryPeriod(rows: SaleProfit[], period?: DateRange): SaleProfit[] {
+  if (!period) {
+    return rows;
+  }
+  return rows.filter((row) => row.createdAt >= period.from && row.createdAt < period.to);
+}
+
 async function getSaleProfitRows(where?: Prisma.SaleWhereInput): Promise<SaleProfit[]> {
   const sales = await prisma.sale.findMany({
     where,
@@ -258,6 +247,14 @@ async function getSaleProfitRows(where?: Prisma.SaleWhereInput): Promise<SalePro
       order: {
         select: {
           completedAt: true,
+          // Fecha de la ultima entrega (paso a "Cerrada"), editable desde el
+          // historial; es la que decide el mes de la venta.
+          history: {
+            where: { toStatus: "COMPLETED" },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { createdAt: true },
+          },
           items: {
             select: {
               quantity: true,
@@ -279,8 +276,9 @@ async function getSaleProfitRows(where?: Prisma.SaleWhereInput): Promise<SalePro
       saleId: sale.id,
       saleCode: sale.code,
       saleAmount: toNumber(sale.total),
-      // Fecha de reconocimiento = entrega de la orden; si faltara, la de creacion.
-      createdAt: sale.order?.completedAt ?? sale.createdAt,
+      // Reconocimiento por fecha de entrega: ultima linea "Cerrada" del historial;
+      // si faltara, completedAt y por ultimo la fecha de creacion.
+      createdAt: sale.order?.history[0]?.createdAt ?? sale.order?.completedAt ?? sale.createdAt,
       clientName: sale.client.name,
       orderItems: sale.order?.items.map((item) => ({
         quantity: item.quantity,
@@ -561,12 +559,11 @@ export function createPrismaBalancesRepository(): BalancesRepository {
     async listProfitReport(query: ListBalancesQuery): Promise<PagedResult<SaleProfit>> {
       const page = Math.max(1, query.page || 1);
       const pageSize = Math.max(1, Math.min(query.pageSize || 10, 500));
-      const where = buildProfitWhere(query.search, query.period);
-      const [total, rows] = await Promise.all([
-        prisma.sale.count({ where }),
-        getSaleProfitRows(where),
-      ]);
+      const where = buildProfitWhere(query.search);
+      const allRows = await getSaleProfitRows(where);
+      const rows = filterByDeliveryPeriod(allRows, query.period);
 
+      const total = rows.length;
       const start = (page - 1) * pageSize;
       const items = rows.slice(start, start + pageSize);
       return buildPagedResult(items, total, page, pageSize);
@@ -604,17 +601,13 @@ export function createPrismaBalancesRepository(): BalancesRepository {
     },
 
     async getDashboardMetrics(period?: DateRange): Promise<DashboardMetrics> {
-      // Solo se contabilizan ventas facturadas cuya orden esta entregada. Se
-      // reconocen en el mes de ENTREGA (order.completedAt), no de creacion.
-      const sales = await getSaleProfitRows({
+      // Ventas facturadas y entregadas, reconocidas en su mes de ENTREGA (ultima
+      // linea "Cerrada" del historial). El filtro por mes se hace en JS.
+      const allRows = await getSaleProfitRows({
         status: "INVOICED",
-        order: {
-          is: {
-            status: "COMPLETED",
-            ...(period ? { completedAt: { gte: period.from, lt: period.to } } : {}),
-          },
-        },
+        order: { is: { status: "COMPLETED" } },
       });
+      const sales = filterByDeliveryPeriod(allRows, period);
       return summarizeDashboardMetrics(sales);
     },
 
