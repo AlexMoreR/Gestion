@@ -113,28 +113,28 @@ export function BalancesWorkspace({
           <StatList
             items={[
               {
-                label: "Ventas del mes",
+                label: "Ventas",
                 value: formatMoney(metrics.salesTotal, currency),
                 helper: `${metrics.salesCount} ventas · ${monthLabel}`,
                 icon: BadgeDollarSign,
                 tone: "info",
               },
               {
-                label: "Costos del mes",
+                label: "Costos",
                 value: formatMoney(directCosts, currency),
                 helper: "Proveedores y envios",
                 icon: Truck,
                 tone: "danger",
               },
               {
-                label: "Gastos del mes",
+                label: "Gastos",
                 value: formatMoney(operatingExpenses, currency),
                 helper: "Nomina, marketing y varios",
                 icon: ReceiptText,
                 tone: "danger",
               },
               {
-                label: "Ganancia neta",
+                label: "Ganancias",
                 value: formatMoney(realNetProfit, currency),
                 helper: `${realMargin.toFixed(2)}% de margen`,
                 icon: Scale,
