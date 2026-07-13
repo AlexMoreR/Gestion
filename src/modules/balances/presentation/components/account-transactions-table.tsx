@@ -213,11 +213,7 @@ function TransactionDetailDialog({
                     </Button>
                   )}
                 </div>
-                {dateError ? (
-                  <p className="text-xs text-destructive">{dateError}</p>
-                ) : (
-                  <p className="text-[11px] text-muted-foreground">Solo cambia esta transacción.</p>
-                )}
+                {dateError && <p className="text-xs text-destructive">{dateError}</p>}
               </dd>
             </div>
             <DetailRow label="Referencia" value={transaction.reference ?? "-"} />
