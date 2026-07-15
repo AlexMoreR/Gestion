@@ -441,57 +441,57 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
         </Table>
       </div>
 
-      {/* ─── TOTALS ──────────────────────────────────────────────────── */}
-      <div className="flex justify-end">
-        {/* Totals breakdown */}
-        <div className={isPdf ? "w-60 shrink-0 space-y-0.5" : "w-full md:w-72 space-y-1"}>
+      {/* ─── TOTALS (horizontal, ocupa todo el ancho) ─────────────────── */}
+      <div className={isPdf ? "flex items-stretch gap-2 text-[12px]" : "flex flex-wrap items-stretch gap-3 text-sm"}>
+        <div
+          className={
+            isPdf
+              ? "flex-1 border border-slate-200 px-2 py-1"
+              : "min-w-[7.5rem] flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+          }
+        >
+          <p className="text-xs text-slate-500">Subtotal</p>
+          <p className="font-semibold text-slate-900">{formatMoney(String(subtotal), currency)}</p>
+        </div>
+
+        <div
+          className={
+            isPdf
+              ? "flex-1 border border-slate-200 px-2 py-1"
+              : "min-w-[7.5rem] flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+          }
+        >
+          <p className="text-xs text-slate-500">Descuento</p>
+          <p className="font-semibold text-slate-900">
+            {discount > 0 ? "−" : ""}
+            {formatMoney(String(discount), currency)}
+          </p>
+        </div>
+
+        {additionalCost > 0 && (
           <div
             className={
               isPdf
-                ? "flex justify-between text-[12px] px-2 py-1"
-                : "flex justify-between px-3 py-2 text-sm"
+                ? "flex-1 border border-slate-200 px-2 py-1"
+                : "min-w-[7.5rem] flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
             }
           >
-            <span className="text-slate-500">Subtotal</span>
-            <span className="font-medium">{formatMoney(String(subtotal), currency)}</span>
+            <p className="text-xs text-slate-500">Cargos adicionales</p>
+            <p className="font-semibold text-slate-900">{formatMoney(String(additionalCost), currency)}</p>
           </div>
+        )}
 
-          <div
-            className={
-              isPdf
-                ? "flex justify-between text-[12px] px-2 py-1"
-                : "flex justify-between px-3 py-2 text-sm"
-            }
-          >
-            <span className="text-slate-500">Descuento</span>
-            <span className="font-medium">{discount > 0 ? "−" : ""}{formatMoney(String(discount), currency)}</span>
-          </div>
-
-          {additionalCost > 0 && (
-            <div
-              className={
-                isPdf
-                  ? "flex justify-between text-[12px] px-2 py-1"
-                  : "flex justify-between px-3 py-2 text-sm"
-              }
-            >
-              <span className="text-slate-500">Cargos adicionales</span>
-              <span className="font-medium">{formatMoney(String(additionalCost), currency)}</span>
-            </div>
-          )}
-
-          <div
-            className={
-              isPdf
-                ? "flex justify-between border border-slate-300 bg-slate-100 px-3 py-2 font-bold text-[13px]"
-                : "flex justify-between rounded-xl bg-slate-900 px-4 py-3 text-white shadow-lg mt-1"
-            }
-          >
-            <span className={isPdf ? "font-bold" : "font-bold text-base"}>Total Final</span>
-            <span className={isPdf ? "font-black" : "font-black text-lg"}>
-              {formatMoney(String(total), currency)}
-            </span>
-          </div>
+        <div
+          className={
+            isPdf
+              ? "flex-1 border border-slate-300 bg-slate-100 px-2 py-1"
+              : "min-w-[7.5rem] flex-1 rounded-lg bg-slate-900 px-3 py-2 text-white shadow-lg"
+          }
+        >
+          <p className={isPdf ? "text-xs text-slate-500" : "text-xs text-slate-300"}>Total Final</p>
+          <p className={isPdf ? "text-[13px] font-black text-slate-900" : "text-lg font-black"}>
+            {formatMoney(String(total), currency)}
+          </p>
         </div>
       </div>
 
