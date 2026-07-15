@@ -1018,7 +1018,7 @@ export function QuoteWizardModal({
                             </tr>
                           ) : (
                             (() => {
-                              const { line, product, lineTotal } = group.item;
+                              const { line, product } = group.item;
                               return (
                                 <tr key={line.uid} className="border-t border-border bg-card transition hover:bg-muted/40">
                                   <td className="px-3 py-2">
@@ -1050,7 +1050,9 @@ export function QuoteWizardModal({
                                     {line.unitPrice.toLocaleString("es-CO", { style: "currency", currency })}
                                   </td>
                                   <td className="px-3 py-2 font-semibold text-foreground">
-                                    {lineTotal.toLocaleString("es-CO", { style: "currency", currency })}
+                                    {/* Total real del producto (precio x cantidad). El costo adicional
+                                        no se muestra dentro del mueble: va en "Valor adicional". */}
+                                    {(line.quantity * line.unitPrice).toLocaleString("es-CO", { style: "currency", currency })}
                                   </td>
                                   <td className="px-3 py-2">
                                     <Button
@@ -1265,7 +1267,7 @@ export function QuoteWizardModal({
                           </tr>
                         ) : (
                           (() => {
-                            const { line, product, lineTotal } = group.item;
+                            const { line, product } = group.item;
                             return (
                               <tr key={line.uid} className="border-t border-border">
                                 <td className="px-3 py-2">
@@ -1297,7 +1299,7 @@ export function QuoteWizardModal({
                                   {line.unitPrice.toLocaleString("es-CO", { style: "currency", currency })}
                                 </td>
                                 <td className="px-3 py-2 font-semibold text-foreground">
-                                  {lineTotal.toLocaleString("es-CO", { style: "currency", currency })}
+                                  {(line.quantity * line.unitPrice).toLocaleString("es-CO", { style: "currency", currency })}
                                 </td>
                               </tr>
                             );

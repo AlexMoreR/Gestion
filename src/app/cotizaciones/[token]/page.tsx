@@ -371,7 +371,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                           : "text-right font-bold text-slate-900 whitespace-nowrap"
                       }
                     >
-                      {formatMoney(item.lineTotal, currency)}
+                      {formatMoney(item.quantity * item.unitPrice, currency)}
                     </TableCell>
                   </TableRow>
                 ))}
