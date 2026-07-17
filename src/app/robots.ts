@@ -5,7 +5,9 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: "/",
+      // El informe mensual (pagina y JSON) queda permitido; la regla mas
+      // especifica gana sobre "/api/", asi el resto del API sigue bloqueado.
+      allow: ["/", "/informe", "/api/informe"],
       disallow: ["/admin", "/empleado", "/cliente", "/profile", "/login", "/register", "/api/"],
     },
     sitemap: getSiteUrl("/sitemap.xml"),
