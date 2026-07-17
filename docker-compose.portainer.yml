@@ -17,6 +17,7 @@ services:
       SMTP_USER: "${SMTP_USER}"
       SMTP_PASS: "${SMTP_PASS}"
       SMTP_FROM: "${SMTP_FROM}"
+      MONTHLY_REPORT_TOKEN: "${MONTHLY_REPORT_TOKEN}"
     networks:
       - minha_rede
     deploy:
