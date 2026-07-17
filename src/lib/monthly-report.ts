@@ -1,6 +1,22 @@
+import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import type { DateRange } from "@/modules/balances/domain/entities";
+
+// Token del link del informe. Si hay MONTHLY_REPORT_TOKEN se usa tal cual; si no,
+// se deriva de AUTH_SECRET (ya existe en produccion) para no depender de Portainer.
+// Devuelve "" si no hay ningun secreto (entonces el link queda deshabilitado).
+export function reportToken(): string {
+  const dedicated = process.env.MONTHLY_REPORT_TOKEN?.trim();
+  if (dedicated) {
+    return dedicated;
+  }
+  const secret = process.env.AUTH_SECRET ?? "";
+  if (!secret) {
+    return "";
+  }
+  return createHash("sha256").update(`${secret}:informe-mensual`).digest("hex").slice(0, 40);
+}
 
 export type MonthlyReportProduct = {
   productId: string;

@@ -17,6 +17,8 @@ services:
       SMTP_USER: "${SMTP_USER}"
       SMTP_PASS: "${SMTP_PASS}"
       SMTP_FROM: "${SMTP_FROM}"
+      # Opcional: si se define, sobreescribe el token del informe; si no, se
+      # deriva de AUTH_SECRET automaticamente.
       MONTHLY_REPORT_TOKEN: "${MONTHLY_REPORT_TOKEN}"
     networks:
       - minha_rede

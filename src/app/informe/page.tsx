@@ -1,6 +1,11 @@
 import { notFound } from "next/navigation";
 import { formatMoney } from "@/lib/currency";
-import { computeMonthlyReport, previousMonthKey, type MonthlyReportProduct } from "@/lib/monthly-report";
+import {
+  computeMonthlyReport,
+  previousMonthKey,
+  reportToken,
+  type MonthlyReportProduct,
+} from "@/lib/monthly-report";
 import { getSystemCurrency } from "@/lib/system-settings";
 
 type PageProps = {
@@ -15,7 +20,7 @@ function pickString(value: string | string[] | undefined): string {
 
 export default async function InformeMesPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const expected = process.env.MONTHLY_REPORT_TOKEN ?? "";
+  const expected = reportToken();
   const token = pickString(params.token);
   // Sin token configurado o token incorrecto => 404 (no revela que la ruta existe).
   if (!expected || token !== expected) {
