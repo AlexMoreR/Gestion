@@ -21,6 +21,7 @@ import {
 import { formatMoney } from "@/lib/currency";
 import { formatInvoiceNumber } from "@/lib/document-names";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
+import { groupQuoteDisplayItems } from "@/lib/quote-display-items";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { prisma } from "@/lib/prisma";
@@ -220,6 +221,9 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
     ...item,
     meta: parseQuoteItemMeta(item.notes),
   }));
+  // Un combo se muestra como UN solo producto (igual que en la cotizacion):
+  // agrupa sus componentes en una sola fila. No cambia ningun monto, solo junta.
+  const displayItems = groupQuoteDisplayItems(itemsWithMeta);
   const saleWithDiscount = sale as SaleWithDiscountFields;
   const grossTotal = Number(saleWithDiscount.grossTotal ?? sale.quote.total);
   const discountAmount = Number(saleWithDiscount.discountAmount ?? 0);
@@ -313,25 +317,25 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {itemsWithMeta.map((item) => (
-                  <TableRow key={item.id}>
+                {displayItems.map((item) => (
+                  <TableRow key={item.key}>
                     <TableCell className="py-1 px-2 text-center font-bold">{item.quantity}</TableCell>
                     <TableCell className="py-1 px-2">
                       <div className="leading-tight">
-                        <p className="font-semibold text-slate-900">{item.product.name}</p>
-                        {item.product.code && (
-                          <p className="text-[10px] text-slate-400">{item.product.code}</p>
+                        <p className="font-semibold text-slate-900">{item.productName}</p>
+                        {item.productCode && (
+                          <p className="text-[10px] text-slate-400">{item.productCode}</p>
                         )}
                       </div>
                     </TableCell>
                     <TableCell className="py-1 px-2 text-slate-900 max-w-[160px]">
-                      <span className="line-clamp-2">{item.meta.description || "—"}</span>
+                      <span className="line-clamp-2">{item.description || "—"}</span>
                     </TableCell>
                     <TableCell className="py-1 px-2 text-right whitespace-nowrap">
-                      {formatMoney(Number(item.unitPrice), currency)}
+                      {formatMoney(item.unitPrice, currency)}
                     </TableCell>
                     <TableCell className="py-1 px-2 text-right font-bold whitespace-nowrap">
-                      {formatMoney(Number(item.lineTotal), currency)}
+                      {formatMoney(item.lineTotal, currency)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -493,27 +497,27 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {itemsWithMeta.map((item) => (
-                    <TableRow key={item.id} className="transition-colors">
+                  {displayItems.map((item) => (
+                    <TableRow key={item.key} className="transition-colors">
                       <TableCell className="text-center font-bold text-slate-700">
                         {item.quantity}
                       </TableCell>
                       <TableCell>
                         <div className="leading-tight">
-                          <p className="font-semibold text-slate-900">{item.product.name}</p>
-                          {item.product.code && (
-                            <p className="text-xs text-slate-400">{item.product.code}</p>
+                          <p className="font-semibold text-slate-900">{item.productName}</p>
+                          {item.productCode && (
+                            <p className="text-xs text-slate-400">{item.productCode}</p>
                           )}
                         </div>
                       </TableCell>
                       <TableCell className="text-slate-900 max-w-[240px]">
-                        <span className="line-clamp-2">{item.meta.description || "—"}</span>
+                        <span className="line-clamp-2">{item.description || "—"}</span>
                       </TableCell>
                       <TableCell className="text-right whitespace-nowrap text-slate-600">
-                        {formatMoney(Number(item.unitPrice), currency)}
+                        {formatMoney(item.unitPrice, currency)}
                       </TableCell>
                       <TableCell className="text-right font-bold text-slate-900 whitespace-nowrap">
-                        {formatMoney(Number(item.lineTotal), currency)}
+                        {formatMoney(item.lineTotal, currency)}
                       </TableCell>
                     </TableRow>
                   ))}
