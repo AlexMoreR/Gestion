@@ -240,7 +240,8 @@ export async function adminCreateClientQuickAction(formData: FormData): Promise<
   });
 
   if (!parsed.success) {
-    redirect(`${returnTo}?error=Datos+de+cliente+invalidos`);
+    const message = parsed.error.issues[0]?.message ?? "Datos de cliente invalidos";
+    redirect(`${returnTo}?${new URLSearchParams({ error: message }).toString()}`);
   }
 
   await upsertClientFromData(parsed.data);
@@ -255,7 +256,9 @@ export async function adminResolveClientAction(
   await requireAdminSession();
   const parsed = createClientSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: "Datos de cliente invalidos" };
+    // Mensaje especifico del campo que falla (ej. "Correo invalido"), para que
+    // la persona sepa exactamente que corregir en vez de un error generico.
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos de cliente invalidos" };
   }
 
   try {
