@@ -71,6 +71,19 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                   include: { supplier: true },
                   orderBy: { isPreferred: "desc" },
                 },
+                // Un combo no tiene proveedor propio: se toman de sus componentes.
+                bundleComponents: {
+                  include: {
+                    child: {
+                      include: {
+                        suppliers: {
+                          include: { supplier: true },
+                          orderBy: { isPreferred: "desc" },
+                        },
+                      },
+                    },
+                  },
+                },
               },
             },
             confirmedSupplier: true,
@@ -234,7 +247,19 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           : "Despachado";
 
   const orderItemsData = order.items.map((item) => {
-    const preferred = item.product.suppliers[0];
+    // Proveedores efectivos: los del producto o, si es un combo (sin proveedor
+    // propio), la union de los proveedores de sus componentes (sin repetir).
+    const componentSuppliers = item.product.bundleComponents.flatMap((component) => component.child.suppliers);
+    const rawSuppliers = item.product.suppliers.length > 0 ? item.product.suppliers : componentSuppliers;
+    const seenSupplierIds = new Set<string>();
+    const effectiveSuppliers = rawSuppliers.filter((entry) => {
+      if (seenSupplierIds.has(entry.supplierId)) {
+        return false;
+      }
+      seenSupplierIds.add(entry.supplierId);
+      return true;
+    });
+    const preferred = effectiveSuppliers[0];
     const meta = parseQuoteItemMeta(item.notes);
     const observations = [meta.description, meta.color ? `Color: ${meta.color}` : ""]
       .filter(Boolean)
@@ -260,12 +285,19 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       factoryPrice: Number(item.product.baseCost),
       inventoryCost: Number(item.product.baseCost) + Number(item.product.additionalCost),
       hasProductionJob: item.productionJobs.length > 0,
-      suppliers: item.product.suppliers.map((entry) => ({
+      suppliers: effectiveSuppliers.map((entry) => ({
         id: entry.supplierId,
         name: entry.supplier.name,
       })),
       defaultSupplierId: item.confirmedSupplierId ?? preferred?.supplierId ?? "",
-      defaultCost: Number(item.purchaseCost ?? preferred?.supplierCost ?? item.product.baseCost),
+      // Para un combo el costo por defecto es el costo base del combo, no el de un
+      // solo componente; para un producto normal, el costo de su proveedor.
+      defaultCost: Number(
+        item.purchaseCost ??
+          (item.product.bundleComponents.length > 0
+            ? item.product.baseCost
+            : preferred?.supplierCost ?? item.product.baseCost),
+      ),
       confirmedSupplierName: item.confirmedSupplier?.name ?? null,
       purchaseCost: item.purchaseCost === null ? null : Number(item.purchaseCost),
       supplierCostTotal: item.purchaseCost === null ? 0 : Number(item.purchaseCost) * item.quantity,
