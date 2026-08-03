@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpRight, MoreHorizontal, ShoppingCart, X } from "lucide-react";
+import { ArrowUpRight, MoreHorizontal, Pencil, ShoppingCart, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
@@ -123,6 +123,12 @@ function RowActions({ order }: { order: OrderRow }) {
           ) : null}
           {order.kind === "purchase" ? (
             <>
+              <DropdownMenuItem asChild>
+                <Link href={`/admin/ordenes/${order.id}/editar-compra`}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Editar compra
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <PurchaseDeleteMenuItem onSelect={() => setDeleteOpen(true)} />
             </>

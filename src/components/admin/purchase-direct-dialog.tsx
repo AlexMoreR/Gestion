@@ -1,8 +1,12 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { AlignLeft, Boxes, ImagePlus, Loader2, Palette, Plus, RefreshCw, Search, ShoppingCart, Trash2 } from "lucide-react";
-import { adminCreateDirectPurchaseAction } from "@/app/actions/inventory-actions";
+import {
+  adminCreateDirectPurchaseAction,
+  adminUpdateDirectPurchaseAction,
+} from "@/app/actions/inventory-actions";
 import { adminUploadQuoteImageAction } from "@/app/actions/quote-actions";
 import { ProductThumb } from "@/components/admin/product-thumb";
 import { Button } from "@/components/ui/button";
@@ -56,6 +60,15 @@ type PurchaseDirectDialogProps = {
   // Todos los proveedores activos (para costos adicionales como el envio).
   suppliers: SupplierOption[];
   currency: SupportedCurrencyCode;
+  // Si viene, el dialogo abre en modo EDICION prellenado con esta compra.
+  editOrder?: EditOrderData;
+};
+
+export type EditOrderData = {
+  orderId: string;
+  code: string;
+  movementDate: string; // YYYY-MM-DD
+  lines: PurchaseLine[];
 };
 
 // Cargo por componente de un combo (cada item con su proveedor y costo).
@@ -68,7 +81,7 @@ type LineComponent = {
   cost: number;
 };
 
-type PurchaseLine = {
+export type PurchaseLine = {
   uid: string;
   productId: string;
   quantity: number;
@@ -96,9 +109,13 @@ export function PurchaseDirectDialog({
   suppliersByProduct,
   comboComponents,
   currency,
+  editOrder,
 }: PurchaseDirectDialogProps) {
-  const [open, setOpen] = React.useState(false);
-  const [lines, setLines] = React.useState<PurchaseLine[]>([]);
+  const router = useRouter();
+  const isEditing = Boolean(editOrder);
+  // En modo edicion el dialogo arranca abierto y con las lineas de la compra.
+  const [open, setOpen] = React.useState(isEditing);
+  const [lines, setLines] = React.useState<PurchaseLine[]>(editOrder?.lines ?? []);
 
   // Modal de seleccion de producto (mismo flujo que cotizacion).
   const [openProductModal, setOpenProductModal] = React.useState(false);
@@ -210,6 +227,10 @@ export function PurchaseDirectDialog({
   const handleClose = () => {
     setOpen(false);
     reset();
+    // En edicion el dialogo vive en su propia pagina: al cerrar, vuelve a la lista.
+    if (isEditing) {
+      router.push("/admin/ordenes");
+    }
   };
 
   const openAddProductModal = () => {
@@ -376,21 +397,31 @@ export function PurchaseDirectDialog({
 
   return (
     <>
-      <Button type="button" size="sm" onClick={() => setOpen(true)}>
-        <Plus className="h-4 w-4" />
-        Nuevo
-      </Button>
+      {!isEditing && (
+        <Button type="button" size="sm" onClick={() => setOpen(true)}>
+          <Plus className="h-4 w-4" />
+          Nuevo
+        </Button>
+      )}
 
       <TransactionModal
         open={open}
         onOpenChange={(value) => (value ? null : handleClose())}
-        title="Comprar"
+        title={isEditing ? `Editar compra ${editOrder?.code ?? ""}`.trim() : "Comprar"}
         icon={<ShoppingCart className="h-4 w-4" />}
-        headerExtra={<DatePicker name="movementDate" required defaultValue={today()} className="w-40" />}
-        formProps={{ action: adminCreateDirectPurchaseAction }}
+        headerExtra={
+          <DatePicker
+            name="movementDate"
+            required
+            defaultValue={editOrder?.movementDate ?? today()}
+            className="w-40"
+          />
+        }
+        formProps={{ action: isEditing ? adminUpdateDirectPurchaseAction : adminCreateDirectPurchaseAction }}
         hiddenFields={
           <>
             <input type="hidden" name="returnTo" value="/admin/ordenes" />
+            {editOrder ? <input type="hidden" name="orderId" value={editOrder.orderId} /> : null}
             <input type="hidden" name="items" value={serializedItems} />
           </>
         }

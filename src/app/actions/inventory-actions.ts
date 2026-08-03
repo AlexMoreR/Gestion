@@ -348,7 +348,23 @@ export async function adminCreateInventoryMovementAction(formData: FormData): Pr
 // operacion, cada uno con su proveedor. Por cada linea genera una entrada de
 // stock (IN) y, si tiene proveedor y costo, un cargo (deuda) a ese proveedor
 // por su costo de compra (costo unitario x cantidad).
-export async function adminCreateDirectPurchaseAction(formData: FormData): Promise<void> {
+// Revierte los efectos de una compra (para editarla o rehacerla): borra sus
+// movimientos de inventario (el stock deja de sumar y sus cargos al proveedor se
+// van en cascada), limpia cargos restantes de la orden, sus despachos y la orden.
+async function reversePurchaseForEdit(orderId: string, purchaseCode: string | null): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    if (purchaseCode) {
+      await tx.inventoryMovement.deleteMany({ where: { purchaseCode } });
+    }
+    await tx.supplierLedgerEntry.deleteMany({ where: { orderId } });
+    await tx.dispatch.deleteMany({ where: { orderId } });
+    await tx.order.delete({ where: { id: orderId } });
+  });
+}
+
+// Registra una compra directa. Si se pasa replaceOrderId, primero revierte esa
+// compra y reusa su codigo COM (modo edicion); si no, crea una nueva.
+async function runDirectPurchase(formData: FormData, replaceOrderId?: string): Promise<void> {
   const createdById = await requireAdminSession();
   const returnTo = getReturnTo(formData, "/admin/ordenes");
 
@@ -491,9 +507,25 @@ export async function adminCreateDirectPurchaseAction(formData: FormData): Promi
     return supplier;
   };
 
+  // Al editar: revierte la compra anterior y reusa su codigo COM; al crear:
+  // genera un codigo nuevo. Se hace despues de validar, para no borrar la
+  // compra vieja si los datos nuevos son invalidos.
+  let purchaseCode: string;
+  if (replaceOrderId) {
+    const previous = await prisma.order.findUnique({
+      where: { id: replaceOrderId },
+      select: { type: true, purchaseCode: true },
+    });
+    if (!previous || previous.type !== "PURCHASE") {
+      redirectWithError(returnTo, "La compra a editar no existe.");
+    }
+    purchaseCode = previous.purchaseCode ?? (await getNextPurchaseCode());
+    await reversePurchaseForEdit(replaceOrderId, previous.purchaseCode);
+  } else {
+    purchaseCode = await getNextPurchaseCode();
+  }
+
   let invSeq = await getNextInventoryChargeSeq();
-  // Código que agrupa esta compra y los ids de sus movimientos (para estamparlo).
-  const purchaseCode = await getNextPurchaseCode();
   const movementIds: string[] = [];
   // Primer movimiento creado: a el se ligan los costos adicionales (envio, etc.)
   // para que se borren en cascada si se elimina la compra.
@@ -706,16 +738,32 @@ export async function adminCreateDirectPurchaseAction(formData: FormData): Promi
   }
 
   await logActivity({
-    action: "CREATE",
+    action: replaceOrderId ? "UPDATE" : "CREATE",
     entityType: "PURCHASE",
     entityId: purchaseOrderId,
-    summary: `Registró la compra ${purchaseCode} (${items.length} producto${items.length === 1 ? "" : "s"})`,
+    summary: `${replaceOrderId ? "Edito" : "Registró"} la compra ${purchaseCode} (${items.length} producto${items.length === 1 ? "" : "s"})`,
   });
 
   revalidatePath("/admin/inventario");
   revalidatePath("/admin/proveedores");
   revalidatePath("/admin/ordenes");
-  redirect(`/admin/ordenes/${purchaseOrderId}?${new URLSearchParams({ ok: "Compra registrada" }).toString()}`);
+  redirect(
+    `/admin/ordenes/${purchaseOrderId}?${new URLSearchParams({ ok: replaceOrderId ? "Compra actualizada" : "Compra registrada" }).toString()}`,
+  );
+}
+
+export async function adminCreateDirectPurchaseAction(formData: FormData): Promise<void> {
+  await runDirectPurchase(formData);
+}
+
+// Edita una compra: reabre el formulario y, al guardar, revierte la anterior y
+// aplica la nueva con el mismo codigo COM.
+export async function adminUpdateDirectPurchaseAction(formData: FormData): Promise<void> {
+  const orderId = getStringField(formData, "orderId").trim();
+  if (!orderId) {
+    redirectWithError(getReturnTo(formData, "/admin/ordenes"), "Compra invalida.");
+  }
+  await runDirectPurchase(formData, orderId);
 }
 
 // Elimina una orden de compra: revierte el stock (borra sus movimientos de
