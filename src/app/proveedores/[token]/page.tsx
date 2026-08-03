@@ -143,9 +143,39 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
 
   type BalanceRow = SupplierBalanceRow & { bucketMonth: string; sortDate: Date };
 
+  // Abono "al pedido" (con orderId, sin item ni cargo puntual): paga a los
+  // proveedores de esa orden. Se reparte entre los items de la orden que aun no
+  // esten pagados, cubriendo cada uno si el abono alcanza. Asi un pago hecho como
+  // abono al pedido tambien marca los items como pagados (no solo en la cuenta).
+  const abonoByOrder = new Map<string, number>();
+  for (const payment of payments) {
+    if (payment.orderId && !payment.orderItemId && !payment.settlesEntryId) {
+      abonoByOrder.set(payment.orderId, (abonoByOrder.get(payment.orderId) ?? 0) + Number(payment.amount));
+    }
+  }
+  const paidByOrderAbono = new Set<string>();
+  const itemsByOrder = new Map<string, typeof items>();
+  for (const item of items) {
+    const list = itemsByOrder.get(item.order.id) ?? [];
+    list.push(item);
+    itemsByOrder.set(item.order.id, list);
+  }
+  for (const [orderId, orderItems] of itemsByOrder) {
+    let remaining = abonoByOrder.get(orderId) ?? 0;
+    if (remaining <= 0) continue;
+    for (const item of orderItems) {
+      if (item.supplierPaymentStatus === "PAID") continue;
+      const itemAmount = Number(item.purchaseCost ?? 0) * item.quantity;
+      if (itemAmount > 0 && remaining >= itemAmount - 0.5) {
+        paidByOrderAbono.add(item.id);
+        remaining -= itemAmount;
+      }
+    }
+  }
+
   const orderRows: BalanceRow[] = items.map((item) => {
     const amount = Number(item.purchaseCost ?? 0) * item.quantity;
-    const isPaid = item.supplierPaymentStatus === "PAID";
+    const isPaid = item.supplierPaymentStatus === "PAID" || paidByOrderAbono.has(item.id);
     const isFinished = item.photos.length > 0 && item.supplierPaymentStatus !== null;
     const paidDate = isPaid
       ? paidDateByItem.get(item.id) ?? paidDateByOrder.get(item.order.id) ?? item.createdAt
