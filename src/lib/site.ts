@@ -83,8 +83,26 @@ export function buildWhatsAppCatalogHref(brandName: string): string {
   return buildWhatsAppHref(`Hola ${brandName}, quiero cotizar mobiliario profesional`);
 }
 
-export function buildWhatsAppProductHref(productName: string, brandName: string = siteConfig.name): string {
-  return buildWhatsAppHref(`Hola ${brandName}, quiero comprar el producto: ${productName}`);
+// Mensaje de "Comprar por WhatsApp":
+//   Hola *Marca*, quiero comprar:
+//   *CODIGO* Producto
+// (los * son negrita en WhatsApp). Si el producto no tiene codigo, solo el nombre.
+export function buildWhatsAppBuyMessage(
+  brandName: string,
+  productName: string,
+  productCode?: string | null,
+): string {
+  const code = productCode?.trim();
+  const reference = code ? `*${code}* ${productName}` : productName;
+  return `Hola *${brandName}*, quiero comprar:\n${reference}`;
+}
+
+export function buildWhatsAppProductHref(
+  productName: string,
+  brandName: string = siteConfig.name,
+  productCode?: string | null,
+): string {
+  return buildWhatsAppHref(buildWhatsAppBuyMessage(brandName, productName, productCode));
 }
 
 export function sanitizeDescription(value: string | null | undefined, fallback: string): string {

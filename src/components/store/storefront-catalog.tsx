@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { buildProductPath } from "@/lib/product-slugs";
-import { getPublicAssetUrl, getSiteUrl, siteConfig } from "@/lib/site";
+import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, siteConfig } from "@/lib/site";
 import {
   buildSystemWhatsAppHref,
   getSystemBrandName,
@@ -318,7 +318,7 @@ export async function StorefrontCatalog({
       ? await Promise.all(
           pagedProducts.map(async (product) => [
             product.id,
-            await buildSystemWhatsAppHref(`Hola ${brandName}, quiero comprar el producto: ${product.name}`),
+            await buildSystemWhatsAppHref(buildWhatsAppBuyMessage(brandName, product.name, product.code)),
           ] as const),
         )
       : [],

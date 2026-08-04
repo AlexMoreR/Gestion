@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/currency";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { buildProductPath } from "@/lib/product-slugs";
-import { getPublicAssetUrl, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
+import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
 import { buildSystemWhatsAppHref, getSystemBrandName } from "@/lib/system-settings";
 import { Button } from "../ui/button";
 
@@ -68,7 +68,7 @@ export async function ProductDetailContent({
         .filter(Boolean),
     ),
   );
-  const whatsAppHref = await buildSystemWhatsAppHref(`Hola ${brandName}, quiero comprar el producto: ${product.name}`);
+  const whatsAppHref = await buildSystemWhatsAppHref(buildWhatsAppBuyMessage(brandName, product.name, product.code));
   const productDescription = sanitizeDescription(
     product.seoDescription || product.description,
     `${product.name} disponible en ${brandName} para proyectos de salón, barbería y mobiliario profesional premium.`,
