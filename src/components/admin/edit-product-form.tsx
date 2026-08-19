@@ -584,7 +584,7 @@ export function EditProductForm({
                   />
                 </label>
                 <label className="space-y-1.5 md:col-span-4">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Wallet className="h-4 w-4 text-slate-500" />Costo proveedor ({currency})</span>
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Wallet className="h-4 w-4 text-slate-500" />Costo ({currency})</span>
                   <MoneyInput
                     name="baseCost"
                     value={baseCost}
@@ -592,7 +592,7 @@ export function EditProductForm({
                   />
                 </label>
                 <label className="space-y-1.5 md:col-span-3">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Truck className="h-4 w-4 text-slate-500" />Flete / adicional</span>
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Truck className="h-4 w-4 text-slate-500" />Envio / Flete</span>
                   <MoneyInput
                     name="additionalCost"
                     value={additionalCost}
@@ -605,11 +605,11 @@ export function EditProductForm({
               <div className="rounded-lg border border-[var(--line)] bg-slate-50/70 p-3">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3 lg:grid-cols-6">
                   <div>
-                    <p className="text-xs text-slate-500">Costo proveedor</p>
+                    <p className="text-xs text-slate-500">Costo</p>
                     <p className="text-sm font-medium text-slate-700">{formatMoney(Number(baseCost) || 0, currency)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">+ Flete / adicional</p>
+                    <p className="text-xs text-slate-500">+ Envio / Flete</p>
                     <p className="text-sm font-medium text-slate-700">{formatMoney(Number(additionalCost) || 0, currency)}</p>
                   </div>
                   <div>
