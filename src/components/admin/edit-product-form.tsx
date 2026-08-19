@@ -613,7 +613,7 @@ export function EditProductForm({
                     <p className="text-sm font-medium text-slate-700">{formatMoney(Number(additionalCost) || 0, currency)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-500">= Costo de compra</p>
+                    <p className="text-xs text-slate-500">= Compra</p>
                     <p className="text-sm font-semibold text-slate-900">
                       {formatMoney((Number(baseCost) || 0) + (Number(additionalCost) || 0), currency)}
                     </p>
