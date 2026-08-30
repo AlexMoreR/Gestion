@@ -781,7 +781,11 @@ export function SalesDataTable({
   const columns = React.useMemo<ColumnDef<SaleRow, unknown>[]>(
     () => [
       {
-        accessorKey: "code",
+        id: "code",
+        // Se incluye el codigo de cotizacion en el valor buscable para que "Ver
+        // ventas" (que busca por COT-xxxx) encuentre la venta; se muestra solo el
+        // codigo de la venta.
+        accessorFn: (row) => `${row.code} ${row.quoteCode}`,
         header: () => <HeaderWithIcon icon={<Hash className="h-3.5 w-3.5" />}>Venta</HeaderWithIcon>,
         cell: ({ row }) => <p className="text-sm font-semibold text-foreground">{row.original.code}</p>,
       },
