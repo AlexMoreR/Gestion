@@ -1,3 +1,4 @@
+import { computeItemUnitCost } from "../../../lib/order-item-cost";
 import type { Account, AccountBalance, DashboardMetrics, SaleProfit, SupplierBalance } from "./entities";
 
 export type SaleProfitInput = {
@@ -9,13 +10,22 @@ export type SaleProfitInput = {
   orderItems: Array<{
     quantity: number;
     purchaseCost: number | null;
+    // Para stock, el costo real de inventario = base + envio/flete del producto.
+    fulfillmentMode: string;
+    baseCost: number;
+    additionalCost: number;
   }>;
   shippingCosts: number[];
 };
 
 export function calculateSaleProfitSummary(input: SaleProfitInput): SaleProfit {
   const supplierCosts = input.orderItems.reduce((sum, item) => {
-    const unitCost = item.purchaseCost ?? 0;
+    const unitCost = computeItemUnitCost({
+      purchaseCost: item.purchaseCost,
+      fulfillmentMode: item.fulfillmentMode,
+      baseCost: item.baseCost,
+      additionalCost: item.additionalCost,
+    });
     if (!unitCost) {
       return sum;
     }

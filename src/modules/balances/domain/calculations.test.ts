@@ -16,8 +16,8 @@ describe("balances calculations", () => {
       createdAt: new Date("2026-06-17T00:00:00.000Z"),
       clientName: "Cliente Demo",
       orderItems: [
-        { quantity: 2, purchaseCost: 100 },
-        { quantity: 1, purchaseCost: 50 },
+        { quantity: 2, purchaseCost: 100, fulfillmentMode: "MANUFACTURE", baseCost: 0, additionalCost: 0 },
+        { quantity: 1, purchaseCost: 50, fulfillmentMode: "MANUFACTURE", baseCost: 0, additionalCost: 0 },
       ],
       shippingCosts: [25, 25],
     });
@@ -26,6 +26,22 @@ describe("balances calculations", () => {
     expect(result.shippingCosts).toBe(50);
     expect(result.netProfit).toBe(700);
     expect(result.marginPercentage).toBe(70);
+  });
+
+  it("usa el costo de inventario (base + envio) para items de stock", () => {
+    const result = calculateSaleProfitSummary({
+      saleId: "sale-2",
+      saleCode: "SAL-002",
+      saleAmount: 1000,
+      createdAt: new Date("2026-06-17T00:00:00.000Z"),
+      clientName: null,
+      // Stock sin purchaseCost: costo = baseCost + additionalCost (flete).
+      orderItems: [{ quantity: 1, purchaseCost: null, fulfillmentMode: "STOCK", baseCost: 600, additionalCost: 100 }],
+      shippingCosts: [],
+    });
+
+    expect(result.supplierCosts).toBe(700);
+    expect(result.netProfit).toBe(300);
   });
 
   it("summarizes supplier balances", () => {

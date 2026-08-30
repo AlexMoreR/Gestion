@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { formatMoney } from "@/lib/currency";
+import { computeItemUnitCost } from "@/lib/order-item-cost";
 import { prisma } from "@/lib/prisma";
 import {
   getFulfillmentModeLabel,
@@ -155,11 +156,17 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   }
 
   const returnTo = `/admin/ordenes/${order.id}`;
-  // Costo total de compra de la orden (usa el costo confirmado por item y, si falta,
-  // el del proveedor preferido o el costo base del producto).
+  // Costo total de compra de la orden. Para stock usa el costo real de inventario
+  // (costo + envio/flete del producto); para fabricacion, el costo confirmado.
   const totalPurchaseCost = order.items.reduce((sum, item) => {
     const preferred = item.product.suppliers[0];
-    const unitCost = Number(item.purchaseCost ?? preferred?.supplierCost ?? item.product.baseCost);
+    const unitCost = computeItemUnitCost({
+      purchaseCost: item.purchaseCost === null ? null : Number(item.purchaseCost),
+      fulfillmentMode: item.fulfillmentMode,
+      baseCost: Number(item.product.baseCost),
+      additionalCost: Number(item.product.additionalCost),
+      preferredSupplierCost: preferred?.supplierCost != null ? Number(preferred.supplierCost) : null,
+    });
     return sum + unitCost * item.quantity;
   }, 0);
   // Costo de envio pagado al proveedor de transporte (registrado en la venta).

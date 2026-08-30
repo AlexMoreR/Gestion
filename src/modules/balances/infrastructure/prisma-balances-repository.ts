@@ -259,6 +259,9 @@ async function getSaleProfitRows(where?: Prisma.SaleWhereInput): Promise<SalePro
             select: {
               quantity: true,
               purchaseCost: true,
+              fulfillmentMode: true,
+              // Para stock, el costo real de inventario = base + envio/flete.
+              product: { select: { baseCost: true, additionalCost: true } },
             },
           },
         },
@@ -283,6 +286,9 @@ async function getSaleProfitRows(where?: Prisma.SaleWhereInput): Promise<SalePro
       orderItems: sale.order?.items.map((item) => ({
         quantity: item.quantity,
         purchaseCost: item.purchaseCost === null ? null : toNumber(item.purchaseCost),
+        fulfillmentMode: item.fulfillmentMode,
+        baseCost: toNumber(item.product.baseCost),
+        additionalCost: toNumber(item.product.additionalCost),
       })) ?? [],
       shippingCosts: sale.shippingCosts.map((entry) => toNumber(entry.amount)),
     }),

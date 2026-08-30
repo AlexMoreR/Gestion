@@ -17,6 +17,7 @@ import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { getFulfillmentModeLabel } from "@/lib/orders";
 import { getSystemCurrency } from "@/lib/system-settings";
+import { computeItemUnitCost } from "@/lib/order-item-cost";
 
 type PageProps = {
   params: Promise<{ orderId: string }>;
@@ -78,7 +79,13 @@ export default async function OrderEarnedValuePage({ params }: PageProps) {
   // costo base del producto (misma prioridad que en la vista de la orden).
   const itemBreakdown = order.items.map((item) => {
     const preferred = item.product.suppliers[0];
-    const unitCost = Number(item.purchaseCost ?? preferred?.supplierCost ?? item.product.baseCost);
+    const unitCost = computeItemUnitCost({
+      purchaseCost: item.purchaseCost === null ? null : Number(item.purchaseCost),
+      fulfillmentMode: item.fulfillmentMode,
+      baseCost: Number(item.product.baseCost),
+      additionalCost: Number(item.product.additionalCost),
+      preferredSupplierCost: preferred?.supplierCost != null ? Number(preferred.supplierCost) : null,
+    });
     const unitPrice = Number(item.unitPrice);
     const saleTotal = unitPrice * item.quantity;
     const costTotal = unitCost * item.quantity;
@@ -87,9 +94,11 @@ export default async function OrderEarnedValuePage({ params }: PageProps) {
         ? item.confirmedSupplier?.name
           ? `Costo confirmado (${item.confirmedSupplier.name})`
           : "Costo confirmado"
-        : preferred?.supplierCost != null
-          ? `Proveedor preferido (${preferred.supplier.name})`
-          : "Costo base del producto";
+        : item.fulfillmentMode === "STOCK"
+          ? "Costo de inventario (costo + envío)"
+          : preferred?.supplierCost != null
+            ? `Proveedor preferido (${preferred.supplier.name})`
+            : "Costo base del producto";
     return {
       id: item.id,
       productName: item.product.name,
