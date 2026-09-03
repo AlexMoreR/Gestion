@@ -102,23 +102,34 @@ export function ExpensesWorkspace({
   // (Balances) no filtra en cliente porque los datos ya vienen por periodo.
   const [fromDate, setFromDate] = React.useState(() => (embedded ? "" : currentMonthRange().from));
   const [toDate, setToDate] = React.useState(() => (embedded ? "" : currentMonthRange().to));
+  // Filtro por categoria ("all" = todas). Afecta la tabla, el total del rango y
+  // el panel "Gasto por categoria" para que todo sea coherente.
+  const [categoryFilter, setCategoryFilter] = React.useState("all");
 
   const actionsReturnTo = "/admin/gastos";
   const categoryOptions = React.useMemo(
     () => categories.filter((category) => category.isActive).map((category) => ({ id: category.id, name: category.name })),
     [categories],
   );
+  // Opciones del filtro: todas las categorias (incluidas inactivas) para poder
+  // filtrar gastos historicos de una categoria ya desactivada.
+  const categoryFilterOptions = React.useMemo(
+    () => categories.map((category) => ({ id: category.id, name: category.name })),
+    [categories],
+  );
 
-  // Gastos dentro del rango seleccionado (la fecha es un dia UTC).
+  // Gastos dentro del rango seleccionado (la fecha es un dia UTC) y de la
+  // categoria filtrada.
   const filteredExpenses = React.useMemo(
     () =>
       expenses.filter((expense) => {
         const day = new Date(expense.expenseDate).toISOString().slice(0, 10);
         if (fromDate && day < fromDate) return false;
         if (toDate && day > toDate) return false;
+        if (categoryFilter !== "all" && expense.categoryId !== categoryFilter) return false;
         return true;
       }),
-    [expenses, fromDate, toDate],
+    [expenses, fromDate, toDate, categoryFilter],
   );
 
   // "Gasto por categoria" calculado desde los gastos ya filtrados, para que
@@ -227,6 +238,9 @@ export function ExpensesWorkspace({
                 setFromDate(range.from);
                 setToDate(range.to);
               }}
+              categories={categoryFilterOptions}
+              categoryFilter={categoryFilter}
+              onCategoryFilterChange={setCategoryFilter}
               onEdit={(expenseId) => {
                 const expense = expenses.find((row) => row.id === expenseId);
                 if (expense) {

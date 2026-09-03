@@ -11,10 +11,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type { ExpenseRow } from "@/modules/expenses/domain/entities";
 import { ExpensesDataGrid } from "./expenses-data-grid";
+
+type CategoryOption = { id: string; name: string };
+
+// Valor especial del filtro para "todas las categorias".
+const ALL_CATEGORIES = "all";
 
 type ExpensesTableProps = {
   data: ExpenseRow[];
@@ -26,6 +38,10 @@ type ExpensesTableProps = {
   fromDate: string;
   toDate: string;
   onDateChange: (range: { from: string; to: string }) => void;
+  // Filtro por categoria, tambien controlado por el contenedor.
+  categories: CategoryOption[];
+  categoryFilter: string;
+  onCategoryFilterChange: (categoryId: string) => void;
 };
 
 // La fecha del gasto es un dia de calendario guardado como medianoche UTC; se
@@ -39,12 +55,43 @@ function formatDate(value: Date): string {
   });
 }
 
-export function ExpensesTable({ data, currency, onEdit, onDelete, fromDate, toDate, onDateChange }: ExpensesTableProps) {
+export function ExpensesTable({
+  data,
+  currency,
+  onEdit,
+  onDelete,
+  fromDate,
+  toDate,
+  onDateChange,
+  categories,
+  categoryFilter,
+  onCategoryFilterChange,
+}: ExpensesTableProps) {
   const [actionsRow, setActionsRow] = React.useState<ExpenseRow | null>(null);
   const [receiptUrl, setReceiptUrl] = React.useState<string | null>(null);
 
-  const dateFilter = (
-    <div className="flex items-center gap-1.5">
+  const filters = (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Select value={categoryFilter} onValueChange={(next) => onCategoryFilterChange(next || ALL_CATEGORIES)}>
+        <SelectTrigger className="w-full sm:w-48" aria-label="Filtrar por categoria">
+          <SelectValue>
+            {(current) =>
+              current === ALL_CATEGORIES
+                ? "Todas las categorias"
+                : categories.find((category) => category.id === current)?.name ?? "Todas las categorias"
+            }
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL_CATEGORIES}>Todas las categorias</SelectItem>
+          {categories.map((category) => (
+            <SelectItem key={category.id} value={category.id}>
+              {category.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
       <DateRangePicker
         from={fromDate}
         to={toDate}
@@ -53,14 +100,17 @@ export function ExpensesTable({ data, currency, onEdit, onDelete, fromDate, toDa
         className="sm:w-64"
         placeholder="Rango de fechas"
       />
-      {fromDate || toDate ? (
+      {fromDate || toDate || categoryFilter !== ALL_CATEGORIES ? (
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
-          onClick={() => onDateChange({ from: "", to: "" })}
-          aria-label="Limpiar fechas"
-          title="Limpiar fechas"
+          onClick={() => {
+            onDateChange({ from: "", to: "" });
+            onCategoryFilterChange(ALL_CATEGORIES);
+          }}
+          aria-label="Limpiar filtros"
+          title="Limpiar filtros"
         >
           <X className="h-3.5 w-3.5" />
         </Button>
@@ -118,7 +168,7 @@ export function ExpensesTable({ data, currency, onEdit, onDelete, fromDate, toDa
         searchPlaceholder="Buscar gasto"
         emptyMessage="Aun no hay gastos. Registra el primero con 'Nuevo gasto'."
         pageSize={10}
-        toolbar={dateFilter}
+        toolbar={filters}
         searchFirst
         paginate={false}
         onRowClick={(row) => setActionsRow(row)}
