@@ -10,6 +10,7 @@ import {
   Factory,
   LockKeyhole,
   Landmark,
+  MapPinned,
   Package,
   ReceiptText,
   ShieldCheck,
@@ -71,6 +72,7 @@ const moduleIconMap = {
   orders: ClipboardList,
   production: Factory,
   dispatches: Truck,
+  transporte: MapPinned,
 } satisfies Record<AdminModuleKey, React.ComponentType<{ className?: string }>>;
 
 export function ModuleAccessWorkspace({ roles, modules }: ModuleAccessWorkspaceProps) {

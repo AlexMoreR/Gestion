@@ -751,3 +751,41 @@ model MonthClosure {
 
   @@index([year, month])
 }
+
+// Modulo Transporte: cobertura de envio gratis por ciudad y corregimiento.
+// Datos oficiales DANE (DIVIPOLA). El admin marca donde aplica envio gratis y
+// el cliente lo consulta en la pagina publica /serviciotransporte.
+model TransportDepartment {
+  id        String          @id @default(cuid())
+  code      String          @unique // Codigo DANE del departamento (2 digitos)
+  name      String
+  createdAt DateTime        @default(now())
+  cities    TransportCity[]
+}
+
+model TransportCity {
+  id           String              @id @default(cuid())
+  code         String              @unique // Codigo DANE del municipio (5 digitos)
+  departmentId String
+  name         String
+  freeShipping Boolean             @default(false)
+  createdAt    DateTime            @default(now())
+  department   TransportDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  localities   TransportLocality[]
+
+  @@index([departmentId])
+  @@index([name])
+}
+
+model TransportLocality {
+  id           String        @id @default(cuid())
+  code         String        @unique // Codigo DANE del centro poblado (8 digitos)
+  cityId       String
+  name         String
+  freeShipping Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  city         TransportCity @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@index([cityId])
+  @@index([name])
+}

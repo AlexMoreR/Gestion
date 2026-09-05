@@ -7,6 +7,7 @@ import {
   FileText,
   Landmark,
   LayoutDashboard,
+  MapPinned,
   Package,
   ReceiptText,
   Settings,
@@ -210,6 +211,16 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
         items: [
           { title: "Registro", url: "/admin/gastos" },
         ],
+      });
+    }
+
+    if (adminModuleAccess.transporte) {
+      navMain.push({
+        title: "Transporte",
+        url: "/admin/transporte",
+        icon: MapPinned,
+        isActive: pathname.startsWith("/admin/transporte"),
+        items: [{ title: "Envio gratis", url: "/admin/transporte" }],
       });
     }
   }

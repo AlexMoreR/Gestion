@@ -109,6 +109,13 @@ export const adminModuleDefinitions = [
     path: "/admin/despachos",
     group: "Operaciones",
   },
+  {
+    key: "transporte",
+    label: "Transporte",
+    description: "Define en que ciudades y corregimientos aplica envio gratis.",
+    path: "/admin/transporte",
+    group: "Operaciones",
+  },
 ] as const;
 
 export type AdminModuleKey = (typeof adminModuleDefinitions)[number]["key"];
