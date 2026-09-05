@@ -15,6 +15,22 @@ import { ServiceLookup } from "@/modules/transporte/presentation/service-lookup"
 
 export const dynamic = "force-dynamic";
 
+// Sedes de fabrica que se muestran con mapa de Google al final de la pagina.
+const FACTORY_POINTS = [
+  {
+    title: "Sede principal - Cali",
+    address: "Carrera 41E # 38 – 99",
+    neighborhood: "La Unión",
+    query: "Carrera 41E # 38-99, La Unión, Cali, Valle del Cauca, Colombia",
+  },
+  {
+    title: "Bogotá - Cundinamarca",
+    address: "Calle 11 # 28-33 Piso 3",
+    neighborhood: "El Ricaurte",
+    query: "Calle 11 # 28-33, Ricaurte, Bogotá, Colombia",
+  },
+] as const;
+
 export async function generateMetadata(): Promise<Metadata> {
   const brandName = await getSystemBrandName();
   return {
@@ -70,6 +86,42 @@ export default async function ServicioTransportePage() {
           Cobertura basada en la división oficial de Colombia (DANE). Si no encuentras tu zona, escríbenos y te
           ayudamos.
         </p>
+
+        {/* Puntos de fabrica */}
+        <section className="mt-12">
+          <h2 className="mb-6 text-center text-xl font-bold tracking-tight text-slate-900">
+            Nuestros puntos de fábrica
+          </h2>
+
+          <div className="grid gap-6 sm:grid-cols-2">
+            {FACTORY_POINTS.map((point) => (
+              <div
+                key={point.title}
+                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+              >
+                <div className="border-b border-slate-100 px-4 py-3 text-center">
+                  <h3 className="text-base font-bold uppercase tracking-wide text-slate-900">{point.title}</h3>
+                </div>
+                <iframe
+                  title={`Mapa ${point.title}`}
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(point.query)}&z=16&output=embed`}
+                  className="h-64 w-full border-0"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+                <div className="space-y-0.5 px-4 py-3 text-center">
+                  <p className="text-sm font-semibold text-slate-800">Dirección: {point.address}</p>
+                  <p className="text-sm text-slate-600">Barrio: {point.neighborhood}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="mx-auto mt-6 max-w-2xl text-center text-sm text-slate-600">
+            Por favor tener en cuenta que somos punto de fábrica en Bogotá y no manejamos mobiliario para exhibición,
+            ya que todo se fabrica sobre pedido, según el requerimiento de cada cliente.
+          </p>
+        </section>
       </main>
     </div>
   );
