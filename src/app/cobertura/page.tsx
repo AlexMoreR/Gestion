@@ -15,6 +15,13 @@ import { ServiceLookup } from "@/modules/transporte/presentation/service-lookup"
 
 export const dynamic = "force-dynamic";
 
+// Numero de WhatsApp por linea de venta (parametro ?ref=). Sin ref (o ref
+// desconocido) usa el numero general del sistema.
+const REF_WHATSAPP: Record<string, string> = {
+  "1": "573169831667", // Ventas 1
+  "2": "573205138377", // Ventas 2
+};
+
 // Sedes de fabrica que se muestran con mapa de Google al final de la pagina.
 const FACTORY_POINTS = [
   {
@@ -39,16 +46,26 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function ServicioTransportePage() {
+type PageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function ServicioTransportePage({ searchParams }: PageProps) {
   // Carga los datos DANE la primera vez que alguien visita la pagina.
   await ensureTransportSeed();
 
-  const [brandName, logoPath, whatsAppHref, departments] = await Promise.all([
+  const params = await searchParams;
+  const ref = typeof params.ref === "string" ? params.ref : "";
+
+  const [brandName, logoPath, systemWhatsAppHref, departments] = await Promise.all([
     getSystemBrandName(),
     getSystemStorefrontLogoPath(),
     getSystemWhatsAppPhoneHref(),
     listDepartmentOptions(),
   ]);
+
+  // Numero segun la linea de venta del enlace (?ref=1 / ?ref=2).
+  const whatsAppHref = REF_WHATSAPP[ref] ?? systemWhatsAppHref;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -123,6 +140,29 @@ export default async function ServicioTransportePage() {
           </p>
         </section>
       </main>
+
+      <footer className="mt-8 border-t border-slate-200 bg-slate-900 text-slate-300">
+        <div className="mx-auto flex max-w-3xl flex-col items-center gap-4 px-4 py-8 text-center md:px-6">
+          <p className="text-sm font-semibold text-white">Consulta tu cobertura de envío</p>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <a
+              href="/cobertura?ref=1"
+              className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/20"
+            >
+              <MapPin className="h-4 w-4" /> Cobertura · Ventas 1
+            </a>
+            <a
+              href="/cobertura?ref=2"
+              className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/20"
+            >
+              <MapPin className="h-4 w-4" /> Cobertura · Ventas 2
+            </a>
+          </div>
+          <p className="text-xs text-slate-400">
+            © {new Date().getFullYear()} {brandName}. Todos los derechos reservados.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
