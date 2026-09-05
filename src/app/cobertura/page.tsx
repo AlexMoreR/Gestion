@@ -19,9 +19,9 @@ export const dynamic = "force-dynamic";
 const FACTORY_POINTS = [
   {
     title: "Sede principal - Cali",
-    address: "Carrera 41E # 38 – 99",
-    neighborhood: "La Unión",
-    query: "Carrera 41E # 38-99, La Unión, Cali, Valle del Cauca, Colombia",
+    address: "Carrera 27 # 72 x 25",
+    neighborhood: "Omar Torrijos",
+    query: "Carrera 27 # 72-25, Omar Torrijos, Cali, Valle del Cauca, Colombia",
   },
   {
     title: "Bogotá - Cundinamarca",
