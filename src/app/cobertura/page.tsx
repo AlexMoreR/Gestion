@@ -26,9 +26,9 @@ const REF_WHATSAPP: Record<string, string> = {
 const FACTORY_POINTS = [
   {
     title: "Sede principal - Cali",
-    address: "Carrera 27 # 72 x 25",
+    address: "Cra. 27 # 72X-25",
     neighborhood: "Omar Torrijos",
-    query: "Carrera 27 # 72-25, Omar Torrijos, Cali, Valle del Cauca, Colombia",
+    query: "Cra. 27 # 72X-25, Omar Torrijos, Cali, Valle del Cauca, Colombia",
   },
   {
     title: "Bogotá - Cundinamarca",
