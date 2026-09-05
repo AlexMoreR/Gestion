@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
   const brandName = await getSystemBrandName();
   return {
-    title: `Servicio de transporte y envío gratis | ${brandName}`,
+    title: `Cobertura de envío gratis | ${brandName}`,
     description: `Consulta si tu ciudad o corregimiento tiene envío gratis con ${brandName}.`,
   };
 }

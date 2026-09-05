@@ -30,7 +30,7 @@ export default async function AdminTransportePage() {
         <h1 className="text-lg font-semibold text-foreground">Transporte</h1>
         <p className="text-sm text-muted-foreground">
           Marca las ciudades y corregimientos donde ofreces envio gratis. Los clientes lo consultan en{" "}
-          <span className="font-medium text-foreground">magilus.com/serviciotransporte</span>.
+          <span className="font-medium text-foreground">magilus.com/cobertura</span>.
         </p>
       </div>
 
