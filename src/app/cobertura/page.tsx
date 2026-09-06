@@ -40,9 +40,25 @@ const FACTORY_POINTS = [
 
 export async function generateMetadata(): Promise<Metadata> {
   const brandName = await getSystemBrandName();
+  const title = `Cobertura de envío gratis | ${brandName}`;
+  const description = `Consulta si tu ciudad o corregimiento tiene envío gratis con ${brandName}.`;
   return {
-    title: `Cobertura de envío gratis | ${brandName}`,
-    description: `Consulta si tu ciudad o corregimiento tiene envío gratis con ${brandName}.`,
+    title,
+    description,
+    // La imagen de vista previa (og:image) la aporta opengraph-image.tsx.
+    openGraph: {
+      title,
+      description,
+      url: "/cobertura",
+      siteName: brandName,
+      type: "website",
+      locale: "es_CO",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
   };
 }
 
