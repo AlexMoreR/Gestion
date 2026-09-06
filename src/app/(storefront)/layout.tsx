@@ -1,9 +1,15 @@
 import type { ReactNode } from "react";
 import { auth } from "@/auth";
 import { Navbar } from "@/components/navbar";
+import { SiteFooter } from "@/components/site-footer";
 import { cn } from "@/lib/utils";
 import { getAdminModuleAccess } from "@/lib/admin-module-access";
-import { getSystemBrandName, getSystemStorefrontLogoPath } from "@/lib/system-settings";
+import {
+  getSystemBrandName,
+  getSystemStorefrontLogoPath,
+  getSystemWhatsAppPhoneDisplay,
+  getSystemWhatsAppPhoneHref,
+} from "@/lib/system-settings";
 
 export default async function StorefrontLayout({
   children,
@@ -11,11 +17,18 @@ export default async function StorefrontLayout({
   children: ReactNode;
 }) {
   const session = await auth();
-  const [brandName, storefrontLogoPath, adminModuleAccess] = await Promise.all([
-    getSystemBrandName(),
-    getSystemStorefrontLogoPath(),
-    getAdminModuleAccess(session?.user?.id, session?.user?.role),
-  ]);
+  const [brandName, storefrontLogoPath, adminModuleAccess, whatsAppPhoneDisplay, whatsAppPhoneHref] =
+    await Promise.all([
+      getSystemBrandName(),
+      getSystemStorefrontLogoPath(),
+      getAdminModuleAccess(session?.user?.id, session?.user?.role),
+      getSystemWhatsAppPhoneDisplay(),
+      getSystemWhatsAppPhoneHref(),
+    ]);
+
+  const whatsAppHref = `https://wa.me/${whatsAppPhoneHref}?text=${encodeURIComponent(
+    `Hola ${brandName}, quiero más información.`,
+  )}`;
 
   return (
     <>
@@ -34,6 +47,13 @@ export default async function StorefrontLayout({
       >
         {children}
       </main>
+      <SiteFooter
+        brandName={brandName}
+        logoPath={storefrontLogoPath}
+        whatsAppHref={whatsAppHref}
+        phoneDisplay={whatsAppPhoneDisplay}
+        phoneHref={whatsAppPhoneHref}
+      />
     </>
   );
 }
