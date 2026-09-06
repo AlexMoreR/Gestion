@@ -142,22 +142,7 @@ export default async function ServicioTransportePage({ searchParams }: PageProps
       </main>
 
       <footer className="mt-8 border-t border-slate-200 bg-slate-900 text-slate-300">
-        <div className="mx-auto flex max-w-3xl flex-col items-center gap-4 px-4 py-8 text-center md:px-6">
-          <p className="text-sm font-semibold text-white">Consulta tu cobertura de envío</p>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <a
-              href="/cobertura?ref=1"
-              className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/20"
-            >
-              <MapPin className="h-4 w-4" /> Cobertura · Ventas 1
-            </a>
-            <a
-              href="/cobertura?ref=2"
-              className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/20"
-            >
-              <MapPin className="h-4 w-4" /> Cobertura · Ventas 2
-            </a>
-          </div>
+        <div className="mx-auto flex max-w-3xl flex-col items-center gap-2 px-4 py-8 text-center md:px-6">
           <p className="text-xs text-slate-400">
             © {new Date().getFullYear()} {brandName}. Todos los derechos reservados.
           </p>
