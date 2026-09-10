@@ -289,7 +289,12 @@ export async function StorefrontCatalog({
     ? products.slice((currentPage - 1) * PRODUCTS_PER_PAGE, currentPage * PRODUCTS_PER_PAGE)
     : products;
 
-  const promoItems = storefrontPromoItems;
+  // Repetimos los mensajes hasta tener suficientes para llenar pantallas anchas,
+  // y luego duplicamos ese bloque para el desplazamiento continuo sin huecos.
+  const basePromoItems = storefrontPromoItems;
+  const promoRepeat = basePromoItems.length > 0 ? Math.max(2, Math.ceil(14 / basePromoItems.length)) : 0;
+  const promoGroup = Array.from({ length: promoRepeat }).flatMap(() => basePromoItems);
+  const promoItems = [...promoGroup, ...promoGroup];
 
   const categoriesCarousel = categoryNavItems.map((item) => ({
     id: item.id,
@@ -443,7 +448,7 @@ export async function StorefrontCatalog({
             }}
           >
             <div className="promo-marquee-track">
-              {[...promoItems, ...promoItems].map((item, index) => (
+              {promoItems.map((item, index) => (
                 <div
                   key={`${item}-${index}`}
                   className="inline-flex h-9 items-center gap-2 border-r border-white/20 px-3 text-[11px] font-semibold text-white md:h-10 md:px-4 md:text-xs"

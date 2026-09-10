@@ -211,7 +211,6 @@ body {
 .promo-marquee-track {
   display: flex;
   width: max-content;
-  min-width: 200%;
   animation: promoMarquee 36s linear infinite;
 }
 

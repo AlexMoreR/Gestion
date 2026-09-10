@@ -13,7 +13,9 @@ function getInitialTheme(): "light" | "dark" {
   }
 
   const stored = window.localStorage.getItem(STORAGE_KEY) as "light" | "dark" | null;
-  return stored ?? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  // Por defecto SIEMPRE claro (aunque el dispositivo este en oscuro). Solo se
+  // usa oscuro si la persona lo eligio a proposito.
+  return stored ?? "light";
 }
 
 function applyTheme(theme: "light" | "dark") {

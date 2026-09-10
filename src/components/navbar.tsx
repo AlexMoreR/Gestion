@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { Fragment } from "react";
 import type { Role } from "@prisma/client";
-import { ChevronDown, Facebook, Instagram, LayoutDashboard, LogOut, Menu, Search, Settings, UserCircle2 } from "lucide-react";
+import { Facebook, Instagram, LayoutDashboard, LogOut, Menu, Search, Settings, UserCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -195,16 +195,11 @@ export function Navbar({
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className="h-9 gap-2 rounded-full border border-[var(--line)] bg-background/90 px-2.5 text-foreground shadow-[0_8px_18px_-14px_rgba(15,23,42,0.45)] transition hover:bg-muted md:h-10"
+                  size="icon"
+                  aria-label="Cuenta"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--line)] bg-background/90 p-0 text-sm font-semibold text-[var(--primary)] shadow-[0_8px_18px_-14px_rgba(15,23,42,0.45)] transition hover:bg-muted md:h-10 md:w-10"
                 >
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-foreground">
-                    {initials}
-                  </span>
-                  <span className="hidden max-w-[10rem] truncate text-foreground sm:inline">
-                    {user.name ?? user.email}
-                  </span>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  {initials}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">

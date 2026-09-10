@@ -21,7 +21,7 @@ export default async function WorkspaceLayout({
       {/* Aplica el tema guardado antes de pintar (sin parpadeo) solo en el sistema. */}
       <script
         dangerouslySetInnerHTML={{
-          __html: `(function(){try{var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');var r=document.documentElement;r.classList.toggle('dark',t==='dark');r.style.colorScheme=t;}catch(e){}})();`,
+          __html: `(function(){try{var t=localStorage.getItem('theme')||'light';var r=document.documentElement;r.classList.toggle('dark',t==='dark');r.style.colorScheme=t;}catch(e){}})();`,
         }}
       />
       <WorkspaceTheme />

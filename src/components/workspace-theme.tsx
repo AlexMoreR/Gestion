@@ -9,7 +9,8 @@ export function WorkspaceTheme() {
   useEffect(() => {
     const root = document.documentElement;
     const stored = window.localStorage.getItem("theme");
-    const theme = stored ?? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    // Por defecto claro; solo oscuro si la persona lo eligio (valor guardado).
+    const theme = stored ?? "light";
     root.classList.toggle("dark", theme === "dark");
     root.style.colorScheme = theme;
 
