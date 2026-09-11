@@ -126,6 +126,7 @@ export function ProductEditModal({
                 minStock: product.minStock,
                 categoryId: product.categoryId,
                 isBundle: product.isBundle,
+                hiddenFromStore: product.hiddenFromStore,
                 suppliers: product.suppliers,
                 components: product.components,
                 imageUrls: product.imageUrls,

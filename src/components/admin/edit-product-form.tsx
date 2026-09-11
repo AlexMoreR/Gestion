@@ -62,6 +62,7 @@ type EditProductInitialData = {
   minStock: number;
   categoryId: string | null;
   isBundle: boolean;
+  hiddenFromStore: boolean;
   suppliers: Array<{
     supplierId: string;
     supplierCost: number | null;
@@ -201,6 +202,7 @@ export function EditProductForm({
         ],
   );
   const [isBundle, setIsBundle] = useState(initialData.isBundle);
+  const [hiddenFromStore, setHiddenFromStore] = useState(initialData.hiddenFromStore);
   const [componentRows, setComponentRows] = useState<ProductComponentDraft[]>(() =>
     initialData.components.length > 0
       ? initialData.components.map((component) => ({
@@ -567,6 +569,18 @@ export function EditProductForm({
                   onRemove={removeComponentRow}
                   onChange={updateComponentRow}
                 />
+
+                {/* Ocultar de la tienda principal (catalogo publico) */}
+                <input type="hidden" name="hiddenFromStore" value={hiddenFromStore ? "true" : "false"} />
+                <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-slate-900"
+                    checked={hiddenFromStore}
+                    onChange={(event) => setHiddenFromStore(event.target.checked)}
+                  />
+                  Ocultar de la tienda principal
+                </label>
               </div>
             </div>
 

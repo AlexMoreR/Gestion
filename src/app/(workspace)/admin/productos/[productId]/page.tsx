@@ -108,6 +108,7 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
           minStock: product.minStock,
           categoryId: product.categoryId,
           isBundle: product.isBundle,
+          hiddenFromStore: product.hiddenFromStore,
           suppliers: product.suppliers.map((supplier) => ({
             supplierId: supplier.supplierId,
             supplierCost: supplier.supplierCost === null ? null : Number(supplier.supplierCost),

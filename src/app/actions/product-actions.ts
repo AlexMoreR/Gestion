@@ -354,6 +354,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
   const thumbnailUrl = imageList[0] ?? "";
   const categoryId = parseOptionalId(parsed.data.categoryId);
   const isBundle = formData.get("isBundle") === "true";
+  const hiddenFromStore = formData.get("hiddenFromStore") === "true";
   let productSuppliers: ParsedProductSupplier[];
   let productComponents: ParsedProductComponent[] = [];
   try {
@@ -394,6 +395,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
         price: retailPrice,
         wholesalePrice,
         isBundle,
+        hiddenFromStore,
         categoryId,
         thumbnailUrl,
         images: {
@@ -499,6 +501,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
   const thumbnailUrl = imageList[0] ?? "";
   const categoryId = parseOptionalId(parsed.data.categoryId);
   const isBundle = formData.get("isBundle") === "true";
+  const hiddenFromStore = formData.get("hiddenFromStore") === "true";
   let productSuppliers: ParsedProductSupplier[];
   let productComponents: ParsedProductComponent[] = [];
   try {
@@ -547,6 +550,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
           price: retailPrice,
           wholesalePrice,
           isBundle,
+          hiddenFromStore,
           categoryId,
           thumbnailUrl,
         },

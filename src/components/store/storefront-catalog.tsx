@@ -231,7 +231,7 @@ export async function StorefrontCatalog({
       },
     }),
     getSystemCurrency(),
-    prisma.product.count(),
+    prisma.product.count({ where: { hiddenFromStore: false } }),
     prisma.category.count({ where: { isActive: true } }),
     getSystemBrandName(),
     getSystemWhatsAppPhoneDisplay(),
@@ -247,6 +247,8 @@ export async function StorefrontCatalog({
 
   const productsResult = await prisma.product.findMany({
     where: {
+      // No mostrar en la tienda principal los productos marcados como ocultos.
+      hiddenFromStore: false,
       ...(normalizedQuery
         ? {
             OR: [

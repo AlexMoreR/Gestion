@@ -17,6 +17,7 @@ export type ProductWorkspaceRow = {
     supplierCost: number | null;
   }>;
   isBundle: boolean;
+  hiddenFromStore: boolean;
   components: Array<{
     childId: string;
     quantity: number;
@@ -104,6 +105,7 @@ export async function getProductWorkspaceData(): Promise<ProductWorkspaceData> {
         supplierCost: supplier.supplierCost === null ? null : Number(supplier.supplierCost),
       })),
       isBundle: product.isBundle,
+      hiddenFromStore: product.hiddenFromStore,
       components: product.bundleComponents.map((component) => ({
         childId: component.childId,
         quantity: component.quantity,

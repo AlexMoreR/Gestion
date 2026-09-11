@@ -94,6 +94,8 @@ model Product {
   minWholesaleQty    Int                 @default(6)
   minStock           Int                 @default(0)
   isBundle           Boolean             @default(false)
+  // Si es true, el producto no aparece en la tienda principal (catalogo publico).
+  hiddenFromStore    Boolean             @default(false)
   categoryId         String?
   thumbnailUrl       String
   createdAt          DateTime            @default(now())
