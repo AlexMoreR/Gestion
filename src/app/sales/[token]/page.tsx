@@ -424,7 +424,7 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
 
           {/* ─── FOOTER ─── */}
           <footer className="border-t border-slate-200 pt-2 text-center text-[10px] text-slate-400">
-            Magilus · comercial@magilus.com · magilus.com
+            Magilus · gestionmagilus@gmail.com · magilus.com
           </footer>
         </>
       ) : (

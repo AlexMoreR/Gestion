@@ -644,7 +644,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
       {/* ─── FOOTER ──────────────────────────────────────────────────── */}
       {isPdf ? (
         <footer className="border-t border-slate-200 pt-2 text-center text-[10px] text-slate-400">
-          Magilus · {whatsAppPhoneDisplay} · comercial@magilus.com · magilus.com
+          Magilus · {whatsAppPhoneDisplay} · gestionmagilus@gmail.com · magilus.com
         </footer>
       ) : (
         <footer className="pt-6 pb-2 text-center space-y-3">
@@ -656,7 +656,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
           </div>
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-1.5 text-[10px] text-slate-400 font-medium uppercase tracking-widest">
             <span>Tel: {whatsAppPhoneDisplay}</span>
-            <span>comercial@magilus.com</span>
+            <span>gestionmagilus@gmail.com</span>
             <span>magilus.com</span>
           </div>
         </footer>
