@@ -280,6 +280,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
           </p>
           <p className="text-xs text-slate-500">CC/NIT: {clientDocument}</p>
           <p className="text-xs text-slate-500">Teléfono: {quote.client.phone || "Por confirmar"}</p>
+          <p className="text-xs text-slate-500 break-all">Correo: {quote.client.email || "Por confirmar"}</p>
         </div>
 
         <div className={isPdf ? "rounded-xl border border-slate-200 bg-white p-3" : "rounded-xl border border-slate-200 bg-white p-4 shadow-sm"}>
