@@ -2,9 +2,20 @@
 
 import * as React from "react";
 import { Role } from "@prisma/client";
-import { ChevronDown, Search, X } from "lucide-react";
-import { adminUpdateUserRoleAction } from "@/app/actions/auth-actions";
+import { ChevronDown, MoreVertical, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
+import {
+  adminDeleteUserAction,
+  adminSetUserModuleAccessAction,
+  adminUpdateUserRoleAction,
+} from "@/app/actions/auth-actions";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +32,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+type ModuleOption = { key: string; label: string; group: string };
+
 type UserRow = {
   id: string;
   name: string | null;
@@ -28,18 +41,34 @@ type UserRow = {
   image: string | null;
   role: Role;
   createdAt: Date;
+  modules: string[];
 };
 
 type UsersDataTableProps = {
   users: UserRow[];
+  moduleOptions: ModuleOption[];
 };
+
+const RETURN_TO = "/admin/configuracion/usuarios";
 
 const PAGE_SIZE = 8;
 
-export function UsersDataTable({ users }: UsersDataTableProps) {
+export function UsersDataTable({ users, moduleOptions }: UsersDataTableProps) {
   const [query, setQuery] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [selectedRoles, setSelectedRoles] = React.useState<Record<string, Role>>({});
+  // Dialogo activo (editar modulos o eliminar) para un usuario puntual.
+  const [dialog, setDialog] = React.useState<{ user: UserRow; type: "modules" | "delete" } | null>(null);
+
+  const groupedModules = React.useMemo(() => {
+    const groups = new Map<string, ModuleOption[]>();
+    for (const moduleItem of moduleOptions) {
+      const current = groups.get(moduleItem.group) ?? [];
+      current.push(moduleItem);
+      groups.set(moduleItem.group, current);
+    }
+    return Array.from(groups.entries());
+  }, [moduleOptions]);
 
   const filteredUsers = React.useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -203,15 +232,43 @@ export function UsersDataTable({ users }: UsersDataTableProps) {
                   </form>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button
-                    type="submit"
-                    form={`user-role-${user.id}`}
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-2.5 text-xs"
-                  >
-                    Aplicar
-                  </Button>
+                  <div className="flex items-center justify-end gap-1.5">
+                    <Button
+                      type="submit"
+                      form={`user-role-${user.id}`}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2.5 text-xs"
+                    >
+                      Aplicar
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          aria-label="Mas acciones"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="min-w-44 rounded-lg">
+                        {user.role === "EMPLEADO" ? (
+                          <DropdownMenuItem onSelect={() => setDialog({ user, type: "modules" })}>
+                            <SlidersHorizontal className="mr-2 h-4 w-4" /> Editar modulos
+                          </DropdownMenuItem>
+                        ) : null}
+                        <DropdownMenuItem
+                          onSelect={() => setDialog({ user, type: "delete" })}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Eliminar usuario
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </TableCell>
               </TableRow>
             ))
@@ -247,6 +304,92 @@ export function UsersDataTable({ users }: UsersDataTableProps) {
           </Button>
         </div>
       </div>
+
+      {/* Editar modulos de un empleado */}
+      <Dialog
+        open={dialog?.type === "modules"}
+        onOpenChange={(open) => {
+          if (!open) setDialog(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Modulos de {dialog?.user.name || dialog?.user.email}</DialogTitle>
+            <DialogDescription>
+              Marca a que modulos puede entrar esta persona. Configuracion del negocio queda solo para el
+              dueno.
+            </DialogDescription>
+          </DialogHeader>
+          {dialog?.type === "modules" ? (
+            <form action={adminSetUserModuleAccessAction} className="space-y-3">
+              <input type="hidden" name="userId" value={dialog.user.id} />
+              <input type="hidden" name="returnTo" value={RETURN_TO} />
+              <div className="grid max-h-[55vh] gap-3 overflow-y-auto sm:grid-cols-2">
+                {groupedModules.map(([group, items]) => (
+                  <div key={group} className="rounded-lg border border-[var(--line)] p-3">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      {group}
+                    </p>
+                    <div className="space-y-1.5">
+                      {items.map((moduleItem) => (
+                        <label key={moduleItem.key} className="flex items-center gap-2 text-sm text-slate-800">
+                          <input
+                            type="checkbox"
+                            name="modules"
+                            value={moduleItem.key}
+                            defaultChecked={dialog.user.modules.includes(moduleItem.key)}
+                            className="h-4 w-4 accent-[var(--primary)]"
+                          />
+                          {moduleItem.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  type="submit"
+                  className="bg-[var(--primary)] text-white hover:bg-[var(--primary-strong)]"
+                >
+                  Guardar acceso
+                </Button>
+              </div>
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Eliminar usuario */}
+      <Dialog
+        open={dialog?.type === "delete"}
+        onOpenChange={(open) => {
+          if (!open) setDialog(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Eliminar usuario</DialogTitle>
+            <DialogDescription>
+              Se eliminara la cuenta de{" "}
+              <span className="font-medium text-slate-900">{dialog?.user.name || dialog?.user.email}</span>. Esta
+              accion no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          {dialog?.type === "delete" ? (
+            <form action={adminDeleteUserAction} className="flex items-center justify-end gap-2">
+              <input type="hidden" name="userId" value={dialog.user.id} />
+              <input type="hidden" name="returnTo" value={RETURN_TO} />
+              <Button type="button" variant="outline" onClick={() => setDialog(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" variant="destructive">
+                Eliminar
+              </Button>
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

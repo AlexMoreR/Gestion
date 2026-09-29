@@ -574,6 +574,50 @@ export async function adminUpdateUserRoleAction(formData: FormData): Promise<voi
   redirect("/admin/configuracion/usuarios?ok=Rol+actualizado");
 }
 
+// Elimina un usuario del equipo. Protege contra borrarte a ti mismo o dejar el
+// sistema sin ningun admin. Si el usuario tiene registros asociados (ventas,
+// cotizaciones, etc.) la base de datos lo impide y se avisa con claridad.
+export async function adminDeleteUserAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+
+  const session = await auth();
+  const currentUserId = session?.user?.id;
+
+  const returnTo = (String(formData.get("returnTo") ?? "").trim() || "/admin/configuracion/usuarios").split("?")[0];
+  const userId = String(formData.get("userId") ?? "").trim();
+  if (!userId) {
+    redirect(`${returnTo}?error=Falta+el+usuario`);
+  }
+
+  if (userId === currentUserId) {
+    redirect(`${returnTo}?error=No+puedes+eliminar+tu+propia+cuenta`);
+  }
+
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (!target) {
+    redirect(`${returnTo}?error=Usuario+no+encontrado`);
+  }
+
+  if (target.role === "ADMIN") {
+    const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
+    if (adminCount <= 1) {
+      redirect(`${returnTo}?error=Debe+existir+al+menos+un+admin`);
+    }
+  }
+
+  try {
+    await prisma.user.delete({ where: { id: userId } });
+  } catch {
+    redirect(
+      `${returnTo}?error=No+se+puede+eliminar:+el+usuario+tiene+registros+asociados+(ventas,+cotizaciones,+etc.)`,
+    );
+  }
+
+  revalidatePath("/admin/configuracion/usuarios");
+  revalidatePath("/admin");
+  redirect(`${returnTo}?ok=Usuario+eliminado`);
+}
+
 export async function adminUpdateUserModuleAccessAction(formData: FormData): Promise<void> {
   await requireAdminSession();
 

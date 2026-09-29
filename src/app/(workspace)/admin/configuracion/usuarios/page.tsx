@@ -5,7 +5,12 @@ import { CreateUserModal } from "@/components/admin/create-user-modal";
 import { UsersDataTable } from "@/components/admin/users-data-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
-import { hasAdminModuleAccess } from "@/lib/admin-module-access";
+import {
+  adminModuleDefinitions,
+  EMPLOYEE_FORBIDDEN_MODULES,
+  getStoredUserModuleAccessMap,
+  hasAdminModuleAccess,
+} from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -28,18 +33,29 @@ export default async function AdminConfiguracionUsuariosPage({ searchParams }: P
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
   // Solo el equipo del sistema. Los clientes (rol CLIENTE) se gestionan en el modulo Clientes.
-  const users = await prisma.user.findMany({
-    where: { role: { in: ["ADMIN", "EMPLEADO"] } },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      image: true,
-      role: true,
-      createdAt: true,
-    },
-  });
+  const [usersRaw, accessMap] = await Promise.all([
+    prisma.user.findMany({
+      where: { role: { in: ["ADMIN", "EMPLEADO"] } },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        role: true,
+        createdAt: true,
+      },
+    }),
+    getStoredUserModuleAccessMap(),
+  ]);
+
+  const users = usersRaw.map((user) => ({ ...user, modules: accessMap[user.id] ?? [] }));
+
+  // Modulos que se pueden asignar a un empleado (Configuracion del negocio queda solo para el admin).
+  const forbidden = new Set(EMPLOYEE_FORBIDDEN_MODULES);
+  const moduleOptions = adminModuleDefinitions
+    .filter((moduleItem) => !forbidden.has(moduleItem.key))
+    .map((moduleItem) => ({ key: moduleItem.key, label: moduleItem.label, group: moduleItem.group }));
 
   return (
     <section className="w-full space-y-5">
@@ -54,7 +70,7 @@ export default async function AdminConfiguracionUsuariosPage({ searchParams }: P
 
       <Card className="space-y-4">
         <CardContent>
-          <UsersDataTable users={users} />
+          <UsersDataTable users={users} moduleOptions={moduleOptions} />
         </CardContent>
       </Card>
     </section>
