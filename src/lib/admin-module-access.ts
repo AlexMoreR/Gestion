@@ -2,6 +2,16 @@ import type { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 const ADMIN_MODULE_ACCESS_SETTING_KEY = "adminModuleAccess";
+// Acceso a modulos POR PERSONA (empleados). JSON: { [userId]: AdminModuleKey[] }.
+const USER_MODULE_ACCESS_SETTING_KEY = "userModuleAccess";
+
+// Modulos que un empleado NUNCA puede tener (solo el dueno/admin). Configuracion
+// del negocio, usuarios y permisos quedan reservados al ADMIN.
+export const EMPLOYEE_FORBIDDEN_MODULES: AdminModuleKey[] = [
+  "config_users",
+  "config_business",
+  "config_permissions",
+];
 
 export const adminModuleDefinitions = [
   {
@@ -202,6 +212,56 @@ export async function setStoredRoleModuleAccessMap(value: RoleModuleAccessMap): 
   `;
 }
 
+// --- Acceso por persona (empleados) ---
+
+export async function getStoredUserModuleAccessMap(): Promise<Record<string, AdminModuleKey[]>> {
+  try {
+    await ensureAppSettingTable();
+    const rows = await prisma.$queryRaw<Array<{ value: string }>>`
+      SELECT "value"
+      FROM "AppSetting"
+      WHERE "key" = ${USER_MODULE_ACCESS_SETTING_KEY}
+      LIMIT 1
+    `;
+    const rawValue = rows[0]?.value;
+    if (!rawValue) {
+      return {};
+    }
+    const parsed = JSON.parse(rawValue);
+    if (!parsed || typeof parsed !== "object") {
+      return {};
+    }
+    const result: Record<string, AdminModuleKey[]> = {};
+    for (const [userId, modules] of Object.entries(parsed as Record<string, unknown>)) {
+      result[userId] = sanitizeStoredModules(modules);
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+export async function getUserModuleAccessList(userId: string): Promise<AdminModuleKey[]> {
+  const map = await getStoredUserModuleAccessMap();
+  return map[userId] ?? [];
+}
+
+export async function setUserModuleAccess(userId: string, modules: AdminModuleKey[]): Promise<void> {
+  await ensureAppSettingTable();
+  const map = await getStoredUserModuleAccessMap();
+  // Nunca permitir modulos reservados al admin para un empleado.
+  const forbidden = new Set(EMPLOYEE_FORBIDDEN_MODULES);
+  map[userId] = sanitizeStoredModules(modules).filter((moduleKey) => !forbidden.has(moduleKey));
+  await prisma.$executeRaw`
+    INSERT INTO "AppSetting" ("key", "value", "createdAt", "updatedAt")
+    VALUES (${USER_MODULE_ACCESS_SETTING_KEY}, ${JSON.stringify(map)}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ON CONFLICT ("key")
+    DO UPDATE SET
+      "value" = EXCLUDED."value",
+      "updatedAt" = CURRENT_TIMESTAMP
+  `;
+}
+
 export function getDefaultAdminModuleAccess(role?: Role): Record<AdminModuleKey, boolean> {
   if (role === "ADMIN") {
     return Object.fromEntries(
@@ -214,21 +274,26 @@ export function getDefaultAdminModuleAccess(role?: Role): Record<AdminModuleKey,
   ) as Record<AdminModuleKey, boolean>;
 }
 
-export async function getAdminModuleAccess(_userId?: string, role?: Role): Promise<Record<AdminModuleKey, boolean>> {
-  const baseAccess = getDefaultAdminModuleAccess(role);
-  if (!role) {
-    return baseAccess;
+export async function getAdminModuleAccess(userId?: string, role?: Role): Promise<Record<AdminModuleKey, boolean>> {
+  // El dueno/admin ve y entra a todo.
+  if (role === "ADMIN") {
+    return Object.fromEntries(
+      adminModuleDefinitions.map((item) => [item.key, true]),
+    ) as Record<AdminModuleKey, boolean>;
   }
 
-  const map = await getStoredRoleModuleAccessMap();
-  const roleModules = map[role];
-  if (!roleModules) {
-    return baseAccess;
+  // Empleado: solo los modulos que se le habilitaron por persona (Equipos).
+  if (role === "EMPLEADO" && userId) {
+    const allowed = new Set(await getUserModuleAccessList(userId));
+    const forbidden = new Set(EMPLOYEE_FORBIDDEN_MODULES);
+    return Object.fromEntries(
+      adminModuleDefinitions.map((item) => [item.key, allowed.has(item.key) && !forbidden.has(item.key)]),
+    ) as Record<AdminModuleKey, boolean>;
   }
 
-  const allowed = new Set(roleModules);
+  // Cualquier otro caso (cliente o sin sesion): sin acceso.
   return Object.fromEntries(
-    adminModuleDefinitions.map((item) => [item.key, allowed.has(item.key)]),
+    adminModuleDefinitions.map((item) => [item.key, false]),
   ) as Record<AdminModuleKey, boolean>;
 }
 
@@ -237,12 +302,12 @@ export async function hasAdminModuleAccess(
   role: Role | undefined,
   moduleKey: AdminModuleKey,
 ): Promise<boolean> {
-  if (!userId || role !== "ADMIN") {
+  if (!userId || !role || role === "CLIENTE") {
     return false;
   }
 
   const access = await getAdminModuleAccess(userId, role);
-  return access[moduleKey];
+  return access[moduleKey] ?? false;
 }
 
 export function getVisibleAdminModuleDefinitions(access: Record<AdminModuleKey, boolean>) {

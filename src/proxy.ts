@@ -36,8 +36,16 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/login", nextUrl));
   }
 
-  if (pathname.startsWith("/admin")) {
+  // Configuracion del negocio (usuarios, permisos, cuentas, etc.) queda reservada
+  // al dueno/admin.
+  if (pathname.startsWith("/admin/configuracion")) {
     if (role !== "ADMIN") {
+      return NextResponse.redirect(new URL("/unauthorized", nextUrl));
+    }
+  } else if (pathname.startsWith("/admin")) {
+    // El resto de /admin lo pueden abrir ADMIN y EMPLEADO; el acceso fino por
+    // modulo lo valida cada pagina con requireModuleAccess (por persona).
+    if (!role || !["ADMIN", "EMPLEADO"].includes(role)) {
       return NextResponse.redirect(new URL("/unauthorized", nextUrl));
     }
   }

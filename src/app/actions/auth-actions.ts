@@ -9,8 +9,10 @@ import { auth, signOut } from "@/auth";
 import {
   adminModuleDefinitions,
   type AdminModuleKey,
+  EMPLOYEE_FORBIDDEN_MODULES,
   getStoredRoleModuleAccessMap,
   setStoredRoleModuleAccessMap,
+  setUserModuleAccess,
 } from "@/lib/admin-module-access";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -339,6 +341,9 @@ export async function logoutAction(): Promise<void> {
 export async function adminCreateUserAction(formData: FormData): Promise<void> {
   await requireAdminSession();
 
+  // Pagina a la que se vuelve tras invitar (Usuarios o Perfil > Equipos).
+  const returnTo = (String(formData.get("returnTo") ?? "").trim() || "/admin/configuracion/usuarios").split("?")[0];
+
   const parsed = adminInviteUserSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
@@ -346,7 +351,7 @@ export async function adminCreateUserAction(formData: FormData): Promise<void> {
   });
 
   if (!parsed.success) {
-    redirect("/admin/configuracion/usuarios?error=Datos+invalidos");
+    redirect(`${returnTo}?error=Datos+invalidos`);
   }
 
   const { name, email, role } = parsed.data;
@@ -358,12 +363,12 @@ export async function adminCreateUserAction(formData: FormData): Promise<void> {
     ""
   ).replace(/\/+$/, "");
   if (!baseUrl) {
-    redirect("/admin/configuracion/usuarios?error=Falta+configurar+AUTH_URL+para+enviar+la+invitacion");
+    redirect(`${returnTo}?error=Falta+configurar+AUTH_URL+para+enviar+la+invitacion`);
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    redirect("/admin/configuracion/usuarios?error=El+correo+ya+existe");
+    redirect(`${returnTo}?error=El+correo+ya+existe`);
   }
 
   // Contrasena temporal inutilizable: el usuario define la suya al activar por el enlace.
@@ -395,8 +400,8 @@ export async function adminCreateUserAction(formData: FormData): Promise<void> {
   revalidatePath("/admin/configuracion/permisos");
   redirect(
     inviteSent
-      ? "/admin/configuracion/usuarios?ok=Invitacion+enviada"
-      : "/admin/configuracion/usuarios?error=Usuario+creado+pero+no+se+pudo+enviar+la+invitacion+(revisa+SMTP)",
+      ? `${returnTo}?ok=Invitacion+enviada`
+      : `${returnTo}?error=Usuario+creado+pero+no+se+pudo+enviar+la+invitacion+(revisa+SMTP)`,
   );
 }
 
@@ -609,4 +614,42 @@ export async function adminUpdateUserModuleAccessAction(formData: FormData): Pro
   revalidatePath("/admin/cotizaciones");
   revalidatePath("/admin/ventas");
   redirect("/admin/configuracion/permisos?ok=Permisos+actualizados");
+}
+
+// Acceso a modulos POR PERSONA (empleado). Se usa desde Perfil > Mi negocio >
+// Equipos. Guarda la lista de modulos habilitados para un empleado puntual.
+export async function adminSetUserModuleAccessAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    redirect("/profile?error=No+autorizado");
+  }
+
+  const returnTo = (String(formData.get("returnTo") ?? "").trim() || "/profile").split("?")[0];
+  const userId = String(formData.get("userId") ?? "").trim();
+  if (!userId) {
+    redirect(`${returnTo}?error=Falta+el+usuario`);
+  }
+
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, role: true },
+  });
+  if (!target || target.role !== "EMPLEADO") {
+    redirect(`${returnTo}?error=Solo+se+asignan+modulos+a+empleados`);
+  }
+
+  const validKeys = new Set<AdminModuleKey>(adminModuleDefinitions.map((item) => item.key));
+  const forbidden = new Set<AdminModuleKey>(EMPLOYEE_FORBIDDEN_MODULES);
+  const selectedModules = formData
+    .getAll("modules")
+    .map((item) => String(item))
+    .filter((item): item is AdminModuleKey => validKeys.has(item as AdminModuleKey) && !forbidden.has(item as AdminModuleKey));
+
+  await setUserModuleAccess(userId, selectedModules);
+
+  revalidatePath("/profile");
+  revalidatePath("/admin");
+  redirect(`${returnTo}?ok=Permisos+actualizados`);
 }

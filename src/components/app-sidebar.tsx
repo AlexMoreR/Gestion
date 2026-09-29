@@ -85,7 +85,9 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
     },
   ];
 
-  if (user.role === "ADMIN") {
+  // ADMIN y EMPLEADO ven el menu de modulos; cada entrada se muestra segun el
+  // acceso (para el empleado, solo los modulos habilitados en Equipos).
+  if (user.role === "ADMIN" || user.role === "EMPLEADO") {
     const canSeeConfig =
       adminModuleAccess.config_users ||
       adminModuleAccess.config_business ||
