@@ -13,7 +13,7 @@ type PageProps = {
 
 export default async function AdminCotizacionesPage({ searchParams }: PageProps) {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") {
+  if (!session?.user?.id) {
     redirect("/unauthorized");
   }
 

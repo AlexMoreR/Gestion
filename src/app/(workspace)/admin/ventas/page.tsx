@@ -43,7 +43,7 @@ type PageProps = {
 
 export default async function AdminVentasPage({ searchParams }: PageProps) {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN" || !session.user.id) {
+  if (!session?.user?.id) {
     redirect("/unauthorized");
   }
 

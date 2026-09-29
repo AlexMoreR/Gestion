@@ -37,7 +37,7 @@ function toDateInputValue(date: Date): string {
 
 export default async function AdminOrderDetailPage({ params, searchParams }: PageProps) {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN" || !session.user.id) {
+  if (!session?.user?.id) {
     redirect("/unauthorized");
   }
 

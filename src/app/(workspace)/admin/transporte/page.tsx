@@ -10,7 +10,7 @@ import {
 
 export default async function AdminTransportePage() {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN" || !session.user.id) {
+  if (!session?.user?.id) {
     redirect("/unauthorized");
   }
 

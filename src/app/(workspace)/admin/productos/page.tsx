@@ -16,7 +16,7 @@ type PageProps = {
 
 export default async function AdminProductosPage({ searchParams }: PageProps) {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") {
+  if (!session?.user?.id) {
     redirect("/unauthorized");
   }
 

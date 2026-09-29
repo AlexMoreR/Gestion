@@ -19,7 +19,7 @@ const ACCOUNT_TYPE_LABEL: Record<string, string> = {
 
 export default async function AdminAccountTransactionsPage({ params }: PageProps) {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN" || !session.user.id) {
+  if (!session?.user?.id) {
     redirect("/unauthorized");
   }
 

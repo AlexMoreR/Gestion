@@ -8,7 +8,7 @@ import { getSystemCurrency } from "@/lib/system-settings";
 
 export default async function AdminNuevoProductoPage() {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") {
+  if (!session?.user?.id) {
     redirect("/unauthorized");
   }
   const canAccess = await hasAdminModuleAccess(session.user.id, session.user.role, "products");

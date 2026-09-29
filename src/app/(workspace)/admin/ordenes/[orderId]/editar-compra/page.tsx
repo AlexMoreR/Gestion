@@ -34,7 +34,7 @@ function parseItemNotes(notes: string | null): { color: string; description: str
 
 export default async function EditPurchasePage({ params }: PageProps) {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN" || !session.user.id) {
+  if (!session?.user?.id) {
     redirect("/unauthorized");
   }
   const canAccess = await hasAdminModuleAccess(session.user.id, session.user.role, "orders");
