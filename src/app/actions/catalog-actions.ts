@@ -1,5 +1,7 @@
 "use server";
 
+import { hasAnyModuleAccess } from "@/lib/admin-module-access";
+
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -63,7 +65,7 @@ function slugifyCategory(value: string): string {
 
 async function requireAdminSession(): Promise<void> {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") {
+  if (!session?.user?.id || !(await hasAnyModuleAccess(session.user.id, session.user.role, ["categories", "suppliers"]))) {
     redirect("/unauthorized");
   }
 }

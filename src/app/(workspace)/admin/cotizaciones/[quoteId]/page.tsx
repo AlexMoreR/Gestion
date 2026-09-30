@@ -94,6 +94,11 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
     notFound();
   }
 
+  // Un empleado solo puede abrir las cotizaciones que él creó.
+  if (session.user.role !== "ADMIN" && quote.createdById !== session.user.id) {
+    notFound();
+  }
+
   const validUntilValue = quote.validUntil
     ? new Date(quote.validUntil.getTime() - quote.validUntil.getTimezoneOffset() * 60000)
         .toISOString()

@@ -310,6 +310,20 @@ export async function hasAdminModuleAccess(
   return access[moduleKey] ?? false;
 }
 
+// Para server actions: true si la persona tiene acceso a AL MENOS uno de los
+// modulos indicados (ADMIN = todo; EMPLEADO = lo asignado en Equipos).
+export async function hasAnyModuleAccess(
+  userId: string | undefined,
+  role: Role | undefined,
+  moduleKeys: AdminModuleKey[],
+): Promise<boolean> {
+  if (!userId || !role || role === "CLIENTE") {
+    return false;
+  }
+  const access = await getAdminModuleAccess(userId, role);
+  return moduleKeys.some((moduleKey) => access[moduleKey] ?? false);
+}
+
 export function getVisibleAdminModuleDefinitions(access: Record<AdminModuleKey, boolean>) {
   return adminModuleDefinitions.filter((item) => access[item.key]);
 }

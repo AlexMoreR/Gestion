@@ -1,5 +1,7 @@
 "use server";
 
+import { hasAnyModuleAccess } from "@/lib/admin-module-access";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
@@ -66,7 +68,7 @@ function redirectWithError(returnTo: string, message: string): never {
 
 async function requireAdminSession(): Promise<string> {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN" || !session.user.id) {
+  if (!session?.user?.id || !(await hasAnyModuleAccess(session.user.id, session.user.role, ["inventory", "orders"]))) {
     redirect("/unauthorized");
   }
 

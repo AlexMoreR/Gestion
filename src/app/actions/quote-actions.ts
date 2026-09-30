@@ -1,5 +1,7 @@
 "use server";
 
+import { hasAnyModuleAccess } from "@/lib/admin-module-access";
+
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -132,10 +134,25 @@ const updateQuoteFullSchema = z.object({
 
 async function requireAdminSession() {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN" || !session.user.id) {
+  if (!session?.user?.id || !(await hasAnyModuleAccess(session.user.id, session.user.role, ["quotes"]))) {
     redirect("/unauthorized");
   }
   return session.user.id;
+}
+
+// Un empleado solo puede modificar o borrar las cotizaciones que él creó; el
+// dueño (ADMIN) puede con todas.
+async function assertQuoteOwnership(quoteId: string): Promise<void> {
+  const session = await auth();
+  if (session?.user?.role === "ADMIN") {
+    return;
+  }
+  const quote = quoteId
+    ? await prisma.quote.findUnique({ where: { id: quoteId }, select: { createdById: true } })
+    : null;
+  if (!quote || quote.createdById !== session?.user?.id) {
+    redirect("/unauthorized");
+  }
 }
 
 function getReturnTo(formData: FormData): string {
@@ -472,6 +489,7 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
 
 export async function adminUpdateQuoteMetaAction(formData: FormData): Promise<void> {
   await requireAdminSession();
+  await assertQuoteOwnership(String(formData.get("quoteId") ?? "").trim());
   const returnTo = getReturnTo(formData);
 
   const parsed = updateQuoteMetaSchema.safeParse({
@@ -516,6 +534,7 @@ export async function adminUpdateQuoteMetaAction(formData: FormData): Promise<vo
 
 export async function adminUpdateQuoteFullAction(formData: FormData): Promise<void> {
   await requireAdminSession();
+  await assertQuoteOwnership(String(formData.get("quoteId") ?? "").trim());
   const returnTo = getReturnTo(formData);
 
   const rawItems = formData.get("items");
@@ -686,6 +705,7 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
 
 export async function adminDeleteQuoteAction(formData: FormData): Promise<void> {
   await requireAdminSession();
+  await assertQuoteOwnership(String(formData.get("quoteId") ?? "").trim());
   const returnTo = getReturnTo(formData);
   const quoteId = String(formData.get("quoteId") || "").trim();
 

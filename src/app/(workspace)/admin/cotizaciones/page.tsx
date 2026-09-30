@@ -26,8 +26,12 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
+  // El dueño (ADMIN) ve todas las cotizaciones; un empleado solo las que creó.
+  const onlyOwnQuotes = session.user.role !== "ADMIN";
+
   const [quotes, clients, products, currency, accounts, stockRows] = await Promise.all([
     prisma.quote.findMany({
+      where: onlyOwnQuotes ? { createdById: session.user.id } : undefined,
       orderBy: { createdAt: "desc" },
       include: {
         client: true,

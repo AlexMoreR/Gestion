@@ -26,7 +26,7 @@ type ActionResult = { ok: boolean; error?: string };
 // Verifica que quien llama sea un admin con acceso al modulo Transporte.
 async function ensureTransportAdmin(): Promise<boolean> {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN" || !session.user.id) {
+  if (!session?.user?.id) {
     return false;
   }
   return hasAdminModuleAccess(session.user.id, session.user.role, "transporte");

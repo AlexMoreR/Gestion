@@ -1,5 +1,7 @@
 "use server";
 
+import { hasAnyModuleAccess } from "@/lib/admin-module-access";
+
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -27,7 +29,7 @@ const deleteReviewSchema = z.object({
 
 async function requireAdminSession(): Promise<void> {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") {
+  if (!session?.user?.id || !(await hasAnyModuleAccess(session.user.id, session.user.role, ["products"]))) {
     redirect("/unauthorized");
   }
 }

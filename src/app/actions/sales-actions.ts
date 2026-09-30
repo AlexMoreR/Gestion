@@ -1,5 +1,7 @@
 "use server";
 
+import { hasAnyModuleAccess } from "@/lib/admin-module-access";
+
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -29,7 +31,7 @@ const ALLOWED_RECEIPT_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".
 
 async function requireAdminSession(): Promise<string> {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN" || !session.user.id) {
+  if (!session?.user?.id || !(await hasAnyModuleAccess(session.user.id, session.user.role, ["sales", "quotes"]))) {
     redirect("/unauthorized");
   }
 
@@ -199,6 +201,12 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
 
   if (!quote) {
     redirectWithError(returnTo, "No se encontro la cotizacion");
+  }
+
+  // Un empleado solo puede convertir en venta las cotizaciones que él creó.
+  const sessionForOwnership = await auth();
+  if (sessionForOwnership?.user?.role !== "ADMIN" && quote.createdById !== createdById) {
+    redirectWithError(returnTo, "Solo puedes convertir tus propias cotizaciones");
   }
 
   if (quote.sale) {

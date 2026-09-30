@@ -1,5 +1,7 @@
 "use server";
 
+import { hasAnyModuleAccess } from "@/lib/admin-module-access";
+
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -26,7 +28,7 @@ const updateProductionJobStatusSchema = z.object({
 
 async function requireAdminSession(): Promise<string> {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN" || !session.user.id) {
+  if (!session?.user?.id || !(await hasAnyModuleAccess(session.user.id, session.user.role, ["production"]))) {
     redirect("/unauthorized");
   }
 
