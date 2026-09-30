@@ -186,6 +186,7 @@ model Supplier {
   ledgerEntries     SupplierLedgerEntry[]
   carriedDispatches Dispatch[]            @relation("DispatchCarrier")
   purchaseOrders    Order[]               @relation("OrderSupplier")
+  manufacturingOrders ManufacturingOrder[]
 }
 
 enum SupplierLedgerType {
@@ -479,6 +480,7 @@ model Order {
   dispatches            Dispatch[]
   history               OrderStatusHistory[]
   supplierLedgerEntries SupplierLedgerEntry[]
+  manufacturingOrders   ManufacturingOrder[]
 
   @@index([clientId, createdAt])
   @@index([createdById, createdAt])
@@ -752,6 +754,27 @@ model MonthClosure {
   createdAt         DateTime @default(now())
 
   @@index([year, month])
+}
+
+// Orden de fabricacion (OF-00001): lo que se le encarga a UNA proveedora dentro
+// de UNA orden de venta. Tiene numero propio y enlace publico (shareToken) para
+// enviarselo; solo cubre los productos de esa orden confirmados con ella.
+model ManufacturingOrder {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  orderId         String
+  supplierId      String
+  shareToken      String    @unique
+  deliveryDate    DateTime?
+  deliveryAddress String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  supplier        Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, supplierId])
+  @@index([supplierId])
 }
 
 // Modulo Transporte: cobertura de envio gratis por ciudad y corregimiento.

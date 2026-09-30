@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
+import { OrderManufacturingTab, type ManufacturingCard } from "@/components/admin/order-manufacturing-tab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 
@@ -49,9 +50,18 @@ type OrderHistoryTabsProps = {
   currency: SupportedCurrencyCode;
   orderId: string;
   returnTo: string;
+  // Ordenes de fabricacion por proveedora (solo ordenes de venta).
+  manufacturing?: { cards: ManufacturingCard[]; brandName: string };
 };
 
-export function OrderHistoryTabs({ history, payments, currency, orderId, returnTo }: OrderHistoryTabsProps) {
+export function OrderHistoryTabs({
+  history,
+  payments,
+  currency,
+  orderId,
+  returnTo,
+  manufacturing,
+}: OrderHistoryTabsProps) {
   const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
   const [editing, setEditing] = React.useState<HistoryEntry | null>(null);
   const [receiptUrl, setReceiptUrl] = React.useState<string | null>(null);
@@ -61,7 +71,19 @@ export function OrderHistoryTabs({ history, payments, currency, orderId, returnT
       <TabsList>
         <TabsTrigger value="historial">Historial</TabsTrigger>
         <TabsTrigger value="abonos">Abonos</TabsTrigger>
+        {manufacturing ? <TabsTrigger value="fabricacion">Fabricación</TabsTrigger> : null}
       </TabsList>
+
+      {manufacturing ? (
+        <TabsContent value="fabricacion" className="pt-1">
+          <OrderManufacturingTab
+            cards={manufacturing.cards}
+            currency={currency}
+            returnTo={returnTo}
+            brandName={manufacturing.brandName}
+          />
+        </TabsContent>
+      ) : null}
 
       <TabsContent value="historial" className="space-y-2 pt-1">
         {history.length === 0 ? (

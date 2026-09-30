@@ -17,8 +17,14 @@ import {
   getOrderDisplayState,
   getOrderStatusLabel,
 } from "@/lib/orders";
-import { getSystemCurrency } from "@/lib/system-settings";
-import { getPublicAssetUrl } from "@/lib/site";
+import { getSystemBrandName, getSystemCurrency } from "@/lib/system-settings";
+import { getPublicAssetUrl, getSiteUrl } from "@/lib/site";
+import {
+  ensureManufacturingOrders,
+  isManufacturingItem,
+  suggestDeliveryAddress,
+} from "@/lib/manufacturing-orders";
+import type { ManufacturingCard } from "@/components/admin/order-manufacturing-tab";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 
 type PageProps = {
@@ -324,6 +330,57 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     };
   });
 
+  // Ordenes de fabricacion (OF) por proveedora: solo en ordenes de venta.
+  let manufacturingCards: ManufacturingCard[] = [];
+  let brandName = "";
+  if (!isPurchase) {
+    const manufacturingItems = order.items.filter(isManufacturingItem);
+    const [manufacturingOrders, systemBrandName] = await Promise.all([
+      ensureManufacturingOrders(
+        order.id,
+        manufacturingItems.map((item) => item.confirmedSupplierId ?? ""),
+      ),
+      getSystemBrandName(),
+    ]);
+    brandName = systemBrandName;
+    const suggestedAddress = suggestDeliveryAddress(order.client);
+
+    manufacturingCards = manufacturingOrders.map((manufacturingOrder) => {
+      const supplierItems = manufacturingItems.filter(
+        (item) => item.confirmedSupplierId === manufacturingOrder.supplierId,
+      );
+      const supplier = supplierItems[0]?.confirmedSupplier ?? null;
+      const phoneDigits = (supplier?.phone ?? "").replace(/\D/g, "");
+      const supplierWhatsApp =
+        phoneDigits.length === 10 && phoneDigits.startsWith("3") ? `57${phoneDigits}` : phoneDigits;
+
+      return {
+        id: manufacturingOrder.id,
+        code: manufacturingOrder.code,
+        supplierName: supplier?.displayName || supplier?.name || "Proveedora",
+        supplierWhatsApp,
+        url: getSiteUrl(`/fabricacion/${manufacturingOrder.shareToken}`),
+        deliveryDate: manufacturingOrder.deliveryDate
+          ? manufacturingOrder.deliveryDate.toISOString().slice(0, 10)
+          : "",
+        deliveryAddress: manufacturingOrder.deliveryAddress ?? suggestedAddress,
+        notes: manufacturingOrder.notes ?? "",
+        totalCost: supplierItems.reduce(
+          (sum, item) => sum + (item.purchaseCost == null ? 0 : Number(item.purchaseCost) * item.quantity),
+          0,
+        ),
+        hasMissingCost: supplierItems.some((item) => item.purchaseCost == null),
+        units: supplierItems.reduce((sum, item) => sum + item.quantity, 0),
+        lines: supplierItems.map((item) => ({
+          id: item.id,
+          name: item.product.name,
+          code: item.product.code,
+          quantity: item.quantity,
+        })),
+      };
+    });
+  }
+
   return (
     <section className="w-full space-y-5">
       <QueryFeedbackToast
@@ -463,6 +520,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                 currency={currency}
                 orderId={order.id}
                 returnTo={returnTo}
+                manufacturing={isPurchase ? undefined : { cards: manufacturingCards, brandName }}
                 history={order.history.map((item) => ({
                   id: item.id,
                   fromLabel: item.fromStatus ? getOrderStatusLabel(item.fromStatus) : "Nuevo",
