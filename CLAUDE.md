@@ -234,19 +234,46 @@ Route handlers reales (`route.ts`):
 | `/verify-email` | GET | Verifica el correo del usuario mediante token. | Público (token) |
 | `/admin/productos/export` | GET | Exporta el catálogo de productos a **CSV**. | Solo `ADMIN` |
 | `/api/mcp` | POST | **Servidor MCP de solo lectura** para el asesor de IA (ver abajo). | Llave `MCP_API_KEY` |
+| `/api/mcp/[key]` | POST | Lo mismo, con la llave dentro de la ruta (clientes sin headers, ej. claude.ai). | Llave en la URL |
 
 ### Servidor MCP del asesor de IA (`/api/mcp`)
 - Transporte **Streamable HTTP** sin sesión: cada `POST` trae un mensaje JSON-RPC (o lote) y se
   responde con `application/json`. `GET`/`DELETE` → 405. Sin llave válida → **401**.
-- Llave en `Authorization: Bearer <MCP_API_KEY>` o `x-api-key`. Mínimo 24 caracteres; si la variable
-  no está configurada, nadie entra.
-- **Solo lectura**: módulo `src/modules/asesor` (hexagonal). Su repositorio solo tiene métodos de
+- Llave en `Authorization: Bearer <MCP_API_KEY>`, `x-api-key` o **en la ruta** `/api/mcp/<llave>`
+  (para conectores de claude.ai, igual que el MCP de AizenCRM). Mínimo 24 caracteres; si la variable
+  no está configurada, nadie entra. La variante en la ruta deja la llave en logs del proxy: si se
+  filtra, se cambia `MCP_API_KEY`. Las dos rutas comparten `presentation/mcp/http.ts`.
+- **Solo lectura**: módulo `src/modules/asesor` (hexagonal). Sus puertos solo tienen métodos de
   consulta; la ganancia por venta y el resumen del mes **reutilizan los casos de uso de Balances**.
 - Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_cotizaciones`, `listar_productos`,
-  `comisiones_del_mes`. Mismo criterio que Balances (ventas pagadas y entregadas, por fecha de
-  entrega). "Vendedora" = quien creó la cotización (no existe un campo propio); "origen" no existe.
+  `comisiones_del_mes` y `que_es_esta_aplicacion`. Mismo criterio que Balances (ventas pagadas y
+  entregadas, por fecha de entrega). "Vendedora" = quien creó la cotización (no existe un campo
+  propio); "origen" no existe.
 - Comisiones: 10% de la ganancia en la primera venta del mes de cada vendedora, 15% desde la segunda,
   en orden de fecha de entrega; ganancia ≤ 0 no genera comisión.
+
+### Radiografía de la app (`que_es_esta_aplicacion`)
+Devuelve qué hace la app, stack y despliegue, módulos y casos de uso, modelo de datos, rutas, reglas
+de negocio (con su código), lo que no tiene y riesgos de operación. Parámetro opcional `seccion`.
+Tiene **tres fuentes**, y la respuesta dice de cuál salió cada cosa (`fuentes`):
+
+1. **En vivo** (dentro del contenedor): `prisma/schema.prisma` (entidades, relaciones, enums),
+   `prisma/migrations`, `package.json` + `node_modules` (versiones instaladas), conteo de registros en
+   la base y constantes del código (módulos del panel, estados, comisiones).
+2. **Foto del build** `.next/gestion-snapshot.json`: el código fuente no viaja en la imagen, así que
+   `scripts/generate-app-snapshot.mjs` (en `postbuild`; también `npm run snapshot`) lee el repo en
+   cada build: rutas de `src/app`, módulos y casos de uso, acciones de servidor, Dockerfile, workflow,
+   docker-compose (solo **nombres** de variables, nunca valores) y el **código** de las reglas listadas
+   en `CODE_RULES`. Si se renombra una de esas funciones, la foto lo marca en `avisos`. Nunca rompe el
+   build. `.dockerignore` excluye `.git`, así que en producción la foto no trae el commit (sí la fecha).
+3. **Documento editable** `docs/asesor/gestion.md`: lo que no se deduce del código (qué hace, problema
+   de negocio, descripción de módulos, entidades y pantallas, reglas en lenguaje claro, lo que no
+   tiene, riesgos no deducibles). Títulos `##` fijos; listas `- \`nombre\`: descripción`. Lo que falte
+   aparece en `pendiente_de_documentar`. **Al agregar una entidad, módulo o pantalla, descríbela ahí.**
+
+Los riesgos de configuración (migraciones que bloquean el arranque, pipeline sin pruebas, una réplica,
+etiqueta `latest`, volumen atado al nodo) se **detectan solos** desde el Dockerfile, el workflow y el
+compose (`detectOperationalRisks`).
 
 **Importante:** casi toda la mutación de datos **no** usa API REST, sino **Server Actions** en
 `src/app/actions/*.ts` (p. ej. `product-actions`, `sales-actions`, `quote-actions`, `inventory-actions`,

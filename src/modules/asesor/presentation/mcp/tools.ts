@@ -1,5 +1,13 @@
 import { z } from "zod";
+import { adminModuleDefinitions } from "@/lib/admin-module-access";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
+import { APP_OVERVIEW_SECTIONS, describeApplicationUseCase } from "../../application/describe-application";
+import {
+  COMMISSION_FIRST_SALE_RATE,
+  COMMISSION_NEXT_SALES_RATE,
+  QUOTE_STATUS_LABELS,
+} from "../../domain/calculations";
+import { createFilesystemAppIntrospection } from "../../infrastructure/filesystem-app-introspection";
 import {
   type AsesorDependencies,
   getMonthlyCommissionsUseCase,
@@ -27,8 +35,9 @@ function getDependencies(): AsesorDependencies {
   };
 }
 
+// JSON compacto: el asesor de IA no necesita sangrias y asi ahorra tokens.
 function textResult(data: unknown): McpToolResult {
-  return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+  return { content: [{ type: "text", text: JSON.stringify(data) }] };
 }
 
 function errorResult(message: string): McpToolResult {
@@ -150,12 +159,38 @@ export const asesorTools: McpToolDefinition[] = [
       return getMonthlyCommissionsUseCase(deps, mes, anio);
     },
   }),
+  defineTool({
+    name: "que_es_esta_aplicacion",
+    title: "Qué es esta aplicación",
+    description:
+      "Radiografía técnica y funcional de Gestión para entender el sistema sin explicaciones: qué hace y qué problema resuelve, stack y versiones, despliegue, módulos y casos de uso, modelo de datos (cada entidad y sus relaciones), pantallas y rutas, reglas de negocio (con el código que las implementa), lo que el sistema NO tiene y riesgos de operación. Se genera leyendo el esquema y el código; lo no derivable sale de docs/asesor/gestion.md. Usa 'seccion' para pedir solo una parte.",
+    schema: z.object({
+      seccion: z
+        .enum(APP_OVERVIEW_SECTIONS)
+        .default("todo")
+        .describe("Parte de la radiografía. Por defecto: todo."),
+    }),
+    handler: (args) =>
+      describeApplicationUseCase(
+        createFilesystemAppIntrospection(),
+        {
+          nodeVersion: process.version,
+          adminModules: adminModuleDefinitions.map((module) => ({ ...module })),
+          quoteStatusLabels: QUOTE_STATUS_LABELS,
+          commissionRates: {
+            primeraVentaDelMes: COMMISSION_FIRST_SALE_RATE,
+            desdeLaSegunda: COMMISSION_NEXT_SALES_RATE,
+          },
+        },
+        args.seccion,
+      ),
+  }),
 ];
 
 export const asesorMcpServer: McpServerDefinition = {
   name: "gestion-magilus",
   version: "1.0.0",
   instructions:
-    "Servidor de SOLO LECTURA de Gestion (Magilus): ventas, cotizaciones, productos, margenes y comisiones. No modifica ningun dato. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando estan pagadas y entregadas, en el mes de entrega (igual que la pantalla de Balances).",
+    "Servidor de SOLO LECTURA de Gestion (Magilus): ventas, cotizaciones, productos, margenes y comisiones. Para entender el sistema completo usa primero que_es_esta_aplicacion. No modifica ningun dato. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando estan pagadas y entregadas, en el mes de entrega (igual que la pantalla de Balances).",
   tools: asesorTools,
 };
