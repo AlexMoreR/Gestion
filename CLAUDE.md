@@ -318,9 +318,22 @@ que **redespliega** el stack automáticamente. No hay que hacer nada manual.
   `magilus.com` / `www.magilus.com`, puerto interno `3000`.
 - Volumen persistente **`magilus_uploads`** montado en `/app/public/uploads` (los archivos subidos no se
   pierden entre despliegues).
-- Variables de entorno del stack: `DATABASE_URL`, `AUTH_URL`, `NEXT_PUBLIC_SITE_URL`, `AUTH_SECRET`
-  (requerido por next-auth), SMTP (`SMTP_HOST/PORT/SECURE/USER/PASS/FROM`) para correos,
+- Variables de entorno del stack: `DATABASE_URL`, `AUTH_URL`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_APP_URL`,
+  `AUTH_SECRET` (requerido por next-auth), SMTP (`SMTP_HOST/PORT/SECURE/USER/PASS/FROM`) para correos,
   `MONTHLY_REPORT_TOKEN` (opcional) y `MCP_API_KEY` (llave del servidor MCP `/api/mcp`).
+
+**Dónde viven de verdad las variables (importante):**
+- `docker-compose.portainer.yml` del repo es solo **referencia**. El stack real `magilus_app` es un stack
+  de editor web de Portainer: su compose está en el servidor en
+  `/var/lib/docker/volumes/portainer_data/_data/compose/10/docker-compose.yml`, con los valores
+  **escritos directamente** (no `${VAR}`).
+- El despliegue automático (webhook de **servicio**) solo vuelve a bajar la imagen y **reutiliza la
+  especificación actual del servicio Swarm** `magilus_app_magilus_app`, incluidas sus variables.
+- Para agregar o cambiar una variable de forma que no se pierda: ponerla **en los dos lugares** —
+  `docker service update --env-add NOMBRE=valor magilus_app_magilus_app` (lo usa cada push) y una línea
+  en el compose de Portainer (lo usa "Update the stack"). Hacer copia del compose antes de editarlo.
+- En ese servidor corren también otros stacks (AizenCRM, Postgres, Traefik, Portainer): tocar solo
+  `magilus_app`.
 
 ---
 
