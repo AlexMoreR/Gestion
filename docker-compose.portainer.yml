@@ -20,6 +20,9 @@ services:
       # Opcional: si se define, sobreescribe el token del informe; si no, se
       # deriva de AUTH_SECRET automaticamente.
       MONTHLY_REPORT_TOKEN: "${MONTHLY_REPORT_TOKEN}"
+      # Llave del servidor MCP de solo lectura (/api/mcp) para el asesor de IA.
+      # Minimo 24 caracteres; sin ella el endpoint responde 401 a todo.
+      MCP_API_KEY: "${MCP_API_KEY}"
     networks:
       - minha_rede
     deploy:
