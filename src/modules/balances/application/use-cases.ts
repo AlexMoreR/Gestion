@@ -9,6 +9,7 @@ import type {
   UpdateShippingCostInput,
   UpdateSupplierPaymentInput,
 } from "../domain/repository";
+import type { DateRange } from "../domain/entities";
 
 export async function createSupplierPaymentUseCase(
   repository: BalancesRepository,
@@ -56,8 +57,8 @@ export async function getSupplierBalanceUseCase(repository: BalancesRepository) 
   return repository.listSupplierBalances();
 }
 
-export async function getDashboardMetricsUseCase(repository: BalancesRepository) {
-  return repository.getDashboardMetrics();
+export async function getDashboardMetricsUseCase(repository: BalancesRepository, period?: DateRange) {
+  return repository.getDashboardMetrics(period);
 }
 
 export async function getProfitReportUseCase(repository: BalancesRepository, query: ListBalancesQuery) {

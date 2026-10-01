@@ -233,6 +233,20 @@ Route handlers reales (`route.ts`):
 | `/uploads/[...path]` | GET | Sirve archivos subidos (comprobantes, imágenes) desde el volumen. | Público (ruta) |
 | `/verify-email` | GET | Verifica el correo del usuario mediante token. | Público (token) |
 | `/admin/productos/export` | GET | Exporta el catálogo de productos a **CSV**. | Solo `ADMIN` |
+| `/api/mcp` | POST | **Servidor MCP de solo lectura** para el asesor de IA (ver abajo). | Llave `MCP_API_KEY` |
+
+### Servidor MCP del asesor de IA (`/api/mcp`)
+- Transporte **Streamable HTTP** sin sesión: cada `POST` trae un mensaje JSON-RPC (o lote) y se
+  responde con `application/json`. `GET`/`DELETE` → 405. Sin llave válida → **401**.
+- Llave en `Authorization: Bearer <MCP_API_KEY>` o `x-api-key`. Mínimo 24 caracteres; si la variable
+  no está configurada, nadie entra.
+- **Solo lectura**: módulo `src/modules/asesor` (hexagonal). Su repositorio solo tiene métodos de
+  consulta; la ganancia por venta y el resumen del mes **reutilizan los casos de uso de Balances**.
+- Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_cotizaciones`, `listar_productos`,
+  `comisiones_del_mes`. Mismo criterio que Balances (ventas pagadas y entregadas, por fecha de
+  entrega). "Vendedora" = quien creó la cotización (no existe un campo propio); "origen" no existe.
+- Comisiones: 10% de la ganancia en la primera venta del mes de cada vendedora, 15% desde la segunda,
+  en orden de fecha de entrega; ganancia ≤ 0 no genera comisión.
 
 **Importante:** casi toda la mutación de datos **no** usa API REST, sino **Server Actions** en
 `src/app/actions/*.ts` (p. ej. `product-actions`, `sales-actions`, `quote-actions`, `inventory-actions`,
@@ -278,8 +292,8 @@ que **redespliega** el stack automáticamente. No hay que hacer nada manual.
 - Volumen persistente **`magilus_uploads`** montado en `/app/public/uploads` (los archivos subidos no se
   pierden entre despliegues).
 - Variables de entorno del stack: `DATABASE_URL`, `AUTH_URL`, `NEXT_PUBLIC_SITE_URL`, `AUTH_SECRET`
-  (requerido por next-auth), SMTP (`SMTP_HOST/PORT/SECURE/USER/PASS/FROM`) para correos, y
-  `MONTHLY_REPORT_TOKEN` (opcional).
+  (requerido por next-auth), SMTP (`SMTP_HOST/PORT/SECURE/USER/PASS/FROM`) para correos,
+  `MONTHLY_REPORT_TOKEN` (opcional) y `MCP_API_KEY` (llave del servidor MCP `/api/mcp`).
 
 ---
 
