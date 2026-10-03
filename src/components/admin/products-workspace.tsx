@@ -70,26 +70,25 @@ export function ProductsWorkspace({
 
   return (
     <>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-end">
-        <div className="flex w-full items-center gap-2 sm:w-auto">
-          <ProductImportExportControls />
-          <button
-            type="button"
-            onClick={() => setModal("new")}
-            className={cn(buttonVariants(), "flex-1 sm:flex-none")}
-          >
-            <Plus className="h-4 w-4" />
-            Nuevo producto
-          </button>
-        </div>
-      </div>
-
       <ProductsDataTable
         currency={currency}
         minRetailMarginPct={minRetailMarginPct}
         minWholesaleMarginPct={minWholesaleMarginPct}
         products={products}
         onOpenProduct={openEditModal}
+        toolbarActions={
+          <>
+            <ProductImportExportControls />
+            <button
+              type="button"
+              onClick={() => setModal("new")}
+              className={cn(buttonVariants(), "h-9 shrink-0")}
+            >
+              <Plus className="h-4 w-4" />
+              Nuevo producto
+            </button>
+          </>
+        }
       />
 
       <Dialog open={modal === "new"} onOpenChange={(open) => (open ? null : closeModal())}>

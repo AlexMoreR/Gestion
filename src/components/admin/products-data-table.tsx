@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/table";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { cn } from "@/lib/utils";
+import { useFitPageSize } from "@/hooks/use-fit-page-size";
 
 type ProductRow = {
   id: string;
@@ -61,6 +62,8 @@ type ProductsDataTableProps = {
   minRetailMarginPct?: number;
   minWholesaleMarginPct?: number;
   onOpenProduct?: (productId: string) => void;
+  // Botones extra a la derecha de la barra de busqueda (p. ej. "Nuevo producto").
+  toolbarActions?: React.ReactNode;
 };
 
 type PriceMode = "detal" | "mayor";
@@ -68,7 +71,12 @@ type PriceMode = "detal" | "mayor";
 type SortKey = "producto" | "categoria" | "proveedor" | "costo" | "detal" | "margen" | "acciones";
 type SortDirection = "asc" | "desc";
 
-const PAGE_SIZE = 12;
+// Cantidad inicial por pagina; luego se ajusta sola al tamano de la ventana.
+const DEFAULT_PAGE_SIZE = 12;
+// Tarjetas: ancho minimo de columna, alto fijo y separacion (gap-3).
+const GRID_MIN_COLUMN = 280;
+const GRID_ROW_HEIGHT = 112;
+const GRID_GAP = 12;
 
 function normalizeFilterText(value: string): string {
   return value
@@ -120,6 +128,7 @@ export function ProductsDataTable({
   minRetailMarginPct = 0,
   minWholesaleMarginPct = 0,
   onOpenProduct,
+  toolbarActions,
 }: ProductsDataTableProps) {
   const [query, setQuery] = React.useState("");
   const [categoryFilter, setCategoryFilter] = React.useState("__all__");
@@ -222,7 +231,25 @@ export function ProductsDataTable({
     return list;
   }, [filteredProducts, sortKey, sortDirection, getActivePrice]);
 
-  const totalPages = Math.max(1, Math.ceil(sortedProducts.length / PAGE_SIZE));
+  const [viewMode, setViewMode] = React.useState<"grid" | "table">("grid");
+  const listAreaRef = React.useRef<HTMLDivElement>(null);
+  const paginationRef = React.useRef<HTMLDivElement>(null);
+  // Cantidad por pagina segun lo que cabe en la ventana (columnas x filas).
+  const { pageSize, columns, rowHeight } = useFitPageSize(listAreaRef, paginationRef, {
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    recomputeKey: `${viewMode}:${sortedProducts.length > 0}`,
+  });
+
+  // Al cambiar la cantidad por pagina se conserva el primer producto visible.
+  const previousPageSize = React.useRef(pageSize);
+  React.useEffect(() => {
+    const previous = previousPageSize.current;
+    if (previous === pageSize) return;
+    previousPageSize.current = pageSize;
+    setPage((current) => Math.floor(((current - 1) * previous) / pageSize) + 1);
+  }, [pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedProducts.length / pageSize));
 
   React.useEffect(() => {
     setPage(1);
@@ -240,10 +267,10 @@ export function ProductsDataTable({
     }
   }, [page, totalPages]);
 
-  const pageStart = (page - 1) * PAGE_SIZE;
-  const pagedProducts = sortedProducts.slice(pageStart, pageStart + PAGE_SIZE);
+  const pageStart = (page - 1) * pageSize;
+  const pagedProducts = sortedProducts.slice(pageStart, pageStart + pageSize);
   const rangeStart = sortedProducts.length === 0 ? 0 : pageStart + 1;
-  const rangeEnd = Math.min(pageStart + PAGE_SIZE, sortedProducts.length);
+  const rangeEnd = Math.min(pageStart + pageSize, sortedProducts.length);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -268,8 +295,6 @@ export function ProductsDataTable({
     form?.requestSubmit();
     setPendingDelete(null);
   };
-
-  const [viewMode, setViewMode] = React.useState<"grid" | "table">("grid");
 
   const handleOpenProduct = (
     event: React.MouseEvent<HTMLAnchorElement>,
@@ -382,16 +407,30 @@ export function ProductsDataTable({
               <List className="h-4 w-4" />
             </Button>
           </div>
+          {toolbarActions}
         </div>
       </div>
 
+      {/* Area de la lista: se mide para calcular cuantos productos caben por pagina. */}
+      <div ref={listAreaRef}>
       {viewMode === "grid" ? (
         pagedProducts.length === 0 ? (
           <div className="rounded-xl border border-[var(--line)] bg-white px-3 py-6 text-center text-sm text-slate-500">
             No hay productos para el filtro actual.
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div
+            data-fit-frame
+            data-fit-gap={GRID_GAP}
+            data-fit-min-column={GRID_MIN_COLUMN}
+            data-fit-row-height={GRID_ROW_HEIGHT}
+            data-fit-stretch
+            className="grid gap-3"
+            style={{
+              gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+              gridAutoRows: `${rowHeight ?? GRID_ROW_HEIGHT}px`,
+            }}
+          >
             {pagedProducts.map((product) => (
               <div
                 key={product.id}
@@ -410,7 +449,7 @@ export function ProductsDataTable({
                     alt={product.name}
                     className="w-14 shrink-0 self-stretch bg-slate-50 object-cover"
                   />
-                  <div className="min-w-0 flex-1 p-3">
+                  <div className="flex min-w-0 flex-1 flex-col justify-center p-3">
                     <p className="line-clamp-2 text-sm font-semibold text-slate-900">{product.name}</p>
                     {(() => {
                       const activePrice = getActivePrice(product);
@@ -465,7 +504,12 @@ export function ProductsDataTable({
         )
       ) : null}
 
-      <div className={viewMode === "table" ? "space-y-2 md:hidden" : "hidden"}>
+      <div
+        data-fit-frame
+        data-fit-gap="8"
+        data-fit-fallback="94"
+        className={viewMode === "table" ? "space-y-2 md:hidden" : "hidden"}
+      >
         {pagedProducts.length === 0 ? (
           <div className="rounded-xl border border-[var(--line)] bg-white px-3 py-6 text-center text-sm text-slate-500">
             No hay productos para el filtro actual.
@@ -474,6 +518,7 @@ export function ProductsDataTable({
           pagedProducts.map((product) => (
             <article
               key={product.id}
+              data-fit-item
               className="rounded-xl border border-[var(--line)] bg-white p-3"
             >
               <form data-delete-product-id={product.id} action={adminDeleteProductAction}>
@@ -534,9 +579,14 @@ export function ProductsDataTable({
         )}
       </div>
 
-      <div className={viewMode === "table" ? "hidden overflow-hidden rounded-xl border border-[var(--line)] bg-white md:block" : "hidden"}>
+      <div
+        data-fit-frame
+        data-fit-gap="0"
+        data-fit-fallback="53"
+        className={viewMode === "table" ? "hidden overflow-hidden rounded-xl border border-[var(--line)] bg-white md:block" : "hidden"}
+      >
         <Table className="min-w-[980px]">
-          <TableHeader>
+          <TableHeader data-fit-header>
             <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
               <TableHead className="normal-case tracking-normal">
                 <HeaderLabel
@@ -602,7 +652,7 @@ export function ProductsDataTable({
               </TableRow>
             ) : (
               pagedProducts.map((product) => (
-                <TableRow key={product.id} className="[&_td]:py-1.5">
+                <TableRow key={product.id} data-fit-item className="[&_td]:py-1.5">
                   <TableCell>
                     <Link
                       href={`/admin/productos/${product.id}`}
@@ -696,8 +746,9 @@ export function ProductsDataTable({
           </TableBody>
         </Table>
       </div>
+      </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div ref={paginationRef} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-slate-500">
           Mostrando {rangeStart}-{rangeEnd} de {filteredProducts.length}
         </p>
