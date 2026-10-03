@@ -235,6 +235,7 @@ Route handlers reales (`route.ts`):
 | `/admin/productos/export` | GET | Exporta el catálogo de productos a **CSV**. | Solo `ADMIN` |
 | `/api/mcp` | POST | **Servidor MCP de solo lectura** para el asesor de IA (ver abajo). | Llave `MCP_API_KEY` |
 | `/api/mcp/[key]` | POST | Lo mismo, con la llave dentro de la ruta (clientes sin headers, ej. claude.ai). | Llave en la URL |
+| `/api/catalogo/productos` | GET | **Catálogo para otras apps** (el CRM se sincroniza desde acá): código, nombre, descripción, categoría, precio, precio mayorista, imágenes (URL absoluta) y si está oculto. **Nunca costo ni margen.** Módulo `src/modules/catalogo-externo`. | Llave `CATALOGO_API_KEY` (o `MCP_API_KEY` si no existe) |
 
 ### Servidor MCP del asesor de IA (`/api/mcp`)
 - Transporte **Streamable HTTP** sin sesión: cada `POST` trae un mensaje JSON-RPC (o lote) y se
