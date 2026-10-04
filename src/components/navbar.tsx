@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { Fragment } from "react";
 import type { Role } from "@prisma/client";
-import { Facebook, Instagram, LayoutDashboard, LogOut, Menu, Search, Settings, UserCircle2 } from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, Search, Settings, UserCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -66,14 +66,6 @@ export function Navbar({
     isActiveLink(href)
       ? "rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[var(--primary)] shadow-[0_6px_16px_-10px_rgba(15,23,42,0.35)]"
       : "rounded-full px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/15 hover:text-white";
-  const socialLinks = [
-    {
-      label: "Instagram",
-      href: "https://www.instagram.com/magilus.co?igsh=MWc5aHV4Nnc1enJpbg==",
-      icon: Instagram,
-    },
-    { label: "Facebook", href: "https://www.facebook.com/share/1C7NgCJa1q/", icon: Facebook },
-  ];
   const topMenuLinks = [
     { label: "Tiendas", href: "/" },
     { label: "Quienes somos", href: "/" },
@@ -139,25 +131,6 @@ export function Navbar({
         </form>
 
         <div className="flex items-center gap-1.5 md:gap-2">
-          <div className="flex items-center gap-1">
-            {socialLinks.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={item.label}
-                  title={item.label}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--line)] bg-background/90 text-[var(--primary)] shadow-[0_8px_18px_-14px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:bg-muted md:h-9 md:w-9"
-                >
-                  <Icon className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                </Link>
-              );
-            })}
-          </div>
-
           {user && navLinks.length > 0 ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
