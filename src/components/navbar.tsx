@@ -6,9 +6,8 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { Fragment } from "react";
 import type { Role } from "@prisma/client";
-import { LayoutDashboard, LogOut, Menu, Search, Settings, UserCircle2 } from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, Settings, UserCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { getPublicAssetUrl } from "@/lib/site";
+import { NavbarSearch } from "@/components/navbar-search";
 
 const roleLinks = {
   ADMIN: "/admin",
@@ -119,18 +119,8 @@ export function Navbar({
           </nav>
         </div>
 
-        <form action="/" method="get" className="mx-1 max-w-xl flex-1">
-          <div className="relative transition-shadow duration-200 focus-within:drop-shadow-[0_8px_14px_rgba(15,23,42,0.18)]">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--primary)]" />
-            <Input
-              name="q"
-              placeholder="Buscar producto"
-              className="h-9 rounded-full border-[var(--line)] bg-background/95 pl-9 pr-4 text-sm text-foreground shadow-[0_10px_24px_-18px_rgba(15,23,42,0.65)] focus-visible:h-10 focus-visible:border-[var(--primary)] focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--primary)_24%,white)] md:h-10"
-            />
-          </div>
-        </form>
-
         <div className="flex items-center gap-1.5 md:gap-2">
+          <NavbarSearch />
           {user && navLinks.length > 0 ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
