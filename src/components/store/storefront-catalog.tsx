@@ -370,6 +370,20 @@ export async function StorefrontCatalog({
     ],
   };
 
+  // Seccion "Busca tu categoria": arriba en el inicio y debajo de los
+  // productos en una busqueda o en una categoria.
+  const categoriesSection = (
+    <div className="space-y-2">
+      <div className="flex items-center justify-center gap-2 px-0.5 text-center">
+        <span className="text-sm md:text-base">📱</span>
+        <h2 className="text-sm font-normal tracking-tight text-foreground md:text-lg">
+          Busca tu <strong className="font-semibold">categoría</strong>
+        </h2>
+      </div>
+      <CategoriesCarousel categories={categoriesCarousel} />
+    </div>
+  );
+
   return (
     <section className="app-page space-y-4">
       <script
@@ -465,24 +479,21 @@ export async function StorefrontCatalog({
         </div>
       ) : null}
 
-      {!category ? (
-        <div className="space-y-2">
-        <div className="flex items-center justify-center gap-2 px-0.5 text-center">
-          <span className="text-sm md:text-base">
-            📱
-          </span>
-          <h2 className="text-sm font-normal tracking-tight text-foreground md:text-lg">
-            Busca tu <strong className="font-semibold">categoría</strong>
-          </h2>
-        </div>
-          <CategoriesCarousel categories={categoriesCarousel} />
-        </div>
-      ) : null}
+      {/* En el inicio las categorias van arriba; en una busqueda o una
+          categoria van debajo de los productos. */}
+      {!category && !normalizedQuery ? categoriesSection : null}
 
       {!showCatalogGrid ? null : products.length === 0 ? (
-        <Card>
-          <p className="text-sm text-muted-foreground">No hay productos publicados todavia.</p>
-        </Card>
+        <div className="space-y-6">
+          <Card>
+            <p className="text-sm text-muted-foreground">
+              {normalizedQuery
+                ? `No encontramos productos para “${normalizedQuery}”. Prueba con otra palabra o busca por categoría.`
+                : "No hay productos publicados todavia."}
+            </p>
+          </Card>
+          {normalizedQuery ? categoriesSection : null}
+        </div>
       ) : (
         <div className="space-y-3" id="catalogo">
           {false && !normalizedQuery && !category ? (
@@ -499,7 +510,15 @@ export async function StorefrontCatalog({
             </div>
           ) : null}
 
-          {!category ? (
+          {normalizedQuery ? (
+            <div className="flex items-center justify-center gap-2 px-0.5 text-center">
+              <span className="text-sm md:text-base">🔎</span>
+              <h2 className="text-sm font-normal tracking-tight text-foreground md:text-lg">
+                Resultados para <strong className="font-semibold">“{normalizedQuery}”</strong>
+                <span className="ml-1 text-muted-foreground">({products.length})</span>
+              </h2>
+            </div>
+          ) : !category ? (
             <div className="flex items-center justify-center gap-2 px-0.5 text-center">
               <span className="text-sm md:text-base">🛍️</span>
               <h2 className="text-sm font-normal tracking-tight text-foreground md:text-lg">
@@ -598,17 +617,7 @@ export async function StorefrontCatalog({
             totalPages={totalPages}
             buildHref={buildPageHref}
           />
-          {category ? (
-            <div className="space-y-2">
-              <div className="flex items-center justify-center gap-2 px-0.5 text-center">
-                <span className="text-sm md:text-base">📱</span>
-                <h2 className="text-sm font-normal tracking-tight text-foreground md:text-lg">
-                  Busca tu <strong className="font-semibold">categoría</strong>
-                </h2>
-              </div>
-              <CategoriesCarousel categories={categoriesCarousel} />
-            </div>
-          ) : null}
+          {category || normalizedQuery ? categoriesSection : null}
           {!normalizedQuery && category ? (
             <div className="rounded-2xl border border-[var(--line)] bg-card px-4 py-4 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--primary-strong)]">
