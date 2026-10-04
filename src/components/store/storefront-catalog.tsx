@@ -297,6 +297,8 @@ export async function StorefrontCatalog({
   const promoRepeat = basePromoItems.length > 0 ? Math.max(2, Math.ceil(14 / basePromoItems.length)) : 0;
   const promoGroup = Array.from({ length: promoRepeat }).flatMap(() => basePromoItems);
   const promoItems = [...promoGroup, ...promoGroup];
+  // Velocidad constante: ~8 s por mensaje, sin importar cuantos se repitan.
+  const promoDurationSeconds = Math.max(20, promoGroup.length * 8);
 
   const categoriesCarousel = categoryNavItems.map((item) => ({
     id: item.id,
@@ -449,7 +451,7 @@ export async function StorefrontCatalog({
                 "linear-gradient(90deg, var(--primary-strong) 0%, var(--primary) 50%, var(--primary-strong) 100%)",
             }}
           >
-            <div className="promo-marquee-track">
+            <div className="promo-marquee-track" style={{ animationDuration: `${promoDurationSeconds}s` }}>
               {promoItems.map((item, index) => (
                 <div
                   key={`${item}-${index}`}
