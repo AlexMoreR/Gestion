@@ -8,6 +8,7 @@ import { adminDeleteCategoryAction } from "@/app/actions/catalog-actions";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { getPublicAssetUrl } from "@/lib/site";
+import { imageVariantUrl } from "@/lib/image-variants";
 
 type CategoryRow = {
   id: string;
@@ -35,8 +36,9 @@ function CategoryLogo({ name, logoUrl }: { name: string; logoUrl: string | null 
 
   return (
     <img
-      src={getPublicAssetUrl(logoUrl)}
+      src={imageVariantUrl(getPublicAssetUrl(logoUrl), "thumb")}
       alt={`Logo ${name}`}
+      loading="lazy"
       className="h-9 w-9 rounded-md border border-border object-cover"
       onError={() => setHasError(true)}
     />

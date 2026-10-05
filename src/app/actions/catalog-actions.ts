@@ -11,6 +11,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
 import { prisma } from "@/lib/prisma";
+import { createImageVariants, deleteImageVariants } from "@/lib/image-variants.server";
 
 const createCategorySchema = z.object({
   name: z.string().trim().min(2, "Nombre invalido").max(80, "Nombre demasiado largo"),
@@ -102,6 +103,7 @@ async function saveCategoryLogo(file: File | null): Promise<string | null> {
   const filePath = path.join(uploadDir, fileName);
 
   await writeFile(filePath, Buffer.from(await file.arrayBuffer()));
+  await createImageVariants(filePath);
   return `/uploads/categories/${fileName}`;
 }
 
@@ -118,6 +120,7 @@ async function deleteCategoryLogoFile(logoUrl: string | null | undefined): Promi
   } catch {
     // Ignore missing files; the DB cleanup is the primary concern.
   }
+  await deleteImageVariants(filePath);
 }
 
 export async function adminCreateCategoryAction(formData: FormData): Promise<void> {

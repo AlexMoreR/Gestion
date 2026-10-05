@@ -29,6 +29,7 @@ import {
 } from "@/lib/system-settings";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { imageVariantUrl } from "@/lib/image-variants";
 import {
   Table,
   TableBody,
@@ -407,7 +408,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                 <TableCell className={isPdf ? "p-0 text-center" : "text-center"}>
                   {item.imageUrl ? (
                     <img
-                      src={getPublicAssetUrl(item.imageUrl)}
+                      src={imageVariantUrl(getPublicAssetUrl(item.imageUrl), "thumb")}
                       alt={item.imageAlt}
                       className={
                         isPdf

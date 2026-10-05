@@ -6,6 +6,7 @@ import { formatMoney } from "@/lib/currency";
 import { suggestDeliveryAddress, toManufacturingLine } from "@/lib/manufacturing-orders";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
+import { imageVariantUrl } from "@/lib/image-variants";
 import {
   getSystemBrandName,
   getSystemCurrency,
@@ -162,7 +163,7 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
                   {line.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={getPublicAssetUrl(line.imageUrl)}
+                      src={imageVariantUrl(getPublicAssetUrl(line.imageUrl), "thumb")}
                       alt={line.productName}
                       className="h-20 w-20 shrink-0 rounded-lg border border-slate-100 object-cover"
                     />

@@ -33,6 +33,7 @@ import { ProductThumb } from "@/components/admin/product-thumb";
 import { expandComboLines, type ComboComponent } from "@/lib/combo";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { calculateQuoteLineTotal } from "@/lib/quote-item-meta";
+import { imageVariantUrl } from "@/lib/image-variants";
 import { Button } from "../ui/button";
 
 export type QuoteWizardClient = {
@@ -974,7 +975,7 @@ export function QuoteWizardModal({
                                 <div className="flex items-center gap-2.5">
                                   {group.thumbnailUrl ? (
                                     <img
-                                      src={group.thumbnailUrl}
+                                      src={imageVariantUrl(group.thumbnailUrl, "thumb")}
                                       alt={group.comboName}
                                       className="h-10 w-10 shrink-0 rounded-md border border-border object-cover"
                                     />
@@ -1025,7 +1026,7 @@ export function QuoteWizardModal({
                                     <div className="flex items-center gap-2.5">
                                       {line.imageUrl || product?.thumbnailUrl ? (
                                         <img
-                                          src={line.imageUrl || product?.thumbnailUrl || ""}
+                                          src={imageVariantUrl(line.imageUrl || product?.thumbnailUrl || "", "thumb")}
                                           alt={product?.name || "Producto"}
                                           className="h-10 w-10 shrink-0 rounded-md border border-border object-cover"
                                         />
@@ -1235,7 +1236,7 @@ export function QuoteWizardModal({
                               <div className="flex items-center gap-2.5">
                                 {group.thumbnailUrl ? (
                                   <img
-                                    src={group.thumbnailUrl}
+                                    src={imageVariantUrl(group.thumbnailUrl, "thumb")}
                                     alt={group.comboName}
                                     className="h-10 w-10 shrink-0 rounded-md border border-border object-cover"
                                   />
@@ -1274,7 +1275,7 @@ export function QuoteWizardModal({
                                   <div className="flex items-center gap-2.5">
                                     {line.imageUrl || product?.thumbnailUrl ? (
                                       <img
-                                        src={line.imageUrl || product?.thumbnailUrl || ""}
+                                        src={imageVariantUrl(line.imageUrl || product?.thumbnailUrl || "", "thumb")}
                                         alt={product?.name || "Producto"}
                                         className="h-10 w-10 shrink-0 rounded-md border border-border object-cover"
                                       />

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { imageVariantUrl } from "@/lib/image-variants";
 
 type CategoryItem = {
   id: string;
@@ -9,17 +10,19 @@ type CategoryItem = {
 
 type CategoriesCarouselProps = {
   categories: CategoryItem[];
+  // Cuantas se cargan de una vez (las que se ven al abrir); el resto, al bajar.
+  eagerCount?: number;
 };
 
 // En inicio las categorias se muestran todas en cuadricula (sin carrusel).
-export function CategoriesCarousel({ categories }: CategoriesCarouselProps) {
+export function CategoriesCarousel({ categories, eagerCount = 0 }: CategoriesCarouselProps) {
   if (categories.length === 0) {
     return null;
   }
 
   return (
     <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-      {categories.map((item) => (
+      {categories.map((item, index) => (
         <Link
           key={item.id}
           href={`/${item.slug}`}
@@ -27,8 +30,10 @@ export function CategoriesCarousel({ categories }: CategoriesCarouselProps) {
         >
           <div className="aspect-square overflow-hidden rounded-xl">
             <img
-              src={item.cover}
+              src={imageVariantUrl(item.cover, "thumb")}
               alt={item.name}
+              loading={index < eagerCount ? "eager" : "lazy"}
+              decoding="async"
               className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
             />
           </div>

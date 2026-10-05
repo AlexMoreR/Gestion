@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/currency";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { buildProductPath } from "@/lib/product-slugs";
+import { imageVariantUrl } from "@/lib/image-variants";
 import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
 import { buildSystemWhatsAppHref, getSystemBrandName } from "@/lib/system-settings";
 import { Button } from "../ui/button";
@@ -254,6 +255,8 @@ export async function ProductDetailContent({
                     <img
                       src={getPublicAssetUrl(review.photoUrl)}
                       alt={review.authorName ?? "Cliente"}
+                      loading="lazy"
+                      decoding="async"
                       className="h-16 w-16 shrink-0 rounded-lg object-cover"
                     />
                   ) : null}
@@ -315,8 +318,10 @@ export async function ProductDetailContent({
                 <Card className="h-full overflow-hidden rounded-xl p-0 transition group-hover:translate-y-[-2px] group-hover:shadow-[0_20px_35px_-30px_rgba(15,23,42,0.45)]">
                   <div className="relative">
                       <img
-                        src={getPublicAssetUrl(item.thumbnailUrl)}
+                        src={imageVariantUrl(getPublicAssetUrl(item.thumbnailUrl), "thumb")}
                         alt={item.name}
+                        loading="lazy"
+                        decoding="async"
                         className="h-36 w-full object-cover transition duration-500 group-hover:scale-[1.03]"
                       />
                     {item.category?.name ? (

@@ -14,6 +14,7 @@ import { logActivity } from "@/lib/activity-log";
 import { prisma } from "@/lib/prisma";
 import { slugifyProductSegment } from "@/lib/product-slugs";
 import { calculateMarginPctFromPrice, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
+import { createImageVariants } from "@/lib/image-variants.server";
 
 const baseProductSchema = z.object({
   code: z.string().trim().max(60, "Codigo demasiado largo").optional(),
@@ -312,6 +313,7 @@ async function saveUploadedImages(files: File[]): Promise<string[]> {
     const filePath = path.join(uploadDir, fileName);
 
     await writeFile(filePath, buffer);
+    await createImageVariants(filePath);
     savedUrls.push(`/uploads/products/${fileName}`);
   }
 

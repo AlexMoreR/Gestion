@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as React from "react";
 import { Button } from "../ui/button";
+import { imageVariantUrl } from "@/lib/image-variants";
 
 type FeaturedProductItem = {
   id: string;
@@ -113,7 +114,7 @@ export function FeaturedProductsCarousel({ products }: FeaturedProductsCarouselP
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchEnd}
         >
-          {products.map((product) => (
+          {products.map((product, index) => (
             <Link
               key={product.id}
               href={product.href}
@@ -142,8 +143,10 @@ export function FeaturedProductsCarousel({ products }: FeaturedProductsCarouselP
                   <div className="absolute bottom-3 right-[18%] h-8 w-24 rounded-full bg-black/30 blur-xl md:h-10 md:w-40" />
                   <div className="absolute right-[6%] top-[18%] h-[68%] w-[62%] rounded-[28px] bg-[linear-gradient(135deg,rgba(255,255,255,0.12),rgba(255,255,255,0.02)_52%,rgba(255,255,255,0.08))] opacity-70 blur-[1px]" />
                   <img
-                    src={product.thumbnailUrl}
+                    src={imageVariantUrl(product.thumbnailUrl, "thumb")}
                     alt={product.name}
+                    loading={index === 0 ? "eager" : "lazy"}
+                    decoding="async"
                     className="relative z-10 h-28 w-full object-contain drop-shadow-[0_20px_28px_rgba(8,3,23,0.42)] transition duration-500 group-hover:scale-[1.05] group-hover:-rotate-1 md:h-44 md:max-w-[16rem] md:drop-shadow-[0_24px_34px_rgba(8,3,23,0.44)]"
                   />
                 </div>

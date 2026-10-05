@@ -7,6 +7,7 @@ import { GuaranteeBadge } from "@/components/store/guarantee-badge";
 import { FeaturedProductsCarousel } from "@/components/store/featured-products-carousel";
 import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/currency";
+import { imageVariantUrl } from "@/lib/image-variants";
 import { prisma } from "@/lib/prisma";
 import { buildProductPath } from "@/lib/product-slugs";
 import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, siteConfig } from "@/lib/site";
@@ -371,8 +372,9 @@ export async function StorefrontCatalog({
   };
 
   // Seccion "Busca tu categoria": arriba en el inicio y debajo de los
-  // productos en una busqueda o en una categoria.
-  const categoriesSection = (
+  // productos en una busqueda o en una categoria. Arriba, la primera fila de
+  // imagenes se carga de una vez; abajo, todas cargan al bajar.
+  const categoriesSection = (eagerCount = 0) => (
     <div className="space-y-2">
       <div className="flex items-center justify-center gap-2 px-0.5 text-center">
         <span className="text-sm md:text-base">📱</span>
@@ -380,7 +382,7 @@ export async function StorefrontCatalog({
           Busca tu <strong className="font-semibold">categoría</strong>
         </h2>
       </div>
-      <CategoriesCarousel categories={categoriesCarousel} />
+      <CategoriesCarousel categories={categoriesCarousel} eagerCount={eagerCount} />
     </div>
   );
 
@@ -481,7 +483,7 @@ export async function StorefrontCatalog({
 
       {/* En el inicio las categorias van arriba; en una busqueda o una
           categoria van debajo de los productos. */}
-      {!category && !normalizedQuery ? categoriesSection : null}
+      {!category && !normalizedQuery ? categoriesSection(8) : null}
 
       {!showCatalogGrid ? null : products.length === 0 ? (
         <div className="space-y-6">
@@ -492,7 +494,7 @@ export async function StorefrontCatalog({
                 : "No hay productos publicados todavia."}
             </p>
           </Card>
-          {normalizedQuery ? categoriesSection : null}
+          {normalizedQuery ? categoriesSection() : null}
         </div>
       ) : (
         <div className="space-y-3" id="catalogo">
@@ -528,7 +530,7 @@ export async function StorefrontCatalog({
           ) : null}
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
-            {pagedProducts.map((product) => {
+            {pagedProducts.map((product, index) => {
               const retailPrice = Number(product.price);
               const comparePrice = retailPrice * 1.25;
               const productHref = buildProductPath(product);
@@ -542,10 +544,12 @@ export async function StorefrontCatalog({
                   <Link href={productHref} className="group flex flex-1 flex-col">
                     <div className="relative">
                       <img
-                        src={getPublicAssetUrl(product.thumbnailUrl)}
+                        src={imageVariantUrl(getPublicAssetUrl(product.thumbnailUrl), "thumb")}
                         alt={product.name}
                         className="h-40 w-full bg-card object-contain p-2 transition duration-500 group-hover:scale-[1.02] md:h-52"
-                        loading="lazy"
+                        // La primera fila se ve al abrir; el resto carga al bajar.
+                        loading={index < 4 ? "eager" : "lazy"}
+                        decoding="async"
                       />
                       <div className="absolute -bottom-1 left-2.5 z-10 rounded-md border border-[color-mix(in_srgb,var(--primary)_24%,white)] bg-[linear-gradient(135deg,var(--primary)_0%,var(--primary-strong)_100%)] px-1.5 py-1 text-white shadow-[0_12px_20px_-14px_color-mix(in_srgb,var(--primary)_70%,black)]">
                         <span className="flex items-center gap-1 text-[7px] font-black uppercase leading-none tracking-[0.08em]">
@@ -617,7 +621,7 @@ export async function StorefrontCatalog({
             totalPages={totalPages}
             buildHref={buildPageHref}
           />
-          {category || normalizedQuery ? categoriesSection : null}
+          {category || normalizedQuery ? categoriesSection() : null}
           {!normalizedQuery && category ? (
             <div className="rounded-2xl border border-[var(--line)] bg-card px-4 py-4 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--primary-strong)]">

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { imageVariantUrl } from "@/lib/image-variants";
 import { getPublicAssetUrl } from "@/lib/site";
 import { GuaranteeBadge } from "@/components/store/guarantee-badge";
 import {
@@ -66,8 +67,10 @@ export function ProductGallery({ name, images }: ProductGalleryProps) {
           {gallery.map((url, index) => (
             <CarouselItem key={`${url}-${index}`} className="pl-0">
               <img
-                src={url}
+                src={imageVariantUrl(url, "large")}
                 alt={`${name} imagen ${index + 1}`}
+                loading={index === 0 ? "eager" : "lazy"}
+                decoding="async"
                 className="h-[280px] w-full bg-white object-contain md:h-[460px]"
               />
             </CarouselItem>
@@ -101,7 +104,13 @@ export function ProductGallery({ name, images }: ProductGalleryProps) {
                   }`}
                   aria-label={`Ver imagen ${index + 1}`}
                 >
-                  <img src={url} alt={`${name} imagen ${index + 1}`} className="h-full w-full object-cover" />
+                  <img
+                    src={imageVariantUrl(url, "thumb")}
+                    alt={`${name} imagen ${index + 1}`}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </Button>
               );
             })}

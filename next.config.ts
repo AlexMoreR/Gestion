@@ -13,6 +13,16 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Next sirve /public con "max-age=0"; las imagenes subidas tienen nombres
+  // unicos (nunca cambian), asi que el navegador puede guardarlas un ano.
+  async headers() {
+    return [
+      {
+        source: "/uploads/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+    ];
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "16mb",
