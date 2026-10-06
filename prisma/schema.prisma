@@ -96,6 +96,8 @@ model Product {
   isBundle           Boolean             @default(false)
   // Si es true, el producto no aparece en la tienda principal (catalogo publico).
   hiddenFromStore    Boolean             @default(false)
+  // Envio ADICIONAL de este producto (COP). Si es NULL se usa el de su categoria.
+  shippingExtra      Int?
   categoryId         String?
   thumbnailUrl       String
   createdAt          DateTime            @default(now())
@@ -159,6 +161,7 @@ model Category {
   seoDescription String?
   logoUrl        String?
   isActive       Boolean   @default(true)
+  shippingExtra  Int? // envio ADICIONAL de los productos de esta categoria (COP); NULL = se cotiza
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   products       Product[]
@@ -788,29 +791,50 @@ model TransportDepartment {
   cities    TransportCity[]
 }
 
+// Tipo de envio de una ubicacion. NULL en la ubicacion = comportamiento de siempre
+// (freeShipping true -> GRATIS, false -> COTIZAR). ADICIONAL cobra el valor de envio del
+// producto (Product.shippingExtra o, si no tiene, Category.shippingExtra).
+enum ShippingType {
+  GRATIS
+  ADICIONAL
+  COTIZAR
+  NO_LLEGA
+}
+
 model TransportCity {
   id           String              @id @default(cuid())
   code         String              @unique // Codigo DANE del municipio (5 digitos)
   departmentId String
   name         String
   freeShipping Boolean             @default(false)
+  shippingType ShippingType?
+  nameKey      String? // nombre sin acentos y en minusculas (buscar y no duplicar)
+  needsReview  Boolean             @default(false)
+  source       String              @default("DANE") // DANE | CRM | ADMIN
   createdAt    DateTime            @default(now())
   department   TransportDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   localities   TransportLocality[]
 
   @@index([departmentId])
   @@index([name])
+  @@index([nameKey])
 }
 
 model TransportLocality {
   id           String        @id @default(cuid())
-  code         String        @unique // Codigo DANE del centro poblado (8 digitos)
+  code         String        @unique // Codigo DANE del centro poblado (8 digitos) o "CRM-..." si la agrego el CRM
   cityId       String
   name         String
   freeShipping Boolean       @default(false)
+  shippingType ShippingType?
+  nameKey      String?
+  needsReview  Boolean       @default(false)
+  source       String        @default("DANE")
   createdAt    DateTime      @default(now())
   city         TransportCity @relation(fields: [cityId], references: [id], onDelete: Cascade)
 
   @@index([cityId])
   @@index([name])
+  @@index([nameKey])
+  @@index([cityId, nameKey])
 }

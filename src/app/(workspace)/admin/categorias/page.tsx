@@ -48,6 +48,7 @@ export default async function AdminCategoriasPage({ searchParams }: PageProps) {
           seoTitle: category.seoTitle,
           seoDescription: category.seoDescription,
           logoUrl: category.logoUrl ? getPublicAssetUrl(category.logoUrl) : null,
+          shippingExtra: category.shippingExtra,
           productsCount: category._count.products,
         }))}
       />

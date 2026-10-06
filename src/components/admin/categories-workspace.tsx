@@ -17,8 +17,27 @@ type CategoryRow = {
   seoTitle: string | null;
   seoDescription: string | null;
   logoUrl: string | null;
+  shippingExtra: number | null;
   productsCount: number;
 };
+
+// Campo "Envio adicional (COP)": lo que se cobra de envio en ubicaciones ADICIONAL. Vacio = se cotiza.
+function ShippingExtraField({ defaultValue }: { defaultValue?: number | null }) {
+  return (
+    <label className="block space-y-1.5">
+      <span className="text-sm font-medium text-slate-700">Envio adicional (COP)</span>
+      <Input
+        name="shippingExtra"
+        inputMode="numeric"
+        defaultValue={defaultValue != null ? String(defaultValue) : ""}
+        placeholder="Ej. 100000 (vacio = se cotiza)"
+      />
+      <span className="block text-xs text-slate-500">
+        Se suma al precio en ciudades con envio adicional. Un producto puede tener su propio valor.
+      </span>
+    </label>
+  );
+}
 
 type CategoriesWorkspaceProps = {
   categories: CategoryRow[];
@@ -128,6 +147,7 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
                 <span className="text-sm font-medium text-slate-700">Nombre</span>
                 <Input name="name" placeholder="Ej. Camillas" required />
               </label>
+              <ShippingExtraField />
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium text-slate-700">Logo (opcional)</span>
                 <Input name="logo" type="file" accept="image/*" onChange={handleLogoChange} />
@@ -206,6 +226,7 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
                 <span className="text-sm font-medium text-slate-700">Nombre</span>
                 <Input name="name" defaultValue={activeCategory.name} required />
               </label>
+              <ShippingExtraField defaultValue={activeCategory.shippingExtra} />
               <label className="block space-y-1.5">
                 <span className="text-sm font-medium text-slate-700">Logo (opcional)</span>
                 <Input name="logo" type="file" accept="image/*" onChange={handleLogoChange} />

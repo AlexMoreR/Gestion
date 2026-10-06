@@ -6,6 +6,7 @@ import {
   ensureTransportSeed,
   getTransportMetrics,
   listDepartmentSummaries,
+  listPendingReview,
 } from "@/modules/transporte/infrastructure/transporte-repository";
 
 export default async function AdminTransportePage() {
@@ -22,18 +23,23 @@ export default async function AdminTransportePage() {
   // Carga los datos DANE la primera vez que se abre el modulo.
   await ensureTransportSeed();
 
-  const [metrics, departments] = await Promise.all([getTransportMetrics(), listDepartmentSummaries()]);
+  const [metrics, departments, pending] = await Promise.all([
+    getTransportMetrics(),
+    listDepartmentSummaries(),
+    listPendingReview(),
+  ]);
 
   return (
     <section className="w-full space-y-5">
       <div>
         <p className="text-sm text-muted-foreground">
-          Marca las ciudades y corregimientos donde ofreces envio gratis. Los clientes lo consultan en{" "}
-          <span className="font-medium text-foreground">magilus.com/cobertura</span>.
+          Define el tipo de envio de cada ciudad y corregimiento. Los clientes ven el envio gratis en{" "}
+          <span className="font-medium text-foreground">magilus.com/cobertura</span> y las asesoras consultan el tipo
+          desde el CRM.
         </p>
       </div>
 
-      <TransporteWorkspace metrics={metrics} departments={departments} />
+      <TransporteWorkspace metrics={metrics} departments={departments} pending={pending} />
     </section>
   );
 }

@@ -42,7 +42,7 @@ módulos y para qué sirven:
 | **Despachos** | `/admin/despachos` | Salidas, transportadora, guía, costo de envío y entrega. |
 | **Balances** | `/admin/balances` | Rentabilidad por venta, cuentas (caja/banco/wallet), movimientos y costos logístico-financieros. |
 | **Gastos** | `/admin/gastos` | Gastos operativos por categoría y cuenta (nómina, marketing, varios, etc.). |
-| **Transporte** | `/admin/transporte` | Marca en qué ciudades/corregimientos (DANE) hay envío gratis; lo consulta el cliente en `/cobertura`. |
+| **Transporte** | `/admin/transporte` | Tipo de envío por ciudad/corregimiento (DANE): Gratis / Adicional / Se cotiza / No llegamos / Automático, y "Pendientes de revisar" (lo nuevo que manda el CRM). El cliente ve el envío gratis en `/cobertura`; el CRM consulta `/api/transporte/ubicaciones`. |
 | **Configuración** | `/admin/configuracion/*` | Usuarios y roles, datos del negocio (moneda, marca, color), y control de módulos por rol. |
 
 ---
@@ -99,11 +99,13 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
 - **Product** — producto del catálogo. Campos clave: `price` (precio final retail), `baseCost` (costo
   de proveedor), `additionalCost` (flete/transporte por unidad), `retailMarginPct` / `wholesaleMarginPct`,
   `wholesalePrice`, `minWholesaleQty`, `minStock`, `isBundle` (es combo), `hiddenFromStore` (oculto de la
-  tienda), `slug`, `code`. Un producto puede tener imágenes, proveedores y componentes.
+  tienda), `slug`, `code`, `shippingExtra` (envío ADICIONAL propio en COP, opcional; pisa el de la
+  categoría). Un producto puede tener imágenes, proveedores y componentes.
 - **ProductImage** — imágenes del producto (ordenadas).
 - **ProductComponent** — composición de un **combo**: qué productos hijo y en qué cantidad forma un
   producto `isBundle`.
-- **Category** — categorías del catálogo (con SEO, logo, `isActive`).
+- **Category** — categorías del catálogo (con SEO, logo, `isActive`) y `shippingExtra` (envío ADICIONAL
+  en COP de sus productos; NULL = se cotiza). Se edita en `/admin/categorias`.
 - **ProductReview** — reseñas/valoraciones de productos.
 - **Supplier** — proveedores. `type`: `MANUFACTURER` (fábrica) o `SHIPPING` (transportadora).
   `shareToken` para su enlace de cuenta.
@@ -162,9 +164,22 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
 ### Transporte (cobertura DANE)
 - **TransportDepartment / TransportCity / TransportLocality** — división político-administrativa oficial
   de Colombia (DANE DIVIPOLA): 33 departamentos, ~1.122 municipios y ~7.057 corregimientos/centros
-  poblados. El flag `freeShipping` marca dónde ofrecemos envío gratis; el cliente lo consulta en
-  `/cobertura`. Los datos se cargan de forma perezosa desde un JSON empaquetado la primera vez que se usa
-  el módulo.
+  poblados. Los datos se cargan de forma perezosa desde un JSON empaquetado la primera vez que se usa
+  el módulo (`ensureTransportSeed`, que también llena `nameKey`).
+- Campos de envío (migración `20261006230000_envios_por_ubicacion_y_producto`):
+  - `shippingType` (enum `ShippingType`: `GRATIS`/`ADICIONAL`/`COTIZAR`/`NO_LLEGA`, NULL = automático).
+    Tipo efectivo (`resolveShippingType` en `src/modules/transporte/domain/shipping.ts`): el propio; si
+    no, el de la ciudad (corregimientos); si no, `freeShipping` true → GRATIS, false → COTIZAR.
+  - `freeShipping`: lo sigue usando `/cobertura`; al guardar un tipo se sincroniza (GRATIS → true, otro →
+    false). "Automático" no lo toca.
+  - `nameKey`: nombre sin acentos y en minúsculas (`normalizePlaceName`) para buscar y no duplicar
+    (índices NO únicos; la no-duplicación se controla en código).
+  - `needsReview` + `source` (`DANE`/`CRM`/...): lo que agrega el CRM entra como corregimiento con
+    código `CRM-<ciudad>-<nombre>` y `needsReview=true`; aparece en "Pendientes de revisar" y se limpia
+    al guardarle un tipo.
+- **Total con envío** (`quoteShipping`): GRATIS → precio; ADICIONAL → precio + `Product.shippingExtra`
+  (o `Category.shippingExtra`); si no hay valor cargado → se cotiza (nunca se inventa); COTIZAR/NO_LLEGA
+  → sin total.
 
 ### Flujo de negocio (resumen)
 `Cotización (COT)` → se convierte en `Venta (SAL)` → genera una `Orden de venta` → (`Producción` si es
@@ -236,6 +251,7 @@ Route handlers reales (`route.ts`):
 | `/api/mcp` | POST | **Servidor MCP de solo lectura** para el asesor de IA (ver abajo). | Llave `MCP_API_KEY` |
 | `/api/mcp/[key]` | POST | Lo mismo, con la llave dentro de la ruta (clientes sin headers, ej. claude.ai). | Llave en la URL |
 | `/api/catalogo/productos` | GET | **Catálogo para otras apps** (el CRM se sincroniza desde acá): código, nombre, descripción, categoría, precio, precio mayorista, imágenes (URL absoluta) y si está oculto. **Nunca costo ni margen.** Módulo `src/modules/catalogo-externo`. | Llave `CATALOGO_API_KEY` (o `MCP_API_KEY` si no existe) |
+| `/api/transporte/ubicaciones` | GET/POST | **Envíos para el CRM.** GET `?q=&producto=&limit=` (q normalizado ≥ 2, limit 1..50, def. 20) → `{ resultados: [{ tipo, id, cityId, nombre, ciudad, departamento, envio, pendienteRevision, exacta, cotizacion }], producto }`; `cotizacion` (`{tipo, envio, total}`) solo si vino `producto` y existe. POST `{ cityId, nombre (2..80), origen? }` → 201 `{creado:true,id,nombre}` / 200 `{creado:false,...}` si ya existía / 404 ciudad no encontrada; lo nuevo queda "pendiente de revisar". El CRM ya está programado contra este contrato: **no cambiarlo**. | Llave `TRANSPORTE_API_KEY` (si no, `CATALOGO_API_KEY`, si no `MCP_API_KEY`) |
 
 ### Servidor MCP del asesor de IA (`/api/mcp`)
 - Transporte **Streamable HTTP** sin sesión: cada `POST` trae un mensaje JSON-RPC (o lote) y se

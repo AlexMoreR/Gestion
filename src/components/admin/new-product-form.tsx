@@ -699,6 +699,11 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                 />
                 <span className="text-xs text-slate-500">Cantidad minima antes de marcar bajo stock.</span>
               </label>
+              <label className="block max-w-xs space-y-1.5">
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Truck className="h-4 w-4 text-slate-500" />Envio adicional (COP)</span>
+                <Input name="shippingExtra" inputMode="numeric" defaultValue="" placeholder="Vacio = el de la categoria" />
+                <span className="text-xs text-slate-500">Se suma al precio en ciudades con envio adicional. Vacio usa el valor de la categoria.</span>
+              </label>
               <p className="rounded-lg border border-dashed border-[var(--line)] bg-slate-50/60 px-3 py-3 text-xs text-slate-500">
                 El stock actual y los movimientos se gestionan desde Inventario.
               </p>

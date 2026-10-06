@@ -43,18 +43,18 @@ en las Server Actions y en `src/lib/`.
 - `balances`: rentabilidad por venta, cuentas de dinero, pagos a proveedores, costos de envío y métricas del mes. Es la fuente única del cálculo de ganancia.
 - `expenses`: gastos operativos por categoría y cuenta (nómina, marketing, servicios, etc.).
 - `inventory`: stock por producto, movimientos de entrada/salida/ajuste y compras directas a proveedor (COM-).
-- `transporte`: cobertura de envío gratis por departamento, ciudad y corregimiento (datos DANE) que consulta el cliente en `/cobertura`.
+- `transporte`: tipo de envío por departamento, ciudad y corregimiento (datos DANE): gratis, adicional, se cotiza o no llegamos. Lo consulta el cliente en `/cobertura` (solo si es gratis o no) y el CRM de las asesoras por `/api/transporte/ubicaciones`.
 - `asesor`: consultas de solo lectura para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones y esta radiografía.
 
 ## Entidades
 
 - `User`: cualquier persona con cuenta: dueño/admin, empleados y clientes (rol `Role`). Los clientes se crean al cotizar. Es el autor de casi todos los registros.
 - `ActivityLog`: bitácora de auditoría: quién creó, editó o borró qué.
-- `Product`: producto del catálogo con precio de venta, costo de proveedor, flete por unidad, márgenes, precio mayorista y bandera de combo u oculto en tienda.
+- `Product`: producto del catálogo con precio de venta, costo de proveedor, flete por unidad, márgenes, precio mayorista, bandera de combo u oculto en tienda y, opcional, su propio envío adicional (COP) que pisa el de la categoría.
 - `ProductReview`: reseña o calificación de un producto en la tienda.
 - `ProductComponent`: composición de un combo: qué productos hijos y en qué cantidad forman un producto combo.
 - `ProductImage`: imágenes ordenadas de un producto.
-- `Category`: categoría del catálogo.
+- `Category`: categoría del catálogo. Guarda el envío adicional (COP) de sus productos; vacío = se cotiza.
 - `Supplier`: proveedora: fábrica (`MANUFACTURER`) o transportadora (`SHIPPING`). Tiene enlace de estado de cuenta.
 - `SupplierLedgerEntry`: movimiento de la cuenta con una proveedora: cargo (lo que se le debe) o abono (pago). Puede atarse a una venta, orden, producto de orden, despacho o compra de inventario.
 - `ProductSupplier`: qué proveedoras fabrican cada producto, a qué costo y cuál es la preferida.
@@ -79,8 +79,8 @@ en las Server Actions y en `src/lib/`.
 - `MonthClosure`: cierre de mes congelado (ventas, costos, envíos, gastos, utilidad y margen) que se comparte por correo.
 - `ManufacturingOrder`: orden de fabricación (OF-) de una proveedora dentro de una orden de venta, con enlace para enviársela, fecha y dirección de entrega.
 - `TransportDepartment`: departamento de Colombia (DANE).
-- `TransportCity`: municipio de Colombia (DANE) y si tiene envío gratis.
-- `TransportLocality`: corregimiento o centro poblado (DANE) y si tiene envío gratis.
+- `TransportCity`: municipio de Colombia (DANE), su tipo de envío (gratis, adicional, se cotiza, no llegamos o automático) y si tiene envío gratis.
+- `TransportLocality`: corregimiento o centro poblado (DANE), o barrio/vereda que agregó el CRM (queda "pendiente de revisar"), con su tipo de envío; sin tipo propio hereda el de su ciudad.
 
 ## Pantallas
 
@@ -134,6 +134,7 @@ en las Server Actions y en `src/lib/`.
 - `/api/informe/link`: entrega al dueño el enlace del informe con su token.
 - `/api/mcp`: servidor MCP de solo lectura del asesor de IA (llave en header).
 - `/api/mcp/[key]`: el mismo servidor MCP con la llave dentro de la ruta (conectores de claude.ai).
+- `/api/transporte/ubicaciones`: para el CRM (con llave). GET busca ciudades y corregimientos sin importar acentos, dice su tipo de envío y, si se manda un producto, el total con envío. POST agrega un corregimiento o barrio nuevo bajo una ciudad sin duplicar.
 - `/uploads/[...path]`: sirve los archivos subidos (comprobantes, imágenes).
 - `/verify-email`: confirma el correo de un usuario desde el enlace enviado.
 
@@ -160,6 +161,14 @@ tiene proveedora propia: se toma la de sus componentes.
 sale de stock) y el flete de envío al cliente (se registra por venta al despachar y resta en su
 ganancia).
 
+**Envío por ubicación.** Cada ciudad o corregimiento tiene un tipo: Gratis (el total es el precio),
+Adicional (precio + envío adicional del producto; si el producto no tiene, el de su categoría; si
+ninguno tiene, se cotiza), Se cotiza o No llegamos. "Automático" usa lo de antes: un corregimiento
+sin tipo hereda el de su ciudad y, si nadie tiene tipo, es gratis si está marcado y si no se cotiza.
+Valores iniciales aprobados (oct 2026): camillas y combos de camillas 100.000, sillas 50.000; 13
+municipios de la Sabana, Medellín y Bucaramanga con envío gratis. Lo que agregan las asesoras desde
+el CRM queda "pendiente de revisar" en `/admin/transporte` hasta que se le define el tipo.
+
 **Fabricación.** Al "Fabricar" un producto se confirma la proveedora y el costo; eso genera un cargo
 en su cuenta. Cada proveedora recibe una orden de fabricación (OF-) por orden de venta.
 
@@ -184,4 +193,6 @@ cotización. Una venta con ganancia cero o negativa no genera comisión.
 
 - La **llave del MCP en la ruta** (`/api/mcp/{llave}`) queda escrita en la URL: puede aparecer en logs de Traefik o del proxy y en la configuración del conector. Si se filtra, cambia `MCP_API_KEY` en Portainer y vuelve a desplegar.
 - Un **cambio de base de datos** que salga mal se aplica directo en producción al arrancar; revisa bien las migraciones antes de hacer push a `main`.
+- `/cobertura` solo mira la marca de envío gratis de la ubicación elegida: un corregimiento sin tipo propio de una ciudad gratis sale "no gratis" en `/cobertura`, aunque el CRM lo informe como gratis por herencia.
+- `/api/transporte/ubicaciones` (POST) crea corregimientos desde el CRM: si la llave se filtra, alguien podría llenar la lista de pendientes. Se cambia `TRANSPORTE_API_KEY` (o la llave que esté en uso).
 - Los riesgos que se deducen de la configuración (arranque, pipeline, réplicas, volúmenes) los detecta la herramienta sola desde el Dockerfile, el workflow y el docker-compose; aquí van solo los que no se pueden deducir.

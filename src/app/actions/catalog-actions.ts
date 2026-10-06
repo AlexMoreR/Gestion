@@ -12,6 +12,7 @@ import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
 import { prisma } from "@/lib/prisma";
 import { createImageVariants, deleteImageVariants } from "@/lib/image-variants.server";
+import { parseShippingExtraInput } from "@/modules/transporte/domain/shipping";
 
 const createCategorySchema = z.object({
   name: z.string().trim().min(2, "Nombre invalido").max(80, "Nombre demasiado largo"),
@@ -138,6 +139,11 @@ export async function adminCreateCategoryAction(formData: FormData): Promise<voi
     redirect(`${returnTo}?error=Categoria+invalida`);
   }
 
+  const shippingExtra = parseShippingExtraInput(formData.get("shippingExtra"));
+  if (shippingExtra === undefined) {
+    redirect(`${returnTo}?error=Envio+adicional+invalido`);
+  }
+
   const slugBase = slugifyCategory(parsed.data.name);
   if (!slugBase) {
     redirect(`${returnTo}?error=Categoria+invalida`);
@@ -170,6 +176,7 @@ export async function adminCreateCategoryAction(formData: FormData): Promise<voi
           description: parsed.data.description || null,
           seoTitle: parsed.data.seoTitle || null,
           seoDescription: parsed.data.seoDescription || null,
+          shippingExtra,
           logoUrl,
         },
     });
@@ -212,6 +219,13 @@ export async function adminUpdateCategoryAction(formData: FormData): Promise<voi
   const slugBase = slugifyCategory(parsed.data.name);
   if (!slugBase) {
     redirect(`${returnTo}?error=Categoria+invalida`);
+  }
+
+  // Solo se toca si el formulario trae el campo (vacio = null = se cotiza).
+  const hasShippingExtra = formData.has("shippingExtra");
+  const shippingExtra = parseShippingExtraInput(formData.get("shippingExtra"));
+  if (hasShippingExtra && shippingExtra === undefined) {
+    redirect(`${returnTo}?error=Envio+adicional+invalido`);
   }
 
   const rawLogo = formData.get("logo");
@@ -257,6 +271,7 @@ export async function adminUpdateCategoryAction(formData: FormData): Promise<voi
           description: parsed.data.description || null,
           seoTitle: parsed.data.seoTitle || null,
           seoDescription: parsed.data.seoDescription || null,
+          ...(hasShippingExtra ? { shippingExtra: shippingExtra ?? null } : {}),
           ...(logoUrl ? { logoUrl } : {}),
         },
     });

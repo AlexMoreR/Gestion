@@ -63,6 +63,8 @@ type EditProductInitialData = {
   categoryId: string | null;
   isBundle: boolean;
   hiddenFromStore: boolean;
+  // Envio ADICIONAL propio (COP). null = usa el de la categoria.
+  shippingExtra: number | null;
   suppliers: Array<{
     supplierId: string;
     supplierCost: number | null;
@@ -762,6 +764,16 @@ export function EditProductForm({
                   onChange={(e) => setMinStock(e.target.value)}
                 />
                 <span className="text-xs text-slate-500">Cantidad minima antes de marcar bajo stock.</span>
+              </label>
+              <label className="block max-w-xs space-y-1.5">
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Truck className="h-4 w-4 text-slate-500" />Envio adicional (COP)</span>
+                <Input
+                  name="shippingExtra"
+                  inputMode="numeric"
+                  defaultValue={initialData.shippingExtra != null ? String(initialData.shippingExtra) : ""}
+                  placeholder="Vacio = el de la categoria"
+                />
+                <span className="text-xs text-slate-500">Se suma al precio en ciudades con envio adicional. Vacio usa el valor de la categoria.</span>
               </label>
 
               <div className="space-y-2">

@@ -15,6 +15,7 @@ import { prisma } from "@/lib/prisma";
 import { slugifyProductSegment } from "@/lib/product-slugs";
 import { calculateMarginPctFromPrice, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
 import { createImageVariants } from "@/lib/image-variants.server";
+import { parseShippingExtraInput } from "@/modules/transporte/domain/shipping";
 
 const baseProductSchema = z.object({
   code: z.string().trim().max(60, "Codigo demasiado largo").optional(),
@@ -359,6 +360,11 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
   const categoryId = parseOptionalId(parsed.data.categoryId);
   const isBundle = formData.get("isBundle") === "true";
   const hiddenFromStore = formData.get("hiddenFromStore") === "true";
+  // Envio adicional propio del producto (vacio = usa el de la categoria).
+  const shippingExtra = parseShippingExtraInput(formData.get("shippingExtra"));
+  if (shippingExtra === undefined) {
+    redirect("/admin/productos?error=Envio+adicional+invalido");
+  }
   let productSuppliers: ParsedProductSupplier[];
   let productComponents: ParsedProductComponent[] = [];
   try {
@@ -400,6 +406,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
         wholesalePrice,
         isBundle,
         hiddenFromStore,
+        shippingExtra,
         categoryId,
         thumbnailUrl,
         images: {
@@ -506,6 +513,12 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
   const categoryId = parseOptionalId(parsed.data.categoryId);
   const isBundle = formData.get("isBundle") === "true";
   const hiddenFromStore = formData.get("hiddenFromStore") === "true";
+  // Solo se toca si el formulario trae el campo (vacio = null = usa el de la categoria).
+  const hasShippingExtra = formData.has("shippingExtra");
+  const shippingExtra = parseShippingExtraInput(formData.get("shippingExtra"));
+  if (hasShippingExtra && shippingExtra === undefined) {
+    redirect(`${redirectBase}?error=Envio+adicional+invalido`);
+  }
   let productSuppliers: ParsedProductSupplier[];
   let productComponents: ParsedProductComponent[] = [];
   try {
@@ -555,6 +568,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
           wholesalePrice,
           isBundle,
           hiddenFromStore,
+          ...(hasShippingExtra ? { shippingExtra: shippingExtra ?? null } : {}),
           categoryId,
           thumbnailUrl,
         },

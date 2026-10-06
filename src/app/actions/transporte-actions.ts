@@ -10,8 +10,7 @@ import {
   listLocalityOptions,
   resolveFreeShipping,
   searchTransportPlaces,
-  setCityFreeShipping,
-  setLocalityFreeShipping,
+  setPlaceShippingType,
 } from "@/modules/transporte/infrastructure/transporte-repository";
 import type {
   TransportCityRow,
@@ -20,8 +19,11 @@ import type {
   TransportOption,
   TransportSearchResult,
 } from "@/modules/transporte/domain/entities";
+import type { ShippingTypeName } from "@/modules/transporte/domain/shipping";
 
 type ActionResult = { ok: boolean; error?: string };
+
+const SHIPPING_TYPES: readonly ShippingTypeName[] = ["GRATIS", "ADICIONAL", "COTIZAR", "NO_LLEGA"];
 
 // Verifica que quien llama sea un admin con acceso al modulo Transporte.
 async function ensureTransportAdmin(): Promise<boolean> {
@@ -32,33 +34,23 @@ async function ensureTransportAdmin(): Promise<boolean> {
   return hasAdminModuleAccess(session.user.id, session.user.role, "transporte");
 }
 
-// --- Toggles (solo admin) ---
+// --- Tipo de envio (solo admin) ---
 
-export async function adminToggleCityFreeShippingAction(
-  cityId: string,
-  freeShipping: boolean,
+// Guarda el tipo de envio de una ciudad o corregimiento. null = "Automatico (como antes)".
+// Al guardar se quita la marca de "pendiente de revisar".
+export async function adminSetPlaceShippingTypeAction(
+  kind: "city" | "locality",
+  id: string,
+  shippingType: ShippingTypeName | null,
 ): Promise<ActionResult> {
   if (!(await ensureTransportAdmin())) {
     return { ok: false, error: "No autorizado" };
   }
-  try {
-    await setCityFreeShipping(cityId, freeShipping);
-    revalidatePath("/admin/transporte");
-    return { ok: true };
-  } catch {
-    return { ok: false, error: "No se pudo guardar el cambio" };
-  }
-}
-
-export async function adminToggleLocalityFreeShippingAction(
-  localityId: string,
-  freeShipping: boolean,
-): Promise<ActionResult> {
-  if (!(await ensureTransportAdmin())) {
-    return { ok: false, error: "No autorizado" };
+  if ((kind !== "city" && kind !== "locality") || !id || (shippingType !== null && !SHIPPING_TYPES.includes(shippingType))) {
+    return { ok: false, error: "Datos invalidos" };
   }
   try {
-    await setLocalityFreeShipping(localityId, freeShipping);
+    await setPlaceShippingType(kind, id, shippingType);
     revalidatePath("/admin/transporte");
     return { ok: true };
   } catch {
