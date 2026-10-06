@@ -177,6 +177,11 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   - `needsReview` + `source` (`DANE`/`CRM`/...): lo que agrega el CRM entra como corregimiento con
     código `CRM-<ciudad>-<nombre>` y `needsReview=true`; aparece en "Pendientes de revisar" y se limpia
     al guardarle un tipo.
+- **Búsqueda por nombre** (panel y `/api/transporte/ubicaciones`): orden puro en
+  `src/modules/transporte/domain/place-search.ts` (`rankPlaces`). Alias de nombre común → ciudad DANE
+  (`CITY_ALIASES`: "cali" → Santiago de Cali, "bogota" → Bogotá, D.C., "cucuta", "cartagena", "buga",
+  "tumaco"...) va primero; luego exacta > palabra completa > empieza por > contiene; a igual puntaje
+  ciudades, capitales (código `DD001`) y alfabético. `exacta` en la API incluye el alias.
 - **Total con envío** (`quoteShipping`): GRATIS → precio; ADICIONAL → precio + `Product.shippingExtra`
   (o `Category.shippingExtra`); si no hay valor cargado → se cotiza (nunca se inventa); COTIZAR/NO_LLEGA
   → sin total.

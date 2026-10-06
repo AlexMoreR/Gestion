@@ -16,6 +16,7 @@ import {
   resolveShippingType,
   type ShippingTypeName,
 } from "../domain/shipping";
+import { aliasCityCode, isExactPlaceMatch, rankPlaces } from "../domain/place-search";
 
 type SeedData = {
   departments: Array<{ code: string; name: string }>;
@@ -169,8 +170,73 @@ export async function listLocalitiesByCity(cityId: string): Promise<TransportLoc
 const placeShippingSelect = { id: true, name: true, freeShipping: true, shippingType: true, needsReview: true } as const;
 const cityParentSelect = { shippingType: true, freeShipping: true } as const;
 
-// Busqueda por nombre en ciudades y corregimientos (limitada para el panel). Ignora acentos y
-// mayusculas usando nameKey (y el nombre tal cual por si alguna fila aun no tiene nameKey).
+// Candidatos por tipo que se traen de la base antes de ordenar en memoria (rankPlaces).
+const SEARCH_POOL_PER_TYPE = 80;
+
+const searchCitySelect = { ...placeShippingSelect, code: true, nameKey: true, department: { select: { name: true } } } as const;
+const searchLocalitySelect = {
+  ...placeShippingSelect,
+  code: true,
+  nameKey: true,
+  city: { select: { id: true, name: true, ...cityParentSelect, department: { select: { name: true } } } },
+} as const;
+
+// Trae candidatos de ciudades y corregimientos para un termino: exactas, la ciudad del alias
+// ("cali" -> Santiago de Cali), las que empiezan por el termino y las que lo contienen. Se piden
+// por separado porque con "san" hay cientos de parciales y lo mejor podria quedar fuera del recorte.
+// Ignora acentos y mayusculas con nameKey (y el nombre tal cual por si alguna fila no tiene nameKey).
+async function fetchPlaceCandidates(term: string) {
+  const query = term.trim();
+  const key = normalizePlaceName(query);
+  const aliasCode = aliasCityCode(key);
+  const insensitive = "insensitive" as const;
+  const exactFilter = { OR: [{ nameKey: key }, { name: { equals: query, mode: insensitive } }] };
+  const prefixFilter = { OR: [{ nameKey: { startsWith: key } }, { name: { startsWith: query, mode: insensitive } }] };
+  const partialFilter = { OR: [{ nameKey: { contains: key } }, { name: { contains: query, mode: insensitive } }] };
+  const pool = SEARCH_POOL_PER_TYPE;
+
+  const [exactCities, aliasCities, prefixCities, partialCities, exactLocalities, prefixLocalities, partialLocalities] =
+    await Promise.all([
+      prisma.transportCity.findMany({ where: exactFilter, take: pool, select: searchCitySelect }),
+      aliasCode
+        ? prisma.transportCity.findMany({ where: { code: aliasCode }, take: 1, select: searchCitySelect })
+        : Promise.resolve([]),
+      prisma.transportCity.findMany({ where: prefixFilter, orderBy: { name: "asc" }, take: pool, select: searchCitySelect }),
+      prisma.transportCity.findMany({ where: partialFilter, orderBy: { name: "asc" }, take: pool, select: searchCitySelect }),
+      prisma.transportLocality.findMany({ where: exactFilter, take: pool, select: searchLocalitySelect }),
+      prisma.transportLocality.findMany({
+        where: prefixFilter,
+        orderBy: { name: "asc" },
+        take: pool,
+        select: searchLocalitySelect,
+      }),
+      prisma.transportLocality.findMany({
+        where: partialFilter,
+        orderBy: { name: "asc" },
+        take: pool,
+        select: searchLocalitySelect,
+      }),
+    ]);
+
+  const uniqueById = <T extends { id: string }>(rows: T[]): T[] =>
+    Array.from(new Map(rows.map((row) => [row.id, row])).values());
+
+  const cities = uniqueById([...aliasCities, ...exactCities, ...prefixCities, ...partialCities]).map((city) => ({
+    ...city,
+    kind: "city" as const,
+  }));
+  const localities = uniqueById([...exactLocalities, ...prefixLocalities, ...partialLocalities]).map((locality) => ({
+    ...locality,
+    kind: "locality" as const,
+  }));
+  return { cities, localities };
+}
+
+type PlaceCandidates = Awaited<ReturnType<typeof fetchPlaceCandidates>>;
+type PlaceCandidate = PlaceCandidates["cities"][number] | PlaceCandidates["localities"][number];
+
+// Busqueda por nombre en ciudades y corregimientos para el panel (hasta 80 resultados),
+// ordenada por relevancia con rankPlaces.
 export async function searchTransportPlaces(term: string): Promise<TransportSearchResult[]> {
   const query = term.trim();
   const key = normalizePlaceName(query);
@@ -178,55 +244,39 @@ export async function searchTransportPlaces(term: string): Promise<TransportSear
     return [];
   }
 
-  const nameFilter = { OR: [{ nameKey: { contains: key } }, { name: { contains: query, mode: "insensitive" as const } }] };
+  const candidates = await fetchPlaceCandidates(query);
+  const ranked = rankPlaces<PlaceCandidate>([...candidates.cities, ...candidates.localities], query, 80);
 
-  const [cities, localities] = await Promise.all([
-    prisma.transportCity.findMany({
-      where: nameFilter,
-      orderBy: { name: "asc" },
-      take: 40,
-      select: { ...placeShippingSelect, department: { select: { name: true } } },
-    }),
-    prisma.transportLocality.findMany({
-      where: nameFilter,
-      orderBy: { name: "asc" },
-      take: 40,
-      select: {
-        ...placeShippingSelect,
-        city: { select: { name: true, ...cityParentSelect, department: { select: { name: true } } } },
-      },
-    }),
-  ]);
-
-  const cityResults: TransportSearchResult[] = cities.map((city) => ({
-    kind: "city",
-    id: city.id,
-    name: city.name,
-    freeShipping: city.freeShipping,
-    shippingType: city.shippingType,
-    effectiveShippingType: resolveShippingType({ shippingType: city.shippingType, freeShipping: city.freeShipping }),
-    needsReview: city.needsReview,
-    departmentName: city.department.name,
-    cityName: null,
-  }));
-
-  const localityResults: TransportSearchResult[] = localities.map((locality) => ({
-    kind: "locality",
-    id: locality.id,
-    name: locality.name,
-    freeShipping: locality.freeShipping,
-    shippingType: locality.shippingType,
-    effectiveShippingType: resolveShippingType({
-      shippingType: locality.shippingType,
-      freeShipping: locality.freeShipping,
-      parent: { shippingType: locality.city.shippingType, freeShipping: locality.city.freeShipping },
-    }),
-    needsReview: locality.needsReview,
-    departmentName: locality.city.department.name,
-    cityName: locality.city.name,
-  }));
-
-  return [...cityResults, ...localityResults].sort((a, b) => a.name.localeCompare(b.name, "es"));
+  return ranked.map((place): TransportSearchResult => {
+    if (place.kind === "city") {
+      return {
+        kind: "city",
+        id: place.id,
+        name: place.name,
+        freeShipping: place.freeShipping,
+        shippingType: place.shippingType,
+        effectiveShippingType: resolveShippingType({ shippingType: place.shippingType, freeShipping: place.freeShipping }),
+        needsReview: place.needsReview,
+        departmentName: place.department.name,
+        cityName: null,
+      };
+    }
+    return {
+      kind: "locality",
+      id: place.id,
+      name: place.name,
+      freeShipping: place.freeShipping,
+      shippingType: place.shippingType,
+      effectiveShippingType: resolveShippingType({
+        shippingType: place.shippingType,
+        freeShipping: place.freeShipping,
+        parent: { shippingType: place.city.shippingType, freeShipping: place.city.freeShipping },
+      }),
+      needsReview: place.needsReview,
+      departmentName: place.city.department.name,
+      cityName: place.city.name,
+    };
+  });
 }
 
 // --- Envios por tipo (GRATIS / ADICIONAL / COTIZAR / NO_LLEGA) ---
@@ -326,66 +376,43 @@ export async function searchPlacesForExternalApps(term: string, limit = 20): Pro
   const take = Math.min(Math.max(Math.trunc(limit) || 20, 1), 50);
   const query = term.trim();
 
-  // Las exactas se piden aparte: con "san" o "cali" hay cientos de coincidencias parciales y la
-  // exacta podria quedar fuera del recorte. El resto se trae con un margen y se ordena aca.
-  const exactFilter = { OR: [{ nameKey: key }, { name: { equals: query, mode: "insensitive" as const } }] };
-  const partialFilter = { OR: [{ nameKey: { contains: key } }, { name: { contains: query, mode: "insensitive" as const } }] };
-  const citySelect = { ...placeShippingSelect, nameKey: true, department: { select: { name: true } } } as const;
-  const localitySelect = {
-    ...placeShippingSelect,
-    nameKey: true,
-    city: { select: { id: true, name: true, ...cityParentSelect, department: { select: { name: true } } } },
-  } as const;
-  const pool = Math.min(take * 3, 150);
+  // Mismo orden que el panel (rankPlaces): alias/exacta > palabra completa > empieza por >
+  // contiene; a igual puntaje ciudades, capitales y alfabetico. "exacta" incluye el alias
+  // ("cali" -> Santiago de Cali).
+  const candidates = await fetchPlaceCandidates(query);
+  const ranked = rankPlaces<PlaceCandidate>([...candidates.cities, ...candidates.localities], query, take);
 
-  const [exactCities, exactLocalities, partialCities, partialLocalities] = await Promise.all([
-    prisma.transportCity.findMany({ where: exactFilter, take: 50, select: citySelect }),
-    prisma.transportLocality.findMany({ where: exactFilter, take: 50, select: localitySelect }),
-    prisma.transportCity.findMany({ where: partialFilter, orderBy: { name: "asc" }, take: pool, select: citySelect }),
-    prisma.transportLocality.findMany({ where: partialFilter, orderBy: { name: "asc" }, take: pool, select: localitySelect }),
-  ]);
-
-  const uniqueById = <T extends { id: string }>(rows: T[]): T[] => Array.from(new Map(rows.map((row) => [row.id, row])).values());
-  const cities = uniqueById([...exactCities, ...partialCities]);
-  const localities = uniqueById([...exactLocalities, ...partialLocalities]);
-
-  const cityMatches: ExternalPlaceMatch[] = cities.map((city) => ({
-    tipo: "ciudad",
-    id: city.id,
-    cityId: city.id,
-    nombre: city.name,
-    ciudad: city.name,
-    departamento: city.department.name,
-    envio: resolveShippingType({ shippingType: city.shippingType, freeShipping: city.freeShipping }),
-    pendienteRevision: city.needsReview,
-    exacta: (city.nameKey ?? normalizePlaceName(city.name)) === key,
-  }));
-
-  const localityMatches: ExternalPlaceMatch[] = localities.map((locality) => ({
-    tipo: "corregimiento",
-    id: locality.id,
-    cityId: locality.city.id,
-    nombre: locality.name,
-    ciudad: locality.city.name,
-    departamento: locality.city.department.name,
-    envio: resolveShippingType({
-      shippingType: locality.shippingType,
-      freeShipping: locality.freeShipping,
-      parent: { shippingType: locality.city.shippingType, freeShipping: locality.city.freeShipping },
-    }),
-    pendienteRevision: locality.needsReview,
-    exacta: (locality.nameKey ?? normalizePlaceName(locality.name)) === key,
-  }));
-
-  // Exactas primero, luego ciudades antes que corregimientos, luego alfabetico.
-  return [...cityMatches, ...localityMatches]
-    .sort(
-      (a, b) =>
-        Number(b.exacta) - Number(a.exacta) ||
-        (a.tipo === b.tipo ? 0 : a.tipo === "ciudad" ? -1 : 1) ||
-        a.nombre.localeCompare(b.nombre, "es"),
-    )
-    .slice(0, take);
+  return ranked.map((place): ExternalPlaceMatch => {
+    const exacta = isExactPlaceMatch(place, query);
+    if (place.kind === "city") {
+      return {
+        tipo: "ciudad",
+        id: place.id,
+        cityId: place.id,
+        nombre: place.name,
+        ciudad: place.name,
+        departamento: place.department.name,
+        envio: resolveShippingType({ shippingType: place.shippingType, freeShipping: place.freeShipping }),
+        pendienteRevision: place.needsReview,
+        exacta,
+      };
+    }
+    return {
+      tipo: "corregimiento",
+      id: place.id,
+      cityId: place.city.id,
+      nombre: place.name,
+      ciudad: place.city.name,
+      departamento: place.city.department.name,
+      envio: resolveShippingType({
+        shippingType: place.shippingType,
+        freeShipping: place.freeShipping,
+        parent: { shippingType: place.city.shippingType, freeShipping: place.city.freeShipping },
+      }),
+      pendienteRevision: place.needsReview,
+      exacta,
+    };
+  });
 }
 
 // Agrega un corregimiento/barrio/vereda bajo una ciudad existente, SIN duplicar: si ya existe
