@@ -3,11 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowUpRight, MessageSquareText, ScrollText } from "lucide-react";
 import type { DispatchStatus } from "@prisma/client";
 import { auth } from "@/auth";
-import {
-  adminLogCarrierResponseAction,
-  adminRevertDispatchDeliveredAction,
-  adminSetDispatchTrackingAction,
-} from "@/app/actions/dispatch-actions";
+import { adminLogCarrierResponseAction, adminSetDispatchTrackingAction } from "@/app/actions/dispatch-actions";
 import { CarrierMessageButton } from "@/components/admin/carrier-message-button";
 import { OperationsTabs } from "@/components/admin/operations-tabs";
 import { Button } from "@/components/ui/button";
@@ -194,12 +190,16 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
         </p>
       ) : null}
       {mode === "done" ? (
-        <form action={adminRevertDispatchDeliveredAction} className="flex justify-end">
-          <input type="hidden" name="dispatchId" value={row.id} />
-          <Button type="submit" variant="outline" size="sm" className="h-8 text-rose-700 dark:text-rose-400">
-            No se ha entregado
-          </Button>
-        </form>
+        // Si se marco entregado por error se corrige en la orden ("Deshacer despacho" del producto).
+        <div className="flex justify-end">
+          <Link
+            href={`/admin/ordenes/${row.order.id}`}
+            className="inline-flex items-center gap-0.5 text-xs font-medium text-primary hover:underline"
+          >
+            ¿No se entregó? Corregir en la orden
+            <ArrowUpRight className="h-3 w-3" />
+          </Link>
+        </div>
       ) : null}
       {mode !== "done" ? (
         <div className="grid gap-2 md:grid-cols-2">
