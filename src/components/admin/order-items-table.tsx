@@ -32,8 +32,9 @@ import {
   ShipmentDispatchFields,
   type ShipmentDefaults,
 } from "@/modules/guias/presentation/shipment-dispatch-fields";
+import { CarrierSelect, type CarrierSelectOption } from "@/modules/guias/presentation/carrier-select";
 
-type CarrierOption = { id: string; name: string };
+type CarrierOption = CarrierSelectOption;
 type AccountOption = { id: string; name: string };
 
 type Stage = "fabricar" | "recoger" | "despachar" | "done";
@@ -305,21 +306,11 @@ export function OrderItemsTable({
                     <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                       Transportadora
                     </label>
-                    <select
-                      name="carrierSupplierId"
-                      required
-                      defaultValue=""
+                    <CarrierSelect
+                      carriers={carriers}
+                      placeholder="Selecciona la transportadora"
                       className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-                    >
-                      <option value="" disabled>
-                        Selecciona la transportadora
-                      </option>
-                      {carriers.map((carrier) => (
-                        <option key={carrier.id} value={carrier.id}>
-                          {carrier.name}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
 
                   <div className="space-y-2 rounded-lg border border-border p-2.5">

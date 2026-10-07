@@ -183,6 +183,8 @@ model Supplier {
   type              SupplierType          @default(MANUFACTURER)
   shareToken        String?               @unique
   isActive          Boolean               @default(true)
+  // Advertencia que se muestra al elegirlo como transportador en un despacho (una idea por linea).
+  dispatchWarning   String?
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
   products          ProductSupplier[]
@@ -304,6 +306,14 @@ enum SaleStatus {
   CANCELLED
 }
 
+// Forma de pago acordada con el cliente (decision de Alexander, 7-oct-2026).
+// ANTICIPO_50_50: 50 % anticipo + 50 % al terminar (envio gratis en ciudades principales).
+// CONTRAENTREGA: solo combo de camilla; el envio se cobra.
+enum PaymentMethod {
+  ANTICIPO_50_50
+  CONTRAENTREGA
+}
+
 model Sale {
   id                 String                @id @default(cuid())
   code               String                @unique
@@ -311,6 +321,7 @@ model Sale {
   clientId           String
   createdById        String
   status             SaleStatus            @default(ACTIVE)
+  paymentMethod      PaymentMethod? // NULL = sin definir (ventas viejas)
   downPaymentAmount  Decimal               @default(0) @db.Decimal(12, 2)
   grossTotal         Decimal               @default(0) @db.Decimal(12, 2)
   discountAmount     Decimal               @default(0) @db.Decimal(12, 2)

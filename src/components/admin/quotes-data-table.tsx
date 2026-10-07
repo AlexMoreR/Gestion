@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { adminDeleteQuoteAction } from "@/app/actions/quote-actions";
 import { adminCreateSaleFromQuoteAction } from "@/app/actions/sales-actions";
+import { PaymentMethodField } from "@/modules/ventas/presentation/payment-method-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -65,6 +66,7 @@ type QuoteRow = {
   createdAtISO: string;
   shareToken: string;
   hasSale: boolean;
+  hasCamillaCombo?: boolean;
 };
 
 type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER";
@@ -769,6 +771,12 @@ function SaleInstallmentsModal({
                       <p className="text-xs text-muted-foreground">Restante</p>
                       <p className="font-semibold text-foreground">{formatMoney(validation.remainingBalance, currency)}</p>
                     </div>
+                  </div>
+                  <div className="mt-3">
+                    <PaymentMethodField
+                      id={`sale-payment-method-${quote.id}`}
+                      hasCamillaCombo={quote.hasCamillaCombo}
+                    />
                   </div>
                 </div>
 

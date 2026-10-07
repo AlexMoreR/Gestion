@@ -35,16 +35,14 @@ import {
   ShipmentDispatchFields,
   type ShipmentDefaults,
 } from "@/modules/guias/presentation/shipment-dispatch-fields";
+import { CarrierSelect, type CarrierSelectOption } from "@/modules/guias/presentation/carrier-select";
 
 type SupplierOption = {
   id: string;
   name: string;
 };
 
-type CarrierOption = {
-  id: string;
-  name: string;
-};
+type CarrierOption = CarrierSelectOption;
 
 type AccountOption = {
   id: string;
@@ -715,21 +713,10 @@ export function OrderItemManager({
                     <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                       Transportadora
                     </label>
-                    <select
-                      name="carrierSupplierId"
-                      required
-                      defaultValue=""
+                    <CarrierSelect
+                      carriers={carriers}
                       className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-                    >
-                      <option value="" disabled>
-                        Seleccionar
-                      </option>
-                      {carriers.map((carrier) => (
-                        <option key={carrier.id} value={carrier.id}>
-                          {carrier.name}
-                        </option>
-                      ))}
-                    </select>
+                    />
                     {carriers.length === 0 ? (
                       <p className="text-xs text-destructive">
                         No hay proveedores registrados. Crea la transportadora en Proveedores.

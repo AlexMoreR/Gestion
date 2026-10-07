@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { expandComboLines, type ComboComponent } from "@/lib/combo";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { PaymentMethodField } from "@/modules/ventas/presentation/payment-method-field";
 
 export type DirectSaleProduct = {
   id: string;
@@ -35,6 +36,7 @@ export type DirectSaleProduct = {
   minWholesaleQty: number;
   thumbnailUrl?: string | null;
   isBundle?: boolean;
+  isCamillaCombo?: boolean;
   components?: ComboComponent[];
 };
 
@@ -65,6 +67,7 @@ type DraftLine = {
   quantity: number;
   unitPrice: number;
   description: string;
+  isCamillaCombo: boolean;
 };
 
 const inputClass =
@@ -258,6 +261,7 @@ export function DirectSaleSheet({
           quantity: line.quantity,
           unitPrice: line.unitPrice,
           description: draftDescription.trim(),
+          isCamillaCombo: Boolean(draftProduct.isCamillaCombo),
         })),
       ]);
       setOpenProductModal(false);
@@ -275,6 +279,7 @@ export function DirectSaleSheet({
         quantity,
         unitPrice,
         description: draftDescription.trim(),
+        isCamillaCombo: Boolean(draftProduct.isCamillaCombo),
       },
     ]);
     setOpenProductModal(false);
@@ -567,6 +572,11 @@ export function DirectSaleSheet({
             </div>
           ) : null}
         </div>
+
+        <PaymentMethodField
+          id="direct-sale-payment-method"
+          hasCamillaCombo={lines.length > 0 ? lines.some((line) => line.isCamillaCombo) : undefined}
+        />
 
         {/* Pago opcional */}
         <div className="space-y-3 rounded-lg border border-border p-3">

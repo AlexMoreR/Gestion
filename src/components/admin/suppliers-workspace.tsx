@@ -10,6 +10,7 @@ import { SuppliersDataTable } from "@/components/admin/suppliers-data-table";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { type SupportedCurrencyCode } from "@/lib/currency";
+import { DispatchWarningField } from "@/modules/guias/presentation/dispatch-warning-field";
 import { Button } from "../ui/button";
 
 type LedgerEntry = {
@@ -45,6 +46,7 @@ type SupplierRow = {
   email: string | null;
   phone: string | null;
   type: SupplierType;
+  dispatchWarning?: string | null;
   shareToken: string | null;
   productsCount: number;
   balance: number;
@@ -236,6 +238,7 @@ export function SuppliersWorkspace({ suppliers, currency }: SuppliersWorkspacePr
                   />
                 </label>
               </div>
+              <DispatchWarningField supplier={activeSupplier} />
               <Button type="submit" className="h-10 w-full">
                 Guardar cambios
               </Button>

@@ -30,7 +30,15 @@ import { adminCreateShipmentAction } from "@/app/actions/shipment-actions";
 import { Button } from "@/components/ui/button";
 import { phoneLast4 } from "@/modules/guias/domain/lookup";
 import { SHIPMENT_STATUS_BADGE, SHIPMENT_STATUS_LABEL } from "@/modules/guias/domain/statuses";
-import { computeSaleBalance, resolveCityFromClient } from "@/modules/guias/infrastructure/shipments-repository";
+import { computeCollectSuggestion, resolveCityFromClient } from "@/modules/guias/infrastructure/shipments-repository";
+import {
+  COMBO_CHECK_PRODUCT_SELECT,
+  contraentregaComboWarning,
+  toComboCheckProduct,
+  PAYMENT_METHOD_BADGE,
+  PAYMENT_METHOD_LABEL,
+  PAYMENT_METHOD_SHORT_LABEL,
+} from "@/modules/ventas/domain/payment-method";
 import type { ShipmentDefaults } from "@/modules/guias/presentation/shipment-dispatch-fields";
 
 type PageProps = {
@@ -80,6 +88,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           include: {
             product: {
               include: {
+                category: { select: { name: true } },
+                partOfBundles: COMBO_CHECK_PRODUCT_SELECT.partOfBundles,
                 suppliers: {
                   include: { supplier: true },
                   orderBy: { isPreferred: "desc" },
@@ -154,7 +164,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     getSystemCurrency(),
     prisma.supplier.findMany({
       where: { isActive: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, displayName: true, dispatchWarning: true },
       orderBy: { name: "asc" },
     }),
     prisma.account.findMany({
@@ -340,12 +350,23 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   // Guia Magilus: datos sugeridos para el check "Crear guia Magilus" del modal de despacho.
   let shipmentDefaults: ShipmentDefaults | undefined;
   if (!isPurchase) {
-    const [destination, saleBalance] = await Promise.all([
-      resolveCityFromClient(order.client?.city, order.client?.department),
-      computeSaleBalance(order.saleId),
-    ]);
-    shipmentDefaults = { destination, saleBalance, hasPhone: Boolean(phoneLast4(order.client?.phone)) };
+    const destination = await resolveCityFromClient(order.client?.city, order.client?.department);
+    const collect = await computeCollectSuggestion(order.saleId, destination?.id);
+    shipmentDefaults = {
+      destination,
+      saleBalance: collect.saleBalance,
+      hasPhone: Boolean(phoneLast4(order.client?.phone)),
+      paymentMethod: collect.paymentMethod,
+      suggestedAmount: collect.amount,
+      shippingFee: collect.shippingFee,
+      shippingPending: collect.shippingPending,
+    };
   }
+  const salePaymentMethod = order.sale?.paymentMethod ?? null;
+  const comboWarning = contraentregaComboWarning(
+    salePaymentMethod,
+    order.items.map((item) => toComboCheckProduct(item.product)),
+  );
   const shippingDispatches = order.dispatches.filter(
     (dispatch) => dispatch.deliveryType === "SHIPPING" && dispatch.status !== "CANCELLED",
   );
@@ -427,6 +448,24 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               - Cliente {order.client?.name || order.client?.email}
             </p>
           )}
+          {!isPurchase ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {salePaymentMethod ? (
+                <Badge
+                  variant="outline"
+                  className={PAYMENT_METHOD_BADGE[salePaymentMethod]}
+                  title={PAYMENT_METHOD_LABEL[salePaymentMethod]}
+                >
+                  Pago: {PAYMENT_METHOD_SHORT_LABEL[salePaymentMethod]}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="border-border bg-muted text-muted-foreground">
+                  Forma de pago sin definir
+                </Badge>
+              )}
+              {comboWarning ? <span className="text-xs text-amber-700 dark:text-amber-400">{comboWarning}</span> : null}
+            </div>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-2">

@@ -14,6 +14,7 @@ import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
 import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
+import { PAYMENT_METHOD_SHORT_LABEL, parsePaymentMethodInput } from "@/modules/ventas/domain/payment-method";
 
 const createSaleSchema = z.object({
   quoteId: z.string().trim().min(1, "Quote is invalid"),
@@ -190,6 +191,11 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
     redirectWithError(returnTo, "Cotizacion invalida");
   }
 
+  const paymentMethod = parsePaymentMethodInput(formData.get("paymentMethod"));
+  if (paymentMethod === undefined) {
+    redirectWithError(returnTo, "Forma de pago invalida");
+  }
+
   const quote = await prisma.quote.findUnique({
     where: { id: parsed.data.quoteId },
     include: {
@@ -362,6 +368,7 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
           // Si la venta nace ya pagada por completo, se factura de una vez
           // (misma regla que la ruta de abonos posteriores).
           status: totalDownPayment >= netTotal ? "INVOICED" : "ACTIVE",
+          paymentMethod,
           ...(saleCreatedAt ? { createdAt: saleCreatedAt } : {}),
           downPaymentAmount: totalDownPayment,
           grossTotal,
@@ -781,6 +788,11 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
     redirectWithError(returnTo, "Selecciona un cliente existente");
   }
 
+  const paymentMethod = parsePaymentMethodInput(formData.get("paymentMethod"));
+  if (paymentMethod === undefined) {
+    redirectWithError(returnTo, "Forma de pago invalida");
+  }
+
   if (clientMode === "new") {
     if (!newClientName) {
       redirectWithError(returnTo, "El nombre del cliente es obligatorio");
@@ -1036,6 +1048,7 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
           // Si la venta nace ya pagada por completo, se factura de una vez
           // (misma regla que la ruta de abonos posteriores).
           status: downPaymentAmount >= total ? "INVOICED" : "ACTIVE",
+          paymentMethod,
           ...(saleDate ? { createdAt: saleDate } : {}),
           downPaymentAmount,
           grossTotal: new Prisma.Decimal(total),
@@ -1172,4 +1185,47 @@ export async function adminUpdateSaleDateAction(formData: FormData): Promise<voi
     revalidatePath("/admin/proveedores");
   }
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Fecha de la venta actualizada" }).toString()}`);
+}
+
+// Cambia la forma de pago de una venta (50/50, contraentrega o sin definir). No toca abonos.
+export async function adminUpdateSalePaymentMethodAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const returnTo = getReturnTo(formData);
+
+  const saleIdValue = formData.get("saleId");
+  const saleId = typeof saleIdValue === "string" ? saleIdValue.trim() : "";
+  if (!saleId) {
+    redirectWithError(returnTo, "Venta invalida");
+  }
+
+  const paymentMethod = parsePaymentMethodInput(formData.get("paymentMethod"));
+  if (paymentMethod === undefined) {
+    redirectWithError(returnTo, "Forma de pago invalida");
+  }
+
+  const sale = await prisma.sale.findUnique({
+    where: { id: saleId },
+    select: { id: true, code: true, invoiceToken: true, order: { select: { id: true } } },
+  });
+  if (!sale) {
+    redirectWithError(returnTo, "Venta no encontrada");
+  }
+
+  await prisma.sale.update({ where: { id: sale.id }, data: { paymentMethod } });
+
+  await logActivity({
+    action: "UPDATE",
+    entityType: "SALE",
+    entityId: sale.id,
+    summary: `Cambió la forma de pago de la venta ${sale.code} a ${
+      paymentMethod ? PAYMENT_METHOD_SHORT_LABEL[paymentMethod] : "sin definir"
+    }`,
+  });
+
+  revalidatePath("/admin/ventas");
+  revalidatePath("/admin/despachos/transportadora");
+  if (sale.order) {
+    revalidatePath(`/admin/ordenes/${sale.order.id}`);
+  }
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Forma de pago actualizada" }).toString()}`);
 }

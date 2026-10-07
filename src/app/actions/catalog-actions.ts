@@ -13,6 +13,7 @@ import { logActivity } from "@/lib/activity-log";
 import { prisma } from "@/lib/prisma";
 import { createImageVariants, deleteImageVariants } from "@/lib/image-variants.server";
 import { parseShippingExtraInput } from "@/modules/transporte/domain/shipping";
+import { MAX_DISPATCH_WARNING_LENGTH } from "@/modules/guias/domain/carrier-warning";
 
 const createCategorySchema = z.object({
   name: z.string().trim().min(2, "Nombre invalido").max(80, "Nombre demasiado largo"),
@@ -443,6 +444,11 @@ export async function adminUpdateSupplierAction(formData: FormData): Promise<voi
     redirect("/admin/proveedores?error=Ya+existe+un+proveedor+con+ese+nombre");
   }
 
+  // Aviso al despachar: solo se cambia si el formulario trae el campo (otros formularios no lo pisan).
+  const warningRaw = formData.get("dispatchWarning");
+  const dispatchWarning =
+    typeof warningRaw === "string" ? warningRaw.trim().slice(0, MAX_DISPATCH_WARNING_LENGTH) || null : undefined;
+
   try {
     await prisma.supplier.update({
       where: { id: parsed.data.supplierId },
@@ -452,6 +458,7 @@ export async function adminUpdateSupplierAction(formData: FormData): Promise<voi
         email: parsed.data.email || null,
         phone: parsed.data.phone || null,
         type: parsed.data.type,
+        ...(dispatchWarning !== undefined ? { dispatchWarning } : {}),
       },
     });
   } catch {
@@ -468,6 +475,7 @@ export async function adminUpdateSupplierAction(formData: FormData): Promise<voi
   revalidatePath("/admin/proveedores");
   revalidatePath("/admin/productos");
   revalidatePath("/admin/productos/new");
+  revalidatePath("/admin/ordenes", "layout");
   redirect("/admin/proveedores?ok=Proveedor+actualizado");
 }
 

@@ -22,6 +22,7 @@ type QuoteRow = {
   createdAtISO: string;
   shareToken: string;
   hasSale: boolean;
+  hasCamillaCombo?: boolean;
 };
 
 type AccountOption = {

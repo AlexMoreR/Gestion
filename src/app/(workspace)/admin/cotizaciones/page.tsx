@@ -6,6 +6,11 @@ import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
+import {
+  COMBO_CHECK_PRODUCT_SELECT,
+  isCamillaComboProduct,
+  toComboCheckProduct,
+} from "@/modules/ventas/domain/payment-method";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -35,7 +40,9 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
       orderBy: { createdAt: "desc" },
       include: {
         client: true,
-        items: true,
+        items: {
+          include: { product: { select: COMBO_CHECK_PRODUCT_SELECT } },
+        },
         sale: true,
       },
       take: 500,
@@ -121,6 +128,7 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
           createdAtISO: quote.createdAt.toISOString(),
           shareToken: quote.shareToken,
           hasSale: Boolean(quote.sale),
+          hasCamillaCombo: quote.items.some((item) => isCamillaComboProduct(toComboCheckProduct(item.product))),
         }))}
         clients={clients.map((client) => ({
           id: client.id,

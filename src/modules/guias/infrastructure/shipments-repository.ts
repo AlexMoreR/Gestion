@@ -2,7 +2,12 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { Prisma, type DispatchStatus, type ShipmentIncident, type ShipmentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { normalizePlaceName } from "@/modules/transporte/domain/shipping";
+import { normalizePlaceName, resolveShippingType } from "@/modules/transporte/domain/shipping";
+import {
+  suggestAmountToCollect,
+  type CollectSuggestion,
+  type SalePaymentMethod,
+} from "@/modules/ventas/domain/payment-method";
 import { aliasCityCode, rankPlaces } from "@/modules/transporte/domain/place-search";
 import { ensureTransportSeed } from "@/modules/transporte/infrastructure/transporte-repository";
 import { buildShipmentCode, parseShipmentCodeNumber } from "../domain/codes";
@@ -135,6 +140,34 @@ export async function computeSaleBalance(saleId: string | null | undefined): Pro
   return Math.max(Math.round(capital - paid), 0);
 }
 
+// Cobro al recibir sugerido segun la forma de pago de la venta: con contraentrega suma el envio
+// (Bogota $100.000, ciudades GRATIS $150.000, otras se cotizan); con 50/50 es el saldo (lo
+// esperado es $0). Siempre editable al crear la guia.
+export async function computeCollectSuggestion(
+  saleId: string | null | undefined,
+  destinationCityId: string | null | undefined,
+): Promise<CollectSuggestion & { paymentMethod: SalePaymentMethod | null }> {
+  const [saleBalance, sale, city] = await Promise.all([
+    computeSaleBalance(saleId),
+    saleId ? prisma.sale.findUnique({ where: { id: saleId }, select: { paymentMethod: true } }) : Promise.resolve(null),
+    destinationCityId
+      ? prisma.transportCity.findUnique({
+          where: { id: destinationCityId },
+          select: { code: true, shippingType: true, freeShipping: true },
+        })
+      : Promise.resolve(null),
+  ]);
+  const paymentMethod = sale?.paymentMethod ?? null;
+  const suggestion = suggestAmountToCollect({
+    paymentMethod,
+    saleBalance,
+    destination: city
+      ? { code: city.code, shippingType: resolveShippingType({ shippingType: city.shippingType, freeShipping: city.freeShipping }) }
+      : null,
+  });
+  return { ...suggestion, paymentMethod };
+}
+
 // --- Crear guia ---
 
 export type CreateShipmentInput = {
@@ -178,11 +211,13 @@ export async function createShipmentForDispatch(input: CreateShipmentInput): Pro
     throw new ShipmentError("Ciudad destino no encontrada.");
   }
 
-  const [originCityId, saleBalance] = await Promise.all([
+  const [originCityId, suggestedAmount] = await Promise.all([
     getBogotaCityId(),
-    input.amountToCollect == null ? computeSaleBalance(dispatch.order.saleId) : Promise.resolve(0),
+    input.amountToCollect == null
+      ? computeCollectSuggestion(dispatch.order.saleId, destination?.id).then((suggestion) => suggestion.amount)
+      : Promise.resolve(0),
   ]);
-  const amountToCollect = Math.max(0, Math.round(input.amountToCollect ?? saleBalance));
+  const amountToCollect = Math.max(0, Math.round(input.amountToCollect ?? suggestedAmount));
   const last4 = phoneLast4(dispatch.order.client?.phone);
   const now = new Date();
   const estimatedDelivery = input.estimatedDelivery ?? estimateDelivery(now, destination?.code ?? null);

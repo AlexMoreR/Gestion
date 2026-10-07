@@ -16,6 +16,7 @@ import { getDispatchStatusBadgeClassName, getDispatchStatusLabel } from "@/lib/o
 import { prisma } from "@/lib/prisma";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { SHIPMENT_STATUS_BADGE, SHIPMENT_STATUS_LABEL } from "@/modules/guias/domain/statuses";
+import { PaymentMethodBadge } from "@/modules/ventas/presentation/payment-method-badge";
 
 /*
   Seguimiento con la transportadora: que envios tiene cada proveedor de envios, cuales siguen
@@ -98,7 +99,7 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
             code: true,
             client: { select: { name: true, email: true, city: true } },
             quote: { select: { id: true, code: true } },
-            sale: { select: { code: true, quote: { select: { id: true, code: true } } } },
+            sale: { select: { code: true, paymentMethod: true, quote: { select: { id: true, code: true } } } },
           },
         },
       },
@@ -171,6 +172,7 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
             </Link>
           ) : null}
           {row.order.sale?.code ? <span className="text-xs text-muted-foreground">{row.order.sale.code}</span> : null}
+          {row.order.sale ? <PaymentMethodBadge method={row.order.sale.paymentMethod} /> : null}
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getDispatchStatusBadgeClassName(row.status)}`}>
             {getDispatchStatusLabel(row.status)}
           </span>

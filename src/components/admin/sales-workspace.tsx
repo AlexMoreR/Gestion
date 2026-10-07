@@ -6,6 +6,7 @@ import { DirectSaleSheet, type DirectSaleProduct, type DirectSaleClient } from "
 import { ArrowDownLeft, Clock, ShoppingCart, Wallet } from "lucide-react";
 import { StatList } from "@/components/ui/stat-list";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import type { SalePaymentMethod } from "@/modules/ventas/domain/payment-method";
 
 type SaleStatus = "DRAFT" | "ACTIVE" | "INVOICED" | "COMPLETED" | "CANCELLED";
 
@@ -37,6 +38,8 @@ type SaleRow = {
   }>;
   hasOrder: boolean;
   orderId: string | null;
+  salePaymentMethod: SalePaymentMethod | null;
+  hasCamillaCombo: boolean;
 };
 
 type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER";

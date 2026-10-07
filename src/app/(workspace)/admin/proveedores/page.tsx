@@ -114,6 +114,7 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
             id: supplier.id,
             name: supplier.name,
             displayName: supplier.displayName,
+            dispatchWarning: supplier.dispatchWarning,
             email: supplier.email,
             phone: supplier.phone,
             type: supplier.type,

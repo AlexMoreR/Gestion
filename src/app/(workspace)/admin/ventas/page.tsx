@@ -6,6 +6,11 @@ import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
+import {
+  COMBO_CHECK_PRODUCT_SELECT,
+  isCamillaComboProduct,
+  toComboCheckProduct,
+} from "@/modules/ventas/domain/payment-method";
 
 type SaleWithDiscountFields = {
   grossTotal?: unknown;
@@ -62,7 +67,9 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
       orderBy: { createdAt: "desc" },
       include: {
         client: true,
-        quote: true,
+        quote: {
+          include: { items: { select: { product: { select: COMBO_CHECK_PRODUCT_SELECT } } } },
+        },
         order: true,
         salePayments: {
           orderBy: { sortOrder: "asc" },
@@ -77,6 +84,8 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
           orderBy: { sortOrder: "asc" },
           include: { child: true },
         },
+        category: { select: { name: true } },
+        partOfBundles: COMBO_CHECK_PRODUCT_SELECT.partOfBundles,
       },
       take: 500,
     }),
@@ -151,6 +160,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
           minWholesaleQty: product.minWholesaleQty,
           thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
           isBundle: product.isBundle,
+          isCamillaCombo: isCamillaComboProduct(toComboCheckProduct(product)),
           components: product.bundleComponents.map((component) => ({
             productId: component.childId,
             name: component.child.name,
@@ -198,6 +208,8 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
             : [],
           hasOrder: Boolean(sale.order),
           orderId: sale.order?.id ?? null,
+          salePaymentMethod: sale.paymentMethod ?? null,
+          hasCamillaCombo: sale.quote.items.some((item) => isCamillaComboProduct(toComboCheckProduct(item.product))),
         }))}
       />
     </section>

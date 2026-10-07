@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { adminUpdateSupplierAction } from "@/app/actions/catalog-actions";
+import { DispatchWarningField } from "@/modules/guias/presentation/dispatch-warning-field";
 
 type SupplierEditButtonProps = {
   supplier: {
@@ -15,6 +16,7 @@ type SupplierEditButtonProps = {
     type: "MANUFACTURER" | "SHIPPING";
     email: string | null;
     phone: string | null;
+    dispatchWarning?: string | null;
   };
 };
 
@@ -94,6 +96,7 @@ export function SupplierEditButton({ supplier }: SupplierEditButtonProps) {
                   <Input name="phone" defaultValue={supplier.phone ?? ""} placeholder="+57 300..." />
                 </label>
               </div>
+              <DispatchWarningField supplier={supplier} />
               <Button type="submit" className="h-10 w-full">
                 Guardar cambios
               </Button>

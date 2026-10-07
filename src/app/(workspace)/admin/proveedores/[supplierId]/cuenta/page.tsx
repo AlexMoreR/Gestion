@@ -40,6 +40,7 @@ export default async function AdminSupplierLedgerPage({ params, searchParams }: 
         type: true,
         email: true,
         phone: true,
+        dispatchWarning: true,
         shareToken: true,
         ledgerEntries: {
           orderBy: { createdAt: "desc" },
@@ -182,6 +183,7 @@ export default async function AdminSupplierLedgerPage({ params, searchParams }: 
                   type: supplier.type,
                   email: supplier.email,
                   phone: supplier.phone,
+                  dispatchWarning: supplier.dispatchWarning,
                 }}
               />
             </div>

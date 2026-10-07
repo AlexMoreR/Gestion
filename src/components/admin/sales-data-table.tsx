@@ -28,7 +28,11 @@ import {
   adminDeleteSalePaymentAction,
   adminDeleteSaleAction,
   adminUpdateSaleDateAction,
+  adminUpdateSalePaymentMethodAction,
 } from "@/app/actions/sales-actions";
+import type { SalePaymentMethod } from "@/modules/ventas/domain/payment-method";
+import { PaymentMethodBadge } from "@/modules/ventas/presentation/payment-method-badge";
+import { PaymentMethodField } from "@/modules/ventas/presentation/payment-method-field";
 import { adminCreateOrderFromSaleAction } from "@/app/actions/orders-actions";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -104,6 +108,8 @@ type SaleRow = {
   salePayments: SalePaymentRow[];
   hasOrder: boolean;
   orderId: string | null;
+  salePaymentMethod: SalePaymentMethod | null;
+  hasCamillaCombo: boolean;
 };
 
 type SalesDataTableProps = {
@@ -225,11 +231,13 @@ function RowActions({
   onViewReceipts,
   onAddPayment,
   onEditDate,
+  onEditPaymentMethod,
 }: {
   sale: SaleRow;
   onViewReceipts: () => void;
   onAddPayment: () => void;
   onEditDate: () => void;
+  onEditPaymentMethod: () => void;
 }) {
   const hasReceipts =
     sale.salePayments.length > 0 ||
@@ -278,6 +286,10 @@ function RowActions({
         <DropdownMenuItem onClick={onEditDate}>
           <Calendar className="mr-2 h-4 w-4" />
           Editar fecha
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onEditPaymentMethod}>
+          <Wallet className="mr-2 h-4 w-4" />
+          Forma de pago
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onViewReceipts} disabled={!hasReceipts}>
           <Eye className="mr-2 h-4 w-4" />
@@ -729,18 +741,23 @@ function SaleMobileCard({
   onViewReceipts,
   onAddPayment,
   onEditDate,
+  onEditPaymentMethod,
 }: {
   sale: SaleRow;
   currency: SupportedCurrencyCode;
   onViewReceipts: () => void;
   onAddPayment: () => void;
   onEditDate: () => void;
+  onEditPaymentMethod: () => void;
 }) {
   return (
     <article className="space-y-2.5 rounded-xl border border-border bg-card p-3">
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-semibold text-foreground">{sale.code}</p>
+          <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            {sale.code}
+            <PaymentMethodBadge method={sale.salePaymentMethod} />
+          </p>
           <StatusBadge status={sale.status} />
         </div>
         <p className="text-sm text-foreground">{sale.clientName}</p>
@@ -751,7 +768,13 @@ function SaleMobileCard({
       </div>
       <div className="flex items-center justify-end">
         <SaleRowForms sale={sale} />
-        <RowActions sale={sale} onViewReceipts={onViewReceipts} onAddPayment={onAddPayment} onEditDate={onEditDate} />
+        <RowActions
+          sale={sale}
+          onViewReceipts={onViewReceipts}
+          onAddPayment={onAddPayment}
+          onEditDate={onEditDate}
+          onEditPaymentMethod={onEditPaymentMethod}
+        />
       </div>
     </article>
   );
@@ -773,6 +796,7 @@ export function SalesDataTable({
   const [selectedSale, setSelectedSale] = React.useState<SaleRow | null>(null);
   const [paymentSale, setPaymentSale] = React.useState<SaleRow | null>(null);
   const [dateSale, setDateSale] = React.useState<SaleRow | null>(null);
+  const [paymentMethodSale, setPaymentMethodSale] = React.useState<SaleRow | null>(null);
 
   // El padre (SalesWorkspace) ya aplica el filtro de fecha/estado; aqui solo
   // mostramos los controles y dejamos que DataTable busque, ordene y pagine.
@@ -787,7 +811,12 @@ export function SalesDataTable({
         // codigo de la venta.
         accessorFn: (row) => `${row.code} ${row.quoteCode}`,
         header: () => <HeaderWithIcon icon={<Hash className="h-3.5 w-3.5" />}>Venta</HeaderWithIcon>,
-        cell: ({ row }) => <p className="text-sm font-semibold text-foreground">{row.original.code}</p>,
+        cell: ({ row }) => (
+          <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            {row.original.code}
+            <PaymentMethodBadge method={row.original.salePaymentMethod} />
+          </p>
+        ),
       },
       {
         accessorKey: "clientName",
@@ -832,6 +861,7 @@ export function SalesDataTable({
               onViewReceipts={() => setSelectedSale(row.original)}
               onAddPayment={() => setPaymentSale(row.original)}
               onEditDate={() => setDateSale(row.original)}
+              onEditPaymentMethod={() => setPaymentMethodSale(row.original)}
             />
           </div>
         ),
@@ -937,9 +967,40 @@ export function SalesDataTable({
             onViewReceipts={() => setSelectedSale(sale)}
             onAddPayment={() => setPaymentSale(sale)}
             onEditDate={() => setDateSale(sale)}
+            onEditPaymentMethod={() => setPaymentMethodSale(sale)}
           />
         )}
       />
+
+      <Dialog open={Boolean(paymentMethodSale)} onOpenChange={(open) => (open ? null : setPaymentMethodSale(null))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Forma de pago</DialogTitle>
+          </DialogHeader>
+          {paymentMethodSale ? (
+            <form action={adminUpdateSalePaymentMethodAction} className="space-y-3">
+              <input type="hidden" name="returnTo" value="/admin/ventas" />
+              <input type="hidden" name="saleId" value={paymentMethodSale.id} />
+              <p className="text-sm text-muted-foreground">
+                Venta <span className="font-medium text-foreground">{paymentMethodSale.code}</span> —{" "}
+                {paymentMethodSale.clientName}
+              </p>
+              <PaymentMethodField
+                key={paymentMethodSale.id}
+                id="sale-edit-payment-method"
+                defaultValue={paymentMethodSale.salePaymentMethod}
+                hasCamillaCombo={paymentMethodSale.hasCamillaCombo}
+              />
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setPaymentMethodSale(null)}>
+                  Cancelar
+                </Button>
+                <Button type="submit">Guardar</Button>
+              </DialogFooter>
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={Boolean(dateSale)} onOpenChange={(open) => (open ? null : setDateSale(null))}>
         <DialogContent className="max-w-md">

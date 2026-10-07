@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Info } from "lucide-react";
 import { adminSearchShipmentCitiesAction } from "@/app/actions/shipment-actions";
+import type { SalePaymentMethod } from "@/modules/ventas/domain/payment-method";
+import { PAYMENT_METHOD_SHORT_LABEL } from "@/modules/ventas/domain/payment-method";
 import type { CityOption } from "../domain/types";
 import { CityPicker } from "./city-picker";
 
@@ -10,6 +12,10 @@ export type ShipmentDefaults = {
   destination: CityOption | null; // sugerida desde la ciudad del cliente
   saleBalance: number; // saldo pendiente de la venta (lineas - pagos)
   hasPhone: boolean; // sin celular no hay consulta publica
+  paymentMethod?: SalePaymentMethod | null; // forma de pago de la venta (null = sin definir)
+  suggestedAmount?: number; // cobro al recibir sugerido (saldo + envio contraentrega)
+  shippingFee?: number | null; // envio contraentrega incluido en la sugerencia
+  shippingPending?: boolean; // contraentrega con envio por cotizar
 };
 
 function formatCop(value: number): string {
@@ -19,7 +25,8 @@ function formatCop(value: number): string {
 // Campos "Crear guia Magilus" dentro del modal de despacho con transportadora.
 export function ShipmentDispatchFields({ defaults }: { defaults: ShipmentDefaults }) {
   const [enabled, setEnabled] = useState(true);
-  const [amount, setAmount] = useState(String(Math.round(defaults.saleBalance)));
+  const [amount, setAmount] = useState(String(Math.round(defaults.suggestedAmount ?? defaults.saleBalance)));
+  const isContraentrega = defaults.paymentMethod === "CONTRAENTREGA";
 
   return (
     <div className="space-y-2 rounded-lg border border-border p-2.5">
@@ -34,12 +41,32 @@ export function ShipmentDispatchFields({ defaults }: { defaults: ShipmentDefault
         Crear guía Magilus (MG) para el cliente
       </label>
 
-      {defaults.saleBalance > 0 ? (
+      {defaults.paymentMethod ? (
+        <p className="text-xs text-muted-foreground">
+          Forma de pago de la venta:{" "}
+          <span className="font-medium text-foreground">{PAYMENT_METHOD_SHORT_LABEL[defaults.paymentMethod]}</span>
+        </p>
+      ) : null}
+
+      {!isContraentrega && defaults.saleBalance > 0 ? (
         <div className="flex items-start gap-2 rounded-md border border-rose-500/40 bg-rose-500/10 p-2 text-xs font-medium text-rose-700 dark:text-rose-400">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
             Esta venta tiene saldo pendiente de {formatCop(defaults.saleBalance)}. Si es 50/50 el saldo debía estar en
             $0 antes de despachar. Puedes seguir.
+          </span>
+        </div>
+      ) : null}
+
+      {isContraentrega ? (
+        <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-800 dark:text-amber-300">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            Contraentrega: saldo {formatCop(defaults.saleBalance)}
+            {defaults.shippingFee != null
+              ? ` + envío ${formatCop(defaults.shippingFee)} = ${formatCop(defaults.saleBalance + defaults.shippingFee)}.`
+              : ". El envío a esta ciudad se cotiza: súmalo a mano."}{" "}
+            Si cambias la ciudad, revisa el valor.
           </span>
         </div>
       ) : null}
