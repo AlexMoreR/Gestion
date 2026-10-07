@@ -5,6 +5,7 @@ import type { DispatchStatus } from "@prisma/client";
 import { auth } from "@/auth";
 import { adminLogCarrierResponseAction, adminSetDispatchTrackingAction } from "@/app/actions/dispatch-actions";
 import { CarrierMessageButton } from "@/components/admin/carrier-message-button";
+import { TrackingPhotoInput } from "@/components/admin/tracking-photo-input";
 import { OperationsTabs } from "@/components/admin/operations-tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -224,7 +225,7 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
                 placeholder="Número de guía"
                 className="h-8 min-w-[8rem] flex-1 rounded-md border border-border bg-background px-2 text-sm"
               />
-              <input name="trackingPhoto" type="file" accept="image/*" className="w-full min-w-0 text-xs sm:w-auto sm:max-w-[11rem]" />
+              <TrackingPhotoInput />
               <Button type="submit" size="sm" className="h-8">
                 Guardar guía
               </Button>

@@ -1538,10 +1538,13 @@ export async function adminSetDispatchTrackingAction(formData: FormData): Promis
   }
 
   const photoFile = formData.get("trackingPhoto");
-  const hasPhoto = photoFile instanceof File && photoFile.size > 0;
+  // La foto de la guia es obligatoria: sin ella no se guarda el numero.
+  if (!(photoFile instanceof File) || photoFile.size === 0) {
+    redirect(`${CARRIER_FOLLOWUP_PATH}?error=Sube+la+foto+de+la+guia`);
+  }
 
   try {
-    const photo = hasPhoto ? await saveTrackingPhoto(photoFile, dispatch.orderId) : null;
+    const photo = await saveTrackingPhoto(photoFile, dispatch.orderId);
     await prisma.dispatch.update({
       where: { id: dispatch.id },
       data: {
