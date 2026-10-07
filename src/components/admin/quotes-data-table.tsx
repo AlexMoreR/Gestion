@@ -24,6 +24,7 @@ import {
 import { adminDeleteQuoteAction } from "@/app/actions/quote-actions";
 import { adminCreateSaleFromQuoteAction } from "@/app/actions/sales-actions";
 import { PaymentMethodField } from "@/modules/ventas/presentation/payment-method-field";
+import { SaleOriginBadge } from "@/modules/ventas/presentation/sale-origin-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -67,6 +68,9 @@ type QuoteRow = {
   shareToken: string;
   hasSale: boolean;
   hasCamillaCombo?: boolean;
+  // Origen avisado por el CRM al marcar GANADO (null = sin dato todavia).
+  origin?: string | null;
+  originDetail?: unknown;
 };
 
 type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER";
@@ -1154,7 +1158,12 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
       {
         accessorKey: "code",
         header: "Cotizacion",
-        cell: ({ row }) => <p className="text-sm font-semibold text-foreground">{row.original.code}</p>,
+        cell: ({ row }) => (
+          <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            {row.original.code}
+            <SaleOriginBadge origin={row.original.origin} detail={row.original.originDetail} />
+          </p>
+        ),
       },
       {
         accessorKey: "clientName",
@@ -1307,7 +1316,10 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
             </form>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-foreground">{quote.code}</p>
+                <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                  {quote.code}
+                  <SaleOriginBadge origin={quote.origin} detail={quote.originDetail} />
+                </p>
                 <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(quote.status)}`}>
                   {statusLabel(quote.status)}
                 </span>

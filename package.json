@@ -9,7 +9,8 @@
     "snapshot": "node scripts/generate-app-snapshot.mjs",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "origen:rellenar": "vite-node scripts/rellenar-origen-ventas.ts --"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",

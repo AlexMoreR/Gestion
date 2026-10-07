@@ -24,6 +24,7 @@ import {
   UNASSIGNED_SELLER,
 } from "../domain/calculations";
 import type { AsesorReadRepository } from "../domain/repository";
+import { effectiveOrigin, originDetailSummary, saleOriginLabel } from "../../ventas/domain/sale-origin";
 
 export type AsesorDependencies = {
   balances: BalancesRepository;
@@ -93,7 +94,10 @@ export async function listSalesUseCase(deps: AsesorDependencies, desde: string, 
       margen_pct: roundMoney(row.marginPercentage),
       vendedora: detail?.seller?.name ?? UNASSIGNED_SELLER,
       registrada_por: detail?.registeredBy?.name ?? null,
-      origen: null,
+      // Etiqueta legible ("Meta Ads", "Sin dato"...) + el codigo para filtrar + anuncio/cuenta si hay.
+      origen: saleOriginLabel(detail?.origin ?? null),
+      origen_codigo: effectiveOrigin(detail?.origin ?? null),
+      origen_detalle: originDetailSummary(detail?.originDetail ?? null),
     };
   });
 
@@ -115,7 +119,7 @@ export async function listSalesUseCase(deps: AsesorDependencies, desde: string, 
     },
     notas: [
       SELLER_NOTE,
-      "'origen' siempre es null: el sistema no guarda de donde llego el cliente (WhatsApp, Instagram, web, etc.).",
+      "'origen' sale de la linea de WhatsApp del chat en el CRM (Ventas 1 = Meta Ads, Ventas 2 = Marketplace, Admin = Referido, o Recurrente si ya habia comprado); venta directa = Mostrador. 'Sin dato' = la venta no tiene origen registrado (casi todas las anteriores a oct-2026). 'origen_detalle' trae el anuncio o la cuenta MK cuando el CRM los conoce.",
       "No incluye ventas pendientes de pago o de entrega.",
     ],
   };

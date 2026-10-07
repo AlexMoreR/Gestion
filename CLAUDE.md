@@ -256,6 +256,7 @@ Route handlers reales (`route.ts`):
 | `/api/mcp` | POST | **Servidor MCP de solo lectura** para el asesor de IA (ver abajo). | Llave `MCP_API_KEY` |
 | `/api/mcp/[key]` | POST | Lo mismo, con la llave dentro de la ruta (clientes sin headers, ej. claude.ai). | Llave en la URL |
 | `/api/catalogo/productos` | GET | **Catálogo para otras apps** (el CRM se sincroniza desde acá): código, nombre, descripción, categoría, precio, precio mayorista, imágenes (URL absoluta) y si está oculto. **Nunca costo ni margen.** Módulo `src/modules/catalogo-externo`. | Llave `CATALOGO_API_KEY` (o `MCP_API_KEY` si no existe) |
+| `/api/ventas/origen` | POST | **Origen de la venta desde el CRM.** `{ quoteCode, origin, originDetail?, linea?, contactPhone? }` → 200 `{ ok, quoteCode, origin, saleUpdated }` / 404 `{ error: "cotizacion_no_existe" }` / 400 `{ error: "datos_invalidos" }`. `contactPhone` solo decide recurrencia; no se guarda. Contrato acordado con AgenteLite: **no cambiarlo**. | Misma llave del catálogo o de transporte |
 | `/api/transporte/ubicaciones` | GET/POST | **Envíos para el CRM.** GET `?q=&producto=&limit=` (q normalizado ≥ 2, limit 1..50, def. 20) → `{ resultados: [{ tipo, id, cityId, nombre, ciudad, departamento, envio, pendienteRevision, exacta, cotizacion }], producto }`; `cotizacion` (`{tipo, envio, total}`) solo si vino `producto` y existe. POST `{ cityId, nombre (2..80), origen? }` → 201 `{creado:true,id,nombre}` / 200 `{creado:false,...}` si ya existía / 404 ciudad no encontrada; lo nuevo queda "pendiente de revisar". El CRM ya está programado contra este contrato: **no cambiarlo**. | Llave `TRANSPORTE_API_KEY` (si no, `CATALOGO_API_KEY`, si no `MCP_API_KEY`) |
 
 ### Servidor MCP del asesor de IA (`/api/mcp`)
@@ -270,7 +271,21 @@ Route handlers reales (`route.ts`):
 - Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_cotizaciones`, `listar_productos`,
   `comisiones_del_mes` y `que_es_esta_aplicacion`. Mismo criterio que Balances (ventas pagadas y
   entregadas, por fecha de entrega). "Vendedora" = quien creó la cotización (no existe un campo
-  propio); "origen" no existe.
+  propio); `listar_ventas` devuelve `origen` (etiqueta), `origen_codigo` y `origen_detalle`.
+
+### Origen de cada venta (oct-2026)
+- Enum `SaleOrigin` (`META_ADS`/`MARKETPLACE`/`REFERIDO`/`RECURRENTE`/`MOSTRADOR`/`SIN_DATO`) y
+  `origin` + `originDetail` (Json) opcionales en `Quote` y `Sale` (migración `20261010120000_origen_de_ventas`).
+  NULL = "Sin dato".
+- Regla de Alexander: sale de la línea de WhatsApp del chat en el CRM (Ventas 1 = Meta Ads, Ventas 2 =
+  Marketplace, Admin = `REFERIDO_RECURRENTE`, que Gestión resuelve: `RECURRENTE` si el cliente tiene una
+  venta anterior no cancelada, si no `REFERIDO`). Venta directa = `MOSTRADOR`.
+- El CRM avisa con `POST /api/ventas/origen` al marcar GANADO; se guarda en la cotización y en su venta (el
+  último aviso manda). Al crear la venta desde la cotización se copia el origen. Reglas puras en
+  `src/modules/ventas/domain/sale-origin.ts`; caso de uso en `application/register-sale-origin.ts`.
+- UI: badge en ventas, cotizaciones y la orden; filtro `/admin/ventas?origen=`; reporte `/admin/ventas/origen`.
+- Relleno de ventas viejas: `npm run origen:rellenar` (simulación; `--aplicar` escribe). Usa
+  `CRM_ORIGEN_URL` y `CRM_ORIGEN_LLAVE` (solo el script; la app no las necesita).
 - Comisiones: 10% de la ganancia en la primera venta del mes de cada vendedora, 15% desde la segunda,
   en orden de fecha de entrega; ganancia ≤ 0 no genera comisión.
 

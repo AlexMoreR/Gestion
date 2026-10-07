@@ -39,6 +39,7 @@ import {
   PAYMENT_METHOD_LABEL,
   PAYMENT_METHOD_SHORT_LABEL,
 } from "@/modules/ventas/domain/payment-method";
+import { SaleOriginBadge } from "@/modules/ventas/presentation/sale-origin-badge";
 import type { ShipmentDefaults } from "@/modules/guias/presentation/shipment-dispatch-fields";
 
 type PageProps = {
@@ -463,6 +464,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                   Forma de pago sin definir
                 </Badge>
               )}
+              <SaleOriginBadge prefix="Origen: " origin={order.sale?.origin} detail={order.sale?.originDetail} />
               {comboWarning ? <span className="text-xs text-amber-700 dark:text-amber-400">{comboWarning}</span> : null}
             </div>
           ) : null}

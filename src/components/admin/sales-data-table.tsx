@@ -33,6 +33,8 @@ import {
 import type { SalePaymentMethod } from "@/modules/ventas/domain/payment-method";
 import { PaymentMethodBadge } from "@/modules/ventas/presentation/payment-method-badge";
 import { PaymentMethodField } from "@/modules/ventas/presentation/payment-method-field";
+import type { SaleOriginCode } from "@/modules/ventas/domain/sale-origin";
+import { SaleOriginBadge } from "@/modules/ventas/presentation/sale-origin-badge";
 import { adminCreateOrderFromSaleAction } from "@/app/actions/orders-actions";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -109,6 +111,8 @@ type SaleRow = {
   hasOrder: boolean;
   orderId: string | null;
   salePaymentMethod: SalePaymentMethod | null;
+  saleOrigin: SaleOriginCode | null;
+  saleOriginDetail: unknown;
   hasCamillaCombo: boolean;
 };
 
@@ -757,6 +761,7 @@ function SaleMobileCard({
           <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
             {sale.code}
             <PaymentMethodBadge method={sale.salePaymentMethod} />
+            <SaleOriginBadge origin={sale.saleOrigin} detail={sale.saleOriginDetail} />
           </p>
           <StatusBadge status={sale.status} />
         </div>
@@ -815,6 +820,7 @@ export function SalesDataTable({
           <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
             {row.original.code}
             <PaymentMethodBadge method={row.original.salePaymentMethod} />
+            <SaleOriginBadge origin={row.original.saleOrigin} detail={row.original.saleOriginDetail} />
           </p>
         ),
       },

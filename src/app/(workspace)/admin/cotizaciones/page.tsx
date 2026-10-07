@@ -128,6 +128,8 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
           createdAtISO: quote.createdAt.toISOString(),
           shareToken: quote.shareToken,
           hasSale: Boolean(quote.sale),
+          origin: quote.origin ?? null,
+          originDetail: quote.originDetail ?? null,
           hasCamillaCombo: quote.items.some((item) => isCamillaComboProduct(toComboCheckProduct(item.product))),
         }))}
         clients={clients.map((client) => ({

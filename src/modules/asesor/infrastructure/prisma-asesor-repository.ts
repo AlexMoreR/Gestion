@@ -30,6 +30,8 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
           id: true,
           code: true,
           createdAt: true,
+          origin: true,
+          originDetail: true,
           client: { select: { name: true } },
           createdBy: { select: userSelect },
           quote: { select: { code: true, createdBy: { select: userSelect } } },
@@ -61,6 +63,8 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
         clientName: sale.client?.name ?? null,
         seller: toSeller(sale.quote?.createdBy),
         registeredBy: toSeller(sale.createdBy),
+        origin: sale.origin ?? null,
+        originDetail: sale.originDetail ?? null,
         // Los combos se muestran como un solo producto (igual que en la factura).
         products: groupQuoteDisplayItems(
           (sale.order?.items ?? []).map((item) => ({

@@ -15,6 +15,7 @@ import { logActivity } from "@/lib/activity-log";
 import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 import { PAYMENT_METHOD_SHORT_LABEL, parsePaymentMethodInput } from "@/modules/ventas/domain/payment-method";
+import { CONSUMIDOR_FINAL_EMAIL } from "@/modules/ventas/domain/sale-origin";
 
 const createSaleSchema = z.object({
   quoteId: z.string().trim().min(1, "Quote is invalid"),
@@ -369,6 +370,10 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
           // (misma regla que la ruta de abonos posteriores).
           status: totalDownPayment >= netTotal ? "INVOICED" : "ACTIVE",
           paymentMethod,
+          // Origen: se copia el que el CRM aviso para la cotizacion (al marcar GANADO). Si
+          // el aviso llega despues, /api/ventas/origen actualiza tambien la venta.
+          ...(quote.origin ? { origin: quote.origin } : {}),
+          ...(quote.originDetail != null ? { originDetail: quote.originDetail as Prisma.InputJsonValue } : {}),
           ...(saleCreatedAt ? { createdAt: saleCreatedAt } : {}),
           downPaymentAmount: totalDownPayment,
           grossTotal,
@@ -720,8 +725,8 @@ export async function adminDeleteSaleAction(formData: FormData): Promise<void> {
 
 // ─── VENTA DIRECTA (mostrador, sin cotizacion previa) ──────────────────────
 
-// Correo centinela del cliente generico unico para ventas de mostrador.
-const CONSUMIDOR_FINAL_EMAIL = "consumidor-final@magilus.local";
+// Correo centinela del cliente generico unico para ventas de mostrador (CONSUMIDOR_FINAL_EMAIL,
+// compartido con el origen de ventas para no tratarlo como un cliente recurrente).
 
 function buildQuoteCode(index: number): string {
   return `COT-${String(index).padStart(5, "0")}`;
@@ -1019,6 +1024,9 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
           clientId: client.id,
           createdById,
           status: "ACCEPTED",
+          // Venta directa: no hay chat ni cotizacion previa, asi que el origen es MOSTRADOR.
+          // Si el CRM luego avisa un origen para este COT, lo sobrescribe (el ultimo aviso manda).
+          origin: "MOSTRADOR",
           subtotal: new Prisma.Decimal(subtotal),
           total: new Prisma.Decimal(total),
           shareToken,
@@ -1049,6 +1057,7 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
           // (misma regla que la ruta de abonos posteriores).
           status: downPaymentAmount >= total ? "INVOICED" : "ACTIVE",
           paymentMethod,
+          origin: "MOSTRADOR",
           ...(saleDate ? { createdAt: saleDate } : {}),
           downPaymentAmount,
           grossTotal: new Prisma.Decimal(total),

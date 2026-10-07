@@ -169,7 +169,10 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
         url: "/admin/ventas",
         icon: BadgeDollarSign,
         isActive: pathname.startsWith("/admin/ventas"),
-        items: [{ title: "Listado", url: "/admin/ventas" }],
+        items: [
+          { title: "Listado", url: "/admin/ventas" },
+          { title: "Por origen", url: "/admin/ventas/origen" },
+        ],
       });
     }
 

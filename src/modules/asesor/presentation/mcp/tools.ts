@@ -116,7 +116,7 @@ export const asesorTools: McpToolDefinition[] = [
     name: "listar_ventas",
     title: "Listar ventas",
     description:
-      "Ventas entregadas y pagadas en un rango de fechas (por fecha de entrega): fecha, cliente, productos, total, costo, flete, ganancia real, vendedora y origen (si existe). Incluye totales al final. Valores en COP.",
+      "Ventas entregadas y pagadas en un rango de fechas (por fecha de entrega): fecha, cliente, productos, total, costo, flete, ganancia real, vendedora y origen (Meta Ads, Marketplace, Referido, Recurrente, Mostrador o Sin dato, con el anuncio o la cuenta MK si se conocen). Incluye totales al final. Valores en COP.",
     schema: z.object(rangeArgs),
     handler: (args, deps) => listSalesUseCase(deps, args.desde, args.hasta),
   }),

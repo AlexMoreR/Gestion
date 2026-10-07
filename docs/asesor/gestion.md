@@ -44,6 +44,7 @@ en las Server Actions y en `src/lib/`.
 - `expenses`: gastos operativos por categoría y cuenta (nómina, marketing, servicios, etc.).
 - `inventory`: stock por producto, movimientos de entrada/salida/ajuste y compras directas a proveedor (COM-).
 - `transporte`: tipo de envío por departamento, ciudad y corregimiento (datos DANE): gratis, adicional, se cotiza o no llegamos. Lo consulta el cliente en `/cobertura` (solo si es gratis o no) y el CRM de las asesoras por `/api/transporte/ubicaciones`.
+- `ventas`: reglas de la venta: forma de pago (50/50 o contraentrega) y origen de cada venta (lo avisa el CRM por `/api/ventas/origen`; reporte en `/admin/ventas/origen`).
 - `asesor`: consultas de solo lectura para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones y esta radiografía.
 
 ## Entidades
@@ -59,8 +60,8 @@ en las Server Actions y en `src/lib/`.
 - `SupplierLedgerEntry`: movimiento de la cuenta con una proveedora: cargo (lo que se le debe) o abono (pago). Puede atarse a una venta, orden, producto de orden, despacho o compra de inventario.
 - `ProductSupplier`: qué proveedoras fabrican cada producto, a qué costo y cuál es la preferida.
 - `AppSetting`: configuración del sistema como clave y valor (moneda, marca, color, WhatsApp, permisos por módulo, etc.).
-- `Quote`: cotización (COT-) a un cliente, con enlace para compartir. Puede convertirse en una venta.
-- `Sale`: venta (SAL-) nacida de una cotización. Lleva el total a cobrar, descuento y su estado de pago.
+- `Quote`: cotización (COT-) a un cliente, con enlace para compartir. Puede convertirse en una venta. Guarda el origen del cliente que avisa el CRM al marcar el chat como ganado.
+- `Sale`: venta (SAL-) nacida de una cotización. Lleva el total a cobrar, descuento, su estado de pago y el origen (copiado de la cotización; Mostrador en venta directa).
 - `ShippingCost`: costo de envío de una venta (transportadora y monto). Resta en la ganancia de esa venta.
 - `SalePayment`: anticipo o abono de un cliente a una venta, con método, fecha, comprobante y cuenta que recibe.
 - `QuoteItem`: línea de una cotización: producto, cantidad, precio y si sale de stock o se fabrica.
@@ -120,6 +121,7 @@ en las Server Actions y en `src/lib/`.
 - `/admin/productos/new`: crear producto.
 - `/admin/productos/[productId]`: editar un producto.
 - `/admin/cotizaciones/[quoteId]`: editar una cotización.
+- `/admin/ventas/origen`: ventas por origen (Meta Ads, Marketplace, Referido, Recurrente, Mostrador, Sin dato) por mes y por anuncio, con el criterio de Balances.
 - `/admin/ordenes/[orderId]`: detalle de una orden: fabricar, recoger, despachar, entregar, historial, abonos y órdenes de fabricación.
 - `/admin/ordenes/[orderId]/ganancia`: desglose de por qué se ganó lo que se ganó en esa orden.
 - `/admin/ordenes/[orderId]/editar-compra`: editar una compra directa a proveedor.
@@ -134,6 +136,7 @@ en las Server Actions y en `src/lib/`.
 - `/api/informe/link`: entrega al dueño el enlace del informe con su token.
 - `/api/mcp`: servidor MCP de solo lectura del asesor de IA (llave en header).
 - `/api/mcp/[key]`: el mismo servidor MCP con la llave dentro de la ruta (conectores de claude.ai).
+- `/api/ventas/origen`: para el CRM (con llave). POST avisa de dónde vino el cliente de una cotización (al marcar el chat como ganado); se guarda en la cotización y en su venta.
 - `/api/transporte/ubicaciones`: para el CRM (con llave). GET busca ciudades y corregimientos sin importar acentos, dice su tipo de envío y, si se manda un producto, el total con envío. POST agrega un corregimiento o barrio nuevo bajo una ciudad sin duplicar.
 - `/uploads/[...path]`: sirve los archivos subidos (comprobantes, imágenes).
 - `/verify-email`: confirma el correo de un usuario desde el enlace enviado.
@@ -176,9 +179,16 @@ en su cuenta. Cada proveedora recibe una orden de fabricación (OF-) por orden d
 vendedora y 15% desde la segunda, en orden de fecha de entrega. Vendedora = quien creó la
 cotización. Una venta con ganancia cero o negativa no genera comisión.
 
+**Origen de la venta.** Sale de la línea de WhatsApp del chat en el CRM: Ventas 1 = Meta Ads,
+Ventas 2 = Marketplace, Admin = Referido, o Recurrente si el cliente ya tenía una venta anterior
+(no cancelada). Venta directa (sin chat) = Mostrador. Sin origen registrado = "Sin dato" (siempre se
+muestra en el reporte para no inflar los canales). El CRM avisa al marcar el chat como ganado con su
+cotización; un aviso nuevo reemplaza al anterior. El teléfono del chat solo se usa para decidir si es
+recurrente; no se guarda.
+
 ## Qué NO tiene el sistema
 
-- No guarda el **origen** del cliente (WhatsApp, Instagram, web, referido).
+- El **origen** de las ventas anteriores a oct-2026 casi siempre es "Sin dato" (se puede rellenar con `npm run origen:rellenar`, que cruza el teléfono del cliente con el CRM).
 - No tiene un campo **vendedora**: se usa a quien creó la cotización.
 - No es **multi-empresa**: no hay workspaces; todos los datos son de Magilus.
 - Las órdenes de fabricación (OF-) **no tienen estado** (enviada, en fabricación, recibida).

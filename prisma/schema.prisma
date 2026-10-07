@@ -293,9 +293,25 @@ model Quote {
   items       QuoteItem[]
   sale        Sale?
   orders      Order[]
+  // Origen del cliente (lo avisa el CRM al marcar GANADO). NULL = sin dato. Se copia a la venta.
+  origin       SaleOrigin?
+  // Detalle del origen: anuncio, cuenta MK, item de Marketplace, linea, via, etc. Nunca telefonos.
+  originDetail Json?
 
   @@index([clientId, createdAt])
   @@index([createdById, createdAt])
+}
+
+// Origen de la venta (decision de Alexander, 7-oct-2026). Sale de la linea de WhatsApp del chat
+// en el CRM: Ventas 1 = META_ADS, Ventas 2 = MARKETPLACE, Admin = REFERIDO o RECURRENTE (segun
+// si el cliente ya tenia ventas). Venta sin chat = MOSTRADOR. NULL o SIN_DATO = no se sabe.
+enum SaleOrigin {
+  META_ADS
+  MARKETPLACE
+  REFERIDO
+  RECURRENTE
+  MOSTRADOR
+  SIN_DATO
 }
 
 enum SaleStatus {
@@ -341,9 +357,13 @@ model Sale {
   salePayments       SalePayment[]
   supplierPayments   SupplierLedgerEntry[]
   shippingCosts      ShippingCost[]
+  // Copia del origen de la cotizacion (o MOSTRADOR en venta directa). NULL = sin dato.
+  origin             SaleOrigin?
+  originDetail       Json?
 
   @@index([clientId, createdAt])
   @@index([createdById, createdAt])
+  @@index([origin])
 }
 
 model ShippingCost {

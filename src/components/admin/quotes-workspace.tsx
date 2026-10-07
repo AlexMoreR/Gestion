@@ -23,6 +23,8 @@ type QuoteRow = {
   shareToken: string;
   hasSale: boolean;
   hasCamillaCombo?: boolean;
+  origin?: string | null;
+  originDetail?: unknown;
 };
 
 type AccountOption = {

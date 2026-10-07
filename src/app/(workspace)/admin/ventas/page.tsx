@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
@@ -11,6 +12,8 @@ import {
   isCamillaComboProduct,
   toComboCheckProduct,
 } from "@/modules/ventas/domain/payment-method";
+import { parseOriginFilter } from "@/modules/ventas/domain/sale-origin";
+import { SaleOriginFilterBar } from "@/modules/ventas/presentation/sale-origin-filter-bar";
 
 type SaleWithDiscountFields = {
   grossTotal?: unknown;
@@ -61,9 +64,17 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
   const initialSearch = typeof params.q === "string" ? params.q : "";
+  // ?origen=META_ADS|MARKETPLACE|...|SIN_DATO. "Sin dato" incluye las ventas viejas (NULL).
+  const originFilter = parseOriginFilter(params.origen);
+  const originWhere: Prisma.SaleWhereInput | undefined = originFilter
+    ? originFilter === "SIN_DATO"
+      ? { OR: [{ origin: null }, { origin: "SIN_DATO" }] }
+      : { origin: originFilter }
+    : undefined;
 
   const [sales, products, clients, currency, accounts, stockRows] = await Promise.all([
     prisma.sale.findMany({
+      where: originWhere,
       orderBy: { createdAt: "desc" },
       include: {
         client: true,
@@ -138,6 +149,8 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
         errorTitle="Error en ventas"
       />
 
+      <SaleOriginFilterBar active={originFilter} search={initialSearch} />
+
       <SalesWorkspace
         currency={currency}
         accounts={accounts}
@@ -209,6 +222,8 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
           hasOrder: Boolean(sale.order),
           orderId: sale.order?.id ?? null,
           salePaymentMethod: sale.paymentMethod ?? null,
+          saleOrigin: sale.origin ?? null,
+          saleOriginDetail: sale.originDetail ?? null,
           hasCamillaCombo: sale.quote.items.some((item) => isCamillaComboProduct(toComboCheckProduct(item.product))),
         }))}
       />

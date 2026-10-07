@@ -31,6 +31,9 @@ export type SaleDetail = {
   // Quien registro la venta en el sistema (puede ser distinta de la vendedora).
   registeredBy: Seller | null;
   products: SaleProductLine[];
+  // Origen de la venta (enum SaleOrigin; null = sin dato) y su detalle (anuncio, cuenta MK, linea).
+  origin: string | null;
+  originDetail: unknown;
 };
 
 export type QuoteStatusCode = "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED";
