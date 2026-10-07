@@ -35,6 +35,7 @@ export default async function AdminProduccionPage({ searchParams }: PageProps) {
       orderItem: {
         include: {
           product: true,
+          confirmedSupplier: { select: { name: true } },
         },
       },
       assignedTo: true,
@@ -84,7 +85,9 @@ export default async function AdminProduccionPage({ searchParams }: PageProps) {
           quantity: job.quantity,
           status: job.status,
           dueDate: job.dueDate ? job.dueDate.toLocaleDateString("es-CO") : null,
-          assignedToName: job.assignedTo?.name ?? job.assignedTo?.email ?? null,
+          // Responsable = el proveedor que fabrica (confirmado al pulsar "Fabricar"); si no hay, la persona asignada.
+          assignedToName:
+            job.orderItem?.confirmedSupplier?.name ?? job.assignedTo?.name ?? job.assignedTo?.email ?? null,
           notes: job.notes,
         }))}
       />
