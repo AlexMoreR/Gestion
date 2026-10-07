@@ -31,6 +31,10 @@ import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import {
+  ShipmentDispatchFields,
+  type ShipmentDefaults,
+} from "@/modules/guias/presentation/shipment-dispatch-fields";
 
 type SupplierOption = {
   id: string;
@@ -91,6 +95,7 @@ type OrderItemManagerProps = {
   accounts: AccountOption[];
   carriers: CarrierOption[];
   defaultAddress: string;
+  shipmentDefaults?: ShipmentDefaults;
   selected: boolean;
   onToggleSelected: () => void;
 };
@@ -178,6 +183,7 @@ export function OrderItemManager({
   returnTo,
   carriers,
   defaultAddress,
+  shipmentDefaults,
   selected,
   onToggleSelected,
 }: OrderItemManagerProps) {
@@ -765,6 +771,7 @@ export function OrderItemManager({
                   </div>
 
                   <input type="hidden" name="shippingAddress" value={defaultAddress} />
+                  {shipmentDefaults ? <ShipmentDispatchFields defaults={shipmentDefaults} /> : null}
                 </>
               ) : null}
               <div className="space-y-1">
@@ -784,7 +791,7 @@ export function OrderItemManager({
             <DialogDescription>
               Se eliminara el despacho{item.dispatchCode ? ` ${item.dispatchCode}` : ""} de{" "}
               <span className="font-medium text-foreground">{item.productName}</span> y el producto
-              volvera al estado "Recogido" para poder despacharlo de nuevo. Se revertiran los costos
+              volvera al estado &quot;Recogido&quot; para poder despacharlo de nuevo. Se revertiran los costos
               de envio asociados.
             </DialogDescription>
           </DialogHeader>
@@ -804,13 +811,13 @@ export function OrderItemManager({
               {item.requiresManufacturing ? (
                 <>
                   <span className="font-medium text-foreground">{item.productName}</span> volvera al
-                  estado "Fabricando". Se eliminaran las fotos del producto terminado y se revertira el
+                  estado &quot;Fabricando&quot;. Se eliminaran las fotos del producto terminado y se revertira el
                   cargo/pago al proveedor generado al recogerlo.
                 </>
               ) : (
                 <>
                   <span className="font-medium text-foreground">{item.productName}</span> se devolvera al
-                  inventario (x{item.quantity}) y volvera al estado "Sin confirmar". No genera ni revierte
+                  inventario (x{item.quantity}) y volvera al estado &quot;Sin confirmar&quot;. No genera ni revierte
                   cargos al proveedor.
                 </>
               )}
@@ -830,7 +837,7 @@ export function OrderItemManager({
             <DialogTitle>Deshacer fabricacion</DialogTitle>
             <DialogDescription>
               <span className="font-medium text-foreground">{item.productName}</span> volvera al
-              estado "Sin confirmar". Se eliminara su orden de produccion y se limpiara el proveedor
+              estado &quot;Sin confirmar&quot;. Se eliminara su orden de produccion y se limpiara el proveedor
               y costo confirmado.
             </DialogDescription>
           </DialogHeader>

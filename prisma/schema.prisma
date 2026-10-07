@@ -51,6 +51,8 @@ model User {
   inventoryMovements       InventoryMovement[]   @relation("InventoryMovementCreatedBy")
   activityLogs             ActivityLog[]         @relation("ActivityLogActor")
   monthClosures            MonthClosure[]        @relation("MonthClosureGeneratedBy")
+  shipmentsCreated         Shipment[]            @relation("ShipmentCreatedBy")
+  shipmentEvents           ShipmentEvent[]       @relation("ShipmentEventActor")
 }
 
 enum ActivityAction {
@@ -589,6 +591,7 @@ model Dispatch {
   carrierSupplier       Supplier?             @relation("DispatchCarrier", fields: [carrierSupplierId], references: [id], onDelete: SetNull)
   items                 DispatchItem[]
   supplierLedgerEntries SupplierLedgerEntry[]
+  shipment              Shipment?
 
   @@index([orderId])
   @@index([createdById, createdAt])
@@ -814,6 +817,10 @@ model TransportCity {
   createdAt    DateTime            @default(now())
   department   TransportDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   localities   TransportLocality[]
+  shipmentsAsDestination Shipment[]      @relation("ShipmentDestination")
+  shipmentsAsOrigin      Shipment[]      @relation("ShipmentOrigin")
+  shipmentsAsCurrent     Shipment[]      @relation("ShipmentCurrent")
+  shipmentEvents         ShipmentEvent[]
 
   @@index([departmentId])
   @@index([name])
@@ -837,4 +844,114 @@ model TransportLocality {
   @@index([name])
   @@index([nameKey])
   @@index([cityId, nameKey])
+}
+
+// Guias Magilus (MG-000001): seguimiento propio del envio para el cliente. Cuelga de UN
+// despacho (1 a 1). La guia de la transportadora (Dispatch.trackingNumber) queda interna.
+enum ShipmentStatus {
+  CREATED
+  PICKED_UP
+  IN_WAREHOUSE
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  RETURNED
+  CANCELLED
+}
+
+enum ShipmentEventKind {
+  STATUS
+  INCIDENT
+  NOTE
+  ETA_CHANGE
+}
+
+enum ShipmentIncident {
+  POLICE_INSPECTION
+  WEATHER
+  HEAVY_TRAFFIC
+  ROAD_BLOCK
+  VEHICLE_ISSUE
+  ADDRESS_ISSUE
+  RECIPIENT_ABSENT
+  DAMAGE
+  OTHER
+}
+
+enum ShipmentActor {
+  MAGILUS
+  CARRIER
+  SYSTEM
+}
+
+model Shipment {
+  id                 String          @id @default(cuid())
+  code               String          @unique // MG-000001
+  dispatchId         String          @unique
+  status             ShipmentStatus  @default(CREATED)
+  destinationCityId  String?
+  originCityId       String? // Bogota (fabrica y despacho)
+  currentCityId      String?
+  estimatedDelivery  DateTime?
+  etaIsManual        Boolean         @default(false)
+  deliveredAt        DateTime?
+  // Cobro al recibir: lo confirma quien crea la guia (sugerido del saldo de la venta).
+  collectOnDelivery  Boolean         @default(false)
+  amountToCollect    Decimal         @default(0) @db.Decimal(12, 2)
+  receivedByName     String?
+  deliveryPhotoUrl   String?
+  // Consulta publica (magilus.com/guia): guia + ultimos 4 del celular.
+  phoneLast4         String?
+  publicEnabled      Boolean         @default(true)
+  // Enlace del transportador (/envios/t/[token]).
+  carrierToken       String          @unique
+  carrierTokenActive Boolean         @default(true)
+  createdById        String
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  dispatch           Dispatch        @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+  destinationCity    TransportCity?  @relation("ShipmentDestination", fields: [destinationCityId], references: [id], onDelete: SetNull)
+  originCity         TransportCity?  @relation("ShipmentOrigin", fields: [originCityId], references: [id], onDelete: SetNull)
+  currentCity        TransportCity?  @relation("ShipmentCurrent", fields: [currentCityId], references: [id], onDelete: SetNull)
+  createdBy          User            @relation("ShipmentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  events             ShipmentEvent[]
+
+  @@index([status, updatedAt])
+  @@index([createdAt])
+}
+
+model ShipmentEvent {
+  id              String            @id @default(cuid())
+  shipmentId      String
+  kind            ShipmentEventKind
+  status          ShipmentStatus?
+  incident        ShipmentIncident?
+  note            String?
+  cityId          String?
+  photoUrl        String?
+  newEta          DateTime?
+  visibleToClient Boolean           @default(true)
+  actor           ShipmentActor
+  actorUserId     String?
+  actorLabel      String?
+  ipHash          String?
+  occurredAt      DateTime          @default(now())
+  createdAt       DateTime          @default(now())
+  shipment        Shipment          @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  city            TransportCity?    @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  actorUser       User?             @relation("ShipmentEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([shipmentId, occurredAt])
+}
+
+// Limite de intentos de la consulta publica (por IP con hash y por guia).
+model ShipmentLookupAttempt {
+  id        String   @id @default(cuid())
+  ipHash    String
+  code      String
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([ipHash, createdAt])
+  @@index([code, createdAt])
 }

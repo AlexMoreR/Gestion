@@ -28,6 +28,10 @@ import {
 } from "@/components/ui/table";
 import { OrderItemManager, type OrderItemManagerData } from "@/components/admin/order-item-manager";
 import type { SupportedCurrencyCode } from "@/lib/currency";
+import {
+  ShipmentDispatchFields,
+  type ShipmentDefaults,
+} from "@/modules/guias/presentation/shipment-dispatch-fields";
 
 type CarrierOption = { id: string; name: string };
 type AccountOption = { id: string; name: string };
@@ -49,6 +53,7 @@ type OrderItemsTableProps = {
   accounts: AccountOption[];
   carriers: CarrierOption[];
   defaultAddress: string;
+  shipmentDefaults?: ShipmentDefaults;
 };
 
 function BulkSubmitButton({ label, pendingLabel }: { label: string; pendingLabel: string }) {
@@ -69,6 +74,7 @@ export function OrderItemsTable({
   accounts,
   carriers,
   defaultAddress,
+  shipmentDefaults,
 }: OrderItemsTableProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [modal, setModal] = useState<null | "fabricar" | "recoger" | "despachar">(null);
@@ -214,6 +220,7 @@ export function OrderItemsTable({
                 accounts={accounts}
                 carriers={carriers}
                 defaultAddress={defaultAddress}
+                shipmentDefaults={shipmentDefaults}
                 selected={selected.has(item.id)}
                 onToggleSelected={() => toggle(item.id)}
               />
@@ -357,6 +364,7 @@ export function OrderItemsTable({
                     <Input type="file" name="trackingPhoto" accept="image/*,application/pdf" className="h-8 text-xs" />
                   </div>
                   <input type="hidden" name="shippingAddress" value={defaultAddress} />
+                  {shipmentDefaults ? <ShipmentDispatchFields defaults={shipmentDefaults} /> : null}
                 </>
               ) : null}
 

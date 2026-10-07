@@ -26,6 +26,12 @@ import {
 } from "@/lib/manufacturing-orders";
 import type { ManufacturingCard } from "@/components/admin/order-manufacturing-tab";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
+import { adminCreateShipmentAction } from "@/app/actions/shipment-actions";
+import { Button } from "@/components/ui/button";
+import { phoneLast4 } from "@/modules/guias/domain/lookup";
+import { SHIPMENT_STATUS_BADGE, SHIPMENT_STATUS_LABEL } from "@/modules/guias/domain/statuses";
+import { computeSaleBalance, resolveCityFromClient } from "@/modules/guias/infrastructure/shipments-repository";
+import type { ShipmentDefaults } from "@/modules/guias/presentation/shipment-dispatch-fields";
 
 type PageProps = {
   params: Promise<{ orderId: string }>;
@@ -123,6 +129,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         },
         dispatches: {
           include: {
+            shipment: { select: { id: true, code: true, status: true } },
             createdBy: true,
             items: {
               include: {
@@ -330,6 +337,19 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     };
   });
 
+  // Guia Magilus: datos sugeridos para el check "Crear guia Magilus" del modal de despacho.
+  let shipmentDefaults: ShipmentDefaults | undefined;
+  if (!isPurchase) {
+    const [destination, saleBalance] = await Promise.all([
+      resolveCityFromClient(order.client?.city, order.client?.department),
+      computeSaleBalance(order.saleId),
+    ]);
+    shipmentDefaults = { destination, saleBalance, hasPhone: Boolean(phoneLast4(order.client?.phone)) };
+  }
+  const shippingDispatches = order.dispatches.filter(
+    (dispatch) => dispatch.deliveryType === "SHIPPING" && dispatch.status !== "CANCELLED",
+  );
+
   // Ordenes de fabricacion (OF) por proveedora: solo en ordenes de venta.
   let manufacturingCards: ManufacturingCard[] = [];
   let brandName = "";
@@ -486,6 +506,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             accounts={accounts}
             carriers={carriers}
             defaultAddress={order.client?.address ?? ""}
+            shipmentDefaults={shipmentDefaults}
           />
         </div>
 
@@ -513,6 +534,41 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               defaultTiktok: order.client?.tiktok ?? "",
             }}
           />
+
+          {!isPurchase && shippingDispatches.length > 0 ? (
+            <Card className="border-border bg-card/95">
+              <CardContent className="space-y-2">
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Guías Magilus</p>
+                {shippingDispatches.map((dispatch) =>
+                  dispatch.shipment ? (
+                    <Link
+                      key={dispatch.id}
+                      href={`/admin/despachos/guias/${dispatch.shipment.id}`}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-border p-2 text-sm hover:border-primary/40"
+                    >
+                      <span className="font-semibold text-foreground">{dispatch.shipment.code}</span>
+                      <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${SHIPMENT_STATUS_BADGE[dispatch.shipment.status]}`}>
+                        {SHIPMENT_STATUS_LABEL[dispatch.shipment.status]}
+                      </span>
+                    </Link>
+                  ) : (
+                    <form
+                      key={dispatch.id}
+                      action={adminCreateShipmentAction}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-border p-2 text-sm"
+                    >
+                      <input type="hidden" name="dispatchId" value={dispatch.id} />
+                      <input type="hidden" name="returnTo" value={returnTo} />
+                      <span className="text-muted-foreground">{dispatch.code} sin guía</span>
+                      <Button type="submit" size="sm" variant="outline">
+                        Crear guía Magilus
+                      </Button>
+                    </form>
+                  ),
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
 
           <Card className="border-border bg-card/95">
             <CardContent>

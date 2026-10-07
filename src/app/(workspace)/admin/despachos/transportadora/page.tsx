@@ -14,6 +14,7 @@ import { formatMoney } from "@/lib/currency";
 import { getDispatchStatusBadgeClassName, getDispatchStatusLabel } from "@/lib/orders";
 import { prisma } from "@/lib/prisma";
 import { getSystemCurrency } from "@/lib/system-settings";
+import { SHIPMENT_STATUS_BADGE, SHIPMENT_STATUS_LABEL } from "@/modules/guias/domain/statuses";
 
 /*
   Seguimiento con la transportadora: que envios tiene cada proveedor de envios, cuales siguen
@@ -89,6 +90,7 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
         shippedAt: true,
         deliveredAt: true,
         carrierSupplier: { select: { name: true } },
+        shipment: { select: { id: true, code: true, status: true } },
         order: {
           select: {
             id: true,
@@ -171,6 +173,16 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getDispatchStatusBadgeClassName(row.status)}`}>
             {getDispatchStatusLabel(row.status)}
           </span>
+          {row.shipment ? (
+            <Link
+              href={`/admin/despachos/guias/${row.shipment.id}`}
+              className={`rounded-full border px-2 py-0.5 text-xs font-medium hover:underline ${SHIPMENT_STATUS_BADGE[row.shipment.status]}`}
+            >
+              {row.shipment.code} · {SHIPMENT_STATUS_LABEL[row.shipment.status]}
+            </Link>
+          ) : (
+            <span className="text-xs text-muted-foreground">Sin guía MG</span>
+          )}
         </div>
         <span className={`rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${mode === "done" ? "bg-muted text-muted-foreground" : lightClass(row.days)}`}>
           {mode === "done" ? `Entregado hace ${row.days} d` : `${row.days} día(s)`}

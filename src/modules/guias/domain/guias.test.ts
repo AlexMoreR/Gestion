@@ -1,0 +1,157 @@
+import { describe, expect, it } from "vitest";
+
+import { buildShipmentCode, normalizeShipmentCodeInput, parseShipmentCodeNumber } from "./codes";
+import { addBusinessDays, businessDaysFor, destinationTier, estimateDelivery, parseDateInput } from "./eta";
+import {
+  abbreviateName,
+  evaluateLookupLimit,
+  maskPhone,
+  MAX_FAILURES_PER_CODE,
+  MAX_FAILURES_PER_IP,
+  parseLast4Input,
+  phoneLast4,
+  safeEqual,
+} from "./lookup";
+import { canCarrierMoveTo, canMagilusMoveTo, dispatchStatusForShipment, flowProgress } from "./statuses";
+
+describe("codigo MG", () => {
+  it("arma el codigo con 6 digitos", () => {
+    expect(buildShipmentCode(1)).toBe("MG-000001");
+    expect(buildShipmentCode(123)).toBe("MG-000123");
+    expect(buildShipmentCode(1234567)).toBe("MG-1234567");
+    expect(buildShipmentCode(0)).toBe("MG-000001");
+  });
+
+  it("lee el numero del codigo", () => {
+    expect(parseShipmentCodeNumber("MG-000123")).toBe(123);
+    expect(parseShipmentCodeNumber("mg-000045")).toBe(45);
+    expect(parseShipmentCodeNumber("DSP-00001")).toBe(0);
+    expect(parseShipmentCodeNumber(null)).toBe(0);
+  });
+
+  it("normaliza lo que escribe el cliente", () => {
+    expect(normalizeShipmentCodeInput("MG-000123")).toBe("MG-000123");
+    expect(normalizeShipmentCodeInput("mg123")).toBe("MG-000123");
+    expect(normalizeShipmentCodeInput(" MG 123 ")).toBe("MG-000123");
+    expect(normalizeShipmentCodeInput("123")).toBe("MG-000123");
+    expect(normalizeShipmentCodeInput("000123")).toBe("MG-000123");
+    expect(normalizeShipmentCodeInput("")).toBeNull();
+    expect(normalizeShipmentCodeInput("0")).toBeNull();
+    expect(normalizeShipmentCodeInput("DSP-00001")).toBeNull();
+    expect(normalizeShipmentCodeInput("MG-12a")).toBeNull();
+  });
+});
+
+describe("fecha estimada", () => {
+  it("clasifica el destino", () => {
+    expect(destinationTier("11001")).toBe("BOGOTA");
+    expect(destinationTier("76001")).toBe("CAPITAL");
+    expect(destinationTier("76111")).toBe("MUNICIPIO");
+    expect(destinationTier(null)).toBe("MUNICIPIO");
+    expect(businessDaysFor("11001")).toBe(3);
+    expect(businessDaysFor("05001")).toBe(5);
+    expect(businessDaysFor("25843")).toBe(7);
+  });
+
+  it("suma dias habiles saltando sabado y domingo", () => {
+    // Miercoles 7-oct-2026 10:00 hora Colombia (15:00 UTC).
+    const wednesday = new Date("2026-10-07T15:00:00Z");
+    expect(addBusinessDays(wednesday, 3).toISOString().slice(0, 10)).toBe("2026-10-12"); // lunes
+    expect(addBusinessDays(wednesday, 5).toISOString().slice(0, 10)).toBe("2026-10-14");
+    expect(addBusinessDays(wednesday, 7).toISOString().slice(0, 10)).toBe("2026-10-16");
+    // Viernes + 1 habil = lunes
+    expect(addBusinessDays(new Date("2026-10-09T15:00:00Z"), 1).toISOString().slice(0, 10)).toBe("2026-10-12");
+  });
+
+  it("usa el dia de Colombia, no el de UTC", () => {
+    // 8-oct 03:00 UTC = 7-oct 22:00 en Colombia (miercoles).
+    const lateNight = new Date("2026-10-08T03:00:00Z");
+    expect(estimateDelivery(lateNight, "11001").toISOString().slice(0, 10)).toBe("2026-10-12");
+  });
+
+  it("lee la fecha del formulario", () => {
+    expect(parseDateInput("2026-10-15")?.toISOString()).toBe("2026-10-15T12:00:00.000Z");
+    expect(parseDateInput("2026-02-30")).toBeNull();
+    expect(parseDateInput("15/10/2026")).toBeNull();
+  });
+});
+
+describe("ultimos 4 del celular", () => {
+  it("toma los ultimos 4 digitos del celular guardado", () => {
+    expect(phoneLast4("+57 300 123 4567")).toBe("4567");
+    expect(phoneLast4("3001234567")).toBe("4567");
+    expect(phoneLast4("123")).toBeNull();
+    expect(phoneLast4(null)).toBeNull();
+  });
+
+  it("valida lo que escribe el cliente", () => {
+    expect(parseLast4Input("4567")).toBe("4567");
+    expect(parseLast4Input(" 45 67 ")).toBe("4567");
+    expect(parseLast4Input("456")).toBeNull();
+    expect(parseLast4Input("45678")).toBeNull();
+    expect(parseLast4Input("45a7")).toBeNull();
+  });
+
+  it("compara en tiempo constante", () => {
+    expect(safeEqual("4567", "4567")).toBe(true);
+    expect(safeEqual("4567", "4568")).toBe(false);
+    expect(safeEqual("4567", "456")).toBe(false);
+    expect(safeEqual("", "")).toBe(true);
+  });
+
+  it("enmascara el celular y abrevia nombres", () => {
+    expect(maskPhone("3001234567")).toBe("*** *** 4567");
+    expect(maskPhone("")).toBe("Sin celular");
+    expect(abbreviateName("Ana Maria Lopez")).toBe("Ana L.");
+    expect(abbreviateName("Ana")).toBe("Ana");
+    expect(abbreviateName("  ")).toBe("");
+  });
+});
+
+describe("limite de intentos", () => {
+  it("permite por debajo de los topes", () => {
+    expect(evaluateLookupLimit({ ipFailures: 0, codeFailures: 0 })).toEqual({ allowed: true });
+    expect(
+      evaluateLookupLimit({ ipFailures: MAX_FAILURES_PER_IP - 1, codeFailures: MAX_FAILURES_PER_CODE - 1 }),
+    ).toEqual({ allowed: true });
+  });
+
+  it("bloquea por IP a los 10 fallos y por guia a los 5", () => {
+    expect(evaluateLookupLimit({ ipFailures: 10, codeFailures: 0 })).toEqual({ allowed: false, reason: "IP" });
+    expect(evaluateLookupLimit({ ipFailures: 0, codeFailures: 5 })).toEqual({ allowed: false, reason: "CODE" });
+  });
+});
+
+describe("etapas", () => {
+  it("el transportador solo avanza", () => {
+    expect(canCarrierMoveTo("CREATED", "PICKED_UP").ok).toBe(true);
+    expect(canCarrierMoveTo("CREATED", "DELIVERED").ok).toBe(true);
+    expect(canCarrierMoveTo("IN_TRANSIT", "PICKED_UP").ok).toBe(false);
+    expect(canCarrierMoveTo("DELIVERED", "DELIVERED").ok).toBe(false);
+    expect(canCarrierMoveTo("CREATED", "CANCELLED").ok).toBe(false);
+  });
+
+  it("Magilus retrocede solo con nota", () => {
+    expect(canMagilusMoveTo("IN_TRANSIT", "PICKED_UP", "").ok).toBe(false);
+    expect(canMagilusMoveTo("IN_TRANSIT", "PICKED_UP", "error del conductor").ok).toBe(true);
+    expect(canMagilusMoveTo("DELIVERED", "IN_TRANSIT", "").ok).toBe(false);
+    expect(canMagilusMoveTo("CREATED", "IN_TRANSIT", "").ok).toBe(true);
+    expect(canMagilusMoveTo("CREATED", "CREATED", "x").ok).toBe(false);
+  });
+
+  it("sincroniza el despacho sin retrocederlo", () => {
+    expect(dispatchStatusForShipment("PICKED_UP", "PACKING")).toBe("SHIPPED");
+    expect(dispatchStatusForShipment("IN_TRANSIT", "SHIPPED")).toBeNull();
+    expect(dispatchStatusForShipment("DELIVERED", "SHIPPED")).toBe("DELIVERED");
+    expect(dispatchStatusForShipment("DELIVERED", "DELIVERED")).toBeNull();
+    expect(dispatchStatusForShipment("RETURNED", "SHIPPED")).toBe("RETURNED");
+    expect(dispatchStatusForShipment("CREATED", "PACKING")).toBeNull();
+    expect(dispatchStatusForShipment("IN_TRANSIT", "CANCELLED")).toBeNull();
+  });
+
+  it("calcula el progreso", () => {
+    expect(flowProgress("CREATED")).toBe(0);
+    expect(flowProgress("DELIVERED")).toBe(1);
+    expect(flowProgress("CANCELLED")).toBe(0);
+  });
+});

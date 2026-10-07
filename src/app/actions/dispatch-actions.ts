@@ -12,6 +12,47 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buildDispatchCode, parseDispatchCodeNumber } from "@/lib/orders";
+import {
+  createShipmentForDispatch,
+  ShipmentError,
+  syncShipmentFromDispatch,
+} from "@/modules/guias/infrastructure/shipments-repository";
+
+// Check "Crear guia Magilus" del modal de despacho (solo envios con transportadora). Si la
+// guia falla, el despacho ya quedo creado: se avisa en el mensaje y se crea luego desde la orden.
+async function createShipmentIfRequested(
+  formData: FormData,
+  dispatchCode: string | null,
+  createdById: string,
+  isShipping: boolean,
+): Promise<string> {
+  if (!dispatchCode || !isShipping || formData.get("createShipment") !== "on") {
+    return "";
+  }
+  const created = await prisma.dispatch.findUnique({ where: { code: dispatchCode }, select: { id: true } });
+  if (!created) {
+    return "";
+  }
+  const dispatchId = created.id;
+  const cityRaw = formData.get("destinationCityId");
+  const amountRaw = formData.get("amountToCollect");
+  const amount = typeof amountRaw === "string" && amountRaw.trim() ? Number(amountRaw.replace(/[^\d.]/g, "")) : NaN;
+  try {
+    const shipment = await createShipmentForDispatch({
+      dispatchId,
+      createdById,
+      destinationCityId: typeof cityRaw === "string" && cityRaw.trim() ? cityRaw.trim() : null,
+      amountToCollect: Number.isFinite(amount) && amount >= 0 ? Math.round(amount) : null,
+    });
+    revalidatePath("/admin/despachos/guias");
+    return ` · Guía ${shipment.code} creada`;
+  } catch (error) {
+    if (!(error instanceof ShipmentError)) {
+      console.error("Failed to create shipment:", error);
+    }
+    return " · No se pudo crear la guía Magilus (créala desde la orden)";
+  }
+}
 
 const RECEIPT_MAX_BYTES = 12 * 1024 * 1024;
 const ALLOWED_RECEIPT_MIME_TYPES = new Set([
@@ -235,6 +276,8 @@ export async function adminCompleteDeliveryAction(formData: FormData): Promise<v
     redirect(`${returnTo}?error=No+se+pudo+registrar+la+entrega`);
   }
 
+  await syncShipmentFromDispatch(dispatch.id, "DELIVERED", changedById);
+
   revalidatePath("/admin/despachos");
   revalidatePath("/admin/ordenes");
   revalidatePath(`/admin/ordenes/${dispatch.orderId}`);
@@ -419,6 +462,7 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
   }
 
   const shippingCost = isShipping ? parsed.data.shippingCost : 0;
+  let createdDispatchCode: string | null = null;
 
   try {
     let receipt: { url: string; name: string } | null = null;
@@ -428,6 +472,7 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
 
     await prisma.$transaction(async (tx) => {
       const code = await getNextDispatchCode(tx);
+      createdDispatchCode = code;
       const dispatch = await tx.dispatch.create({
         data: {
           code,
@@ -541,7 +586,8 @@ export async function adminCreateDispatchAction(formData: FormData): Promise<voi
   revalidatePath("/admin/ordenes");
   revalidatePath(`/admin/ordenes/${order.id}`);
   revalidatePath("/admin/proveedores");
-  redirect(`${returnTo}?ok=Despacho+creado`);
+  const shipmentNote = await createShipmentIfRequested(formData, createdDispatchCode, createdById, isShipping);
+  redirect(`${returnTo}?ok=${encodeURIComponent(`Despacho creado${shipmentNote}`)}`);
 }
 
 const dispatchOrderItemSchema = z.object({
@@ -663,6 +709,7 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
   const hasTrackingPhoto = trackingPhotoFile instanceof File && trackingPhotoFile.size > 0;
 
   const shippingCost = isShipping ? parsed.data.shippingCost : 0;
+  let createdDispatchCode: string | null = null;
 
   try {
     let receipt: { url: string; name: string } | null = null;
@@ -677,6 +724,7 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
 
     await prisma.$transaction(async (tx) => {
       const code = await getNextDispatchCode(tx);
+      createdDispatchCode = code;
       const dispatch = await tx.dispatch.create({
         data: {
           code,
@@ -797,7 +845,8 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
   revalidatePath("/admin/ordenes");
   revalidatePath(`/admin/ordenes/${order.id}`);
   revalidatePath("/admin/proveedores");
-  redirect(`${returnTo}?ok=Producto+despachado`);
+  const shipmentNote = await createShipmentIfRequested(formData, createdDispatchCode, createdById, isShipping);
+  redirect(`${returnTo}?ok=${encodeURIComponent(`Producto despachado${shipmentNote}`)}`);
 }
 
 function parseOrderItemIds(value: FormDataEntryValue | null): string[] {
@@ -949,6 +998,7 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
 
   const trackingPhotoFile = formData.get("trackingPhoto");
   const hasTrackingPhoto = trackingPhotoFile instanceof File && trackingPhotoFile.size > 0;
+  let createdDispatchCode: string | null = null;
 
   try {
     let trackingPhoto: { url: string; name: string } | null = null;
@@ -958,6 +1008,7 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
 
     await prisma.$transaction(async (tx) => {
       const code = await getNextDispatchCode(tx);
+      createdDispatchCode = code;
       const dispatch = await tx.dispatch.create({
         data: {
           code,
@@ -1049,7 +1100,8 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
   revalidatePath("/admin/ordenes");
   revalidatePath(`/admin/ordenes/${order.id}`);
   revalidatePath("/admin/proveedores");
-  redirect(`${returnTo}?ok=${encodeURIComponent(`Despachados ${selectedItems.length} productos`)}`);
+  const shipmentNote = await createShipmentIfRequested(formData, createdDispatchCode, createdById, isShipping);
+  redirect(`${returnTo}?ok=${encodeURIComponent(`Despachados ${selectedItems.length} productos${shipmentNote}`)}`);
 }
 
 const undoDispatchItemSchema = z.object({
@@ -1236,6 +1288,8 @@ export async function adminUpdateDispatchStatusAction(formData: FormData): Promi
       });
     }
   });
+
+  await syncShipmentFromDispatch(dispatch.id, parsed.data.status, changedById);
 
   revalidatePath("/admin/despachos");
   revalidatePath("/admin/ordenes");

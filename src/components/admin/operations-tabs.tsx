@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Factory, PhoneCall, Truck } from "lucide-react";
+import { ClipboardList, Factory, PackageSearch, PhoneCall, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -10,6 +10,7 @@ const TABS = [
   { href: "/admin/produccion", label: "Produccion", icon: Factory },
   { href: "/admin/despachos", label: "Despachos", icon: Truck },
   { href: "/admin/despachos/transportadora", label: "Transportadora", icon: PhoneCall },
+  { href: "/admin/despachos/guias", label: "Guías", icon: PackageSearch },
 ];
 
 export function OperationsTabs() {
