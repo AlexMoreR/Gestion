@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Factory, Truck } from "lucide-react";
+import { ClipboardList, Factory, PhoneCall, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/admin/ordenes", label: "Ordenes", icon: ClipboardList },
   { href: "/admin/produccion", label: "Produccion", icon: Factory },
   { href: "/admin/despachos", label: "Despachos", icon: Truck },
+  { href: "/admin/despachos/transportadora", label: "Transportadora", icon: PhoneCall },
 ];
 
 export function OperationsTabs() {
@@ -17,7 +18,10 @@ export function OperationsTabs() {
   return (
     <div className="inline-flex w-full items-center justify-start gap-1 border-b border-border">
       {TABS.map(({ href, label, icon: Icon }) => {
-        const active = pathname.startsWith(href);
+        // La pestaña mas especifica gana: /admin/despachos/transportadora no marca tambien Despachos.
+        const active =
+          pathname.startsWith(href) &&
+          !TABS.some((other) => other.href !== href && other.href.startsWith(href) && pathname.startsWith(other.href));
         return (
           <Link
             key={href}

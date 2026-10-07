@@ -1325,3 +1325,111 @@ export async function adminUpdateDispatchShippingCostsAction(input: {
   return { ok: true };
 }
 
+// --- Seguimiento con la transportadora (/admin/despachos/transportadora) ---
+
+const CARRIER_FOLLOWUP_PATH = "/admin/despachos/transportadora";
+
+// Fecha y hora de Colombia en formato "AAAA-MM-DD HH:mm".
+function formatBogotaStamp(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}`;
+}
+
+const carrierResponseSchema = z.object({
+  dispatchId: z.string().trim().min(1, "Despacho invalido"),
+  response: z.string().trim().min(1, "Escribe la respuesta").max(500, "Respuesta demasiado larga"),
+});
+
+// Registra lo que respondio la transportadora: antepone una linea fechada a las
+// notas del despacho ("[AAAA-MM-DD HH:mm] Transportadora: <texto>").
+export async function adminLogCarrierResponseAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+
+  const parsed = carrierResponseSchema.safeParse({
+    dispatchId: formData.get("dispatchId"),
+    response: formData.get("response"),
+  });
+  if (!parsed.success) {
+    redirect(`${CARRIER_FOLLOWUP_PATH}?error=Escribe+la+respuesta+de+la+transportadora`);
+  }
+
+  const dispatch = await prisma.dispatch.findUnique({
+    where: { id: parsed.data.dispatchId },
+    select: { id: true, notes: true },
+  });
+  if (!dispatch) {
+    redirect(`${CARRIER_FOLLOWUP_PATH}?error=Despacho+no+encontrado`);
+  }
+
+  const text = parsed.data.response.replace(/\s+/g, " ");
+  const line = `[${formatBogotaStamp(new Date())}] Transportadora: ${text}`;
+  const notes = dispatch.notes?.trim() ? `${line}\n${dispatch.notes}` : line;
+
+  await prisma.dispatch.update({ where: { id: dispatch.id }, data: { notes } });
+
+  revalidatePath(CARRIER_FOLLOWUP_PATH);
+  revalidatePath("/admin/despachos");
+  redirect(`${CARRIER_FOLLOWUP_PATH}?ok=Respuesta+guardada`);
+}
+
+const dispatchTrackingSchema = z.object({
+  dispatchId: z.string().trim().min(1, "Despacho invalido"),
+  trackingNumber: z.string().trim().min(1, "Escribe la guia").max(120, "Guia demasiado larga"),
+});
+
+// Registra la guia (y opcionalmente su foto) cuando la transportadora la envia.
+// No cambia el estado del despacho.
+export async function adminSetDispatchTrackingAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+
+  const parsed = dispatchTrackingSchema.safeParse({
+    dispatchId: formData.get("dispatchId"),
+    trackingNumber: formData.get("trackingNumber"),
+  });
+  if (!parsed.success) {
+    redirect(`${CARRIER_FOLLOWUP_PATH}?error=Escribe+el+numero+de+guia`);
+  }
+
+  const dispatch = await prisma.dispatch.findUnique({
+    where: { id: parsed.data.dispatchId },
+    select: { id: true, orderId: true, status: true },
+  });
+  if (!dispatch) {
+    redirect(`${CARRIER_FOLLOWUP_PATH}?error=Despacho+no+encontrado`);
+  }
+  if (dispatch.status === "CANCELLED") {
+    redirect(`${CARRIER_FOLLOWUP_PATH}?error=El+despacho+esta+cancelado`);
+  }
+
+  const photoFile = formData.get("trackingPhoto");
+  const hasPhoto = photoFile instanceof File && photoFile.size > 0;
+
+  try {
+    const photo = hasPhoto ? await saveTrackingPhoto(photoFile, dispatch.orderId) : null;
+    await prisma.dispatch.update({
+      where: { id: dispatch.id },
+      data: {
+        trackingNumber: parsed.data.trackingNumber,
+        ...(photo ? { trackingPhotoUrl: photo.url, trackingPhotoName: photo.name } : {}),
+      },
+    });
+  } catch (error) {
+    console.error("Failed to set dispatch tracking:", error);
+    redirect(`${CARRIER_FOLLOWUP_PATH}?error=No+se+pudo+guardar+la+guia`);
+  }
+
+  revalidatePath(CARRIER_FOLLOWUP_PATH);
+  revalidatePath("/admin/despachos");
+  revalidatePath(`/admin/ordenes/${dispatch.orderId}`);
+  redirect(`${CARRIER_FOLLOWUP_PATH}?ok=Guia+guardada`);
+}
+
