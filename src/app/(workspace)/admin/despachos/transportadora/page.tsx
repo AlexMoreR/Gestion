@@ -90,7 +90,13 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
         deliveredAt: true,
         carrierSupplier: { select: { name: true } },
         order: {
-          select: { id: true, code: true, client: { select: { name: true, email: true, city: true } } },
+          select: {
+            id: true,
+            code: true,
+            client: { select: { name: true, email: true, city: true } },
+            quote: { select: { id: true, code: true } },
+            sale: { select: { code: true, quote: { select: { id: true, code: true } } } },
+          },
         },
       },
       take: 500,
@@ -116,6 +122,9 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
 
   const carriers = Array.from(new Set([...withoutTracking, ...inTransit].map((row) => row.carrier))).sort();
 
+  // Cotizacion del pedido: la de la orden, o la de su venta.
+  const quoteOf = (row: Row) => row.order.quote ?? row.order.sale?.quote ?? null;
+
   const clientLabel = (row: Row) => {
     const client = row.order.client;
     const name = client?.name || client?.email || row.order.code;
@@ -128,7 +137,9 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
     const lines = [`Hola, te escribo de Magilus por estos envíos:`];
     if (pendingGuide.length) {
       lines.push("", "SIN GUÍA:");
-      pendingGuide.forEach((row) => lines.push(`- ${row.code} · ${clientLabel(row)} · hace ${row.days} día(s)`));
+      pendingGuide.forEach((row) =>
+        lines.push(`- ${row.code}${quoteOf(row) ? ` (${quoteOf(row)!.code})` : ""} · ${clientLabel(row)} · hace ${row.days} día(s)`),
+      );
     }
     if (pendingDelivery.length) {
       lines.push("", "SIN ENTREGAR:");
@@ -147,6 +158,16 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
             {row.order.code}
             <ArrowUpRight className="h-3 w-3" />
           </Link>
+          {quoteOf(row) ? (
+            <Link
+              href={`/admin/cotizaciones/${quoteOf(row)!.id}`}
+              className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary hover:underline"
+            >
+              {quoteOf(row)!.code}
+              <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          ) : null}
+          {row.order.sale?.code ? <span className="text-xs text-muted-foreground">{row.order.sale.code}</span> : null}
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getDispatchStatusBadgeClassName(row.status)}`}>
             {getDispatchStatusLabel(row.status)}
           </span>
