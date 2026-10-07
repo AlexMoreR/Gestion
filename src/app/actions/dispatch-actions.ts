@@ -1381,6 +1381,59 @@ export async function adminLogCarrierResponseAction(formData: FormData): Promise
   redirect(`${CARRIER_FOLLOWUP_PATH}?ok=Respuesta+guardada`);
 }
 
+// Corrige un despacho marcado como entregado por error: vuelve a "En camino" (SHIPPED),
+// borra la fecha de entrega, devuelve la orden a DISPATCHED y deja todo anotado.
+export async function adminRevertDispatchDeliveredAction(formData: FormData): Promise<void> {
+  const changedById = await requireAdminSession();
+  const dispatchId = String(formData.get("dispatchId") ?? "").trim();
+  if (!dispatchId) {
+    redirect(`${CARRIER_FOLLOWUP_PATH}?error=Despacho+invalido`);
+  }
+
+  const dispatch = await prisma.dispatch.findUnique({
+    where: { id: dispatchId },
+    include: { order: true },
+  });
+  if (!dispatch) {
+    redirect(`${CARRIER_FOLLOWUP_PATH}?error=Despacho+no+encontrado`);
+  }
+  if (dispatch.status !== "DELIVERED") {
+    redirect(`${CARRIER_FOLLOWUP_PATH}?error=El+despacho+no+esta+marcado+como+entregado`);
+  }
+
+  const line = `[${formatBogotaStamp(new Date())}] Correccion: no se habia entregado (estaba marcado como entregado).`;
+  const notes = dispatch.notes?.trim() ? `${line}\n${dispatch.notes}` : line;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.dispatch.update({
+      where: { id: dispatch.id },
+      data: { status: "SHIPPED", deliveredAt: null, shippedAt: dispatch.shippedAt ?? new Date(), notes },
+    });
+
+    if (dispatch.order.status === "COMPLETED") {
+      await tx.order.update({
+        where: { id: dispatch.orderId },
+        data: { status: "DISPATCHED", completedAt: null },
+      });
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: dispatch.orderId,
+          fromStatus: "COMPLETED",
+          toStatus: "DISPATCHED",
+          note: "Correccion: el despacho no se habia entregado",
+          changedById,
+        },
+      });
+    }
+  });
+
+  revalidatePath(CARRIER_FOLLOWUP_PATH);
+  revalidatePath("/admin/despachos");
+  revalidatePath("/admin/ordenes");
+  revalidatePath(`/admin/ordenes/${dispatch.orderId}`);
+  redirect(`${CARRIER_FOLLOWUP_PATH}?ok=Despacho+devuelto+a+En+camino`);
+}
+
 const dispatchTrackingSchema = z.object({
   dispatchId: z.string().trim().min(1, "Despacho invalido"),
   trackingNumber: z.string().trim().min(1, "Escribe la guia").max(120, "Guia demasiado larga"),

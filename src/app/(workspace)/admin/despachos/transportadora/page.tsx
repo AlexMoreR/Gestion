@@ -3,7 +3,11 @@ import { redirect } from "next/navigation";
 import { ArrowUpRight, MessageSquareText, ScrollText } from "lucide-react";
 import type { DispatchStatus } from "@prisma/client";
 import { auth } from "@/auth";
-import { adminLogCarrierResponseAction, adminSetDispatchTrackingAction } from "@/app/actions/dispatch-actions";
+import {
+  adminLogCarrierResponseAction,
+  adminRevertDispatchDeliveredAction,
+  adminSetDispatchTrackingAction,
+} from "@/app/actions/dispatch-actions";
 import { CarrierMessageButton } from "@/components/admin/carrier-message-button";
 import { OperationsTabs } from "@/components/admin/operations-tabs";
 import { Button } from "@/components/ui/button";
@@ -150,7 +154,7 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
   };
 
   const renderRow = (row: Row, mode: "guide" | "transit" | "done") => (
-    <div key={row.id} className="flex flex-col gap-2 rounded-xl border border-border bg-card/95 p-3">
+    <div key={row.id} className="flex min-w-0 flex-col gap-2 overflow-hidden rounded-xl border border-border bg-card/95 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-semibold text-foreground">{row.code}</span>
@@ -189,18 +193,26 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
           {row.response.text}
         </p>
       ) : null}
+      {mode === "done" ? (
+        <form action={adminRevertDispatchDeliveredAction} className="flex justify-end">
+          <input type="hidden" name="dispatchId" value={row.id} />
+          <Button type="submit" variant="outline" size="sm" className="h-8 text-rose-700 dark:text-rose-400">
+            No se ha entregado
+          </Button>
+        </form>
+      ) : null}
       {mode !== "done" ? (
         <div className="grid gap-2 md:grid-cols-2">
           {mode === "guide" ? (
-            <form action={adminSetDispatchTrackingAction} className="flex flex-wrap items-center gap-2">
+            <form action={adminSetDispatchTrackingAction} className="flex min-w-0 flex-wrap items-center gap-2">
               <input type="hidden" name="dispatchId" value={row.id} />
               <input
                 name="trackingNumber"
                 required
                 placeholder="Número de guía"
-                className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-sm"
+                className="h-8 min-w-[8rem] flex-1 rounded-md border border-border bg-background px-2 text-sm"
               />
-              <input name="trackingPhoto" type="file" accept="image/*" className="max-w-[11rem] text-xs" />
+              <input name="trackingPhoto" type="file" accept="image/*" className="w-full min-w-0 text-xs sm:w-auto sm:max-w-[11rem]" />
               <Button type="submit" size="sm" className="h-8">
                 Guardar guía
               </Button>
@@ -208,14 +220,14 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
           ) : (
             <div />
           )}
-          <form action={adminLogCarrierResponseAction} className="flex items-center gap-2">
+          <form action={adminLogCarrierResponseAction} className="flex min-w-0 flex-wrap items-center gap-2">
             <input type="hidden" name="dispatchId" value={row.id} />
             <input
               name="response"
               required
               maxLength={500}
               placeholder="¿Qué respondió la transportadora?"
-              className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-sm"
+              className="h-8 min-w-[8rem] flex-1 rounded-md border border-border bg-background px-2 text-sm"
             />
             <Button type="submit" variant="outline" size="sm" className="h-8">
               Guardar
