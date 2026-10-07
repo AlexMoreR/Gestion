@@ -1,6 +1,7 @@
 import { Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { OrderDeliveryManager } from "@/components/admin/order-delivery-manager";
+import { UndoDeliveryButton } from "@/components/admin/undo-delivery-button";
 import { cn } from "@/lib/utils";
 
 type CarrierOption = {
@@ -115,7 +116,12 @@ export function OrderStepper({
         </div>
 
         {allDone ? (
-          <p className="text-sm font-medium text-emerald-600">Orden entregada. Pasos completados.</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium text-emerald-600">Orden entregada. Pasos completados.</p>
+            {delivery.dispatchId ? (
+              <UndoDeliveryButton dispatchId={delivery.dispatchId} returnTo={delivery.returnTo} />
+            ) : null}
+          </div>
         ) : current === 4 && delivery.dispatchId ? (
           <OrderDeliveryManager
             dispatchId={delivery.dispatchId}

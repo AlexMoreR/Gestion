@@ -1435,6 +1435,79 @@ export async function adminLogCarrierResponseAction(formData: FormData): Promise
   redirect(`${CARRIER_FOLLOWUP_PATH}?ok=Respuesta+guardada`);
 }
 
+// Deshacer entrega (paso "Entregar" de la orden): para un despacho marcado como entregado por
+// error. El despacho vuelve a En camino (SHIPPED) sin fecha de entrega, la orden COMPLETED vuelve a
+// DISPATCHED con historial, y si tiene guia Magilus vuelve a "En transito" con un evento interno.
+export async function adminUndoDeliveryAction(formData: FormData): Promise<void> {
+  const changedById = await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/ordenes");
+  const dispatchId = String(formData.get("dispatchId") ?? "").trim();
+  if (!dispatchId) {
+    redirect(`${returnTo}?error=Despacho+invalido`);
+  }
+
+  const dispatch = await prisma.dispatch.findUnique({
+    where: { id: dispatchId },
+    include: { order: true },
+  });
+  if (!dispatch) {
+    redirect(`${returnTo}?error=Despacho+no+encontrado`);
+  }
+  if (dispatch.status !== "DELIVERED") {
+    redirect(`${returnTo}?error=El+despacho+no+esta+entregado`);
+  }
+
+  const now = new Date();
+  const line = `[${formatBogotaStamp(now)}] Entrega deshecha: no se habia entregado.`;
+  const notes = dispatch.notes?.trim() ? `${line}\n${dispatch.notes}` : line;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.dispatch.update({
+      where: { id: dispatch.id },
+      data: { status: "SHIPPED", deliveredAt: null, shippedAt: dispatch.shippedAt ?? now, notes },
+    });
+
+    if (dispatch.order.status === "COMPLETED") {
+      await tx.order.update({
+        where: { id: dispatch.orderId },
+        data: { status: "DISPATCHED", completedAt: null },
+      });
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: dispatch.orderId,
+          fromStatus: "COMPLETED",
+          toStatus: "DISPATCHED",
+          note: `Entrega deshecha: ${dispatch.code} no se habia entregado`,
+          changedById,
+        },
+      });
+    }
+
+    const shipment = await tx.shipment.findUnique({ where: { dispatchId: dispatch.id }, select: { id: true, status: true } });
+    if (shipment?.status === "DELIVERED") {
+      await tx.shipment.update({ where: { id: shipment.id }, data: { status: "IN_TRANSIT", deliveredAt: null } });
+      await tx.shipmentEvent.create({
+        data: {
+          shipmentId: shipment.id,
+          kind: "STATUS",
+          status: "IN_TRANSIT",
+          visibleToClient: false,
+          actor: "SYSTEM",
+          actorUserId: changedById,
+          note: "Entrega deshecha desde la orden (no se habia entregado)",
+          occurredAt: now,
+        },
+      });
+    }
+  });
+
+  revalidatePath("/admin/despachos");
+  revalidatePath(CARRIER_FOLLOWUP_PATH);
+  revalidatePath("/admin/ordenes");
+  revalidatePath(`/admin/ordenes/${dispatch.orderId}`);
+  redirect(`${returnTo}?ok=Entrega+deshecha`);
+}
+
 const dispatchTrackingSchema = z.object({
   dispatchId: z.string().trim().min(1, "Despacho invalido"),
   trackingNumber: z.string().trim().min(1, "Escribe la guia").max(120, "Guia demasiado larga"),
