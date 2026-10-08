@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildShipmentCode, normalizeShipmentCodeInput, parseShipmentCodeNumber } from "./codes";
+import { buildShipmentCode, generateUniqueShipmentCode, normalizeShipmentCodeInput } from "./codes";
 import { addBusinessDays, businessDaysFor, destinationTier, estimateDelivery, parseDateInput } from "./eta";
 import {
   abbreviateName,
@@ -14,27 +14,68 @@ import {
 } from "./lookup";
 import { canCarrierMoveTo, canMagilusMoveTo, dispatchStatusForShipment, flowProgress } from "./statuses";
 
+const NEW_CODE = /^MG-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$/;
+
 describe("codigo MG", () => {
-  it("arma el codigo con 6 digitos", () => {
-    expect(buildShipmentCode(1)).toBe("MG-000001");
-    expect(buildShipmentCode(123)).toBe("MG-000123");
-    expect(buildShipmentCode(1234567)).toBe("MG-1234567");
-    expect(buildShipmentCode(0)).toBe("MG-000001");
+  it("genera un codigo aleatorio con el formato nuevo", () => {
+    for (let i = 0; i < 200; i += 1) {
+      expect(buildShipmentCode()).toMatch(NEW_CODE);
+    }
   });
 
-  it("lee el numero del codigo", () => {
-    expect(parseShipmentCodeNumber("MG-000123")).toBe(123);
-    expect(parseShipmentCodeNumber("mg-000045")).toBe(45);
-    expect(parseShipmentCodeNumber("DSP-00001")).toBe(0);
-    expect(parseShipmentCodeNumber(null)).toBe(0);
+  it("nunca usa caracteres confusos (O, I, L, 0, 1)", () => {
+    for (let i = 0; i < 200; i += 1) {
+      // Se ignora el prefijo "MG-" (fijo) y se revisa el cuerpo aleatorio.
+      const body = buildShipmentCode().slice(3);
+      expect(body).not.toMatch(/[OIL01]/);
+    }
   });
 
-  it("normaliza lo que escribe el cliente", () => {
+  it("no repite codigos en muchas generaciones", () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 1000; i += 1) {
+      seen.add(buildShipmentCode());
+    }
+    expect(seen.size).toBe(1000);
+  });
+
+  it("reintenta cuando el codigo ya existe y entrega uno libre", async () => {
+    let calls = 0;
+    // Los dos primeros intentos "chocan"; el tercero esta libre.
+    const exists = async () => {
+      calls += 1;
+      return calls <= 2;
+    };
+    const code = await generateUniqueShipmentCode(exists);
+    expect(code).toMatch(NEW_CODE);
+    expect(calls).toBe(3);
+  });
+
+  it("se rinde tras el maximo de intentos si todo choca", async () => {
+    await expect(generateUniqueShipmentCode(async () => true, 5)).rejects.toThrow();
+  });
+
+  it("acepta el formato NUEVO que escribe el cliente", () => {
+    expect(normalizeShipmentCodeInput("MG-7K4Q2P8")).toBe("MG-7K4Q2P8");
+    expect(normalizeShipmentCodeInput("mg-7k4q2p8")).toBe("MG-7K4Q2P8");
+    expect(normalizeShipmentCodeInput("MG7K4Q2P8")).toBe("MG-7K4Q2P8");
+    expect(normalizeShipmentCodeInput("7K4Q2P8")).toBe("MG-7K4Q2P8");
+    expect(normalizeShipmentCodeInput(" mg 7k4q2p8 ")).toBe("MG-7K4Q2P8");
+    expect(normalizeShipmentCodeInput("ABCDEFGH")).toBe("MG-ABCDEFGH");
+    // Cuerpo (8) que empieza por "MG" sin prefijo escrito: no se recorta, es el cuerpo completo.
+    expect(normalizeShipmentCodeInput("MGK4Q2PA")).toBe("MG-MGK4Q2PA");
+  });
+
+  it("sigue aceptando el formato VIEJO de las guias ya guardadas", () => {
+    expect(normalizeShipmentCodeInput("MG-000001")).toBe("MG-000001");
     expect(normalizeShipmentCodeInput("MG-000123")).toBe("MG-000123");
     expect(normalizeShipmentCodeInput("mg123")).toBe("MG-000123");
     expect(normalizeShipmentCodeInput(" MG 123 ")).toBe("MG-000123");
     expect(normalizeShipmentCodeInput("123")).toBe("MG-000123");
     expect(normalizeShipmentCodeInput("000123")).toBe("MG-000123");
+  });
+
+  it("rechaza lo que no es un numero de guia", () => {
     expect(normalizeShipmentCodeInput("")).toBeNull();
     expect(normalizeShipmentCodeInput("0")).toBeNull();
     expect(normalizeShipmentCodeInput("DSP-00001")).toBeNull();

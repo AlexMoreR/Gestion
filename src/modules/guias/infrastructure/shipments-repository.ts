@@ -10,7 +10,7 @@ import {
 } from "@/modules/ventas/domain/payment-method";
 import { aliasCityCode, rankPlaces } from "@/modules/transporte/domain/place-search";
 import { ensureTransportSeed } from "@/modules/transporte/infrastructure/transporte-repository";
-import { buildShipmentCode, parseShipmentCodeNumber } from "../domain/codes";
+import { generateUniqueShipmentCode } from "../domain/codes";
 import { BOGOTA_CITY_CODE, estimateDelivery } from "../domain/eta";
 import { phoneLast4 } from "../domain/lookup";
 import type { CityOption } from "../domain/types";
@@ -222,54 +222,55 @@ export async function createShipmentForDispatch(input: CreateShipmentInput): Pro
   const now = new Date();
   const estimatedDelivery = input.estimatedDelivery ?? estimateDelivery(now, destination?.code ?? null);
 
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const last = await prisma.shipment.findFirst({ select: { code: true }, orderBy: { code: "desc" } });
-    const code = buildShipmentCode(parseShipmentCodeNumber(last?.code) + 1 + attempt);
-    try {
-      return await prisma.$transaction(async (tx) => {
-        const shipment = await tx.shipment.create({
-          data: {
-            code,
-            dispatchId: dispatch.id,
-            destinationCityId: destination?.id ?? null,
-            originCityId,
-            currentCityId: originCityId,
-            estimatedDelivery,
-            etaIsManual: Boolean(input.estimatedDelivery),
-            collectOnDelivery: amountToCollect > 0,
-            amountToCollect,
-            phoneLast4: last4,
-            publicEnabled: Boolean(last4),
-            carrierToken: generateCarrierToken(),
-            createdById: input.createdById,
-          },
-          select: { id: true, code: true },
-        });
-        await tx.shipmentEvent.create({
-          data: {
-            shipmentId: shipment.id,
-            kind: "STATUS",
-            status: "CREATED",
-            cityId: originCityId,
-            visibleToClient: true,
-            actor: "MAGILUS",
-            actorUserId: input.createdById,
-            occurredAt: now,
-          },
-        });
-        return shipment;
+  // Codigo aleatorio y unico: se verifica que no exista ya en Shipment.code (reintenta si choca).
+  const code = await generateUniqueShipmentCode((candidate) =>
+    prisma.shipment.findUnique({ where: { code: candidate }, select: { id: true } }).then((found) => found !== null),
+  );
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const shipment = await tx.shipment.create({
+        data: {
+          code,
+          dispatchId: dispatch.id,
+          destinationCityId: destination?.id ?? null,
+          originCityId,
+          currentCityId: originCityId,
+          estimatedDelivery,
+          etaIsManual: Boolean(input.estimatedDelivery),
+          collectOnDelivery: amountToCollect > 0,
+          amountToCollect,
+          phoneLast4: last4,
+          publicEnabled: Boolean(last4),
+          carrierToken: generateCarrierToken(),
+          createdById: input.createdById,
+        },
+        select: { id: true, code: true },
       });
-    } catch (error) {
-      const isCodeCollision =
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2002" &&
-        JSON.stringify(error.meta ?? {}).includes("code");
-      if (!isCodeCollision) {
-        throw error;
-      }
+      await tx.shipmentEvent.create({
+        data: {
+          shipmentId: shipment.id,
+          kind: "STATUS",
+          status: "CREATED",
+          cityId: originCityId,
+          visibleToClient: true,
+          actor: "MAGILUS",
+          actorUserId: input.createdById,
+          occurredAt: now,
+        },
+      });
+      return shipment;
+    });
+  } catch (error) {
+    // Carrera rarisima: otro proceso tomo el mismo codigo entre la verificacion y el insert.
+    const isCodeCollision =
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002" &&
+      JSON.stringify(error.meta ?? {}).includes("code");
+    if (isCodeCollision) {
+      throw new ShipmentError("No se pudo asignar el código de la guía. Intenta de nuevo.");
     }
+    throw error;
   }
-  throw new ShipmentError("No se pudo asignar el código de la guía. Intenta de nuevo.");
 }
 
 // --- Eventos (etapas y novedades) ---
