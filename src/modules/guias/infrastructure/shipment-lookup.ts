@@ -40,6 +40,8 @@ export type PublicShipmentView = {
   originCity: string;
   currentCity: string | null;
   destinationCity: string | null;
+  recipientName: string | null; // nombre del destinatario (sin apellidos completos)
+  phoneMasked: string | null; // "*** *** 1234", nunca el celular completo
   estimatedDelivery: string | null; // AAAA-MM-DD
   etaChanged: boolean;
   amountToCollect: number; // 0 = nada que pagar
@@ -79,6 +81,7 @@ export async function lookupShipment(params: { code: string; last4: string; ipHa
       originCity: { select: { name: true } },
       currentCity: { select: { name: true } },
       destinationCity: { select: { name: true } },
+      dispatch: { select: { order: { select: { client: { select: { name: true } } } } } },
       events: {
         where: { visibleToClient: true },
         orderBy: { occurredAt: "desc" },
@@ -134,6 +137,8 @@ export async function lookupShipment(params: { code: string; last4: string; ipHa
       originCity: shipment.originCity?.name ?? "Bogotá",
       currentCity: shipment.currentCity?.name ?? null,
       destinationCity: shipment.destinationCity?.name ?? null,
+      recipientName: abbreviateName(shipment.dispatch?.order?.client?.name) || null,
+      phoneMasked: shipment.phoneLast4 ? `*** *** ${shipment.phoneLast4}` : null,
       estimatedDelivery: shipment.estimatedDelivery ? shipment.estimatedDelivery.toISOString().slice(0, 10) : null,
       etaChanged: shipment.events.some((event) => event.kind === "ETA_CHANGE"),
       amountToCollect: shipment.collectOnDelivery && !delivered && Number.isFinite(amount) ? Math.max(0, amount) : 0,

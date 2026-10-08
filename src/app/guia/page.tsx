@@ -29,7 +29,7 @@ export default async function GuiaPublicPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
+      <header className="border-b-2 border-[#dec55d] bg-slate-900">
         <div className="mx-auto flex max-w-xl items-center gap-3 px-4 py-4">
           <Image
             src={getPublicAssetUrl(logoPath)}
@@ -39,21 +39,21 @@ export default async function GuiaPublicPage() {
             className="h-9 w-auto object-contain"
             unoptimized
           />
-          <div className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1 text-xs font-medium text-white">
+          <div className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-[#dec55d] px-3 py-1 text-xs font-semibold text-slate-900">
             <PackageSearch className="h-3.5 w-3.5" />
-            Consulta tu guía
+            Rastreo de envíos
           </div>
         </div>
       </header>
 
       <main className="mx-auto w-full max-w-xl px-4 py-8">
         <div className="mb-5">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">¿Cómo va mi pedido?</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Consulte su envío</h1>
           <p className="mt-1 text-sm text-slate-600">
             Escribe tu número de guía {brandName} (empieza por MG) y los últimos 4 dígitos de tu celular.
           </p>
         </div>
-        <PublicLookup whatsAppHref={`https://wa.me/${whatsAppDigits}`} />
+        <PublicLookup whatsAppHref={`https://wa.me/${whatsAppDigits}`} brandName={brandName} />
         <p className="mt-6 text-center text-xs text-slate-400">Envíos desde nuestra fábrica en Bogotá.</p>
       </main>
     </div>
