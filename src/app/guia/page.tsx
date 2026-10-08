@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { PackageSearch } from "lucide-react";
 import { getPublicAssetUrl } from "@/lib/site";
-import { getSystemBrandName, getSystemStorefrontLogoPath, getSystemWhatsAppPhoneHref } from "@/lib/system-settings";
+import {
+  getSystemBrandName,
+  getSystemStorefrontLogoPath,
+  getSystemWhatsAppPhoneDisplay,
+  getSystemWhatsAppPhoneHref,
+} from "@/lib/system-settings";
 import { PublicLookup } from "@/modules/guias/presentation/public-lookup";
 
 // Consulta publica de la guia Magilus: guia MG + ultimos 4 del celular (por POST, sin datos en
@@ -21,18 +26,20 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function GuiaPublicPage() {
-  const [brandName, logoPath, whatsAppDigits] = await Promise.all([
+  const [brandName, logoPath, whatsAppDigits, whatsAppDisplay] = await Promise.all([
     getSystemBrandName(),
     getSystemStorefrontLogoPath(),
     getSystemWhatsAppPhoneHref(),
+    getSystemWhatsAppPhoneDisplay(),
   ]);
+  const logoUrl = getPublicAssetUrl(logoPath);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#e9eaef]">
       <header className="border-b-2 border-[#2d0049] bg-[#42066E]">
-        <div className="mx-auto flex max-w-xl items-center gap-3 px-4 py-4">
+        <div className="mx-auto flex max-w-[820px] items-center gap-3 px-4 py-4">
           <Image
-            src={getPublicAssetUrl(logoPath)}
+            src={logoUrl}
             alt={brandName}
             width={140}
             height={48}
@@ -53,7 +60,12 @@ export default async function GuiaPublicPage() {
             Escribe tu número de guía {brandName} (empieza por MG) y los últimos 4 dígitos de tu celular.
           </p>
         </div>
-        <PublicLookup whatsAppHref={`https://wa.me/${whatsAppDigits}`} brandName={brandName} />
+        <PublicLookup
+          whatsAppHref={`https://wa.me/${whatsAppDigits}`}
+          whatsAppDisplay={whatsAppDisplay}
+          logoUrl={logoUrl}
+          brandName={brandName}
+        />
         <p className="mt-6 text-center text-xs text-slate-400">Envíos desde nuestra fábrica en Bogotá.</p>
       </main>
     </div>
