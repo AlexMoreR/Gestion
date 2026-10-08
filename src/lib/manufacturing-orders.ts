@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
+import { stableShareToken } from "@/lib/manufacturing-share-token";
 
 // Ordenes de fabricacion (OF-00001): una por orden de venta + proveedora.
 
@@ -89,17 +90,34 @@ export async function ensureManufacturingOrders(orderId: string, supplierIds: st
   });
   const existingSupplierIds = new Set(existing.map((record) => record.supplierId));
 
+  // La cotizacion es la identidad logica estable del pedido: sobrevive a que se
+  // borre la venta y se reconvierta (y es la misma al editar la cotizacion).
+  // Si no hay cotizacion (no deberia pasar en ordenes de venta con OF), se cae
+  // al token aleatorio de siempre.
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { quoteId: true },
+  });
+  const quoteId = order?.quoteId ?? null;
+
   for (const supplierId of uniqueSupplierIds) {
     if (existingSupplierIds.has(supplierId)) continue;
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
+      // Primer intento: token estable derivado de (cotizacion, proveedora). Si
+      // chocara (caso extremo: ya existe esa OF para OTRO pedido vivo), los
+      // reintentos usan un token aleatorio para no bloquear la creacion.
+      const shareToken =
+        attempt === 0 && quoteId
+          ? stableShareToken(quoteId, supplierId)
+          : randomBytes(24).toString("base64url");
       try {
         await prisma.manufacturingOrder.create({
           data: {
             code: await nextManufacturingCode(),
             orderId,
             supplierId,
-            shareToken: randomBytes(24).toString("base64url"),
+            shareToken,
           },
         });
         break;
@@ -111,7 +129,7 @@ export async function ensureManufacturingOrders(orderId: string, supplierIds: st
           select: { id: true },
         });
         if (alreadyCreated) break;
-        // Si choco el numero OF, se reintenta con el siguiente.
+        // Si choco el numero OF (o el token), se reintenta.
       }
     }
   }
