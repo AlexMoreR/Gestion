@@ -160,7 +160,8 @@ export function ServiceLookup({ departments, brandName, whatsAppHref }: ServiceL
                   ¡Sí! Tenemos <span className="underline decoration-emerald-400">envío gratis</span>
                 </p>
                 <p className="text-sm text-emerald-700">
-                  Enviamos gratis a <span className="font-medium">{result.placeLabel}</span>. 🎉
+                  Enviamos gratis a <span className="font-medium">{result.placeLabel}</span> pagando 50 % de
+                  anticipo. 🎉
                 </p>
               </div>
             </div>

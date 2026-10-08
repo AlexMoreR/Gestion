@@ -27,7 +27,7 @@ const DEFAULT_STOREFRONT_HERO_DESCRIPTION =
   "Sillas, camillas, tocadores y mobiliario profesional con garantía y envío a toda Colombia.";
 const DEFAULT_STOREFRONT_PROMO_ITEMS = [
   "Combos especiales de temporada",
-  "Envío gratis en productos seleccionados",
+  "Envío gratis pagando 50 % de anticipo (consulta tu ciudad)",
   "Te ayudamos por WhatsApp a elegir tu mobiliario",
   "Descuentos por compras al por mayor",
   "Instalación y asesoría para tu salón",

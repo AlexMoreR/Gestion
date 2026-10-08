@@ -5,6 +5,7 @@ import { ProductDetailContent } from "@/components/store/product-detail-content"
 import { prisma } from "@/lib/prisma";
 import { buildProductPath } from "@/lib/product-slugs";
 import { getPublicAssetUrl, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
+import { COMBO_SAVINGS_COMPONENTS_SELECT } from "@/lib/storefront-offer";
 import { getSystemCurrency } from "@/lib/system-settings";
 
 type PageProps = {
@@ -69,6 +70,7 @@ export default async function CategoryProductPage({ params }: PageProps) {
         category: true,
         images: { orderBy: { order: "asc" } },
         reviews: { orderBy: { createdAt: "desc" } },
+        bundleComponents: COMBO_SAVINGS_COMPONENTS_SELECT,
       },
     }),
     getSystemCurrency(),

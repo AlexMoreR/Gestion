@@ -9,6 +9,11 @@ import type { SupportedCurrencyCode } from "@/lib/currency";
 import { buildProductPath } from "@/lib/product-slugs";
 import { imageVariantUrl } from "@/lib/image-variants";
 import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
+import {
+  comboSavingsFromProduct,
+  FREE_SHIPPING_COVERAGE_PATH,
+  FREE_SHIPPING_SHORT_LABEL,
+} from "@/lib/storefront-offer";
 import { buildSystemWhatsAppHref, getSystemBrandName } from "@/lib/system-settings";
 import { Button } from "../ui/button";
 
@@ -23,6 +28,8 @@ type ProductDetailContentProps = {
     price: unknown;
     wholesalePrice: unknown;
     minWholesaleQty: number;
+    isBundle: boolean;
+    bundleComponents?: Array<{ quantity: number; child: { price: unknown } }>;
     thumbnailUrl: string;
     categoryId: string | null;
     category: { name: string; slug: string } | null;
@@ -75,10 +82,9 @@ export async function ProductDetailContent({
     `${product.name} disponible en ${brandName} para proyectos de salón, barbería y mobiliario profesional premium.`,
   );
   const canonicalPath = buildProductPath(product);
-  // Precio "antes" decorativo (+25%) para mostrar el ahorro, consistente con el grid del catálogo.
+  // Solo el precio real. En combos, el ahorro real frente a comprar los componentes por separado.
   const retailPrice = Number(product.price);
-  const comparePrice = retailPrice * 1.25;
-  const savings = Math.max(0, comparePrice - retailPrice);
+  const comboSavings = comboSavingsFromProduct(product);
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -153,12 +159,9 @@ export async function ProductDetailContent({
               <span className="text-3xl font-bold tracking-tight text-red-600">
                 {formatMoney(String(retailPrice), currency)}
               </span>
-              <span className="text-lg font-medium text-slate-400 line-through">
-                {formatMoney(String(comparePrice), currency)}
-              </span>
-              {savings > 0 ? (
+              {comboSavings != null ? (
                 <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-600">
-                  {formatMoney(String(savings), currency)} OFF
+                  Ahorras {formatMoney(String(comboSavings), currency)} frente a comprar por separado
                 </span>
               ) : null}
             </div>
@@ -199,14 +202,17 @@ export async function ProductDetailContent({
                   Comprar
                   <span className="mx-1 opacity-60">—</span>
                   <span>{formatMoney(String(retailPrice), currency)}</span>
-                  <span className="text-xs font-medium text-white/70 line-through">
-                    {formatMoney(String(comparePrice), currency)}
-                  </span>
                 </Button>
               </div>
               <div className="grid grid-cols-3 border-t border-[var(--line)] bg-[var(--primary)]/[0.06] px-2 py-2.5 text-center text-[11px] font-medium text-slate-600">
                 <span>Garantía 1 año</span>
-                <span className="border-x border-[var(--line)]">Envío gratis</span>
+                <Link
+                  href={FREE_SHIPPING_COVERAGE_PATH}
+                  title="Consulta si tu ciudad tiene envío gratis"
+                  className="border-x border-[var(--line)] px-1 underline-offset-2 hover:underline"
+                >
+                  {FREE_SHIPPING_SHORT_LABEL}
+                </Link>
                 <span>Soporte directo</span>
               </div>
             </Card>
