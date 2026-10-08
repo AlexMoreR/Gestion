@@ -23,7 +23,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 text-base font-semibold text-white disabled:opacity-60"
+      className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#42066E] text-base font-semibold text-white disabled:opacity-60"
     >
       {pending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
       {pending ? "Rastreando..." : "Rastrear"}
@@ -117,13 +117,13 @@ export function PublicLookup({ whatsAppHref, brandName = "Magilus" }: { whatsApp
         <div className="space-y-4">
           {/* Guía con marca Magilus */}
           <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <div className="bg-slate-900 px-5 py-5 text-white">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#dec55d]">Nº de guía</p>
+            <div className="bg-[#42066E] px-5 py-5 text-white">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-violet-200">Nº de guía</p>
               <p className="mt-1 text-3xl font-black leading-none tracking-tight sm:text-4xl">{view.code}</p>
               <span
                 className={cn(
                   "mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold",
-                  delivered ? "bg-emerald-400 text-emerald-950" : "bg-[#dec55d] text-slate-900",
+                  delivered ? "bg-emerald-400 text-emerald-950" : "bg-white text-[#42066E]",
                 )}
               >
                 {delivered ? <CheckCircle2 className="h-4 w-4" /> : <Truck className="h-4 w-4" />}
@@ -136,7 +136,7 @@ export function PublicLookup({ whatsAppHref, brandName = "Magilus" }: { whatsApp
               <ol className="mt-4 grid grid-cols-5 gap-1">
                 {view.steps.map((step) => (
                   <li key={step.label} className="space-y-1">
-                    <div className={cn("h-2 rounded-full", step.done ? "bg-[#dec55d]" : "bg-slate-200")} />
+                    <div className={cn("h-2 rounded-full", step.done ? "bg-[#42066E]" : "bg-slate-200")} />
                     <p
                       className={cn(
                         "text-[11px] leading-tight",
@@ -218,7 +218,7 @@ export function PublicLookup({ whatsAppHref, brandName = "Magilus" }: { whatsApp
             </p>
             <table className="w-full table-fixed text-sm">
               <thead>
-                <tr className="bg-slate-900 text-left text-[11px] font-semibold uppercase tracking-wide text-[#dec55d]">
+                <tr className="bg-[#42066E] text-left text-[11px] font-semibold uppercase tracking-wide text-violet-200">
                   <th className="w-[34%] px-4 py-2">Fecha</th>
                   <th className="w-[30%] px-2 py-2">Estado</th>
                   <th className="px-2 py-2">Observación</th>

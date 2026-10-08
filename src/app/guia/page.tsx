@@ -29,7 +29,7 @@ export default async function GuiaPublicPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="border-b-2 border-[#dec55d] bg-slate-900">
+      <header className="border-b-2 border-[#2d0049] bg-[#42066E]">
         <div className="mx-auto flex max-w-xl items-center gap-3 px-4 py-4">
           <Image
             src={getPublicAssetUrl(logoPath)}
@@ -39,7 +39,7 @@ export default async function GuiaPublicPage() {
             className="h-9 w-auto object-contain"
             unoptimized
           />
-          <div className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-[#dec55d] px-3 py-1 text-xs font-semibold text-slate-900">
+          <div className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white">
             <PackageSearch className="h-3.5 w-3.5" />
             Rastreo de envíos
           </div>
