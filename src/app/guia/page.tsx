@@ -54,12 +54,7 @@ export default async function GuiaPublicPage() {
       </header>
 
       <main className="mx-auto w-full max-w-xl px-4 py-8">
-        <div className="mb-5">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Consulte su envío</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Escribe tu número de guía {brandName} (empieza por MG) y los últimos 4 dígitos de tu celular.
-          </p>
-        </div>
+        {/* El titulo "Consulte su envío" vive en PublicLookup para ocultarlo cuando se muestra la guia. */}
         <PublicLookup
           whatsAppHref={`https://wa.me/${whatsAppDigits}`}
           whatsAppDisplay={whatsAppDisplay}

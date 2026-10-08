@@ -1,10 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Image from "next/image";
-import { AlertTriangle, CalendarDays, CheckCircle2, Loader2, MessageCircle, Search } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, Loader2, MessageCircle, Search, Truck } from "lucide-react";
 import { publicLookupShipmentAction, type LookupState } from "@/app/actions/shipment-public-actions";
 import { cn } from "@/lib/utils";
 
@@ -112,11 +112,164 @@ function WaybillCell({ label, children }: { label: string; children: ReactNode }
   );
 }
 
-function PartyRow({ label, children }: { label: string; children: ReactNode }) {
+// En celular la etiqueta va arriba y el valor abajo, para que valores como el telefono
+// enmascarado ("*** *** 9108") no se partan en dos renglones.
+function PartyRow({ label, children, nowrap = false }: { label: string; children: ReactNode; nowrap?: boolean }) {
   return (
     <p className="my-1 text-[13px] text-[#1f2430]">
-      <span className="inline-block min-w-[66px] text-[11px] font-semibold text-slate-500">{label}</span> {children}
+      <span className="block text-[11px] font-semibold text-slate-500 sm:inline-block sm:min-w-[66px]">{label}</span>{" "}
+      <span className={cn(nowrap && "whitespace-nowrap")}>{children}</span>
     </p>
+  );
+}
+
+// Animaciones del camion (solo CSS). Las clases motion-safe:* las desactivan si el usuario
+// pide reducir movimiento; las lineas de velocidad se ocultan con motion-reduce:hidden.
+const TRUCK_KEYFRAMES = `
+@keyframes guia-truck-ride {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-1.5px) rotate(-1.5deg); }
+  50% { transform: translateY(0) rotate(0deg); }
+  75% { transform: translateY(-1px) rotate(1deg); }
+}
+@keyframes guia-speed-line {
+  0% { transform: translateX(4px); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translateX(-10px); opacity: 0; }
+}
+@keyframes guia-shimmer {
+  from { background-position: 0 0; }
+  to { background-position: 28px 0; }
+}
+`;
+
+// Barra de progreso continua con un camion parado en el paso actual (al final del tramo lleno).
+// En curso: el camion "anda" (rebote leve + lineas de velocidad) y el tramo lleno tiene un rayado
+// que avanza. Entregado: el camion se detiene al final con un check verde.
+function ProgressTrack({ steps, delivered }: { steps: { label: string; done: boolean }[]; delivered: boolean }) {
+  const total = Math.max(steps.length, 1);
+  const doneCount = steps.filter((step) => step.done).length;
+  const moving = doneCount > 0 && !delivered;
+  // Centro de la columna del paso actual, para que el camion quede sobre su etiqueta.
+  const truckPos = doneCount > 0 ? ((doneCount - 0.5) / total) * 100 : 0;
+  const fillPos = delivered ? 100 : truckPos;
+
+  return (
+    <div>
+      <style>{TRUCK_KEYFRAMES}</style>
+      <div className="relative h-8">
+        <div className="absolute bottom-0 -translate-x-1/2" style={{ left: `${truckPos}%` }}>
+          {moving ? (
+            <span aria-hidden className="absolute right-full top-1/2 mr-0.5 flex -translate-y-1/2 flex-col gap-[3px] motion-reduce:hidden">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className={cn(
+                    "block h-[2px] rounded-full bg-[#42066E]/60 animate-[guia-speed-line_0.9s_linear_infinite]",
+                    i === 1 ? "ml-0 w-3" : "ml-1 w-2",
+                  )}
+                  style={{ animationDelay: `${i * 0.25}s` }}
+                />
+              ))}
+            </span>
+          ) : null}
+          <span
+            className={cn(
+              "relative block",
+              moving && "motion-safe:animate-[guia-truck-ride_0.6s_ease-in-out_infinite]",
+            )}
+          >
+            <Truck className="h-6 w-6 text-[#42066E]" strokeWidth={2.25} aria-hidden />
+            {delivered ? (
+              <CheckCircle2
+                className="absolute -right-2 -top-1.5 h-4 w-4 rounded-full bg-white text-emerald-600"
+                aria-hidden
+              />
+            ) : null}
+          </span>
+        </div>
+      </div>
+      <div
+        className="relative mt-0.5 h-2 overflow-hidden rounded-full bg-[#e2e2e8]"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-valuenow={doneCount}
+        aria-label={delivered ? "Entregado" : `Paso ${doneCount} de ${total}`}
+      >
+        <div
+          className={cn(
+            "absolute inset-y-0 left-0 rounded-full",
+            delivered ? "bg-emerald-600" : "bg-[#42066E]",
+            moving &&
+              "bg-[linear-gradient(115deg,rgba(255,255,255,0.28)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.28)_50%,rgba(255,255,255,0.28)_75%,transparent_75%)] bg-[length:28px_100%] motion-safe:animate-[guia-shimmer_0.9s_linear_infinite]",
+          )}
+          style={{ width: `${fillPos}%` }}
+        />
+      </div>
+      <ol className="mt-1.5 grid gap-1" style={{ gridTemplateColumns: `repeat(${total}, minmax(0, 1fr))` }}>
+        {steps.map((step, index) => {
+          const isLast = index === steps.length - 1;
+          return (
+            <li
+              key={step.label}
+              className={cn(
+                "text-center text-[10.5px] leading-tight",
+                delivered && isLast
+                  ? "font-bold text-emerald-700"
+                  : step.done
+                    ? "font-semibold text-[#1f2430]"
+                    : "text-[#9aa0ab]",
+              )}
+            >
+              {step.label}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+type EventRow = { id: string; at: string; title: string; observation: ReactNode };
+
+// FECHA | ESTADO | OBSERVACION. En celular se apila (fecha + estado arriba, observacion abajo)
+// para no partir palabras como "Recogido" o "Guía creada"; desde sm se muestra como tabla.
+function EventRows({ rows, size = "sm" }: { rows: EventRow[]; size?: "sm" | "md" }) {
+  const text = size === "md" ? "text-sm" : "text-[13px]";
+  const pad = size === "md" ? "py-3" : "py-2.5";
+  return (
+    <>
+      <ul className={cn("divide-y divide-[#d7d7de] sm:hidden", text)}>
+        {rows.map((row) => (
+          <li key={row.id} className={cn("px-3", pad)}>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+              <span className="whitespace-normal font-bold text-[#42066E]">{row.title}</span>
+              <span className="whitespace-nowrap text-[11px] text-slate-500">{formatStamp(row.at)}</span>
+            </div>
+            <div className="mt-0.5 text-[#1f2430]">{row.observation}</div>
+          </li>
+        ))}
+      </ul>
+      <table className={cn("hidden w-full table-fixed border-collapse sm:table", text)}>
+        <thead>
+          <tr className="bg-[#42066E] text-left text-[10.5px] font-bold uppercase tracking-[0.05em] text-white">
+            <th className="w-[30%] px-3 py-2">Fecha</th>
+            <th className="w-[26%] px-3 py-2">Estado</th>
+            <th className="px-3 py-2">Observación</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id} className="border-t border-[#d7d7de] align-top">
+              <td className={cn("px-3 text-[#1f2430]", pad)}>{formatStamp(row.at)}</td>
+              <td className={cn("whitespace-normal px-3 font-bold text-[#42066E]", pad)}>{row.title}</td>
+              <td className={cn("whitespace-normal px-3 text-[#1f2430]", pad)}>{row.observation}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
   );
 }
 
@@ -124,43 +277,53 @@ type EventItem = { id: string; at: string; title: string; detail: string | null;
 
 function EventsTable({ events }: { events: EventItem[] }) {
   return (
-    <table className="w-full table-fixed border-collapse text-[13px]">
-      <thead>
-        <tr className="bg-[#42066E] text-left text-[10.5px] font-bold uppercase tracking-[0.05em] text-white">
-          <th className="w-[34%] px-3 py-2">Fecha</th>
-          <th className="w-[28%] px-3 py-2">Estado</th>
-          <th className="px-3 py-2">Observación</th>
-        </tr>
-      </thead>
-      <tbody>
-        {events.map((event) => (
-          <tr key={event.id} className="border-t border-[#d7d7de] align-top">
-            <td className="px-3 py-2.5 text-[#1f2430]">{formatStamp(event.at)}</td>
-            <td className="break-words px-3 py-2.5 font-bold text-[#42066E]">{event.title}</td>
-            <td className="break-words px-3 py-2.5 text-[#1f2430]">
-              {event.city ? <span className="block text-[11px] text-slate-500">{event.city}</span> : null}
-              {event.detail ? <span>{event.detail}</span> : !event.city ? "—" : null}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <EventRows
+      rows={events.map((event) => ({
+        id: event.id,
+        at: event.at,
+        title: event.title,
+        observation: (
+          <>
+            {event.city ? <span className="block text-[11px] text-slate-500">{event.city}</span> : null}
+            {event.detail ? <span>{event.detail}</span> : !event.city ? "—" : null}
+          </>
+        ),
+      }))}
+    />
   );
 }
 
-export function PublicLookup({
-  whatsAppHref,
-  whatsAppDisplay,
-  logoUrl,
-  brandName = "Magilus",
-}: {
+type PublicLookupProps = {
   whatsAppHref: string;
   whatsAppDisplay?: string;
   logoUrl?: string;
   brandName?: string;
-}) {
+};
+
+// "Consultar otra guía" cambia la key y remonta el formulario: el estado de useActionState
+// vuelve a "idle" y los campos quedan vacios.
+export function PublicLookup(props: PublicLookupProps) {
+  const [resetKey, setResetKey] = useState(0);
+  return <LookupPanel key={resetKey} {...props} onReset={() => setResetKey((k) => k + 1)} />;
+}
+
+function LookupPanel({
+  whatsAppHref,
+  whatsAppDisplay,
+  logoUrl,
+  brandName = "Magilus",
+  onReset,
+}: PublicLookupProps & { onReset: () => void }) {
   const [state, formAction] = useActionState<LookupState, FormData>(publicLookupShipmentAction, { status: "idle" });
   const view = state.status === "ok" ? state.view : null;
+  const guideRef = useRef<HTMLElement>(null);
+
+  // Al aparecer la guia, llevarla al inicio de la pantalla (en celular quedaba a mitad de pagina).
+  useEffect(() => {
+    if (view) {
+      guideRef.current?.scrollIntoView({ block: "start" });
+    }
+  }, [view]);
   const helpHref = `${whatsAppHref}${whatsAppHref.includes("?") ? "&" : "?"}text=${encodeURIComponent(
     view ? `Hola ${brandName}, tengo una pregunta sobre mi guía ${view.code}` : `Hola ${brandName}, necesito ayuda con mi guía`,
   )}`;
@@ -172,6 +335,15 @@ export function PublicLookup({
 
   return (
     <div className="space-y-5">
+      {/* Con una guia en pantalla solo se ve la guia: se ocultan titulo, texto y formulario. */}
+      {view ? null : (
+        <>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Consulte su envío</h1>
+        <p className="mt-1 text-sm text-slate-600">
+          Escribe tu número de guía {brandName} (empieza por MG) y los últimos 4 dígitos de tu celular.
+        </p>
+      </div>
       <form
         action={formAction}
         className="mx-auto max-w-xl space-y-3 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
@@ -213,9 +385,13 @@ export function PublicLookup({
         ) : null}
         <SubmitButton />
       </form>
+        </>
+      )}
 
       {view ? (
-        <article className="overflow-hidden rounded-[10px] border border-[#d7d7de] bg-white text-[#1f2430] shadow-[0_6px_24px_rgba(0,0,0,0.08)]">
+        <article
+          ref={guideRef}
+          className="scroll-mt-4 overflow-hidden rounded-[10px] border border-[#d7d7de] bg-white text-[#1f2430] shadow-[0_6px_24px_rgba(0,0,0,0.08)]">
           {/* 1. Titulo: marca + Nº de guia */}
           <header className="flex items-center gap-4 border-b-[3px] border-[#42066E] px-4 py-4 sm:px-[22px] sm:py-5">
             <BrandMark logoUrl={logoUrl} brandName={brandName} />
@@ -225,7 +401,31 @@ export function PublicLookup({
             </h2>
           </header>
 
-          {/* 2. Dos cajas */}
+          {/* 2. Progreso (de primero) con el camion + entrega estimada pegada debajo */}
+          <div className="px-4 pt-4 sm:px-[22px]">
+            <p className="mb-1 text-base font-bold">{view.statusText}</p>
+            <ProgressTrack steps={view.steps} delivered={delivered} />
+            <div className="mt-3 rounded-lg border border-[#d7d7de] bg-[#f1f1f4] px-3.5 py-2.5 text-sm">
+              <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-slate-500">
+                {delivered ? "Entregado" : "Entrega estimada"}
+              </span>
+              <span className="ml-2 font-bold capitalize text-[#42066E]">
+                {delivered && view.deliveredAt
+                  ? formatStamp(view.deliveredAt)
+                  : view.estimatedDelivery
+                    ? formatDay(view.estimatedDelivery)
+                    : "Por confirmar"}
+              </span>
+              {view.etaChanged && !delivered ? (
+                <span className="mt-1 flex items-start gap-1.5 text-xs font-medium text-amber-700">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  La fecha se actualizó por una novedad en la vía.
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          {/* 3. Dos cajas */}
           <div className="grid grid-cols-1 gap-3.5 px-4 py-4 sm:grid-cols-2 sm:px-[22px]">
             <dl className="overflow-hidden rounded-lg border border-[#d7d7de]">
               <BoxRow label="Remisión">{view.code}</BoxRow>
@@ -239,71 +439,24 @@ export function PublicLookup({
             </dl>
           </div>
 
-          {/* 3. Estado actual: FECHA | ESTADO | OBSERVACION */}
+          {/* 4. Estado actual: FECHA | ESTADO | OBSERVACION */}
           {latestEvent ? (
             <div className="px-4 pb-1.5 sm:px-[22px]">
               <div className="overflow-hidden rounded-lg border border-[#d7d7de]">
-                <table className="w-full table-fixed border-collapse text-sm">
-                  <thead>
-                    <tr className="bg-[#42066E] text-left text-[11px] font-bold uppercase tracking-[0.05em] text-white">
-                      <th className="w-[34%] px-3 py-2">Fecha</th>
-                      <th className="w-[28%] px-3 py-2">Estado</th>
-                      <th className="px-3 py-2">Observación</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-t border-[#d7d7de] align-top">
-                      <td className="px-3 py-3">{formatStamp(latestEvent.at)}</td>
-                      <td className="break-words px-3 py-3 font-bold text-[#42066E]">{latestEvent.title}</td>
-                      <td className="break-words px-3 py-3">
-                        {latestEvent.detail ?? latestEvent.city ?? view.currentCity ?? "—"}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                <EventRows
+                  size="md"
+                  rows={[
+                    {
+                      id: latestEvent.id,
+                      at: latestEvent.at,
+                      title: latestEvent.title,
+                      observation: latestEvent.detail ?? latestEvent.city ?? view.currentCity ?? "—",
+                    },
+                  ]}
+                />
               </div>
             </div>
           ) : null}
-
-          {/* 4. Progreso */}
-          <div className="px-4 pb-1 pt-3 sm:px-[22px]">
-            <p className="mb-2.5 text-base font-bold">{view.statusText}</p>
-            <ol className="grid grid-cols-5 gap-1.5">
-              {view.steps.map((step) => (
-                <li key={step.label}>
-                  <div className={cn("h-2 rounded-full", step.done ? "bg-[#42066E]" : "bg-[#e2e2e8]")} />
-                  <p
-                    className={cn(
-                      "mt-1.5 text-[10.5px] leading-tight",
-                      step.done ? "font-semibold text-[#1f2430]" : "text-[#9aa0ab]",
-                    )}
-                  >
-                    {step.label}
-                  </p>
-                </li>
-              ))}
-            </ol>
-          </div>
-
-          {/* Entrega estimada / entregado + aviso de fecha cambiada */}
-          <div className="mx-4 mt-3.5 rounded-lg border border-[#d7d7de] bg-[#f1f1f4] px-3.5 py-2.5 text-sm sm:mx-[22px]">
-            <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-slate-500">
-              {delivered ? "Entregado" : "Entrega estimada"}
-            </span>
-            <span className="ml-2 font-bold capitalize text-[#42066E]">
-              {delivered && view.deliveredAt
-                ? formatStamp(view.deliveredAt)
-                : view.estimatedDelivery
-                  ? formatDay(view.estimatedDelivery)
-                  : "Por confirmar"}
-            </span>
-            {view.etaChanged && !delivered ? (
-              <span className="mt-1 flex items-start gap-1.5 text-xs font-medium text-amber-700">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                La fecha se actualizó por una novedad en la vía.
-              </span>
-            ) : null}
-          </div>
 
           {/* Foto de entrega */}
           {view.deliveryPhotoUrl ? (
@@ -354,7 +507,9 @@ export function PublicLookup({
                 <p className="mb-1.5 text-[11px] font-extrabold tracking-[1px] text-[#42066E]">RECIBE</p>
                 <PartyRow label="Nombre">{view.recipientName ?? "—"}</PartyRow>
                 <PartyRow label="Ciudad">{destination}</PartyRow>
-                <PartyRow label="Teléfono">{view.phoneMasked ?? "—"}</PartyRow>
+                <PartyRow label="Teléfono" nowrap>
+                  {view.phoneMasked ?? "—"}
+                </PartyRow>
               </div>
             </div>
             <p className="border-t border-[#d7d7de] bg-[#fafafb] px-3.5 py-2.5 text-[10.5px] leading-normal text-slate-500">
@@ -385,6 +540,19 @@ export function PublicLookup({
       >
         <MessageCircle className="h-5 w-5" /> Escríbenos por WhatsApp
       </a>
+
+      {view ? (
+        <button
+          type="button"
+          onClick={() => {
+            onReset();
+            window.scrollTo({ top: 0 });
+          }}
+          className="mx-auto flex items-center justify-center gap-1.5 text-sm font-semibold text-[#42066E] underline underline-offset-4"
+        >
+          <Search className="h-4 w-4" /> Consultar otra guía
+        </button>
+      ) : null}
     </div>
   );
 }
