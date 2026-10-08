@@ -5,6 +5,7 @@ import { EditProductForm } from "@/components/admin/edit-product-form";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
+import { toPromoFormFields } from "@/lib/product-promo";
 import { getProductPurchaseHistory } from "@/lib/product-purchase-history";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
@@ -110,6 +111,7 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
           isBundle: product.isBundle,
           hiddenFromStore: product.hiddenFromStore,
           shippingExtra: product.shippingExtra,
+          promo: toPromoFormFields(product),
           suppliers: product.suppliers.map((supplier) => ({
             supplierId: supplier.supplierId,
             supplierCost: supplier.supplierCost === null ? null : Number(supplier.supplierCost),

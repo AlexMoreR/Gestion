@@ -31,6 +31,7 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import type { ProductPromoFormFields } from "@/lib/product-promo";
 import type { ProductPurchaseRow } from "@/lib/product-purchase-history";
 import { calculateProfit, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
 import { Button, buttonVariants } from "../ui/button";
@@ -65,6 +66,8 @@ type EditProductInitialData = {
   hiddenFromStore: boolean;
   // Envio ADICIONAL propio (COP). null = usa el de la categoria.
   shippingExtra: number | null;
+  // Precio normal y oferta con fechas (AAAA-MM-DD, hora Colombia).
+  promo: ProductPromoFormFields;
   suppliers: Array<{
     supplierId: string;
     supplierCost: number | null;
@@ -775,6 +778,42 @@ export function EditProductForm({
                 />
                 <span className="text-xs text-slate-500">Se suma al precio en ciudades con envio adicional. Vacio usa el valor de la categoria.</span>
               </label>
+
+              <div className="space-y-3 rounded-xl border border-[var(--line)] p-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="block space-y-1.5">
+                    <span className="text-sm font-medium text-slate-700">Precio normal (COP)</span>
+                    <Input
+                      name="regularPrice"
+                      inputMode="numeric"
+                      defaultValue={initialData.promo.regularPrice != null ? String(initialData.promo.regularPrice) : ""}
+                      placeholder="Vacio = precio detal"
+                    />
+                    <span className="text-xs text-slate-500">Precio real sin oferta. Es el que sale tachado cuando hay oferta.</span>
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="text-sm font-medium text-slate-700">Oferta: precio (COP)</span>
+                    <Input
+                      name="promoPrice"
+                      inputMode="numeric"
+                      defaultValue={initialData.promo.promoPrice != null ? String(initialData.promo.promoPrice) : ""}
+                      placeholder="Vacio = sin oferta"
+                    />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="text-sm font-medium text-slate-700">Oferta desde</span>
+                    <Input name="promoStartsAt" type="date" defaultValue={initialData.promo.promoStartsAt ?? ""} />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="text-sm font-medium text-slate-700">Oferta hasta</span>
+                    <Input name="promoEndsAt" type="date" defaultValue={initialData.promo.promoEndsAt ?? ""} />
+                  </label>
+                </div>
+                <p className="text-xs text-slate-500">
+                  La tienda muestra el precio normal tachado solo entre esas fechas y si la oferta es menor. Por ahora la
+                  oferta es solo visual en la tienda: cotizaciones y ventas siguen usando el precio detal.
+                </p>
+              </div>
 
               <div className="space-y-2">
                 <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Boxes className="h-4 w-4 text-slate-500" />Compras en inventario</span>

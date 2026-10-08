@@ -12,6 +12,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
 import { prisma } from "@/lib/prisma";
+import { parseProductPromoInput, toBogotaDateOnly } from "@/lib/product-promo";
 import { slugifyProductSegment } from "@/lib/product-slugs";
 import { calculateMarginPctFromPrice, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
 import { createImageVariants } from "@/lib/image-variants.server";
@@ -519,6 +520,20 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
   if (hasShippingExtra && shippingExtra === undefined) {
     redirect(`${redirectBase}?error=Envio+adicional+invalido`);
   }
+  // Precio normal y oferta: solo se tocan si el formulario trae los campos.
+  const hasPromoFields = formData.has("regularPrice") && formData.has("promoPrice");
+  const promoInput = hasPromoFields
+    ? parseProductPromoInput({
+        regularPrice: formData.get("regularPrice"),
+        promoPrice: formData.get("promoPrice"),
+        promoStartsAt: formData.get("promoStartsAt"),
+        promoEndsAt: formData.get("promoEndsAt"),
+      })
+    : null;
+  if (promoInput && !promoInput.ok) {
+    redirect(`${redirectBase}?error=${encodeURIComponent(promoInput.error)}`);
+  }
+  const promoData = promoInput?.ok ? promoInput.value : null;
   let productSuppliers: ParsedProductSupplier[];
   let productComponents: ParsedProductComponent[] = [];
   try {
@@ -544,7 +559,18 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
 
   const previousProduct = await prisma.product.findUnique({
     where: { id: parsed.data.productId },
-    select: { name: true, code: true, baseCost: true, price: true, wholesalePrice: true, minStock: true },
+    select: {
+      name: true,
+      code: true,
+      baseCost: true,
+      price: true,
+      wholesalePrice: true,
+      minStock: true,
+      regularPrice: true,
+      promoPrice: true,
+      promoStartsAt: true,
+      promoEndsAt: true,
+    },
   });
 
   try {
@@ -569,6 +595,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
           isBundle,
           hiddenFromStore,
           ...(hasShippingExtra ? { shippingExtra: shippingExtra ?? null } : {}),
+          ...(promoData ? promoData : {}),
           categoryId,
           thumbnailUrl,
         },
@@ -642,6 +669,30 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
     }
     if (prevMinStock !== parsed.data.minStock) {
       changes.push(`Stock mínimo: ${prevMinStock} → ${parsed.data.minStock}`);
+    }
+    if (promoData) {
+      const prevRegular = previousProduct.regularPrice == null ? null : Number(previousProduct.regularPrice);
+      if (prevRegular !== promoData.regularPrice) {
+        changes.push(
+          `Precio normal: ${prevRegular == null ? "—" : formatPriceChange(prevRegular)} → ${
+            promoData.regularPrice == null ? "—" : formatPriceChange(promoData.regularPrice)
+          }`,
+        );
+      }
+      const prevPromo = previousProduct.promoPrice == null ? null : Number(previousProduct.promoPrice);
+      const prevStarts = previousProduct.promoStartsAt?.getTime() ?? null;
+      const prevEnds = previousProduct.promoEndsAt?.getTime() ?? null;
+      if (
+        prevPromo !== promoData.promoPrice ||
+        prevStarts !== (promoData.promoStartsAt?.getTime() ?? null) ||
+        prevEnds !== (promoData.promoEndsAt?.getTime() ?? null)
+      ) {
+        changes.push(
+          promoData.promoPrice == null
+            ? "Oferta: quitada"
+            : `Oferta: ${formatPriceChange(promoData.promoPrice)} del ${toBogotaDateOnly(promoData.promoStartsAt)} al ${toBogotaDateOnly(promoData.promoEndsAt)}`,
+        );
+      }
     }
   }
 

@@ -128,6 +128,7 @@ export function ProductEditModal({
                 isBundle: product.isBundle,
                 hiddenFromStore: product.hiddenFromStore,
                 shippingExtra: product.shippingExtra,
+                promo: product.promo,
                 suppliers: product.suppliers,
                 components: product.components,
                 imageUrls: product.imageUrls,

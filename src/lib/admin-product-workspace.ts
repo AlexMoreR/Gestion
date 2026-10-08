@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { toPromoFormFields, type ProductPromoFormFields } from "@/lib/product-promo";
 import { getPublicAssetUrl } from "@/lib/site";
 
 export type ProductWorkspaceRow = {
@@ -19,6 +20,7 @@ export type ProductWorkspaceRow = {
   isBundle: boolean;
   hiddenFromStore: boolean;
   shippingExtra: number | null;
+  promo: ProductPromoFormFields;
   components: Array<{
     childId: string;
     quantity: number;
@@ -108,6 +110,7 @@ export async function getProductWorkspaceData(): Promise<ProductWorkspaceData> {
       isBundle: product.isBundle,
       hiddenFromStore: product.hiddenFromStore,
       shippingExtra: product.shippingExtra,
+      promo: toPromoFormFields(product),
       components: product.bundleComponents.map((component) => ({
         childId: component.childId,
         quantity: component.quantity,

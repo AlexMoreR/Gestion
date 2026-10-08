@@ -37,4 +37,24 @@ describe("comboSavingsFromProduct", () => {
     expect(comboSavingsFromProduct({ isBundle: true, price: 500_000, bundleComponents })).toBe(200_000);
     expect(comboSavingsFromProduct({ isBundle: true, price: 500_000 })).toBeNull();
   });
+
+  it("usa el precio vigente (oferta) del combo y de los componentes", () => {
+    const now = new Date("2026-10-08T15:00:00Z");
+    const promo = {
+      promoStartsAt: new Date("2026-10-01T05:00:00Z"),
+      promoEndsAt: new Date("2026-10-16T04:59:59Z"),
+    };
+    expect(
+      comboSavingsFromProduct(
+        {
+          isBundle: true,
+          price: 500_000,
+          promoPrice: 450_000,
+          ...promo,
+          bundleComponents: [{ quantity: 1, child: { price: 700_000, promoPrice: 650_000, ...promo } }],
+        },
+        now,
+      ),
+    ).toBe(200_000);
+  });
 });

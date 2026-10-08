@@ -86,7 +86,14 @@ model Product {
   seoTitle           String?
   seoDescription     String?
   price              Decimal             @db.Decimal(10, 2)
-  baseCost           Decimal             @default(0) @db.Decimal(10, 2)
+  // Precio normal real (respaldo del tachado en la tienda). NULL = se usa price.
+  regularPrice       Decimal?            @db.Decimal(10, 2)
+  // Oferta con fechas: la tienda la muestra solo si hoy esta entre promoStartsAt y promoEndsAt
+  // y promoPrice < precio normal. Por ahora es solo visual (cotizaciones y ventas usan price).
+  promoPrice         Decimal?            @db.Decimal(10, 2)
+  promoStartsAt      DateTime?
+  promoEndsAt        DateTime?
+  baseCost          Decimal             @default(0) @db.Decimal(10, 2)
   // Costo adicional por unidad (ej. flete/transporte de la compra). El costo de
   // compra real del producto = baseCost (proveedor) + additionalCost (flete).
   additionalCost     Decimal             @default(0) @db.Decimal(10, 2)

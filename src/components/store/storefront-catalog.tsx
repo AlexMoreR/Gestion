@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { buildProductPath } from "@/lib/product-slugs";
 import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, siteConfig } from "@/lib/site";
 import { COMBO_SAVINGS_COMPONENTS_SELECT, comboSavingsFromProduct } from "@/lib/storefront-offer";
+import { getActivePromo, getCurrentStorePrice, promoInfoText } from "@/lib/product-promo";
 import {
   buildSystemWhatsAppHref,
   getSystemBrandName,
@@ -279,12 +280,14 @@ export async function StorefrontCatalog({
       ? [...productsResult].sort((left, right) => compareProductsByNaturalCode(left, right))
       : productsResult;
 
+  // Una sola "hora actual" para toda la pagina (ofertas vigentes).
+  const now = new Date();
   const featuredProducts = products.slice(0, 5).map((product) => ({
     id: product.id,
     href: buildProductPath(product),
     name: product.name,
     thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
-    priceLabel: formatCatalogPrice(String(product.price), systemCurrency),
+    priceLabel: formatCatalogPrice(String(getCurrentStorePrice(product, now)), systemCurrency),
   }));
 
   // Paginado del catálogo: solo se renderiza y procesa la página visible.
@@ -533,8 +536,9 @@ export async function StorefrontCatalog({
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
             {pagedProducts.map((product, index) => {
-              const retailPrice = Number(product.price);
-              const comboSavings = comboSavingsFromProduct(product);
+              const activePromo = getActivePromo(product, now);
+              const retailPrice = getCurrentStorePrice(product, now);
+              const comboSavings = comboSavingsFromProduct(product, now);
               const productHref = buildProductPath(product);
               const whatsAppHref = productWhatsAppHrefById.get(product.id) ?? storefrontWhatsAppHref;
 
@@ -580,6 +584,19 @@ export async function StorefrontCatalog({
                           <p className="text-xl font-bold tracking-tight text-foreground">
                             {formatCatalogPrice(String(retailPrice), systemCurrency)}
                           </p>
+                          {activePromo ? (
+                            <p
+                              className="flex flex-wrap items-center gap-1 text-[12px] font-medium text-muted-foreground"
+                              title={promoInfoText(activePromo, (value) => formatCatalogPrice(String(value), systemCurrency))}
+                            >
+                              <span className="line-through">
+                                {formatCatalogPrice(String(activePromo.normalPrice), systemCurrency)}
+                              </span>
+                              <span className="rounded bg-red-100 px-1 text-[10px] font-semibold text-red-600">
+                                {formatCatalogPrice(String(activePromo.off), systemCurrency)} OFF
+                              </span>
+                            </p>
+                          ) : null}
                           {comboSavings != null ? (
                             <p className="text-[11px] font-semibold leading-4 text-red-600">
                               Ahorras {formatCatalogPrice(String(comboSavings), systemCurrency)} frente a comprar por

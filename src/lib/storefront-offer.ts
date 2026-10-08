@@ -6,6 +6,8 @@
 // - No se muestra precio "antes" tachado. Solo en combos: "Ahorras $X frente a comprar por
 //   separado", con X = suma de los precios actuales de los componentes - precio del combo.
 
+import { getCurrentStorePrice, type ProductPromoSource } from "./product-promo";
+
 export const FREE_SHIPPING_LABEL = "Envío gratis pagando 50 % de anticipo";
 export const FREE_SHIPPING_SHORT_LABEL = "Envío gratis con 50 % de anticipo";
 export const FREE_SHIPPING_COVERAGE_PATH = "/cobertura";
@@ -47,21 +49,31 @@ export function computeComboSavings(
   return savings > 0 ? savings : null;
 }
 
-// Forma de Prisma para leer los componentes de un combo con su precio actual.
+// Forma de Prisma para leer los componentes de un combo con su precio actual (y su oferta).
 export const COMBO_SAVINGS_COMPONENTS_SELECT = {
-  select: { quantity: true, child: { select: { price: true } } },
+  select: {
+    quantity: true,
+    child: { select: { price: true, regularPrice: true, promoPrice: true, promoStartsAt: true, promoEndsAt: true } },
+  },
 } as const;
 
-export function comboSavingsFromProduct(product: {
-  isBundle: boolean;
-  price: unknown;
-  bundleComponents?: Array<{ quantity: number; child: { price: unknown } }>;
-}): number | null {
+// Precio actual = el que muestra la tienda hoy (oferta vigente o precio detal), tanto del
+// combo como de cada componente.
+export function comboSavingsFromProduct(
+  product: ProductPromoSource & {
+    isBundle: boolean;
+    bundleComponents?: Array<{ quantity: number; child: ProductPromoSource }>;
+  },
+  now: Date = new Date(),
+): number | null {
   if (!product.isBundle) {
     return null;
   }
   return computeComboSavings(
-    product.price,
-    (product.bundleComponents ?? []).map((entry) => ({ quantity: entry.quantity, price: entry.child.price })),
+    getCurrentStorePrice(product, now),
+    (product.bundleComponents ?? []).map((entry) => ({
+      quantity: entry.quantity,
+      price: getCurrentStorePrice(entry.child, now),
+    })),
   );
 }

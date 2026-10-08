@@ -14,7 +14,15 @@ import {
   FREE_SHIPPING_COVERAGE_PATH,
   FREE_SHIPPING_SHORT_LABEL,
 } from "@/lib/storefront-offer";
+import {
+  getActivePromo,
+  getCurrentStorePrice,
+  promoInfoText,
+  toBogotaDateOnly,
+  type ProductPromoSource,
+} from "@/lib/product-promo";
 import { buildSystemWhatsAppHref, getSystemBrandName } from "@/lib/system-settings";
+import { PromoPriceInfo } from "./promo-price-info";
 import { Button } from "../ui/button";
 
 type ProductDetailContentProps = {
@@ -26,10 +34,14 @@ type ProductDetailContentProps = {
     description: string | null;
     seoDescription: string | null;
     price: unknown;
+    regularPrice: unknown;
+    promoPrice: unknown;
+    promoStartsAt: Date | null;
+    promoEndsAt: Date | null;
     wholesalePrice: unknown;
     minWholesaleQty: number;
     isBundle: boolean;
-    bundleComponents?: Array<{ quantity: number; child: { price: unknown } }>;
+    bundleComponents?: Array<{ quantity: number; child: ProductPromoSource }>;
     thumbnailUrl: string;
     categoryId: string | null;
     category: { name: string; slug: string } | null;
@@ -82,9 +94,12 @@ export async function ProductDetailContent({
     `${product.name} disponible en ${brandName} para proyectos de salón, barbería y mobiliario profesional premium.`,
   );
   const canonicalPath = buildProductPath(product);
-  // Solo el precio real. En combos, el ahorro real frente a comprar los componentes por separado.
-  const retailPrice = Number(product.price);
-  const comboSavings = comboSavingsFromProduct(product);
+  // Precio real: el de oferta si hay una vigente (con el precio normal tachado de respaldo);
+  // si no, solo el precio detal. En combos, ademas, el ahorro real frente a comprar por separado.
+  const now = new Date();
+  const activePromo = getActivePromo(product, now);
+  const retailPrice = getCurrentStorePrice(product, now);
+  const comboSavings = comboSavingsFromProduct(product, now);
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -102,7 +117,8 @@ export async function ProductDetailContent({
       "@type": "Offer",
       url: getSiteUrl(canonicalPath),
       priceCurrency: currency,
-      price: Number(product.price),
+      price: retailPrice,
+      ...(activePromo ? { priceValidUntil: toBogotaDateOnly(activePromo.endsAt) } : {}),
       availability: "https://schema.org/InStock",
         seller: {
           "@type": "Organization",
@@ -159,6 +175,19 @@ export async function ProductDetailContent({
               <span className="text-3xl font-bold tracking-tight text-red-600">
                 {formatMoney(String(retailPrice), currency)}
               </span>
+              {activePromo ? (
+                <>
+                  <span className="text-lg font-medium text-slate-400 line-through">
+                    {formatMoney(String(activePromo.normalPrice), currency)}
+                  </span>
+                  <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-600">
+                    {formatMoney(String(activePromo.off), currency)} OFF
+                  </span>
+                  <PromoPriceInfo
+                    text={promoInfoText(activePromo, (value) => formatMoney(String(value), currency))}
+                  />
+                </>
+              ) : null}
               {comboSavings != null ? (
                 <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-600">
                   Ahorras {formatMoney(String(comboSavings), currency)} frente a comprar por separado
