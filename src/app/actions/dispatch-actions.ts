@@ -12,6 +12,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buildDispatchCode, parseDispatchCodeNumber } from "@/lib/orders";
+import { parseWeightKg } from "@/modules/guias/domain/weight";
 import {
   createShipmentForDispatch,
   ShipmentError,
@@ -37,15 +38,18 @@ async function createShipmentIfRequested(
   const cityRaw = formData.get("destinationCityId");
   const amountRaw = formData.get("amountToCollect");
   const amount = typeof amountRaw === "string" && amountRaw.trim() ? Number(amountRaw.replace(/[^\d.]/g, "")) : NaN;
+  // Peso opcional: si viene mal escrito la guia se crea igual sin peso y se avisa.
+  const weight = parseWeightKg(formData.get("weightKg"));
   try {
     const shipment = await createShipmentForDispatch({
       dispatchId,
       createdById,
       destinationCityId: typeof cityRaw === "string" && cityRaw.trim() ? cityRaw.trim() : null,
       amountToCollect: Number.isFinite(amount) && amount >= 0 ? Math.round(amount) : null,
+      weightKg: weight.ok ? weight.value : null,
     });
     revalidatePath("/admin/despachos/guias");
-    return ` · Guía ${shipment.code} creada`;
+    return ` · Guía ${shipment.code} creada${weight.ok ? "" : " (peso inválido: agrégalo en la guía)"}`;
   } catch (error) {
     if (!(error instanceof ShipmentError)) {
       console.error("Failed to create shipment:", error);

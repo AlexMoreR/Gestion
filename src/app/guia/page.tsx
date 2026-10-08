@@ -37,7 +37,7 @@ export default async function GuiaPublicPage() {
   return (
     <div className="min-h-screen bg-[#e9eaef]">
       <header className="border-b-2 border-[#2d0049] bg-[#42066E]">
-        <div className="mx-auto flex max-w-[820px] items-center gap-3 px-4 py-4">
+        <div className="mx-auto flex max-w-[1080px] items-center gap-3 px-4 py-4">
           <Image
             src={logoUrl}
             alt={brandName}
@@ -53,7 +53,9 @@ export default async function GuiaPublicPage() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-xl px-4 py-8">
+      {/* Ancho de la hoja de la guia en computador (~1048 px utiles); el formulario y el boton de
+          WhatsApp se quedan angostos (max-w-xl) dentro de PublicLookup. */}
+      <main className="mx-auto w-full max-w-[1080px] px-4 py-8">
         {/* El titulo "Consulte su envío" vive en PublicLookup para ocultarlo cuando se muestra la guia. */}
         <PublicLookup
           whatsAppHref={`https://wa.me/${whatsAppDigits}`}

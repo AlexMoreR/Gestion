@@ -176,6 +176,7 @@ export type CreateShipmentInput = {
   destinationCityId?: string | null;
   amountToCollect?: number | null; // null/undefined = saldo de la venta
   estimatedDelivery?: Date | null; // null/undefined = automatica
+  weightKg?: number | null; // kg, opcional (ya validado con parseWeightKg)
 };
 
 export async function createShipmentForDispatch(input: CreateShipmentInput): Promise<{ id: string; code: string }> {
@@ -243,6 +244,7 @@ export async function createShipmentForDispatch(input: CreateShipmentInput): Pro
           etaIsManual: Boolean(input.estimatedDelivery),
           collectOnDelivery: amountToCollect > 0,
           amountToCollect,
+          weightKg: input.weightKg ?? null,
           phoneLast4: last4,
           publicEnabled: Boolean(last4),
           carrierToken: generateCarrierToken(),

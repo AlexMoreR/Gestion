@@ -939,6 +939,8 @@ model Shipment {
   // Cobro al recibir: lo confirma quien crea la guia (sugerido del saldo de la venta).
   collectOnDelivery  Boolean         @default(false)
   amountToCollect    Decimal         @default(0) @db.Decimal(12, 2)
+  // Peso del envio en kg (opcional, a mano). Se muestra en la consulta publica.
+  weightKg           Decimal?        @db.Decimal(10, 2)
   receivedByName     String?
   deliveryPhotoUrl   String?
   // Consulta publica (magilus.com/guia): guia + ultimos 4 del celular.

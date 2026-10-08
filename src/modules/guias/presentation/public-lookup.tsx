@@ -7,6 +7,7 @@ import Image from "next/image";
 import { AlertTriangle, CalendarDays, CheckCircle2, Loader2, MessageCircle, Search, Truck } from "lucide-react";
 import { publicLookupShipmentAction, type LookupState } from "@/app/actions/shipment-public-actions";
 import { cn } from "@/lib/utils";
+import { formatWeightKg } from "../domain/weight";
 
 // Resultado de la consulta con formato de guia de transporte (estilo documento): titulo con
 // Nº de guia, cajas de datos, estado actual, progreso, recuadro formal e historial.
@@ -72,7 +73,7 @@ function BrandMark({ logoUrl, brandName, size = "lg" }: { logoUrl?: string; bran
         alt={brandName}
         width={160}
         height={56}
-        className={cn("w-auto shrink-0 object-contain", size === "lg" ? "h-10 sm:h-12" : "h-9")}
+        className={cn("w-auto shrink-0 object-contain", size === "lg" ? "h-8 max-w-[34vw] sm:h-12 sm:max-w-none" : "h-9")}
         unoptimized
       />
     );
@@ -81,7 +82,7 @@ function BrandMark({ logoUrl, brandName, size = "lg" }: { logoUrl?: string; bran
     <span
       className={cn(
         "shrink-0 whitespace-nowrap font-black tracking-tight text-[#42066E]",
-        size === "lg" ? "text-xl sm:text-[26px]" : "text-xl",
+        size === "lg" ? "text-lg sm:text-[26px]" : "text-xl",
       )}
     >
       {brandName}
@@ -89,34 +90,59 @@ function BrandMark({ logoUrl, brandName, size = "lg" }: { logoUrl?: string; bran
   );
 }
 
-// Fila de las cajas superiores: etiqueta en celda gris, valor en morado.
-function BoxRow({ label, children }: { label: string; children: ReactNode }) {
+// Fila de las cajas superiores: etiqueta en celda gris, valor en morado. Los codigos de guia
+// van con nowrap para que nunca se partan en dos renglones.
+function BoxRow({ label, children, nowrap = false }: { label: string; children: ReactNode; nowrap?: boolean }) {
   return (
-    <div className="grid grid-cols-[112px_1fr] border-t border-[#d7d7de] first:border-t-0 sm:grid-cols-[130px_1fr]">
-      <dt className="flex items-center bg-[#f1f1f4] px-3 py-2.5 text-[11px] font-bold uppercase tracking-[0.04em] text-slate-500">
+    <div className="grid grid-cols-[104px_1fr] border-t border-[#d7d7de] first:border-t-0 sm:grid-cols-[120px_1fr]">
+      <dt className="flex items-center bg-[#f1f1f4] px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.04em] text-slate-500">
         {label}
       </dt>
-      <dd className="flex min-w-0 items-center break-words px-3 py-2.5 text-sm font-semibold text-[#42066E]">
+      <dd
+        className={cn(
+          "flex min-w-0 items-center px-3 py-1.5 text-[13px] font-semibold text-[#42066E]",
+          nowrap ? "whitespace-nowrap" : "break-words",
+        )}
+      >
         {children}
       </dd>
     </div>
   );
 }
 
-function WaybillCell({ label, children }: { label: string; children: ReactNode }) {
+// Celda del recuadro formal. Los bordes entre celdas los pone la fila (WAYBILL_ROW).
+function WaybillCell({
+  label,
+  children,
+  nowrap = false,
+  className,
+}: {
+  label: string;
+  children: ReactNode;
+  nowrap?: boolean;
+  className?: string;
+}) {
   return (
-    <div className="min-w-0 border-l border-[#d7d7de] px-3 py-2.5 [&:nth-child(3)]:border-l-0 sm:[&:nth-child(3)]:border-l first:border-l-0">
+    <div className={cn("min-w-0 border-[#d7d7de] px-3 py-2", className)}>
       <p className="text-[10px] font-bold uppercase tracking-[0.04em] text-slate-500">{label}</p>
-      <p className="mt-0.5 break-words text-sm font-bold text-[#42066E]">{children}</p>
+      <p className={cn("mt-0.5 text-[13px] font-bold text-[#42066E]", nowrap ? "whitespace-nowrap" : "break-words")}>
+        {children}
+      </p>
     </div>
   );
 }
+
+// Fila de 5 celdas: en celular 2 columnas (la 5a ocupa las dos), desde md una sola fila.
+const WAYBILL_ROW =
+  "grid grid-cols-2 border-t border-[#d7d7de] md:grid-cols-5 " +
+  "[&>*:nth-child(even)]:border-l [&>*:nth-child(n+3)]:border-t " +
+  "md:[&>*]:border-l md:[&>*:first-child]:border-l-0 md:[&>*:nth-child(n+3)]:border-t-0";
 
 // En celular la etiqueta va arriba y el valor abajo, para que valores como el telefono
 // enmascarado ("*** *** 9108") no se partan en dos renglones.
 function PartyRow({ label, children, nowrap = false }: { label: string; children: ReactNode; nowrap?: boolean }) {
   return (
-    <p className="my-1 text-[13px] text-[#1f2430]">
+    <p className="my-0.5 text-[13px] text-[#1f2430]">
       <span className="block text-[11px] font-semibold text-slate-500 sm:inline-block sm:min-w-[66px]">{label}</span>{" "}
       <span className={cn(nowrap && "whitespace-nowrap")}>{children}</span>
     </p>
@@ -236,8 +262,8 @@ type EventRow = { id: string; at: string; title: string; observation: ReactNode 
 // FECHA | ESTADO | OBSERVACION. En celular se apila (fecha + estado arriba, observacion abajo)
 // para no partir palabras como "Recogido" o "Guía creada"; desde sm se muestra como tabla.
 function EventRows({ rows, size = "sm" }: { rows: EventRow[]; size?: "sm" | "md" }) {
-  const text = size === "md" ? "text-sm" : "text-[13px]";
-  const pad = size === "md" ? "py-3" : "py-2.5";
+  const text = size === "md" ? "text-[13px]" : "text-[12.5px]";
+  const pad = size === "md" ? "py-2" : "py-1.5";
   return (
     <>
       <ul className={cn("divide-y divide-[#d7d7de] sm:hidden", text)}>
@@ -254,9 +280,9 @@ function EventRows({ rows, size = "sm" }: { rows: EventRow[]; size?: "sm" | "md"
       <table className={cn("hidden w-full table-fixed border-collapse sm:table", text)}>
         <thead>
           <tr className="bg-[#42066E] text-left text-[10.5px] font-bold uppercase tracking-[0.05em] text-white">
-            <th className="w-[30%] px-3 py-2">Fecha</th>
-            <th className="w-[26%] px-3 py-2">Estado</th>
-            <th className="px-3 py-2">Observación</th>
+            <th className="w-[24%] px-3 py-1.5">Fecha</th>
+            <th className="w-[24%] px-3 py-1.5">Estado</th>
+            <th className="px-3 py-1.5">Observación</th>
           </tr>
         </thead>
         <tbody>
@@ -332,13 +358,14 @@ function LookupPanel({
   const latestEvent = view?.events[0] ?? null;
   const firstEvent = view && view.events.length > 0 ? view.events[view.events.length - 1] : null;
   const destination = view?.destinationCity ?? "Tu ciudad";
+  const weightLabel = formatWeightKg(view?.weightKg) ?? "Por confirmar";
 
   return (
     <div className="space-y-5">
       {/* Con una guia en pantalla solo se ve la guia: se ocultan titulo, texto y formulario. */}
       {view ? null : (
         <>
-      <div>
+      <div className="mx-auto max-w-xl">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Consulte su envío</h1>
         <p className="mt-1 text-sm text-slate-600">
           Escribe tu número de guía {brandName} (empieza por MG) y los últimos 4 dígitos de tu celular.
@@ -393,19 +420,20 @@ function LookupPanel({
           ref={guideRef}
           className="scroll-mt-4 overflow-hidden rounded-[10px] border border-[#d7d7de] bg-white text-[#1f2430] shadow-[0_6px_24px_rgba(0,0,0,0.08)]">
           {/* 1. Titulo: marca + Nº de guia */}
-          <header className="flex items-center gap-4 border-b-[3px] border-[#42066E] px-4 py-4 sm:px-[22px] sm:py-5">
+          <header className="flex items-center gap-3 border-b-[3px] border-[#42066E] px-4 py-3 sm:gap-4 sm:px-[22px] sm:py-4">
             <BrandMark logoUrl={logoUrl} brandName={brandName} />
-            <h2 className="ml-auto min-w-0 text-right text-[22px] font-extrabold leading-[1.05] tracking-tight text-[#42066E] sm:text-[30px]">
-              <small className="block text-[12px] font-semibold tracking-[3px] text-slate-500">Nº DE GUÍA</small>
-              <span className="break-all">{view.code}</span>
+            {/* El codigo nunca se parte: en celular angosto la letra se achica con el ancho. */}
+            <h2 className="ml-auto shrink-0 whitespace-nowrap text-right text-[clamp(16px,5.4vw,22px)] font-extrabold leading-[1.05] tracking-tight text-[#42066E] sm:text-[26px] lg:text-[28px]">
+              <small className="block text-[11px] font-semibold tracking-[3px] text-slate-500">Nº DE GUÍA</small>
+              <span className="whitespace-nowrap">{view.code}</span>
             </h2>
           </header>
 
           {/* 2. Progreso (de primero) con el camion + entrega estimada pegada debajo */}
-          <div className="px-4 pt-4 sm:px-[22px]">
-            <p className="mb-1 text-base font-bold">{view.statusText}</p>
+          <div className="px-4 pt-3 sm:px-[22px]">
+            <p className="mb-1 text-[15px] font-bold">{view.statusText}</p>
             <ProgressTrack steps={view.steps} delivered={delivered} />
-            <div className="mt-3 rounded-lg border border-[#d7d7de] bg-[#f1f1f4] px-3.5 py-2.5 text-sm">
+            <div className="mt-2.5 rounded-lg border border-[#d7d7de] bg-[#f1f1f4] px-3 py-2 text-[13px]">
               <span className="text-[11px] font-bold uppercase tracking-[0.04em] text-slate-500">
                 {delivered ? "Entregado" : "Entrega estimada"}
               </span>
@@ -425,23 +453,28 @@ function LookupPanel({
             </div>
           </div>
 
-          {/* 3. Dos cajas */}
-          <div className="grid grid-cols-1 gap-3.5 px-4 py-4 sm:grid-cols-2 sm:px-[22px]">
-            <dl className="overflow-hidden rounded-lg border border-[#d7d7de]">
-              <BoxRow label="Remisión">{view.code}</BoxRow>
+          {/* 3. Dos cajas parejas (3 filas cada una, misma altura; grid-rows-3 reparte el alto).
+              El estado ya se ve en la barra de progreso y en la franja de abajo. */}
+          <div className="grid grid-cols-1 gap-3 px-4 py-3 sm:grid-cols-2 sm:px-[22px]">
+            <dl className="grid grid-rows-3 overflow-hidden rounded-lg border border-[#d7d7de]">
+              <BoxRow label="Remisión" nowrap>
+                {view.code}
+              </BoxRow>
               <BoxRow label="Origen">{view.originCity}</BoxRow>
-              <BoxRow label="Estado">{view.statusLabel}</BoxRow>
+              <BoxRow label="Peso (kg)">{weightLabel}</BoxRow>
             </dl>
-            <dl className="overflow-hidden rounded-lg border border-[#d7d7de]">
+            <dl className="grid grid-rows-3 overflow-hidden rounded-lg border border-[#d7d7de]">
               <BoxRow label="Destinatario">{view.recipientName ?? "—"}</BoxRow>
-              <BoxRow label="Teléfono">{view.phoneMasked ?? "—"}</BoxRow>
+              <BoxRow label="Teléfono" nowrap>
+                {view.phoneMasked ?? "—"}
+              </BoxRow>
               <BoxRow label="Destino">{destination}</BoxRow>
             </dl>
           </div>
 
           {/* 4. Estado actual: FECHA | ESTADO | OBSERVACION */}
           {latestEvent ? (
-            <div className="px-4 pb-1.5 sm:px-[22px]">
+            <div className="px-4 pb-1 sm:px-[22px]">
               <div className="overflow-hidden rounded-lg border border-[#d7d7de]">
                 <EventRows
                   size="md"
@@ -460,7 +493,7 @@ function LookupPanel({
 
           {/* Foto de entrega */}
           {view.deliveryPhotoUrl ? (
-            <div className="mx-4 mt-3.5 space-y-2 overflow-hidden rounded-lg border border-[#d7d7de] p-3.5 sm:mx-[22px]">
+            <div className="mx-4 mt-3 space-y-2 overflow-hidden rounded-lg border border-[#d7d7de] p-3 sm:mx-[22px]">
               <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold">
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Foto de entrega
                 {view.receivedBy ? <span className="font-normal text-slate-500">· Recibió: {view.receivedBy}</span> : null}
@@ -471,8 +504,8 @@ function LookupPanel({
           ) : null}
 
           {/* 5. Recuadro formal */}
-          <section className="mx-4 mb-1.5 mt-3.5 overflow-hidden rounded-lg border border-[#d7d7de] sm:mx-[22px]">
-            <div className="flex items-start gap-3.5 p-3.5">
+          <section className="mx-4 mb-1 mt-3 overflow-hidden rounded-lg border border-[#d7d7de] sm:mx-[22px]">
+            <div className="flex items-start gap-3 px-3 py-2.5">
               <BrandMark logoUrl={logoUrl} brandName={brandName} size="sm" />
               <p className="text-[11.5px] leading-normal text-slate-500">
                 <b className="text-[#1f2430]">{brandName} · Fábrica Bogotá</b>
@@ -486,25 +519,32 @@ function LookupPanel({
                 magilus.com · Envíos a toda Colombia
               </p>
             </div>
-            <div className="grid grid-cols-2 border-t border-[#d7d7de] sm:grid-cols-4 [&>*:nth-child(n+3)]:border-t [&>*:nth-child(n+3)]:border-[#d7d7de] sm:[&>*:nth-child(n+3)]:border-t-0">
-              <WaybillCell label="Fecha expedición">{firstEvent ? formatShortDate(firstEvent.at) : "—"}</WaybillCell>
+            <div className={WAYBILL_ROW}>
+              <WaybillCell label="Fecha expedición" nowrap>
+                {firstEvent ? formatShortDate(firstEvent.at) : "—"}
+              </WaybillCell>
               <WaybillCell label="Ciudad origen">{view.originCity}</WaybillCell>
               <WaybillCell label="Ciudad destino">{destination}</WaybillCell>
-              <WaybillCell label="Nº guía">{view.code}</WaybillCell>
+              <WaybillCell label="Nº guía" nowrap>
+                {view.code}
+              </WaybillCell>
+              <WaybillCell label="Peso" nowrap className="col-span-2 md:col-span-1">
+                {weightLabel}
+              </WaybillCell>
             </div>
-            <div className="border-t border-[#d7d7de] bg-[#42066E] p-2.5 text-center font-extrabold uppercase tracking-[1px] text-white">
+            <div className="border-t border-[#d7d7de] bg-[#42066E] px-2.5 py-2 text-center text-sm font-extrabold uppercase tracking-[1px] text-white">
               <small className="block text-[10px] font-semibold tracking-[2px] opacity-85">Forma de pago</small>
               {view.amountToCollect > 0 ? `Paga al recibir ${formatCop(view.amountToCollect)}` : "Pago completo"}
             </div>
             <div className="grid grid-cols-2 border-t border-[#d7d7de]">
-              <div className="min-w-0 px-3.5 py-3">
-                <p className="mb-1.5 text-[11px] font-extrabold tracking-[1px] text-[#42066E]">REMITE</p>
+              <div className="min-w-0 px-3 py-2">
+                <p className="mb-1 text-[11px] font-extrabold tracking-[1px] text-[#42066E]">REMITE</p>
                 <PartyRow label="Nombre">{brandName}</PartyRow>
                 <PartyRow label="Ciudad">Bogotá, D.C.</PartyRow>
                 <PartyRow label="Origen">Fábrica {brandName}</PartyRow>
               </div>
-              <div className="min-w-0 border-l border-[#d7d7de] px-3.5 py-3">
-                <p className="mb-1.5 text-[11px] font-extrabold tracking-[1px] text-[#42066E]">RECIBE</p>
+              <div className="min-w-0 border-l border-[#d7d7de] px-3 py-2">
+                <p className="mb-1 text-[11px] font-extrabold tracking-[1px] text-[#42066E]">RECIBE</p>
                 <PartyRow label="Nombre">{view.recipientName ?? "—"}</PartyRow>
                 <PartyRow label="Ciudad">{destination}</PartyRow>
                 <PartyRow label="Teléfono" nowrap>
@@ -512,15 +552,15 @@ function LookupPanel({
                 </PartyRow>
               </div>
             </div>
-            <p className="border-t border-[#d7d7de] bg-[#fafafb] px-3.5 py-2.5 text-[10.5px] leading-normal text-slate-500">
+            <p className="border-t border-[#d7d7de] bg-[#fafafb] px-3 py-2 text-[10.5px] leading-normal text-slate-500">
               El envío es despachado por {brandName} desde su fábrica en Bogotá, con transporte aliado a nivel
               nacional. Por tu seguridad, el teléfono y la dirección se muestran parcialmente.
             </p>
           </section>
 
           {/* 6. Historial completo */}
-          <section className="mx-4 mb-5 mt-3.5 overflow-hidden rounded-lg border border-[#d7d7de] sm:mx-[22px]">
-            <p className="flex items-center gap-2 border-b border-[#d7d7de] px-3.5 py-2.5 text-xs font-bold uppercase tracking-[0.05em] text-slate-500">
+          <section className="mx-4 mb-4 mt-3 overflow-hidden rounded-lg border border-[#d7d7de] sm:mx-[22px]">
+            <p className="flex items-center gap-2 border-b border-[#d7d7de] px-3 py-2 text-xs font-bold uppercase tracking-[0.05em] text-slate-500">
               <CalendarDays className="h-4 w-4" /> Historial del envío
             </p>
             {view.events.length > 0 ? (

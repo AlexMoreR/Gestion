@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { hasUploadedFile, saveShipmentPhoto } from "@/lib/upload-photo";
 import { parseDateInput } from "@/modules/guias/domain/eta";
 import { ALL_SHIPMENT_INCIDENTS, ALL_SHIPMENT_STATUSES, SHIPMENT_STATUS_LABEL } from "@/modules/guias/domain/statuses";
+import { formatWeightKg, parseWeightKg } from "@/modules/guias/domain/weight";
 import {
   addShipmentEvent,
   createShipmentForDispatch,
@@ -101,6 +102,11 @@ export async function adminCreateShipmentAction(formData: FormData): Promise<voi
     redirect(withMessage(returnTo, "error", "Despacho inválido"));
   }
 
+  const weight = parseWeightKg(formData.get("weightKg"));
+  if (!weight.ok) {
+    redirect(withMessage(returnTo, "error", weight.error));
+  }
+
   let created: { id: string; code: string } | null = null;
   let failure = "";
   try {
@@ -109,6 +115,7 @@ export async function adminCreateShipmentAction(formData: FormData): Promise<voi
       createdById: user.id,
       destinationCityId: text(formData, "destinationCityId") || null,
       amountToCollect: parseMoney(text(formData, "amountToCollect")),
+      weightKg: weight.value,
     });
   } catch (error) {
     failure = errorMessage(error, "No se pudo crear la guía");
@@ -263,6 +270,37 @@ export async function adminUpdateShipmentCollectAction(formData: FormData): Prom
   });
   await revalidateShipment(shipmentId);
   redirect(withMessage(back, "ok", "Cobro al recibir actualizado"));
+}
+
+// Peso del envio en kg (vacio = quitar el peso).
+export async function adminUpdateShipmentWeightAction(formData: FormData): Promise<void> {
+  await requireShipmentsAccess();
+  const shipmentId = text(formData, "shipmentId");
+  const back = detailPath(shipmentId);
+  if (!shipmentId) {
+    redirect(withMessage(back, "error", "Guía inválida"));
+  }
+  const weight = parseWeightKg(formData.get("weightKg"));
+  if (!weight.ok) {
+    redirect(withMessage(back, "error", weight.error));
+  }
+
+  const shipment = await prisma.shipment.update({
+    where: { id: shipmentId },
+    data: { weightKg: weight.value },
+    select: { code: true },
+  });
+  await logActivity({
+    action: "UPDATE",
+    entityType: "SHIPMENT",
+    entityId: shipmentId,
+    summary:
+      weight.value == null
+        ? `Quitó el peso de la guía ${shipment.code}`
+        : `Cambió el peso de ${shipment.code} a ${formatWeightKg(weight.value)}`,
+  });
+  await revalidateShipment(shipmentId);
+  redirect(withMessage(back, "ok", weight.value == null ? "Peso quitado" : "Peso actualizado"));
 }
 
 // Cambia el enlace del transportador (el anterior deja de funcionar).

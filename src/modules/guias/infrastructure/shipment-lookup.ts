@@ -47,6 +47,7 @@ export type PublicShipmentView = {
   estimatedDelivery: string | null; // AAAA-MM-DD
   etaChanged: boolean;
   amountToCollect: number; // 0 = nada que pagar
+  weightKg: number | null; // peso del envio en kg (null = por confirmar)
   deliveredAt: string | null;
   receivedBy: string | null;
   deliveryPhotoUrl: string | null;
@@ -65,6 +66,7 @@ const publicShipmentSelect = {
   estimatedDelivery: true,
   collectOnDelivery: true,
   amountToCollect: true,
+  weightKg: true,
   deliveredAt: true,
   receivedByName: true,
   deliveryPhotoUrl: true,
@@ -126,6 +128,7 @@ export async function lookupShipment(params: { code: string; last4: string; ipHa
   const flowIndex = SHIPMENT_FLOW.indexOf(shipment.status);
   const delivered = shipment.status === "DELIVERED";
   const amount = Number(shipment.amountToCollect);
+  const weight = shipment.weightKg == null ? null : Number(shipment.weightKg);
 
   return {
     ok: true,
@@ -147,7 +150,8 @@ export async function lookupShipment(params: { code: string; last4: string; ipHa
       estimatedDelivery: shipment.estimatedDelivery ? shipment.estimatedDelivery.toISOString().slice(0, 10) : null,
       etaChanged: shipment.events.some((event) => event.kind === "ETA_CHANGE"),
       amountToCollect: shipment.collectOnDelivery && !delivered && Number.isFinite(amount) ? Math.max(0, amount) : 0,
-      deliveredAt: shipment.deliveredAt ? shipment.deliveredAt.toISOString() : null,
+      weightKg: weight != null && Number.isFinite(weight) && weight > 0 ? weight : null,
+      deliveredAt: shipment.deliveredAt ?shipment.deliveredAt.toISOString() : null,
       receivedBy: delivered ? abbreviateName(shipment.receivedByName) || null : null,
       deliveryPhotoUrl: delivered ? shipment.deliveryPhotoUrl : null,
       events: shipment.events.map((event) => ({

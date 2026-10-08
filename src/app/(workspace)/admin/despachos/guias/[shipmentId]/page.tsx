@@ -10,6 +10,7 @@ import {
   adminUpdateShipmentCollectAction,
   adminUpdateShipmentDestinationAction,
   adminUpdateShipmentEtaAction,
+  adminUpdateShipmentWeightAction,
 } from "@/app/actions/shipment-actions";
 import { OperationsTabs } from "@/components/admin/operations-tabs";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ import {
   SHIPMENT_STATUS_LABEL,
 } from "@/modules/guias/domain/statuses";
 import type { CityOption } from "@/modules/guias/domain/types";
+import { formatWeightKg } from "@/modules/guias/domain/weight";
 import { AdminEventForm } from "@/modules/guias/presentation/admin-event-form";
 import { CityPicker } from "@/modules/guias/presentation/city-picker";
 import { CopyButton } from "@/modules/guias/presentation/copy-button";
@@ -115,6 +117,7 @@ export default async function AdminGuiaDetailPage({ params, searchParams }: Page
   const carrierUrl = getSiteUrl(`/envios/t/${shipment.carrierToken}`);
   const publicUrl = getSiteUrl("/guia");
   const amount = Number(shipment.amountToCollect);
+  const weightKg = shipment.weightKg == null ? null : Number(shipment.weightKg);
   const destination = toOption(shipment.destinationCity);
   const current = toOption(shipment.currentCity);
   const suggestions = [current, destination].filter((city): city is CityOption => Boolean(city));
@@ -167,7 +170,7 @@ export default async function AdminGuiaDetailPage({ params, searchParams }: Page
         </div>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Card className="py-2">
           <CardContent className="space-y-0.5">
             <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Destino</p>
@@ -194,6 +197,13 @@ export default async function AdminGuiaDetailPage({ params, searchParams }: Page
             <p className={`font-semibold ${amount > 0 ? "text-rose-600" : "text-foreground"}`}>
               {shipment.collectOnDelivery && amount > 0 ? formatMoney(amount, currency) : "Nada"}
             </p>
+          </CardContent>
+        </Card>
+        <Card className="py-2">
+          <CardContent className="space-y-0.5">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Peso</p>
+            <p className="font-semibold text-foreground">{formatWeightKg(weightKg) ?? "Sin peso"}</p>
+            {weightKg == null ? <p className="text-xs text-muted-foreground">El cliente ve “Por confirmar”</p> : null}
           </CardContent>
         </Card>
       </div>
@@ -386,6 +396,27 @@ export default async function AdminGuiaDetailPage({ params, searchParams }: Page
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">0 = el cliente no paga nada al recibir.</p>
+              </form>
+              <form action={adminUpdateShipmentWeightAction} className="space-y-2 border-t border-border pt-3">
+                <input type="hidden" name="shipmentId" value={shipment.id} />
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Peso (kg)</p>
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    name="weightKg"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    placeholder="Ej. 12,5"
+                    pattern="\s*\d+([.,]\d+)?\s*"
+                    title="Solo el número en kg, con coma o punto (ej. 12,5)"
+                    defaultValue={weightKg == null ? "" : String(weightKg).replace(".", ",")}
+                    className="h-8"
+                  />
+                  <Button type="submit" size="sm" variant="outline" className="h-8">
+                    Guardar
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">Vacío = sin peso (el cliente ve “Por confirmar”).</p>
               </form>
             </CardContent>
           </Card>

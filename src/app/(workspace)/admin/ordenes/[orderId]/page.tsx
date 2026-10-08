@@ -601,9 +601,22 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                       <input type="hidden" name="dispatchId" value={dispatch.id} />
                       <input type="hidden" name="returnTo" value={returnTo} />
                       <span className="text-muted-foreground">{dispatch.code} sin guía</span>
-                      <Button type="submit" size="sm" variant="outline">
-                        Crear guía Magilus
-                      </Button>
+                      <span className="ml-auto flex items-center gap-2">
+                        <input
+                          type="text"
+                          name="weightKg"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          placeholder="Peso kg"
+                          aria-label="Peso en kg (opcional)"
+                          pattern="\s*\d+([.,]\d+)?\s*"
+                          title="Peso en kg, opcional (ej. 12,5)"
+                          className="h-8 w-20 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring dark:bg-input/30"
+                        />
+                        <Button type="submit" size="sm" variant="outline">
+                          Crear guía Magilus
+                        </Button>
+                      </span>
                     </form>
                   ),
                 )}

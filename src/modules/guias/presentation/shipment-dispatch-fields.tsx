@@ -96,6 +96,19 @@ export function ShipmentDispatchFields({ defaults }: { defaults: ShipmentDefault
               className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
             />
           </div>
+          <div className="space-y-1">
+            <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Peso (kg, opcional)</span>
+            <input
+              type="text"
+              name="weightKg"
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder="Ej. 12,5"
+              pattern="\s*\d+([.,]\d+)?\s*"
+              title="Solo el número en kg, con coma o punto (ej. 12,5)"
+              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+            />
+          </div>
           <p className="text-xs text-muted-foreground">
             Fecha estimada automática (Bogotá 3, capitales 5, municipios 7 días hábiles); se edita en la guía.
           </p>
