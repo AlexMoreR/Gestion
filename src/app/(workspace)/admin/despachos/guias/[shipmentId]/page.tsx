@@ -137,22 +137,22 @@ export default async function AdminGuiaDetailPage({ params, searchParams }: Page
     .join("\n");
 
   return (
-    <section className="w-full space-y-4">
+    <section className="w-full min-w-0 space-y-4">
       <QueryFeedbackToast okMessage={okMessage} errorMessage={errorMessage} okTitle="Guía actualizada" errorTitle="Error" />
       <OperationsTabs />
 
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
           <Link href="/admin/despachos/guias" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-3 w-3" /> Guías
           </Link>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground">{shipment.code}</h1>
+            <h1 className="break-all text-xl font-semibold tracking-tight text-foreground">{shipment.code}</h1>
             <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${SHIPMENT_STATUS_BADGE[shipment.status]}`}>
               {SHIPMENT_STATUS_LABEL[shipment.status]}
             </span>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="break-words text-sm text-muted-foreground">
             {clientName} · {maskPhone(client?.phone)} ·{" "}
             <Link href={`/admin/ordenes/${shipment.dispatch.order.id}`} className="inline-flex items-center gap-0.5 text-primary hover:underline">
               {shipment.dispatch.order.code} / {shipment.dispatch.code}
@@ -170,18 +170,19 @@ export default async function AdminGuiaDetailPage({ params, searchParams }: Page
         </div>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        <Card className="py-2">
+      {/* Celular: 2 columnas (Destino a lo ancho); se amplian en pantallas grandes. */}
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-5 [&>*]:min-w-0">
+        <Card className="col-span-2 py-2 sm:col-span-1">
           <CardContent className="space-y-0.5">
             <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Destino</p>
-            <p className="font-semibold text-foreground">{destination ? `${destination.name} · ${destination.departmentName}` : "Sin definir"}</p>
+            <p className="break-words font-semibold text-foreground">{destination ? `${destination.name} · ${destination.departmentName}` : "Sin definir"}</p>
             <p className="text-xs text-muted-foreground">Sale de {shipment.originCity?.name ?? "Bogotá"}</p>
           </CardContent>
         </Card>
         <Card className="py-2">
           <CardContent className="space-y-0.5">
             <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Va en</p>
-            <p className="font-semibold text-foreground">{current?.name ?? "—"}</p>
+            <p className="break-words font-semibold text-foreground">{current?.name ?? "—"}</p>
           </CardContent>
         </Card>
         <Card className="py-2">
@@ -208,7 +209,8 @@ export default async function AdminGuiaDetailPage({ params, searchParams }: Page
         </Card>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
+      {/* Linea de tiempo y formularios uno debajo del otro hasta pantallas xl. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.3fr_1fr] [&>*]:min-w-0">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Línea de tiempo</CardTitle>
@@ -247,7 +249,7 @@ export default async function AdminGuiaDetailPage({ params, searchParams }: Page
                       {formatStamp(event.occurredAt)}
                       {event.city ? ` · ${event.city.name}` : ""} · {ACTOR_LABEL[event.actor]}: {by}
                     </p>
-                    {event.note ? <p className="mt-1 whitespace-pre-line text-sm text-foreground">{event.note}</p> : null}
+                    {event.note ? <p className="mt-1 whitespace-pre-line break-words text-sm text-foreground">{event.note}</p> : null}
                     {event.photoUrl ? (
                       <a href={getPublicAssetUrl(event.photoUrl)} target="_blank" rel="noreferrer" className="mt-1 inline-block">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -328,7 +330,7 @@ export default async function AdminGuiaDetailPage({ params, searchParams }: Page
               </div>
               <div className="space-y-2 border-t border-border pt-3">
                 <p className="font-medium text-foreground">Cliente</p>
-                <p className="whitespace-pre-line rounded-lg bg-muted/60 p-2 text-xs text-foreground">{clientMessage}</p>
+                <p className="whitespace-pre-line break-words rounded-lg bg-muted/60 p-2 text-xs text-foreground">{clientMessage}</p>
                 <div className="flex flex-wrap gap-2">
                   <CopyButton value={clientMessage} label="Copiar mensaje para el cliente" toastText="Mensaje copiado" />
                   <CopyButton value={publicUrl} label="Copiar enlace de consulta" toastText="Enlace copiado" />

@@ -100,24 +100,25 @@ export default async function AdminGuiasPage({ searchParams }: PageProps) {
   const now = currentTime();
 
   return (
-    <section className="w-full space-y-4">
+    <section className="w-full min-w-0 space-y-4">
       <QueryFeedbackToast okMessage={okMessage} errorMessage={errorMessage} okTitle="Guías" errorTitle="Error" />
       <OperationsTabs />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-lg font-semibold text-foreground">Guías Magilus</h1>
           <p className="text-sm text-muted-foreground">
             Seguimiento propio del envío. El cliente lo consulta en magilus.com/guia con la guía MG y los últimos 4
             dígitos de su celular.
           </p>
         </div>
-        <div className="inline-flex rounded-lg border border-border p-0.5">
+        {/* En celular el filtro ocupa todo el ancho y se desplaza si no cabe; nunca parte palabras. */}
+        <div className="flex w-full max-w-full overflow-x-auto rounded-lg border border-border p-0.5 [scrollbar-width:none] sm:inline-flex sm:w-auto [&::-webkit-scrollbar]:hidden">
           {FILTERS.map((item) => (
             <Link
               key={item.key}
               href={`/admin/despachos/guias?f=${item.key}`}
-              className={`rounded-md px-3 py-1 text-sm font-medium ${
+              className={`flex-1 shrink-0 whitespace-nowrap rounded-md px-2.5 py-1 text-center text-xs font-medium sm:flex-none sm:px-3 sm:text-sm ${
                 filter === item.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -145,11 +146,11 @@ export default async function AdminGuiasPage({ searchParams }: PageProps) {
               <Link
                 key={row.id}
                 href={`/admin/despachos/guias/${row.id}`}
-                className="flex flex-col gap-2 rounded-xl border border-border bg-card/95 p-3 transition-colors hover:border-primary/40"
+                className="flex w-full min-w-0 flex-col gap-2 rounded-xl border border-border bg-card/95 p-3 transition-colors hover:border-primary/40"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-foreground">{row.code}</span>
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <span className="break-all font-semibold text-foreground">{row.code}</span>
                     <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${SHIPMENT_STATUS_BADGE[row.status]}`}>
                       {SHIPMENT_STATUS_LABEL[row.status]}
                     </span>
@@ -164,7 +165,7 @@ export default async function AdminGuiasPage({ searchParams }: PageProps) {
                     <ArrowUpRight className="h-3 w-3" />
                   </span>
                 </div>
-                <p className="text-sm text-foreground">
+                <p className="break-words text-sm text-foreground">
                   {client?.name || client?.email || "Cliente"} → {row.destinationCity?.name ?? "Destino sin definir"}
                 </p>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -175,7 +176,7 @@ export default async function AdminGuiasPage({ searchParams }: PageProps) {
                     Cobro al recibir:{" "}
                     {row.collectOnDelivery ? formatMoney(Number(row.amountToCollect), currency) : "Nada"}
                   </span>
-                  <span>
+                  <span className="min-w-0 [overflow-wrap:anywhere]">
                     Proveedor (interno): {row.dispatch.carrierName ?? "—"} · guía {row.dispatch.trackingNumber?.trim() || "—"}
                   </span>
                 </div>

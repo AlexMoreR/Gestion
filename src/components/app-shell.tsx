@@ -164,9 +164,10 @@ export function AppShell({ children, initialUser, brandName, adminModuleAccess }
           adminModuleAccess={adminModuleAccess}
           className="admin-print-sidebar"
         />
-        <SidebarInset className="admin-print-inset">
+        {/* min-w-0: el contenido nunca hace el layout mas ancho que la pantalla (celular). */}
+        <SidebarInset className="admin-print-inset min-w-0">
           <header className="admin-print-header flex h-12 shrink-0 items-center justify-between border-b border-[var(--line)] bg-background">
-            <div className="flex items-center gap-2 px-4">
+            <div className="flex min-w-0 items-center gap-2 overflow-hidden px-4">
               <SidebarTrigger className="-ml-1" />
               <Separator
                 orientation="vertical"
@@ -189,12 +190,12 @@ export function AppShell({ children, initialUser, brandName, adminModuleAccess }
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
-            <div className="flex items-center gap-1 px-4">
+            <div className="flex shrink-0 items-center gap-1 px-4">
               <NotificationBell />
               <ModeToggle />
             </div>
           </header>
-          <main className="admin-print-main flex flex-1 flex-col p-3 md:p-4">
+          <main className="admin-print-main flex min-w-0 flex-1 flex-col p-3 md:p-4">
             {children}
           </main>
         </SidebarInset>
