@@ -1,6 +1,8 @@
 import "server-only";
 import { createHash } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { resolveShipmentByCode } from "../domain/codes";
 import { abbreviateName, evaluateLookupLimit, LOOKUP_RETENTION_DAYS, LOOKUP_WINDOW_MS, safeEqual } from "../domain/lookup";
 import {
   flowProgress,
@@ -55,6 +57,39 @@ export type LookupOutcome =
   | { ok: true; view: PublicShipmentView }
   | { ok: false; reason: "BLOCKED" | "NO_MATCH" };
 
+const publicShipmentSelect = {
+  code: true,
+  status: true,
+  phoneLast4: true,
+  publicEnabled: true,
+  estimatedDelivery: true,
+  collectOnDelivery: true,
+  amountToCollect: true,
+  deliveredAt: true,
+  receivedByName: true,
+  deliveryPhotoUrl: true,
+  originCity: { select: { name: true } },
+  currentCity: { select: { name: true } },
+  destinationCity: { select: { name: true } },
+  dispatch: { select: { order: { select: { client: { select: { name: true } } } } } },
+  events: {
+    where: { visibleToClient: true },
+    orderBy: { occurredAt: "desc" },
+    take: 50,
+    select: {
+      id: true,
+      kind: true,
+      status: true,
+      incident: true,
+      note: true,
+      actor: true,
+      newEta: true,
+      occurredAt: true,
+      city: { select: { name: true } },
+    },
+  },
+} satisfies Prisma.ShipmentSelect;
+
 export async function lookupShipment(params: { code: string; last4: string; ipHash: string }): Promise<LookupOutcome> {
   const since = new Date(Date.now() - LOOKUP_WINDOW_MS);
   const [ipFailures, codeFailures] = await Promise.all([
@@ -65,40 +100,10 @@ export async function lookupShipment(params: { code: string; last4: string; ipHa
     return { ok: false, reason: "BLOCKED" };
   }
 
-  const shipment = await prisma.shipment.findUnique({
-    where: { code: params.code },
-    select: {
-      code: true,
-      status: true,
-      phoneLast4: true,
-      publicEnabled: true,
-      estimatedDelivery: true,
-      collectOnDelivery: true,
-      amountToCollect: true,
-      deliveredAt: true,
-      receivedByName: true,
-      deliveryPhotoUrl: true,
-      originCity: { select: { name: true } },
-      currentCity: { select: { name: true } },
-      destinationCity: { select: { name: true } },
-      dispatch: { select: { order: { select: { client: { select: { name: true } } } } } },
-      events: {
-        where: { visibleToClient: true },
-        orderBy: { occurredAt: "desc" },
-        take: 50,
-        select: {
-          id: true,
-          kind: true,
-          status: true,
-          incident: true,
-          note: true,
-          actor: true,
-          newEta: true,
-          occurredAt: true,
-          city: { select: { name: true } },
-        },
-      },
-    },
+  // Acepta el codigo actual y el viejo secuencial (guardado en legacyCode tras recodificar).
+  const shipment = await resolveShipmentByCode(params.code, {
+    byCode: (code) => prisma.shipment.findUnique({ where: { code }, select: publicShipmentSelect }),
+    byLegacyCode: (legacyCode) => prisma.shipment.findUnique({ where: { legacyCode }, select: publicShipmentSelect }),
   });
 
   // Siempre se compara (aunque la guia no exista) para no revelar por tiempo si existe.

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { buildShipmentCode, generateUniqueShipmentCode, normalizeShipmentCodeInput } from "./codes";
+import {
+  buildShipmentCode,
+  generateUniqueShipmentCode,
+  isLegacyShipmentCode,
+  normalizeShipmentCodeInput,
+  resolveShipmentByCode,
+} from "./codes";
 import { addBusinessDays, businessDaysFor, destinationTier, estimateDelivery, parseDateInput } from "./eta";
 import {
   abbreviateName,
@@ -80,6 +86,81 @@ describe("codigo MG", () => {
     expect(normalizeShipmentCodeInput("0")).toBeNull();
     expect(normalizeShipmentCodeInput("DSP-00001")).toBeNull();
     expect(normalizeShipmentCodeInput("MG-12a")).toBeNull();
+  });
+
+  it("distingue el formato viejo del nuevo", () => {
+    expect(isLegacyShipmentCode("MG-000001")).toBe(true);
+    expect(isLegacyShipmentCode("MG-1234567")).toBe(true);
+    expect(isLegacyShipmentCode("MG-7K4Q2P8X")).toBe(false);
+    expect(isLegacyShipmentCode("MG-ABCDEFGH")).toBe(false);
+  });
+});
+
+describe("busqueda de la guia por codigo viejo o nuevo", () => {
+  type Row = { id: string; code: string; legacyCode: string | null };
+  // Repo falso: una guia vieja ya recodificada y una nueva.
+  const rows: Row[] = [
+    { id: "vieja", code: "MG-7K4Q2P8X", legacyCode: "MG-000001" },
+    { id: "nueva", code: "MG-ABCDEFGH", legacyCode: null },
+  ];
+  function fakeRepo() {
+    const calls = { byCode: [] as string[], byLegacyCode: [] as string[] };
+    return {
+      calls,
+      finders: {
+        byCode: async (code: string) => {
+          calls.byCode.push(code);
+          return rows.find((row) => row.code === code) ?? null;
+        },
+        byLegacyCode: async (legacyCode: string) => {
+          calls.byLegacyCode.push(legacyCode);
+          return rows.find((row) => row.legacyCode === legacyCode) ?? null;
+        },
+      },
+    };
+  }
+  async function find(input: string) {
+    const code = normalizeShipmentCodeInput(input);
+    if (!code) return null;
+    return resolveShipmentByCode(code, fakeRepo().finders);
+  }
+
+  it("el codigo viejo encuentra la guia via legacyCode y devuelve el codigo nuevo", async () => {
+    const repo = fakeRepo();
+    const found = await resolveShipmentByCode("MG-000001", repo.finders);
+    expect(found?.id).toBe("vieja");
+    expect(found?.code).toBe("MG-7K4Q2P8X");
+    expect(repo.calls.byLegacyCode).toEqual(["MG-000001"]);
+  });
+
+  it("acepta el codigo viejo escrito de cualquier forma", async () => {
+    for (const input of ["MG-000001", "mg-000001", "mg1", "1", "000001", " MG 000001 "]) {
+      expect((await find(input))?.code).toBe("MG-7K4Q2P8X");
+    }
+  });
+
+  it("el codigo nuevo de la guia recodificada tambien la encuentra", async () => {
+    expect((await find("mg-7k4q2p8x"))?.id).toBe("vieja");
+    expect((await find("MG-ABCDEFGH"))?.id).toBe("nueva");
+  });
+
+  it("un codigo nuevo que no existe no se busca en legacyCode", async () => {
+    const repo = fakeRepo();
+    expect(await resolveShipmentByCode("MG-ZZZZZZZZ", repo.finders)).toBeNull();
+    expect(repo.calls.byLegacyCode).toEqual([]);
+  });
+
+  it("un codigo viejo inexistente devuelve null", async () => {
+    expect(await find("MG-000999")).toBeNull();
+  });
+
+  it("antes de la migracion (code aun viejo) el codigo viejo sigue encontrando la guia", async () => {
+    const before = { id: "x", code: "MG-000005", legacyCode: null };
+    const found = await resolveShipmentByCode("MG-000005", {
+      byCode: async (code) => (code === before.code ? before : null),
+      byLegacyCode: async () => null,
+    });
+    expect(found?.id).toBe("x");
   });
 });
 

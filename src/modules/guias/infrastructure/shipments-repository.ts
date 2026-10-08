@@ -222,9 +222,13 @@ export async function createShipmentForDispatch(input: CreateShipmentInput): Pro
   const now = new Date();
   const estimatedDelivery = input.estimatedDelivery ?? estimateDelivery(now, destination?.code ?? null);
 
-  // Codigo aleatorio y unico: se verifica que no exista ya en Shipment.code (reintenta si choca).
+  // Codigo aleatorio y unico: se verifica que no exista ya ni como codigo actual ni como codigo
+  // viejo (legacyCode). Los formatos no se cruzan (los nuevos no llevan 0 ni 1), pero se revisa
+  // igual para que una busqueda nunca pueda devolver dos guias. Reintenta si choca.
   const code = await generateUniqueShipmentCode((candidate) =>
-    prisma.shipment.findUnique({ where: { code: candidate }, select: { id: true } }).then((found) => found !== null),
+    prisma.shipment
+      .findFirst({ where: { OR: [{ code: candidate }, { legacyCode: candidate }] }, select: { id: true } })
+      .then((found) => found !== null),
   );
   try {
     return await prisma.$transaction(async (tx) => {

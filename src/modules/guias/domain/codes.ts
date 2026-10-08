@@ -89,3 +89,28 @@ export function normalizeShipmentCodeInput(raw: string | null | undefined): stri
   }
   return null;
 }
+
+// Codigo en el formato viejo secuencial (MG- seguido solo de digitos). Las guias que lo tenian
+// se recodificaron al azar y el numero viejo quedo guardado en Shipment.legacyCode.
+const LEGACY_CODE = /^MG-\d+$/;
+
+export function isLegacyShipmentCode(code: string): boolean {
+  return LEGACY_CODE.test(code);
+}
+
+// Busca una guia por el codigo YA normalizado. Primero por el codigo actual; si el codigo tiene
+// el formato viejo y no aparece, por legacyCode (el cliente puede tener anotado "MG-000001").
+// La guia que se devuelve trae siempre su codigo actual, que es el que se muestra en pantalla.
+export async function resolveShipmentByCode<T>(
+  code: string,
+  finders: {
+    byCode: (code: string) => Promise<T | null>;
+    byLegacyCode: (legacyCode: string) => Promise<T | null>;
+  },
+): Promise<T | null> {
+  const current = await finders.byCode(code);
+  if (current || !isLegacyShipmentCode(code)) {
+    return current;
+  }
+  return finders.byLegacyCode(code);
+}

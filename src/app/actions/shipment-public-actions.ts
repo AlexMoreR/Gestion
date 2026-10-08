@@ -46,7 +46,7 @@ export async function publicLookupShipmentAction(_prev: LookupState, formData: F
   const code = normalizeShipmentCodeInput(text(formData, "code"));
   const last4 = parseLast4Input(text(formData, "last4"));
   if (!code) {
-    return { status: "error", error: "Escribe el número de guía (por ejemplo MG-000123)." };
+    return { status: "error", error: "Escribe el número de guía (por ejemplo MG-7K4Q2P8X)." };
   }
   if (!last4) {
     return { status: "error", error: "Escribe los últimos 4 dígitos de tu celular." };

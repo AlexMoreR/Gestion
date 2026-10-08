@@ -186,7 +186,7 @@ export function PublicLookup({
             required
             autoComplete="off"
             inputMode="text"
-            placeholder="MG-000123"
+            placeholder="MG-7K4Q2P8X"
             className="h-12 w-full rounded-lg border border-slate-300 px-3 text-base uppercase"
           />
         </div>

@@ -924,7 +924,10 @@ enum ShipmentActor {
 
 model Shipment {
   id                 String          @id @default(cuid())
-  code               String          @unique // MG-000001
+  code               String          @unique // MG- + 8 al azar (MG-7K4Q2P8X)
+  // Codigo viejo secuencial (MG-000001) de las guias que se recodificaron al azar. Solo sirve
+  // para que una busqueda con el numero viejo siga encontrando la guia; en pantalla va `code`.
+  legacyCode         String?         @unique
   dispatchId         String          @unique
   status             ShipmentStatus  @default(CREATED)
   destinationCityId  String?
