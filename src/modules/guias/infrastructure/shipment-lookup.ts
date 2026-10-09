@@ -2,12 +2,23 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { parseShipmentLinkToken, verifyShipmentLinkSignature } from "@/lib/shipment-link-token";
+import {
+  buildShipmentLinkToken,
+  parseShipmentLinkToken,
+  verifyShipmentLinkSignature,
+} from "@/lib/shipment-link-token";
 import { normalizeShipmentCodeInput, resolveShipmentByCode } from "../domain/codes";
+import { resolveShipmentFromLinkToken } from "../domain/link-access";
 import { evaluateLookupLimit, LOOKUP_RETENTION_DAYS, LOOKUP_WINDOW_MS, safeEqual } from "../domain/lookup";
-import { publicShipmentSelect, toPublicView, type PublicShipmentView } from "../domain/public-view";
+import {
+  publicShipmentSelect,
+  toPublicView,
+  type PublicShipmentRow,
+  type PublicShipmentView,
+} from "../domain/public-view";
 
-// Consulta publica de la guia (magilus.com/guia y el enlace directo /guia/[token]). Lo que ve el
+// Consulta publica de la guia (magilus.com/guia, el enlace directo /guia/[token] y el documento
+// formal /guia/[token]/documento, que usa lookupShipmentByLinkToken). Lo que ve el
 // cliente lo arma toPublicView (domain/public-view.ts): nunca transportadora, guia del proveedor,
 // telefono completo, direccion ni notas internas.
 
@@ -72,7 +83,13 @@ export async function lookupShipment(params: { code: string; last4: string; ipHa
     return { ok: false, reason: "NO_MATCH" };
   }
 
-  return { ok: true, view: toPublicView(shipment) };
+  return { ok: true, view: toPublicViewWithToken(shipment) };
+}
+
+// Vista publica + token firmado para el boton "Ver guia" (documento formal). El token se arma
+// con el codigo actual; nunca lleva el id interno ni el telefono.
+function toPublicViewWithToken(shipment: PublicShipmentRow): PublicShipmentView {
+  return toPublicView(shipment, buildShipmentLinkToken(shipment.id, shipment.code));
 }
 
 // Enlace directo magilus.com/guia/<codigo>.<firma>: equivale a tener la guia, asi que muestra
@@ -85,16 +102,19 @@ export async function lookupShipmentByLinkToken(params: { token: string; ipHash:
     return { ok: false, reason: "BLOCKED" };
   }
 
-  const parsed = parseShipmentLinkToken(params.token);
-  const code = parsed ? normalizeShipmentCodeInput(parsed.code) : null;
-  const shipment = parsed && code ? await findPublicShipment(code) : null;
+  const shipment = await resolveShipmentFromLinkToken(params.token, {
+    parse: parseShipmentLinkToken,
+    normalizeCode: normalizeShipmentCodeInput,
+    findByCode: findPublicShipment,
+    verify: (shipmentId, signature) => verifyShipmentLinkSignature(shipmentId, signature),
+  });
 
-  if (!parsed || !shipment || !shipment.publicEnabled || !verifyShipmentLinkSignature(shipment.id, parsed.signature)) {
+  if (!shipment) {
     await prisma.shipmentLookupAttempt.create({
       // Codigo fijo: cuenta para el limite por IP sin bloquear la consulta normal de esa guia.
       data: { ipHash: params.ipHash, code: "ENLACE", success: false },
     });
     return { ok: false, reason: "NO_MATCH" };
   }
-  return { ok: true, view: toPublicView(shipment) };
+  return { ok: true, view: toPublicViewWithToken(shipment) };
 }

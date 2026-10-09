@@ -3,15 +3,16 @@
 import type { ReactNode } from "react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
-import Image from "next/image";
-import { AlertTriangle, CalendarDays, CheckCircle2, Loader2, MessageCircle, Search, Truck } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, FileText, Loader2, MessageCircle, Search, Truck } from "lucide-react";
 import { publicLookupShipmentAction, type LookupState } from "@/app/actions/shipment-public-actions";
 import { cn } from "@/lib/utils";
 import type { PublicShipmentView } from "../domain/public-view";
 import { formatWeightKg } from "../domain/weight";
+import { GuideTitle } from "./waybill-document";
 
-// Resultado de la consulta con formato de guia de transporte (estilo documento): titulo con
-// Nº de guia, cajas de datos, estado actual, progreso, recuadro formal e historial.
+// Pagina 1 "Estado del envio": titulo con Nº de guia, progreso con camion, entrega estimada,
+// cajas de datos, estado actual, foto de entrega e historial. El documento formal (recuadro tipo
+// comprobante) vive aparte en /guia/<token>/documento, al que lleva el boton "Ver guia".
 // Solo usa lo que expone shipment-lookup.ts: nunca direccion, telefono completo, transportadora,
 // guia del proveedor ni valores del flete.
 
@@ -48,49 +49,6 @@ function formatStamp(iso: string): string {
   });
 }
 
-function formatShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("es-CO", {
-    timeZone: "America/Bogota",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
-function formatCop(value: number): string {
-  return value.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
-}
-
-// "+57 304 648 1994" -> "304 648 1994" (se muestra el numero local, como en el borrador).
-function formatWhatsApp(display: string): string {
-  return display.replace(/^\+57\s*/, "").trim() || display;
-}
-
-function BrandMark({ logoUrl, brandName, size = "lg" }: { logoUrl?: string; brandName: string; size?: "lg" | "sm" }) {
-  if (logoUrl) {
-    return (
-      <Image
-        src={logoUrl}
-        alt={brandName}
-        width={160}
-        height={56}
-        className={cn("w-auto shrink-0 object-contain", size === "lg" ? "h-8 max-w-[34vw] sm:h-12 sm:max-w-none" : "h-9")}
-        unoptimized
-      />
-    );
-  }
-  return (
-    <span
-      className={cn(
-        "shrink-0 whitespace-nowrap font-black tracking-tight text-[#42066E]",
-        size === "lg" ? "text-lg sm:text-[26px]" : "text-xl",
-      )}
-    >
-      {brandName}
-    </span>
-  );
-}
-
 // Fila de las cajas superiores: etiqueta en celda gris, valor en morado. Los codigos de guia
 // van con nowrap para que nunca se partan en dos renglones.
 function BoxRow({ label, children, nowrap = false }: { label: string; children: ReactNode; nowrap?: boolean }) {
@@ -108,45 +66,6 @@ function BoxRow({ label, children, nowrap = false }: { label: string; children: 
         {children}
       </dd>
     </div>
-  );
-}
-
-// Celda del recuadro formal. Los bordes entre celdas los pone la fila (WAYBILL_ROW).
-function WaybillCell({
-  label,
-  children,
-  nowrap = false,
-  className,
-}: {
-  label: string;
-  children: ReactNode;
-  nowrap?: boolean;
-  className?: string;
-}) {
-  return (
-    <div className={cn("min-w-0 border-[#d7d7de] px-3 py-2", className)}>
-      <p className="text-[10px] font-bold uppercase tracking-[0.04em] text-slate-500">{label}</p>
-      <p className={cn("mt-0.5 text-[13px] font-bold text-[#42066E]", nowrap ? "whitespace-nowrap" : "break-words")}>
-        {children}
-      </p>
-    </div>
-  );
-}
-
-// Fila de 5 celdas: en celular 2 columnas (la 5a ocupa las dos), desde md una sola fila.
-const WAYBILL_ROW =
-  "grid grid-cols-2 border-t border-[#d7d7de] md:grid-cols-5 " +
-  "[&>*:nth-child(even)]:border-l [&>*:nth-child(n+3)]:border-t " +
-  "md:[&>*]:border-l md:[&>*:first-child]:border-l-0 md:[&>*:nth-child(n+3)]:border-t-0";
-
-// En celular la etiqueta va arriba y el valor abajo, para que valores como el telefono
-// enmascarado ("*** *** 9108") no se partan en dos renglones.
-function PartyRow({ label, children, nowrap = false }: { label: string; children: ReactNode; nowrap?: boolean }) {
-  return (
-    <p className="my-0.5 text-[13px] text-[#1f2430]">
-      <span className="block text-[11px] font-semibold text-slate-500 sm:inline-block sm:min-w-[66px]">{label}</span>{" "}
-      <span className={cn(nowrap && "whitespace-nowrap")}>{children}</span>
-    </p>
   );
 }
 
@@ -322,7 +241,6 @@ function EventsTable({ events }: { events: EventItem[] }) {
 
 type PublicLookupProps = {
   whatsAppHref: string;
-  whatsAppDisplay?: string;
   logoUrl?: string;
   brandName?: string;
   /** Enlace directo (/guia/[token]) valido: la guia se muestra sin pedir datos. */
@@ -348,7 +266,6 @@ export function PublicLookup({ initialView, initialNotice, ...props }: PublicLoo
 
 function LookupPanel({
   whatsAppHref,
-  whatsAppDisplay,
   logoUrl,
   brandName = "Magilus",
   initialState,
@@ -370,7 +287,6 @@ function LookupPanel({
   const delivered = view?.status === "DELIVERED";
   // Los eventos llegan del mas reciente al mas antiguo.
   const latestEvent = view?.currentEvent ?? null;
-  const firstEvent = view && view.events.length > 0 ? view.events[view.events.length - 1] : null;
   const destination = view?.destinationCity ?? "Tu ciudad";
   const weightLabel = formatWeightKg(view?.weightKg) ?? "Por confirmar";
 
@@ -434,14 +350,7 @@ function LookupPanel({
           ref={guideRef}
           className="scroll-mt-4 overflow-hidden rounded-[10px] border border-[#d7d7de] bg-white text-[#1f2430] shadow-[0_6px_24px_rgba(0,0,0,0.08)]">
           {/* 1. Titulo: marca + Nº de guia */}
-          <header className="flex items-center gap-3 border-b-[3px] border-[#42066E] px-4 py-3 sm:gap-4 sm:px-[22px] sm:py-4">
-            <BrandMark logoUrl={logoUrl} brandName={brandName} />
-            {/* El codigo nunca se parte: en celular angosto la letra se achica con el ancho. */}
-            <h2 className="ml-auto shrink-0 whitespace-nowrap text-right text-[clamp(16px,5.4vw,22px)] font-extrabold leading-[1.05] tracking-tight text-[#42066E] sm:text-[26px] lg:text-[28px]">
-              <small className="block text-[11px] font-semibold tracking-[3px] text-slate-500">Nº DE GUÍA</small>
-              <span className="whitespace-nowrap">{view.code}</span>
-            </h2>
-          </header>
+          <GuideTitle code={view.code} logoUrl={logoUrl} brandName={brandName} />
 
           {/* 2. Progreso (de primero) con el camion + entrega estimada pegada debajo */}
           <div className="px-4 pt-3 sm:px-[22px]">
@@ -486,6 +395,18 @@ function LookupPanel({
             </dl>
           </div>
 
+          {/* Boton a la pagina 2: el documento formal de la guia (para imprimir o guardar en PDF). */}
+          {view.documentToken ? (
+            <div className="flex px-4 pb-3 sm:px-[22px]">
+              <a
+                href={`/guia/${encodeURIComponent(view.documentToken)}/documento`}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#42066E] text-[15px] font-semibold text-white sm:ml-auto sm:w-auto sm:px-5"
+              >
+                <FileText className="h-5 w-5" aria-hidden /> Ver guía
+              </a>
+            </div>
+          ) : null}
+
           {/* 4. Estado actual: FECHA | ESTADO | OBSERVACION */}
           {latestEvent ? (
             <div className="px-4 pb-1 sm:px-[22px]">
@@ -516,61 +437,6 @@ function LookupPanel({
               <img src={view.deliveryPhotoUrl} alt="Foto de entrega" className="max-h-80 w-full rounded-lg object-cover" />
             </div>
           ) : null}
-
-          {/* 5. Recuadro formal */}
-          <section className="mx-4 mb-1 mt-3 overflow-hidden rounded-lg border border-[#d7d7de] sm:mx-[22px]">
-            <div className="flex items-start gap-3 px-3 py-2.5">
-              <BrandMark logoUrl={logoUrl} brandName={brandName} size="sm" />
-              <p className="text-[11.5px] leading-normal text-slate-500">
-                <b className="text-[#1f2430]">{brandName} · Fábrica Bogotá</b>
-                {whatsAppDisplay ? (
-                  <>
-                    <br />
-                    WhatsApp {formatWhatsApp(whatsAppDisplay)}
-                  </>
-                ) : null}
-                <br />
-                magilus.com · Envíos a toda Colombia
-              </p>
-            </div>
-            <div className={WAYBILL_ROW}>
-              <WaybillCell label="Fecha expedición" nowrap>
-                {firstEvent ? formatShortDate(firstEvent.at) : "—"}
-              </WaybillCell>
-              <WaybillCell label="Ciudad origen">{view.originCity}</WaybillCell>
-              <WaybillCell label="Ciudad destino">{destination}</WaybillCell>
-              <WaybillCell label="Nº guía" nowrap>
-                {view.code}
-              </WaybillCell>
-              <WaybillCell label="Peso" nowrap className="col-span-2 md:col-span-1">
-                {weightLabel}
-              </WaybillCell>
-            </div>
-            <div className="border-t border-[#d7d7de] bg-[#42066E] px-2.5 py-2 text-center text-sm font-extrabold uppercase tracking-[1px] text-white">
-              <small className="block text-[10px] font-semibold tracking-[2px] opacity-85">Forma de pago</small>
-              {view.amountToCollect > 0 ? `Paga al recibir ${formatCop(view.amountToCollect)}` : "Pago completo"}
-            </div>
-            <div className="grid grid-cols-2 border-t border-[#d7d7de]">
-              <div className="min-w-0 px-3 py-2">
-                <p className="mb-1 text-[11px] font-extrabold tracking-[1px] text-[#42066E]">REMITE</p>
-                <PartyRow label="Nombre">{brandName}</PartyRow>
-                <PartyRow label="Ciudad">Bogotá, D.C.</PartyRow>
-                <PartyRow label="Origen">Fábrica {brandName}</PartyRow>
-              </div>
-              <div className="min-w-0 border-l border-[#d7d7de] px-3 py-2">
-                <p className="mb-1 text-[11px] font-extrabold tracking-[1px] text-[#42066E]">RECIBE</p>
-                <PartyRow label="Nombre">{view.recipientName ?? "—"}</PartyRow>
-                <PartyRow label="Ciudad">{destination}</PartyRow>
-                <PartyRow label="Teléfono" nowrap>
-                  {view.phoneMasked ?? "—"}
-                </PartyRow>
-              </div>
-            </div>
-            <p className="border-t border-[#d7d7de] bg-[#fafafb] px-3 py-2 text-[10.5px] leading-normal text-slate-500">
-              El envío es despachado por {brandName} desde su fábrica en Bogotá, con transporte aliado a nivel
-              nacional. Por tu seguridad, el teléfono y la dirección se muestran parcialmente.
-            </p>
-          </section>
 
           {/* 6. Historial completo */}
           <section className="mx-4 mb-4 mt-3 overflow-hidden rounded-lg border border-[#d7d7de] sm:mx-[22px]">

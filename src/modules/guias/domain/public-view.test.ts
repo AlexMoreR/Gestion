@@ -52,6 +52,44 @@ describe("toPublicView", () => {
     expect(serialized).not.toContain(row.id);
   });
 
+  it("el token del documento solo lleva codigo y firma (sin id interno ni telefono)", () => {
+    const token = "MG-7K4Q2P8X.abcdefghijABCDEFGHIJ_-";
+    const view = toPublicView(row, token);
+    expect(view.documentToken).toBe(token);
+    const serialized = JSON.stringify(view);
+    expect(serialized).not.toContain(row.id);
+    expect(serialized).not.toContain(phone);
+    expect(serialized).not.toContain(address);
+    // Lista cerrada de campos: si alguien agrega uno a la vista publica, esta prueba lo obliga a revisarlo.
+    expect(Object.keys(view).sort()).toEqual(
+      [
+        "amountToCollect",
+        "code",
+        "currentCity",
+        "currentEvent",
+        "deliveredAt",
+        "deliveryPhotoUrl",
+        "destinationCity",
+        "documentToken",
+        "estimatedDelivery",
+        "etaDelayReason",
+        "events",
+        "originCity",
+        "phoneMasked",
+        "progress",
+        "receivedBy",
+        "recipientName",
+        "status",
+        "statusLabel",
+        "statusText",
+        "steps",
+        "weightKg",
+      ].sort(),
+    );
+    // Sin token (por ejemplo, servidor sin secreto) no hay boton "Ver guia".
+    expect(toPublicView(row).documentToken).toBeNull();
+  });
+
   it("muestra el celular enmascarado y el nombre abreviado", () => {
     const view = toPublicView(row);
     expect(view.phoneMasked).toBe("*** *** 4567");

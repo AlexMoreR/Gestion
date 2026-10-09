@@ -77,8 +77,17 @@ async function copyText(value: string, toastText: string) {
   }
 }
 
-// Menu de tres puntos del cliente: abrir guia, copiar solo el enlace directo y el enlace de consulta.
-export function ClientLinkMenu({ directUrl, publicUrl }: { directUrl: string | null; publicUrl: string }) {
+// Menu de tres puntos del cliente: abrir guia (estado del envio), abrir el documento formal,
+// copiar solo el enlace directo y el enlace de consulta.
+export function ClientLinkMenu({
+  directUrl,
+  documentUrl,
+  publicUrl,
+}: {
+  directUrl: string | null;
+  documentUrl: string | null;
+  publicUrl: string;
+}) {
   return (
     <DropdownMenu>
       <MenuTrigger label="Más opciones del cliente" />
@@ -90,6 +99,13 @@ export function ClientLinkMenu({ directUrl, publicUrl }: { directUrl: string | n
                 Abrir guía <ArrowUpRight className="h-3 w-3" />
               </a>
             </DropdownMenuItem>
+            {documentUrl ? (
+              <DropdownMenuItem asChild>
+                <a href={documentUrl} target="_blank" rel="noreferrer" className="gap-1">
+                  Abrir documento de la guía <ArrowUpRight className="h-3 w-3" />
+                </a>
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem onSelect={() => void copyText(directUrl, "Copiado")}>
               Copiar solo el enlace directo
             </DropdownMenuItem>

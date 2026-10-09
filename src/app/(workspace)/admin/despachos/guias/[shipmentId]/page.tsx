@@ -121,6 +121,8 @@ export default async function AdminGuiaDetailPage({ params, searchParams }: Page
   // Enlace directo firmado (un clic, sin escribir los 4 digitos). Solo si la consulta publica esta activa.
   const linkToken = shipment.publicEnabled ? buildShipmentLinkToken(shipment.id, shipment.code) : null;
   const directUrl = linkToken ? getSiteUrl(`/guia/${linkToken}`) : null;
+  // Documento formal de la guia (para imprimir / PDF); el mensaje al cliente sigue con directUrl.
+  const documentUrl = linkToken ? getSiteUrl(`/guia/${linkToken}/documento`) : null;
   const eventsSignature = `${shipment.events.length}:${shipment.events[0]?.id ?? ""}`;
   const amount = Number(shipment.amountToCollect);
   const weightKg = shipment.weightKg == null ? null : Number(shipment.weightKg);
@@ -252,7 +254,7 @@ export default async function AdminGuiaDetailPage({ params, searchParams }: Page
           <div className="space-y-2 border-t border-border pt-3 md:border-t-0 md:border-l md:pt-0 md:pl-4">
             <div className="flex items-center justify-between gap-2">
               <p className="font-medium text-foreground">Cliente</p>
-              <ClientLinkMenu directUrl={directUrl} publicUrl={publicUrl} />
+              <ClientLinkMenu directUrl={directUrl} documentUrl={documentUrl} publicUrl={publicUrl} />
             </div>
             <div className="flex min-w-0 items-start gap-2">
               <p className="min-w-0 flex-1 whitespace-pre-line break-words rounded-lg bg-muted/60 p-2 text-xs text-foreground">

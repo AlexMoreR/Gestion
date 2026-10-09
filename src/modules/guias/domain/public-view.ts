@@ -45,6 +45,9 @@ export type PublicShipmentView = {
   // Franja de "estado actual": ultima etapa o novedad (nunca un cambio de fecha ni una nota).
   currentEvent: PublicShipmentEvent | null;
   events: PublicShipmentEvent[];
+  // Token firmado "<codigo>.<firma>" para abrir el documento formal (/guia/<token>/documento).
+  // Se genera en el servidor (shipment-lookup.ts); no lleva el id interno ni el telefono.
+  documentToken: string | null;
 };
 
 // Campos que se leen de la BD para la vista publica (id solo para verificar el enlace firmado).
@@ -133,7 +136,7 @@ export function etaDelayReason(
   return DELAY_REASON[incident.incident] ?? SHIPMENT_INCIDENT_LABEL[incident.incident];
 }
 
-export function toPublicView(shipment: PublicShipmentRow): PublicShipmentView {
+export function toPublicView(shipment: PublicShipmentRow, documentToken: string | null = null): PublicShipmentView {
   const flowIndex = SHIPMENT_FLOW.indexOf(shipment.status);
   const delivered = shipment.status === "DELIVERED";
   const amount = Number(shipment.amountToCollect);
@@ -184,5 +187,6 @@ export function toPublicView(shipment: PublicShipmentRow): PublicShipmentView {
     deliveryPhotoUrl: delivered ? shipment.deliveryPhotoUrl : null,
     currentEvent: current ? toPublicEvent(current) : null,
     events: shipment.events.map(toPublicEvent),
+    documentToken,
   };
 }
