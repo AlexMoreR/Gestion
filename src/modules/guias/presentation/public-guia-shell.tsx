@@ -12,7 +12,7 @@ import type { DocumentShipmentView } from "../domain/document-view";
 import type { PublicShipmentView } from "../domain/public-view";
 import { PrintButton } from "./print-button";
 import { PublicLookup } from "./public-lookup";
-import { GuideTitle, WaybillDocument } from "./waybill-document";
+import { WaybillDocument, WaybillHeader } from "./waybill-document";
 
 // Paginas publicas de la guia (cabecera Magilus + contenido).
 // - PublicGuiaShell: "Estado del envio". La usan /guia (formulario) y /guia/[token] (enlace
@@ -103,9 +103,10 @@ export async function PublicGuiaDocumentShell({ view, token }: { view: DocumentS
       <style>{PRINT_CSS}</style>
       <main className="mx-auto w-full max-w-[880px] px-4 py-6 sm:py-8 print:max-w-none print:p-0">
         <article className="overflow-hidden rounded-[10px] border border-[#d7d7de] bg-white text-[#1f2430] shadow-[0_6px_24px_rgba(0,0,0,0.08)] print:rounded-none print:border-0 print:shadow-none">
-          <GuideTitle code={view.code} logoUrl={logoUrl} brandName={brandName} />
+          {/* Cabecera unica (logo + datos de la empresa + Nº de guia); tambien sale al imprimir. */}
+          <WaybillHeader code={view.code} logoUrl={logoUrl} brandName={brandName} whatsAppDisplay={whatsAppDisplay} />
           <div className="p-4 sm:p-[22px] print:px-0">
-            <WaybillDocument view={view} logoUrl={logoUrl} brandName={brandName} whatsAppDisplay={whatsAppDisplay} />
+            <WaybillDocument view={view} brandName={brandName} />
           </div>
         </article>
 

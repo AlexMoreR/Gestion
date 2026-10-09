@@ -4,7 +4,7 @@ import { FACTORY_POINTS } from "@/lib/factory-points";
 import { cn } from "@/lib/utils";
 import type { DocumentShipmentView } from "../domain/document-view";
 
-// Recuadro formal de la guia (documento tipo comprobante): marca, fila Fecha expedicion | Nº guia |
+// Recuadro formal de la guia (documento tipo comprobante): fila Fecha expedicion | Nº guia |
 // Ciudad origen | Ciudad destino, banda FORMA DE PAGO, REMITE | RECIBE (con direcciones)
 // y nota de datos parciales. Lo usa solo la pagina /guia/<token>/documento, con la vista del
 // documento (document-view.ts).
@@ -79,6 +79,45 @@ export function GuideTitle({ code, logoUrl, brandName }: { code: string; logoUrl
   );
 }
 
+// Cabecera unica del documento de la guia: logo + datos de la empresa ("<marca> Transporte",
+// WhatsApp, web) a la izquierda y "Nº DE GUÍA <codigo>" a la derecha. En celular, si no cabe
+// todo en una fila, el Nº de guia baja a su propio renglon (alineado a la derecha) sin partir
+// el codigo. Sale tambien al imprimir. (La pagina de Estado usa GuideTitle, no esta.)
+export function WaybillHeader({
+  code,
+  logoUrl,
+  brandName,
+  whatsAppDisplay,
+}: {
+  code: string;
+  logoUrl?: string;
+  brandName: string;
+  whatsAppDisplay?: string;
+}) {
+  return (
+    <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b-[3px] border-[#42066E] px-4 py-3 [print-color-adjust:exact] [-webkit-print-color-adjust:exact] sm:px-[22px] sm:py-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <BrandMark logoUrl={logoUrl} brandName={brandName} />
+        <p className="min-w-0 break-words text-[11.5px] leading-normal text-slate-500 sm:text-[12.5px]">
+          <b className="text-[13px] text-[#1f2430] sm:text-[14px]">{brandName} Transporte</b>
+          {whatsAppDisplay ? (
+            <>
+              <br />
+              WhatsApp <span className="whitespace-nowrap">{formatWhatsApp(whatsAppDisplay)}</span>
+            </>
+          ) : null}
+          <br />
+          magilus.com · Envíos a toda Colombia
+        </p>
+      </div>
+      <h1 className="ml-auto shrink-0 whitespace-nowrap text-right text-[clamp(16px,5.4vw,22px)] font-extrabold leading-[1.05] tracking-tight text-[#42066E] sm:text-[26px] lg:text-[28px]">
+        <small className="block text-[11px] font-semibold tracking-[3px] text-slate-500">Nº DE GUÍA</small>
+        <span className="whitespace-nowrap">{code}</span>
+      </h1>
+    </header>
+  );
+}
+
 // Celda del recuadro formal. Los bordes entre celdas los pone la fila (WAYBILL_ROW).
 function WaybillCell({
   label,
@@ -102,8 +141,9 @@ function WaybillCell({
 }
 
 // Fila de 4 celdas: en celular 2x2 (Fecha | Nº guia, Origen | Destino), desde md (y al imprimir) una sola fila.
+// Es la primera fila del recuadro: sin borde superior (lo pone el borde del recuadro).
 const WAYBILL_ROW =
-  "grid grid-cols-2 border-t border-[#d7d7de] md:grid-cols-4 print:grid-cols-4 " +
+  "grid grid-cols-2 border-[#d7d7de] md:grid-cols-4 print:grid-cols-4 " +
   "[&>*:nth-child(even)]:border-l [&>*:nth-child(n+3)]:border-t " +
   "md:[&>*]:border-l md:[&>*:first-child]:border-l-0 md:[&>*:nth-child(n+3)]:border-t-0 " +
   "print:[&>*]:border-l print:[&>*:first-child]:border-l-0 print:[&>*:nth-child(n+3)]:border-t-0";
@@ -121,37 +161,13 @@ function PartyRow({ label, children, nowrap = false }: { label: string; children
   );
 }
 
-export function WaybillDocument({
-  view,
-  logoUrl,
-  brandName,
-  whatsAppDisplay,
-}: {
-  view: DocumentShipmentView;
-  logoUrl?: string;
-  brandName: string;
-  whatsAppDisplay?: string;
-}) {
+export function WaybillDocument({ view, brandName }: { view: DocumentShipmentView; brandName: string }) {
   // Los eventos llegan del mas reciente al mas antiguo: el ultimo es la creacion de la guia.
   const firstEvent = view.events.length > 0 ? view.events[view.events.length - 1] : null;
   const destination = view.destinationCity ?? "Tu ciudad";
 
   return (
     <section className="overflow-hidden rounded-lg border border-[#d7d7de] [print-color-adjust:exact] [-webkit-print-color-adjust:exact]">
-      <div className="flex items-start gap-3 px-3 py-2.5">
-        <BrandMark logoUrl={logoUrl} brandName={brandName} size="sm" />
-        <p className="text-[11.5px] leading-normal text-slate-500">
-          <b className="text-[#1f2430]">{brandName} · Fábrica Bogotá</b>
-          {whatsAppDisplay ? (
-            <>
-              <br />
-              WhatsApp {formatWhatsApp(whatsAppDisplay)}
-            </>
-          ) : null}
-          <br />
-          magilus.com · Envíos a toda Colombia
-        </p>
-      </div>
       <div className={WAYBILL_ROW}>
         <WaybillCell label="Fecha expedición" nowrap>
           {firstEvent ? formatShortDate(firstEvent.at) : "—"}
@@ -185,8 +201,8 @@ export function WaybillDocument({
         </div>
       </div>
       <p className="border-t border-[#d7d7de] bg-[#fafafb] px-3 py-2 text-[10.5px] leading-normal text-slate-500">
-        El envío es despachado por {brandName} desde su fábrica en Bogotá, con transporte aliado a nivel nacional. Por
-        tu seguridad, el teléfono se muestra parcialmente.
+        Despachado por {brandName} Transporte con transporte aliado a nivel nacional. Por tu seguridad, el teléfono se
+        muestra parcialmente.
       </p>
     </section>
   );
