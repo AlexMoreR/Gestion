@@ -1,12 +1,19 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
+import { FACTORY_POINTS } from "@/lib/factory-points";
 import { cn } from "@/lib/utils";
-import type { PublicShipmentView } from "../domain/public-view";
+import type { DocumentShipmentView } from "../domain/document-view";
 import { formatWeightKg } from "../domain/weight";
 
 // Recuadro formal de la guia (documento tipo comprobante): marca, fila Fecha expedicion | Ciudad
-// origen | Ciudad destino | Nº guia | Peso, banda FORMA DE PAGO, REMITE | RECIBE y nota de datos
-// parciales. Lo usa la pagina /guia/<token>/documento. Solo usa la vista publica (public-view.ts).
+// origen | Ciudad destino | Nº guia | Peso, banda FORMA DE PAGO, REMITE | RECIBE (con direcciones)
+// y nota de datos parciales. Lo usa solo la pagina /guia/<token>/documento, con la vista del
+// documento (document-view.ts).
+
+// Remite: la sede de Bogota (fuente unica: lib/factory-points.ts), de donde sale el despacho.
+const BOGOTA_FACTORY = FACTORY_POINTS.find((point) => point.city === "Bogotá");
+const SENDER_ADDRESS = BOGOTA_FACTORY ? `${BOGOTA_FACTORY.address}, ${BOGOTA_FACTORY.neighborhood}` : null;
+const PENDING = "Por confirmar";
 
 function formatShortDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-CO", {
@@ -121,7 +128,7 @@ export function WaybillDocument({
   brandName,
   whatsAppDisplay,
 }: {
-  view: PublicShipmentView;
+  view: DocumentShipmentView;
   logoUrl?: string;
   brandName: string;
   whatsAppDisplay?: string;
@@ -168,13 +175,15 @@ export function WaybillDocument({
         <div className="min-w-0 px-3 py-2">
           <p className="mb-1 text-[11px] font-extrabold tracking-[1px] text-[#42066E]">REMITE</p>
           <PartyRow label="Nombre">{brandName}</PartyRow>
+          <PartyRow label="Dirección">{SENDER_ADDRESS ?? PENDING}</PartyRow>
           <PartyRow label="Ciudad">Bogotá, D.C.</PartyRow>
           <PartyRow label="Origen">Fábrica {brandName}</PartyRow>
         </div>
         <div className="min-w-0 border-l border-[#d7d7de] px-3 py-2">
           <p className="mb-1 text-[11px] font-extrabold tracking-[1px] text-[#42066E]">RECIBE</p>
           <PartyRow label="Nombre">{view.recipientName ?? "—"}</PartyRow>
-          <PartyRow label="Ciudad">{destination}</PartyRow>
+          <PartyRow label="Dirección">{view.recipientAddress ?? PENDING}</PartyRow>
+          <PartyRow label="Ciudad">{view.recipientCity ?? destination}</PartyRow>
           <PartyRow label="Teléfono" nowrap>
             {view.phoneMasked ?? "—"}
           </PartyRow>
@@ -182,7 +191,7 @@ export function WaybillDocument({
       </div>
       <p className="border-t border-[#d7d7de] bg-[#fafafb] px-3 py-2 text-[10.5px] leading-normal text-slate-500">
         El envío es despachado por {brandName} desde su fábrica en Bogotá, con transporte aliado a nivel nacional. Por
-        tu seguridad, el teléfono y la dirección se muestran parcialmente.
+        tu seguridad, el teléfono se muestra parcialmente.
       </p>
     </section>
   );

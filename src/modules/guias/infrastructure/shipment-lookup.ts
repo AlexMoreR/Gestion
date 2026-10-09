@@ -16,13 +16,16 @@ import {
   type PublicShipmentRow,
   type PublicShipmentView,
 } from "../domain/public-view";
+import { documentShipmentSelect, toDocumentView, type DocumentShipmentView } from "../domain/document-view";
 
 // Consulta publica de la guia (magilus.com/guia, el enlace directo /guia/[token] y el documento
-// formal /guia/[token]/documento, que usa lookupShipmentByLinkToken). Lo que ve el
-// cliente lo arma toPublicView (domain/public-view.ts): nunca transportadora, guia del proveedor,
-// telefono completo, direccion ni notas internas.
+// formal /guia/[token]/documento). En "Estado del envio" lo que ve el cliente lo arma
+// toPublicView (domain/public-view.ts): nunca transportadora, guia del proveedor, telefono
+// completo, direccion ni notas internas. Solo el documento (lookupShipmentDocumentByLinkToken)
+// agrega la direccion de entrega (domain/document-view.ts).
 
 export type { PublicShipmentEvent, PublicShipmentView } from "../domain/public-view";
+export type { DocumentShipmentView } from "../domain/document-view";
 
 export function hashIp(ip: string): string {
   const salt = process.env.SHIPMENT_LOOKUP_SALT || process.env.AUTH_SECRET || "magilus-guias";
@@ -92,11 +95,13 @@ function toPublicViewWithToken(shipment: PublicShipmentRow): PublicShipmentView 
   return toPublicView(shipment, buildShipmentLinkToken(shipment.id, shipment.code));
 }
 
-// Enlace directo magilus.com/guia/<codigo>.<firma>: equivale a tener la guia, asi que muestra
-// exactamente la misma vista publica que la consulta con los 4 digitos (toPublicView).
-// Limite por IP: si la IP ya esta bloqueada por fallos de la consulta, tampoco entra; cada enlace
-// invalido cuenta como un intento fallido de esa IP en la misma tabla (sin columnas nuevas).
-export async function lookupShipmentByLinkToken(params: { token: string; ipHash: string }): Promise<LookupOutcome> {
+// Limite por IP + token firmado, comun al enlace directo y al documento. Si la IP ya esta
+// bloqueada por fallos de la consulta, tampoco entra; cada enlace invalido cuenta como un intento
+// fallido de esa IP en la misma tabla (sin columnas nuevas).
+async function resolveByLinkToken<T extends { id: string; publicEnabled: boolean }>(
+  params: { token: string; ipHash: string },
+  findByCode: (code: string) => Promise<T | null>,
+): Promise<{ ok: true; shipment: T } | { ok: false; reason: "BLOCKED" | "NO_MATCH" }> {
   const ipFailures = await ipFailuresInWindow(params.ipHash);
   if (!evaluateLookupLimit({ ipFailures, codeFailures: 0 }).allowed) {
     return { ok: false, reason: "BLOCKED" };
@@ -105,7 +110,7 @@ export async function lookupShipmentByLinkToken(params: { token: string; ipHash:
   const shipment = await resolveShipmentFromLinkToken(params.token, {
     parse: parseShipmentLinkToken,
     normalizeCode: normalizeShipmentCodeInput,
-    findByCode: findPublicShipment,
+    findByCode,
     verify: (shipmentId, signature) => verifyShipmentLinkSignature(shipmentId, signature),
   });
 
@@ -116,5 +121,36 @@ export async function lookupShipmentByLinkToken(params: { token: string; ipHash:
     });
     return { ok: false, reason: "NO_MATCH" };
   }
-  return { ok: true, view: toPublicViewWithToken(shipment) };
+  return { ok: true, shipment };
+}
+
+// Enlace directo magilus.com/guia/<codigo>.<firma> ("Estado del envio"): equivale a tener la
+// guia, asi que muestra exactamente la misma vista publica que la consulta con los 4 digitos
+// (toPublicView, sin direccion).
+export async function lookupShipmentByLinkToken(params: { token: string; ipHash: string }): Promise<LookupOutcome> {
+  const outcome = await resolveByLinkToken(params, findPublicShipment);
+  return outcome.ok ? { ok: true, view: toPublicViewWithToken(outcome.shipment) } : outcome;
+}
+
+function findDocumentShipment(code: string) {
+  return resolveShipmentByCode(code, {
+    byCode: (value) => prisma.shipment.findUnique({ where: { code: value }, select: documentShipmentSelect }),
+    byLegacyCode: (value) => prisma.shipment.findUnique({ where: { legacyCode: value }, select: documentShipmentSelect }),
+  });
+}
+
+export type DocumentLookupOutcome =
+  | { ok: true; view: DocumentShipmentView }
+  | { ok: false; reason: "BLOCKED" | "NO_MATCH" };
+
+// Documento formal /guia/<codigo>.<firma>/documento: mismo token y mismo limite por IP, pero con
+// la vista del documento (toDocumentView: lleva la direccion de entrega). Solo la pide esa pagina.
+export async function lookupShipmentDocumentByLinkToken(params: {
+  token: string;
+  ipHash: string;
+}): Promise<DocumentLookupOutcome> {
+  const outcome = await resolveByLinkToken(params, findDocumentShipment);
+  return outcome.ok
+    ? { ok: true, view: toDocumentView(outcome.shipment, buildShipmentLinkToken(outcome.shipment.id, outcome.shipment.code)) }
+    : outcome;
 }

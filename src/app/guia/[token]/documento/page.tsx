@@ -3,14 +3,15 @@ import { getSystemBrandName } from "@/lib/system-settings";
 import { LOOKUP_BLOCKED_ERROR } from "@/modules/guias/domain/lookup";
 import {
   currentRequestIpHash,
-  lookupShipmentByLinkToken,
-  type PublicShipmentView,
+  lookupShipmentDocumentByLinkToken,
+  type DocumentShipmentView,
 } from "@/modules/guias/infrastructure/shipment-lookup";
 import { PublicGuiaDocumentShell, PublicGuiaShell } from "@/modules/guias/presentation/public-guia-shell";
 
 // Documento formal de la guia (magilus.com/guia/<codigo>.<firma>/documento): el recuadro tipo
-// comprobante, para ver, imprimir o guardar en PDF. Mismo token firmado, misma vista publica y
-// mismo limite por IP que el enlace directo (/guia/[token]). Si el enlace no sirve, formulario.
+// comprobante, para ver, imprimir o guardar en PDF. Mismo token firmado y mismo limite por IP que
+// el enlace directo (/guia/[token]), pero con la vista del documento (lleva la direccion de
+// entrega; la pagina de estado no la recibe). Si el enlace no sirve, formulario.
 
 export const dynamic = "force-dynamic";
 
@@ -31,10 +32,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function GuiaDocumentPage({ params }: PageProps) {
   const { token } = await params;
-  let view: PublicShipmentView | null = null;
+  let view: DocumentShipmentView | null = null;
   let notice = INVALID_LINK_NOTICE;
   try {
-    const outcome = await lookupShipmentByLinkToken({ token, ipHash: await currentRequestIpHash() });
+    const outcome = await lookupShipmentDocumentByLinkToken({ token, ipHash: await currentRequestIpHash() });
     if (outcome.ok) {
       view = outcome.view;
     } else if (outcome.reason === "BLOCKED") {

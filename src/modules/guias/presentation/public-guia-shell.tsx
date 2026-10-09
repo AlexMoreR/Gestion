@@ -8,6 +8,7 @@ import {
   getSystemWhatsAppPhoneDisplay,
   getSystemWhatsAppPhoneHref,
 } from "@/lib/system-settings";
+import type { DocumentShipmentView } from "../domain/document-view";
 import type { PublicShipmentView } from "../domain/public-view";
 import { PrintButton } from "./print-button";
 import { PublicLookup } from "./public-lookup";
@@ -93,7 +94,7 @@ const PRINT_CSS = `
 }
 `;
 
-export async function PublicGuiaDocumentShell({ view, token }: { view: PublicShipmentView; token: string }) {
+export async function PublicGuiaDocumentShell({ view, token }: { view: DocumentShipmentView; token: string }) {
   const { brandName, logoUrl, whatsAppDisplay } = await loadBrand();
   const statusHref = `/guia/${encodeURIComponent(token)}`;
 
