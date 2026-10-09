@@ -7,6 +7,7 @@ import Image from "next/image";
 import { AlertTriangle, CalendarDays, CheckCircle2, Loader2, MessageCircle, Search, Truck } from "lucide-react";
 import { publicLookupShipmentAction, type LookupState } from "@/app/actions/shipment-public-actions";
 import { cn } from "@/lib/utils";
+import type { PublicShipmentView } from "../domain/public-view";
 import { formatWeightKg } from "../domain/weight";
 
 // Resultado de la consulta con formato de guia de transporte (estilo documento): titulo con
@@ -324,13 +325,25 @@ type PublicLookupProps = {
   whatsAppDisplay?: string;
   logoUrl?: string;
   brandName?: string;
+  /** Enlace directo (/guia/[token]) valido: la guia se muestra sin pedir datos. */
+  initialView?: PublicShipmentView | null;
+  /** Enlace directo invalido: aviso amable sobre el formulario normal. */
+  initialNotice?: string;
 };
 
+function initialLookupState(view?: PublicShipmentView | null, notice?: string): LookupState {
+  if (view) {
+    return { status: "ok", view };
+  }
+  return notice ? { status: "error", error: notice } : { status: "idle" };
+}
+
 // "Consultar otra guía" cambia la key y remonta el formulario: el estado de useActionState
-// vuelve a "idle" y los campos quedan vacios.
-export function PublicLookup(props: PublicLookupProps) {
+// vuelve a "idle" y los campos quedan vacios (la guia del enlace directo ya no se repite).
+export function PublicLookup({ initialView, initialNotice, ...props }: PublicLookupProps) {
   const [resetKey, setResetKey] = useState(0);
-  return <LookupPanel key={resetKey} {...props} onReset={() => setResetKey((k) => k + 1)} />;
+  const initialState = resetKey === 0 ? initialLookupState(initialView, initialNotice) : initialLookupState();
+  return <LookupPanel key={resetKey} {...props} initialState={initialState} onReset={() => setResetKey((k) => k + 1)} />;
 }
 
 function LookupPanel({
@@ -338,9 +351,10 @@ function LookupPanel({
   whatsAppDisplay,
   logoUrl,
   brandName = "Magilus",
+  initialState,
   onReset,
-}: PublicLookupProps & { onReset: () => void }) {
-  const [state, formAction] = useActionState<LookupState, FormData>(publicLookupShipmentAction, { status: "idle" });
+}: PublicLookupProps & { initialState: LookupState; onReset: () => void }) {
+  const [state, formAction] = useActionState<LookupState, FormData>(publicLookupShipmentAction, initialState);
   const view = state.status === "ok" ? state.view : null;
   const guideRef = useRef<HTMLElement>(null);
 

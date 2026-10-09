@@ -14,12 +14,13 @@ import {
 } from "@/app/actions/shipment-actions";
 import { OperationsTabs } from "@/components/admin/operations-tabs";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
+import { buildShipmentLinkToken } from "@/lib/shipment-link-token";
 import { getPublicAssetUrl, getSiteUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { toDateInputValue } from "@/modules/guias/domain/eta";
@@ -31,7 +32,7 @@ import {
 } from "@/modules/guias/domain/statuses";
 import type { CityOption } from "@/modules/guias/domain/types";
 import { formatWeightKg } from "@/modules/guias/domain/weight";
-import { AdminEventForm } from "@/modules/guias/presentation/admin-event-form";
+import { AdminEventDialog } from "@/modules/guias/presentation/admin-event-dialog";
 import { CityPicker } from "@/modules/guias/presentation/city-picker";
 import { CopyButton } from "@/modules/guias/presentation/copy-button";
 
@@ -116,6 +117,10 @@ export default async function AdminGuiaDetailPage({ params, searchParams }: Page
   const clientName = client?.name || client?.email || "Cliente";
   const carrierUrl = getSiteUrl(`/envios/t/${shipment.carrierToken}`);
   const publicUrl = getSiteUrl("/guia");
+  // Enlace directo firmado (un clic, sin escribir los 4 digitos). Solo si la consulta publica esta activa.
+  const linkToken = shipment.publicEnabled ? buildShipmentLinkToken(shipment.id, shipment.code) : null;
+  const directUrl = linkToken ? getSiteUrl(`/guia/${linkToken}`) : null;
+  const eventsSignature = `${shipment.events.length}:${shipment.events[0]?.id ?? ""}`;
   const amount = Number(shipment.amountToCollect);
   const weightKg = shipment.weightKg == null ? null : Number(shipment.weightKg);
   const destination = toOption(shipment.destinationCity);
@@ -129,7 +134,9 @@ export default async function AdminGuiaDetailPage({ params, searchParams }: Page
   ].join("\n");
   const clientMessage = [
     `Hola ${firstName(clientName)}, tu guía Magilus es *${shipment.code}*.`,
-    `Consulta cómo va tu pedido en ${publicUrl} con la guía y los últimos 4 dígitos de tu celular.`,
+    directUrl
+      ? `Mira cómo va tu pedido aquí: ${directUrl}`
+      : `Consulta cómo va tu pedido en ${publicUrl} con la guía y los últimos 4 dígitos de tu celular.`,
     shipment.estimatedDelivery ? `Entrega estimada: ${formatDay(shipment.estimatedDelivery)}.` : "",
     amount > 0 && shipment.collectOnDelivery ? `Al recibir pagas ${formatMoney(amount, currency)}.` : "",
   ]
@@ -209,11 +216,92 @@ export default async function AdminGuiaDetailPage({ params, searchParams }: Page
         </Card>
       </div>
 
+      {/* Enlaces arriba para copiarlos sin bajar: transportador | cliente (una columna en celular). */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Link2 className="h-4 w-4" /> Enlaces
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2 [&>*]:min-w-0">
+          <div className="space-y-2">
+            <p className="font-medium text-foreground">Transportador (sin cuenta)</p>
+            <p className="break-all text-xs text-muted-foreground">
+              {shipment.carrierTokenActive ? carrierUrl : "Enlace desactivado"}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <CopyButton value={carrierUrl} label="Copiar enlace" toastText="Enlace del transportador copiado" />
+              <CopyButton value={carrierMessage} label="Copiar mensaje" toastText="Mensaje copiado" />
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(carrierMessage)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-7 items-center gap-1 rounded-lg border border-border px-2.5 text-[0.8rem] font-medium hover:bg-muted"
+              >
+                Enviar por WhatsApp
+              </a>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <form action={adminRegenerateCarrierTokenAction}>
+                <input type="hidden" name="shipmentId" value={shipment.id} />
+                <Button type="submit" variant="ghost" size="sm">
+                  Generar enlace nuevo
+                </Button>
+              </form>
+              <form action={adminSetCarrierLinkActiveAction}>
+                <input type="hidden" name="shipmentId" value={shipment.id} />
+                <input type="hidden" name="active" value={shipment.carrierTokenActive ? "0" : "1"} />
+                <Button type="submit" variant="ghost" size="sm">
+                  {shipment.carrierTokenActive ? "Desactivar enlace" : "Activar enlace"}
+                </Button>
+              </form>
+            </div>
+          </div>
+          <div className="space-y-2 border-t border-border pt-3 md:border-t-0 md:border-l md:pt-0 md:pl-4">
+            <p className="font-medium text-foreground">Cliente</p>
+            <p className="whitespace-pre-line break-words rounded-lg bg-muted/60 p-2 text-xs text-foreground">{clientMessage}</p>
+            <div className="flex flex-wrap gap-2">
+              <CopyButton value={clientMessage} label="Copiar mensaje para el cliente" toastText="Mensaje copiado" />
+              {directUrl ? (
+                <>
+                  <a
+                    href={directUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-7 items-center gap-1 rounded-lg border border-border px-2.5 text-[0.8rem] font-medium hover:bg-muted"
+                  >
+                    Abrir guía <ArrowUpRight className="h-3 w-3" />
+                  </a>
+                  <CopyButton value={directUrl} label="Copiar enlace directo" toastText="Enlace directo copiado" />
+                </>
+              ) : null}
+              <CopyButton value={publicUrl} label="Copiar enlace de consulta" toastText="Enlace copiado" />
+            </div>
+            {directUrl ? (
+              <p className="text-xs text-muted-foreground">
+                El enlace directo abre la guía sin pedir datos: compártelo solo con el cliente.
+              </p>
+            ) : null}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Linea de tiempo y formularios uno debajo del otro hasta pantallas xl. */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.3fr_1fr] [&>*]:min-w-0">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Línea de tiempo</CardTitle>
+            <CardAction>
+              <AdminEventDialog
+                shipmentId={shipment.id}
+                currentStatus={shipment.status}
+                action={adminAddShipmentEventAction}
+                searchCities={adminSearchShipmentCitiesAction}
+                suggestions={suggestions}
+                eventsSignature={eventsSignature}
+                errorMessage={errorMessage}
+              />
+            </CardAction>
           </CardHeader>
           <CardContent>
             <ol className="relative space-y-4 border-l border-border pl-5">
@@ -273,72 +361,6 @@ export default async function AdminGuiaDetailPage({ params, searchParams }: Page
         </Card>
 
         <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Agregar evento</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <AdminEventForm
-                shipmentId={shipment.id}
-                currentStatus={shipment.status}
-                action={adminAddShipmentEventAction}
-                searchCities={adminSearchShipmentCitiesAction}
-                suggestions={suggestions}
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Link2 className="h-4 w-4" /> Enlaces
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              <div className="space-y-2">
-                <p className="font-medium text-foreground">Transportador (sin cuenta)</p>
-                <p className="break-all text-xs text-muted-foreground">
-                  {shipment.carrierTokenActive ? carrierUrl : "Enlace desactivado"}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <CopyButton value={carrierUrl} label="Copiar enlace" toastText="Enlace del transportador copiado" />
-                  <CopyButton value={carrierMessage} label="Copiar mensaje" toastText="Mensaje copiado" />
-                  <a
-                    href={`https://wa.me/?text=${encodeURIComponent(carrierMessage)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex h-7 items-center gap-1 rounded-lg border border-border px-2.5 text-[0.8rem] font-medium hover:bg-muted"
-                  >
-                    Enviar por WhatsApp
-                  </a>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <form action={adminRegenerateCarrierTokenAction}>
-                    <input type="hidden" name="shipmentId" value={shipment.id} />
-                    <Button type="submit" variant="ghost" size="sm">
-                      Generar enlace nuevo
-                    </Button>
-                  </form>
-                  <form action={adminSetCarrierLinkActiveAction}>
-                    <input type="hidden" name="shipmentId" value={shipment.id} />
-                    <input type="hidden" name="active" value={shipment.carrierTokenActive ? "0" : "1"} />
-                    <Button type="submit" variant="ghost" size="sm">
-                      {shipment.carrierTokenActive ? "Desactivar enlace" : "Activar enlace"}
-                    </Button>
-                  </form>
-                </div>
-              </div>
-              <div className="space-y-2 border-t border-border pt-3">
-                <p className="font-medium text-foreground">Cliente</p>
-                <p className="whitespace-pre-line break-words rounded-lg bg-muted/60 p-2 text-xs text-foreground">{clientMessage}</p>
-                <div className="flex flex-wrap gap-2">
-                  <CopyButton value={clientMessage} label="Copiar mensaje para el cliente" toastText="Mensaje copiado" />
-                  <CopyButton value={publicUrl} label="Copiar enlace de consulta" toastText="Enlace copiado" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
