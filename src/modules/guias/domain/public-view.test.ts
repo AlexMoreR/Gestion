@@ -64,3 +64,83 @@ describe("toPublicView", () => {
     expect(keys).not.toMatch(/phone"|address|carrierName|trackingNumber|email/i);
   });
 });
+
+describe("aviso de fecha y franja de estado actual", () => {
+  const baseEvent = { status: null, incident: null, note: null, actor: "MAGILUS", newEta: null, city: null };
+  const inTransit = {
+    ...baseEvent,
+    id: "st1",
+    kind: "STATUS",
+    status: "IN_TRANSIT",
+    actor: "CARRIER",
+    occurredAt: new Date("2026-10-07T15:00:00Z"),
+  };
+  const etaChange = (id: string, eta: string, at: string) => ({
+    ...baseEvent,
+    id,
+    kind: "ETA_CHANGE",
+    newEta: new Date(`${eta}T12:00:00Z`),
+    occurredAt: new Date(at),
+  });
+  const weather = {
+    ...baseEvent,
+    id: "in1",
+    kind: "INCIDENT",
+    incident: "WEATHER",
+    actor: "CARRIER",
+    occurredAt: new Date("2026-10-08T14:00:00Z"),
+  };
+  // Creada el 6-oct hacia Cali: la fecha automatica cae despues del 10-oct.
+  const make = (events: unknown[]) =>
+    ({
+      id: "ckshipment0000000000000002",
+      code: "MG-PMMGNV3F",
+      status: "IN_TRANSIT",
+      phoneLast4: "4567",
+      publicEnabled: true,
+      estimatedDelivery: new Date("2026-10-10T12:00:00Z"),
+      createdAt: new Date("2026-10-06T15:00:00Z"),
+      collectOnDelivery: false,
+      amountToCollect: 0,
+      weightKg: null,
+      deliveredAt: null,
+      receivedByName: null,
+      deliveryPhotoUrl: null,
+      originCity: { name: "Bogotá" },
+      currentCity: null,
+      destinationCity: { name: "Cali", code: "76001" },
+      dispatch: { order: { client: { name: "Ana Lopez" } } },
+      events,
+    }) as unknown as PublicShipmentRow;
+
+  it("fecha adelantada a mano: sin aviso y la franja sigue en En ruta", () => {
+    const view = toPublicView(make([etaChange("eta1", "2026-10-10", "2026-10-09T03:50:00Z"), inTransit]));
+    expect(view.etaDelayReason).toBeNull();
+    expect(view.currentEvent?.title).toBe("En ruta");
+    expect(view.events[0].title).toContain("Fecha estimada actualizada:");
+    expect(view.events[0].title).toContain("10 de octubre");
+  });
+
+  it("fecha atrasada por una novedad de lluvias: aviso con la novedad", () => {
+    const view = toPublicView(make([etaChange("eta1", "2026-10-20", "2026-10-08T16:00:00Z"), weather, inTransit]));
+    expect(view.etaDelayReason).toBe("Lluvias en la vía");
+    expect(view.currentEvent?.title).toBe("Novedad: Lluvias");
+  });
+
+  it("fecha atrasada a mano sin novedad: sin aviso", () => {
+    const view = toPublicView(make([etaChange("eta1", "2026-10-20", "2026-10-08T16:00:00Z"), inTransit]));
+    expect(view.etaDelayReason).toBeNull();
+  });
+
+  it("una novedad anterior al cambio previo no explica el nuevo atraso", () => {
+    const view = toPublicView(
+      make([
+        etaChange("eta2", "2026-10-22", "2026-10-09T16:00:00Z"),
+        etaChange("eta1", "2026-10-20", "2026-10-08T16:00:00Z"),
+        weather,
+        inTransit,
+      ]),
+    );
+    expect(view.etaDelayReason).toBeNull();
+  });
+});

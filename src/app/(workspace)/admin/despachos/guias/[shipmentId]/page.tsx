@@ -35,6 +35,7 @@ import { formatWeightKg } from "@/modules/guias/domain/weight";
 import { AdminEventDialog } from "@/modules/guias/presentation/admin-event-dialog";
 import { CityPicker } from "@/modules/guias/presentation/city-picker";
 import { CopyButton } from "@/modules/guias/presentation/copy-button";
+import { CarrierLinkMenu, ClientLinkMenu } from "@/modules/guias/presentation/link-actions-menu";
 
 type PageProps = {
   params: Promise<{ shipmentId: string }>;
@@ -225,57 +226,39 @@ export default async function AdminGuiaDetailPage({ params, searchParams }: Page
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2 [&>*]:min-w-0">
           <div className="space-y-2">
-            <p className="font-medium text-foreground">Transportador (sin cuenta)</p>
-            <p className="break-all text-xs text-muted-foreground">
-              {shipment.carrierTokenActive ? carrierUrl : "Enlace desactivado"}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <CopyButton value={carrierUrl} label="Copiar enlace" toastText="Enlace del transportador copiado" />
-              <CopyButton value={carrierMessage} label="Copiar mensaje" toastText="Mensaje copiado" />
-              <a
-                href={`https://wa.me/?text=${encodeURIComponent(carrierMessage)}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-7 items-center gap-1 rounded-lg border border-border px-2.5 text-[0.8rem] font-medium hover:bg-muted"
-              >
-                Enviar por WhatsApp
-              </a>
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-medium text-foreground">Transportador (sin cuenta)</p>
+              <CarrierLinkMenu
+                shipmentId={shipment.id}
+                carrierMessage={carrierMessage}
+                active={shipment.carrierTokenActive}
+                regenerateAction={adminRegenerateCarrierTokenAction}
+                setActiveAction={adminSetCarrierLinkActiveAction}
+              />
             </div>
-            <div className="flex flex-wrap gap-2">
-              <form action={adminRegenerateCarrierTokenAction}>
-                <input type="hidden" name="shipmentId" value={shipment.id} />
-                <Button type="submit" variant="ghost" size="sm">
-                  Generar enlace nuevo
-                </Button>
-              </form>
-              <form action={adminSetCarrierLinkActiveAction}>
-                <input type="hidden" name="shipmentId" value={shipment.id} />
-                <input type="hidden" name="active" value={shipment.carrierTokenActive ? "0" : "1"} />
-                <Button type="submit" variant="ghost" size="sm">
-                  {shipment.carrierTokenActive ? "Desactivar enlace" : "Activar enlace"}
-                </Button>
-              </form>
+            <div className="flex min-w-0 items-center gap-2">
+              <p className="min-w-0 flex-1 truncate rounded-lg bg-muted/60 px-2 py-1.5 text-xs text-muted-foreground">
+                {shipment.carrierTokenActive ? carrierUrl : "Enlace desactivado"}
+              </p>
+              <CopyButton
+                value={carrierMessage}
+                label="Copiar mensaje para el transportador"
+                toastText="Copiado"
+                iconOnly
+                disabled={!shipment.carrierTokenActive}
+              />
             </div>
           </div>
           <div className="space-y-2 border-t border-border pt-3 md:border-t-0 md:border-l md:pt-0 md:pl-4">
-            <p className="font-medium text-foreground">Cliente</p>
-            <p className="whitespace-pre-line break-words rounded-lg bg-muted/60 p-2 text-xs text-foreground">{clientMessage}</p>
-            <div className="flex flex-wrap gap-2">
-              <CopyButton value={clientMessage} label="Copiar mensaje para el cliente" toastText="Mensaje copiado" />
-              {directUrl ? (
-                <>
-                  <a
-                    href={directUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex h-7 items-center gap-1 rounded-lg border border-border px-2.5 text-[0.8rem] font-medium hover:bg-muted"
-                  >
-                    Abrir guía <ArrowUpRight className="h-3 w-3" />
-                  </a>
-                  <CopyButton value={directUrl} label="Copiar enlace directo" toastText="Enlace directo copiado" />
-                </>
-              ) : null}
-              <CopyButton value={publicUrl} label="Copiar enlace de consulta" toastText="Enlace copiado" />
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-medium text-foreground">Cliente</p>
+              <ClientLinkMenu directUrl={directUrl} publicUrl={publicUrl} />
+            </div>
+            <div className="flex min-w-0 items-start gap-2">
+              <p className="min-w-0 flex-1 whitespace-pre-line break-words rounded-lg bg-muted/60 p-2 text-xs text-foreground">
+                {clientMessage}
+              </p>
+              <CopyButton value={clientMessage} label="Copiar mensaje para el cliente" toastText="Copiado" iconOnly />
             </div>
             {directUrl ? (
               <p className="text-xs text-muted-foreground">

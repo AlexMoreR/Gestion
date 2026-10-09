@@ -369,7 +369,7 @@ function LookupPanel({
   )}`;
   const delivered = view?.status === "DELIVERED";
   // Los eventos llegan del mas reciente al mas antiguo.
-  const latestEvent = view?.events[0] ?? null;
+  const latestEvent = view?.currentEvent ?? null;
   const firstEvent = view && view.events.length > 0 ? view.events[view.events.length - 1] : null;
   const destination = view?.destinationCity ?? "Tu ciudad";
   const weightLabel = formatWeightKg(view?.weightKg) ?? "Por confirmar";
@@ -458,10 +458,10 @@ function LookupPanel({
                     ? formatDay(view.estimatedDelivery)
                     : "Por confirmar"}
               </span>
-              {view.etaChanged && !delivered ? (
+              {view.etaDelayReason && !delivered ? (
                 <span className="mt-1 flex items-start gap-1.5 text-xs font-medium text-amber-700">
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  La fecha se actualizó por una novedad en la vía.
+                  La fecha se movió por: {view.etaDelayReason}.
                 </span>
               ) : null}
             </div>
