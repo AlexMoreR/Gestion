@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { MapPin } from "lucide-react";
-import { getPublicAssetUrl } from "@/lib/site";
+// Sedes de fabrica que se muestran con mapa de Google al final de la pagina.
+import { FACTORY_POINTS } from "@/lib/factory-points";
+import { getPublicAssetUrl, getSiteUrl } from "@/lib/site";
 import {
   getSystemBrandName,
   getSystemStorefrontLogoPath,
@@ -22,34 +24,24 @@ const REF_WHATSAPP: Record<string, string> = {
   "2": "573205138377", // Ventas 2
 };
 
-// Sedes de fabrica que se muestran con mapa de Google al final de la pagina.
-const FACTORY_POINTS = [
-  {
-    title: "Sede principal - Cali",
-    address: "Cra. 27 # 72X-25",
-    neighborhood: "Omar Torrijos",
-    query: "Cra. 27 # 72X-25, Omar Torrijos, Cali, Valle del Cauca, Colombia",
-  },
-  {
-    title: "Bogotá - Cundinamarca",
-    address: "Calle 11 # 28-33 Piso 3",
-    neighborhood: "El Ricaurte",
-    query: "Calle 11 # 28-33, Ricaurte, Bogotá, Colombia",
-  },
-] as const;
-
 export async function generateMetadata(): Promise<Metadata> {
   const brandName = await getSystemBrandName();
-  const title = `Cobertura de envío gratis | ${brandName}`;
+  // El layout raiz agrega "| Marca" (template); aqui va sin marca para no repetirla.
+  const pageTitle = "Cobertura de envío gratis";
+  const title = `${pageTitle} | ${brandName}`;
   const description = `Consulta si tu ciudad o corregimiento tiene envío gratis con ${brandName}.`;
   return {
-    title,
+    title: pageTitle,
     description,
+    // Canonical propio: sin esto hereda "/" del layout raiz (copia del inicio).
+    alternates: {
+      canonical: getSiteUrl("/cobertura"),
+    },
     // La imagen de vista previa (og:image) la aporta opengraph-image.tsx.
     openGraph: {
       title,
       description,
-      url: "/cobertura",
+      url: getSiteUrl("/cobertura"),
       siteName: brandName,
       type: "website",
       locale: "es_CO",

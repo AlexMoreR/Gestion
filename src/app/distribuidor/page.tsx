@@ -3,7 +3,7 @@ import Image from "next/image";
 import { Store } from "lucide-react";
 import { WholesaleCatalog, type WholesaleProduct } from "@/components/store/wholesale-catalog";
 import { prisma } from "@/lib/prisma";
-import { getPublicAssetUrl } from "@/lib/site";
+import { getPublicAssetUrl, getSiteUrl } from "@/lib/site";
 import {
   getSystemBrandName,
   getSystemCurrency,
@@ -15,8 +15,11 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
   const brandName = await getSystemBrandName();
   return {
-    title: `Precios al por mayor | ${brandName}`,
+    // El layout raiz agrega "| Marca" (template).
+    title: "Precios al por mayor",
     description: `Lista de precios al por mayor de ${brandName}.`,
+    // Canonical propio (sin esto hereda "/" del layout raiz).
+    alternates: { canonical: getSiteUrl("/distribuidor") },
     robots: { index: false, follow: false },
   };
 }

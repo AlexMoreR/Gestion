@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getSystemBrandName } from "@/lib/system-settings";
 import { getLegalDoc, LEGAL_LINKS } from "@/lib/legal-docs";
+import { getSiteUrl } from "@/lib/site";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -15,12 +16,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   const brandName = await getSystemBrandName();
   const doc = getLegalDoc(slug, brandName);
+  // El layout raiz agrega "| Marca" (template); aqui va sin marca para no repetirla.
   if (!doc) {
-    return { title: `Documento | ${brandName}` };
+    return { title: "Documento", robots: { index: false, follow: false } };
   }
   return {
-    title: `${doc.title} | ${brandName}`,
+    title: doc.title,
     description: doc.description,
+    // Canonical propio (sin esto hereda "/" del layout raiz).
+    alternates: { canonical: getSiteUrl(`/legal/${slug}`) },
   };
 }
 

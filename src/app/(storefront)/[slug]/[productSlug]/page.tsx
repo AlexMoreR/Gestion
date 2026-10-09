@@ -2,11 +2,14 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ProductDetailContent } from "@/components/store/product-detail-content";
+import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
+import { getCurrentStorePrice } from "@/lib/product-promo";
 import { buildProductPath } from "@/lib/product-slugs";
+import { buildProductSeoTitle, compactPriceLabel, truncateMetaDescription } from "@/lib/seo-metadata";
 import { getPublicAssetUrl, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
 import { COMBO_SAVINGS_COMPONENTS_SELECT } from "@/lib/storefront-offer";
-import { getSystemCurrency } from "@/lib/system-settings";
+import { getSystemBrandName, getSystemCurrency } from "@/lib/system-settings";
 
 type PageProps = {
   params: Promise<{ slug: string; productSlug: string }>;
@@ -26,16 +29,33 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
 
-  const description = sanitizeDescription(
-    product.seoDescription || product.description,
-    `${product.name} ${product.category?.name ? `de ${product.category.name} ` : ""}disponible en ${siteConfig.name}, mobiliario profesional premium para salon y barberia.`,
-  );
+  const [currency, brandName] = await Promise.all([getSystemCurrency(), getSystemBrandName()]);
+  // Si el admin cargo seoDescription se respeta tal cual; si no, se recorta a ~155 car.
+  const seoDescription = product.seoDescription?.trim();
+  const description = seoDescription
+    ? sanitizeDescription(seoDescription, "")
+    : truncateMetaDescription(
+        sanitizeDescription(
+          product.description,
+          `${product.name} ${product.category?.name ? `de ${product.category.name} ` : ""}disponible en ${siteConfig.name}, mobiliario profesional premium para salon y barberia.`,
+        ),
+      );
   const canonicalPath = buildProductPath(product);
   const canonical = getSiteUrl(canonicalPath);
   const imageUrl = getPublicAssetUrl(product.thumbnailUrl);
+  // Si hay seoTitle se respeta (el layout le agrega "| Marca"). Si no:
+  // "<Nombre> | $<precio vigente> | Marca" (mismo precio que muestra la ficha).
+  const seoTitle = product.seoTitle?.trim();
+  const fullTitle = seoTitle
+    ? `${seoTitle} | ${brandName}`
+    : buildProductSeoTitle({
+        name: product.name,
+        priceLabel: compactPriceLabel(formatMoney(String(getCurrentStorePrice(product)), currency)),
+        brandName,
+      });
 
   return {
-    title: product.seoTitle?.trim() || product.name,
+    title: seoTitle || { absolute: fullTitle },
     description,
     alternates: {
       canonical,
@@ -43,7 +63,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     openGraph: {
       type: "website",
       url: canonical,
-      title: `${product.name} | ${siteConfig.name}`,
+      title: fullTitle,
       description,
       images: [
         {
@@ -54,7 +74,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     },
     twitter: {
       card: "summary_large_image",
-      title: `${product.name} | ${siteConfig.name}`,
+      title: fullTitle,
       description,
       images: [imageUrl],
     },

@@ -7,6 +7,7 @@ import { GuaranteeBadge } from "@/components/store/guarantee-badge";
 import { FeaturedProductsCarousel } from "@/components/store/featured-products-carousel";
 import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/currency";
+import { FACTORY_POINTS, factoryPointPostalAddress } from "@/lib/factory-points";
 import { imageVariantUrl } from "@/lib/image-variants";
 import { prisma } from "@/lib/prisma";
 import { buildProductPath } from "@/lib/product-slugs";
@@ -131,12 +132,9 @@ export async function generateStorefrontMetadata({
         category.description?.trim() ||
         `Explora ${category.name.toLowerCase()} en ${brandName}, mobiliario profesional para peluquería, salón de belleza y barbería.`
       : storefrontHeroDescription;
+  // Las busquedas (?q=) no se indexan: canonical al inicio y noindex,follow (ver robots abajo).
   const canonical = normalizedQuery
-    ? getSiteUrl(
-        `/?${new URLSearchParams({
-          q: normalizedQuery,
-        }).toString()}`,
-      )
+    ? getSiteUrl("/")
     : category
       ? getSiteUrl(`/${category.slug}`)
       : getSiteUrl("/");
@@ -172,7 +170,7 @@ export async function generateStorefrontMetadata({
       description,
       images: [socialImage],
     },
-    ...(category && category._count.products === 0
+    ...(normalizedQuery || (category && category._count.products === 0)
       ? {
           robots: {
             index: false,
@@ -357,14 +355,24 @@ export async function StorefrontCatalog({
     "@context": "https://schema.org",
     "@graph": [
       {
-        "@type": "Organization",
+        // Organization + FurnitureStore (LocalBusiness) con las sedes de fabrica de /cobertura.
+        "@type": ["Organization", "FurnitureStore"],
         "@id": `${getSiteUrl("/")}#organization`,
         name: brandName,
         legalName: brandName,
         url: getSiteUrl("/"),
         logo: getSiteUrl(storefrontLogoPath),
+        image: getSiteUrl(siteConfig.ogImagePath),
         description: `${brandName} ofrece mobiliario profesional para peluquería, barbería y salón de belleza.`,
         telephone: whatsAppPhoneDisplay,
+        address: factoryPointPostalAddress(FACTORY_POINTS[0], siteConfig.country),
+        location: FACTORY_POINTS.map((point) => ({
+          "@type": "Place",
+          name: `${brandName} - ${point.title}`,
+          address: factoryPointPostalAddress(point, siteConfig.country),
+        })),
+        areaServed: siteConfig.country,
+        sameAs: ["https://instagram.com/magilus.co", "https://tiktok.com/@magilusoficial"],
       },
       {
         "@type": "CollectionPage",

@@ -33,7 +33,8 @@ export const siteConfig = {
   whatsappHref:
     "https://wa.me/573046481994?text=Hola%20Magilus%2C%20quiero%20cotizar%20mobiliario%20profesional",
   logoPath: "/magilus-logo-m.svg",
-  ogImagePath: "/magilus-logo-m.svg",
+  // PNG 1200x630 generado por src/app/opengraph-image.tsx (WhatsApp y Facebook no muestran SVG).
+  ogImagePath: "/opengraph-image",
   country: "CO",
   locale: "es_CO",
   coreKeywords: [
