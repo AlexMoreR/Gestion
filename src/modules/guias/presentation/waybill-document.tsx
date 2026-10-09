@@ -3,10 +3,9 @@ import Image from "next/image";
 import { FACTORY_POINTS } from "@/lib/factory-points";
 import { cn } from "@/lib/utils";
 import type { DocumentShipmentView } from "../domain/document-view";
-import { formatWeightKg } from "../domain/weight";
 
-// Recuadro formal de la guia (documento tipo comprobante): marca, fila Fecha expedicion | Ciudad
-// origen | Ciudad destino | Nº guia | Peso, banda FORMA DE PAGO, REMITE | RECIBE (con direcciones)
+// Recuadro formal de la guia (documento tipo comprobante): marca, fila Fecha expedicion | Nº guia |
+// Ciudad origen | Ciudad destino, banda FORMA DE PAGO, REMITE | RECIBE (con direcciones)
 // y nota de datos parciales. Lo usa solo la pagina /guia/<token>/documento, con la vista del
 // documento (document-view.ts).
 
@@ -102,9 +101,9 @@ function WaybillCell({
   );
 }
 
-// Fila de 5 celdas: en celular 2 columnas (la 5a ocupa las dos), desde md (y al imprimir) una sola fila.
+// Fila de 4 celdas: en celular 2x2 (Fecha | Nº guia, Origen | Destino), desde md (y al imprimir) una sola fila.
 const WAYBILL_ROW =
-  "grid grid-cols-2 border-t border-[#d7d7de] md:grid-cols-5 print:grid-cols-5 " +
+  "grid grid-cols-2 border-t border-[#d7d7de] md:grid-cols-4 print:grid-cols-4 " +
   "[&>*:nth-child(even)]:border-l [&>*:nth-child(n+3)]:border-t " +
   "md:[&>*]:border-l md:[&>*:first-child]:border-l-0 md:[&>*:nth-child(n+3)]:border-t-0 " +
   "print:[&>*]:border-l print:[&>*:first-child]:border-l-0 print:[&>*:nth-child(n+3)]:border-t-0";
@@ -136,7 +135,6 @@ export function WaybillDocument({
   // Los eventos llegan del mas reciente al mas antiguo: el ultimo es la creacion de la guia.
   const firstEvent = view.events.length > 0 ? view.events[view.events.length - 1] : null;
   const destination = view.destinationCity ?? "Tu ciudad";
-  const weightLabel = formatWeightKg(view.weightKg) ?? "Por confirmar";
 
   return (
     <section className="overflow-hidden rounded-lg border border-[#d7d7de] [print-color-adjust:exact] [-webkit-print-color-adjust:exact]">
@@ -158,14 +156,11 @@ export function WaybillDocument({
         <WaybillCell label="Fecha expedición" nowrap>
           {firstEvent ? formatShortDate(firstEvent.at) : "—"}
         </WaybillCell>
-        <WaybillCell label="Ciudad origen">{view.originCity}</WaybillCell>
-        <WaybillCell label="Ciudad destino">{destination}</WaybillCell>
         <WaybillCell label="Nº guía" nowrap>
           {view.code}
         </WaybillCell>
-        <WaybillCell label="Peso" nowrap className="col-span-2 md:col-span-1 print:col-span-1">
-          {weightLabel}
-        </WaybillCell>
+        <WaybillCell label="Ciudad origen">{view.originCity}</WaybillCell>
+        <WaybillCell label="Ciudad destino">{destination}</WaybillCell>
       </div>
       <div className="border-t border-[#d7d7de] bg-[#42066E] px-2.5 py-2 text-center text-sm font-extrabold uppercase tracking-[1px] text-white">
         <small className="block text-[10px] font-semibold tracking-[2px] opacity-85">Forma de pago</small>
