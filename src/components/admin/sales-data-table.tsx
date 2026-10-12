@@ -18,6 +18,7 @@ import {
   Eye,
   FileCheck2,
   Trash2,
+  Truck,
   User,
   Wallet,
   X,
@@ -110,6 +111,8 @@ type SaleRow = {
   salePayments: SalePaymentRow[];
   hasOrder: boolean;
   orderId: string | null;
+  // Pagada por completo pero la orden aun no se entrega: solo falta la entrega.
+  pendingDelivery?: boolean;
   salePaymentMethod: SalePaymentMethod | null;
   saleOrigin: SaleOriginCode | null;
   saleOriginDetail: unknown;
@@ -184,6 +187,22 @@ function StatusBadge({ status }: { status: SaleStatus }) {
   return (
     <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(status)}`}>
       {statusLabel(status)}
+    </span>
+  );
+}
+
+// Recaudo completo y entrega pendiente: la venta ya cuenta en Balances (salvo
+// contraentrega) y solo falta entregarla.
+function SaleStatusCell({ sale }: { sale: Pick<SaleRow, "status" | "pendingDelivery"> }) {
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1">
+      <StatusBadge status={sale.status} />
+      {sale.pendingDelivery ? (
+        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+          <Truck className="h-3.5 w-3.5" />
+          Falta entregar
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -763,7 +782,7 @@ function SaleMobileCard({
             <PaymentMethodBadge method={sale.salePaymentMethod} />
             <SaleOriginBadge origin={sale.saleOrigin} detail={sale.saleOriginDetail} />
           </p>
-          <StatusBadge status={sale.status} />
+          <SaleStatusCell sale={sale} />
         </div>
         <p className="text-sm text-foreground">{sale.clientName}</p>
         <p className="text-xs text-muted-foreground">{sale.createdAt}</p>
@@ -833,7 +852,7 @@ export function SalesDataTable({
         id: "status",
         accessorFn: (row) => statusLabel(row.status),
         header: () => <HeaderWithIcon icon={<CircleDot className="h-3.5 w-3.5" />}>Estado</HeaderWithIcon>,
-        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+        cell: ({ row }) => <SaleStatusCell sale={row.original} />,
       },
       {
         accessorKey: "total",

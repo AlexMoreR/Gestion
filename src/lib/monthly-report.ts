@@ -68,25 +68,18 @@ export async function computeMonthlyReport(monthKey: string): Promise<MonthlyRep
 
   const repository = createPrismaBalancesRepository();
 
-  // 1 y 2: ventas, # pedidos entregados, utilidad y margen (mismo criterio que
-  // Balances: reconocidos por mes de ENTREGA).
+  // 1 y 2: ventas, # pedidos, utilidad y margen (mismo criterio que Balances:
+  // pagadas por completo, en el mes en que cuentan; contraentrega, al entregar).
   const metrics = await repository.getDashboardMetrics(period);
 
-  // 3: top productos. Se toman las ventas facturadas + entregadas, se filtran por
-  // mes de entrega (ultima linea "Cerrada" del historial) y se agrupan sus items
-  // por producto: ingreso = precio x cant, costo = costo compra x cant.
+  // 3: top productos. Se toman las mismas ventas del mes que Balances y se
+  // agrupan sus items por producto: ingreso = precio x cant, costo = costo compra x cant.
+  const recognized = await repository.listProfitReport({ page: 1, pageSize: 500, period });
   const sales = await prisma.sale.findMany({
-    where: { status: "INVOICED", order: { is: { status: "COMPLETED" } } },
+    where: { id: { in: recognized.items.map((row) => row.saleId) } },
     select: {
       order: {
         select: {
-          completedAt: true,
-          history: {
-            where: { toStatus: "COMPLETED" },
-            orderBy: { createdAt: "desc" },
-            take: 1,
-            select: { createdAt: true },
-          },
           items: {
             select: {
               quantity: true,
@@ -102,10 +95,6 @@ export async function computeMonthlyReport(monthKey: string): Promise<MonthlyRep
 
   const productMap = new Map<string, MonthlyReportProduct>();
   for (const sale of sales) {
-    const delivered = sale.order?.history[0]?.createdAt ?? sale.order?.completedAt ?? null;
-    if (!delivered || delivered < period.from || delivered >= period.to) {
-      continue;
-    }
     for (const item of sale.order?.items ?? []) {
       const revenue = item.quantity * Number(item.unitPrice);
       const cost = item.quantity * Number(item.purchaseCost ?? 0);

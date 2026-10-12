@@ -24,8 +24,8 @@ import { SaleOriginBadge } from "@/modules/ventas/presentation/sale-origin-badge
 // Reporte de ventas por origen (Meta Ads, Marketplace, Referido, Recurrente, Mostrador, Sin dato).
 //
 // CRITERIO (el mismo de Balances, el informe mensual y el MCP del asesor): entran las ventas
-// pagadas por completo (INVOICED) con su orden entregada (COMPLETED), en el mes de ENTREGA
-// (ultima linea "Cerrada" del historial). Facturacion = sale.total; ganancia = la de Balances.
+// pagadas por completo (INVOICED), aunque falte entregarlas, en el mes del pago que las completo
+// (contraentrega: en el mes de entrega). Facturacion = sale.total; ganancia = la de Balances.
 // Por eso se reutiliza listProfitReport de Balances en vez de recalcular aqui.
 
 type PageProps = {
@@ -161,7 +161,7 @@ export default async function AdminVentasOrigenPage({ searchParams }: PageProps)
           </Link>
           <h1 className="text-xl font-semibold tracking-tight text-foreground">Ventas por origen · {year}</h1>
           <p className="max-w-2xl text-xs text-muted-foreground">
-            Ventas pagadas y entregadas, en el mes de entrega (mismo criterio de Balances). El origen sale de la línea
+            Ventas pagadas por completo, aunque falte entregarlas, en el mes del pago (contraentrega: al entregar; mismo criterio de Balances). El origen sale de la línea
             de WhatsApp del chat en el CRM. &quot;Sin dato&quot; = ventas sin origen registrado.
           </p>
         </div>
@@ -233,7 +233,7 @@ export default async function AdminVentasOrigenPage({ searchParams }: PageProps)
 
       {months.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          No hay ventas pagadas y entregadas en {year}.
+          No hay ventas pagadas en {year}.
         </p>
       ) : (
         months.map((month) => (

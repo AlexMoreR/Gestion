@@ -48,7 +48,7 @@ export default async function InformeMesPage({ searchParams }: PageProps) {
       {/* Resumen */}
       <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Ventas del mes" value={formatMoney(report.sales.total, currency)} />
-        <Stat label="Pedidos entregados" value={String(report.sales.count)} />
+        <Stat label="Ventas pagadas" value={String(report.sales.count)} />
         <Stat label="Utilidad total" value={formatMoney(report.profit.net, currency)} />
         <Stat label="Margen promedio" value={`${report.profit.marginPct.toFixed(2)}%`} />
       </section>
@@ -82,7 +82,8 @@ export default async function InformeMesPage({ searchParams }: PageProps) {
       </section>
 
       <p className="mt-8 text-xs text-slate-400">
-        Ventas y utilidad reconocidas por mes de entrega. Costos = proveedores + envíos.
+        Ventas pagadas por completo, en el mes en que se completó el pago (contraentrega: al entregar).
+        Costos = proveedores + envíos.
       </p>
     </main>
   );

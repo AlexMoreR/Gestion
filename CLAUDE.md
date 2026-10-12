@@ -132,7 +132,7 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   `supplierPaymentStatus`. Es la base del costo real de la venta.
 - **OrderItemPhoto** — fotos del ítem (evidencia de fabricación/estado).
 - **OrderStatusHistory** — historial de cambios de estado de una orden. La **última entrada a
-  `COMPLETED`** define la **fecha de entrega** usada para reconocer ingresos por mes.
+  `COMPLETED`** define la **fecha de entrega** (la que decide el mes de las ventas en contraentrega).
 - **ProductionJob** — trabajo de fabricación (`code`, estado `ProductionJobStatus`, asignado a alguien).
 - **Dispatch** — despacho/entrega: `deliveryType` (`COUNTER`/`PICKUP`/`SHIPPING`), transportadora,
   `shippingCost`, guía, direcciones y fotos de entrega.
@@ -222,19 +222,24 @@ gananciaNeta    = valorVenta − costosProveedor − costosEnvio
 margen%         = gananciaNeta / valorVenta × 100
 ```
 
-**Reconocimiento por fecha de ENTREGA (no por fecha de creación).** Una venta se cuenta en el mes en que
-su orden llegó a `COMPLETED` (la última entrada `COMPLETED` de `OrderStatusHistory`; si no hay,
-`order.completedAt`). Así, si se vende en un mes y se entrega en otro, la utilidad cae en el mes de
-entrega. El filtrado por periodo se hace en JS para ser robusto ante deshacer/rehacer estados
-(`src/modules/balances/infrastructure/prisma-balances-repository.ts`).
+**Qué ventas entran y en qué mes** (decisión de Alexander, 11-oct-2026: el recaudo y la entrega son
+cosas distintas). Regla pura en `src/modules/balances/domain/recognition.ts`:
+- Ventas **`INVOICED`** (totalmente pagadas) **aunque falte entregarlas**. Cuentan en la **fecha del
+  pago que completó el total** (`computeFullyPaidAt`, por `SalePayment.paymentDate`) y no cambian de
+  mes al entregarse. Mientras la orden no está `COMPLETED` se muestran como **"Falta entregar"**
+  (`SaleProfit.pendingDelivery`) en Balances y en la lista de ventas.
+- **Contraentrega** (`Sale.paymentMethod = CONTRAENTREGA`): solo cuenta con la orden `COMPLETED`, en la
+  fecha de entrega (última entrada `COMPLETED` de `OrderStatusHistory`; si no hay, `order.completedAt`).
+- Orden `CANCELLED`: no cuenta.
 
-**Qué ventas entran** al dashboard/informe: ventas **`INVOICED`** (totalmente pagadas) cuya orden está
-**`COMPLETED`**. Una venta pasa a `INVOICED` cuando **lo pagado (inicial + abonos) ≥ `sale.total`**
-(ver `src/app/actions/sales-actions.ts`); si luego se elimina un pago y baja de ese umbral, vuelve a
-`ACTIVE`.
+Una venta pasa a `INVOICED` cuando **lo pagado (inicial + abonos) ≥ `sale.total`** (ver
+`src/app/actions/sales-actions.ts`); si luego se elimina un pago y baja de ese umbral, vuelve a
+`ACTIVE` y sale de Balances. El filtrado por periodo se hace en JS
+(`src/modules/balances/infrastructure/prisma-balances-repository.ts`). Ojo: en una venta pagada sin
+entregar el costo puede subir después (flete al despachar, costo confirmado de la proveedora).
 
 El **informe mensual** (`src/lib/monthly-report.ts`) reutiliza esta lógica y agrega: total y # de
-pedidos entregados, utilidad y margen, top 5 productos por ventas y por margen, y cotizaciones
+ventas pagadas, utilidad y margen, top 5 productos por ventas y por margen, y cotizaciones
 hechas/cerradas.
 
 ---
@@ -269,8 +274,8 @@ Route handlers reales (`route.ts`):
 - **Solo lectura**: módulo `src/modules/asesor` (hexagonal). Sus puertos solo tienen métodos de
   consulta; la ganancia por venta y el resumen del mes **reutilizan los casos de uso de Balances**.
 - Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_cotizaciones`, `listar_productos`,
-  `comisiones_del_mes` y `que_es_esta_aplicacion`. Mismo criterio que Balances (ventas pagadas y
-  entregadas, por fecha de entrega). "Vendedora" = quien creó la cotización (no existe un campo
+  `comisiones_del_mes` y `que_es_esta_aplicacion`. Mismo criterio que Balances (ventas pagadas
+  por completo, aunque falte entregarlas; contraentrega al entregar). "Vendedora" = quien creó la cotización (no existe un campo
   propio); `listar_ventas` devuelve `origen` (etiqueta), `origen_codigo` y `origen_detalle`.
 
 ### Origen de cada venta (oct-2026)
@@ -287,7 +292,7 @@ Route handlers reales (`route.ts`):
 - Relleno de ventas viejas: `npm run origen:rellenar` (simulación; `--aplicar` escribe). Usa
   `CRM_ORIGEN_URL` y `CRM_ORIGEN_LLAVE` (solo el script; la app no las necesita).
 - Comisiones: 10% de la ganancia en la primera venta del mes de cada vendedora, 15% desde la segunda,
-  en orden de fecha de entrega; ganancia ≤ 0 no genera comisión.
+  en orden de la fecha en que cuenta cada venta; ganancia ≤ 0 no genera comisión.
 
 ### Radiografía de la app (`que_es_esta_aplicacion`)
 Devuelve qué hace la app, stack y despliegue, módulos y casos de uso, modelo de datos, rutas, reglas
@@ -384,8 +389,9 @@ que **redespliega** el stack automáticamente. No hay que hacer nada manual.
   en código (p. ej. categorías de gasto o los datos DANE de transporte).
 - **Zona horaria:** el servidor corre en `America/Bogota`; las fechas "de calendario" (fecha de gasto,
   entrega, etc.) se manejan con cuidado para no correrse de día/mes.
-- **Fechas de negocio:** los ingresos/ganancias se reconocen por **fecha de entrega** (orden
-  `COMPLETED`), no por fecha de creación de la venta.
+- **Fechas de negocio:** los ingresos/ganancias se reconocen cuando la venta queda **pagada por
+  completo** (fecha de ese pago), aunque falte entregarla; la **contraentrega**, por fecha de entrega
+  (orden `COMPLETED`). Nunca por fecha de creación de la venta.
 - **Archivos subidos:** viven en `/public/uploads` (volumen persistente) y se sirven por
   `/uploads/[...path]`.
 - **Auditoría:** las acciones importantes registran `ActivityLog`.

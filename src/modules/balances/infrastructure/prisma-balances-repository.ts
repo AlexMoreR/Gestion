@@ -33,6 +33,7 @@ import {
   summarizeDashboardMetrics,
   summarizeSupplierBalance,
 } from "../domain/calculations";
+import { computeFullyPaidAt, resolveProfitRecognition } from "../domain/recognition";
 
 type AccountSelection = {
   id: string;
@@ -201,14 +202,11 @@ function buildShippingWhere(search?: string): Prisma.ShippingCostWhereInput {
 }
 
 function buildProfitWhere(search?: string): Prisma.SaleWhereInput {
-  // Solo ventas facturadas con su orden entregada (COMPLETED). El filtro por mes
-  // NO se hace aqui: se aplica luego en JS con la fecha de entrega real (la ultima
-  // linea "Cerrada" del historial), para no depender de un campo que los ciclos
-  // de "deshacer / re-entregar" pueden dejar desajustado o nulo.
-  const base: Prisma.SaleWhereInput = {
-    status: "INVOICED",
-    order: { is: { status: "COMPLETED" } },
-  };
+  // Solo ventas pagadas por completo (facturadas). Aunque falte entregarlas,
+  // cuentan; la contraentrega sin entregar y las ordenes canceladas se descartan
+  // luego con resolveProfitRecognition (domain/recognition.ts), igual que el
+  // filtro por mes, que se aplica en JS con la fecha en que cuenta cada venta.
+  const base: Prisma.SaleWhereInput = { status: "INVOICED" };
   const normalizedSearch = normalizeSearch(search);
   if (!normalizedSearch) {
     return base;
@@ -224,17 +222,22 @@ function buildProfitWhere(search?: string): Prisma.SaleWhereInput {
   };
 }
 
-// Fecha de reconocimiento = mes de ENTREGA (SaleProfit.createdAt ya viene con la
-// fecha de la ultima linea "Cerrada"). Se filtra en JS para tomar SIEMPRE la
-// ultima entrega y evitar doble conteo si una orden se entrego en meses distintos.
-function filterByDeliveryPeriod(rows: SaleProfit[], period?: DateRange): SaleProfit[] {
+// Mes en que cuenta la venta: SaleProfit.createdAt ya viene con la fecha de
+// reconocimiento (pago completo; en contraentrega, la ultima entrega). Se filtra
+// en JS para no depender de campos que "deshacer / re-entregar" pueden desajustar.
+function filterByRecognitionPeriod(rows: SaleProfit[], period?: DateRange): SaleProfit[] {
   if (!period) {
     return rows;
   }
   return rows.filter((row) => row.createdAt >= period.from && row.createdAt < period.to);
 }
 
-async function getSaleProfitRows(where?: Prisma.SaleWhereInput): Promise<SaleProfit[]> {
+// onlyRecognized: solo las ventas que cuentan en Balances (resolveProfitRecognition).
+// Sin el, se calcula la ganancia de cualquier venta (p. ej. una sola por id).
+async function getSaleProfitRows(
+  where: Prisma.SaleWhereInput | undefined,
+  options: { onlyRecognized: boolean },
+): Promise<SaleProfit[]> {
   const sales = await prisma.sale.findMany({
     where,
     orderBy: { createdAt: "desc" },
@@ -243,9 +246,13 @@ async function getSaleProfitRows(where?: Prisma.SaleWhereInput): Promise<SalePro
       code: true,
       total: true,
       createdAt: true,
+      paymentMethod: true,
+      downPaymentAmount: true,
+      salePayments: { select: { amount: true, paymentDate: true, createdAt: true } },
       client: { select: { name: true } },
       order: {
         select: {
+          status: true,
           completedAt: true,
           // Fecha de la ultima entrega (paso a "Cerrada"), editable desde el
           // historial; es la que decide el mes de la venta.
@@ -274,14 +281,39 @@ async function getSaleProfitRows(where?: Prisma.SaleWhereInput): Promise<SalePro
     } satisfies Prisma.SaleSelect,
   });
 
-  return sales.map((sale) =>
-    calculateSaleProfitSummary({
+  const rows: SaleProfit[] = [];
+  for (const sale of sales) {
+    // Entrega: ultima linea "Cerrada" del historial; si faltara, completedAt.
+    const deliveredAt =
+      sale.order?.status === "COMPLETED"
+        ? (sale.order.history[0]?.createdAt ?? sale.order.completedAt ?? null)
+        : null;
+    const fullyPaidAt = computeFullyPaidAt({
+      total: toNumber(sale.total),
+      recordedPaid: toNumber(sale.downPaymentAmount),
+      saleCreatedAt: sale.createdAt,
+      payments: sale.salePayments.map((payment) => ({
+        amount: toNumber(payment.amount),
+        date: payment.paymentDate ?? payment.createdAt,
+      })),
+    });
+    const recognition = resolveProfitRecognition({
+      paymentMethod: sale.paymentMethod,
+      orderStatus: sale.order?.status ?? null,
+      deliveredAt,
+      fullyPaidAt,
+      saleCreatedAt: sale.createdAt,
+    });
+    if (!recognition && options.onlyRecognized) {
+      continue;
+    }
+
+    rows.push(calculateSaleProfitSummary({
       saleId: sale.id,
       saleCode: sale.code,
       saleAmount: toNumber(sale.total),
-      // Reconocimiento por fecha de entrega: ultima linea "Cerrada" del historial;
-      // si faltara, completedAt y por ultimo la fecha de creacion.
-      createdAt: sale.order?.history[0]?.createdAt ?? sale.order?.completedAt ?? sale.createdAt,
+      createdAt: recognition?.recognizedAt ?? deliveredAt ?? sale.createdAt,
+      pendingDelivery: recognition?.pendingDelivery ?? sale.order?.status !== "COMPLETED",
       clientName: sale.client.name,
       orderItems: sale.order?.items.map((item) => ({
         quantity: item.quantity,
@@ -291,8 +323,9 @@ async function getSaleProfitRows(where?: Prisma.SaleWhereInput): Promise<SalePro
         additionalCost: toNumber(item.product.additionalCost),
       })) ?? [],
       shippingCosts: sale.shippingCosts.map((entry) => toNumber(entry.amount)),
-    }),
-  );
+    }));
+  }
+  return rows;
 }
 
 export function createPrismaBalancesRepository(): BalancesRepository {
@@ -558,7 +591,7 @@ export function createPrismaBalancesRepository(): BalancesRepository {
     },
 
     async calculateSaleProfit(saleId: string): Promise<SaleProfit | null> {
-      const rows = await getSaleProfitRows({ id: saleId });
+      const rows = await getSaleProfitRows({ id: saleId }, { onlyRecognized: false });
       return rows[0] ?? null;
     },
 
@@ -566,8 +599,8 @@ export function createPrismaBalancesRepository(): BalancesRepository {
       const page = Math.max(1, query.page || 1);
       const pageSize = Math.max(1, Math.min(query.pageSize || 10, 500));
       const where = buildProfitWhere(query.search);
-      const allRows = await getSaleProfitRows(where);
-      const rows = filterByDeliveryPeriod(allRows, query.period);
+      const allRows = await getSaleProfitRows(where, { onlyRecognized: true });
+      const rows = filterByRecognitionPeriod(allRows, query.period);
 
       const total = rows.length;
       const start = (page - 1) * pageSize;
@@ -607,13 +640,10 @@ export function createPrismaBalancesRepository(): BalancesRepository {
     },
 
     async getDashboardMetrics(period?: DateRange): Promise<DashboardMetrics> {
-      // Ventas facturadas y entregadas, reconocidas en su mes de ENTREGA (ultima
-      // linea "Cerrada" del historial). El filtro por mes se hace en JS.
-      const allRows = await getSaleProfitRows({
-        status: "INVOICED",
-        order: { is: { status: "COMPLETED" } },
-      });
-      const sales = filterByDeliveryPeriod(allRows, period);
+      // Ventas pagadas por completo (aunque falte entregarlas, salvo contraentrega),
+      // en el mes en que cuentan. El filtro por mes se hace en JS.
+      const allRows = await getSaleProfitRows(buildProfitWhere(), { onlyRecognized: true });
+      const sales = filterByRecognitionPeriod(allRows, period);
       return summarizeDashboardMetrics(sales);
     },
 

@@ -92,6 +92,7 @@ describe("balances calculations", () => {
         marginPercentage: 75,
         createdAt: new Date("2026-06-17T00:00:00.000Z"),
         clientName: null,
+        pendingDelivery: false,
       },
       {
         saleId: "2",
@@ -103,6 +104,7 @@ describe("balances calculations", () => {
         marginPercentage: 75,
         createdAt: new Date("2026-06-17T00:00:00.000Z"),
         clientName: null,
+        pendingDelivery: false,
       },
     ]);
 

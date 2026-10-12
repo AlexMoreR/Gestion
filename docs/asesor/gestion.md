@@ -148,9 +148,12 @@ de esa venta. El costo de cada producto vendido es, en este orden: el costo conf
 proveedora en la orden; si no hay y el producto sale de stock, costo de catálogo + flete por unidad;
 si no, el costo de la proveedora preferida o el costo de catálogo. No resta gastos operativos.
 
-**Cuándo cuenta una venta.** Solo cuenta cuando está pagada por completo (estado "facturada": lo
-pagado ≥ total) y su orden está entregada. Se reconoce en el mes de la ENTREGA, no en el de la venta.
-Si se vende en un mes y se entrega en otro, la ganancia cae en el mes de entrega.
+**Cuándo cuenta una venta.** Cuenta cuando está pagada por completo (estado "facturada": lo pagado
+≥ total), aunque falte entregarla: el recaudo y la entrega son cosas distintas (decisión de
+Alexander, 11-oct-2026). Se reconoce en la fecha del pago que la completó, y no cambia de mes cuando
+luego se entrega. Mientras no se entrega aparece como "Falta entregar". Excepción: la
+**contraentrega** se cobra al entregar, así que solo cuenta con la orden entregada y en el mes de la
+entrega. Una orden cancelada no cuenta.
 
 **Estados de una cotización.** Revisión (borrador), Enviada, Aceptada, Rechazada y Expirada. Al
 convertirla en venta queda "Aceptada". Un empleado solo ve, edita y convierte sus propias
@@ -176,7 +179,8 @@ el CRM queda "pendiente de revisar" en `/admin/transporte` hasta que se le defin
 en su cuenta. Cada proveedora recibe una orden de fabricación (OF-) por orden de venta.
 
 **Comisiones (herramienta del asesor).** 10% de la ganancia en la primera venta del mes de cada
-vendedora y 15% desde la segunda, en orden de fecha de entrega. Vendedora = quien creó la
+vendedora y 15% desde la segunda, en orden de la fecha en que cuenta cada venta (pago completo;
+contraentrega: entrega). Vendedora = quien creó la
 cotización. Una venta con ganancia cero o negativa no genera comisión.
 
 **Origen de la venta.** Sale de la línea de WhatsApp del chat en el CRM: Ventas 1 = Meta Ads,
@@ -192,12 +196,12 @@ recurrente; no se guarda.
 - No tiene un campo **vendedora**: se usa a quien creó la cotización.
 - No es **multi-empresa**: no hay workspaces; todos los datos son de Magilus.
 - Las órdenes de fabricación (OF-) **no tienen estado** (enviada, en fabricación, recibida).
-- Los reportes de ganancia **no incluyen ventas pendientes** de pago o de entrega.
+- Los reportes de ganancia **no incluyen ventas con saldo pendiente** ni contraentregas sin entregar. Una venta pagada sin entregar sí cuenta; su costo puede subir después si al despachar se registra un flete o se confirma otro costo de proveedora.
 - La contribución **no descuenta gastos operativos**; esos están en el módulo Gastos.
 - Un usuario con historial (ventas, cotizaciones, gastos) **no se puede borrar** y no existe "desactivar usuario": hay que quitarle módulos o cambiarle el rol.
 - No hay **pruebas automáticas** en el pipeline de despliegue (ver riesgos).
 - La foto de la aplicación en producción **no trae el commit**, porque `.git` no entra a la imagen; se identifica por la fecha del build.
-- **Corte de mes:** los meses se cortan a medianoche UTC (7:00 p. m. en Colombia). Una entrega registrada en el momento después de las 7 p. m. del último día del mes cae en el mes siguiente. Si la fecha se edita a mano en el historial, queda al mediodía y no pasa.
+- **Corte de mes:** los meses se cortan a medianoche UTC (7:00 p. m. en Colombia). Un pago (o una entrega, en contraentrega) registrado después de las 7 p. m. del último día del mes cae en el mes siguiente. Si la fecha se edita a mano en el historial, queda al mediodía y no pasa.
 
 ## Riesgos de operación
 

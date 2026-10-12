@@ -158,7 +158,7 @@ export const UNASSIGNED_SELLER = "sin asignar";
 
 type CommissionLine = {
   venta: string;
-  fecha_entrega: string;
+  fecha: string;
   numero_en_el_mes: number;
   ganancia: number;
   tasa_pct: number;
@@ -167,8 +167,8 @@ type CommissionLine = {
 };
 
 // Regla: 10% de la ganancia en la PRIMERA venta del mes de cada vendedora y 15%
-// de la segunda en adelante. El orden es por fecha de entrega (mes de
-// reconocimiento, igual que Balances). Una venta con ganancia <= 0 cuenta en el
+// de la segunda en adelante. El orden es por la fecha en que cuenta la venta
+// (pago completo; contraentrega: entrega), igual que Balances. Una venta con ganancia <= 0 cuenta en el
 // orden pero no genera comision. Las ventas sin vendedora no generan comision.
 export function computeCommissions(sales: CommissionSaleInput[]) {
   const bySeller = new Map<string, { name: string; sales: CommissionSaleInput[] }>();
@@ -187,7 +187,7 @@ export function computeCommissions(sales: CommissionSaleInput[]) {
   const sortSales = (list: CommissionSaleInput[]) =>
     [...list].sort(
       (left, right) =>
-        left.deliveredAt.getTime() - right.deliveredAt.getTime() || left.saleCode.localeCompare(right.saleCode),
+        left.recognizedAt.getTime() - right.recognizedAt.getTime() || left.saleCode.localeCompare(right.saleCode),
     );
 
   const sellers = Array.from(bySeller.values())
@@ -197,7 +197,7 @@ export function computeCommissions(sales: CommissionSaleInput[]) {
         const base = sale.profit > 0 ? sale.profit : 0;
         const line: CommissionLine = {
           venta: sale.saleCode,
-          fecha_entrega: formatDay(sale.deliveredAt),
+          fecha: formatDay(sale.recognizedAt),
           numero_en_el_mes: index + 1,
           ganancia: roundMoney(sale.profit),
           tasa_pct: rate * 100,
@@ -220,7 +220,7 @@ export function computeCommissions(sales: CommissionSaleInput[]) {
 
   const unassignedLines = sortSales(unassigned).map((sale) => ({
     venta: sale.saleCode,
-    fecha_entrega: formatDay(sale.deliveredAt),
+    fecha: formatDay(sale.recognizedAt),
     ganancia: roundMoney(sale.profit),
   }));
 

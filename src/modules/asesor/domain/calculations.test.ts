@@ -85,9 +85,9 @@ describe("resumen del mes", () => {
 describe("comisiones", () => {
   it("paga 10% la primera venta del mes y 15% las siguientes, por fecha de entrega", () => {
     const report = computeCommissions([
-      { saleCode: "SAL-3", deliveredAt: new Date("2026-09-20T00:00:00Z"), seller: ana, profit: 1_000_000 },
-      { saleCode: "SAL-1", deliveredAt: new Date("2026-09-05T00:00:00Z"), seller: ana, profit: 2_000_000 },
-      { saleCode: "SAL-2", deliveredAt: new Date("2026-09-10T00:00:00Z"), seller: bea, profit: 500_000 },
+      { saleCode: "SAL-3", recognizedAt: new Date("2026-09-20T00:00:00Z"), seller: ana, profit: 1_000_000 },
+      { saleCode: "SAL-1", recognizedAt: new Date("2026-09-05T00:00:00Z"), seller: ana, profit: 2_000_000 },
+      { saleCode: "SAL-2", recognizedAt: new Date("2026-09-10T00:00:00Z"), seller: bea, profit: 500_000 },
     ]);
 
     const anaReport = report.vendedoras.find((seller) => seller.vendedora === "Ana");
@@ -105,8 +105,8 @@ describe("comisiones", () => {
 
   it("una venta con perdida cuenta en el orden pero no genera comision", () => {
     const report = computeCommissions([
-      { saleCode: "SAL-1", deliveredAt: new Date("2026-09-01T00:00:00Z"), seller: ana, profit: -100_000 },
-      { saleCode: "SAL-2", deliveredAt: new Date("2026-09-02T00:00:00Z"), seller: ana, profit: 1_000_000 },
+      { saleCode: "SAL-1", recognizedAt: new Date("2026-09-01T00:00:00Z"), seller: ana, profit: -100_000 },
+      { saleCode: "SAL-2", recognizedAt: new Date("2026-09-02T00:00:00Z"), seller: ana, profit: 1_000_000 },
     ]);
     const lines = report.vendedoras[0].detalle;
     expect(lines[0]).toMatchObject({ comision: 0, tasa_pct: 10 });
@@ -116,7 +116,7 @@ describe("comisiones", () => {
 
   it("separa las ventas sin vendedora como 'sin asignar' sin comision", () => {
     const report = computeCommissions([
-      { saleCode: "SAL-9", deliveredAt: new Date("2026-09-01T00:00:00Z"), seller: null, profit: 800_000 },
+      { saleCode: "SAL-9", recognizedAt: new Date("2026-09-01T00:00:00Z"), seller: null, profit: 800_000 },
     ]);
     expect(report.vendedoras).toHaveLength(0);
     expect(report.sin_asignar).toMatchObject({ vendedora: "sin asignar", ventas: 1, ganancia_total: 800_000 });

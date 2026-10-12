@@ -29,8 +29,11 @@ export type SaleProfit = {
   shippingCosts: number;
   netProfit: number;
   marginPercentage: number;
+  // Fecha en que cuenta la venta (pago completo; en contraentrega, la entrega).
   createdAt: Date;
   clientName: string | null;
+  // Pagada pero aun sin entregar: solo falta la entrega.
+  pendingDelivery: boolean;
 };
 
 export type SupplierBalance = {

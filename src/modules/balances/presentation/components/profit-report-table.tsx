@@ -1,6 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { Truck } from "lucide-react";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type { SaleProfit } from "@/modules/balances/domain/entities";
 import { BalancesDataGrid } from "./balances-data-grid";
@@ -21,6 +22,15 @@ export function ProfitReportTable({ data, currency }: ProfitReportTableProps) {
           <p className="text-xs text-muted-foreground">
             {new Date(row.original.createdAt).toLocaleDateString("es-CO")}
           </p>
+          {row.original.pendingDelivery ? (
+            <span
+              className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400"
+              title="Pagada por completo: ya cuenta su ganancia y solo falta entregarla."
+            >
+              <Truck className="h-3.5 w-3.5" />
+              Falta entregar
+            </span>
+          ) : null}
         </div>
       ),
     },
@@ -67,7 +77,7 @@ export function ProfitReportTable({ data, currency }: ProfitReportTableProps) {
   return (
     <BalancesDataGrid
       title="Balance por venta"
-      description="Rentabilidad calculada por orden/venta."
+      description="Ventas pagadas por completo. Las que dicen “Falta entregar” ya cuentan su ganancia; solo queda la entrega."
       data={data}
       columns={columns}
       searchPlaceholder="Buscar por venta o cliente"

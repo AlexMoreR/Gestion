@@ -62,7 +62,7 @@ export type ProductRow = {
 // Venta reconocida en el periodo, con su ganancia real (de Balances) y vendedora.
 export type CommissionSaleInput = {
   saleCode: string;
-  deliveredAt: Date;
+  recognizedAt: Date;
   seller: Seller | null;
   profit: number;
 };

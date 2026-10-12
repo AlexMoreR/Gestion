@@ -30,8 +30,10 @@ const DOC_FILE = "docs/asesor/gestion.md";
 const CODE_RULES = [
   { regla: "Costo unitario de cada producto vendido", archivo: "src/lib/order-item-cost.ts", funcion: "computeItemUnitCost" },
   { regla: "Ganancia por venta (ventas - producto - flete)", archivo: "src/modules/balances/domain/calculations.ts", funcion: "calculateSaleProfitSummary" },
-  { regla: "Que ventas cuentan (pagadas y entregadas)", archivo: "src/modules/balances/infrastructure/prisma-balances-repository.ts", funcion: "buildProfitWhere" },
-  { regla: "Mes en que se reconoce una venta (fecha de entrega)", archivo: "src/modules/balances/infrastructure/prisma-balances-repository.ts", funcion: "filterByDeliveryPeriod" },
+  { regla: "Que ventas cuentan (pagadas por completo)", archivo: "src/modules/balances/infrastructure/prisma-balances-repository.ts", funcion: "buildProfitWhere" },
+  { regla: "Cuando cuenta una venta (pago completo; contraentrega al entregar)", archivo: "src/modules/balances/domain/recognition.ts", funcion: "resolveProfitRecognition" },
+  { regla: "Fecha en que una venta quedo pagada por completo", archivo: "src/modules/balances/domain/recognition.ts", funcion: "computeFullyPaidAt" },
+  { regla: "Mes en que se reconoce una venta", archivo: "src/modules/balances/infrastructure/prisma-balances-repository.ts", funcion: "filterByRecognitionPeriod" },
   { regla: "Margen de catalogo a partir del precio", archivo: "src/lib/pricing.ts", funcion: "calculateMarginPctFromPrice" },
   { regla: "Precio de venta a partir del margen", archivo: "src/lib/pricing.ts", funcion: "calculateRetailPrice" },
   { regla: "Combos: se muestran como un solo producto", archivo: "src/lib/quote-display-items.ts", funcion: "groupQuoteDisplayItems" },

@@ -35,7 +35,7 @@ const CURRENCY = "COP";
 
 // Mismo criterio que Balances y el informe mensual.
 const SALES_CRITERIA =
-  "Ventas pagadas por completo (facturadas) con su orden entregada, reconocidas en el mes/fecha de ENTREGA. Es el mismo criterio de Balances.";
+  "Ventas pagadas por completo (facturadas), aunque falte entregarlas, reconocidas en la fecha en que quedaron pagadas. Contraentrega: solo con la orden entregada, en la fecha de entrega. Es el mismo criterio de Balances.";
 
 const SELLER_NOTE =
   "No existe un campo 'vendedora' en el sistema: se toma como vendedora a quien creo la cotizacion. 'registrada_por' es quien convirtio la cotizacion en venta.";
@@ -83,7 +83,8 @@ export async function listSalesUseCase(deps: AsesorDependencies, desde: string, 
       venta: row.saleCode,
       cotizacion: detail?.quoteCode ?? null,
       orden: detail?.orderCode ?? null,
-      fecha_entrega: formatDay(row.createdAt),
+      fecha: formatDay(row.createdAt),
+      entregada: !row.pendingDelivery,
       fecha_venta: detail ? formatDay(detail.saleDate) : null,
       cliente: row.clientName ?? detail?.clientName ?? null,
       productos: detail?.products ?? [],
@@ -120,7 +121,8 @@ export async function listSalesUseCase(deps: AsesorDependencies, desde: string, 
     notas: [
       SELLER_NOTE,
       "'origen' sale de la linea de WhatsApp del chat en el CRM (Ventas 1 = Meta Ads, Ventas 2 = Marketplace, Admin = Referido, o Recurrente si ya habia comprado); venta directa = Mostrador. 'Sin dato' = la venta no tiene origen registrado (casi todas las anteriores a oct-2026). 'origen_detalle' trae el anuncio o la cuenta MK cuando el CRM los conoce.",
-      "No incluye ventas pendientes de pago o de entrega.",
+      "'fecha' = cuando la venta empezo a contar (pago completo; contraentrega: entrega). 'entregada' = false si solo falta entregarla.",
+      "No incluye ventas con saldo pendiente ni contraentregas sin entregar.",
     ],
   };
 }
@@ -195,7 +197,7 @@ export async function getMonthlyCommissionsUseCase(deps: AsesorDependencies, mes
   const report = computeCommissions(
     rows.map((row) => ({
       saleCode: row.saleCode,
-      deliveredAt: row.createdAt,
+      recognizedAt: row.createdAt,
       seller: detailById.get(row.saleId)?.seller ?? null,
       profit: row.netProfit,
     })),
@@ -209,7 +211,7 @@ export async function getMonthlyCommissionsUseCase(deps: AsesorDependencies, mes
     criterio: SALES_CRITERIA,
     regla: `${COMMISSION_FIRST_SALE_RATE * 100}% de la ganancia en la primera venta del mes de cada vendedora y ${
       COMMISSION_NEXT_SALES_RATE * 100
-    }% de la segunda en adelante, en orden de fecha de entrega.`,
+    }% de la segunda en adelante, en orden de la fecha en que cuenta cada venta (pago completo; contraentrega: entrega).`,
     ...report,
     notas: [
       SELLER_NOTE,

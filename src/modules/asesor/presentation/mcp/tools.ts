@@ -105,7 +105,7 @@ export const asesorTools: McpToolDefinition[] = [
     name: "resumen_del_mes",
     title: "Resumen del mes",
     description:
-      "Resumen financiero de un mes: pedidos, ingresos, costo de producto, fletes, contribucion (ventas - producto - flete) y su %, y ticket promedio. Cuenta las ventas pagadas y entregadas en ese mes (mismo criterio que Balances). Valores en COP.",
+      "Resumen financiero de un mes: pedidos, ingresos, costo de producto, fletes, contribucion (ventas - producto - flete) y su %, y ticket promedio. Cuenta las ventas pagadas por completo en ese mes, aunque falte entregarlas (contraentrega: solo entregadas, en el mes de entrega). Mismo criterio que Balances. Valores en COP.",
     schema: monthArgs,
     handler: (args, deps) => {
       const { mes, anio } = resolveMonth(args);
@@ -116,7 +116,7 @@ export const asesorTools: McpToolDefinition[] = [
     name: "listar_ventas",
     title: "Listar ventas",
     description:
-      "Ventas entregadas y pagadas en un rango de fechas (por fecha de entrega): fecha, cliente, productos, total, costo, flete, ganancia real, vendedora y origen (Meta Ads, Marketplace, Referido, Recurrente, Mostrador o Sin dato, con el anuncio o la cuenta MK si se conocen). Incluye totales al final. Valores en COP.",
+      "Ventas pagadas por completo en un rango de fechas (por la fecha en que quedaron pagadas; contraentrega: entregadas, por fecha de entrega): fecha, si ya se entrego, cliente, productos, total, costo, flete, ganancia real, vendedora y origen (Meta Ads, Marketplace, Referido, Recurrente, Mostrador o Sin dato, con el anuncio o la cuenta MK si se conocen). Incluye totales al final. Valores en COP.",
     schema: z.object(rangeArgs),
     handler: (args, deps) => listSalesUseCase(deps, args.desde, args.hasta),
   }),
@@ -191,6 +191,6 @@ export const asesorMcpServer: McpServerDefinition = {
   name: "gestion-magilus",
   version: "1.0.0",
   instructions:
-    "Servidor de SOLO LECTURA de Gestion (Magilus): ventas, cotizaciones, productos, margenes y comisiones. Para entender el sistema completo usa primero que_es_esta_aplicacion. No modifica ningun dato. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando estan pagadas y entregadas, en el mes de entrega (igual que la pantalla de Balances).",
+    "Servidor de SOLO LECTURA de Gestion (Magilus): ventas, cotizaciones, productos, margenes y comisiones. Para entender el sistema completo usa primero que_es_esta_aplicacion. No modifica ningun dato. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
   tools: asesorTools,
 };

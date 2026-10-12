@@ -7,6 +7,7 @@ export type SaleProfitInput = {
   saleAmount: number;
   createdAt: Date;
   clientName: string | null;
+  pendingDelivery?: boolean;
   orderItems: Array<{
     quantity: number;
     purchaseCost: number | null;
@@ -46,6 +47,7 @@ export function calculateSaleProfitSummary(input: SaleProfitInput): SaleProfit {
     marginPercentage,
     createdAt: input.createdAt,
     clientName: input.clientName,
+    pendingDelivery: input.pendingDelivery ?? false,
   };
 }
 

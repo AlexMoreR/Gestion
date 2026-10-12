@@ -221,6 +221,11 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
             : [],
           hasOrder: Boolean(sale.order),
           orderId: sale.order?.id ?? null,
+          pendingDelivery:
+            sale.status === "INVOICED" &&
+            Boolean(sale.order) &&
+            sale.order?.status !== "COMPLETED" &&
+            sale.order?.status !== "CANCELLED",
           salePaymentMethod: sale.paymentMethod ?? null,
           saleOrigin: sale.origin ?? null,
           saleOriginDetail: sale.originDetail ?? null,

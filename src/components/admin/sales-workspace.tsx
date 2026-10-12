@@ -39,6 +39,7 @@ type SaleRow = {
   }>;
   hasOrder: boolean;
   orderId: string | null;
+  pendingDelivery?: boolean;
   salePaymentMethod: SalePaymentMethod | null;
   saleOrigin: SaleOriginCode | null;
   saleOriginDetail: unknown;
