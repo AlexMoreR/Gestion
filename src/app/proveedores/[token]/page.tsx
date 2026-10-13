@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { SupplierBalanceMonthSelect } from "@/components/admin/supplier-balance-month-select";
 import { SupplierBalanceItems, type SupplierBalanceRow } from "@/components/admin/supplier-balance-items";
 import { formatMoney } from "@/lib/currency";
+import { distributeAmount } from "@/lib/dispatch-shipping-legs";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
@@ -308,10 +309,13 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
 
     const items = charge.dispatch?.items ?? [];
     const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
-    // Si ya se editó el reparto por producto, se usan esos valores; si no, se
-    // reparte proporcional a la cantidad como punto de partida.
-    const storedSum = items.reduce((sum, item) => sum + Number(item.shippingCost), 0);
-    const useStored = storedSum > 0;
+    // Si ya se editó el reparto por producto, se usa esa proporcion; si no, se reparte
+    // proporcional a la cantidad. Se escala al valor de ESTE cargo: un despacho con varios
+    // proveedores de envio guarda el reparto del total, y cada proveedor solo ve lo suyo.
+    const shares = distributeAmount(
+      items.map((item) => ({ id: item.id, quantity: item.quantity, weight: Number(item.shippingCost) })),
+      amount,
+    );
 
     // Sin items: una sola fila de envío.
     if (items.length === 0 || totalQty === 0) {
@@ -334,16 +338,10 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
       ];
     }
 
-    // Reparte el costo del envío entre los productos (proporcional a la cantidad).
-    // El residuo de redondeo se asigna al último para que la suma cuadre con el total.
-    let assigned = 0;
-    return items.map((item, index) => {
-      const share = useStored
-        ? Number(item.shippingCost)
-        : index === items.length - 1
-          ? amount - assigned
-          : Math.round((amount * item.quantity) / totalQty);
-      assigned += share;
+    // Reparte el costo del envío entre los productos; el residuo de redondeo va al
+    // último para que la suma cuadre con el total del cargo.
+    return items.map((item) => {
+      const share = shares.get(item.id) ?? 0;
       const product = item.orderItem.product;
       return {
         id: `${charge.id}-${item.id}`,

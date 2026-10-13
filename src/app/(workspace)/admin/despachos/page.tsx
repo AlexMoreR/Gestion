@@ -36,6 +36,7 @@ export default async function AdminDespachosPage({ searchParams }: PageProps) {
           },
         },
         createdBy: true,
+        shippingLegs: { orderBy: { position: "asc" } },
         items: {
           include: {
             orderItem: {
@@ -153,6 +154,14 @@ export default async function AdminDespachosPage({ searchParams }: PageProps) {
           createdAt: dispatch.createdAt.toLocaleDateString("es-CO"),
           deliveryType: dispatch.deliveryType,
           shippingCost: dispatch.shippingCost === null ? null : Number(dispatch.shippingCost),
+          // Tramos del envio (varios proveedores); la suma es shippingCost.
+          shippingLegs: dispatch.shippingLegs.map((leg) => ({
+            position: leg.position,
+            carrierName: leg.carrierName,
+            amount: Number(leg.amount),
+            trackingNumber: leg.trackingNumber,
+            note: leg.note,
+          })),
           shippingAddress: dispatch.shippingAddress,
           notes: dispatch.notes,
           packedAt: dispatch.packedAt?.toLocaleDateString("es-CO") ?? null,

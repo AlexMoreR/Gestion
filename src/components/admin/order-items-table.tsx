@@ -33,6 +33,7 @@ import {
   type ShipmentDefaults,
 } from "@/modules/guias/presentation/shipment-dispatch-fields";
 import { CarrierSelect, type CarrierSelectOption } from "@/modules/guias/presentation/carrier-select";
+import { ExtraShippingLegsFields } from "@/components/admin/extra-shipping-legs-fields";
 
 type CarrierOption = CarrierSelectOption;
 type AccountOption = { id: string; name: string };
@@ -319,7 +320,7 @@ export function OrderItemsTable({
                         Costo de envio por producto
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        Total: {dispatchCostTotal.toLocaleString("es-CO", { style: "currency", currency })}
+                        Subtotal: {dispatchCostTotal.toLocaleString("es-CO", { style: "currency", currency })}
                       </span>
                     </div>
                     <div className="max-h-56 space-y-1.5 overflow-y-auto">
@@ -343,11 +344,13 @@ export function OrderItemsTable({
                     </div>
                   </div>
 
+                  <ExtraShippingLegsFields carriers={carriers} currency={currency} mainAmount={dispatchCostTotal} />
+
                   <input type="hidden" name="shippingMode" value="PAY_LATER" />
                   <input type="hidden" name="itemShippingCosts" value={itemShippingCostsJson} />
                   <input type="hidden" name="shippingCost" value={dispatchCostTotal} />
                   <p className="text-xs text-muted-foreground">
-                    El costo del envío queda como saldo pendiente con la transportadora.
+                    El costo de cada envío queda como saldo pendiente con su transportadora.
                   </p>
 
                   <div className="space-y-1">

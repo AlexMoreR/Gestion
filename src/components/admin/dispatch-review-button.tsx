@@ -21,6 +21,13 @@ export type DispatchReviewData = {
   status: "PENDING" | "PACKING" | "SHIPPED" | "DELIVERED" | "RETURNED" | "CANCELLED";
   deliveryType: "COUNTER" | "PICKUP" | "SHIPPING";
   shippingCost: number | null;
+  shippingLegs: {
+    position: number;
+    carrierName: string;
+    amount: number;
+    trackingNumber: string | null;
+    note: string | null;
+  }[];
   shippingAddress: string | null;
   notes: string | null;
   createdAt: string;
@@ -147,6 +154,28 @@ export function DispatchReviewButton({
                 {dispatch.shippingCost === null ? "—" : formatMoney(dispatch.shippingCost, currency)}
               </span>
             </div>
+
+            {/* Varios proveedores de envio: detalle por tramo (la suma es el costo de arriba). */}
+            {dispatch.shippingLegs.length > 1 ? (
+              <div className="space-y-1.5">
+                {dispatch.shippingLegs.map((leg) => (
+                  <div
+                    key={leg.position}
+                    className="flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-foreground">{leg.carrierName}</p>
+                      {leg.trackingNumber || leg.note ? (
+                        <p className="truncate text-xs text-muted-foreground">
+                          {[leg.note, leg.trackingNumber ? `Guía ${leg.trackingNumber}` : ""].filter(Boolean).join(" · ")}
+                        </p>
+                      ) : null}
+                    </div>
+                    <span className="shrink-0 font-medium text-foreground">{formatMoney(leg.amount, currency)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
 
             {dispatch.shippingAddress ? (
               <Field

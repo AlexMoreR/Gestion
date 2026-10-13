@@ -251,7 +251,12 @@ export function DispatchesWorkspace({ dispatches, currency, paidNotDispatched, s
                     </Link>
                   </TableCell>
                   <TableCell className="text-sm text-foreground">{dispatch.clientName}</TableCell>
-                  <TableCell className="text-sm text-foreground">{dispatch.carrierName ?? "-"}</TableCell>
+                  <TableCell className="text-sm text-foreground">
+                    {dispatch.carrierName ?? "-"}
+                    {dispatch.shippingLegs.length > 1 ? (
+                      <span className="ml-1 text-xs text-muted-foreground">+{dispatch.shippingLegs.length - 1}</span>
+                    ) : null}
+                  </TableCell>
                   <TableCell className="text-sm text-foreground">{dispatch.trackingNumber ?? "-"}</TableCell>
                   <TableCell>
                     <span

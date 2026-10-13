@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { formatMoney } from "@/lib/currency";
+import { resolveDispatchLegs, sumShippingLegs } from "@/lib/dispatch-shipping-legs";
 import { computeItemUnitCost } from "@/lib/order-item-cost";
 import { prisma } from "@/lib/prisma";
 import {
@@ -141,6 +142,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         dispatches: {
           include: {
             shipment: { select: { id: true, code: true, status: true } },
+            carrierSupplier: { select: { name: true } },
+            shippingLegs: { orderBy: { position: "asc" } },
             createdBy: true,
             items: {
               include: {
@@ -371,6 +374,35 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   const shippingDispatches = order.dispatches.filter(
     (dispatch) => dispatch.deliveryType === "SHIPPING" && dispatch.status !== "CANCELLED",
   );
+  // Tramos del envio por despacho (varios proveedores: ej. llegada a Cali + despacho al
+  // cliente). El valor del envio del despacho es la suma de sus tramos.
+  const shippingLegCards = shippingDispatches
+    .map((dispatch) => {
+      const legs = resolveDispatchLegs(
+        dispatch.shippingLegs.map((leg) => ({
+          position: leg.position,
+          carrierSupplierId: leg.carrierSupplierId,
+          carrierName: leg.carrierName,
+          amount: Number(leg.amount),
+          trackingNumber: leg.trackingNumber,
+          note: leg.note,
+        })),
+        {
+          carrierSupplierId: dispatch.carrierSupplierId,
+          carrierName: dispatch.carrierName,
+          carrierSupplierName: dispatch.carrierSupplier?.name ?? null,
+          shippingCost: dispatch.shippingCost === null ? null : Number(dispatch.shippingCost),
+          trackingNumber: dispatch.trackingNumber,
+        },
+      );
+      return {
+        id: dispatch.id,
+        code: dispatch.code,
+        legs,
+        total: sumShippingLegs(legs),
+      };
+    })
+    .filter((card) => card.legs.length > 0);
 
   // Ordenes de fabricacion (OF) por proveedora: solo en ordenes de venta.
   let manufacturingCards: ManufacturingCard[] = [];
@@ -575,6 +607,45 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               defaultTiktok: order.client?.tiktok ?? "",
             }}
           />
+
+          {shippingLegCards.length > 0 ? (
+            <Card className="border-border bg-card/95">
+              <CardContent className="space-y-3">
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Envío</p>
+                {shippingLegCards.map((card) => (
+                  <div key={card.id} className="space-y-1.5">
+                    {shippingLegCards.length > 1 ? (
+                      <p className="text-xs font-medium text-muted-foreground">Despacho {card.code}</p>
+                    ) : null}
+                    {card.legs.map((leg) => (
+                      <div
+                        key={leg.position}
+                        className="flex items-start justify-between gap-3 rounded-lg border border-border px-2.5 py-2 text-sm"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-foreground">{leg.carrierName}</p>
+                          {leg.trackingNumber || leg.note ? (
+                            <p className="truncate text-xs text-muted-foreground">
+                              {[leg.note, leg.trackingNumber ? `Guía ${leg.trackingNumber}` : ""]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
+                          ) : null}
+                        </div>
+                        <span className="shrink-0 font-medium text-foreground">{formatMoney(leg.amount, currency)}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between rounded-lg bg-muted/50 px-2.5 py-2 text-sm">
+                      <span className="font-medium text-foreground">
+                        Total envío{card.legs.length > 1 ? ` (${card.legs.length} proveedores)` : ""}
+                      </span>
+                      <span className="font-semibold text-foreground">{formatMoney(card.total, currency)}</span>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ) : null}
 
           {!isPurchase && shippingDispatches.length > 0 ? (
             <Card className="border-border bg-card/95">

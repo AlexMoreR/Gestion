@@ -36,6 +36,7 @@ import {
   type ShipmentDefaults,
 } from "@/modules/guias/presentation/shipment-dispatch-fields";
 import { CarrierSelect, type CarrierSelectOption } from "@/modules/guias/presentation/carrier-select";
+import { ExtraShippingLegsFields } from "@/components/admin/extra-shipping-legs-fields";
 
 type SupplierOption = {
   id: string;
@@ -740,9 +741,15 @@ export function OrderItemManager({
                     />
                   </div>
 
+                  <ExtraShippingLegsFields
+                    carriers={carriers}
+                    currency={currency}
+                    mainAmount={Number(dispatchShippingCost) || 0}
+                  />
+
                   <input type="hidden" name="shippingMode" value="PAY_LATER" />
                   <p className="text-xs text-muted-foreground">
-                    El costo del envío queda como saldo pendiente con la transportadora.
+                    El costo de cada envío queda como saldo pendiente con su transportadora.
                   </p>
 
                   <div className="space-y-1">

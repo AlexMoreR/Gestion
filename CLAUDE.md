@@ -137,6 +137,12 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
 - **Dispatch** — despacho/entrega: `deliveryType` (`COUNTER`/`PICKUP`/`SHIPPING`), transportadora,
   `shippingCost`, guía, direcciones y fotos de entrega.
 - **DispatchItem** — qué ítems y cuánto se despachan; reparte el costo de envío entre productos.
+- **DispatchShippingLeg** — tramos del envío de un despacho (varios proveedores: ej. llegada a Cali con
+  un transportador + despacho al cliente con otro). Tramo 0 = transportadora principal
+  (`Dispatch.carrierSupplierId`); `Dispatch.shippingCost` = **suma de los tramos**. Cada tramo con valor
+  crea su `ShippingCost` en la venta (balances, comisiones y cierres suman esas filas) y su cargo en la
+  cuenta del proveedor. Lógica pura en `src/lib/dispatch-shipping-legs.ts`; los despachos viejos se
+  migraron como tramo 0 (migración `20261014120000_despacho_varios_proveedores`).
 
 ### Proveedores (cuenta corriente) e inventario
 - **SupplierLedgerEntry** — movimientos de la cuenta del proveedor: `CHARGE` (lo que le debemos) o

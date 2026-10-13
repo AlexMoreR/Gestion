@@ -199,6 +199,7 @@ model Supplier {
   orderItems        OrderItem[]           @relation("OrderItemConfirmedSupplier")
   ledgerEntries     SupplierLedgerEntry[]
   carriedDispatches Dispatch[]            @relation("DispatchCarrier")
+  shippingLegs      DispatchShippingLeg[] @relation("DispatchShippingLegCarrier")
   purchaseOrders    Order[]               @relation("OrderSupplier")
   manufacturingOrders ManufacturingOrder[]
 }
@@ -628,6 +629,9 @@ model Dispatch {
   createdBy             User                  @relation("DispatchCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   carrierSupplier       Supplier?             @relation("DispatchCarrier", fields: [carrierSupplierId], references: [id], onDelete: SetNull)
   items                 DispatchItem[]
+  // Tramos del envio (ej. Bogota -> Cali con un transportador y Cali -> cliente con otro).
+  // shippingCost = suma de los tramos; carrierName/carrierSupplierId = el tramo principal (0).
+  shippingLegs          DispatchShippingLeg[]
   supplierLedgerEntries SupplierLedgerEntry[]
   shipment              Shipment?
 
@@ -651,6 +655,27 @@ model DispatchItem {
 
   @@index([dispatchId])
   @@index([orderItemId])
+}
+
+// Un tramo del envio de un despacho: proveedor de transporte + valor (+ guia/nota opcional).
+// El tramo 0 es la transportadora principal (la misma de Dispatch.carrierSupplierId).
+model DispatchShippingLeg {
+  id                String    @id @default(cuid())
+  dispatchId        String
+  position          Int       @default(0)
+  carrierSupplierId String?
+  carrierName       String
+  amount            Decimal   @default(0) @db.Decimal(12, 2)
+  trackingNumber    String?
+  note              String?
+  legDate           DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  dispatch          Dispatch  @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+  carrierSupplier   Supplier? @relation("DispatchShippingLegCarrier", fields: [carrierSupplierId], references: [id], onDelete: SetNull)
+
+  @@index([dispatchId, position])
+  @@index([carrierSupplierId])
 }
 
 model OrderStatusHistory {
