@@ -107,10 +107,6 @@ export default async function AdminGuiasPage({ searchParams }: PageProps) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <h1 className="text-lg font-semibold text-foreground">Guías Magilus</h1>
-          <p className="text-sm text-muted-foreground">
-            Seguimiento propio del envío. El cliente lo consulta en magilus.com/guia con la guía MG y los últimos 4
-            dígitos de su celular.
-          </p>
         </div>
         {/* En celular el filtro ocupa todo el ancho y se desplaza si no cabe; nunca parte palabras. */}
         <div className="flex w-full max-w-full overflow-x-auto rounded-lg border border-border p-0.5 [scrollbar-width:none] sm:inline-flex sm:w-auto [&::-webkit-scrollbar]:hidden">
