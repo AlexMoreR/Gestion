@@ -261,9 +261,6 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-lg font-semibold text-foreground">Envíos con transportadora</h1>
-          <p className="text-sm text-muted-foreground">
-            Qué tiene cada transportadora, qué falta de guía y qué no se ha entregado. Semáforo: verde menos de 2 días, amarillo 2 a 4, rojo más de 4.
-          </p>
         </div>
         <Link href="/admin/despachos" className="text-sm text-primary hover:underline">
           ← Despachos
