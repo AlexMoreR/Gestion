@@ -6,6 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import { createPrismaExpensesRepository } from "@/modules/expenses/infrastructure/prisma-expenses-repository";
 import { BalancesWorkspace } from "@/modules/balances/presentation/balances-workspace";
+import { CashPositionStrip } from "@/modules/balances/presentation/components/cash-position-strip";
+import { getMoneyWithoutAccount } from "@/modules/balances/infrastructure/prisma-money-without-account";
+import { getCashPositionUseCase } from "@/modules/nomina/application/use-cases";
 import { redirect } from "next/navigation";
 
 type PageProps = {
@@ -86,6 +89,7 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
     expenseCategories,
     activeAccounts,
     employees,
+    cashPosition,
   ] = await Promise.all([
     getSystemCurrency(),
     repository.getDashboardMetrics(period),
@@ -117,6 +121,7 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
       orderBy: { name: "asc" },
       select: { id: true, name: true, email: true },
     }),
+    getCashPositionUseCase(repository, getMoneyWithoutAccount),
   ]);
 
   return (
@@ -127,6 +132,8 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
         okTitle="Balances actualizados"
         errorTitle="Error en balances"
       />
+
+      <CashPositionStrip position={cashPosition} currency={currency} />
 
       <BalancesWorkspace
         currency={currency}

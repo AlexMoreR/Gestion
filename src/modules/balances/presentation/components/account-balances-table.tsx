@@ -110,6 +110,26 @@ export function AccountBalancesTable({ data, currency, onEdit }: AccountBalances
       ),
     },
     {
+      id: "closing",
+      header: "Saldo al cierre",
+      cell: ({ row }) => {
+        const closing = row.original.periodOpening + row.original.balance;
+        return (
+          <span className={`text-sm font-bold ${closing >= 0 ? "text-foreground" : "text-destructive"}`}>
+            {formatMoney(closing, currency)}
+          </span>
+        );
+      },
+      footer: () => {
+        const closing = totals.periodOpening + totals.balance;
+        return (
+          <span className={`text-sm font-bold ${closing >= 0 ? "text-foreground" : "text-destructive"}`}>
+            {formatMoney(closing, currency)}
+          </span>
+        );
+      },
+    },
+    {
       id: "actions",
       header: "",
       cell: ({ row }) => (
@@ -138,7 +158,7 @@ export function AccountBalancesTable({ data, currency, onEdit }: AccountBalances
   return (
     <BalancesDataGrid
       title="Cuentas y balance"
-      description="Saldo inicial (cierre del mes anterior). Balance del mes = ingresos - gastos +/- movimientos."
+      description="Saldo inicial (cierre del mes anterior). Balance del mes = ingresos - gastos +/- movimientos. Saldo al cierre = saldo inicial + balance (en el mes en curso, lo que hay hoy)."
       data={data}
       columns={columns}
       searchPlaceholder="Buscar cuenta"

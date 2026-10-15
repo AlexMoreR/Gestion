@@ -18,6 +18,10 @@ import {
 } from "../../application/use-cases";
 import { AsesorInputError, currentMonthInBogota } from "../../domain/calculations";
 import { createPrismaAsesorRepository } from "../../infrastructure/prisma-asesor-repository";
+import { getMoneyWithoutAccount } from "@/modules/balances/infrastructure/prisma-money-without-account";
+import { getCashPositionUseCase, getPayrollBoardUseCase } from "@/modules/nomina/application/use-cases";
+import { PAY_PERIOD_LABELS } from "@/modules/nomina/domain/payroll";
+import { createPrismaNominaRepository } from "@/modules/nomina/infrastructure/prisma-nomina-repository";
 import type { McpServerDefinition, McpToolDefinition, McpToolResult } from "./protocol";
 
 // Todas las herramientas son de SOLO LECTURA: solo llaman casos de uso de consulta.
@@ -160,6 +164,85 @@ export const asesorTools: McpToolDefinition[] = [
     },
   }),
   defineTool({
+    name: "saldos_de_cuentas",
+    title: "Saldos de cuentas (dinero hoy)",
+    description:
+      "Cuanto dinero hay HOY en cada cuenta del negocio (efectivo, bancos, billeteras) y el total disponible. Saldo = saldo inicial + pagos de clientes - pagos a proveedoras - fletes - gastos (incluida nomina) +/- movimientos manuales. Avisa cuantos pagos o fletes quedaron registrados SIN cuenta (no suman ni restan en ningun saldo, por eso el saldo puede no cuadrar con el banco). Valores en COP.",
+    schema: z.object({}),
+    handler: async (_args, deps) => {
+      const position = await getCashPositionUseCase(deps.balances, getMoneyWithoutAccount);
+      return {
+        moneda: "COP",
+        total_disponible: position.total,
+        por_tipo: position.byType.map((group) => ({ tipo: group.label, saldo: group.balance })),
+        cuentas: position.accounts.map((account) => ({
+          cuenta: account.name,
+          tipo: account.type,
+          activa: account.isActive,
+          saldo: account.balance,
+        })),
+        sin_cuenta_asignada: {
+          registros: position.withoutAccount.count,
+          pagos_de_clientes: position.withoutAccount.salePayments,
+          pagos_a_proveedoras: position.withoutAccount.supplierPayments,
+          fletes: position.withoutAccount.shippingCosts,
+        },
+        notas: [
+          "Es el saldo de hoy segun lo registrado en la app; si hay registros sin cuenta, comparar con el extracto del banco.",
+        ],
+      };
+    },
+  }),
+  defineTool({
+    name: "nomina_del_mes",
+    title: "Nómina del mes",
+    description:
+      "Nomina de un mes por persona: basico del mes (por quincena, por dia trabajado o sin basico; en USD se convierte con la TRM guardada), comision del mes (misma regla de comisiones_del_mes), total, lo ya pagado (gastos de Nomina de esa persona para ese mes) y lo que falta pagar. Valores en COP.",
+    schema: monthArgs,
+    handler: async (args, deps) => {
+      const { mes, anio } = resolveMonth(args);
+      const board = await getPayrollBoardUseCase({ ...deps, nomina: createPrismaNominaRepository() }, mes, anio);
+      return {
+        mes,
+        anio,
+        moneda: "COP",
+        trm_usada: board.trm,
+        personas: board.rows.map((row) => ({
+          persona: row.name,
+          configurada: row.configured,
+          tipo_basico: row.period ? PAY_PERIOD_LABELS[row.period] : "Sin configurar",
+          basico_unitario: row.period && row.period !== "SIN_BASE" ? { valor: row.baseAmount, moneda: row.currency } : null,
+          dias_trabajados: row.daysWorked,
+          basico_del_mes: row.baseCop,
+          ventas: row.salesCount,
+          comision: row.commission,
+          total_del_mes: row.totalDue,
+          pagado: row.paid,
+          falta_pagar: row.pending,
+          pagos: row.payments.map((payment) => ({
+            fecha: payment.date.toISOString().slice(0, 10),
+            valor: Math.round(payment.amount),
+            cuenta: payment.accountName,
+            detalle: payment.description,
+          })),
+          avisos: row.warnings,
+        })),
+        totales: {
+          basicos: board.totals.base,
+          comisiones: board.totals.commission,
+          total: board.totals.due,
+          pagado: board.totals.paid,
+          falta_pagar: board.totals.pending,
+          incompleto: board.totals.incomplete,
+        },
+        notas: [
+          "basico_del_mes = null si falta la TRM (basico en dolares) o los dias trabajados (pago diario).",
+          "Las comisiones del mes en curso siguen subiendo mientras haya ventas.",
+        ],
+      };
+    },
+  }),
+  defineTool({
     name: "que_es_esta_aplicacion",
     title: "Qué es esta aplicación",
     description:
@@ -191,6 +274,6 @@ export const asesorMcpServer: McpServerDefinition = {
   name: "gestion-magilus",
   version: "1.0.0",
   instructions:
-    "Servidor de SOLO LECTURA de Gestion (Magilus): ventas, cotizaciones, productos, margenes y comisiones. Para entender el sistema completo usa primero que_es_esta_aplicacion. No modifica ningun dato. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
+    "Servidor de SOLO LECTURA de Gestion (Magilus): ventas, cotizaciones, productos, margenes, comisiones, nomina y saldos de cuentas. Para entender el sistema completo usa primero que_es_esta_aplicacion. No modifica ningun dato. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
   tools: asesorTools,
 };

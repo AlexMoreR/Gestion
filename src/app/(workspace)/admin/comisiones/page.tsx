@@ -155,6 +155,12 @@ export default async function AdminComisionesPage({ searchParams }: PageProps) {
               Mes actual
             </Link>
           ) : null}
+          <Link
+            href={`/admin/comisiones/nomina?mes=${monthValue(mes, anio)}`}
+            className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90"
+          >
+            Nómina y pagos
+          </Link>
         </div>
       </div>
 

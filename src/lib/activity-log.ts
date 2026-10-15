@@ -19,7 +19,8 @@ export type ActivityEntityType =
   | "CATEGORY"
   | "SUPPLIER"
   | "ACCOUNT"
-  | "SHIPMENT";
+  | "SHIPMENT"
+  | "PAYROLL";
 
 type LogActivityInput = {
   action: ActivityActionType;

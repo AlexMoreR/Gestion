@@ -41,6 +41,7 @@ módulos y para qué sirven:
 | **Producción** | `/admin/produccion` | Trabajos de fabricación (production jobs) por ítem de orden. |
 | **Despachos** | `/admin/despachos` | Salidas, transportadora, guía, costo de envío y entrega. |
 | **Balances** | `/admin/balances` | Rentabilidad por venta, cuentas (caja/banco/wallet), movimientos y costos logístico-financieros. |
+| **Nómina** | `/admin/comisiones/nomina` | Básico + comisiones − pagado por persona y mes; "Dinero hoy" por cuenta; registrar pago (gasto de Nómina desde una cuenta). Config en `AppSetting.payrollConfig`; módulo `src/modules/nomina`. Solo dueño/admin (permiso `commissions`). |
 | **Gastos** | `/admin/gastos` | Gastos operativos por categoría y cuenta (nómina, marketing, varios, etc.). |
 | **Transporte** | `/admin/transporte` | Tipo de envío por ciudad/corregimiento (DANE): Gratis / Adicional / Se cotiza / No llegamos / Automático, y "Pendientes de revisar" (lo nuevo que manda el CRM). El cliente ve el envío gratis en `/cobertura`; el CRM consulta `/api/transporte/ubicaciones`. |
 | **Configuración** | `/admin/configuracion/*` | Usuarios y roles, datos del negocio (moneda, marca, color), y control de módulos por rol. |
@@ -280,7 +281,7 @@ Route handlers reales (`route.ts`):
 - **Solo lectura**: módulo `src/modules/asesor` (hexagonal). Sus puertos solo tienen métodos de
   consulta; la ganancia por venta y el resumen del mes **reutilizan los casos de uso de Balances**.
 - Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_cotizaciones`, `listar_productos`,
-  `comisiones_del_mes` y `que_es_esta_aplicacion`. Mismo criterio que Balances (ventas pagadas
+  `comisiones_del_mes`, `nomina_del_mes`, `saldos_de_cuentas` y `que_es_esta_aplicacion`. Mismo criterio que Balances (ventas pagadas
   por completo, aunque falte entregarlas; contraentrega al entregar). "Vendedora" = quien creó la cotización (no existe un campo
   propio); `listar_ventas` devuelve `origen` (etiqueta), `origen_codigo` y `origen_detalle`.
 

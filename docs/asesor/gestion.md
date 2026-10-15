@@ -45,7 +45,8 @@ en las Server Actions y en `src/lib/`.
 - `inventory`: stock por producto, movimientos de entrada/salida/ajuste y compras directas a proveedor (COM-).
 - `transporte`: tipo de envío por departamento, ciudad y corregimiento (datos DANE): gratis, adicional, se cotiza o no llegamos. Lo consulta el cliente en `/cobertura` (solo si es gratis o no) y el CRM de las asesoras por `/api/transporte/ubicaciones`.
 - `ventas`: reglas de la venta: forma de pago (50/50 o contraentrega) y origen de cada venta (lo avisa el CRM por `/api/ventas/origen`; reporte en `/admin/ventas/origen`).
-- `asesor`: consultas de solo lectura para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones y esta radiografía. También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
+- `nomina`: nómina del mes (salario básico de cada persona + comisiones − lo ya pagado) y el dinero de hoy por cuenta. La configuración (básicos, TRM, días trabajados) vive en `AppSetting` (`payrollConfig`); los pagos son gastos de la categoría Nómina.
+- `asesor`: consultas de solo lectura para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones, nómina, saldos de cuentas y esta radiografía. También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
 
 ## Entidades
 
@@ -122,6 +123,7 @@ en las Server Actions y en `src/lib/`.
 - `/admin/productos/[productId]`: editar un producto.
 - `/admin/cotizaciones/[quoteId]`: editar una cotización.
 - `/admin/comisiones`: comisiones de las asesoras del mes (solo el dueño/admin): resumen por asesora (# ventas, valor vendido, ganancia, comisión), detalle de cada venta con el % aplicado (10/15) y "Falta entregar", y total del mes. Selector de mes (por defecto el actual, hora de Colombia).
+- `/admin/comisiones/nomina`: nómina del mes (solo el dueño/admin): "Dinero hoy" por cuenta arriba, y por persona el básico del mes, la comisión, el total, lo pagado y lo que falta. Configurar salario (por quincena, por día o sin básico; en COP o USD), TRM, días trabajados y botón "Registrar pago" que crea un gasto de Nómina desde la cuenta elegida.
 - `/admin/ventas/origen`: ventas por origen (Meta Ads, Marketplace, Referido, Recurrente, Mostrador, Sin dato) por mes y por anuncio, con el criterio de Balances.
 - `/admin/ordenes/[orderId]`: detalle de una orden: fabricar, recoger, despachar, entregar, historial, abonos y órdenes de fabricación.
 - `/admin/ordenes/[orderId]/ganancia`: desglose de por qué se ganó lo que se ganó en esa orden.
@@ -189,6 +191,18 @@ genera comisión con la misma regla, pero la pantalla la marca "(admin)" y avisa
 que falta entregar ya genera comisión (su ganancia puede bajar si luego se registra un flete).
 Solo el dueño/admin ve la pantalla: el módulo está reservado y no se puede asignar a un empleado.
 
+**Nómina (`/admin/comisiones/nomina`, decisión de Alexander 15-oct-2026).** Total del mes por
+persona = básico del mes + comisión del mes; falta pagar = total − pagos de Nómina de esa persona para
+ese mes. Básico por quincena = 2 quincenas al mes; por día = tarifa × días trabajados que escribe el
+dueño; sin básico = solo comisión. Un básico en dólares se pasa a pesos con la TRM guardada (si no hay
+TRM no se calcula, nunca se inventa). Un pago registrado desde la pantalla lleva el mes en la
+descripción (" · AAAA-MM") y cuenta en ese mes aunque se pague después; un gasto de Nómina sin ese
+mes cuenta por su fecha. Comprobante obligatorio salvo en efectivo (misma regla de Gastos).
+
+**Dinero hoy.** Saldo de cada cuenta = saldo inicial + pagos de clientes − pagos a proveedoras −
+fletes − gastos ± movimientos. Se muestra arriba de Balances y de Nómina. Los pagos o fletes sin
+cuenta asignada no suman ni restan en ningún saldo y se avisan aparte.
+
 **Origen de la venta.** Sale de la línea de WhatsApp del chat en el CRM: Ventas 1 = Meta Ads,
 Ventas 2 = Marketplace, Admin = Referido, o Recurrente si el cliente ya tenía una venta anterior
 (no cancelada). Venta directa (sin chat) = Mostrador. Sin origen registrado = "Sin dato" (siempre se
@@ -200,7 +214,7 @@ recurrente; no se guarda.
 
 - El **origen** de las ventas anteriores a oct-2026 casi siempre es "Sin dato" (se puede rellenar con `npm run origen:rellenar`, que cruza el teléfono del cliente con el CRM).
 - No tiene un campo **vendedora**: se usa a quien creó la cotización.
-- Las comisiones **no se liquidan ni se marcan como pagadas**: la pantalla solo las calcula; el pago se registra aparte (por ejemplo como gasto de nómina).
+- Las comisiones se pagan desde **Nómina** (gasto de Nómina por persona y mes); la pantalla de Comisiones solo calcula. La nómina no calcula prestaciones, seguridad social ni retenciones.
 - No es **multi-empresa**: no hay workspaces; todos los datos son de Magilus.
 - Las órdenes de fabricación (OF-) **no tienen estado** (enviada, en fabricación, recibida).
 - Los reportes de ganancia **no incluyen ventas con saldo pendiente** ni contraentregas sin entregar. Una venta pagada sin entregar sí cuenta; su costo puede subir después si al despachar se registra un flete o se confirma otro costo de proveedora.

@@ -2,14 +2,12 @@
 
 import { hasAnyModuleAccess } from "@/lib/admin-module-access";
 
-import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
+import { getReceiptFile, saveExpenseReceipt } from "@/lib/expense-receipt";
 import { prisma } from "@/lib/prisma";
 import {
   createCategoryUseCase,
@@ -73,43 +71,6 @@ function getReturnTo(formData: FormData, fallback = "/admin/gastos"): string {
 function getStringField(formData: FormData, key: string): string {
   const value = formData.get(key);
   return typeof value === "string" ? value : "";
-}
-
-const RECEIPT_MAX_BYTES = 12 * 1024 * 1024;
-const ALLOWED_RECEIPT_MIME = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
-const ALLOWED_RECEIPT_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".pdf"]);
-
-// Guarda el comprobante del gasto en public/uploads/expenses y devuelve su ruta publica.
-async function saveExpenseReceipt(file: File): Promise<{ url: string; name: string }> {
-  if (file.size > RECEIPT_MAX_BYTES) {
-    throw new Error("El comprobante supera el limite de 12 MB.");
-  }
-  const fromName = path.extname(file.name).toLowerCase();
-  const extension =
-    fromName ||
-    (file.type === "application/pdf"
-      ? ".pdf"
-      : file.type === "image/png"
-        ? ".png"
-        : file.type === "image/webp"
-          ? ".webp"
-          : ".jpg");
-  if (!ALLOWED_RECEIPT_MIME.has(file.type) && !ALLOWED_RECEIPT_EXT.has(extension)) {
-    throw new Error("El comprobante no es compatible. Solo JPG, PNG, WEBP o PDF.");
-  }
-
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "expenses");
-  await mkdir(uploadDir, { recursive: true });
-  const fileName = `${Date.now()}-${randomUUID()}${extension}`;
-  await writeFile(path.join(uploadDir, fileName), Buffer.from(await file.arrayBuffer()));
-
-  return { url: `/uploads/expenses/${fileName}`, name: file.name || fileName };
-}
-
-// Lee el archivo de comprobante del formulario (vacio = no se subio nada).
-function getReceiptFile(formData: FormData): File | null {
-  const file = formData.get("receipt");
-  return file instanceof File && file.size > 0 ? file : null;
 }
 
 // El comprobante es obligatorio salvo en cuentas de efectivo (Caja).

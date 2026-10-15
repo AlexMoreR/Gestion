@@ -213,11 +213,14 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
     // Comisiones: solo el dueno/admin (un empleado nunca recibe este modulo).
     if (user.role === "ADMIN" && adminModuleAccess.commissions) {
       navMain.push({
-        title: "Comisiones",
+        title: "Comisiones y nómina",
         url: "/admin/comisiones",
         icon: HandCoins,
         isActive: pathname.startsWith("/admin/comisiones"),
-        items: [{ title: "Del mes", url: "/admin/comisiones" }],
+        items: [
+          { title: "Del mes", url: "/admin/comisiones" },
+          { title: "Nómina", url: "/admin/comisiones/nomina" },
+        ],
       });
     }
 
