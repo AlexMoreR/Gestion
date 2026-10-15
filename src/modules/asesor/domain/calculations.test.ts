@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AsesorInputError,
+  buildCommissionsBoard,
   buildDayRange,
   buildMonthRange,
   computeCommissions,
@@ -10,7 +11,7 @@ import {
   summarizeMonth,
   summarizeQuotes,
 } from "./calculations";
-import type { QuoteRow } from "./entities";
+import type { CommissionBoardSaleInput, QuoteRow } from "./entities";
 
 const ana = { id: "u-ana", name: "Ana" };
 const bea = { id: "u-bea", name: "Bea" };
@@ -171,5 +172,56 @@ describe("margen de producto", () => {
       margen_sobre_precio_pct: 30.35,
       margen_sobre_costo_pct: 43.57,
     });
+  });
+});
+
+describe("pantalla de comisiones", () => {
+  const sale = (overrides: Partial<CommissionBoardSaleInput> & Pick<CommissionBoardSaleInput, "saleCode">): CommissionBoardSaleInput => ({
+    recognizedAt: new Date("2026-10-05T00:00:00Z"),
+    seller: ana,
+    profit: 0,
+    clientName: null,
+    saleAmount: 0,
+    pendingDelivery: false,
+    ...overrides,
+  });
+
+  it("usa la misma regla 10%/15% y agrega cliente, valor y 'Falta entregar'", () => {
+    const board = buildCommissionsBoard([
+      sale({ saleCode: "SAL-2", recognizedAt: new Date("2026-10-09T00:00:00Z"), profit: 229_000, saleAmount: 989_000, clientName: "Hamilton" }),
+      sale({ saleCode: "SAL-1", recognizedAt: new Date("2026-10-08T00:00:00Z"), profit: 399_000, saleAmount: 1_129_000, clientName: "Karla" }),
+      sale({ saleCode: "SAL-3", seller: bea, profit: 215_000, saleAmount: 450_000, pendingDelivery: true }),
+    ]);
+
+    const anaRow = board.sellers.find((seller) => seller.name === "Ana");
+    expect(anaRow).toMatchObject({ salesCount: 2, saleAmount: 2_118_000, profit: 628_000, commission: 74_250, isAdmin: false });
+    expect(anaRow?.lines.map((line) => [line.saleCode, line.clientName, line.ratePct, line.commission])).toEqual([
+      ["SAL-1", "Karla", 10, 39_900],
+      ["SAL-2", "Hamilton", 15, 34_350],
+    ]);
+
+    const beaRow = board.sellers.find((seller) => seller.name === "Bea");
+    expect(beaRow?.pendingDeliveryCount).toBe(1);
+    expect(beaRow?.lines[0]).toMatchObject({ pendingDelivery: true, ratePct: 10, commission: 21_500 });
+
+    expect(board.totals).toEqual({
+      salesCount: 3,
+      saleAmount: 2_568_000,
+      profit: 843_000,
+      commission: 95_750,
+      pendingDeliveryCount: 1,
+    });
+    expect(board.unassigned).toBeNull();
+  });
+
+  it("marca a la vendedora admin y deja aparte las ventas sin vendedora", () => {
+    const board = buildCommissionsBoard([
+      sale({ saleCode: "SAL-1", seller: { id: "u-admin", name: "Alexander", role: "ADMIN" }, profit: 100_000, saleAmount: 300_000 }),
+      sale({ saleCode: "SAL-2", seller: null, profit: 50_000, saleAmount: 200_000, clientName: "Sin dueño" }),
+    ]);
+    expect(board.sellers[0]).toMatchObject({ name: "Alexander", isAdmin: true, commission: 10_000 });
+    expect(board.unassigned).toMatchObject({ salesCount: 1, saleAmount: 200_000, profit: 50_000 });
+    expect(board.unassigned?.lines[0]).toMatchObject({ saleCode: "SAL-2", clientName: "Sin dueño" });
+    expect(board.totals.commission).toBe(10_000);
   });
 });

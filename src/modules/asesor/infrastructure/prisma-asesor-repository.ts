@@ -12,12 +12,14 @@ function toNumber(value: Prisma.Decimal | number | null | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function toSeller(user: { id: string; name: string | null; email: string } | null | undefined): Seller | null {
+function toSeller(
+  user: { id: string; name: string | null; email: string; role?: string | null } | null | undefined,
+): Seller | null {
   if (!user) return null;
-  return { id: user.id, name: user.name?.trim() || user.email };
+  return { id: user.id, name: user.name?.trim() || user.email, role: user.role ?? null };
 }
 
-const userSelect = { id: true, name: true, email: true } as const;
+const userSelect = { id: true, name: true, email: true, role: true } as const;
 
 export function createPrismaAsesorRepository(): AsesorReadRepository {
   return {

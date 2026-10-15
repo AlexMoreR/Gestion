@@ -11,6 +11,8 @@ export const EMPLOYEE_FORBIDDEN_MODULES: AdminModuleKey[] = [
   "config_users",
   "config_business",
   "config_permissions",
+  // Comisiones de las asesoras: solo el dueno/admin.
+  "commissions",
 ];
 
 export const adminModuleDefinitions = [
@@ -89,6 +91,13 @@ export const adminModuleDefinitions = [
     label: "Balances",
     description: "Controla rentabilidad, pagos y costos logistico-financieros.",
     path: "/admin/balances",
+    group: "Comercial",
+  },
+  {
+    key: "commissions",
+    label: "Comisiones",
+    description: "Comisiones de las asesoras del mes: 10% de la ganancia en su primera venta y 15% desde la segunda (solo dueno/admin).",
+    path: "/admin/comisiones",
     group: "Comercial",
   },
   {

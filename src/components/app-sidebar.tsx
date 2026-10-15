@@ -5,6 +5,7 @@ import {
   ClipboardList,
   Contact,
   FileText,
+  HandCoins,
   Landmark,
   LayoutDashboard,
   MapPinned,
@@ -55,6 +56,7 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
   const isAdminQuotesRoute = pathname.startsWith("/admin/cotizaciones");
   const isAdminSalesRoute = pathname.startsWith("/admin/ventas");
   const isAdminBalancesRoute = pathname.startsWith("/admin/balances");
+  const isAdminCommissionsRoute = pathname.startsWith("/admin/comisiones");
   const isAdminOrdersRoute = pathname.startsWith("/admin/ordenes");
   const isAdminProductionRoute = pathname.startsWith("/admin/produccion");
   const isAdminDispatchesRoute = pathname.startsWith("/admin/despachos");
@@ -75,6 +77,7 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
         !isAdminQuotesRoute &&
         !isAdminSalesRoute &&
         !isAdminBalancesRoute &&
+        !isAdminCommissionsRoute &&
         !isAdminOrdersRoute &&
         !isAdminProductionRoute &&
         !isAdminDispatchesRoute &&
@@ -204,6 +207,17 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
         icon: Landmark,
         isActive: pathname.startsWith("/admin/balances"),
         items: [{ title: "Rentabilidad", url: "/admin/balances" }],
+      });
+    }
+
+    // Comisiones: solo el dueno/admin (un empleado nunca recibe este modulo).
+    if (user.role === "ADMIN" && adminModuleAccess.commissions) {
+      navMain.push({
+        title: "Comisiones",
+        url: "/admin/comisiones",
+        icon: HandCoins,
+        isActive: pathname.startsWith("/admin/comisiones"),
+        items: [{ title: "Del mes", url: "/admin/comisiones" }],
       });
     }
 

@@ -2,6 +2,7 @@
 import { calculateMarginPctFromPrice, calculateProfit, roundMoney } from "../../../lib/pricing";
 import type { DashboardMetrics } from "../../balances/domain/entities";
 import type {
+  CommissionBoardSaleInput,
   CommissionSaleInput,
   DayRange,
   ProductRow,
@@ -240,6 +241,110 @@ export function computeCommissions(sales: CommissionSaleInput[]) {
       ventas: sales.length,
       ganancia_total: roundMoney(sales.reduce((sum, sale) => sum + sale.profit, 0)),
       comision_total: roundMoney(sellers.reduce((sum, seller) => sum + seller.comision_total, 0)),
+    },
+  };
+}
+
+// --- Pantalla de Comisiones (admin) -----------------------------------------------
+
+export type CommissionBoardLine = {
+  saleCode: string;
+  recognizedDay: string;
+  numberInMonth: number;
+  clientName: string | null;
+  saleAmount: number;
+  profit: number;
+  ratePct: number;
+  commission: number;
+  pendingDelivery: boolean;
+  note: string | null;
+};
+
+export type CommissionBoardSeller = {
+  sellerId: string;
+  name: string;
+  isAdmin: boolean;
+  salesCount: number;
+  saleAmount: number;
+  profit: number;
+  commission: number;
+  pendingDeliveryCount: number;
+  lines: CommissionBoardLine[];
+};
+
+export type CommissionBoardUnassignedLine = Omit<CommissionBoardLine, "numberInMonth" | "ratePct" | "commission" | "note">;
+
+export type CommissionBoard = {
+  sellers: CommissionBoardSeller[];
+  unassigned: { salesCount: number; saleAmount: number; profit: number; lines: CommissionBoardUnassignedLine[] } | null;
+  totals: { salesCount: number; saleAmount: number; profit: number; commission: number; pendingDeliveryCount: number };
+};
+
+// Vista para el panel: el CALCULO es el mismo de computeCommissions (no se repite
+// la regla 10%/15%); aqui solo se agregan cliente, valor y "Falta entregar".
+export function buildCommissionsBoard(sales: CommissionBoardSaleInput[]): CommissionBoard {
+  const report = computeCommissions(sales);
+  const saleByCode = new Map(sales.map((sale) => [sale.saleCode, sale]));
+
+  const sellers: CommissionBoardSeller[] = report.vendedoras.map((group) => {
+    const lines: CommissionBoardLine[] = group.detalle.map((line) => {
+      const sale = saleByCode.get(line.venta);
+      return {
+        saleCode: line.venta,
+        recognizedDay: line.fecha,
+        numberInMonth: line.numero_en_el_mes,
+        clientName: sale?.clientName ?? null,
+        saleAmount: roundMoney(sale?.saleAmount ?? 0),
+        profit: line.ganancia,
+        ratePct: line.tasa_pct,
+        commission: line.comision,
+        pendingDelivery: sale?.pendingDelivery ?? false,
+        note: line.nota ?? null,
+      };
+    });
+    const firstSeller = saleByCode.get(group.detalle[0]?.venta ?? "")?.seller ?? null;
+    return {
+      sellerId: firstSeller?.id ?? group.vendedora,
+      name: group.vendedora,
+      isAdmin: firstSeller?.role === "ADMIN",
+      salesCount: group.ventas,
+      saleAmount: roundMoney(lines.reduce((sum, line) => sum + line.saleAmount, 0)),
+      profit: group.ganancia_total,
+      commission: group.comision_total,
+      pendingDeliveryCount: lines.filter((line) => line.pendingDelivery).length,
+      lines,
+    };
+  });
+
+  const unassignedLines: CommissionBoardUnassignedLine[] = (report.sin_asignar?.detalle ?? []).map((line) => {
+    const sale = saleByCode.get(line.venta);
+    return {
+      saleCode: line.venta,
+      recognizedDay: line.fecha,
+      clientName: sale?.clientName ?? null,
+      saleAmount: roundMoney(sale?.saleAmount ?? 0),
+      profit: line.ganancia,
+      pendingDelivery: sale?.pendingDelivery ?? false,
+    };
+  });
+
+  return {
+    sellers,
+    unassigned:
+      unassignedLines.length > 0
+        ? {
+            salesCount: unassignedLines.length,
+            saleAmount: roundMoney(unassignedLines.reduce((sum, line) => sum + line.saleAmount, 0)),
+            profit: roundMoney(unassignedLines.reduce((sum, line) => sum + line.profit, 0)),
+            lines: unassignedLines,
+          }
+        : null,
+    totals: {
+      salesCount: report.totales.ventas,
+      saleAmount: roundMoney(sales.reduce((sum, sale) => sum + sale.saleAmount, 0)),
+      profit: report.totales.ganancia_total,
+      commission: report.totales.comision_total,
+      pendingDeliveryCount: sales.filter((sale) => sale.pendingDelivery).length,
     },
   };
 }

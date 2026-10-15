@@ -10,6 +10,9 @@ export type DayRange = {
 export type Seller = {
   id: string;
   name: string;
+  // Rol del usuario (ADMIN/EMPLEADO/CLIENTE) cuando se conoce. Sirve para marcar
+  // en la pantalla de Comisiones las cotizaciones creadas por el dueño/admin.
+  role?: string | null;
 };
 
 export type SaleProductLine = {
@@ -65,4 +68,11 @@ export type CommissionSaleInput = {
   recognizedAt: Date;
   seller: Seller | null;
   profit: number;
+};
+
+// Venta del mes con los datos que muestra la pantalla de Comisiones del admin.
+export type CommissionBoardSaleInput = CommissionSaleInput & {
+  clientName: string | null;
+  saleAmount: number;
+  pendingDelivery: boolean;
 };

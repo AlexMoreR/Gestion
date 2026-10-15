@@ -7,6 +7,7 @@ import type { DateRange, SaleProfit } from "../../balances/domain/entities";
 import type { BalancesRepository } from "../../balances/domain/repository";
 import {
   buildDayRange,
+  buildCommissionsBoard,
   buildMonthRange,
   computeCommissions,
   COMMISSION_FIRST_SALE_RATE,
@@ -217,5 +218,37 @@ export async function getMonthlyCommissionsUseCase(deps: AsesorDependencies, mes
       SELLER_NOTE,
       "Una venta con ganancia cero o negativa cuenta como venta del mes pero no genera comision.",
     ],
+  };
+}
+
+// Pantalla /admin/comisiones: mismas ventas y misma regla que comisiones_del_mes,
+// con cliente, valor de la venta y "Falta entregar".
+export async function getCommissionsBoardUseCase(deps: AsesorDependencies, mes: number, anio: number) {
+  const period = buildMonthRange(mes, anio);
+  const rows = await listRecognizedSales(deps.balances, period);
+  const details = await deps.asesor.getSaleDetails(rows.map((row) => row.saleId));
+  const detailById = new Map(details.map((detail) => [detail.saleId, detail]));
+
+  const board = buildCommissionsBoard(
+    rows.map((row) => {
+      const detail = detailById.get(row.saleId);
+      return {
+        saleCode: row.saleCode,
+        recognizedAt: row.createdAt,
+        seller: detail?.seller ?? null,
+        profit: row.netProfit,
+        clientName: row.clientName ?? detail?.clientName ?? null,
+        saleAmount: row.saleAmount,
+        pendingDelivery: row.pendingDelivery,
+      };
+    }),
+  );
+
+  return {
+    mes,
+    anio,
+    periodo: describeRange(period),
+    rates: { first: COMMISSION_FIRST_SALE_RATE * 100, next: COMMISSION_NEXT_SALES_RATE * 100 },
+    ...board,
   };
 }

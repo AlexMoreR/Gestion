@@ -49,6 +49,8 @@ export function AppShell({ children, initialUser, brandName, adminModuleAccess }
               ? "Ventas"
               : pathname.startsWith("/admin/balances")
                 ? "Balances"
+              : pathname.startsWith("/admin/comisiones")
+                ? "Comisiones"
               : pathname.startsWith("/admin/gastos")
                 ? "Gastos"
               : pathname.startsWith("/admin/inventario")

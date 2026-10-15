@@ -45,7 +45,7 @@ en las Server Actions y en `src/lib/`.
 - `inventory`: stock por producto, movimientos de entrada/salida/ajuste y compras directas a proveedor (COM-).
 - `transporte`: tipo de envío por departamento, ciudad y corregimiento (datos DANE): gratis, adicional, se cotiza o no llegamos. Lo consulta el cliente en `/cobertura` (solo si es gratis o no) y el CRM de las asesoras por `/api/transporte/ubicaciones`.
 - `ventas`: reglas de la venta: forma de pago (50/50 o contraentrega) y origen de cada venta (lo avisa el CRM por `/api/ventas/origen`; reporte en `/admin/ventas/origen`).
-- `asesor`: consultas de solo lectura para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones y esta radiografía.
+- `asesor`: consultas de solo lectura para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones y esta radiografía. También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
 
 ## Entidades
 
@@ -121,6 +121,7 @@ en las Server Actions y en `src/lib/`.
 - `/admin/productos/new`: crear producto.
 - `/admin/productos/[productId]`: editar un producto.
 - `/admin/cotizaciones/[quoteId]`: editar una cotización.
+- `/admin/comisiones`: comisiones de las asesoras del mes (solo el dueño/admin): resumen por asesora (# ventas, valor vendido, ganancia, comisión), detalle de cada venta con el % aplicado (10/15) y "Falta entregar", y total del mes. Selector de mes (por defecto el actual, hora de Colombia).
 - `/admin/ventas/origen`: ventas por origen (Meta Ads, Marketplace, Referido, Recurrente, Mostrador, Sin dato) por mes y por anuncio, con el criterio de Balances.
 - `/admin/ordenes/[orderId]`: detalle de una orden: fabricar, recoger, despachar, entregar, historial, abonos y órdenes de fabricación.
 - `/admin/ordenes/[orderId]/ganancia`: desglose de por qué se ganó lo que se ganó en esa orden.
@@ -178,10 +179,15 @@ el CRM queda "pendiente de revisar" en `/admin/transporte` hasta que se le defin
 **Fabricación.** Al "Fabricar" un producto se confirma la proveedora y el costo; eso genera un cargo
 en su cuenta. Cada proveedora recibe una orden de fabricación (OF-) por orden de venta.
 
-**Comisiones (herramienta del asesor).** 10% de la ganancia en la primera venta del mes de cada
-vendedora y 15% desde la segunda, en orden de la fecha en que cuenta cada venta (pago completo;
-contraentrega: entrega). Vendedora = quien creó la
-cotización. Una venta con ganancia cero o negativa no genera comisión.
+**Comisiones (pantalla `/admin/comisiones` y herramienta del asesor).** 10% de la ganancia en la
+primera venta del mes de cada vendedora y 15% desde la segunda, en orden de la fecha en que cuenta
+cada venta (pago completo; contraentrega: entrega). Vendedora = quien creó la cotización. Una venta
+con ganancia cero o negativa no genera comisión. Las dos usan el mismo cálculo. Casos sin decisión
+de Alexander (oct-2026), resueltos así mientras tanto: una venta sin cotización o con cotización sin
+creador sale en "Sin asignar" y no genera comisión; una cotización creada por un usuario admin
+genera comisión con la misma regla, pero la pantalla la marca "(admin)" y avisa; una venta pagada
+que falta entregar ya genera comisión (su ganancia puede bajar si luego se registra un flete).
+Solo el dueño/admin ve la pantalla: el módulo está reservado y no se puede asignar a un empleado.
 
 **Origen de la venta.** Sale de la línea de WhatsApp del chat en el CRM: Ventas 1 = Meta Ads,
 Ventas 2 = Marketplace, Admin = Referido, o Recurrente si el cliente ya tenía una venta anterior
@@ -194,6 +200,7 @@ recurrente; no se guarda.
 
 - El **origen** de las ventas anteriores a oct-2026 casi siempre es "Sin dato" (se puede rellenar con `npm run origen:rellenar`, que cruza el teléfono del cliente con el CRM).
 - No tiene un campo **vendedora**: se usa a quien creó la cotización.
+- Las comisiones **no se liquidan ni se marcan como pagadas**: la pantalla solo las calcula; el pago se registra aparte (por ejemplo como gasto de nómina).
 - No es **multi-empresa**: no hay workspaces; todos los datos son de Magilus.
 - Las órdenes de fabricación (OF-) **no tienen estado** (enviada, en fabricación, recibida).
 - Los reportes de ganancia **no incluyen ventas con saldo pendiente** ni contraentregas sin entregar. Una venta pagada sin entregar sí cuenta; su costo puede subir después si al despachar se registra un flete o se confirma otro costo de proveedora.
