@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { belongsToPayrollMonth, buildPayrollBoard, computeMonthlyBase, parsePayrollConfig, type PayrollConfig } from "./payroll";
+import { belongsToPayrollMonth, buildPayrollBoard, fixedCommissionRates, computeMonthlyBase, parsePayrollConfig, type PayrollConfig } from "./payroll";
 
 const config: PayrollConfig = {
   trm: 4000,
   people: [
-    { userId: "maria", baseAmount: 50, currency: "USD", period: "QUINCENAL", earnsCommission: true },
-    { userId: "ingrid", baseAmount: 0, currency: "COP", period: "SIN_BASE", earnsCommission: true },
-    { userId: "emanuel", baseAmount: 50000, currency: "COP", period: "DIARIO", earnsCommission: false },
+    { userId: "maria", baseAmount: 50, currency: "USD", period: "QUINCENAL", earnsCommission: true, commissionPct: 15, commissionFrom: "2026-10" },
+    { userId: "ingrid", baseAmount: 0, currency: "COP", period: "SIN_BASE", earnsCommission: true, commissionPct: null, commissionFrom: null },
+    { userId: "emanuel", baseAmount: 50000, currency: "COP", period: "DIARIO", earnsCommission: false, commissionPct: null, commissionFrom: null },
   ],
   daysByMonth: { "2026-10": { emanuel: 3 } },
 };
@@ -101,5 +101,13 @@ describe("belongsToPayrollMonth", () => {
   it("sin marca cuenta por su fecha", () => {
     expect(belongsToPayrollMonth("Pago a mano", paidOct3, "2026-10", october)).toBe(true);
     expect(belongsToPayrollMonth(null, new Date("2026-09-30T12:00:00Z"), "2026-10", october)).toBe(false);
+  });
+});
+
+describe("fixedCommissionRates", () => {
+  it("aplica la comision fija desde su mes", () => {
+    expect(fixedCommissionRates(config, 10, 2026)).toEqual({ maria: 0.15 });
+    expect(fixedCommissionRates(config, 9, 2026)).toEqual({});
+    expect(fixedCommissionRates(config, 1, 2027)).toEqual({ maria: 0.15 });
   });
 });

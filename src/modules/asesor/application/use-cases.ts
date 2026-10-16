@@ -9,6 +9,7 @@ import {
   buildDayRange,
   buildCommissionsBoard,
   buildMonthRange,
+  type CommissionFixedRates,
   computeCommissions,
   COMMISSION_FIRST_SALE_RATE,
   COMMISSION_NEXT_SALES_RATE,
@@ -30,7 +31,13 @@ import { effectiveOrigin, originDetailSummary, saleOriginLabel } from "../../ven
 export type AsesorDependencies = {
   balances: BalancesRepository;
   asesor: AsesorReadRepository;
+  // Comisiones fijas pactadas por persona (Nomina). Sin esto, todas usan la regla 10/15.
+  loadFixedCommissionRates?: (mes: number, anio: number) => Promise<CommissionFixedRates>;
 };
+
+async function fixedRatesFor(deps: AsesorDependencies, mes: number, anio: number): Promise<CommissionFixedRates> {
+  return deps.loadFixedCommissionRates ? deps.loadFixedCommissionRates(mes, anio) : {};
+}
 
 const CURRENCY = "COP";
 
@@ -195,6 +202,7 @@ export async function getMonthlyCommissionsUseCase(deps: AsesorDependencies, mes
   const details = await deps.asesor.getSaleDetails(rows.map((row) => row.saleId));
   const detailById = new Map(details.map((detail) => [detail.saleId, detail]));
 
+  const fixedRates = await fixedRatesFor(deps, mes, anio);
   const report = computeCommissions(
     rows.map((row) => ({
       saleCode: row.saleCode,
@@ -202,6 +210,7 @@ export async function getMonthlyCommissionsUseCase(deps: AsesorDependencies, mes
       seller: detailById.get(row.saleId)?.seller ?? null,
       profit: row.netProfit,
     })),
+    fixedRates,
   );
 
   return {
@@ -212,7 +221,7 @@ export async function getMonthlyCommissionsUseCase(deps: AsesorDependencies, mes
     criterio: SALES_CRITERIA,
     regla: `${COMMISSION_FIRST_SALE_RATE * 100}% de la ganancia en la primera venta del mes de cada vendedora y ${
       COMMISSION_NEXT_SALES_RATE * 100
-    }% de la segunda en adelante, en orden de la fecha en que cuenta cada venta (pago completo; contraentrega: entrega).`,
+    }% de la segunda en adelante, en orden de la fecha en que cuenta cada venta (pago completo; contraentrega: entrega). Si una vendedora tiene comision fija pactada ('comision_fija_pct'), esa tasa aplica a todas sus ventas del mes.`,
     ...report,
     notas: [
       SELLER_NOTE,
@@ -229,6 +238,7 @@ export async function getCommissionsBoardUseCase(deps: AsesorDependencies, mes: 
   const details = await deps.asesor.getSaleDetails(rows.map((row) => row.saleId));
   const detailById = new Map(details.map((detail) => [detail.saleId, detail]));
 
+  const fixedRates = await fixedRatesFor(deps, mes, anio);
   const board = buildCommissionsBoard(
     rows.map((row) => {
       const detail = detailById.get(row.saleId);
@@ -242,6 +252,7 @@ export async function getCommissionsBoardUseCase(deps: AsesorDependencies, mes: 
         pendingDelivery: row.pendingDelivery,
       };
     }),
+    fixedRates,
   );
 
   return {

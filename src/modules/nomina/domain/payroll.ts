@@ -29,6 +29,10 @@ export type PayrollPersonConfig = {
   currency: PayCurrency;
   period: PayPeriod;
   earnsCommission: boolean;
+  // Comision fija pactada (% de la ganancia de cada venta) en vez de la regla 10/15.
+  // null = regla general. Aplica desde `commissionFrom` ("AAAA-MM") en adelante.
+  commissionPct: number | null;
+  commissionFrom: string | null;
 };
 
 export type PayrollConfig = {
@@ -48,6 +52,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function positiveNumber(value: unknown): number | null {
   const parsed = typeof value === "string" ? Number(value) : value;
   return typeof parsed === "number" && Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function validPct(value: unknown): number | null {
+  const parsed = typeof value === "string" ? Number(value) : value;
+  return typeof parsed === "number" && Number.isFinite(parsed) && parsed > 0 && parsed <= 100 ? parsed : null;
 }
 
 // Lee la configuracion guardada (JSON en AppSetting). Tolera datos viejos o rotos:
@@ -74,6 +83,8 @@ export function parsePayrollConfig(raw: string | null | undefined): PayrollConfi
       currency,
       period,
       earnsCommission: item.earnsCommission !== false,
+      commissionPct: validPct(item.commissionPct),
+      commissionFrom: typeof item.commissionFrom === "string" && /^\d{4}-\d{2}$/.test(item.commissionFrom) ? item.commissionFrom : null,
     });
     seen.add(item.userId);
   }
@@ -96,6 +107,18 @@ export function parsePayrollConfig(raw: string | null | undefined): PayrollConfi
 
 export function monthKey(mes: number, anio: number): string {
   return `${anio}-${String(mes).padStart(2, "0")}`;
+}
+
+// Tasas de comision fija vigentes en el mes (id -> tasa 0..1), para el calculo de comisiones.
+export function fixedCommissionRates(config: PayrollConfig, mes: number, anio: number): Record<string, number> {
+  const month = monthKey(mes, anio);
+  const rates: Record<string, number> = {};
+  for (const person of config.people) {
+    if (person.commissionPct === null) continue;
+    if (person.commissionFrom && month < person.commissionFrom) continue;
+    rates[person.userId] = person.commissionPct / 100;
+  }
+  return rates;
 }
 
 // Base del mes en la moneda original de la persona y en COP (null si falta la TRM o los dias).
@@ -142,6 +165,8 @@ export type PayrollRow = {
   baseOriginal: number | null;
   baseCop: number | null;
   earnsCommission: boolean;
+  commissionPct: number | null;
+  commissionFrom: string | null;
   salesCount: number;
   commission: number;
   totalDue: number | null; // null si la base no se pudo calcular
@@ -219,6 +244,8 @@ export function buildPayrollBoard(input: {
       baseOriginal: base.original,
       baseCop: base.cop,
       earnsCommission,
+      commissionPct: person?.commissionPct ?? null,
+      commissionFrom: person?.commissionFrom ?? null,
       salesCount: commissionRow?.salesCount ?? 0,
       commission,
       totalDue,

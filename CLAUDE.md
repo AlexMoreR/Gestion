@@ -299,7 +299,11 @@ Route handlers reales (`route.ts`):
 - Relleno de ventas viejas: `npm run origen:rellenar` (simulación; `--aplicar` escribe). Usa
   `CRM_ORIGEN_URL` y `CRM_ORIGEN_LLAVE` (solo el script; la app no las necesita).
 - Comisiones: 10% de la ganancia en la primera venta del mes de cada vendedora, 15% desde la segunda,
-  en orden de la fecha en que cuenta cada venta; ganancia ≤ 0 no genera comisión.
+  en orden de la fecha en que cuenta cada venta; ganancia ≤ 0 no genera comisión. Excepción: comisión
+  fija pactada por persona (`payrollConfig.people[].commissionPct` desde `commissionFrom`), que se pasa a
+  `computeCommissions` como `fixedRates`.
+- Link privado por asesora: `/mis-comisiones/[token]` (tokens en `AppSetting.sellerCommissionLinks`),
+  sus ventas y comisión explicada + cotizaciones abiertas con comisión estimada. Sin costos.
 
 ### Radiografía de la app (`que_es_esta_aplicacion`)
 Devuelve qué hace la app, stack y despliegue, módulos y casos de uso, modelo de datos, rutas, reglas

@@ -21,7 +21,7 @@ import { createPrismaAsesorRepository } from "../../infrastructure/prisma-asesor
 import { getMoneyWithoutAccount } from "@/modules/balances/infrastructure/prisma-money-without-account";
 import { getCashPositionUseCase, getPayrollBoardUseCase } from "@/modules/nomina/application/use-cases";
 import { PAY_PERIOD_LABELS } from "@/modules/nomina/domain/payroll";
-import { createPrismaNominaRepository } from "@/modules/nomina/infrastructure/prisma-nomina-repository";
+import { createPrismaNominaRepository, loadFixedCommissionRates } from "@/modules/nomina/infrastructure/prisma-nomina-repository";
 import type { McpServerDefinition, McpToolDefinition, McpToolResult } from "./protocol";
 
 // Todas las herramientas son de SOLO LECTURA: solo llaman casos de uso de consulta.
@@ -36,6 +36,7 @@ function getDependencies(): AsesorDependencies {
   return {
     balances: createPrismaBalancesRepository(),
     asesor: createPrismaAsesorRepository(),
+    loadFixedCommissionRates: loadFixedCommissionRates(),
   };
 }
 
@@ -156,7 +157,7 @@ export const asesorTools: McpToolDefinition[] = [
     name: "comisiones_del_mes",
     title: "Comisiones del mes",
     description:
-      "Comisiones por vendedora en un mes: ganancia de sus ventas y comision (10% de la ganancia en su primera venta del mes, 15% de la segunda en adelante). Las ventas sin vendedora identificable salen como 'sin asignar'. Valores en COP.",
+      "Comisiones por vendedora en un mes: ganancia de sus ventas y comision (10% de la ganancia en su primera venta del mes, 15% de la segunda en adelante; o la comision fija pactada con esa persona, en comision_fija_pct). Las ventas sin vendedora identificable salen como 'sin asignar'. Valores en COP.",
     schema: monthArgs,
     handler: (args, deps) => {
       const { mes, anio } = resolveMonth(args);

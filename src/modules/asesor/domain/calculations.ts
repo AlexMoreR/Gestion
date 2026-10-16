@@ -171,7 +171,11 @@ type CommissionLine = {
 // de la segunda en adelante. El orden es por la fecha en que cuenta la venta
 // (pago completo; contraentrega: entrega), igual que Balances. Una venta con ganancia <= 0 cuenta en el
 // orden pero no genera comision. Las ventas sin vendedora no generan comision.
-export function computeCommissions(sales: CommissionSaleInput[]) {
+// `fixedRates` (id de vendedora -> tasa 0..1): comision fija pactada con esa persona; reemplaza
+// la regla 10/15 en TODAS sus ventas del mes (decision de Alexander: Maria Camila 15% fijo, oct-2026).
+export type CommissionFixedRates = Record<string, number>;
+
+export function computeCommissions(sales: CommissionSaleInput[], fixedRates: CommissionFixedRates = {}) {
   const bySeller = new Map<string, { name: string; sales: CommissionSaleInput[] }>();
   const unassigned: CommissionSaleInput[] = [];
 
@@ -193,15 +197,18 @@ export function computeCommissions(sales: CommissionSaleInput[]) {
 
   const sellers = Array.from(bySeller.values())
     .map((group) => {
+      const sellerId = group.sales[0]?.seller?.id ?? "";
+      const fixedRate = fixedRates[sellerId];
       const lines: CommissionLine[] = sortSales(group.sales).map((sale, index) => {
-        const rate = index === 0 ? COMMISSION_FIRST_SALE_RATE : COMMISSION_NEXT_SALES_RATE;
+        const rate =
+          typeof fixedRate === "number" ? fixedRate : index === 0 ? COMMISSION_FIRST_SALE_RATE : COMMISSION_NEXT_SALES_RATE;
         const base = sale.profit > 0 ? sale.profit : 0;
         const line: CommissionLine = {
           venta: sale.saleCode,
           fecha: formatDay(sale.recognizedAt),
           numero_en_el_mes: index + 1,
           ganancia: roundMoney(sale.profit),
-          tasa_pct: rate * 100,
+          tasa_pct: roundMoney(rate * 100),
           comision: roundMoney(base * rate),
         };
         if (sale.profit <= 0) {
@@ -211,6 +218,7 @@ export function computeCommissions(sales: CommissionSaleInput[]) {
       });
       return {
         vendedora: group.name,
+        comision_fija_pct: typeof fixedRate === "number" ? roundMoney(fixedRate * 100) : null,
         ventas: lines.length,
         ganancia_total: roundMoney(lines.reduce((sum, line) => sum + line.ganancia, 0)),
         comision_total: roundMoney(lines.reduce((sum, line) => sum + line.comision, 0)),
@@ -264,6 +272,7 @@ export type CommissionBoardSeller = {
   sellerId: string;
   name: string;
   isAdmin: boolean;
+  fixedRatePct: number | null;
   salesCount: number;
   saleAmount: number;
   profit: number;
@@ -282,8 +291,11 @@ export type CommissionBoard = {
 
 // Vista para el panel: el CALCULO es el mismo de computeCommissions (no se repite
 // la regla 10%/15%); aqui solo se agregan cliente, valor y "Falta entregar".
-export function buildCommissionsBoard(sales: CommissionBoardSaleInput[]): CommissionBoard {
-  const report = computeCommissions(sales);
+export function buildCommissionsBoard(
+  sales: CommissionBoardSaleInput[],
+  fixedRates: CommissionFixedRates = {},
+): CommissionBoard {
+  const report = computeCommissions(sales, fixedRates);
   const saleByCode = new Map(sales.map((sale) => [sale.saleCode, sale]));
 
   const sellers: CommissionBoardSeller[] = report.vendedoras.map((group) => {
@@ -307,6 +319,7 @@ export function buildCommissionsBoard(sales: CommissionBoardSaleInput[]): Commis
       sellerId: firstSeller?.id ?? group.vendedora,
       name: group.vendedora,
       isAdmin: firstSeller?.role === "ADMIN",
+      fixedRatePct: group.comision_fija_pct,
       salesCount: group.ventas,
       saleAmount: roundMoney(lines.reduce((sum, line) => sum + line.saleAmount, 0)),
       profit: group.ganancia_total,

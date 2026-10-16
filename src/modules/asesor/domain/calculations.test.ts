@@ -115,6 +115,24 @@ describe("comisiones", () => {
     expect(lines[1]).toMatchObject({ comision: 150_000, tasa_pct: 15 });
   });
 
+  it("una comision fija pactada reemplaza la regla 10/15 solo para esa vendedora", () => {
+    const report = computeCommissions(
+      [
+        { saleCode: "SAL-1", recognizedAt: new Date("2026-10-08T00:00:00Z"), seller: ana, profit: 399_000 },
+        { saleCode: "SAL-2", recognizedAt: new Date("2026-10-09T00:00:00Z"), seller: ana, profit: 229_000 },
+        { saleCode: "SAL-3", recognizedAt: new Date("2026-10-10T00:00:00Z"), seller: bea, profit: 100_000 },
+      ],
+      { [ana.id]: 0.15 },
+    );
+    const anaReport = report.vendedoras.find((seller) => seller.vendedora === "Ana");
+    expect(anaReport?.detalle.map((line) => line.tasa_pct)).toEqual([15, 15]);
+    expect(anaReport?.comision_total).toBe(94_200);
+    expect(anaReport?.comision_fija_pct).toBe(15);
+    const beaReport = report.vendedoras.find((seller) => seller.vendedora === "Bea");
+    expect(beaReport?.detalle[0].tasa_pct).toBe(10);
+    expect(beaReport?.comision_fija_pct).toBeNull();
+  });
+
   it("separa las ventas sin vendedora como 'sin asignar' sin comision", () => {
     const report = computeCommissions([
       { saleCode: "SAL-9", recognizedAt: new Date("2026-09-01T00:00:00Z"), seller: null, profit: 800_000 },

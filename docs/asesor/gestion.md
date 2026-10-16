@@ -123,6 +123,7 @@ en las Server Actions y en `src/lib/`.
 - `/admin/productos/[productId]`: editar un producto.
 - `/admin/cotizaciones/[quoteId]`: editar una cotización.
 - `/admin/comisiones`: comisiones de las asesoras del mes (solo el dueño/admin): resumen por asesora (# ventas, valor vendido, ganancia, comisión), detalle de cada venta con el % aplicado (10/15) y "Falta entregar", y total del mes. Selector de mes (por defecto el actual, hora de Colombia).
+- `/mis-comisiones/[token]`: link privado de cada asesora (sin iniciar sesión): sus ventas del mes con la comisión explicada venta por venta, la regla en lenguaje claro y sus cotizaciones abiertas con la comisión aproximada si las cierra. Nunca muestra costos ni fletes. Se crea o cambia desde Nómina (token en `AppSetting.sellerCommissionLinks`).
 - `/admin/comisiones/nomina`: nómina del mes (solo el dueño/admin): "Dinero hoy" por cuenta arriba, y por persona el básico del mes, la comisión, el total, lo pagado y lo que falta. Configurar salario (por quincena, por día o sin básico; en COP o USD), TRM, días trabajados y botón "Registrar pago" que crea un gasto de Nómina desde la cuenta elegida.
 - `/admin/ventas/origen`: ventas por origen (Meta Ads, Marketplace, Referido, Recurrente, Mostrador, Sin dato) por mes y por anuncio, con el criterio de Balances.
 - `/admin/ordenes/[orderId]`: detalle de una orden: fabricar, recoger, despachar, entregar, historial, abonos y órdenes de fabricación.
@@ -190,6 +191,9 @@ creador sale en "Sin asignar" y no genera comisión; una cotización creada por 
 genera comisión con la misma regla, pero la pantalla la marca "(admin)" y avisa; una venta pagada
 que falta entregar ya genera comisión (su ganancia puede bajar si luego se registra un flete).
 Solo el dueño/admin ve la pantalla: el módulo está reservado y no se puede asignar a un empleado.
+**Comisión fija pactada:** una persona puede tener un % fijo (en Nómina → Editar salario), que
+reemplaza la regla 10/15 en todas sus ventas desde el mes indicado (decisión de Alexander: María
+Camila 15% fijo desde oct-2026). Aplica igual en Comisiones, Nómina, su link y el asesor de IA.
 
 **Nómina (`/admin/comisiones/nomina`, decisión de Alexander 15-oct-2026).** Total del mes por
 persona = básico del mes + comisión del mes; falta pagar = total − pagos de Nómina de esa persona para

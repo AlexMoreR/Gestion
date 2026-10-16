@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { DateRange } from "@/modules/balances/domain/entities";
 import {
   belongsToPayrollMonth,
+  fixedCommissionRates,
   isPayrollCategoryName,
   payrollMonthTag,
   parsePayrollConfig,
@@ -96,4 +97,9 @@ export function createPrismaNominaRepository(): NominaRepository {
       return created.id;
     },
   };
+}
+
+// Comisiones fijas pactadas (Nomina) para el calculo de comisiones del mes.
+export function loadFixedCommissionRates(repository: NominaRepository = createPrismaNominaRepository()) {
+  return async (mes: number, anio: number) => fixedCommissionRates(await repository.getConfig(), mes, anio);
 }

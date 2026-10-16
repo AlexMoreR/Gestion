@@ -10,6 +10,7 @@ import { getCommissionsBoardUseCase } from "@/modules/asesor/application/use-cas
 import { currentMonthInBogota } from "@/modules/asesor/domain/calculations";
 import { createPrismaAsesorRepository } from "@/modules/asesor/infrastructure/prisma-asesor-repository";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
+import { loadFixedCommissionRates } from "@/modules/nomina/infrastructure/prisma-nomina-repository";
 
 // Comisiones de las asesoras del mes (solo dueno/admin).
 //
@@ -98,7 +99,11 @@ export default async function AdminComisionesPage({ searchParams }: PageProps) {
   const [currency, board] = await Promise.all([
     getSystemCurrency(),
     getCommissionsBoardUseCase(
-      { balances: createPrismaBalancesRepository(), asesor: createPrismaAsesorRepository() },
+      {
+        balances: createPrismaBalancesRepository(),
+        asesor: createPrismaAsesorRepository(),
+        loadFixedCommissionRates: loadFixedCommissionRates(),
+      },
       mes,
       anio,
     ),
@@ -115,7 +120,7 @@ export default async function AdminComisionesPage({ searchParams }: PageProps) {
           </h1>
           <p className="max-w-2xl text-xs text-muted-foreground">
             {board.rates.first}% de la ganancia en la primera venta del mes de cada asesora y {board.rates.next}% desde la
-            segunda, en orden de la fecha en que cuenta cada venta. Cuentan las ventas pagadas por completo, aunque falte
+            segunda, en orden de la fecha en que cuenta cada venta (salvo quien tenga comisión fija pactada en Nómina). Cuentan las ventas pagadas por completo, aunque falte
             entregarlas (en la fecha del pago que completó el total); la contraentrega cuenta al entregarse; las canceladas no.
             Ganancia cero o negativa no genera comisión. Asesora = quien creó la cotización.
           </p>
@@ -218,6 +223,9 @@ export default async function AdminComisionesPage({ searchParams }: PageProps) {
                       {seller.name}
                     </a>
                     {seller.isAdmin ? <span className="ml-1.5 text-[11px] text-muted-foreground">(admin)</span> : null}
+                    {seller.fixedRatePct !== null ? (
+                      <span className="ml-1.5 text-[11px] text-muted-foreground">({seller.fixedRatePct}% fijo)</span>
+                    ) : null}
                   </td>
                   <td className="py-2 pr-3 text-right tabular-nums">{seller.salesCount}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{money(seller.saleAmount)}</td>

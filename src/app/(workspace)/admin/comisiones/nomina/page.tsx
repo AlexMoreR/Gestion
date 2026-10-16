@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import {
   payPayrollAction,
+  regenerateSellerLinkAction,
   removePayrollPersonAction,
   savePayrollDaysAction,
   savePayrollPersonAction,
@@ -22,6 +23,8 @@ import { CashPositionStrip } from "@/modules/balances/presentation/components/ca
 import { getCashPositionUseCase, getPayrollBoardUseCase } from "@/modules/nomina/application/use-cases";
 import { PAY_PERIOD_LABELS, type PayrollRow } from "@/modules/nomina/domain/payroll";
 import { createPrismaNominaRepository } from "@/modules/nomina/infrastructure/prisma-nomina-repository";
+import { listSellerLinks } from "@/modules/nomina/infrastructure/prisma-seller-portal";
+import { getSiteUrl } from "@/lib/site";
 
 // Nomina del mes (solo dueno/admin): basico de cada persona + comisiones - lo ya pagado,
 // con el dinero disponible hoy arriba para saber si alcanza. Pagar crea un gasto de
@@ -83,12 +86,13 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
 
   const balances = createPrismaBalancesRepository();
   const nomina = createPrismaNominaRepository();
-  const [currency, board, cash, staff, config] = await Promise.all([
+  const [currency, board, cash, staff, config, sellerLinks] = await Promise.all([
     getSystemCurrency(),
     getPayrollBoardUseCase({ balances, asesor: createPrismaAsesorRepository(), nomina }, mes, anio),
     getCashPositionUseCase(balances, getMoneyWithoutAccount),
     nomina.listStaff(),
     nomina.getConfig(),
+    listSellerLinks(),
   ]);
   const money = (value: number) => formatMoney(value, currency as SupportedCurrencyCode);
   const activeAccounts = cash.accounts.filter((account) => account.isActive);
@@ -182,7 +186,11 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
                 <p className="text-xs text-muted-foreground">
                   {baseDescription(row, money)}
                   {row.period ? ` · ${PAY_PERIOD_LABELS[row.period]}` : ""}
-                  {row.earnsCommission ? " · gana comisión" : " · sin comisión"}
+                  {row.earnsCommission
+                    ? row.commissionPct !== null
+                      ? ` · comisión fija ${row.commissionPct}%${row.commissionFrom ? ` desde ${row.commissionFrom}` : ""}`
+                      : " · comisión 10% / 15%"
+                    : " · sin comisión"}
                 </p>
               </div>
               <div className="text-right">
@@ -268,6 +276,30 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
               </div>
             ) : null}
 
+            {row.earnsCommission ? (
+              <form action={regenerateSellerLinkAction} className="flex flex-wrap items-end gap-2 rounded-lg bg-muted/30 p-2.5">
+                <input type="hidden" name="mes" value={mesValue} />
+                <input type="hidden" name="userId" value={row.userId} />
+                {sellerLinks[row.userId] ? (
+                  <label className="min-w-0 flex-1 space-y-1 text-xs text-muted-foreground">
+                    Link de comisiones para enviarle (copia y pega en WhatsApp)
+                    <input
+                      readOnly
+                      value={getSiteUrl(`/mis-comisiones/${sellerLinks[row.userId]}`)}
+                      className={`${inputClass} font-mono text-xs`}
+                    />
+                  </label>
+                ) : (
+                  <p className="flex-1 text-xs text-muted-foreground">
+                    Crea su link privado: verá sus ventas, su comisión explicada y lo que ganaría con sus cotizaciones.
+                  </p>
+                )}
+                <button type="submit" className={buttonClass}>
+                  {sellerLinks[row.userId] ? "Cambiar link" : "Crear link"}
+                </button>
+              </form>
+            ) : null}
+
             <div className="flex flex-wrap gap-2">
               <details className="group w-full rounded-lg border border-border p-3 open:bg-muted/20 md:w-auto md:min-w-[420px]">
                 <summary className="cursor-pointer text-sm font-medium text-primary">Registrar pago</summary>
@@ -334,6 +366,8 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
                     currency: row.currency ?? "COP",
                     baseAmount: row.baseAmount,
                     earnsCommission: row.earnsCommission,
+                    commissionPct: row.commissionPct,
+                    commissionFrom: row.commissionFrom,
                   }}
                 />
                 {row.configured ? (
@@ -357,7 +391,7 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
             con rol Empleado.
           </p>
         ) : (
-          <PersonForm mesValue={mesValue} staff={unconfiguredStaff} defaults={{ period: "QUINCENAL", currency: "COP", baseAmount: 0, earnsCommission: true }} />
+          <PersonForm mesValue={mesValue} staff={unconfiguredStaff} defaults={{ period: "QUINCENAL", currency: "COP", baseAmount: 0, earnsCommission: true, commissionPct: null, commissionFrom: null }} />
         )}
       </details>
     </section>
@@ -373,7 +407,14 @@ function PersonForm({
   mesValue: string;
   userId?: string;
   staff?: { id: string; name: string }[];
-  defaults: { period: string; currency: string; baseAmount: number; earnsCommission: boolean };
+  defaults: {
+    period: string;
+    currency: string;
+    baseAmount: number;
+    earnsCommission: boolean;
+    commissionPct: number | null;
+    commissionFrom: string | null;
+  };
 }) {
   return (
     <form action={savePayrollPersonAction} className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -413,6 +454,14 @@ function PersonForm({
       <label className="flex items-center gap-2 self-end pb-1.5 text-xs text-muted-foreground">
         <input type="checkbox" name="earnsCommission" defaultChecked={defaults.earnsCommission} />
         Gana comisión por ventas
+      </label>
+      <label className="space-y-1 text-xs text-muted-foreground">
+        Comisión fija % (vacío = 10% primera venta / 15% desde la segunda)
+        <input name="commissionPct" inputMode="decimal" defaultValue={defaults.commissionPct ?? ""} placeholder="Ej. 15" className={inputClass} />
+      </label>
+      <label className="space-y-1 text-xs text-muted-foreground">
+        Comisión fija desde el mes
+        <input type="month" name="commissionFrom" defaultValue={defaults.commissionFrom ?? mesValue} className={inputClass} />
       </label>
       <div className="sm:col-span-2">
         <button type="submit" className={primaryButtonClass}>Guardar salario</button>

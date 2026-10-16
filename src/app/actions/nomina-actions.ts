@@ -12,6 +12,7 @@ import { createExpenseUseCase } from "@/modules/expenses/application/use-cases";
 import { createPrismaExpensesRepository } from "@/modules/expenses/infrastructure/prisma-expenses-repository";
 import { PAY_CURRENCIES, PAY_PERIODS, payrollMonthTag, type PayrollPersonConfig } from "@/modules/nomina/domain/payroll";
 import { createPrismaNominaRepository } from "@/modules/nomina/infrastructure/prisma-nomina-repository";
+import { regenerateSellerLink } from "@/modules/nomina/infrastructure/prisma-seller-portal";
 
 // Nomina: solo el dueno/admin (mismo permiso que Comisiones).
 const BASE_PATH = "/admin/comisiones/nomina";
@@ -81,6 +82,15 @@ export async function savePayrollPersonAction(formData: FormData): Promise<void>
   if (data.period !== "SIN_BASE" && (!Number.isFinite(data.baseAmount) || data.baseAmount <= 0)) {
     back(formData, "error", "Escribe el valor del básico (por quincena o por día).");
   }
+  // Comision fija (vacio = regla general 10% primera venta / 15% desde la segunda).
+  const pctRaw = field(formData, "commissionPct").replace("%", "").replace(",", ".");
+  const commissionPct = pctRaw ? Number(pctRaw) : null;
+  if (commissionPct !== null && (!Number.isFinite(commissionPct) || commissionPct <= 0 || commissionPct > 100)) {
+    back(formData, "error", "La comisión fija debe ser un % entre 0 y 100 (o déjala vacía).");
+  }
+  const fromRaw = field(formData, "commissionFrom");
+  const commissionFrom = /^\d{4}-\d{2}$/.test(fromRaw) ? fromRaw : monthParam(formData) || null;
+
   const user = await prisma.user.findUnique({ where: { id: data.userId }, select: { name: true, email: true } });
   if (!user) back(formData, "error", "La persona no existe.");
 
@@ -90,6 +100,8 @@ export async function savePayrollPersonAction(formData: FormData): Promise<void>
     currency: data.period === "SIN_BASE" ? "COP" : data.currency,
     baseAmount: data.period === "SIN_BASE" ? 0 : data.baseAmount,
     earnsCommission: data.earnsCommission,
+    commissionPct: data.earnsCommission ? commissionPct : null,
+    commissionFrom: data.earnsCommission && commissionPct !== null ? commissionFrom : null,
   };
   const config = await nomina.getConfig();
   const people = config.people.filter((item) => item.userId !== person.userId);
@@ -102,6 +114,7 @@ export async function savePayrollPersonAction(formData: FormData): Promise<void>
     summary: `Configuró el salario de ${user.name ?? user.email} en nómina`,
   });
   revalidatePath(BASE_PATH);
+  revalidatePath("/admin/comisiones");
   back(formData, "ok", "Salario guardado");
 }
 
@@ -223,4 +236,21 @@ export async function payPayrollAction(formData: FormData): Promise<void> {
   revalidatePath("/admin/gastos");
   revalidatePath("/admin/balances");
   back(formData, "ok", `Pago registrado desde ${account.name}`);
+}
+
+// Crea (o cambia) el link privado de comisiones de una persona. Cambiarlo invalida el anterior.
+export async function regenerateSellerLinkAction(formData: FormData): Promise<void> {
+  await requireOwner();
+  const userId = field(formData, "userId");
+  const user = userId ? await prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true, role: true } }) : null;
+  if (!user || user.role === "CLIENTE") back(formData, "error", "La persona no existe.");
+  await regenerateSellerLink(userId);
+  await logActivity({
+    action: "UPDATE",
+    entityType: "PAYROLL",
+    entityId: userId,
+    summary: `Generó el link de comisiones de ${user.name ?? user.email}`,
+  });
+  revalidatePath(BASE_PATH);
+  back(formData, "ok", "Link listo para compartir");
 }
