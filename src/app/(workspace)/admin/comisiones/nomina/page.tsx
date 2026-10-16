@@ -25,6 +25,7 @@ import { PAY_PERIOD_LABELS, type PayrollRow } from "@/modules/nomina/domain/payr
 import { createPrismaNominaRepository } from "@/modules/nomina/infrastructure/prisma-nomina-repository";
 import { listSellerLinks } from "@/modules/nomina/infrastructure/prisma-seller-portal";
 import { getSiteUrl } from "@/lib/site";
+import { CopyButton } from "@/modules/guias/presentation/copy-button";
 
 // Nomina del mes (solo dueno/admin): basico de cada persona + comisiones - lo ya pagado,
 // con el dinero disponible hoy arriba para saber si alcanza. Pagar crea un gasto de
@@ -281,22 +282,31 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
                 <input type="hidden" name="mes" value={mesValue} />
                 <input type="hidden" name="userId" value={row.userId} />
                 {sellerLinks[row.userId] ? (
-                  <label className="min-w-0 flex-1 space-y-1 text-xs text-muted-foreground">
-                    Link de comisiones para enviarle (copia y pega en WhatsApp)
-                    <input
-                      readOnly
+                  <>
+                    <label className="min-w-0 flex-1 space-y-1 text-xs text-muted-foreground">
+                      Link de comisiones para enviarle por WhatsApp
+                      <input
+                        readOnly
+                        value={getSiteUrl(`/mis-comisiones/${sellerLinks[row.userId]}`)}
+                        className={`${inputClass} font-mono text-xs`}
+                      />
+                    </label>
+                    <CopyButton
                       value={getSiteUrl(`/mis-comisiones/${sellerLinks[row.userId]}`)}
-                      className={`${inputClass} font-mono text-xs`}
+                      label="Copiar"
+                      toastText="Link copiado"
                     />
-                  </label>
+                  </>
                 ) : (
-                  <p className="flex-1 text-xs text-muted-foreground">
-                    Crea su link privado: verá sus ventas, su comisión explicada y lo que ganaría con sus cotizaciones.
-                  </p>
+                  <>
+                    <p className="flex-1 text-xs text-muted-foreground">
+                      Crea su link privado: verá sus ventas, su comisión explicada y lo que ganaría con sus cotizaciones.
+                    </p>
+                    <button type="submit" className={buttonClass}>
+                      Crear link
+                    </button>
+                  </>
                 )}
-                <button type="submit" className={buttonClass}>
-                  {sellerLinks[row.userId] ? "Cambiar link" : "Crear link"}
-                </button>
               </form>
             ) : null}
 
