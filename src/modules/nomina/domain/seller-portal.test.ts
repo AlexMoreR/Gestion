@@ -5,7 +5,7 @@ const money = (value: number) => `$${value.toLocaleString("es-CO")}`;
 
 describe("seller portal", () => {
   it("tasa de la proxima venta", () => {
-    expect(nextSaleRate(0, null)).toBe(0.1);
+    expect(nextSaleRate(0, null)).toBe(0.15);
     expect(nextSaleRate(2, null)).toBe(0.15);
     expect(nextSaleRate(0, 0.15)).toBe(0.15);
   });
@@ -26,7 +26,7 @@ describe("seller portal", () => {
 
   it("regla en lenguaje claro", () => {
     expect(ruleText(15)).toContain("15% de la ganancia de cada venta");
-    expect(ruleText(null)).toContain("primera venta del mes");
+    expect(ruleText(null)).toContain("15% de la ganancia de cada venta");
   });
 
   it("arma las cotizaciones con su estado", () => {

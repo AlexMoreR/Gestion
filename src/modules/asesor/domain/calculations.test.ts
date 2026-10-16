@@ -129,8 +129,19 @@ describe("comisiones", () => {
     expect(anaReport?.comision_total).toBe(94_200);
     expect(anaReport?.comision_fija_pct).toBe(15);
     const beaReport = report.vendedoras.find((seller) => seller.vendedora === "Bea");
-    expect(beaReport?.detalle[0].tasa_pct).toBe(10);
+    expect(beaReport?.detalle[0].tasa_pct).toBe(15);
     expect(beaReport?.comision_fija_pct).toBeNull();
+  });
+
+  it("desde octubre de 2026 la primera venta del mes tambien paga 15%", () => {
+    const report = computeCommissions([
+      { saleCode: "SAL-1", recognizedAt: new Date("2026-10-06T12:00:00Z"), seller: ana, profit: 339_000 },
+      { saleCode: "SAL-2", recognizedAt: new Date("2026-10-09T12:00:00Z"), seller: ana, profit: 229_000 },
+    ]);
+    expect(report.vendedoras[0].detalle.map((line) => [line.tasa_pct, line.comision])).toEqual([
+      [15, 50_850],
+      [15, 34_350],
+    ]);
   });
 
   it("separa las ventas sin vendedora como 'sin asignar' sin comision", () => {
@@ -195,7 +206,7 @@ describe("margen de producto", () => {
 
 describe("pantalla de comisiones", () => {
   const sale = (overrides: Partial<CommissionBoardSaleInput> & Pick<CommissionBoardSaleInput, "saleCode">): CommissionBoardSaleInput => ({
-    recognizedAt: new Date("2026-10-05T00:00:00Z"),
+    recognizedAt: new Date("2026-09-05T00:00:00Z"),
     seller: ana,
     profit: 0,
     clientName: null,
@@ -204,10 +215,10 @@ describe("pantalla de comisiones", () => {
     ...overrides,
   });
 
-  it("usa la misma regla 10%/15% y agrega cliente, valor y 'Falta entregar'", () => {
+  it("usa la regla 10%/15% (hasta sep-2026) y agrega cliente, valor y 'Falta entregar'", () => {
     const board = buildCommissionsBoard([
-      sale({ saleCode: "SAL-2", recognizedAt: new Date("2026-10-09T00:00:00Z"), profit: 229_000, saleAmount: 989_000, clientName: "Hamilton" }),
-      sale({ saleCode: "SAL-1", recognizedAt: new Date("2026-10-08T00:00:00Z"), profit: 399_000, saleAmount: 1_129_000, clientName: "Karla" }),
+      sale({ saleCode: "SAL-2", recognizedAt: new Date("2026-09-09T00:00:00Z"), profit: 229_000, saleAmount: 989_000, clientName: "Hamilton" }),
+      sale({ saleCode: "SAL-1", recognizedAt: new Date("2026-09-08T00:00:00Z"), profit: 399_000, saleAmount: 1_129_000, clientName: "Karla" }),
       sale({ saleCode: "SAL-3", seller: bea, profit: 215_000, saleAmount: 450_000, pendingDelivery: true }),
     ]);
 

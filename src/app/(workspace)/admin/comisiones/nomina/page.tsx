@@ -189,7 +189,7 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
                   {row.earnsCommission
                     ? row.commissionPct !== null
                       ? ` · comisión fija ${row.commissionPct}%${row.commissionFrom ? ` desde ${row.commissionFrom}` : ""}`
-                      : " · comisión 10% / 15%"
+                      : " · comisión 15%"
                     : " · sin comisión"}
                 </p>
               </div>
@@ -456,7 +456,7 @@ function PersonForm({
         Gana comisión por ventas
       </label>
       <label className="space-y-1 text-xs text-muted-foreground">
-        Comisión fija % (vacío = 10% primera venta / 15% desde la segunda)
+        Comisión fija % (vacío = regla general, 15%)
         <input name="commissionPct" inputMode="decimal" defaultValue={defaults.commissionPct ?? ""} placeholder="Ej. 15" className={inputClass} />
       </label>
       <label className="space-y-1 text-xs text-muted-foreground">

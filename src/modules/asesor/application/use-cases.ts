@@ -31,7 +31,7 @@ import { effectiveOrigin, originDetailSummary, saleOriginLabel } from "../../ven
 export type AsesorDependencies = {
   balances: BalancesRepository;
   asesor: AsesorReadRepository;
-  // Comisiones fijas pactadas por persona (Nomina). Sin esto, todas usan la regla 10/15.
+  // Comisiones fijas pactadas por persona (Nomina). Sin esto, todas usan la regla general.
   loadFixedCommissionRates?: (mes: number, anio: number) => Promise<CommissionFixedRates>;
 };
 
@@ -219,9 +219,7 @@ export async function getMonthlyCommissionsUseCase(deps: AsesorDependencies, mes
     periodo: describeRange(period),
     moneda: CURRENCY,
     criterio: SALES_CRITERIA,
-    regla: `${COMMISSION_FIRST_SALE_RATE * 100}% de la ganancia en la primera venta del mes de cada vendedora y ${
-      COMMISSION_NEXT_SALES_RATE * 100
-    }% de la segunda en adelante, en orden de la fecha en que cuenta cada venta (pago completo; contraentrega: entrega). Si una vendedora tiene comision fija pactada ('comision_fija_pct'), esa tasa aplica a todas sus ventas del mes.`,
+    regla: `${COMMISSION_NEXT_SALES_RATE * 100}% de la ganancia de cada venta (pago completo; contraentrega: entrega). Hasta septiembre de 2026 la primera venta del mes de cada vendedora pagaba 10%. Si una vendedora tiene comision fija pactada ('comision_fija_pct'), esa tasa aplica a todas sus ventas del mes.`,
     ...report,
     notas: [
       SELLER_NOTE,

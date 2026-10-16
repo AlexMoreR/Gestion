@@ -96,7 +96,7 @@ export const adminModuleDefinitions = [
   {
     key: "commissions",
     label: "Comisiones",
-    description: "Comisiones de las asesoras del mes: 10% de la ganancia en su primera venta y 15% desde la segunda (solo dueno/admin).",
+    description: "Comisiones de las asesoras del mes: 15% de la ganancia de cada venta (solo dueno/admin).",
     path: "/admin/comisiones",
     group: "Comercial",
   },

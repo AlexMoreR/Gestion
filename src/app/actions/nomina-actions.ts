@@ -82,7 +82,7 @@ export async function savePayrollPersonAction(formData: FormData): Promise<void>
   if (data.period !== "SIN_BASE" && (!Number.isFinite(data.baseAmount) || data.baseAmount <= 0)) {
     back(formData, "error", "Escribe el valor del básico (por quincena o por día).");
   }
-  // Comision fija (vacio = regla general 10% primera venta / 15% desde la segunda).
+  // Comision fija (vacio = regla general de Comisiones).
   const pctRaw = field(formData, "commissionPct").replace("%", "").replace(",", ".");
   const commissionPct = pctRaw ? Number(pctRaw) : null;
   if (commissionPct !== null && (!Number.isFinite(commissionPct) || commissionPct <= 0 || commissionPct > 100)) {

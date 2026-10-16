@@ -157,7 +157,7 @@ export const asesorTools: McpToolDefinition[] = [
     name: "comisiones_del_mes",
     title: "Comisiones del mes",
     description:
-      "Comisiones por vendedora en un mes: ganancia de sus ventas y comision (10% de la ganancia en su primera venta del mes, 15% de la segunda en adelante; o la comision fija pactada con esa persona, en comision_fija_pct). Las ventas sin vendedora identificable salen como 'sin asignar'. Valores en COP.",
+      "Comisiones por vendedora en un mes: ganancia de sus ventas y comision (15% de la ganancia de cada venta desde oct-2026; hasta sep-2026 la primera venta del mes pagaba 10%; o la comision fija pactada con esa persona, en comision_fija_pct). Las ventas sin vendedora identificable salen como 'sin asignar'. Valores en COP.",
     schema: monthArgs,
     handler: (args, deps) => {
       const { mes, anio } = resolveMonth(args);

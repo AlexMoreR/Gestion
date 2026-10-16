@@ -7,7 +7,7 @@ import { roundMoney } from "../../../lib/pricing";
 //   DIARIO (tarifa por dia trabajado) o SIN_BASE (solo comision).
 // - La base puede estar en COP o en USD; si esta en USD se convierte con la TRM que
 //   el dueno escribe en la pantalla (nunca se inventa una tasa).
-// - La comision del mes sale de la regla de Comisiones (10% primera venta, 15% desde la segunda).
+// - La comision del mes sale de la regla de Comisiones (15% de cada venta desde oct-2026).
 // - Lo pagado son los gastos de la categoria Nomina con ese empleado en el mes.
 // - Pendiente = (base del mes + comision del mes) - pagado en el mes.
 
@@ -29,7 +29,7 @@ export type PayrollPersonConfig = {
   currency: PayCurrency;
   period: PayPeriod;
   earnsCommission: boolean;
-  // Comision fija pactada (% de la ganancia de cada venta) en vez de la regla 10/15.
+  // Comision fija pactada (% de la ganancia de cada venta) en vez de la regla general.
   // null = regla general. Aplica desde `commissionFrom` ("AAAA-MM") en adelante.
   commissionPct: number | null;
   commissionFrom: string | null;

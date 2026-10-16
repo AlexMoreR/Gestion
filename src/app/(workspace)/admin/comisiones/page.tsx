@@ -16,7 +16,7 @@ import { loadFixedCommissionRates } from "@/modules/nomina/infrastructure/prisma
 //
 // No hay calculo propio aqui: se reutiliza el caso de uso del asesor (el mismo de la
 // herramienta MCP comisiones_del_mes), que a su vez toma las ventas y la ganancia de Balances.
-// Regla: 10% de la ganancia en la primera venta del mes de cada vendedora y 15% desde la segunda,
+// Regla: 15% de la ganancia de cada venta desde oct-2026 (antes: 10% la primera venta del mes y 15% desde la segunda,
 // en orden de la fecha en que cuenta cada venta; ganancia <= 0 no genera comision.
 // Vendedora = quien creo la cotizacion.
 
@@ -119,10 +119,8 @@ export default async function AdminComisionesPage({ searchParams }: PageProps) {
             Comisiones · {monthLabel(mes, anio)}
           </h1>
           <p className="max-w-2xl text-xs text-muted-foreground">
-            {board.rates.first}% de la ganancia en la primera venta del mes de cada asesora y {board.rates.next}% desde la
-            segunda, en orden de la fecha en que cuenta cada venta (salvo quien tenga comisión fija pactada en Nómina). Cuentan las ventas pagadas por completo, aunque falte
-            entregarlas (en la fecha del pago que completó el total); la contraentrega cuenta al entregarse; las canceladas no.
-            Ganancia cero o negativa no genera comisión. Asesora = quien creó la cotización.
+            {board.rates.next}% de la ganancia de cada venta pagada (contraentrega: al entregarse). Hasta septiembre de 2026 la
+            primera venta del mes pagaba 10%.
           </p>
         </div>
         <div className="flex items-center gap-1.5">

@@ -182,7 +182,8 @@ el CRM queda "pendiente de revisar" en `/admin/transporte` hasta que se le defin
 **Fabricación.** Al "Fabricar" un producto se confirma la proveedora y el costo; eso genera un cargo
 en su cuenta. Cada proveedora recibe una orden de fabricación (OF-) por orden de venta.
 
-**Comisiones (pantalla `/admin/comisiones` y herramienta del asesor).** 10% de la ganancia en la
+**Comisiones (pantalla `/admin/comisiones` y herramienta del asesor).** Desde octubre de 2026, 15% de
+la ganancia de cada venta (decisión de Alexander, 15-oct-2026). Hasta septiembre de 2026: 10% en la
 primera venta del mes de cada vendedora y 15% desde la segunda, en orden de la fecha en que cuenta
 cada venta (pago completo; contraentrega: entrega). Vendedora = quien creó la cotización. Una venta
 con ganancia cero o negativa no genera comisión. Las dos usan el mismo cálculo. Casos sin decisión

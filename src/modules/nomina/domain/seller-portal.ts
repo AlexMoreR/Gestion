@@ -1,6 +1,8 @@
 import { roundMoney } from "../../../lib/pricing";
 import { COMMISSION_FIRST_SALE_RATE, COMMISSION_NEXT_SALES_RATE } from "../../asesor/domain/calculations";
 
+const FLAT_RATE = COMMISSION_FIRST_SALE_RATE === COMMISSION_NEXT_SALES_RATE;
+
 // Link privado de cada asesora (/mis-comisiones/<token>): sus ventas del mes con la comision
 // explicada, y sus cotizaciones abiertas con lo que ganaria si las cierra.
 // Nunca muestra costos ni fletes: solo valor de la venta, ganancia y comision.
@@ -62,6 +64,9 @@ export function explainSaleLine(line: PortalSaleLine, money: (value: number) => 
 export function ruleText(fixedRatePct: number | null): string {
   if (fixedRatePct !== null) {
     return `Ganas el ${fixedRatePct}% de la ganancia de cada venta. La venta cuenta cuando el cliente la paga completa (contraentrega: cuando se entrega).`;
+  }
+  if (FLAT_RATE) {
+    return `Ganas el ${COMMISSION_NEXT_SALES_RATE * 100}% de la ganancia de cada venta. La venta cuenta cuando el cliente la paga completa (contraentrega: cuando se entrega).`;
   }
   return `Ganas el ${COMMISSION_FIRST_SALE_RATE * 100}% de la ganancia de tu primera venta del mes y el ${
     COMMISSION_NEXT_SALES_RATE * 100

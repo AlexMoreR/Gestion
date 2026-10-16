@@ -153,8 +153,16 @@ export function productMargin(product: ProductRow) {
 
 // --- Comisiones ---------------------------------------------------------------
 
-export const COMMISSION_FIRST_SALE_RATE = 0.1;
+// Desde octubre de 2026 (decision de Alexander, 15-oct-2026) TODAS las ventas pagan 15%, tambien la
+// primera del mes. Antes, la primera venta del mes pagaba 10%; esos meses no se recalculan.
+export const COMMISSION_FIRST_SALE_RATE = 0.15;
 export const COMMISSION_NEXT_SALES_RATE = 0.15;
+export const COMMISSION_FIRST_SALE_RATE_BEFORE_OCT_2026 = 0.1;
+export const COMMISSION_FLAT_RATE_FROM = new Date(Date.UTC(2026, 9, 1));
+
+export function firstSaleRate(recognizedAt: Date): number {
+  return recognizedAt < COMMISSION_FLAT_RATE_FROM ? COMMISSION_FIRST_SALE_RATE_BEFORE_OCT_2026 : COMMISSION_FIRST_SALE_RATE;
+}
 export const UNASSIGNED_SELLER = "sin asignar";
 
 type CommissionLine = {
@@ -167,8 +175,8 @@ type CommissionLine = {
   nota?: string;
 };
 
-// Regla: 10% de la ganancia en la PRIMERA venta del mes de cada vendedora y 15%
-// de la segunda en adelante. El orden es por la fecha en que cuenta la venta
+// Regla: 15% de la ganancia de cada venta (hasta sep-2026: 10% en la PRIMERA venta del mes de cada
+// vendedora y 15% de la segunda en adelante). El orden es por la fecha en que cuenta la venta
 // (pago completo; contraentrega: entrega), igual que Balances. Una venta con ganancia <= 0 cuenta en el
 // orden pero no genera comision. Las ventas sin vendedora no generan comision.
 // `fixedRates` (id de vendedora -> tasa 0..1): comision fija pactada con esa persona; reemplaza
@@ -201,7 +209,7 @@ export function computeCommissions(sales: CommissionSaleInput[], fixedRates: Com
       const fixedRate = fixedRates[sellerId];
       const lines: CommissionLine[] = sortSales(group.sales).map((sale, index) => {
         const rate =
-          typeof fixedRate === "number" ? fixedRate : index === 0 ? COMMISSION_FIRST_SALE_RATE : COMMISSION_NEXT_SALES_RATE;
+          typeof fixedRate === "number" ? fixedRate : index === 0 ? firstSaleRate(sale.recognizedAt) : COMMISSION_NEXT_SALES_RATE;
         const base = sale.profit > 0 ? sale.profit : 0;
         const line: CommissionLine = {
           venta: sale.saleCode,
