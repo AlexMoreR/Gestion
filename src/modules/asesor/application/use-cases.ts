@@ -24,7 +24,19 @@ import {
   summarizeMonth,
   summarizeQuotes,
   UNASSIGNED_SELLER,
+  AsesorInputError,
 } from "../domain/calculations";
+import {
+  bogotaDay,
+  buildSaleLedger,
+  describeLedgerDates,
+  describePayment,
+  matchesPaymentStatus,
+  matchesText,
+  normalizeSaleCode,
+  type PaymentStatusFilter,
+  type SaleLedger,
+} from "../domain/payments";
 import type { AsesorReadRepository } from "../domain/repository";
 import { effectiveOrigin, originDetailSummary, saleOriginLabel } from "../../ventas/domain/sale-origin";
 
@@ -79,16 +91,64 @@ export async function getMonthSummaryUseCase(deps: AsesorDependencies, mes: numb
   };
 }
 
-export async function listSalesUseCase(deps: AsesorDependencies, desde: string, hasta: string) {
-  const period = buildDayRange(desde, hasta);
-  const rows = await listRecognizedSales(deps.balances, period);
-  const details = await deps.asesor.getSaleDetails(rows.map((row) => row.saleId));
-  const detailById = new Map(details.map((detail) => [detail.saleId, detail]));
+const PAYMENT_DATES_NOTE =
+  "fecha_cotizacion, fecha_creacion_venta, fecha_primer_abono, fecha_pago_completo y fecha_entrega van en dia de Colombia. pagado y saldo_pendiente son de HOY (no a la fecha del rango).";
 
-  const ventas = rows.map((row) => {
+async function loadLedgers(deps: AsesorDependencies, filter?: { saleIds?: string[]; saleCodes?: string[] }) {
+  const inputs = await deps.asesor.listSaleLedgers(filter);
+  return inputs.map(buildSaleLedger);
+}
+
+export async function listSalesUseCase(
+  deps: AsesorDependencies,
+  desde: string,
+  hasta: string,
+  estadoPago: PaymentStatusFilter = "pagadas",
+) {
+  const period = buildDayRange(desde, hasta);
+  const range = describeRange(period);
+
+  // Pagadas: mismo criterio y ganancia de Balances (como siempre).
+  const rows = estadoPago === "pendientes" ? [] : await listRecognizedSales(deps.balances, period);
+
+  // Pendientes: abono(s) pero todavia no cuentan en Balances; se filtran por fecha del primer abono.
+  const pendingLedgers =
+    estadoPago === "pagadas"
+      ? []
+      : (await loadLedgers(deps)).filter((ledger) => {
+          if (!matchesPaymentStatus(ledger, "pendientes")) return false;
+          const day = bogotaDay(ledger.firstPaymentAt ?? ledger.input.saleCreatedAt);
+          return day >= range.desde && day <= range.hasta;
+        });
+
+  const saleIds = [...rows.map((row) => row.saleId), ...pendingLedgers.map((ledger) => ledger.input.saleId)];
+  const [details, paidLedgers] = await Promise.all([
+    deps.asesor.getSaleDetails(saleIds),
+    rows.length > 0 ? loadLedgers(deps, { saleIds: rows.map((row) => row.saleId) }) : Promise.resolve([] as SaleLedger[]),
+  ]);
+  const detailById = new Map(details.map((detail) => [detail.saleId, detail]));
+  const ledgerById = new Map(
+    [...paidLedgers, ...pendingLedgers].map((ledger) => [ledger.input.saleId, ledger] as const),
+  );
+
+  const describeOrigin = (saleId: string) => {
+    const detail = detailById.get(saleId);
+    return {
+      vendedora: detail?.seller?.name ?? UNASSIGNED_SELLER,
+      registrada_por: detail?.registeredBy?.name ?? null,
+      // Etiqueta legible ("Meta Ads", "Sin dato"...) + el codigo para filtrar + anuncio/cuenta si hay.
+      origen: saleOriginLabel(detail?.origin ?? null),
+      origen_codigo: effectiveOrigin(detail?.origin ?? null),
+      origen_detalle: originDetailSummary(detail?.originDetail ?? null),
+    };
+  };
+
+  const paidSales = rows.map((row) => {
     const detail = detailById.get(row.saleId);
+    const ledger = ledgerById.get(row.saleId);
     return {
       venta: row.saleCode,
+      estado_pago: "pagada",
       cotizacion: detail?.quoteCode ?? null,
       orden: detail?.orderCode ?? null,
       fecha: formatDay(row.createdAt),
@@ -101,20 +161,38 @@ export async function listSalesUseCase(deps: AsesorDependencies, desde: string, 
       flete: roundMoney(row.shippingCosts),
       ganancia: roundMoney(row.netProfit),
       margen_pct: roundMoney(row.marginPercentage),
-      vendedora: detail?.seller?.name ?? UNASSIGNED_SELLER,
-      registrada_por: detail?.registeredBy?.name ?? null,
-      // Etiqueta legible ("Meta Ads", "Sin dato"...) + el codigo para filtrar + anuncio/cuenta si hay.
-      origen: saleOriginLabel(detail?.origin ?? null),
-      origen_codigo: effectiveOrigin(detail?.origin ?? null),
-      origen_detalle: originDetailSummary(detail?.originDetail ?? null),
+      ...describeOrigin(row.saleId),
+      ...(ledger ? describeLedgerDates(ledger) : {}),
     };
   });
+
+  const pendingSales = pendingLedgers.map((ledger) => {
+    const detail = detailById.get(ledger.input.saleId);
+    return {
+      venta: ledger.input.saleCode,
+      estado_pago: "pendiente",
+      cotizacion: ledger.input.quoteCode,
+      orden: detail?.orderCode ?? null,
+      fecha: bogotaDay(ledger.firstPaymentAt ?? ledger.input.saleCreatedAt),
+      entregada: ledger.input.deliveredAt !== null,
+      cliente: ledger.input.clientName,
+      productos: detail?.products ?? [],
+      total: roundMoney(ledger.input.total),
+      ...describeOrigin(ledger.input.saleId),
+      ...describeLedgerDates(ledger),
+    };
+  });
+
+  const ventas = [...paidSales, ...pendingSales].sort(
+    (left, right) => left.fecha.localeCompare(right.fecha) || left.venta.localeCompare(right.venta),
+  );
 
   const total = rows.reduce((sum, row) => sum + row.saleAmount, 0);
   const profit = rows.reduce((sum, row) => sum + row.netProfit, 0);
 
   return {
-    periodo: describeRange(period),
+    periodo: range,
+    estado_pago: estadoPago,
     moneda: CURRENCY,
     criterio: SALES_CRITERIA,
     ventas,
@@ -125,12 +203,24 @@ export async function listSalesUseCase(deps: AsesorDependencies, desde: string, 
       flete: roundMoney(rows.reduce((sum, row) => sum + row.shippingCosts, 0)),
       ganancia: roundMoney(profit),
       margen_pct: percentage(profit, total),
+      ...(estadoPago === "pagadas"
+        ? {}
+        : {
+            pendientes: {
+              ventas: pendingLedgers.length,
+              total: roundMoney(pendingLedgers.reduce((sum, ledger) => sum + ledger.input.total, 0)),
+              pagado: roundMoney(pendingLedgers.reduce((sum, ledger) => sum + ledger.paid, 0)),
+              saldo_pendiente: roundMoney(pendingLedgers.reduce((sum, ledger) => sum + ledger.balance, 0)),
+            },
+          }),
     },
     notas: [
       SELLER_NOTE,
       "'origen' sale de la linea de WhatsApp del chat en el CRM (Ventas 1 = Meta Ads, Ventas 2 = Marketplace, Admin = Referido, o Recurrente si ya habia comprado); venta directa = Mostrador. 'Sin dato' = la venta no tiene origen registrado (casi todas las anteriores a oct-2026). 'origen_detalle' trae el anuncio o la cuenta MK cuando el CRM los conoce.",
-      "'fecha' = cuando la venta empezo a contar (pago completo; contraentrega: entrega). 'entregada' = false si solo falta entregarla.",
-      "No incluye ventas con saldo pendiente ni contraentregas sin entregar.",
+      "Pagadas: 'fecha' = cuando la venta empezo a contar (pago completo; contraentrega: entrega) y traen ganancia real. 'entregada' = false si solo falta entregarla.",
+      "Pendientes (estado_pago 'pendientes' o 'todas'): ventas con abono que todavia no cuentan en Balances (falta plata, o contraentrega sin entregar). Su 'fecha' = fecha del primer abono y no traen ganancia. 'totales' de arriba son solo de las pagadas; las pendientes van en totales.pendientes.",
+      PAYMENT_DATES_NOTE,
+      "No incluye ventas canceladas.",
     ],
   };
 }
@@ -143,6 +233,9 @@ export async function listQuotesUseCase(
 ) {
   const period = buildDayRange(desde, hasta);
   const rows = await deps.asesor.listQuotes(period, QUOTE_STATUS_FILTERS[estado]);
+  const saleCodes = rows.map((quote) => quote.saleCode).filter((code): code is string => Boolean(code));
+  const ledgers = saleCodes.length > 0 ? await loadLedgers(deps, { saleCodes }) : [];
+  const ledgerByCode = new Map(ledgers.map((ledger) => [ledger.input.saleCode, ledger]));
 
   return {
     periodo: describeRange(period),
@@ -158,11 +251,13 @@ export async function listQuotesUseCase(
       vendedora: quote.seller?.name ?? UNASSIGNED_SELLER,
       aprobada: isQuoteApproved(quote),
       venta: quote.saleCode,
+      ...describeQuotePayments(quote.saleCode ? ledgerByCode.get(quote.saleCode) : undefined),
     })),
     notas: [
       "Se filtran por fecha de creacion de la cotizacion.",
       "Aprobada = la cotizacion se convirtio en venta (el sistema la marca 'Aceptada').",
       "pct_cierre = aprobadas / hechas dentro del filtro aplicado.",
+      "Si pasó a venta: fecha_primer_abono, fecha_pago_completo, pagado y saldo_pendiente (de HOY). Sirve para ver, por ejemplo, cotizaciones de un mes que se pagaron en otro.",
     ],
   };
 }
@@ -259,5 +354,128 @@ export async function getCommissionsBoardUseCase(deps: AsesorDependencies, mes: 
     periodo: describeRange(period),
     rates: { first: COMMISSION_FIRST_SALE_RATE * 100, next: COMMISSION_NEXT_SALES_RATE * 100 },
     ...board,
+  };
+}
+
+function describeQuotePayments(ledger: SaleLedger | undefined) {
+  if (!ledger) return {};
+  return {
+    fecha_primer_abono: ledger.firstPaymentAt ? bogotaDay(ledger.firstPaymentAt) : null,
+    fecha_pago_completo: ledger.fullyPaidAt ? bogotaDay(ledger.fullyPaidAt) : null,
+    pagado: ledger.paid,
+    saldo_pendiente: ledger.balance,
+    venta_cancelada: ledger.cancelled,
+  };
+}
+
+export type PaymentFilters = {
+  vendedora?: string;
+  cliente?: string;
+  venta?: string;
+};
+
+export async function listPaymentsUseCase(deps: AsesorDependencies, desde: string, hasta: string, filters: PaymentFilters) {
+  const range = describeRange(buildDayRange(desde, hasta));
+  const ledgers = await loadLedgers(deps, filters.venta ? { saleCodes: [normalizeSaleCode(filters.venta)] } : undefined);
+
+  const abonos = ledgers
+    .filter(
+      (ledger) => matchesText(ledger.input.sellerName, filters.vendedora) && matchesText(ledger.input.clientName, filters.cliente),
+    )
+    .flatMap((ledger) =>
+      ledger.payments
+        .filter((payment) => {
+          const day = bogotaDay(payment.date);
+          return day >= range.desde && day <= range.hasta;
+        })
+        .map((payment) => ({
+          venta: ledger.input.saleCode,
+          cotizacion: ledger.input.quoteCode,
+          fecha_cotizacion: ledger.input.quoteCreatedAt ? bogotaDay(ledger.input.quoteCreatedAt) : null,
+          cliente: ledger.input.clientName,
+          vendedora: ledger.input.sellerName ?? UNASSIGNED_SELLER,
+          ...describePayment(payment),
+          total_venta: roundMoney(ledger.input.total),
+          pagado_total: ledger.paid,
+          saldo_pendiente: ledger.balance,
+          venta_cancelada: ledger.cancelled,
+        })),
+    )
+    .sort((left, right) => left.fecha_abono.localeCompare(right.fecha_abono) || left.venta.localeCompare(right.venta));
+
+  const bySeller = new Map<string, { abonos: number; valor: number }>();
+  for (const abono of abonos) {
+    const current = bySeller.get(abono.vendedora) ?? { abonos: 0, valor: 0 };
+    current.abonos += 1;
+    current.valor += abono.valor;
+    bySeller.set(abono.vendedora, current);
+  }
+
+  return {
+    periodo: range,
+    filtros: filters,
+    moneda: CURRENCY,
+    abonos,
+    totales: {
+      abonos: abonos.length,
+      valor: roundMoney(abonos.reduce((sum, abono) => sum + abono.valor, 0)),
+      primeros_abonos: abonos.filter((abono) => abono.es_primer_abono).length,
+      retroactivos: abonos.filter((abono) => abono.retroactivo).length,
+      por_vendedora: [...bySeller.entries()].map(([vendedora, data]) => ({
+        vendedora,
+        abonos: data.abonos,
+        valor: roundMoney(data.valor),
+      })),
+    },
+    notas: [
+      "Se filtran por fecha del abono (la que escribio la persona; si no la escribio, el dia en que se registro), en dia de Colombia.",
+      "retroactivo = la fecha del abono es de un dia anterior al dia en que se registro en el sistema. antes_de_la_cotizacion = la fecha del abono es anterior a la cotizacion (casi siempre un error de digitacion).",
+      "sin_detalle = pagado guardado en una venta antigua sin abono detallado; se toma en la fecha de creacion de la venta.",
+      "pagado_total y saldo_pendiente son de HOY. " + SELLER_NOTE,
+    ],
+  };
+}
+
+export async function getSaleUseCase(deps: AsesorDependencies, codigo: string) {
+  const code = normalizeSaleCode(codigo);
+  const [ledger] = await loadLedgers(deps, { saleCodes: [code] });
+  if (!ledger) {
+    throw new AsesorInputError(`No existe la venta ${code}. Usa el codigo SAL-..., por ejemplo SAL-00069.`);
+  }
+
+  const [details, profit] = await Promise.all([
+    deps.asesor.getSaleDetails([ledger.input.saleId]),
+    deps.balances.calculateSaleProfit(ledger.input.saleId),
+  ]);
+  const detail = details[0];
+
+  return {
+    venta: ledger.input.saleCode,
+    cotizacion: ledger.input.quoteCode,
+    orden: detail?.orderCode ?? null,
+    cliente: ledger.input.clientName,
+    vendedora: ledger.input.sellerName ?? UNASSIGNED_SELLER,
+    registrada_por: detail?.registeredBy?.name ?? null,
+    origen: saleOriginLabel(detail?.origin ?? null),
+    origen_detalle: originDetailSummary(detail?.originDetail ?? null),
+    productos: detail?.products ?? [],
+    moneda: CURRENCY,
+    total: roundMoney(ledger.input.total),
+    ...describeLedgerDates(ledger),
+    entregada: ledger.input.deliveredAt !== null,
+    abonos: ledger.payments.map(describePayment),
+    ganancia: profit
+      ? {
+          costo_producto: roundMoney(profit.supplierCosts),
+          flete: roundMoney(profit.shippingCosts),
+          ganancia: roundMoney(profit.netProfit),
+          margen_pct: roundMoney(profit.marginPercentage),
+        }
+      : null,
+    notas: [
+      "cuenta_en_balances = true cuando la venta ya esta pagada completa (contraentrega: entregada); ahi cuenta para ventas del mes y comisiones.",
+      "La ganancia puede cambiar mientras falten costos por confirmar (flete, costo de la proveedora).",
+      PAYMENT_DATES_NOTE,
+    ],
   };
 }

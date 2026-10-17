@@ -12,6 +12,8 @@ import {
   type AsesorDependencies,
   getMonthlyCommissionsUseCase,
   getMonthSummaryUseCase,
+  getSaleUseCase,
+  listPaymentsUseCase,
   listProductsUseCase,
   listQuotesUseCase,
   listSalesUseCase,
@@ -121,15 +123,49 @@ export const asesorTools: McpToolDefinition[] = [
     name: "listar_ventas",
     title: "Listar ventas",
     description:
-      "Ventas pagadas por completo en un rango de fechas (por la fecha en que quedaron pagadas; contraentrega: entregadas, por fecha de entrega): fecha, si ya se entrego, cliente, productos, total, costo, flete, ganancia real, vendedora y origen (Meta Ads, Marketplace, Referido, Recurrente, Mostrador o Sin dato, con el anuncio o la cuenta MK si se conocen). Incluye totales al final. Valores en COP.",
-    schema: z.object(rangeArgs),
-    handler: (args, deps) => listSalesUseCase(deps, args.desde, args.hasta),
+      "Ventas de un rango de fechas. Por defecto (estado_pago 'pagadas') las pagadas por completo, por la fecha en que quedaron pagadas (contraentrega: entregadas, por fecha de entrega), con ganancia real como Balances. Con 'pendientes' trae las ventas con abono que todavia no estan pagadas completas (o contraentrega sin entregar), por fecha del primer abono, con lo pagado y el saldo; 'todas' trae ambas. Cada venta trae cliente, productos, total, vendedora, origen (Meta Ads, Marketplace, Referido, Recurrente, Mostrador o Sin dato), forma de pago y fechas de cotizacion, creacion, primer abono, pago completo y entrega, pagado y saldo pendiente. Valores en COP.",
+    schema: z.object({
+      ...rangeArgs,
+      estado_pago: z
+        .enum(["pagadas", "pendientes", "todas"])
+        .default("pagadas")
+        .describe("pagadas (cuentan en Balances), pendientes (con saldo o contraentrega sin entregar) o todas. Por defecto: pagadas."),
+    }),
+    handler: (args, deps) => listSalesUseCase(deps, args.desde, args.hasta, args.estado_pago),
+  }),
+  defineTool({
+    name: "listar_abonos",
+    title: "Listar abonos",
+    description:
+      "Todos los abonos (pagos de clientes) de un rango de fechas, de ventas pagadas o no, por la fecha del abono. Filtros opcionales por vendedora, cliente o venta. Por abono: venta, cotizacion y su fecha, cliente, vendedora, fecha del abono, dia en que se registro, valor, cuenta, si es el primer abono de la venta, si fue retroactivo (fecha anterior al dia de registro) o anterior a la cotizacion, total de la venta, pagado y saldo pendiente. Trae totales por vendedora. Sirve para: que se pago en un mes, primeros abonos del mes, cuanto debe cada cliente, abonos con fechas sospechosas. Valores en COP.",
+    schema: z.object({
+      ...rangeArgs,
+      vendedora: z.string().optional().describe("Parte del nombre de la vendedora (sin importar tildes)."),
+      cliente: z.string().optional().describe("Parte del nombre del cliente (sin importar tildes)."),
+      venta: z.string().optional().describe("Codigo de la venta, ej. SAL-00069 o 69."),
+    }),
+    handler: (args, deps) =>
+      listPaymentsUseCase(deps, args.desde, args.hasta, {
+        vendedora: args.vendedora,
+        cliente: args.cliente,
+        venta: args.venta,
+      }),
+  }),
+  defineTool({
+    name: "ver_venta",
+    title: "Ver una venta",
+    description:
+      "Detalle completo de una venta por su codigo: cotizacion, orden, cliente, vendedora, origen, productos, forma de pago, cada abono con su fecha, cuenta y si fue retroactivo, fechas (cotizacion, creacion, primer abono, pago completo, entrega), total, pagado, saldo pendiente, si ya cuenta en Balances y su ganancia. Valores en COP.",
+    schema: z.object({
+      venta: z.string().min(1).describe("Codigo de la venta, ej. SAL-00069 o 69."),
+    }),
+    handler: (args, deps) => getSaleUseCase(deps, args.venta),
   }),
   defineTool({
     name: "listar_cotizaciones",
     title: "Listar cotizaciones",
     description:
-      "Cotizaciones creadas en un rango de fechas: cuantas se hicieron, cuantas se aprobaron (convertidas en venta) y el % de cierre, con el detalle de cada una. Se puede filtrar por estado.",
+      "Cotizaciones creadas en un rango de fechas: cuantas se hicieron, cuantas se aprobaron (convertidas en venta) y el % de cierre, con el detalle de cada una. Si paso a venta trae la fecha del primer abono, la de pago completo, lo pagado y el saldo pendiente (sirve para ver cotizaciones de un mes que se pagaron en otro). Se puede filtrar por estado.",
     schema: z.object({
       ...rangeArgs,
       estado: z
@@ -273,8 +309,8 @@ export const asesorTools: McpToolDefinition[] = [
 
 export const asesorMcpServer: McpServerDefinition = {
   name: "gestion-magilus",
-  version: "1.0.0",
+  version: "1.1.0",
   instructions:
-    "Servidor de SOLO LECTURA de Gestion (Magilus): ventas, cotizaciones, productos, margenes, comisiones, nomina y saldos de cuentas. Para entender el sistema completo usa primero que_es_esta_aplicacion. No modifica ningun dato. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
+    "Servidor de SOLO LECTURA de Gestion (Magilus): ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina y saldos de cuentas. Para entender el sistema completo usa primero que_es_esta_aplicacion. No modifica ningun dato. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
   tools: asesorTools,
 };

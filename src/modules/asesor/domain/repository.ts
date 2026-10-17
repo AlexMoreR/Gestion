@@ -1,5 +1,12 @@
 import type { AppSnapshot } from "./app-overview";
 import type { DayRange, ProductRow, QuoteRow, QuoteStatusCode, SaleDetail } from "./entities";
+import type { SaleLedgerInput } from "./payments";
+
+// Filtro opcional de ventas para los abonos; sin filtro = todas las ventas.
+export type SaleLedgerFilter = {
+  saleIds?: string[];
+  saleCodes?: string[];
+};
 
 // Puerto de SOLO LECTURA. A proposito no tiene ningun metodo que escriba: el
 // asesor de IA solo consulta. La ganancia por venta NO se calcula aqui: viene
@@ -8,6 +15,8 @@ export interface AsesorReadRepository {
   getSaleDetails(saleIds: string[]): Promise<SaleDetail[]>;
   listQuotes(range: DayRange, statuses: readonly QuoteStatusCode[] | null): Promise<QuoteRow[]>;
   listProducts(search?: string): Promise<ProductRow[]>;
+  // Ventas con sus abonos, fechas y saldo (pagadas o no).
+  listSaleLedgers(filter?: SaleLedgerFilter): Promise<SaleLedgerInput[]>;
 }
 
 export type PackageManifest = {

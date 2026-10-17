@@ -280,8 +280,15 @@ Route handlers reales (`route.ts`):
   filtra, se cambia `MCP_API_KEY`. Las dos rutas comparten `presentation/mcp/http.ts`.
 - **Solo lectura**: módulo `src/modules/asesor` (hexagonal). Sus puertos solo tienen métodos de
   consulta; la ganancia por venta y el resumen del mes **reutilizan los casos de uso de Balances**.
-- Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_cotizaciones`, `listar_productos`,
-  `comisiones_del_mes`, `nomina_del_mes`, `saldos_de_cuentas` y `que_es_esta_aplicacion`. Mismo criterio que Balances (ventas pagadas
+- Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_abonos`, `ver_venta`, `listar_cotizaciones`,
+  `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `saldos_de_cuentas` y `que_es_esta_aplicacion`.
+- Abonos y saldo (oct-2026, reglas puras en `src/modules/asesor/domain/payments.ts`): `listar_abonos` da los
+  abonos de un rango por fecha del abono (filtros vendedora/cliente/venta); `listar_ventas` acepta
+  `estado_pago` (`pagadas` por defecto = criterio de Balances, `pendientes` = con abono que aún no cuentan,
+  por fecha del primer abono, o `todas`); `listar_cotizaciones` y `ver_venta` traen primer abono, pago
+  completo, pagado y saldo. Un abono es **retroactivo** si su fecha escrita es de un día anterior (en
+  Colombia) al día en que se registró. Nada de esto cambia Balances ni comisiones.
+- Ventas pagadas: mismo criterio que Balances (ventas pagadas
   por completo, aunque falte entregarlas; contraentrega al entregar). "Vendedora" = quien creó la cotización (no existe un campo
   propio); `listar_ventas` devuelve `origen` (etiqueta), `origen_codigo` y `origen_detalle`.
 

@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { groupQuoteDisplayItems } from "@/lib/quote-display-items";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import type { DayRange, ProductRow, QuoteRow, QuoteStatusCode, SaleDetail, Seller } from "../domain/entities";
-import type { AsesorReadRepository } from "../domain/repository";
+import type { SaleLedgerInput } from "../domain/payments";
+import type { AsesorReadRepository, SaleLedgerFilter } from "../domain/repository";
 
 // Adaptador Prisma de SOLO LECTURA: unicamente findMany (ningun create/update/delete).
 
@@ -144,6 +145,81 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
         additionalCost: toNumber(product.additionalCost),
         isBundle: product.isBundle,
         hiddenFromStore: product.hiddenFromStore,
+      }));
+    },
+    async listSaleLedgers(filter?: SaleLedgerFilter): Promise<SaleLedgerInput[]> {
+      const where: Prisma.SaleWhereInput = {};
+      if (filter?.saleIds) where.id = { in: filter.saleIds };
+      if (filter?.saleCodes) where.code = { in: filter.saleCodes };
+      if ((filter?.saleIds && filter.saleIds.length === 0) || (filter?.saleCodes && filter.saleCodes.length === 0)) {
+        return [];
+      }
+
+      const sales = await prisma.sale.findMany({
+        where,
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          code: true,
+          status: true,
+          paymentMethod: true,
+          total: true,
+          downPaymentAmount: true,
+          createdAt: true,
+          client: { select: { name: true } },
+          quote: { select: { code: true, createdAt: true, createdBy: { select: userSelect } } },
+          salePayments: {
+            orderBy: { sortOrder: "asc" },
+            select: {
+              amount: true,
+              paymentDate: true,
+              createdAt: true,
+              paymentMethod: true,
+              note: true,
+              account: { select: { name: true } },
+            },
+          },
+          order: {
+            select: {
+              status: true,
+              completedAt: true,
+              // Misma fecha de entrega que Balances: ultima linea "Cerrada" del historial.
+              history: {
+                where: { toStatus: "COMPLETED" },
+                orderBy: { createdAt: "desc" },
+                take: 1,
+                select: { createdAt: true },
+              },
+            },
+          },
+        },
+      });
+
+      return sales.map((sale) => ({
+        saleId: sale.id,
+        saleCode: sale.code,
+        quoteCode: sale.quote?.code ?? null,
+        quoteCreatedAt: sale.quote?.createdAt ?? null,
+        saleCreatedAt: sale.createdAt,
+        clientName: sale.client?.name ?? null,
+        sellerName: toSeller(sale.quote?.createdBy)?.name ?? null,
+        saleStatus: sale.status,
+        orderStatus: sale.order?.status ?? null,
+        paymentMethod: sale.paymentMethod ?? null,
+        total: toNumber(sale.total),
+        recordedPaid: toNumber(sale.downPaymentAmount),
+        deliveredAt:
+          sale.order?.status === "COMPLETED"
+            ? (sale.order.history[0]?.createdAt ?? sale.order.completedAt ?? null)
+            : null,
+        payments: sale.salePayments.map((payment) => ({
+          amount: toNumber(payment.amount),
+          paymentDate: payment.paymentDate,
+          registeredAt: payment.createdAt,
+          accountName: payment.account?.name ?? null,
+          method: payment.paymentMethod || null,
+          note: payment.note,
+        })),
       }));
     },
   };
