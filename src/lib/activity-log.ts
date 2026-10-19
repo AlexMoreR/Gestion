@@ -30,6 +30,30 @@ type LogActivityInput = {
 };
 
 /**
+ * Registra una actividad a nombre de un usuario dado (APIs sin sesion, p. ej. el CRM).
+ * Nunca lanza.
+ */
+export async function logActivityAs(
+  actor: { id: string; name?: string | null; email?: string | null },
+  input: LogActivityInput,
+): Promise<void> {
+  try {
+    await prisma.activityLog.create({
+      data: {
+        actorId: actor.id,
+        actorName: actor.name?.trim() || actor.email?.trim() || "Desconocido",
+        action: input.action,
+        entityType: input.entityType,
+        entityId: input.entityId ?? null,
+        summary: input.summary.slice(0, 500),
+      },
+    });
+  } catch {
+    // Auditoria no critica.
+  }
+}
+
+/**
  * Registra una actividad del usuario autenticado.
  *
  * Nunca lanza: si falla el registro no debe romper la accion principal.

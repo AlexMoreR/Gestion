@@ -5,8 +5,7 @@ import { hasAnyModuleAccess } from "@/lib/admin-module-access";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import bcrypt from "bcryptjs";
-import { Prisma, Role } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -14,6 +13,7 @@ import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
 import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
+import { createQuoteWithNextCode, upsertQuoteClient } from "@/lib/quote-creation";
 
 const emptyToUndefined = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? undefined : value;
@@ -164,81 +164,9 @@ function getReturnTo(formData: FormData): string {
   return value || "/admin/cotizaciones";
 }
 
-function buildQuoteCode(index: number): string {
-  return `COT-${String(index).padStart(5, "0")}`;
-}
-
-function isQuoteCodeUniqueError(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === "P2002"
-  );
-}
-
-function parseQuoteCodeNumber(code: string): number {
-  const match = /^COT-(\d+)$/.exec(code.trim());
-  if (!match) {
-    return 0;
-  }
-  const value = Number(match[1]);
-  return Number.isFinite(value) ? value : 0;
-}
-
+// Correo -> documento -> telefono (reglas en lib/quote-creation.ts, las comparte la API del CRM).
 async function upsertClientFromData(data: z.infer<typeof createClientSchema>): Promise<string> {
-  const clientProfileData = {
-    name: data.name,
-    document: data.document ?? null,
-    phone: data.phone,
-    address: data.address,
-    neighborhood: data.neighborhood ?? null,
-    department: data.department ?? null,
-    city: data.city,
-  };
-
-  // Se reutiliza un cliente existente para no duplicarlo: primero por correo
-  // (clave unica), luego por documento (identidad fuerte) y, si no hay
-  // documento, por telefono. Asi un cliente "sin correo" no se vuelve a crear.
-  let existing = data.email
-    ? await prisma.user.findUnique({ where: { email: data.email } })
-    : null;
-
-  if (!existing && data.document) {
-    existing = await prisma.user.findFirst({
-      where: { role: "CLIENTE", document: data.document },
-    });
-  }
-
-  if (!existing && !data.document && data.phone) {
-    existing = await prisma.user.findFirst({
-      where: { role: "CLIENTE", phone: data.phone },
-    });
-  }
-
-  if (existing) {
-    const updated = await prisma.user.update({
-      where: { id: existing.id },
-      data: {
-        role: "CLIENTE",
-        ...clientProfileData,
-      },
-      select: { id: true },
-    });
-    return updated.id;
-  }
-
-  const password = randomUUID().replace(/-/g, "").slice(0, 14);
-  const hashedPassword = await bcrypt.hash(password, 12);
-  const email = data.email ?? `cliente-${randomUUID().replace(/-/g, "").slice(0, 16)}@sin-correo.local`;
-  const created = await prisma.user.create({
-    data: {
-      ...clientProfileData,
-      email,
-      role: Role.CLIENTE,
-      password: hashedPassword,
-    },
-    select: { id: true },
-  });
-  return created.id;
+  return upsertQuoteClient(prisma, data);
 }
 
 export async function adminCreateClientQuickAction(formData: FormData): Promise<void> {
@@ -422,55 +350,28 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
   let createdQuoteCode: string | null = null;
   let createdQuoteId: string | null = null;
   try {
-    await prisma.$transaction(async (tx) => {
-      const lastQuote = await tx.quote.findFirst({
-        select: { code: true },
-        orderBy: { code: "desc" },
-      });
-      const baseCodeNumber = lastQuote ? parseQuoteCodeNumber(lastQuote.code) : 0;
-      const maxCodeAttempts = 30;
-
-      for (let offset = 0; offset < maxCodeAttempts; offset += 1) {
-        const code = buildQuoteCode(baseCodeNumber + 1 + offset);
-        const shareToken = randomUUID().replace(/-/g, "");
-
-        try {
-          const createdQuote = await tx.quote.create({
-            data: {
-              code,
-              clientId: resolvedClientId,
-              createdById,
-              notes: parsed.data.notes || null,
-              validUntil: validUntilDate,
-              ...(createdAtDate ? { createdAt: createdAtDate } : {}),
-              subtotal: new Prisma.Decimal(subtotal),
-              total: new Prisma.Decimal(total),
-              shareToken,
-              items: {
-                create: normalizedItems.map((item) => ({
-                  productId: item.productId,
-                  supplierId: item.supplierId,
-                  quantity: item.quantity,
-                  unitPrice: new Prisma.Decimal(item.unitPrice),
-                  fulfillmentMode: item.fulfillmentMode,
-                  lineTotal: new Prisma.Decimal(item.lineTotal),
-                  notes: item.notes,
-                })),
-              },
-            },
-            select: { id: true, code: true },
-          });
-          createdQuoteCode = createdQuote.code;
-          createdQuoteId = createdQuote.id;
-          return;
-        } catch (error) {
-          if (isQuoteCodeUniqueError(error) && offset < maxCodeAttempts - 1) {
-            continue;
-          }
-          throw error;
-        }
-      }
+    const createdQuote = await createQuoteWithNextCode(prisma, {
+      clientId: resolvedClientId,
+      createdById,
+      notes: parsed.data.notes || null,
+      validUntil: validUntilDate,
+      ...(createdAtDate ? { createdAt: createdAtDate } : {}),
+      subtotal: new Prisma.Decimal(subtotal),
+      total: new Prisma.Decimal(total),
+      items: {
+        create: normalizedItems.map((item) => ({
+          productId: item.productId,
+          supplierId: item.supplierId,
+          quantity: item.quantity,
+          unitPrice: new Prisma.Decimal(item.unitPrice),
+          fulfillmentMode: item.fulfillmentMode,
+          lineTotal: new Prisma.Decimal(item.lineTotal),
+          notes: item.notes,
+        })),
+      },
     });
+    createdQuoteCode = createdQuote.code;
+    createdQuoteId = createdQuote.id;
   } catch {
     redirect(`${returnTo}?error=No+se+pudo+crear+la+cotizacion`);
   }
