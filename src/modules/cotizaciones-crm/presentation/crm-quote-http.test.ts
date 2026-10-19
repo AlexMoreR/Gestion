@@ -93,7 +93,7 @@ describe("POST /api/cotizaciones", () => {
       code: "COT-00200",
       total: 1_000_000,
       shareUrl: "https://magilus.com/cotizaciones/tok",
-      createdBy: { email: "ingrid@magilus.com", fallback: false },
+      createdBy: { email: "ingrid@magilus.com", name: "Ingrid", fallback: false },
       missing: [],
     });
     expect(repo.createQuote).toHaveBeenCalledWith(
@@ -111,19 +111,25 @@ describe("POST /api/cotizaciones", () => {
     const repo = repository();
     const response = await handleCrmQuotePost(post({ ...BODY, asesoraEmail: "nueva@x.com" }), deps(repo));
     const json = await response.json();
-    expect(json.createdBy).toEqual({ email: "admin@magilus.com", fallback: true });
+    expect(json.createdBy).toEqual({ email: "admin@magilus.com", name: "Admin", fallback: true });
   });
 
   it("200 reutiliza la del mismo chat con los mismos productos", async () => {
     const repo = repository({
       findRecentByConversation: vi.fn(async () => [
-        { id: "q0", code: "COT-00199", total: 1_000_000, shareToken: "old", itemsKey: "p1:2" },
+        { id: "q0", code: "COT-00199", total: 1_000_000, shareToken: "old", itemsKey: "p1:2", createdBy: { email: "ingrid@magilus.com", name: "Ingrid" } },
       ]),
     });
     const response = await handleCrmQuotePost(post(BODY), deps(repo));
     expect(response.status).toBe(200);
     const json = await response.json();
-    expect(json).toMatchObject({ ok: true, reused: true, code: "COT-00199", shareUrl: "https://magilus.com/cotizaciones/old" });
+    expect(json).toMatchObject({
+      ok: true,
+      reused: true,
+      code: "COT-00199",
+      shareUrl: "https://magilus.com/cotizaciones/old",
+      createdBy: { email: "ingrid@magilus.com", name: "Ingrid", fallback: false },
+    });
     expect(repo.findRecentByConversation).toHaveBeenCalledWith("conv1", new Date("2026-10-18T14:50:00Z"));
     expect(repo.createQuote).not.toHaveBeenCalled();
   });
@@ -131,7 +137,7 @@ describe("POST /api/cotizaciones", () => {
   it("productos distintos en el mismo chat -> crea otra", async () => {
     const repo = repository({
       findRecentByConversation: vi.fn(async () => [
-        { id: "q0", code: "COT-00199", total: 500_000, shareToken: "old", itemsKey: "p1:1" },
+        { id: "q0", code: "COT-00199", total: 500_000, shareToken: "old", itemsKey: "p1:1", createdBy: { email: "ingrid@magilus.com", name: "Ingrid" } },
       ]),
     });
     const response = await handleCrmQuotePost(post(BODY), deps(repo));

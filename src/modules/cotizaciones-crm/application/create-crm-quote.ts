@@ -16,7 +16,17 @@ import {
 
 export type StaffUser = { id: string; name: string | null; email: string };
 
-export type ExistingCrmQuote = { id: string; code: string; total: number; shareToken: string; itemsKey: string | null };
+export type ExistingCrmQuote = {
+  id: string;
+  code: string;
+  total: number;
+  shareToken: string;
+  itemsKey: string | null;
+  createdBy: { email: string; name: string | null };
+};
+
+// A nombre de quien quedo la cotizacion. fallback = no se encontro la cuenta de la asesora.
+export type CreatedByInfo = { email: string; name: string | null; fallback: boolean };
 
 export interface CrmQuoteRepository {
   findProducts(refs: { ids: string[]; codes: string[] }): Promise<ProductForQuote[]>;
@@ -71,7 +81,7 @@ export type CrmQuoteResult =
         total: number;
         shareUrl: string;
         pdfUrl: string;
-        createdBy: { email: string; fallback: boolean } | null;
+        createdBy: CreatedByInfo;
         missing: MissingField[];
       };
     };
@@ -129,7 +139,7 @@ export async function createCrmQuoteUseCase(deps: CrmQuoteDeps, body: unknown): 
           total: same.total,
           shareUrl: deps.shareUrl(same.shareToken),
           pdfUrl: deps.pdfUrl(same.shareToken),
-          createdBy: null,
+          createdBy: { email: same.createdBy.email, name: same.createdBy.name, fallback: false },
           missing: [],
         },
       };
@@ -179,7 +189,7 @@ export async function createCrmQuoteUseCase(deps: CrmQuoteDeps, body: unknown): 
       total,
       shareUrl: deps.shareUrl(quote.shareToken),
       pdfUrl: deps.pdfUrl(quote.shareToken),
-      createdBy: { email: createdBy.user.email, fallback: createdBy.fallback },
+      createdBy: { email: createdBy.user.email, name: createdBy.user.name, fallback: createdBy.fallback },
       missing: [],
     },
   };

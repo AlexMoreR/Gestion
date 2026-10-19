@@ -58,7 +58,14 @@ export function createPrismaCrmQuoteRepository(db: PrismaClient): CrmQuoteReposi
           originDetail: { path: ["crmConversationId"], equals: crmConversationId },
         },
         orderBy: { createdAt: "desc" },
-        select: { id: true, code: true, total: true, shareToken: true, originDetail: true },
+        select: {
+          id: true,
+          code: true,
+          total: true,
+          shareToken: true,
+          originDetail: true,
+          createdBy: { select: { email: true, name: true } },
+        },
         take: 10,
       });
       return quotes.map((quote) => {
@@ -69,6 +76,7 @@ export function createPrismaCrmQuoteRepository(db: PrismaClient): CrmQuoteReposi
           total: Number(quote.total),
           shareToken: quote.shareToken,
           itemsKey: typeof detail?.crmItemsKey === "string" ? detail.crmItemsKey : null,
+          createdBy: quote.createdBy,
         };
       });
     },

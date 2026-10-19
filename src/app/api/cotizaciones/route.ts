@@ -13,7 +13,7 @@ import { handleCrmQuotePost } from "@/modules/cotizaciones-crm/presentation/crm-
 //   asesoraEmail?, origin? (META_ADS|MARKETPLACE|REFERIDO_RECURRENTE|...), linea? ("Ventas 1"...),
 //   crmConversationId?, crmContactId?, notes?
 // }
-//   201 { ok, reused:false, quoteId, code, total, shareUrl, pdfUrl, createdBy, missing:[] }
+//   201 { ok, reused:false, quoteId, code, total, shareUrl, pdfUrl, createdBy:{email,name,fallback}, missing:[] }
 //   200 igual con reused:true (mismo crmConversationId + mismos productos en 10 min)
 //   422 { ok:false, missing:[{campo, mensaje}] } -> no se crea nada
 //   401 sin llave valida · 500 { ok:false, error }
