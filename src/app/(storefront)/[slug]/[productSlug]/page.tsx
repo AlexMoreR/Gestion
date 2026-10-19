@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { notFound, permanentRedirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ProductDetailContent } from "@/components/store/product-detail-content";
@@ -15,12 +16,22 @@ type PageProps = {
   params: Promise<{ slug: string; productSlug: string }>;
 };
 
+// Una sola consulta por visita: generateMetadata y la pagina comparten el resultado (React cache).
+const getProductBySlug = cache((productSlug: string) =>
+  prisma.product.findUnique({
+    where: { slug: productSlug },
+    include: {
+      category: true,
+      images: { orderBy: { order: "asc" } },
+      reviews: { orderBy: { createdAt: "desc" } },
+      bundleComponents: COMBO_SAVINGS_COMPONENTS_SELECT,
+    },
+  }),
+);
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug, productSlug } = await params;
-  const product = await prisma.product.findUnique({
-    where: { slug: productSlug },
-    include: { category: true },
-  });
+  const product = await getProductBySlug(productSlug);
 
   if (!product || product.category?.slug !== slug) {
     return {
@@ -84,15 +95,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function CategoryProductPage({ params }: PageProps) {
   const { slug, productSlug } = await params;
   const [product, currency, session] = await Promise.all([
-    prisma.product.findUnique({
-      where: { slug: productSlug },
-      include: {
-        category: true,
-        images: { orderBy: { order: "asc" } },
-        reviews: { orderBy: { createdAt: "desc" } },
-        bundleComponents: COMBO_SAVINGS_COMPONENTS_SELECT,
-      },
-    }),
+    getProductBySlug(productSlug),
     getSystemCurrency(),
     auth(),
   ]);
@@ -112,6 +115,7 @@ export default async function CategoryProductPage({ params }: PageProps) {
   const relatedProducts = await prisma.product.findMany({
     where: {
       id: { not: product.id },
+      hiddenFromStore: false,
       ...(product.categoryId ? { categoryId: product.categoryId } : {}),
     },
     orderBy: { createdAt: "desc" },

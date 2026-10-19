@@ -62,6 +62,10 @@ type ProductDetailContentProps = {
     slug: string;
     name: string;
     price: unknown;
+    regularPrice?: unknown;
+    promoPrice?: unknown;
+    promoStartsAt?: Date | string | null;
+    promoEndsAt?: Date | string | null;
     thumbnailUrl: string;
     code: string | null;
     category: { name: string; slug: string } | null;
@@ -339,7 +343,7 @@ export async function ProductDetailContent({
         </div>
       ) : null}
 
-      {false && relatedProducts.length > 0 ? (
+      {relatedProducts.length > 0 ? (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold tracking-tight text-slate-900">Productos relacionados</h2>
@@ -368,7 +372,7 @@ export async function ProductDetailContent({
                   <div className="space-y-1.5 px-3 py-3">
                     <p className="line-clamp-1 text-sm font-semibold text-slate-900">{item.name}</p>
                     <p className="text-sm font-semibold text-[var(--primary-strong)]">
-                      {formatMoney(String(item.price), currency)}
+                      {formatMoney(String(getCurrentStorePrice(item, now)), currency)}
                     </p>
                   </div>
                 </Card>
