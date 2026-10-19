@@ -242,6 +242,11 @@ export async function buildSystemWhatsAppHref(message: string): Promise<string> 
   return `https://wa.me/${phoneHref}?text=${encodeURIComponent(message)}`;
 }
 
+// Enlace del botón "Cotiza aquí" del inicio (también lo usa el botón flotante de la tienda).
+export async function buildStorefrontQuoteWhatsAppHref(brandName: string): Promise<string> {
+  return buildSystemWhatsAppHref(`Hola ${brandName}, quiero cotizar mobiliario profesional`);
+}
+
 export const getSystemStorefrontLogoPath = cache(async (): Promise<string> => {
   try {
     const value = (await getAppSettingValue(STOREFRONT_LOGO_PATH_SETTING_KEY))?.trim();

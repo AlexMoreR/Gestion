@@ -2,9 +2,11 @@ import type { ReactNode } from "react";
 import { auth } from "@/auth";
 import { Navbar } from "@/components/navbar";
 import { SiteFooter } from "@/components/site-footer";
+import { FloatingWhatsAppButton } from "@/components/store/floating-whatsapp-button";
 import { cn } from "@/lib/utils";
 import { getAdminModuleAccess } from "@/lib/admin-module-access";
 import {
+  buildStorefrontQuoteWhatsAppHref,
   getSystemBrandName,
   getSystemStorefrontLogoPath,
   getSystemWhatsAppPhoneDisplay,
@@ -29,6 +31,7 @@ export default async function StorefrontLayout({
   const whatsAppHref = `https://wa.me/${whatsAppPhoneHref}?text=${encodeURIComponent(
     `Hola ${brandName}, quiero más información.`,
   )}`;
+  const floatingWhatsAppHref = await buildStorefrontQuoteWhatsAppHref(brandName);
 
   return (
     <>
@@ -54,6 +57,7 @@ export default async function StorefrontLayout({
         phoneDisplay={whatsAppPhoneDisplay}
         phoneHref={whatsAppPhoneHref}
       />
+      <FloatingWhatsAppButton href={floatingWhatsAppHref} />
     </>
   );
 }

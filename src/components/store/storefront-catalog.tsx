@@ -15,6 +15,7 @@ import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, siteConfig } fr
 import { COMBO_SAVINGS_COMPONENTS_SELECT, comboSavingsFromProduct } from "@/lib/storefront-offer";
 import { getActivePromo, getCurrentStorePrice, promoInfoText } from "@/lib/product-promo";
 import {
+  buildStorefrontQuoteWhatsAppHref,
   buildSystemWhatsAppHref,
   getSystemBrandName,
   getSystemCurrency,
@@ -323,9 +324,7 @@ export async function StorefrontCatalog({
       `${category.name} para negocios que buscan imagen, funcionalidad y experiencia premium en cada servicio.`
     : "Catálogo de sillas, estaciones y mobiliario profesional premium para salón de belleza, barbería y espacios de alto nivel.";
   const baseUrl = category ? `/${category.slug}` : "/";
-  const storefrontWhatsAppHref = await buildSystemWhatsAppHref(
-    `Hola ${brandName}, quiero cotizar mobiliario profesional`,
-  );
+  const storefrontWhatsAppHref = await buildStorefrontQuoteWhatsAppHref(brandName);
   const productWhatsAppHrefById = new Map(
     showCatalogGrid
       ? await Promise.all(

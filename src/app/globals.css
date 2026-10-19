@@ -228,11 +228,30 @@ body {
   animation: stepperIconZoom 1.25s ease-in-out infinite;
 }
 
+@keyframes whatsappBadgePulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 0.8;
+  }
+}
+
+.whatsapp-badge-pulse {
+  animation: whatsappBadgePulse 1.6s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .promo-marquee-track {
     animation: none;
   }
   .stepper-icon-zoom {
+    animation: none;
+  }
+  .whatsapp-badge-pulse {
     animation: none;
   }
 }
