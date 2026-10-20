@@ -24,6 +24,12 @@ import {
   expenseUpdateSchema,
 } from "@/modules/expenses/application/schemas";
 import { createPrismaExpensesRepository } from "@/modules/expenses/infrastructure/prisma-expenses-repository";
+import {
+  MOTIVO_FIELD,
+  esEdicionRetroactiva,
+  esRetroactivo,
+  exigirMotivoSiRetroactivo,
+} from "@/modules/retroactivos/domain/retroactivo";
 
 const repository = createPrismaExpensesRepository();
 
@@ -230,6 +236,13 @@ export async function adminCreateExpenseAction(formData: FormData): Promise<void
     redirectWithError(returnTo, "Selecciona el empleado para un gasto de nomina.");
   }
 
+  // Retroactivo: gasto con fecha de un dia anterior a hoy (hora Colombia). Exige motivo.
+  const expenseDateRaw = getStringField(formData, "expenseDate").trim();
+  const motivoCheck = exigirMotivoSiRetroactivo(esRetroactivo(expenseDateRaw), formData.get(MOTIVO_FIELD));
+  if (!motivoCheck.ok) {
+    redirectWithError(returnTo, motivoCheck.error);
+  }
+
   let receipt: { url: string; name: string } | null = null;
   const receiptFile = getReceiptFile(formData);
   if (receiptFile) {
@@ -257,6 +270,9 @@ export async function adminCreateExpenseAction(formData: FormData): Promise<void
       employeeId: parsed.data.employeeId ?? null,
       expenseDate: parsed.data.expenseDate,
       createdById,
+      retroactivo: motivoCheck.motivo
+        ? { fechaPuesta: expenseDateRaw, usuarioId: createdById, motivo: motivoCheck.motivo }
+        : null,
     });
     createdExpenseId = createdExpense.id;
   } catch (error) {
@@ -279,7 +295,7 @@ export async function adminCreateExpenseAction(formData: FormData): Promise<void
 }
 
 export async function adminUpdateExpenseAction(formData: FormData): Promise<void> {
-  await requireAdminSession();
+  const userId = await requireAdminSession();
   const returnTo = getReturnTo(formData);
 
   const parsed = expenseUpdateSchema.safeParse({
@@ -301,6 +317,17 @@ export async function adminUpdateExpenseAction(formData: FormData): Promise<void
     redirectWithError(returnTo, "Selecciona el empleado para un gasto de nomina.");
   }
 
+  // Retroactivo: si la fecha cambia a un dia anterior a hoy (hora Colombia). Exige motivo.
+  const existing = await repository.getExpense(parsed.data.expenseId);
+  const expenseDateRaw = getStringField(formData, "expenseDate").trim();
+  const motivoCheck = exigirMotivoSiRetroactivo(
+    esEdicionRetroactiva(expenseDateRaw, existing?.expenseDate ?? null),
+    formData.get(MOTIVO_FIELD),
+  );
+  if (!motivoCheck.ok) {
+    redirectWithError(returnTo, motivoCheck.error);
+  }
+
   // Comprobante: subir uno nuevo lo reemplaza; "removeReceipt" lo quita; si no, se conserva.
   let receiptUpdate: { receiptUrl?: string | null; receiptName?: string | null } = {};
   const receiptFile = getReceiptFile(formData);
@@ -316,7 +343,6 @@ export async function adminUpdateExpenseAction(formData: FormData): Promise<void
   }
 
   // Comprobante resultante tras aplicar el cambio (nuevo, quitado o el existente).
-  const existing = await repository.getExpense(parsed.data.expenseId);
   const finalReceiptUrl =
     receiptUpdate.receiptUrl !== undefined ? receiptUpdate.receiptUrl : existing?.receiptUrl ?? null;
   if (!finalReceiptUrl && (await accountRequiresReceipt(parsed.data.accountId))) {
@@ -332,6 +358,9 @@ export async function adminUpdateExpenseAction(formData: FormData): Promise<void
     employeeId: parsed.data.employeeId ?? null,
     expenseDate: parsed.data.expenseDate,
     ...receiptUpdate,
+    retroactivo: motivoCheck.motivo
+      ? { fechaPuesta: expenseDateRaw, usuarioId: userId, motivo: motivoCheck.motivo }
+      : null,
   });
 
   await logActivity({

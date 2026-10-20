@@ -53,6 +53,8 @@ model User {
   monthClosures            MonthClosure[]        @relation("MonthClosureGeneratedBy")
   shipmentsCreated         Shipment[]            @relation("ShipmentCreatedBy")
   shipmentEvents           ShipmentEvent[]       @relation("ShipmentEventActor")
+  salePaymentsCreated      SalePayment[]         @relation("SalePaymentCreatedBy")
+  registrosRetroactivos    RegistroRetroactivo[] @relation("RegistroRetroactivoUsuario")
 }
 
 enum ActivityAction {
@@ -368,6 +370,9 @@ model Sale {
   // Copia del origen de la cotizacion (o MOSTRADOR en venta directa). NULL = sin dato.
   origin             SaleOrigin?
   originDetail       Json?
+  // Momento real en que se registro la venta (createdAt se mueve a la fecha que escribe
+  // el usuario). NULL = venta vieja, sin dato. Lo pone el codigo al crear; no se edita.
+  registradoEn       DateTime?
 
   @@index([clientId, createdAt])
   @@index([createdById, createdAt])
@@ -406,13 +411,47 @@ model SalePayment {
   receiptType   String?
   sortOrder     Int       @default(0)
   accountId     String?
+  // Quien registro el abono. NULL = abono viejo, sin dato.
+  createdById   String?
+  // createdAt = momento real del registro (nunca se sobrescribe); paymentDate = la que escribe el usuario.
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   sale          Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
   account       Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  createdBy     User?     @relation("SalePaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([saleId, sortOrder])
   @@index([accountId])
+  @@index([createdById])
+}
+
+// Registro retroactivo: venta, abono o gasto con fecha de un dia anterior al dia en que se
+// registro (hora Colombia). Guarda quien, cuando de verdad, que fecha puso y por que.
+enum TipoRetroactivo {
+  VENTA
+  ABONO
+  GASTO
+}
+
+model RegistroRetroactivo {
+  id           String          @id @default(cuid())
+  tipo         TipoRetroactivo
+  // id del registro (Sale.id, SalePayment.id o Expense.id). Sin llave foranea: el log queda aunque se borre.
+  registroId   String
+  // Dia que puso el usuario (guardado a mediodia UTC).
+  fechaPuesta  DateTime
+  // Momento real del registro.
+  registradoEn DateTime        @default(now())
+  usuarioId    String
+  motivo       String
+  // Monto del registro en ese momento (copia).
+  monto        Decimal         @db.Decimal(14, 2)
+  creado       DateTime        @default(now())
+  usuario      User            @relation("RegistroRetroactivoUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@index([usuarioId, registradoEn])
+  @@index([tipo, registradoEn])
+  @@index([registroId])
 }
 
 model QuoteItem {

@@ -55,7 +55,7 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
   const isAdminClientsRoute = pathname.startsWith("/admin/clientes");
   const isAdminQuotesRoute = pathname.startsWith("/admin/cotizaciones");
   const isAdminSalesRoute = pathname.startsWith("/admin/ventas");
-  const isAdminBalancesRoute = pathname.startsWith("/admin/balances");
+  const isAdminBalancesRoute = pathname.startsWith("/admin/balances") || pathname.startsWith("/admin/retroactivos");
   const isAdminCommissionsRoute = pathname.startsWith("/admin/comisiones");
   const isAdminOrdersRoute = pathname.startsWith("/admin/ordenes");
   const isAdminProductionRoute = pathname.startsWith("/admin/produccion");
@@ -205,8 +205,12 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
         title: "Balances",
         url: "/admin/balances",
         icon: Landmark,
-        isActive: pathname.startsWith("/admin/balances"),
-        items: [{ title: "Rentabilidad", url: "/admin/balances" }],
+        isActive: pathname.startsWith("/admin/balances") || pathname.startsWith("/admin/retroactivos"),
+        items: [
+          { title: "Rentabilidad", url: "/admin/balances" },
+          // Registros con fecha atrasada: solo el dueno/admin.
+          ...(user.role === "ADMIN" ? [{ title: "Retroactivos", url: "/admin/retroactivos" }] : []),
+        ],
       });
     }
 

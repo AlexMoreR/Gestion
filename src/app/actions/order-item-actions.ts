@@ -13,6 +13,16 @@ import { prisma } from "@/lib/prisma";
 import { buildProductionJobCode, parseProductionJobCodeNumber } from "@/lib/orders";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { syncOrderStatusAfterProduction } from "@/app/actions/orders-actions";
+import {
+  MOTIVO_FIELD,
+  esEdicionRetroactiva,
+  exigirMotivoSiRetroactivo,
+} from "@/modules/retroactivos/domain/retroactivo";
+import {
+  SESION_VENCIDA,
+  datosRegistroRetroactivo,
+  usuarioExiste,
+} from "@/modules/retroactivos/infrastructure/registrar-retroactivo";
 
 const PHOTO_MAX_BYTES = 12 * 1024 * 1024;
 const ALLOWED_PHOTO_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -220,7 +230,7 @@ export async function adminUpdateOrderItemFulfillmentAction(formData: FormData):
 // Edita en lote el modo (Stock/Fabricacion) de los productos de una orden, desde
 // el modal "Editar orden". Solo cambia la etiqueta; no mueve inventario.
 export async function adminUpdateOrderItemsFulfillmentAction(formData: FormData): Promise<void> {
-  await requireAdminSession();
+  const userId = await requireAdminSession();
   const returnTo = getReturnTo(formData, "/admin/ordenes");
 
   const orderId = typeof formData.get("orderId") === "string" ? (formData.get("orderId") as string).trim() : "";
@@ -246,11 +256,45 @@ export async function adminUpdateOrderItemsFulfillmentAction(formData: FormData)
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    select: { id: true, saleId: true },
+    select: {
+      id: true,
+      saleId: true,
+      createdAt: true,
+      sale: { select: { salePayments: { select: { id: true, amount: true, paymentDate: true, createdAt: true } } } },
+    },
   });
   if (!order) {
     redirect(`${returnTo}?error=Orden+no+encontrada`);
   }
+
+  // Retroactivo: si el usuario cambia la fecha de la orden a un dia anterior a hoy, la nueva fecha
+  // alinea los abonos de la venta: se exige motivo y se registra cada abono cuyo dia cambia.
+  // (Guardar el modal sin tocar la fecha no pide motivo, aunque re-alinee abonos como antes.)
+  const orderDayChanged = orderDate ? esEdicionRetroactiva(orderDateRaw, order.createdAt) : false;
+  const retroPayments = orderDayChanged
+    ? (order.sale?.salePayments ?? []).filter((payment) =>
+        esEdicionRetroactiva(orderDateRaw, payment.paymentDate ?? payment.createdAt),
+      )
+    : [];
+  const motivoCheck = exigirMotivoSiRetroactivo(retroPayments.length > 0, formData.get(MOTIVO_FIELD));
+  if (!motivoCheck.ok) {
+    redirect(`${returnTo}?${new URLSearchParams({ error: motivoCheck.error }).toString()}`);
+  }
+  if (motivoCheck.motivo && !(await usuarioExiste(prisma, userId))) {
+    redirect(`${returnTo}?${new URLSearchParams({ error: SESION_VENCIDA }).toString()}`);
+  }
+  const retroRows = motivoCheck.motivo
+    ? retroPayments.map((payment) =>
+        datosRegistroRetroactivo({
+          tipo: "ABONO",
+          registroId: payment.id,
+          fechaPuesta: orderDateRaw,
+          usuarioId: userId,
+          motivo: motivoCheck.motivo as string,
+          monto: payment.amount,
+        }),
+      )
+    : [];
 
   // No se puede cambiar el modo de un item ya confirmado (inventario/saldo ya
   // movidos). Se bloquea solo si el modo realmente cambia respecto al actual.
@@ -315,6 +359,7 @@ export async function adminUpdateOrderItemsFulfillmentAction(formData: FormData)
                 }),
               ]
             : []),
+          ...(retroRows.length > 0 ? [prisma.registroRetroactivo.createMany({ data: retroRows })] : []),
         ]
       : []),
   ]);

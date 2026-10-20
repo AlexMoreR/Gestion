@@ -72,6 +72,7 @@ import {
 import { DataTable } from "@/components/ui/data-table";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { MoneyInput } from "@/components/ui/money-input";
+import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-field";
 
 type SaleStatus = "DRAFT" | "ACTIVE" | "INVOICED" | "COMPLETED" | "CANCELLED";
 
@@ -562,6 +563,25 @@ function ReceiptUploadField() {
   );
 }
 
+// Fecha de la venta + motivo si se cambia a un dia anterior a hoy.
+function SaleDateInput({ original }: { original: string }) {
+  const [value, setValue] = React.useState(original);
+  return (
+    <>
+      <input
+        id="sale-edit-date"
+        name="date"
+        type="date"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        required
+        className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+      />
+      <MotivoRetroactivoField fecha={value} fechaOriginal={original} className="mt-2" />
+    </>
+  );
+}
+
 function AddSalePaymentSheet({
   sale,
   currency,
@@ -582,10 +602,14 @@ function AddSalePaymentSheet({
     .toISOString()
     .slice(0, 10);
   const [amount, setAmount] = React.useState("");
+  const [paymentDate, setPaymentDate] = React.useState(todayValue);
 
   React.useEffect(() => {
-    if (!open) setAmount("");
-  }, [open]);
+    if (!open) {
+      setAmount("");
+      setPaymentDate(todayValue);
+    }
+  }, [open, todayValue]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -599,7 +623,8 @@ function AddSalePaymentSheet({
                 form="add-payment-form"
                 name="paymentDate"
                 required
-                defaultValue={todayValue}
+                value={paymentDate}
+                onChange={setPaymentDate}
                 aria-label="Fecha del abono"
                 className="w-44"
               />
@@ -618,6 +643,8 @@ function AddSalePaymentSheet({
           >
             <input type="hidden" name="returnTo" value="/admin/ventas" />
             <input type="hidden" name="saleId" value={sale.id} />
+
+            <MotivoRetroactivoField fecha={paymentDate} />
 
             <div className="grid grid-cols-2 gap-3 rounded-2xl border border-border bg-muted/20 p-3 text-sm">
               <div>
@@ -1045,14 +1072,7 @@ export function SalesDataTable({
                 <label htmlFor="sale-edit-date" className="text-sm font-medium text-foreground">
                   Fecha de la venta
                 </label>
-                <input
-                  id="sale-edit-date"
-                  name="date"
-                  type="date"
-                  defaultValue={dateSale.createdAtISO.slice(0, 10)}
-                  required
-                  className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-                />
+                <SaleDateInput key={dateSale.id} original={dateSale.createdAtISO.slice(0, 10)} />
                 <p className="text-xs text-muted-foreground">
                   Es la fecha usada en Balances (rentabilidad por venta).
                 </p>

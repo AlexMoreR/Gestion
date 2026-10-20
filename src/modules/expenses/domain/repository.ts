@@ -31,6 +31,15 @@ export type CreateExpenseInput = {
   employeeId?: string | null;
   expenseDate: Date;
   createdById: string;
+  // Si la fecha es de un dia anterior a hoy: se guarda el registro retroactivo en la misma
+  // transaccion. fechaPuesta = dia AAAA-MM-DD que escribio el usuario.
+  retroactivo?: ExpenseRetroactivoInput | null;
+};
+
+export type ExpenseRetroactivoInput = {
+  fechaPuesta: string;
+  usuarioId: string;
+  motivo: string;
 };
 
 export type UpdateExpenseInput = Omit<CreateExpenseInput, "createdById">;

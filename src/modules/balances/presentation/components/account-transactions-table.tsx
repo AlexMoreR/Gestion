@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { MOTIVO_MAX, MOTIVO_MIN, esRetroactivo } from "@/modules/retroactivos/domain/retroactivo";
 import type { AccountTransaction, AccountTransactionType } from "@/modules/balances/domain/entities";
 import {
   attachAccountTransactionBalances,
@@ -143,6 +144,7 @@ function TransactionDetailDialog({
   const [receiptUrl, setReceiptUrl] = React.useState<string | null>(null);
   const [dateValue, setDateValue] = React.useState("");
   const [dateError, setDateError] = React.useState<string | null>(null);
+  const [motivo, setMotivo] = React.useState("");
   const [isSavingDate, startSaveDate] = React.useTransition();
 
   // Al abrir (o cambiar de) transaccion, precargar su fecha en el editor.
@@ -150,6 +152,7 @@ function TransactionDetailDialog({
     if (transaction) {
       setDateValue(toDateInputValue(transaction.date));
       setDateError(null);
+      setMotivo("");
     }
   }, [transaction]);
 
@@ -159,11 +162,20 @@ function TransactionDetailDialog({
 
   const isPositive = transaction.amount >= 0;
   const dateChanged = Boolean(dateValue) && dateValue !== toDateInputValue(transaction.date);
+  // Abonos y gastos movidos a un dia anterior a hoy: registro retroactivo, pide motivo.
+  const needsMotivo =
+    dateChanged &&
+    esRetroactivo(dateValue) &&
+    (transaction.id.startsWith("sale-payment:") || transaction.id.startsWith("expense:"));
 
   const handleSaveDate = () => {
     setDateError(null);
     startSaveDate(async () => {
-      const result = await adminUpdateTransactionDateAction(transaction.id, dateValue);
+      const result = await adminUpdateTransactionDateAction(
+        transaction.id,
+        dateValue,
+        needsMotivo ? motivo : undefined,
+      );
       if (result.ok) {
         onClose();
       } else {
@@ -208,11 +220,26 @@ function TransactionDetailDialog({
                     className="h-9 rounded-lg border border-border bg-card px-2 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-60"
                   />
                   {dateChanged && (
-                    <Button type="button" size="sm" onClick={handleSaveDate} disabled={isSavingDate || !dateValue}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleSaveDate}
+                      disabled={isSavingDate || !dateValue || (needsMotivo && motivo.trim().length < MOTIVO_MIN)}
+                    >
                       {isSavingDate ? "Guardando…" : "Guardar"}
                     </Button>
                   )}
                 </div>
+                {needsMotivo && (
+                  <textarea
+                    value={motivo}
+                    onChange={(event) => setMotivo(event.target.value)}
+                    maxLength={MOTIVO_MAX}
+                    rows={2}
+                    placeholder="Fecha anterior a hoy: ¿por qué se registra tarde?"
+                    className="w-60 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary dark:border-amber-500/40 dark:bg-amber-500/10"
+                  />
+                )}
                 {dateError && <p className="text-xs text-destructive">{dateError}</p>}
               </dd>
             </div>

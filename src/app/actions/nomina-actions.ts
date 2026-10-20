@@ -13,6 +13,7 @@ import { createPrismaExpensesRepository } from "@/modules/expenses/infrastructur
 import { PAY_CURRENCIES, PAY_PERIODS, payrollMonthTag, type PayrollPersonConfig } from "@/modules/nomina/domain/payroll";
 import { createPrismaNominaRepository } from "@/modules/nomina/infrastructure/prisma-nomina-repository";
 import { regenerateSellerLink } from "@/modules/nomina/infrastructure/prisma-seller-portal";
+import { MOTIVO_FIELD, esRetroactivo, exigirMotivoSiRetroactivo } from "@/modules/retroactivos/domain/retroactivo";
 
 // Nomina: solo el dueno/admin (mismo permiso que Comisiones).
 const BASE_PATH = "/admin/comisiones/nomina";
@@ -182,6 +183,9 @@ export async function payPayrollAction(formData: FormData): Promise<void> {
   if (!accountId) back(formData, "error", "Elige la cuenta de donde sale el pago.");
   if (!Number.isFinite(amount) || amount <= 0) back(formData, "error", "El monto debe ser mayor a cero.");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateRaw)) back(formData, "error", "Fecha inválida.");
+  // Retroactivo: pago con fecha de un dia anterior a hoy (hora Colombia). Exige motivo.
+  const motivoCheck = exigirMotivoSiRetroactivo(esRetroactivo(dateRaw), formData.get(MOTIVO_FIELD));
+  if (!motivoCheck.ok) back(formData, "error", motivoCheck.error);
 
   const [employee, account] = await Promise.all([
     prisma.user.findUnique({ where: { id: employeeId }, select: { name: true, email: true } }),
@@ -223,6 +227,10 @@ export async function payPayrollAction(formData: FormData): Promise<void> {
     // Mediodia UTC: la fecha de calendario no se corre de dia en Colombia.
     expenseDate: new Date(`${dateRaw}T12:00:00Z`),
     createdById,
+    retroactivo:
+      motivoCheck.ok && motivoCheck.motivo
+        ? { fechaPuesta: dateRaw, usuarioId: createdById, motivo: motivoCheck.motivo }
+        : null,
   });
 
   await logActivity({

@@ -17,6 +17,7 @@ import type {
   ExpenseRow,
 } from "../domain/entities";
 import { summarizeCategoryTotals, summarizeExpenseMetrics } from "../domain/calculations";
+import { registrarRetroactivos } from "@/modules/retroactivos/infrastructure/registrar-retroactivo";
 
 const DEFAULT_CATEGORIES = ["Nomina", "Marketing", "Varios"] as const;
 
@@ -212,42 +213,58 @@ export function createPrismaExpensesRepository(): ExpensesRepository {
     },
 
     async createExpense(input: CreateExpenseInput): Promise<Expense> {
-      const row = (await prisma.expense.create({
-        data: {
-          categoryId: input.categoryId,
-          accountId: input.accountId,
-          amount: input.amount,
-          description: input.description ?? null,
-          reference: input.reference ?? null,
-          receiptUrl: input.receiptUrl ?? null,
-          receiptName: input.receiptName ?? null,
-          employeeId: input.employeeId ?? null,
-          expenseDate: input.expenseDate,
-          createdById: input.createdById,
-        },
-        select: expenseSelect,
-      })) as ExpenseSelection;
+      const row = await prisma.$transaction(async (tx) => {
+        const created = (await tx.expense.create({
+          data: {
+            categoryId: input.categoryId,
+            accountId: input.accountId,
+            amount: input.amount,
+            description: input.description ?? null,
+            reference: input.reference ?? null,
+            receiptUrl: input.receiptUrl ?? null,
+            receiptName: input.receiptName ?? null,
+            employeeId: input.employeeId ?? null,
+            expenseDate: input.expenseDate,
+            createdById: input.createdById,
+          },
+          select: expenseSelect,
+        })) as ExpenseSelection;
+        if (input.retroactivo) {
+          await registrarRetroactivos(tx, [
+            { tipo: "GASTO", registroId: created.id, monto: input.amount, ...input.retroactivo },
+          ]);
+        }
+        return created;
+      });
       return mapExpense(row);
     },
 
     async updateExpense(expenseId: string, input: UpdateExpenseInput): Promise<Expense> {
-      const row = (await prisma.expense.update({
-        where: { id: expenseId },
-        data: {
-          categoryId: input.categoryId,
-          accountId: input.accountId,
-          amount: input.amount,
-          description: input.description ?? null,
-          reference: input.reference ?? null,
-          employeeId: input.employeeId ?? null,
-          expenseDate: input.expenseDate,
-          // Solo se toca el comprobante si el caso de uso lo provee (subir o quitar).
-          ...(input.receiptUrl !== undefined
-            ? { receiptUrl: input.receiptUrl, receiptName: input.receiptName ?? null }
-            : {}),
-        },
-        select: expenseSelect,
-      })) as ExpenseSelection;
+      const row = await prisma.$transaction(async (tx) => {
+        const updated = (await tx.expense.update({
+          where: { id: expenseId },
+          data: {
+            categoryId: input.categoryId,
+            accountId: input.accountId,
+            amount: input.amount,
+            description: input.description ?? null,
+            reference: input.reference ?? null,
+            employeeId: input.employeeId ?? null,
+            expenseDate: input.expenseDate,
+            // Solo se toca el comprobante si el caso de uso lo provee (subir o quitar).
+            ...(input.receiptUrl !== undefined
+              ? { receiptUrl: input.receiptUrl, receiptName: input.receiptName ?? null }
+              : {}),
+          },
+          select: expenseSelect,
+        })) as ExpenseSelection;
+        if (input.retroactivo) {
+          await registrarRetroactivos(tx, [
+            { tipo: "GASTO", registroId: expenseId, monto: input.amount, ...input.retroactivo },
+          ]);
+        }
+        return updated;
+      });
       return mapExpense(row);
     },
 

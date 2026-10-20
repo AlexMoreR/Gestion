@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { DatePicker } from "@/components/ui/date-picker";
+import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-field";
 import { cn } from "@/lib/utils";
 
 type Option = {
@@ -80,6 +81,7 @@ export function ExpenseFormDialog({
   const [amount, setAmount] = React.useState<string>(
     initialValue?.amount ? String(Math.trunc(initialValue.amount)) : "",
   );
+  const [expenseDate, setExpenseDate] = React.useState<string>(initialValue?.expenseDate ?? today());
   const [receiptError, setReceiptError] = React.useState(false);
   const [employeeError, setEmployeeError] = React.useState(false);
 
@@ -97,7 +99,8 @@ export function ExpenseFormDialog({
     setCategoryId(initialValue?.categoryId ?? "");
     setEmployeeId(initialValue?.employeeId ?? "");
     setAmount(initialValue?.amount ? String(Math.trunc(initialValue.amount)) : "");
-  }, [open, initialValue?.expenseId, initialValue?.accountId, initialValue?.categoryId, initialValue?.employeeId, initialValue?.amount]);
+    setExpenseDate(initialValue?.expenseDate ?? today());
+  }, [open, initialValue?.expenseId, initialValue?.accountId, initialValue?.categoryId, initialValue?.employeeId, initialValue?.amount, initialValue?.expenseDate]);
 
   function handleReceiptChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
@@ -244,12 +247,14 @@ export function ExpenseFormDialog({
 
                 <label className="space-y-1.5">
                   <span className="text-sm font-medium text-foreground">Fecha</span>
-                  <DatePicker
-                    name="expenseDate"
-                    required
-                    defaultValue={initialValue?.expenseDate ?? today()}
-                  />
+                  <DatePicker name="expenseDate" required value={expenseDate} onChange={setExpenseDate} />
                 </label>
+
+                <MotivoRetroactivoField
+                  fecha={expenseDate}
+                  fechaOriginal={mode === "edit" ? initialValue?.expenseDate ?? null : null}
+                  className="sm:col-span-2"
+                />
 
                 <label className="space-y-1.5">
                   <span className="text-sm font-medium text-foreground">Categoria</span>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FechaConMotivo } from "@/components/admin/motivo-retroactivo-field";
 import { redirect } from "next/navigation";
 import { AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -347,7 +348,7 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
                     </label>
                     <label className="space-y-1 text-xs text-muted-foreground">
                       Fecha del pago
-                      <input type="date" name="date" required defaultValue={today} className={inputClass} />
+                      <FechaConMotivo name="date" required defaultValue={today} className={inputClass} />
                     </label>
                     <label className="space-y-1 text-xs text-muted-foreground sm:col-span-2">
                       Nota (opcional)

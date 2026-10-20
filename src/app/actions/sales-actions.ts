@@ -16,6 +16,19 @@ import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-ite
 import { prisma } from "@/lib/prisma";
 import { PAYMENT_METHOD_SHORT_LABEL, parsePaymentMethodInput } from "@/modules/ventas/domain/payment-method";
 import { CONSUMIDOR_FINAL_EMAIL } from "@/modules/ventas/domain/sale-origin";
+import {
+  MOTIVO_FIELD,
+  esEdicionRetroactiva,
+  esRetroactivo,
+  exigirMotivoSiRetroactivo,
+} from "@/modules/retroactivos/domain/retroactivo";
+import {
+  SESION_VENCIDA,
+  datosRegistroRetroactivo,
+  registrarRetroactivos,
+  usuarioExiste,
+  type RegistroRetroactivoInput,
+} from "@/modules/retroactivos/infrastructure/registrar-retroactivo";
 
 const createSaleSchema = z.object({
   quoteId: z.string().trim().min(1, "Quote is invalid"),
@@ -298,9 +311,25 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
       accountId: account.id,
       note: note || null,
       paymentDate,
+      rawDate,
       file,
     };
   });
+
+  // Retroactivo: algun abono (y por tanto la venta, que toma la fecha del mas temprano) con
+  // fecha de un dia anterior a hoy. Exige motivo.
+  const registroAhora = new Date();
+  const retroInstallmentIndexes = installments
+    .map((installment, index) => (esRetroactivo(installment.rawDate || null, registroAhora) ? index : -1))
+    .filter((index) => index >= 0);
+  const motivoCheck = exigirMotivoSiRetroactivo(retroInstallmentIndexes.length > 0, formData.get(MOTIVO_FIELD));
+  if (!motivoCheck.ok) {
+    redirectWithError(returnTo, motivoCheck.error);
+  }
+  const earliestRawDate = installments
+    .map((installment) => installment.rawDate)
+    .filter(Boolean)
+    .sort()[0];
 
   const totalDownPayment = installments.reduce((sum, installment) => sum + installment.amount, 0);
   if (totalDownPayment <= 0) {
@@ -375,6 +404,7 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
           ...(quote.origin ? { origin: quote.origin } : {}),
           ...(quote.originDetail != null ? { originDetail: quote.originDetail as Prisma.InputJsonValue } : {}),
           ...(saleCreatedAt ? { createdAt: saleCreatedAt } : {}),
+          registradoEn: registroAhora,
           downPaymentAmount: totalDownPayment,
           grossTotal,
           discountAmount,
@@ -392,6 +422,7 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
               receiptName: receipt.receiptName,
               receiptType: receipt.receiptType,
               sortOrder: index,
+              createdById,
             })),
           },
           paymentReceipts: savedReceipts,
@@ -399,9 +430,36 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
           subtotal: quote.subtotal,
           total: netTotal,
         } satisfies Prisma.SaleUncheckedCreateInput,
-        select: { id: true },
+        select: { id: true, salePayments: { select: { id: true, sortOrder: true } } },
       });
       createdSaleId = createdSale.id;
+
+      if (motivoCheck.motivo && earliestRawDate) {
+        const paymentIdBySort = new Map(createdSale.salePayments.map((payment) => [payment.sortOrder, payment.id]));
+        const retroRows: RegistroRetroactivoInput[] = [
+          {
+            tipo: "VENTA",
+            registroId: createdSale.id,
+            fechaPuesta: earliestRawDate,
+            usuarioId: createdById,
+            motivo: motivoCheck.motivo,
+            monto: netTotal,
+          },
+        ];
+        for (const index of retroInstallmentIndexes) {
+          const paymentId = paymentIdBySort.get(index);
+          if (!paymentId) continue;
+          retroRows.push({
+            tipo: "ABONO",
+            registroId: paymentId,
+            fechaPuesta: installments[index].rawDate,
+            usuarioId: createdById,
+            motivo: motivoCheck.motivo,
+            monto: installments[index].amount,
+          });
+        }
+        await registrarRetroactivos(tx, retroRows);
+      }
 
       await tx.quote.update({
         where: { id: quote.id },
@@ -441,7 +499,7 @@ const addSalePaymentSchema = z.object({
 });
 
 export async function adminAddSalePaymentAction(formData: FormData): Promise<void> {
-  await requireAdminSession();
+  const createdById = await requireAdminSession();
   const returnTo = getReturnTo(formData);
 
   const parsed = addSalePaymentSchema.safeParse({
@@ -452,6 +510,22 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
 
   if (!parsed.success) {
     redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos del abono invalidos");
+  }
+
+  // Retroactivo: abono con fecha de un dia anterior a hoy (hora Colombia). Exige motivo.
+  const paymentDateRawValue = formData.get("paymentDate");
+  const paymentDateRaw = typeof paymentDateRawValue === "string" ? paymentDateRawValue.trim() : "";
+  const motivoCheck = exigirMotivoSiRetroactivo(
+    esRetroactivo(paymentDateRaw || parsed.data.paymentDate || null),
+    formData.get(MOTIVO_FIELD),
+  );
+  if (!motivoCheck.ok) {
+    redirectWithError(returnTo, motivoCheck.error);
+  }
+  // Quien registra el abono (NULL si la sesion apunta a un usuario que ya no existe).
+  const paymentCreatedById = (await usuarioExiste(prisma, createdById)) ? createdById : null;
+  if (motivoCheck.motivo && !paymentCreatedById) {
+    redirectWithError(returnTo, SESION_VENCIDA);
   }
 
   const accountIdValue = formData.get("accountId");
@@ -534,7 +608,7 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
 
   try {
     await prisma.$transaction(async (tx) => {
-      await tx.salePayment.create({
+      const createdPayment = await tx.salePayment.create({
         data: {
           saleId: sale.id,
           amount: parsed.data.amount,
@@ -546,8 +620,23 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
           receiptName: savedReceipt?.name ?? null,
           receiptType: savedReceipt?.type ?? null,
           sortOrder: nextSortOrder,
+          createdById: paymentCreatedById,
         },
+        select: { id: true },
       });
+
+      if (motivoCheck.motivo) {
+        await registrarRetroactivos(tx, [
+          {
+            tipo: "ABONO",
+            registroId: createdPayment.id,
+            fechaPuesta: paymentDateRaw || (parsed.data.paymentDate as Date),
+            usuarioId: paymentCreatedById as string,
+            motivo: motivoCheck.motivo,
+            monto: parsed.data.amount,
+          },
+        ]);
+      }
 
       await tx.sale.update({
         where: { id: sale.id },
@@ -882,6 +971,16 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
     saleDate = parsedSaleDate;
   }
 
+  // Retroactivo: venta con fecha de un dia anterior a hoy (hora Colombia). Exige motivo.
+  const registroAhora = new Date();
+  const motivoCheck = exigirMotivoSiRetroactivo(
+    esRetroactivo(saleDateRaw || null, registroAhora),
+    formData.get(MOTIVO_FIELD),
+  );
+  if (!motivoCheck.ok) {
+    redirectWithError(returnTo, motivoCheck.error);
+  }
+
   // Abono inicial opcional
   const amountRaw = formData.get("amount");
   const hasInitialPayment = typeof amountRaw === "string" && amountRaw.trim() !== "" && Number(amountRaw) > 0;
@@ -1059,6 +1158,7 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
           paymentMethod,
           origin: "MOSTRADOR",
           ...(saleDate ? { createdAt: saleDate } : {}),
+          registradoEn: registroAhora,
           downPaymentAmount,
           grossTotal: new Prisma.Decimal(total),
           discountAmount: new Prisma.Decimal(0),
@@ -1082,15 +1182,38 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
                       receiptName: initialPayment.receipt?.name ?? null,
                       receiptType: initialPayment.receipt?.type ?? null,
                       sortOrder: 0,
+                      createdById,
                     },
                   ],
                 },
               }
             : {}),
         } satisfies Prisma.SaleUncheckedCreateInput,
-        select: { id: true },
+        select: { id: true, salePayments: { select: { id: true, amount: true } } },
       });
       createdSaleId = createdSale.id;
+
+      if (motivoCheck.motivo && saleDateRaw) {
+        // La venta y su abono inicial (que toma la misma fecha) quedan como retroactivos.
+        await registrarRetroactivos(tx, [
+          {
+            tipo: "VENTA",
+            registroId: createdSale.id,
+            fechaPuesta: saleDateRaw,
+            usuarioId: createdById,
+            motivo: motivoCheck.motivo,
+            monto: total,
+          },
+          ...createdSale.salePayments.map((payment) => ({
+            tipo: "ABONO" as const,
+            registroId: payment.id,
+            fechaPuesta: saleDateRaw,
+            usuarioId: createdById,
+            motivo: motivoCheck.motivo as string,
+            monto: payment.amount,
+          })),
+        ]);
+      }
     });
   } catch (error) {
     if (error instanceof Error && error.message === "CLIENT_NOT_FOUND") {
@@ -1121,7 +1244,7 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
 // fecha de la orden, su historial y los cargos/pagos a proveedores, para que
 // todo concuerde en la analitica.
 export async function adminUpdateSaleDateAction(formData: FormData): Promise<void> {
-  await requireAdminSession();
+  const userId = await requireAdminSession();
   const returnTo = getReturnTo(formData);
 
   const saleId = typeof formData.get("saleId") === "string" ? (formData.get("saleId") as string).trim() : "";
@@ -1139,16 +1262,66 @@ export async function adminUpdateSaleDateAction(formData: FormData): Promise<voi
 
   const sale = await prisma.sale.findUnique({
     where: { id: saleId },
-    select: { id: true, order: { select: { id: true } } },
+    select: {
+      id: true,
+      createdAt: true,
+      total: true,
+      order: { select: { id: true } },
+      salePayments: { select: { id: true, amount: true, paymentDate: true, createdAt: true } },
+    },
   });
   if (!sale) {
     redirect(`${returnTo}?${new URLSearchParams({ error: "Venta no encontrada" }).toString()}`);
   }
 
+  // Retroactivo: la fecha cambia a un dia anterior a hoy. Se registra la venta y, si se alinean,
+  // cada abono cuyo dia tambien cambia. Exige motivo.
+  const registroAhora = new Date();
+  const saleIsRetro = esEdicionRetroactiva(dateRaw, sale.createdAt, registroAhora);
+  const retroPayments = alignAll
+    ? sale.salePayments.filter((payment) =>
+        esEdicionRetroactiva(dateRaw, payment.paymentDate ?? payment.createdAt, registroAhora),
+      )
+    : [];
+  const motivoCheck = exigirMotivoSiRetroactivo(saleIsRetro || retroPayments.length > 0, formData.get(MOTIVO_FIELD));
+  if (!motivoCheck.ok) {
+    redirect(`${returnTo}?${new URLSearchParams({ error: motivoCheck.error }).toString()}`);
+  }
+  if (motivoCheck.motivo && !(await usuarioExiste(prisma, userId))) {
+    redirect(`${returnTo}?${new URLSearchParams({ error: SESION_VENCIDA }).toString()}`);
+  }
+  const retroRows: RegistroRetroactivoInput[] = motivoCheck.motivo
+    ? [
+        ...(saleIsRetro
+          ? [
+              {
+                tipo: "VENTA" as const,
+                registroId: sale.id,
+                fechaPuesta: dateRaw,
+                usuarioId: userId,
+                motivo: motivoCheck.motivo,
+                monto: sale.total,
+              },
+            ]
+          : []),
+        ...retroPayments.map((payment) => ({
+          tipo: "ABONO" as const,
+          registroId: payment.id,
+          fechaPuesta: dateRaw,
+          usuarioId: userId,
+          motivo: motivoCheck.motivo as string,
+          monto: payment.amount,
+        })),
+      ]
+    : [];
+
   const orderIds = sale.order ? [sale.order.id] : [];
 
   await prisma.$transaction([
     prisma.sale.update({ where: { id: saleId }, data: { createdAt: parsedDate } }),
+    ...(retroRows.length > 0
+      ? [prisma.registroRetroactivo.createMany({ data: retroRows.map(datosRegistroRetroactivo) })]
+      : []),
     ...(alignAll
       ? [
           // Cobros de la venta.

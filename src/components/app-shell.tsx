@@ -49,6 +49,8 @@ export function AppShell({ children, initialUser, brandName, adminModuleAccess }
               ? "Ventas"
               : pathname.startsWith("/admin/balances")
                 ? "Balances"
+              : pathname.startsWith("/admin/retroactivos")
+                ? "Retroactivos"
               : pathname.startsWith("/admin/comisiones/nomina")
                 ? "Nómina"
               : pathname.startsWith("/admin/comisiones")
@@ -140,6 +142,13 @@ export function AppShell({ children, initialUser, brandName, adminModuleAccess }
 
     if (pathname.startsWith("/admin/balances")) {
       return [{ label: "Balances", href: "", isCurrent: true }];
+    }
+
+    if (pathname.startsWith("/admin/retroactivos")) {
+      return [
+        { label: "Balances", href: "/admin/balances", isCurrent: false },
+        { label: "Retroactivos", href: "", isCurrent: true },
+      ];
     }
 
     if (pathname.startsWith("/sales")) {

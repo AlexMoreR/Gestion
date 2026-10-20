@@ -8,6 +8,7 @@ import { ProductThumb } from "@/components/admin/product-thumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
+import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-field";
 import { TransactionModal } from "@/components/ui/transaction-modal";
 import {
   Dialog,
@@ -332,6 +333,8 @@ export function DirectSaleSheet({
           </>
         }
       >
+        <MotivoRetroactivoField fecha={saleDate} />
+
         {/* Cliente */}
         <div className="space-y-2">
           <label htmlFor="direct-client-mode" className="text-sm font-medium text-foreground">

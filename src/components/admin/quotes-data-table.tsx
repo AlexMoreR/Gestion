@@ -31,6 +31,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
+import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-field";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { MoneyInput } from "@/components/ui/money-input";
 import {
@@ -837,6 +838,11 @@ function SaleInstallmentsModal({
             </div>
 
             <SaleInstallmentSubmissionBridge installments={installments} fileInputRefs={fileInputRefs} />
+
+            <MotivoRetroactivoField
+              fecha={installments.map((installment) => installment.paymentDate).filter(Boolean).sort()[0]}
+              className="mx-4 mb-3 sm:mx-6"
+            />
 
             <footer className="border-t border-border bg-background px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:pb-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">

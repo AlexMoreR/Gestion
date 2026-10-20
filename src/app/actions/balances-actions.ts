@@ -32,6 +32,8 @@ import {
   transactionDateUpdateSchema,
 } from "@/modules/balances/application/schemas";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
+import { esEdicionRetroactiva, exigirMotivoSiRetroactivo } from "@/modules/retroactivos/domain/retroactivo";
+import { datosRegistroRetroactivo } from "@/modules/retroactivos/infrastructure/registrar-retroactivo";
 
 const repository = createPrismaBalancesRepository();
 
@@ -425,8 +427,9 @@ export async function adminUpdateAccountAction(formData: FormData): Promise<void
 export async function adminUpdateTransactionDateAction(
   transactionId: string,
   date: string,
-): Promise<{ ok: boolean; error?: string }> {
-  await requireAdminSession();
+  motivo?: string,
+): Promise<{ ok: boolean; error?: string; needsMotivo?: boolean }> {
+  const userId = await requireAdminSession();
 
   const parsed = transactionDateUpdateSchema.safeParse({ transactionId, date });
   if (!parsed.success) {
@@ -443,20 +446,68 @@ export async function adminUpdateTransactionDateAction(
     return { ok: false, error: "Transaccion invalida" };
   }
 
+  // Abonos y gastos: si el dia cambia a uno anterior a hoy (hora Colombia) es un registro
+  // retroactivo. Se exige motivo y se registra en la misma transaccion.
+  const retroactivoDe = async (
+    tipo: "ABONO" | "GASTO",
+    previous: { date: Date | null; amount: Prisma.Decimal } | null,
+  ): Promise<{ error: { ok: false; error: string; needsMotivo?: boolean } } | { row: Prisma.RegistroRetroactivoUncheckedCreateInput | null }> => {
+    if (!previous) return { error: { ok: false, error: "La transaccion ya no existe" } };
+    const motivoCheck = exigirMotivoSiRetroactivo(esEdicionRetroactiva(date, previous.date), motivo);
+    if (!motivoCheck.ok) return { error: { ok: false, error: motivoCheck.error, needsMotivo: true } };
+    if (!motivoCheck.motivo) return { row: null };
+    return {
+      row: datosRegistroRetroactivo({
+        tipo,
+        registroId: id,
+        fechaPuesta: date,
+        usuarioId: userId,
+        motivo: motivoCheck.motivo,
+        monto: previous.amount,
+      }),
+    };
+  };
+
   try {
     switch (kind) {
-      case "sale-payment":
-        await prisma.salePayment.update({ where: { id }, data: { paymentDate: newDate } });
+      case "sale-payment": {
+        const previous = await prisma.salePayment.findUnique({
+          where: { id },
+          select: { paymentDate: true, createdAt: true, amount: true },
+        });
+        const retro = await retroactivoDe(
+          "ABONO",
+          previous ? { date: previous.paymentDate ?? previous.createdAt, amount: previous.amount } : null,
+        );
+        if ("error" in retro) return retro.error;
+        await prisma.$transaction([
+          prisma.salePayment.update({ where: { id }, data: { paymentDate: newDate } }),
+          ...(retro.row ? [prisma.registroRetroactivo.create({ data: retro.row })] : []),
+        ]);
         break;
+      }
       case "supplier-payment":
         await prisma.supplierLedgerEntry.update({ where: { id }, data: { paymentDate: newDate } });
         break;
       case "shipping":
         await prisma.shippingCost.update({ where: { id }, data: { paymentDate: newDate } });
         break;
-      case "expense":
-        await prisma.expense.update({ where: { id }, data: { expenseDate: newDate } });
+      case "expense": {
+        const previous = await prisma.expense.findUnique({
+          where: { id },
+          select: { expenseDate: true, amount: true },
+        });
+        const retro = await retroactivoDe(
+          "GASTO",
+          previous ? { date: previous.expenseDate, amount: previous.amount } : null,
+        );
+        if ("error" in retro) return retro.error;
+        await prisma.$transaction([
+          prisma.expense.update({ where: { id }, data: { expenseDate: newDate } }),
+          ...(retro.row ? [prisma.registroRetroactivo.create({ data: retro.row })] : []),
+        ]);
         break;
+      }
       case "movement": {
         const movement = await prisma.accountMovement.findUnique({
           where: { id },

@@ -5,6 +5,7 @@ import { MoreHorizontal, PackageCheck, Pencil } from "lucide-react";
 import { adminCancelOrderAction, adminUpdateOrderStatusAction } from "@/app/actions/orders-actions";
 import { adminUpdateOrderItemsFulfillmentAction } from "@/app/actions/order-item-actions";
 import { Button } from "@/components/ui/button";
+import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-field";
 import {
   Dialog,
   DialogContent,
@@ -138,6 +139,7 @@ export function OrderActionsMenu({ orderId, status, returnTo, items, orderDate }
               <p className="text-xs text-muted-foreground">
                 Tambien actualiza la fecha de los cobros de la venta para que concuerden.
               </p>
+              <MotivoRetroactivoField fecha={date} fechaOriginal={orderDate} className="mt-2" />
             </div>
 
             <div className="space-y-2">
