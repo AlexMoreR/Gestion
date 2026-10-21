@@ -247,28 +247,12 @@ export async function adminUpdateCategoryAction(formData: FormData): Promise<voi
     redirect(`${returnTo}?error=Logo+de+categoria+invalido`);
   }
 
-  const siblingSlugs = await prisma.category.findMany({
-    where: {
-      id: { not: parsed.data.categoryId },
-      slug: { startsWith: slugBase },
-    },
-    select: { slug: true },
-  });
-
-  const used = new Set(siblingSlugs.map((item) => item.slug));
-  let slug = slugBase;
-  let suffix = 2;
-  while (used.has(slug)) {
-    slug = `${slugBase}-${suffix}`;
-    suffix += 1;
-  }
-
+  // El slug NO se recalcula al editar: cambiarlo rompe la URL publicada (404).
   try {
     await prisma.category.update({
       where: { id: parsed.data.categoryId },
         data: {
           name: parsed.data.name,
-          slug,
           description: parsed.data.description || null,
           seoTitle: parsed.data.seoTitle || null,
           seoDescription: parsed.data.seoDescription || null,

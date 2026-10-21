@@ -551,7 +551,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
   } catch (error) {
     redirect(`${redirectBase}?error=${encodeURIComponent(error instanceof Error ? error.message : "Datos del combo invalidos")}`);
   }
-  const slug = await generateUniqueProductSlug(parsed.data.name, parsed.data.code, parsed.data.productId);
+  // El slug NO se recalcula al editar: cambiarlo rompe la URL publicada (404).
   const retailPrice = parsed.data.retailPrice;
   const effectiveRetailMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost + parsed.data.additionalCost, retailPrice);
   const wholesalePrice = parsed.data.wholesalePrice;
@@ -580,7 +580,6 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
         data: {
           name: parsed.data.name,
           code: parsed.data.code || null,
-          slug,
           description: parsed.data.description || null,
           seoTitle: parsed.data.seoTitle || null,
           seoDescription: parsed.data.seoDescription || null,
