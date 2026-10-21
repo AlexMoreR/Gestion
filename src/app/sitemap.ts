@@ -9,6 +9,8 @@ export const dynamic = "force-dynamic";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [products, categories] = await Promise.all([
     prisma.product.findMany({
+      // Igual que la tienda: los productos ocultos no se publican en el sitemap.
+      where: { hiddenFromStore: false },
       select: {
         id: true,
         slug: true,

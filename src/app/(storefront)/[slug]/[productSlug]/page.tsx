@@ -6,6 +6,7 @@ import { ProductDetailContent } from "@/components/store/product-detail-content"
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { getCurrentStorePrice } from "@/lib/product-promo";
+import { findRedirectTarget } from "@/lib/product-redirect";
 import { buildProductPath } from "@/lib/product-slugs";
 import { buildProductSeoTitle, compactPriceLabel, truncateMetaDescription } from "@/lib/seo-metadata";
 import { getPublicAssetUrl, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
@@ -33,7 +34,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug, productSlug } = await params;
   const product = await getProductBySlug(productSlug);
 
-  if (!product || product.category?.slug !== slug) {
+  // Los productos ocultos en la tienda se tratan como inexistentes (no se exponen).
+  if (!product || product.hiddenFromStore || product.category?.slug !== slug) {
     return {
       title: "Producto no encontrado",
       robots: { index: false, follow: false },
@@ -100,7 +102,17 @@ export default async function CategoryProductPage({ params }: PageProps) {
     auth(),
   ]);
 
+  // Oculto en la tienda: 404 aunque llegue con su slug exacto (y nunca se redirige a el).
+  if (product?.hiddenFromStore) {
+    notFound();
+  }
+
   if (!product) {
+    // Enlace viejo: solo si hay un unico producto visible por codigo o sufijo exacto -> 308.
+    const redirectTarget = await findRedirectTarget(productSlug);
+    if (redirectTarget) {
+      permanentRedirect(redirectTarget);
+    }
     notFound();
   }
 
