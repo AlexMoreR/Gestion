@@ -96,6 +96,46 @@ export function expandProductNameForSeo(name: string, categoryName?: string | nu
   return match[2] ? `${prefix} ${match[2]}` : prefix;
 }
 
+/**
+ * Title de categoria cuando no hay seoTitle: "<Nombre> desde <precio min> | <marca>", max ~60.
+ * Sin precio (categoria vacia): "<Nombre> | <marca>".
+ */
+export function buildCategorySeoTitle(input: {
+  categoryName: string;
+  minPriceLabel?: string | null;
+  brandName: string;
+  maxLength?: number;
+}): string {
+  const maxLength = input.maxLength ?? PRODUCT_TITLE_MAX_LENGTH;
+  const name = toSentenceCase(input.categoryName);
+  const price = input.minPriceLabel?.trim();
+  const priceSuffix = price ? ` desde ${price}` : "";
+  const brandSuffix = ` | ${input.brandName.trim()}`;
+  const budget = Math.max(12, maxLength - priceSuffix.length - brandSuffix.length);
+  return `${cutAtWord(name, budget)}${priceSuffix}${brandSuffix}`;
+}
+
+/**
+ * Description de categoria cuando no hay seoDescription ni descripcion:
+ * "<N> modelos de <categoria> de $X a $Y. Fábrica en Cali y Bogotá. Cotiza por WhatsApp."
+ */
+export function buildCategorySeoDescription(input: {
+  categoryName: string;
+  productCount: number;
+  minPriceLabel?: string | null;
+  maxPriceLabel?: string | null;
+}): string {
+  const sentence = toSentenceCase(input.categoryName);
+  const name = sentence.charAt(0).toLocaleLowerCase("es") + sentence.slice(1);
+  const min = input.minPriceLabel?.trim();
+  const max = input.maxPriceLabel?.trim();
+  const count = Math.max(0, Math.floor(input.productCount));
+  const models = count === 1 ? "1 modelo" : `${count} modelos`;
+  const range = min && max && min !== max ? ` de ${min} a ${max}` : min ? ` por ${min}` : "";
+  const head = count > 0 ? `${models} de ${name}${range}.` : `${sentence}.`;
+  return truncateMetaDescription(`${head} Fábrica en Cali y Bogotá. Cotiza por WhatsApp.`);
+}
+
 /** Precio para el title: "$1.099.000" (sin espacio tras el signo). */
 export function compactPriceLabel(formatted: string): string {
   return formatted.replace(/\s+/g, "");

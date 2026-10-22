@@ -11,7 +11,12 @@ import { FACTORY_POINTS, factoryPointPostalAddress } from "@/lib/factory-points"
 import { imageVariantUrl } from "@/lib/image-variants";
 import { prisma } from "@/lib/prisma";
 import { buildProductPath } from "@/lib/product-slugs";
-import { buildHomeSeoTitle } from "@/lib/seo-metadata";
+import {
+  buildCategorySeoDescription,
+  buildCategorySeoTitle,
+  buildHomeSeoTitle,
+  compactPriceLabel,
+} from "@/lib/seo-metadata";
 import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, siteConfig } from "@/lib/site";
 import { COMBO_SAVINGS_COMPONENTS_SELECT, comboSavingsFromProduct } from "@/lib/storefront-offer";
 import { getActivePromo, getCurrentStorePrice, promoInfoText } from "@/lib/product-promo";
@@ -120,10 +125,34 @@ export async function generateStorefrontMetadata({
       })
     : null;
 
+  // Categoria sin seoTitle o sin descripcion: se arman solos con el rango de precios actual
+  // de la tienda (oferta vigente si la hay) de sus productos visibles.
+  const categorySeoTitle = category?.seoTitle?.trim() ?? "";
+  const categoryHasDescription = Boolean(category?.seoDescription?.trim() || category?.description?.trim());
+  const needsPriceRange = Boolean(category && !normalizedQuery && (!categorySeoTitle || !categoryHasDescription));
+  const [currency, visibleCategoryProducts] = needsPriceRange
+    ? await Promise.all([
+        getSystemCurrency(),
+        prisma.product.findMany({
+          where: { hiddenFromStore: false, category: { is: { slug: normalizedCategorySlug } } },
+          select: { price: true, regularPrice: true, promoPrice: true, promoStartsAt: true, promoEndsAt: true },
+        }),
+      ])
+    : [null, []];
+  const now = new Date();
+  const storePrices = visibleCategoryProducts
+    .map((product) => getCurrentStorePrice(product, now))
+    .filter((value) => value > 0);
+  const toPriceLabel = (value: number) => (currency ? compactPriceLabel(formatMoney(String(value), currency)) : null);
+  const minPriceLabel = storePrices.length > 0 ? toPriceLabel(Math.min(...storePrices)) : null;
+  const maxPriceLabel = storePrices.length > 0 ? toPriceLabel(Math.max(...storePrices)) : null;
+
   const title = normalizedQuery
     ? `Resultados para ${normalizedQuery}`
     : category
-      ? category.seoTitle?.trim() || category.name
+      ? categorySeoTitle || {
+          absolute: buildCategorySeoTitle({ categoryName: category.name, minPriceLabel, brandName }),
+        }
       : {
           absolute: buildHomeSeoTitle(brandName),
         };
@@ -132,7 +161,12 @@ export async function generateStorefrontMetadata({
     : category
       ? category.seoDescription?.trim() ||
         category.description?.trim() ||
-        `Explora ${category.name.toLowerCase()} en ${brandName}, mobiliario profesional para peluquería, salón de belleza y barbería.`
+        buildCategorySeoDescription({
+          categoryName: category.name,
+          productCount: visibleCategoryProducts.length,
+          minPriceLabel,
+          maxPriceLabel,
+        })
       : storefrontHeroDescription;
   // Las busquedas (?q=) no se indexan: canonical al inicio y noindex,follow (ver robots abajo).
   const canonical = normalizedQuery
@@ -141,9 +175,7 @@ export async function generateStorefrontMetadata({
       ? getSiteUrl(`/${category.slug}`)
       : getSiteUrl("/");
   const socialTitle =
-    normalizedQuery || category
-      ? `${typeof title === "string" ? title : brandName} | ${brandName}`
-      : buildHomeSeoTitle(brandName);
+    typeof title === "string" ? `${title} | ${brandName}` : title.absolute;
   const socialImagePath =
     category?.logoUrl?.trim() || category?.products[0]?.thumbnailUrl?.trim() || siteConfig.ogImagePath;
   const socialImage = socialImagePath.startsWith("http") ? socialImagePath : getSiteUrl(socialImagePath);
