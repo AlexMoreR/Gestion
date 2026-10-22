@@ -8,7 +8,7 @@ import { formatMoney } from "@/lib/currency";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { buildProductPath } from "@/lib/product-slugs";
 import { imageVariantUrl } from "@/lib/image-variants";
-import { compactPriceLabel } from "@/lib/seo-metadata";
+import { buildProductFallbackDescription, compactPriceLabel } from "@/lib/seo-metadata";
 import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, sanitizeDescription } from "@/lib/site";
 import {
   comboSavingsFromProduct,
@@ -93,10 +93,6 @@ export async function ProductDetailContent({
         .filter(Boolean),
     ),
   );
-  const productDescription = sanitizeDescription(
-    product.seoDescription || product.description,
-    `${product.name} disponible en ${brandName} para proyectos de salón, barbería y mobiliario profesional premium.`,
-  );
   const canonicalPath = buildProductPath(product);
   // Precio real: el de oferta si hay una vigente (con el precio normal tachado de respaldo);
   // si no, solo el precio detal. En combos, ademas, el ahorro real frente a comprar por separado.
@@ -104,11 +100,20 @@ export async function ProductDetailContent({
   const activePromo = getActivePromo(product, now);
   const retailPrice = getCurrentStorePrice(product, now);
   const comboSavings = comboSavingsFromProduct(product, now);
+  const priceLabel = compactPriceLabel(formatMoney(String(retailPrice), currency));
+  // Sin descripcion: texto de respaldo (el mismo de la meta description), no un aviso vacio.
+  const fallbackDescription = buildProductFallbackDescription({
+    name: product.name,
+    categoryName: product.category?.name,
+    priceLabel,
+    brandName,
+  });
+  const productDescription = sanitizeDescription(product.seoDescription || product.description, fallbackDescription);
   // El mensaje dice que viene de magilus.com, con precio y enlace de la ficha (mide ventas por SEO).
   const whatsAppHref = await buildSystemWhatsAppHref(
     buildWhatsAppBuyMessage(brandName, product.name, product.code, {
       pageUrl: getSiteUrl(canonicalPath),
-      priceLabel: compactPriceLabel(formatMoney(String(retailPrice), currency)),
+      priceLabel,
     }),
   );
   const productSchema = {
@@ -209,7 +214,7 @@ export async function ProductDetailContent({
             {product.description || product.seoDescription ? (
               <p className="text-sm leading-6 text-slate-600">{product.description || product.seoDescription}</p>
             ) : (
-              <p className="text-sm text-slate-500">Este producto no tiene descripción disponible.</p>
+              <p className="text-sm leading-6 text-slate-600">{fallbackDescription}</p>
             )}
           </div>
 

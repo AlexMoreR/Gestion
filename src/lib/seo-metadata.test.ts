@@ -3,6 +3,7 @@ import {
   buildCategorySeoDescription,
   buildCategorySeoTitle,
   buildHomeSeoTitle,
+  buildProductFallbackDescription,
   buildProductSeoTitle,
   compactPriceLabel,
   expandProductNameForSeo,
@@ -135,6 +136,27 @@ describe("buildCategorySeoDescription", () => {
     expect(
       buildCategorySeoDescription({ categoryName: "CAMILLA", productCount: 1, minPriceLabel: "$999.000", maxPriceLabel: "$999.000" }),
     ).toBe("1 modelo de camilla por $999.000. Fábrica en Cali y Bogotá. Cotiza por WhatsApp.");
+  });
+});
+
+describe("buildProductFallbackDescription", () => {
+  it("nombre, categoria, fabrica, precio y WhatsApp (con tildes, sin barberia de mas)", () => {
+    const text = buildProductFallbackDescription({
+      name: "CAMILLA HIDRAULICA",
+      categoryName: "Camillas de Masaje",
+      priceLabel: "$1.719.000",
+      brandName: "Magilus",
+    });
+    expect(text).toBe(
+      "Camilla hidraulica para camillas de masaje, fabricado por Magilus en Cali y Bogotá. $1.719.000. Garantía 1 año. Cotiza por WhatsApp.",
+    );
+    expect(text).not.toMatch(/barber|env[ií]o/i);
+  });
+
+  it("sin categoria ni precio", () => {
+    expect(buildProductFallbackDescription({ name: "HIDRAU MASTER", brandName: "Magilus" })).toBe(
+      "Silla hidráulica master, fabricado por Magilus en Cali y Bogotá. Garantía 1 año. Cotiza por WhatsApp.",
+    );
   });
 });
 

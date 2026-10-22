@@ -136,6 +136,32 @@ export function buildCategorySeoDescription(input: {
   return truncateMetaDescription(`${head} Fábrica en Cali y Bogotá. Cotiza por WhatsApp.`);
 }
 
+/**
+ * Texto de respaldo para fichas sin descripcion (meta description y la ficha):
+ * "<Nombre> para <categoria>, fabricado por <marca> en Cali y Bogotá. $<precio>. Garantía 1 año.
+ * Cotiza por WhatsApp."
+ */
+export function buildProductFallbackDescription(input: {
+  name: string;
+  categoryName?: string | null;
+  priceLabel?: string | null;
+  brandName: string;
+}): string {
+  const name = toSentenceCase(expandProductNameForSeo(input.name, input.categoryName));
+  const categorySentence = toSentenceCase(input.categoryName ?? "");
+  const category = categorySentence
+    ? categorySentence.charAt(0).toLocaleLowerCase("es") + categorySentence.slice(1)
+    : "";
+  const price = input.priceLabel?.trim();
+  return [
+    `${name}${category ? ` para ${category}` : ""}, fabricado por ${input.brandName.trim()} en Cali y Bogotá.`,
+    price ? `${price}.` : "",
+    "Garantía 1 año. Cotiza por WhatsApp.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 /** Precio para el title: "$1.099.000" (sin espacio tras el signo). */
 export function compactPriceLabel(formatted: string): string {
   return formatted.replace(/\s+/g, "");
