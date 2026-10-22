@@ -356,13 +356,19 @@ export async function StorefrontCatalog({
       `${category.name} para negocios que buscan imagen, funcionalidad y experiencia premium en cada servicio.`
     : "Catálogo de sillas, estaciones y mobiliario profesional premium para salón de belleza, barbería y espacios de alto nivel.";
   const baseUrl = category ? `/${category.slug}` : "/";
-  const storefrontWhatsAppHref = await buildStorefrontQuoteWhatsAppHref(brandName);
+  // Los mensajes de WhatsApp dicen que vienen de magilus.com (y de que categoria o ficha).
+  const storefrontWhatsAppHref = await buildStorefrontQuoteWhatsAppHref(brandName, category?.name);
   const productWhatsAppHrefById = new Map(
     showCatalogGrid
       ? await Promise.all(
           pagedProducts.map(async (product) => [
             product.id,
-            await buildSystemWhatsAppHref(buildWhatsAppBuyMessage(brandName, product.name, product.code)),
+            await buildSystemWhatsAppHref(
+              buildWhatsAppBuyMessage(brandName, product.name, product.code, {
+                pageUrl: getSiteUrl(buildProductPath(product)),
+                priceLabel: compactPriceLabel(formatMoney(String(getCurrentStorePrice(product, now)), systemCurrency)),
+              }),
+            ),
           ] as const),
         )
       : [],

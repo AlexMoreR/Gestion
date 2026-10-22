@@ -8,6 +8,7 @@ import { formatMoney } from "@/lib/currency";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { buildProductPath } from "@/lib/product-slugs";
 import { imageVariantUrl } from "@/lib/image-variants";
+import { compactPriceLabel } from "@/lib/seo-metadata";
 import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
 import {
   comboSavingsFromProduct,
@@ -92,7 +93,6 @@ export async function ProductDetailContent({
         .filter(Boolean),
     ),
   );
-  const whatsAppHref = await buildSystemWhatsAppHref(buildWhatsAppBuyMessage(brandName, product.name, product.code));
   const productDescription = sanitizeDescription(
     product.seoDescription || product.description,
     `${product.name} disponible en ${brandName} para proyectos de salón, barbería y mobiliario profesional premium.`,
@@ -104,6 +104,13 @@ export async function ProductDetailContent({
   const activePromo = getActivePromo(product, now);
   const retailPrice = getCurrentStorePrice(product, now);
   const comboSavings = comboSavingsFromProduct(product, now);
+  // El mensaje dice que viene de magilus.com, con precio y enlace de la ficha (mide ventas por SEO).
+  const whatsAppHref = await buildSystemWhatsAppHref(
+    buildWhatsAppBuyMessage(brandName, product.name, product.code, {
+      pageUrl: getSiteUrl(canonicalPath),
+      priceLabel: compactPriceLabel(formatMoney(String(retailPrice), currency)),
+    }),
+  );
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",

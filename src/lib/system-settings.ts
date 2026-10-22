@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { DEFAULT_SYSTEM_CURRENCY, isSupportedCurrency, type SupportedCurrencyCode } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
-import { siteConfig } from "@/lib/site";
+import { buildWhatsAppQuoteMessage, siteConfig } from "@/lib/site";
 
 const CURRENCY_SETTING_KEY = "currency";
 const PRIMARY_COLOR_SETTING_KEY = "primaryColor";
@@ -243,8 +243,9 @@ export async function buildSystemWhatsAppHref(message: string): Promise<string> 
 }
 
 // Enlace del botón "Cotiza aquí" del inicio (también lo usa el botón flotante de la tienda).
-export async function buildStorefrontQuoteWhatsAppHref(brandName: string): Promise<string> {
-  return buildSystemWhatsAppHref(`Hola ${brandName}, quiero cotizar mobiliario profesional`);
+// El texto dice que viene de magilus.com (y de que categoria, si se pasa) para medir ventas por SEO.
+export async function buildStorefrontQuoteWhatsAppHref(brandName: string, pageLabel?: string | null): Promise<string> {
+  return buildSystemWhatsAppHref(buildWhatsAppQuoteMessage(brandName, pageLabel));
 }
 
 export const getSystemStorefrontLogoPath = cache(async (): Promise<string> => {

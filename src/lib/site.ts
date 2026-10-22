@@ -84,18 +84,40 @@ export function buildWhatsAppCatalogHref(brandName: string): string {
   return buildWhatsAppHref(`Hola ${brandName}, quiero cotizar mobiliario profesional`);
 }
 
+// Marca fija en el primer mensaje de los chats que vienen de la tienda web: el CRM y las
+// asesoras cuentan las ventas por SEO buscando este texto. No cambiar sin avisar al CRM.
+export const WEB_ORIGIN_TAG = "magilus.com";
+
 // Mensaje de "Comprar por WhatsApp":
-//   Hola *Marca*, quiero comprar:
-//   *CODIGO* Producto
-// (los * son negrita en WhatsApp). Si el producto no tiene codigo, solo el nombre.
+//   Hola *Marca*, vengo de magilus.com y quiero comprar:
+//   *CODIGO* Producto ($precio)
+//   https://magilus.com/<categoria>/<producto>
+// (los * son negrita en WhatsApp). Si el producto no tiene codigo, solo el nombre; precio y
+// enlace solo si se pasan.
 export function buildWhatsAppBuyMessage(
   brandName: string,
   productName: string,
   productCode?: string | null,
+  origin?: { pageUrl?: string | null; priceLabel?: string | null },
 ): string {
   const code = productCode?.trim();
-  const reference = code ? `*${code}* ${productName}` : productName;
-  return `Hola *${brandName}*, quiero comprar:\n${reference}`;
+  const name = productName.replace(/\s+/g, " ").trim();
+  const price = origin?.priceLabel?.trim();
+  const pageUrl = origin?.pageUrl?.trim();
+  const reference = `${code ? `*${code}* ${name}` : name}${price ? ` (${price})` : ""}`;
+  const lines = [`Hola *${brandName}*, vengo de ${WEB_ORIGIN_TAG} y quiero comprar:`, reference];
+  if (pageUrl) {
+    lines.push(pageUrl);
+  }
+  return lines.join("\n");
+}
+
+// Mensaje de "Cotiza aquí" y botones generales de la tienda:
+//   Hola Marca, vengo de magilus.com y quiero cotizar mobiliario profesional
+//   Hola Marca, vengo de magilus.com (Camillas) y quiero cotizar mobiliario profesional
+export function buildWhatsAppQuoteMessage(brandName: string, pageLabel?: string | null): string {
+  const label = pageLabel?.replace(/\s+/g, " ").trim();
+  return `Hola ${brandName}, vengo de ${WEB_ORIGIN_TAG}${label ? ` (${label})` : ""} y quiero cotizar mobiliario profesional`;
 }
 
 export function buildWhatsAppProductHref(

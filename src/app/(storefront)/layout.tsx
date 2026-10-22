@@ -5,6 +5,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { FloatingWhatsAppButton } from "@/components/store/floating-whatsapp-button";
 import { cn } from "@/lib/utils";
 import { getAdminModuleAccess } from "@/lib/admin-module-access";
+import { WEB_ORIGIN_TAG } from "@/lib/site";
 import {
   buildStorefrontQuoteWhatsAppHref,
   getSystemBrandName,
@@ -29,7 +30,7 @@ export default async function StorefrontLayout({
     ]);
 
   const whatsAppHref = `https://wa.me/${whatsAppPhoneHref}?text=${encodeURIComponent(
-    `Hola ${brandName}, quiero más información.`,
+    `Hola ${brandName}, vengo de ${WEB_ORIGIN_TAG} y quiero más información.`,
   )}`;
   const floatingWhatsAppHref = await buildStorefrontQuoteWhatsAppHref(brandName);
 
