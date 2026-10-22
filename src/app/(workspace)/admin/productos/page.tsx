@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { DriveImportByCodes } from "@/components/admin/drive-import-button";
 import { ProductsWorkspace } from "@/components/admin/products-workspace";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
@@ -49,6 +50,8 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
         okTitle="Catalogo actualizado"
         errorTitle="Error en productos"
       />
+
+      <DriveImportByCodes />
 
       <ProductsWorkspace
         currency={systemCurrency}
