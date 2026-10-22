@@ -81,7 +81,7 @@ model ActivityLog {
 
 model Product {
   id                 String              @id @default(cuid())
-  code               String?             @unique
+  code               String              @unique
   slug               String              @unique
   name               String
   description        String?
@@ -157,6 +157,10 @@ model ProductImage {
   productId String
   url       String
   order     Int
+  // Fase 6 (sincronizacion con Drive): id del archivo en Drive y de donde viene la foto.
+  // origen: "drive" | "servidor". NULL = foto anterior a la sincronizacion.
+  driveFileId String?
+  origen      String?
   createdAt DateTime @default(now())
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 

@@ -14,12 +14,13 @@ import { logActivity } from "@/lib/activity-log";
 import { prisma } from "@/lib/prisma";
 import { parseProductPromoInput, toBogotaDateOnly } from "@/lib/product-promo";
 import { slugifyProductSegment } from "@/lib/product-slugs";
+import { productCodeSchema, validateProductCode } from "@/lib/product-code";
 import { calculateMarginPctFromPrice, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
 import { createImageVariants } from "@/lib/image-variants.server";
 import { parseShippingExtraInput } from "@/modules/transporte/domain/shipping";
 
 const baseProductSchema = z.object({
-  code: z.string().trim().max(60, "Codigo demasiado largo").optional(),
+  code: productCodeSchema,
   name: z
     .string()
     .trim()
@@ -231,6 +232,22 @@ function splitCsvLine(line: string): string[] {
   return cells;
 }
 
+// Solo el mensaje del codigo se muestra tal cual; el resto conserva el aviso generico.
+function firstIssueMessage(error: z.ZodError): string {
+  const codeIssue = error.issues.find((issue) => issue.path[0] === "code");
+  return codeIssue?.message ?? "Datos invalidos";
+}
+
+async function assertProductCodeAvailable(code: string, productId: string | null, redirectBase: string): Promise<void> {
+  const existing = await prisma.product.findFirst({
+    where: { code, ...(productId ? { NOT: { id: productId } } : {}) },
+    select: { name: true },
+  });
+  if (existing) {
+    redirect(`${redirectBase}?error=${encodeURIComponent(`El codigo ${code} ya lo usa el producto "${existing.name}"`)}`);
+  }
+}
+
 function buildErrorRedirect(pathname: string, message: string): never {
   redirect(`${pathname}?error=${encodeURIComponent(message)}`);
 }
@@ -326,7 +343,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
   await requireAdminSession();
 
   const parsed = createProductSchema.safeParse({
-    code: formData.get("code") || undefined,
+    code: formData.get("code"),
     name: formData.get("name"),
     description: formData.get("description") || undefined,
     seoTitle: formData.get("seoTitle") ?? "",
@@ -343,8 +360,9 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
   });
 
   if (!parsed.success) {
-    redirect("/admin/productos?error=Datos+invalidos");
+    redirect(`/admin/productos?error=${encodeURIComponent(firstIssueMessage(parsed.error))}`);
   }
+  await assertProductCodeAvailable(parsed.data.code, null, "/admin/productos");
 
   const files = formData
     .getAll("images")
@@ -392,7 +410,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
     const createdProduct = await prisma.product.create({
       data: {
         name: parsed.data.name,
-        code: parsed.data.code || null,
+        code: parsed.data.code,
         slug,
         description: parsed.data.description || null,
         seoTitle: parsed.data.seoTitle || null,
@@ -458,7 +476,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
 
   const parsed = updateProductSchema.safeParse({
     productId: rawProductId,
-    code: formData.get("code") || undefined,
+    code: formData.get("code"),
     name: formData.get("name"),
     description: formData.get("description") || undefined,
     seoTitle: formData.get("seoTitle") ?? "",
@@ -475,8 +493,9 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
   });
 
   if (!parsed.success) {
-    redirect(`${redirectBase}?error=Datos+invalidos`);
+    redirect(`${redirectBase}?error=${encodeURIComponent(firstIssueMessage(parsed.error))}`);
   }
+  await assertProductCodeAvailable(parsed.data.code, parsed.data.productId, redirectBase);
 
   const existingImagesRaw = formData.get("existingImages");
   const existingImages =
@@ -579,7 +598,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
         where: { id: parsed.data.productId },
         data: {
           name: parsed.data.name,
-          code: parsed.data.code || null,
+          code: parsed.data.code,
           description: parsed.data.description || null,
           seoTitle: parsed.data.seoTitle || null,
           seoDescription: parsed.data.seoDescription || null,
@@ -803,6 +822,15 @@ export async function adminImportProductsCsvAction(formData: FormData): Promise<
     return Number.isFinite(numeric) ? numeric : fallback;
   };
 
+  if (indexByHeader.get("codigo") === undefined && indexByHeader.get("code") === undefined) {
+    redirect("/admin/productos?error=El+CSV+debe+incluir+la+columna+Codigo");
+  }
+
+  const existingCodes = new Set(
+    (await prisma.product.findMany({ select: { code: true } })).map((product) => product.code),
+  );
+  const codeErrors: string[] = [];
+
   let created = 0;
   let skipped = 0;
 
@@ -814,7 +842,18 @@ export async function adminImportProductsCsvAction(formData: FormData): Promise<
       continue;
     }
 
-    const code = getCell(row, "codigo", "code") || null;
+    const codeCheck = validateProductCode(getCell(row, "codigo", "code"));
+    if (!codeCheck.ok) {
+      codeErrors.push(`Fila ${i + 1}: ${codeCheck.error}`);
+      skipped += 1;
+      continue;
+    }
+    const code = codeCheck.code;
+    if (existingCodes.has(code)) {
+      codeErrors.push(`Fila ${i + 1}: el codigo ${code} ya existe`);
+      skipped += 1;
+      continue;
+    }
     const description = getCell(row, "descripcion", "description") || null;
     const baseCost = Math.max(0.01, parseNumber(getCell(row, "costo", "basecost"), 1));
     const retailMarginPct = Math.max(
@@ -866,6 +905,7 @@ export async function adminImportProductsCsvAction(formData: FormData): Promise<
         },
       });
       created += 1;
+      existingCodes.add(code);
     } catch {
       skipped += 1;
     }
@@ -874,8 +914,12 @@ export async function adminImportProductsCsvAction(formData: FormData): Promise<
   revalidatePath("/");
   revalidatePath("/admin/productos");
 
+  const codeErrorsSummary = codeErrors.length
+    ? ` ${codeErrors.slice(0, 5).join(". ")}${codeErrors.length > 5 ? ` (y ${codeErrors.length - 5} mas)` : ""}.`
+    : "";
+
   if (created === 0) {
-    redirect("/admin/productos?error=No+se+pudo+importar+ningun+producto");
+    redirect(`/admin/productos?error=${encodeURIComponent(`No se pudo importar ningun producto.${codeErrorsSummary}`)}`);
   }
 
   await logActivity({
@@ -886,7 +930,7 @@ export async function adminImportProductsCsvAction(formData: FormData): Promise<
 
   redirect(
     `/admin/productos?ok=${encodeURIComponent(
-      `Importacion completada: ${created} creados${skipped ? `, ${skipped} omitidos` : ""}`,
+      `Importacion completada: ${created} creados${skipped ? `, ${skipped} omitidos` : ""}.${codeErrorsSummary}`,
     )}`,
   );
 }
