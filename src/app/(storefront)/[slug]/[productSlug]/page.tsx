@@ -14,7 +14,7 @@ import {
   compactPriceLabel,
   truncateMetaDescription,
 } from "@/lib/seo-metadata";
-import { getPublicAssetUrl, getSiteUrl, sanitizeDescription } from "@/lib/site";
+import { getPublicAssetUrl, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
 import { COMBO_SAVINGS_COMPONENTS_SELECT } from "@/lib/storefront-offer";
 import { getSystemBrandName, getSystemCurrency } from "@/lib/system-settings";
 
@@ -86,8 +86,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     alternates: {
       canonical,
     },
+    // Next reemplaza todo el openGraph del layout: repetir marca e idioma para la vista previa.
     openGraph: {
       type: "website",
+      siteName: brandName,
+      locale: siteConfig.locale,
       url: canonical,
       title: fullTitle,
       description,

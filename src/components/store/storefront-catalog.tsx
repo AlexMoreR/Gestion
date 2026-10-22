@@ -187,7 +187,11 @@ export async function generateStorefrontMetadata({
     alternates: {
       canonical,
     },
+    // Next reemplaza todo el openGraph del layout: repetir tipo, marca e idioma para la vista previa.
     openGraph: {
+      type: "website",
+      siteName: brandName,
+      locale: siteConfig.locale,
       title: socialTitle,
       description,
       url: canonical,
