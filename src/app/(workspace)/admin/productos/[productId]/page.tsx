@@ -3,6 +3,8 @@ import { PackageSearch } from "lucide-react";
 import { auth } from "@/auth";
 import { DriveImportButton } from "@/components/admin/drive-import-button";
 import { EditProductForm } from "@/components/admin/edit-product-form";
+import { ProductPhotoOrganizer } from "@/components/admin/product-photo-organizer";
+import { getLocalImageBytes } from "@/lib/gallery-organizer.server";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
@@ -61,6 +63,10 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
     notFound();
   }
 
+  const imageBytes = await getLocalImageBytes(product.images.map((image) => image.url));
+  // Si cambian las fotos (organizador o Drive), el formulario se vuelve a montar con la galeria nueva.
+  const gallerySignature = `${product.thumbnailUrl}|${product.images.map((image) => `${image.id}:${image.order}`).join(",")}`;
+
   return (
     <section className="w-full space-y-5">
       <div className="flex flex-wrap items-start gap-3">
@@ -85,7 +91,23 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
         errorTitle="Error al guardar"
       />
 
+      <ProductPhotoOrganizer
+        key={`org-${gallerySignature}`}
+        productId={product.id}
+        thumbnailUrl={product.thumbnailUrl}
+        photos={product.images.map((image) => ({
+          id: image.id,
+          url: image.url,
+          src: getPublicAssetUrl(image.url),
+          order: image.order,
+          origen: image.origen,
+          driveFileId: image.driveFileId,
+          bytes: imageBytes[image.url] ?? null,
+        }))}
+      />
+
       <EditProductForm
+        key={gallerySignature}
         categories={categories}
         suppliers={suppliers}
         currency={systemCurrency}
