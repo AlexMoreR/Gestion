@@ -25,6 +25,7 @@ import {
   type BundleProductOption,
   type ProductComponentDraft,
 } from "@/components/admin/product-bundle-field";
+import { ProductSeoFields } from "@/components/admin/product-seo-fields";
 import { ProductSuppliersField, type ProductSupplierDraft } from "@/components/admin/product-suppliers-field";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
@@ -172,8 +173,8 @@ export function EditProductForm({
   const [name, setName] = useState(initialData.name);
   const [code, setCode] = useState(initialData.code ?? "");
   const [description, setDescription] = useState(initialData.description ?? "");
-  const [seoTitle] = useState(initialData.seoTitle ?? "");
-  const [seoDescription] = useState(initialData.seoDescription ?? "");
+  const [seoTitle, setSeoTitle] = useState(initialData.seoTitle ?? "");
+  const [seoDescription, setSeoDescription] = useState(initialData.seoDescription ?? "");
   const [baseCost, setBaseCost] = useState(String(Math.round(initialData.baseCost)));
   // Costo adicional por unidad (flete/transporte). Costo total = baseCost + additionalCost.
   const [additionalCost, setAdditionalCost] = useState(String(Math.round(initialData.additionalCost)));
@@ -560,9 +561,12 @@ export function EditProductForm({
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </label>
-                {/* Campos SEO ocultos temporalmente (se conserva el valor existente) */}
-                <input type="hidden" name="seoTitle" value={seoTitle} />
-                <input type="hidden" name="seoDescription" value={seoDescription} />
+                <ProductSeoFields
+                  seoTitle={seoTitle}
+                  seoDescription={seoDescription}
+                  onSeoTitleChange={setSeoTitle}
+                  onSeoDescriptionChange={setSeoDescription}
+                />
                 <ProductBundleField
                   isBundle={isBundle}
                   onToggle={setIsBundle}
