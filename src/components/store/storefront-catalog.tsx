@@ -265,11 +265,9 @@ export async function StorefrontCatalog({
     },
     orderBy: { createdAt: "desc" },
     ...(showCatalogGrid ? {} : { take: 5 }),
+    // Sin `images`: la cuadricula solo usa la miniatura (thumbnailUrl).
     include: {
       category: true,
-      images: {
-        orderBy: { order: "asc" },
-      },
       bundleComponents: COMBO_SAVINGS_COMPONENTS_SELECT,
     },
   });
