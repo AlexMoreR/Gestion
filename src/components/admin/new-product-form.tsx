@@ -518,8 +518,8 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="space-y-1.5">
-                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Barcode className="h-4 w-4 text-slate-500" />Codigo</span>
-                    <Input name="code" placeholder="Ej. CAM-001" value={code} onChange={(e) => setCode(e.target.value)} />
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Barcode className="h-4 w-4 text-slate-500" />Codigo *</span>
+                    <Input name="code" placeholder="Ej. CAM001" required maxLength={6} pattern="[A-Za-z]{2,3}[0-9]{3}" title="2 o 3 letras y 3 numeros, sin puntos ni guiones (ej. CAM001)" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} />
                   </label>
                   <label className="space-y-1.5">
                     <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Tag className="h-4 w-4 text-slate-500" />Categoria</span>
