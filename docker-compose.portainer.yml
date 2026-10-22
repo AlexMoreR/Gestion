@@ -23,6 +23,11 @@ services:
       # Llave del servidor MCP de solo lectura (/api/mcp) para el asesor de IA.
       # Minimo 24 caracteres; sin ella el endpoint responde 401 a todo.
       MCP_API_KEY: "${MCP_API_KEY}"
+      # Fase 6, boton "Traer de Drive": direccion de la API de NETMAGI (crm-api, sin "/" final) y
+      # la llave compartida (la misma GESTION_FOTOS_KEY en NETMAGI). Sin ellas el boton avisa
+      # "Falta configurar NETMAGI" y la tienda sigue igual.
+      NETMAGI_FOTOS_URL: "${NETMAGI_FOTOS_URL}"
+      GESTION_FOTOS_KEY: "${GESTION_FOTOS_KEY}"
     networks:
       - minha_rede
     deploy:

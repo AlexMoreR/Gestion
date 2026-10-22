@@ -17,6 +17,7 @@ import { slugifyProductSegment } from "@/lib/product-slugs";
 import { productCodeSchema, validateProductCode } from "@/lib/product-code";
 import { calculateMarginPctFromPrice, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
 import { createImageVariants } from "@/lib/image-variants.server";
+import { planImageSync } from "@/lib/drive-gallery";
 import { parseShippingExtraInput } from "@/modules/transporte/domain/shipping";
 
 const baseProductSchema = z.object({
@@ -432,6 +433,8 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
           create: imageList.map((url, index) => ({
             url,
             order: index,
+            // Fase 6: lo que se sube en el admin queda en el servidor (no viene de Drive).
+            origen: "servidor",
           })),
         },
         suppliers: productSuppliers.length > 0
@@ -576,6 +579,14 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
   const wholesalePrice = parsed.data.wholesalePrice;
   const effectiveWholesaleMarginPct = calculateMarginPctFromPrice(parsed.data.baseCost + parsed.data.additionalCost, wholesalePrice);
 
+  // Fase 6: se conservan las ProductImage que siguen (con driveFileId y origen); solo cambian de
+  // orden. Se crean las nuevas y se borran las que se quitaron en el formulario.
+  const currentImages = await prisma.productImage.findMany({
+    where: { productId: parsed.data.productId },
+    select: { id: true, url: true, order: true },
+  });
+  const imagePlan = planImageSync(currentImages, imageList, uploadedImages);
+
   const previousProduct = await prisma.product.findUnique({
     where: { id: parsed.data.productId },
     select: {
@@ -618,16 +629,31 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
           thumbnailUrl,
         },
       }),
-      prisma.productImage.deleteMany({
-        where: { productId: parsed.data.productId },
-      }),
-      prisma.productImage.createMany({
-        data: imageList.map((url, index) => ({
-          productId: parsed.data.productId,
-          url,
-          order: index,
-        })),
-      }),
+      ...(imagePlan.remove.length > 0
+        ? [
+            prisma.productImage.deleteMany({
+              where: { productId: parsed.data.productId, id: { in: imagePlan.remove } },
+            }),
+          ]
+        : []),
+      ...imagePlan.update.map((image) =>
+        prisma.productImage.update({
+          where: { id: image.id },
+          data: { order: image.order },
+        }),
+      ),
+      ...(imagePlan.create.length > 0
+        ? [
+            prisma.productImage.createMany({
+              data: imagePlan.create.map((image) => ({
+                productId: parsed.data.productId,
+                url: image.url,
+                order: image.order,
+                origen: image.origen,
+              })),
+            }),
+          ]
+        : []),
       prisma.productSupplier.deleteMany({
         where: { productId: parsed.data.productId },
       }),

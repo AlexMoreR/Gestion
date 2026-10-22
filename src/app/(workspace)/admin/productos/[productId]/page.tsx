@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { PackageSearch } from "lucide-react";
 import { auth } from "@/auth";
+import { DriveImportButton } from "@/components/admin/drive-import-button";
 import { EditProductForm } from "@/components/admin/edit-product-form";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
@@ -71,6 +72,9 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
           <p className="mt-0.5 text-[13px] leading-5 text-slate-600">
             Visualiza y ajusta costo, sugerencia y precio final con el mismo flujo del formulario de creacion.
           </p>
+        </div>
+        <div className="ml-auto">
+          <DriveImportButton productId={product.id} />
         </div>
       </div>
 
