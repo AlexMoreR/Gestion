@@ -3,6 +3,11 @@
 export const PRODUCT_TITLE_MAX_LENGTH = 60;
 export const META_DESCRIPTION_MAX_LENGTH = 155;
 
+/** Title del inicio (y por defecto del sitio): ~60 car. para que Google no lo corte. */
+export function buildHomeSeoTitle(brandName: string): string {
+  return `${brandName.trim()} | Fábrica de muebles para peluquería, barbería y spa`;
+}
+
 // Palabras que se dejan como estan (codigos, medidas): tienen digitos o son siglas cortas
 // con digitos, ej. "CAV14", "3", "2x1".
 function keepsOriginalCase(word: string): boolean {

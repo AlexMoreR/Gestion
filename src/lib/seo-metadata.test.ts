@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildHomeSeoTitle,
   buildProductSeoTitle,
   compactPriceLabel,
   sitemapCategories,
@@ -54,6 +55,14 @@ describe("buildProductSeoTitle", () => {
     expect(title.length).toBeLessThanOrEqual(60);
     expect(title.endsWith(" | $1.679.000 | Magilus")).toBe(true);
     expect(title).toBe("Camilla para spa en madera con baul | $1.679.000 | Magilus");
+  });
+});
+
+describe("buildHomeSeoTitle", () => {
+  it("cabe en 60 car. y usa 'muebles'", () => {
+    const title = buildHomeSeoTitle("Magilus");
+    expect(title).toBe("Magilus | Fábrica de muebles para peluquería, barbería y spa");
+    expect(title.length).toBeLessThanOrEqual(60);
   });
 });
 

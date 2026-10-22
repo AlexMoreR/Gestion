@@ -11,6 +11,7 @@ import { FACTORY_POINTS, factoryPointPostalAddress } from "@/lib/factory-points"
 import { imageVariantUrl } from "@/lib/image-variants";
 import { prisma } from "@/lib/prisma";
 import { buildProductPath } from "@/lib/product-slugs";
+import { buildHomeSeoTitle } from "@/lib/seo-metadata";
 import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, siteConfig } from "@/lib/site";
 import { COMBO_SAVINGS_COMPONENTS_SELECT, comboSavingsFromProduct } from "@/lib/storefront-offer";
 import { getActivePromo, getCurrentStorePrice, promoInfoText } from "@/lib/product-promo";
@@ -124,7 +125,7 @@ export async function generateStorefrontMetadata({
     : category
       ? category.seoTitle?.trim() || category.name
       : {
-          absolute: `${brandName} | Mobiliario profesional para peluquería, barbería y salón de belleza`,
+          absolute: buildHomeSeoTitle(brandName),
         };
   const description = normalizedQuery
     ? `Explora en ${brandName} resultados para ${normalizedQuery} en sillas, estaciones y mobiliario profesional para salón y barbería.`
@@ -142,7 +143,7 @@ export async function generateStorefrontMetadata({
   const socialTitle =
     normalizedQuery || category
       ? `${typeof title === "string" ? title : brandName} | ${brandName}`
-      : `${brandName} | Mobiliario profesional para peluquería, barbería y salón de belleza`;
+      : buildHomeSeoTitle(brandName);
   const socialImagePath =
     category?.logoUrl?.trim() || category?.products[0]?.thumbnailUrl?.trim() || siteConfig.ogImagePath;
   const socialImage = socialImagePath.startsWith("http") ? socialImagePath : getSiteUrl(socialImagePath);
