@@ -3,6 +3,11 @@
 export const PRODUCT_TITLE_MAX_LENGTH = 60;
 export const META_DESCRIPTION_MAX_LENGTH = 155;
 
+/** Title del inicio (y por defecto del sitio): ~60 car. para que Google no lo corte. */
+export function buildHomeSeoTitle(brandName: string): string {
+  return `${brandName.trim()} | Fábrica de muebles para peluquería, barbería y spa`;
+}
+
 // Palabras que se dejan como estan (codigos, medidas): tienen digitos o son siglas cortas
 // con digitos, ej. "CAV14", "3", "2x1".
 function keepsOriginalCase(word: string): boolean {
@@ -53,16 +58,108 @@ export function buildProductSeoTitle(input: {
   name: string;
   priceLabel: string;
   brandName: string;
+  categoryName?: string | null;
   maxLength?: number;
 }): string {
   const maxLength = input.maxLength ?? PRODUCT_TITLE_MAX_LENGTH;
-  const name = toSentenceCase(input.name);
+  const name = toSentenceCase(expandProductNameForSeo(input.name, input.categoryName));
   const priceLabel = input.priceLabel.trim();
   const suffix = [priceLabel, input.brandName.trim()].filter(Boolean).join(" | ");
   const separator = name && suffix ? " | " : "";
   const budget = Math.max(12, maxLength - suffix.length - separator.length);
   const shortName = cutAtWord(name, budget);
   return `${shortName}${separator}${suffix}`;
+}
+
+/**
+ * Cambia las abreviaturas internas del inicio del nombre por lo que la gente busca, solo para
+ * el title (no toca el nombre ni el slug): "NEUT ..." -> "Silla neumática ...",
+ * "HIDRAU ..." -> "Silla hidráulica ...". En categorías de butacos: "Butaco neumático/hidráulico"
+ * (también "BUTACO NEUT ..."). Otros nombres quedan igual.
+ */
+export function expandProductNameForSeo(name: string, categoryName?: string | null): string {
+  const normalized = name.replace(/\s+/g, " ").trim();
+  const isButaco = /butaco/i.test(categoryName ?? "") || /^butaco\s/i.test(normalized);
+  const rest = normalized.replace(/^butaco\s+(?=(neut|hidrau)\b)/i, "");
+  const match = rest.match(/^(neut|hidrau)\b\s*(.*)$/i);
+  if (!match) {
+    return normalized;
+  }
+  const isNeut = match[1].toLowerCase() === "neut";
+  const prefix = isButaco
+    ? isNeut
+      ? "Butaco neumático"
+      : "Butaco hidráulico"
+    : isNeut
+      ? "Silla neumática"
+      : "Silla hidráulica";
+  return match[2] ? `${prefix} ${match[2]}` : prefix;
+}
+
+/**
+ * Title de categoria cuando no hay seoTitle: "<Nombre> desde <precio min> | <marca>", max ~60.
+ * Sin precio (categoria vacia): "<Nombre> | <marca>".
+ */
+export function buildCategorySeoTitle(input: {
+  categoryName: string;
+  minPriceLabel?: string | null;
+  brandName: string;
+  maxLength?: number;
+}): string {
+  const maxLength = input.maxLength ?? PRODUCT_TITLE_MAX_LENGTH;
+  const name = toSentenceCase(input.categoryName);
+  const price = input.minPriceLabel?.trim();
+  const priceSuffix = price ? ` desde ${price}` : "";
+  const brandSuffix = ` | ${input.brandName.trim()}`;
+  const budget = Math.max(12, maxLength - priceSuffix.length - brandSuffix.length);
+  return `${cutAtWord(name, budget)}${priceSuffix}${brandSuffix}`;
+}
+
+/**
+ * Description de categoria cuando no hay seoDescription ni descripcion:
+ * "<N> modelos de <categoria> de $X a $Y. Fábrica en Cali y Bogotá. Cotiza por WhatsApp."
+ */
+export function buildCategorySeoDescription(input: {
+  categoryName: string;
+  productCount: number;
+  minPriceLabel?: string | null;
+  maxPriceLabel?: string | null;
+}): string {
+  const sentence = toSentenceCase(input.categoryName);
+  const name = sentence.charAt(0).toLocaleLowerCase("es") + sentence.slice(1);
+  const min = input.minPriceLabel?.trim();
+  const max = input.maxPriceLabel?.trim();
+  const count = Math.max(0, Math.floor(input.productCount));
+  const models = count === 1 ? "1 modelo" : `${count} modelos`;
+  const range = min && max && min !== max ? ` de ${min} a ${max}` : min ? ` por ${min}` : "";
+  const head = count > 0 ? `${models} de ${name}${range}.` : `${sentence}.`;
+  return truncateMetaDescription(`${head} Fábrica en Cali y Bogotá. Cotiza por WhatsApp.`);
+}
+
+/**
+ * Texto de respaldo para fichas sin descripcion (meta description y la ficha):
+ * "<Nombre> para <categoria>, fabricado por <marca> en Cali y Bogotá. $<precio>. Garantía 1 año.
+ * Cotiza por WhatsApp."
+ */
+export function buildProductFallbackDescription(input: {
+  name: string;
+  categoryName?: string | null;
+  priceLabel?: string | null;
+  brandName: string;
+}): string {
+  const name = toSentenceCase(expandProductNameForSeo(input.name, input.categoryName));
+  const categorySentence = toSentenceCase(input.categoryName ?? "");
+  const category = categorySentence
+    ? categorySentence.charAt(0).toLocaleLowerCase("es") + categorySentence.slice(1)
+    : "";
+  const price = input.priceLabel?.trim();
+  return [
+    `${name}${category ? ` para ${category}` : ""}, fabricado por ${input.brandName.trim()} en Cali y Bogotá.`,
+    price ? `${price}.` : "",
+    "Garantía 1 año. Cotiza por WhatsApp.",
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 /** Precio para el title: "$1.099.000" (sin espacio tras el signo). */

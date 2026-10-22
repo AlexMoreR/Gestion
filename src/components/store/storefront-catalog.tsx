@@ -11,6 +11,12 @@ import { FACTORY_POINTS, factoryPointPostalAddress } from "@/lib/factory-points"
 import { imageVariantUrl } from "@/lib/image-variants";
 import { prisma } from "@/lib/prisma";
 import { buildProductPath } from "@/lib/product-slugs";
+import {
+  buildCategorySeoDescription,
+  buildCategorySeoTitle,
+  buildHomeSeoTitle,
+  compactPriceLabel,
+} from "@/lib/seo-metadata";
 import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, siteConfig } from "@/lib/site";
 import { COMBO_SAVINGS_COMPONENTS_SELECT, comboSavingsFromProduct } from "@/lib/storefront-offer";
 import { getActivePromo, getCurrentStorePrice, promoInfoText } from "@/lib/product-promo";
@@ -119,19 +125,48 @@ export async function generateStorefrontMetadata({
       })
     : null;
 
+  // Categoria sin seoTitle o sin descripcion: se arman solos con el rango de precios actual
+  // de la tienda (oferta vigente si la hay) de sus productos visibles.
+  const categorySeoTitle = category?.seoTitle?.trim() ?? "";
+  const categoryHasDescription = Boolean(category?.seoDescription?.trim() || category?.description?.trim());
+  const needsPriceRange = Boolean(category && !normalizedQuery && (!categorySeoTitle || !categoryHasDescription));
+  const [currency, visibleCategoryProducts] = needsPriceRange
+    ? await Promise.all([
+        getSystemCurrency(),
+        prisma.product.findMany({
+          where: { hiddenFromStore: false, category: { is: { slug: normalizedCategorySlug } } },
+          select: { price: true, regularPrice: true, promoPrice: true, promoStartsAt: true, promoEndsAt: true },
+        }),
+      ])
+    : [null, []];
+  const now = new Date();
+  const storePrices = visibleCategoryProducts
+    .map((product) => getCurrentStorePrice(product, now))
+    .filter((value) => value > 0);
+  const toPriceLabel = (value: number) => (currency ? compactPriceLabel(formatMoney(String(value), currency)) : null);
+  const minPriceLabel = storePrices.length > 0 ? toPriceLabel(Math.min(...storePrices)) : null;
+  const maxPriceLabel = storePrices.length > 0 ? toPriceLabel(Math.max(...storePrices)) : null;
+
   const title = normalizedQuery
     ? `Resultados para ${normalizedQuery}`
     : category
-      ? category.seoTitle?.trim() || category.name
+      ? categorySeoTitle || {
+          absolute: buildCategorySeoTitle({ categoryName: category.name, minPriceLabel, brandName }),
+        }
       : {
-          absolute: `${brandName} | Mobiliario profesional para peluquería, barbería y salón de belleza`,
+          absolute: buildHomeSeoTitle(brandName),
         };
   const description = normalizedQuery
     ? `Explora en ${brandName} resultados para ${normalizedQuery} en sillas, estaciones y mobiliario profesional para salón y barbería.`
     : category
       ? category.seoDescription?.trim() ||
         category.description?.trim() ||
-        `Explora ${category.name.toLowerCase()} en ${brandName}, mobiliario profesional para peluquería, salón de belleza y barbería.`
+        buildCategorySeoDescription({
+          categoryName: category.name,
+          productCount: visibleCategoryProducts.length,
+          minPriceLabel,
+          maxPriceLabel,
+        })
       : storefrontHeroDescription;
   // Las busquedas (?q=) no se indexan: canonical al inicio y noindex,follow (ver robots abajo).
   const canonical = normalizedQuery
@@ -140,9 +175,7 @@ export async function generateStorefrontMetadata({
       ? getSiteUrl(`/${category.slug}`)
       : getSiteUrl("/");
   const socialTitle =
-    normalizedQuery || category
-      ? `${typeof title === "string" ? title : brandName} | ${brandName}`
-      : `${brandName} | Mobiliario profesional para peluquería, barbería y salón de belleza`;
+    typeof title === "string" ? `${title} | ${brandName}` : title.absolute;
   const socialImagePath =
     category?.logoUrl?.trim() || category?.products[0]?.thumbnailUrl?.trim() || siteConfig.ogImagePath;
   const socialImage = socialImagePath.startsWith("http") ? socialImagePath : getSiteUrl(socialImagePath);
@@ -154,7 +187,11 @@ export async function generateStorefrontMetadata({
     alternates: {
       canonical,
     },
+    // Next reemplaza todo el openGraph del layout: repetir tipo, marca e idioma para la vista previa.
     openGraph: {
+      type: "website",
+      siteName: brandName,
+      locale: siteConfig.locale,
       title: socialTitle,
       description,
       url: canonical,
@@ -212,6 +249,7 @@ export async function StorefrontCatalog({
           name: true,
           slug: true,
           description: true,
+          seoTitle: true,
         },
       })
       : Promise.resolve(null),
@@ -265,11 +303,9 @@ export async function StorefrontCatalog({
     },
     orderBy: { createdAt: "desc" },
     ...(showCatalogGrid ? {} : { take: 5 }),
+    // Sin `images`: la cuadricula solo usa la miniatura (thumbnailUrl).
     include: {
       category: true,
-      images: {
-        orderBy: { order: "asc" },
-      },
       bundleComponents: COMBO_SAVINGS_COMPONENTS_SELECT,
     },
   });
@@ -324,13 +360,19 @@ export async function StorefrontCatalog({
       `${category.name} para negocios que buscan imagen, funcionalidad y experiencia premium en cada servicio.`
     : "Catálogo de sillas, estaciones y mobiliario profesional premium para salón de belleza, barbería y espacios de alto nivel.";
   const baseUrl = category ? `/${category.slug}` : "/";
-  const storefrontWhatsAppHref = await buildStorefrontQuoteWhatsAppHref(brandName);
+  // Los mensajes de WhatsApp dicen que vienen de magilus.com (y de que categoria o ficha).
+  const storefrontWhatsAppHref = await buildStorefrontQuoteWhatsAppHref(brandName, category?.name);
   const productWhatsAppHrefById = new Map(
     showCatalogGrid
       ? await Promise.all(
           pagedProducts.map(async (product) => [
             product.id,
-            await buildSystemWhatsAppHref(buildWhatsAppBuyMessage(brandName, product.name, product.code)),
+            await buildSystemWhatsAppHref(
+              buildWhatsAppBuyMessage(brandName, product.name, product.code, {
+                pageUrl: getSiteUrl(buildProductPath(product)),
+                priceLabel: compactPriceLabel(formatMoney(String(getCurrentStorePrice(product, now)), systemCurrency)),
+              }),
+            ),
           ] as const),
         )
       : [],
@@ -654,7 +696,7 @@ export async function StorefrontCatalog({
                 {category.name}
               </p>
               <h2 className="mt-2 text-xl font-semibold tracking-tight text-foreground md:text-2xl">
-                {`${category.name} para peluquería, barbería y espacios de belleza`}
+                {category.seoTitle?.trim() || `${category.name} en ${brandName}: fábrica en Cali y Bogotá`}
               </h2>
               <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
                 {category.description?.trim() ||

@@ -70,6 +70,8 @@ export function ProductGallery({ name, images }: ProductGalleryProps) {
                 src={imageVariantUrl(url, "large")}
                 alt={`${name} imagen ${index + 1}`}
                 loading={index === 0 ? "eager" : "lazy"}
+                // La foto 1 es lo mas grande al abrir la ficha (LCP): que el navegador la baje primero.
+                fetchPriority={index === 0 ? "high" : "auto"}
                 decoding="async"
                 className="h-[280px] w-full bg-white object-contain md:h-[460px]"
               />

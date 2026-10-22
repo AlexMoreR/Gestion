@@ -8,7 +8,12 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentStorePrice } from "@/lib/product-promo";
 import { findRedirectTarget } from "@/lib/product-redirect";
 import { buildProductPath } from "@/lib/product-slugs";
-import { buildProductSeoTitle, compactPriceLabel, truncateMetaDescription } from "@/lib/seo-metadata";
+import {
+  buildProductFallbackDescription,
+  buildProductSeoTitle,
+  compactPriceLabel,
+  truncateMetaDescription,
+} from "@/lib/seo-metadata";
 import { getPublicAssetUrl, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
 import { COMBO_SAVINGS_COMPONENTS_SELECT } from "@/lib/storefront-offer";
 import { getSystemBrandName, getSystemCurrency } from "@/lib/system-settings";
@@ -43,14 +48,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const [currency, brandName] = await Promise.all([getSystemCurrency(), getSystemBrandName()]);
+  const priceLabel = compactPriceLabel(formatMoney(String(getCurrentStorePrice(product)), currency));
   // Si el admin cargo seoDescription se respeta tal cual; si no, se recorta a ~155 car.
+  // Sin descripcion: texto de respaldo con categoria, fabrica, precio y WhatsApp.
   const seoDescription = product.seoDescription?.trim();
   const description = seoDescription
     ? sanitizeDescription(seoDescription, "")
     : truncateMetaDescription(
         sanitizeDescription(
           product.description,
-          `${product.name} ${product.category?.name ? `de ${product.category.name} ` : ""}disponible en ${siteConfig.name}, mobiliario profesional premium para salon y barberia.`,
+          buildProductFallbackDescription({
+            name: product.name,
+            categoryName: product.category?.name,
+            priceLabel,
+            brandName,
+          }),
         ),
       );
   const canonicalPath = buildProductPath(product);
@@ -63,7 +75,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     ? `${seoTitle} | ${brandName}`
     : buildProductSeoTitle({
         name: product.name,
-        priceLabel: compactPriceLabel(formatMoney(String(getCurrentStorePrice(product)), currency)),
+        categoryName: product.category?.name,
+        priceLabel,
         brandName,
       });
 
@@ -73,8 +86,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     alternates: {
       canonical,
     },
+    // Next reemplaza todo el openGraph del layout: repetir marca e idioma para la vista previa.
     openGraph: {
       type: "website",
+      siteName: brandName,
+      locale: siteConfig.locale,
       url: canonical,
       title: fullTitle,
       description,

@@ -189,8 +189,7 @@ function sanitizeRoleModuleAccessMap(value: unknown): RoleModuleAccessMap {
 
 export async function getStoredRoleModuleAccessMap(): Promise<RoleModuleAccessMap> {
   try {
-    await ensureAppSettingTable();
-
+    // Lectura directa (la tabla existe por migracion); el CREATE TABLE queda solo al escribir.
     const rows = await prisma.$queryRaw<Array<{ value: string }>>`
       SELECT "value"
       FROM "AppSetting"

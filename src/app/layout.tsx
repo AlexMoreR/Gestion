@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { Geist_Mono, Poppins } from "next/font/google";
 import { auth } from "@/auth";
 import { Providers } from "@/components/providers";
+import { buildHomeSeoTitle } from "@/lib/seo-metadata";
 import { getSiteUrl, siteConfig } from "@/lib/site";
 import {
   getSystemBrandName,
@@ -35,7 +36,7 @@ export async function generateMetadata(): Promise<Metadata> {
     getSystemStorefrontHeroDescription(),
   ]);
   const description = heroDescription;
-  const title = `${brandName} | Mobiliario profesional para peluquería, barbería y salón de belleza`;
+  const title = buildHomeSeoTitle(brandName);
   const socialImageUrl = getSiteUrl("/opengraph-image");
 
   return {

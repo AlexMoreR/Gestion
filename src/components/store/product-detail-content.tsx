@@ -8,7 +8,8 @@ import { formatMoney } from "@/lib/currency";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { buildProductPath } from "@/lib/product-slugs";
 import { imageVariantUrl } from "@/lib/image-variants";
-import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, sanitizeDescription, siteConfig } from "@/lib/site";
+import { buildProductFallbackDescription, compactPriceLabel } from "@/lib/seo-metadata";
+import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, sanitizeDescription } from "@/lib/site";
 import {
   comboSavingsFromProduct,
   FREE_SHIPPING_COVERAGE_PATH,
@@ -92,11 +93,6 @@ export async function ProductDetailContent({
         .filter(Boolean),
     ),
   );
-  const whatsAppHref = await buildSystemWhatsAppHref(buildWhatsAppBuyMessage(brandName, product.name, product.code));
-  const productDescription = sanitizeDescription(
-    product.seoDescription || product.description,
-    `${product.name} disponible en ${brandName} para proyectos de salón, barbería y mobiliario profesional premium.`,
-  );
   const canonicalPath = buildProductPath(product);
   // Precio real: el de oferta si hay una vigente (con el precio normal tachado de respaldo);
   // si no, solo el precio detal. En combos, ademas, el ahorro real frente a comprar por separado.
@@ -104,6 +100,22 @@ export async function ProductDetailContent({
   const activePromo = getActivePromo(product, now);
   const retailPrice = getCurrentStorePrice(product, now);
   const comboSavings = comboSavingsFromProduct(product, now);
+  const priceLabel = compactPriceLabel(formatMoney(String(retailPrice), currency));
+  // Sin descripcion: texto de respaldo (el mismo de la meta description), no un aviso vacio.
+  const fallbackDescription = buildProductFallbackDescription({
+    name: product.name,
+    categoryName: product.category?.name,
+    priceLabel,
+    brandName,
+  });
+  const productDescription = sanitizeDescription(product.seoDescription || product.description, fallbackDescription);
+  // El mensaje dice que viene de magilus.com, con precio y enlace de la ficha (mide ventas por SEO).
+  const whatsAppHref = await buildSystemWhatsAppHref(
+    buildWhatsAppBuyMessage(brandName, product.name, product.code, {
+      pageUrl: getSiteUrl(canonicalPath),
+      priceLabel,
+    }),
+  );
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -202,7 +214,7 @@ export async function ProductDetailContent({
             {product.description || product.seoDescription ? (
               <p className="text-sm leading-6 text-slate-600">{product.description || product.seoDescription}</p>
             ) : (
-              <p className="text-sm text-slate-500">Este producto no tiene descripción disponible.</p>
+              <p className="text-sm leading-6 text-slate-600">{fallbackDescription}</p>
             )}
           </div>
 
@@ -258,13 +270,27 @@ export async function ProductDetailContent({
         </div>
       </div>
 
+      {/* Datos reales en vez de repetir la descripcion; sin promesas de envio (se deja a /cobertura). */}
       <div className="rounded-2xl border border-[var(--line)] bg-white px-5 py-4">
-        <h2 className="text-lg font-semibold tracking-tight text-slate-900">Detalle profesional</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          {productDescription} Esta referencia forma parte del catálogo premium de {siteConfig.name}, enfocado en
-          sillas, estaciones y mobiliario profesional para negocios que cuidan la experiencia del cliente y la imagen
-          del espacio.
-        </p>
+        <h2 className="text-lg font-semibold tracking-tight text-slate-900">Compra directo de fábrica</h2>
+        <ul className="mt-2 space-y-1 text-sm leading-6 text-slate-600">
+          <li>Fabricado por {brandName} (Cali y Bogotá).</li>
+          <li>Garantía 1 año.</li>
+          <li>
+            <Link href={FREE_SHIPPING_COVERAGE_PATH} className="font-medium text-[var(--primary-strong)] underline-offset-2 hover:underline">
+              Consulta la cobertura de envío a tu ciudad
+            </Link>
+          </li>
+        </ul>
+        <Link
+          href={whatsAppHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-emerald-600 bg-white px-4 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
+        >
+          <MessageCircle className="h-4 w-4" />
+          Pregunta medidas y colores por WhatsApp
+        </Link>
       </div>
 
       {reviewCount > 0 || isAdmin ? (
