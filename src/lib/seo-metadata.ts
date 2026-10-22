@@ -58,16 +58,42 @@ export function buildProductSeoTitle(input: {
   name: string;
   priceLabel: string;
   brandName: string;
+  categoryName?: string | null;
   maxLength?: number;
 }): string {
   const maxLength = input.maxLength ?? PRODUCT_TITLE_MAX_LENGTH;
-  const name = toSentenceCase(input.name);
+  const name = toSentenceCase(expandProductNameForSeo(input.name, input.categoryName));
   const priceLabel = input.priceLabel.trim();
   const suffix = [priceLabel, input.brandName.trim()].filter(Boolean).join(" | ");
   const separator = name && suffix ? " | " : "";
   const budget = Math.max(12, maxLength - suffix.length - separator.length);
   const shortName = cutAtWord(name, budget);
   return `${shortName}${separator}${suffix}`;
+}
+
+/**
+ * Cambia las abreviaturas internas del inicio del nombre por lo que la gente busca, solo para
+ * el title (no toca el nombre ni el slug): "NEUT ..." -> "Silla neumática ...",
+ * "HIDRAU ..." -> "Silla hidráulica ...". En categorías de butacos: "Butaco neumático/hidráulico"
+ * (también "BUTACO NEUT ..."). Otros nombres quedan igual.
+ */
+export function expandProductNameForSeo(name: string, categoryName?: string | null): string {
+  const normalized = name.replace(/\s+/g, " ").trim();
+  const isButaco = /butaco/i.test(categoryName ?? "") || /^butaco\s/i.test(normalized);
+  const rest = normalized.replace(/^butaco\s+(?=(neut|hidrau)\b)/i, "");
+  const match = rest.match(/^(neut|hidrau)\b\s*(.*)$/i);
+  if (!match) {
+    return normalized;
+  }
+  const isNeut = match[1].toLowerCase() === "neut";
+  const prefix = isButaco
+    ? isNeut
+      ? "Butaco neumático"
+      : "Butaco hidráulico"
+    : isNeut
+      ? "Silla neumática"
+      : "Silla hidráulica";
+  return match[2] ? `${prefix} ${match[2]}` : prefix;
 }
 
 /** Precio para el title: "$1.099.000" (sin espacio tras el signo). */

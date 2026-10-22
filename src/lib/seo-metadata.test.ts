@@ -3,6 +3,7 @@ import {
   buildHomeSeoTitle,
   buildProductSeoTitle,
   compactPriceLabel,
+  expandProductNameForSeo,
   sitemapCategories,
   sitemapProducts,
   toSentenceCase,
@@ -55,6 +56,38 @@ describe("buildProductSeoTitle", () => {
     expect(title.length).toBeLessThanOrEqual(60);
     expect(title.endsWith(" | $1.679.000 | Magilus")).toBe(true);
     expect(title).toBe("Camilla para spa en madera con baul | $1.679.000 | Magilus");
+  });
+});
+
+describe("expandProductNameForSeo", () => {
+  it("NEUT -> Silla neumática y HIDRAU -> Silla hidráulica", () => {
+    expect(expandProductNameForSeo("NEUT PLATINA", "Sillas Neumáticas")).toBe("Silla neumática PLATINA");
+    expect(expandProductNameForSeo("HIDRAU PRO REY", "Sillas Hidráulicas")).toBe("Silla hidráulica PRO REY");
+  });
+
+  it("en butacos dice Butaco neumático (también con BUTACO NEUT)", () => {
+    expect(expandProductNameForSeo("NEUT CORAZON  ALTA", "Butacos Maní y Pedí")).toBe("Butaco neumático CORAZON ALTA");
+    expect(expandProductNameForSeo("BUTACO NEUT CUADRADO", "Butacos Maní y Pedí")).toBe("Butaco neumático CUADRADO");
+  });
+
+  it("no toca otros nombres ni NEUT en medio", () => {
+    expect(expandProductNameForSeo("CAMILLA HIDRAULICA", "Camillas de Masaje")).toBe("CAMILLA HIDRAULICA");
+    expect(expandProductNameForSeo("CUADRADO NEUT B", "Butacos Maní y Pedí")).toBe("CUADRADO NEUT B");
+    expect(expandProductNameForSeo("NEUTRO X", null)).toBe("NEUTRO X");
+  });
+
+  it("se usa en el title de la ficha", () => {
+    expect(
+      buildProductSeoTitle({
+        name: "HIDRAU PRO REY",
+        categoryName: "Sillas Hidráulicas",
+        priceLabel: "$1.199.000",
+        brandName: "Magilus",
+      }),
+    ).toBe("Silla hidráulica pro rey | $1.199.000 | Magilus");
+    expect(
+      buildProductSeoTitle({ name: "NEUT PLATINA", categoryName: "Sillas Neumáticas", priceLabel: "$979.000", brandName: "Magilus" }),
+    ).toBe("Silla neumática platina | $979.000 | Magilus");
   });
 });
 

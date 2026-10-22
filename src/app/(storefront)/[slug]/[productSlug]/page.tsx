@@ -63,6 +63,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     ? `${seoTitle} | ${brandName}`
     : buildProductSeoTitle({
         name: product.name,
+        categoryName: product.category?.name,
         priceLabel: compactPriceLabel(formatMoney(String(getCurrentStorePrice(product)), currency)),
         brandName,
       });
