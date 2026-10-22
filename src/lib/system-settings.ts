@@ -70,9 +70,9 @@ async function ensureAppSettingTable(): Promise<void> {
   `);
 }
 
+// Lectura directa: la tabla existe por migracion (20260225120000_add_app_settings, se aplica al
+// arrancar). El CREATE TABLE IF NOT EXISTS queda solo en las escrituras.
 async function getAppSettingValue(key: string): Promise<string | null> {
-  await ensureAppSettingTable();
-
   const rows = await prisma.$queryRaw<Array<{ value: string }>>`
     SELECT "value"
     FROM "AppSetting"
