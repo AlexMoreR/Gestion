@@ -245,6 +245,7 @@ export async function StorefrontCatalog({
           name: true,
           slug: true,
           description: true,
+          seoTitle: true,
         },
       })
       : Promise.resolve(null),
@@ -685,7 +686,7 @@ export async function StorefrontCatalog({
                 {category.name}
               </p>
               <h2 className="mt-2 text-xl font-semibold tracking-tight text-foreground md:text-2xl">
-                {`${category.name} para peluquería, barbería y espacios de belleza`}
+                {category.seoTitle?.trim() || `${category.name} en ${brandName}: fábrica en Cali y Bogotá`}
               </h2>
               <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
                 {category.description?.trim() ||
