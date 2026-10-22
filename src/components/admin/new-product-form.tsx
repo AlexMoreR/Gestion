@@ -24,6 +24,7 @@ import {
   type BundleProductOption,
   type ProductComponentDraft,
 } from "@/components/admin/product-bundle-field";
+import { ProductSeoFields } from "@/components/admin/product-seo-fields";
 import { ProductSuppliersField, type ProductSupplierDraft } from "@/components/admin/product-suppliers-field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -542,9 +543,12 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </label>
-                {/* Campos SEO ocultos temporalmente (se mantienen para no perder el dato/borrador) */}
-                <input type="hidden" name="seoTitle" value={seoTitle} />
-                <input type="hidden" name="seoDescription" value={seoDescription} />
+                <ProductSeoFields
+                  seoTitle={seoTitle}
+                  seoDescription={seoDescription}
+                  onSeoTitleChange={setSeoTitle}
+                  onSeoDescriptionChange={setSeoDescription}
+                />
                 <ProductBundleField
                   isBundle={isBundle}
                   onToggle={setIsBundle}
