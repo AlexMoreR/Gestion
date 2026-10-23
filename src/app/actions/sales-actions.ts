@@ -17,6 +17,11 @@ import { prisma } from "@/lib/prisma";
 import { PAYMENT_METHOD_SHORT_LABEL, parsePaymentMethodInput } from "@/modules/ventas/domain/payment-method";
 import { CONSUMIDOR_FINAL_EMAIL } from "@/modules/ventas/domain/sale-origin";
 import {
+  WITHHOLDING_LABEL,
+  isWithholdingAccountValue,
+  parseWithholdingCertificate,
+} from "@/modules/ventas/domain/withholding";
+import {
   MOTIVO_FIELD,
   esEdicionRetroactiva,
   esRetroactivo,
@@ -534,6 +539,14 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
     redirectWithError(returnTo, "Selecciona una cuenta de balance valida");
   }
 
+  // Retencion en la fuente: cuenta como pagado pero no entra a ninguna cuenta ni exige comprobante.
+  const isWithholding = isWithholdingAccountValue(accountId);
+  const certificateCheck = parseWithholdingCertificate(isWithholding ? formData.get("withholdingCertificate") : "");
+  if (!certificateCheck.ok) {
+    redirectWithError(returnTo, certificateCheck.error);
+  }
+  const withholdingCertificate = certificateCheck.certificate;
+
   const noteValue = formData.get("note");
   const note = typeof noteValue === "string" ? noteValue.trim() : "";
 
@@ -541,21 +554,23 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
   const file = fileEntry instanceof File && fileEntry.size > 0 ? fileEntry : null;
 
   const [account, sale] = await Promise.all([
-    prisma.account.findFirst({
-      where: { id: accountId, isActive: true },
-      select: { id: true, name: true, type: true },
-    }),
+    isWithholding
+      ? Promise.resolve(null)
+      : prisma.account.findFirst({
+          where: { id: accountId, isActive: true },
+          select: { id: true, name: true, type: true },
+        }),
     prisma.sale.findUnique({
       where: { id: parsed.data.saleId },
       include: { salePayments: true },
     }),
   ]);
 
-  if (!account) {
+  if (!isWithholding && !account) {
     redirectWithError(returnTo, "Selecciona una cuenta de balance valida");
   }
 
-  if (account.type !== "CASH" && !file) {
+  if (account && account.type !== "CASH" && !file) {
     redirectWithError(returnTo, "Los abonos que no sean en efectivo deben incluir comprobante");
   }
 
@@ -589,12 +604,14 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
   const hasRecentDuplicate = sale.salePayments.some(
     (payment) =>
       Number(payment.amount ?? 0) === parsed.data.amount &&
-      payment.accountId === account.id &&
+      payment.accountId === (account?.id ?? null) &&
+      payment.isWithholding === isWithholding &&
       payment.createdAt instanceof Date &&
       now - payment.createdAt.getTime() < DUPLICATE_WINDOW_MS,
   );
+  const okMessage = isWithholding ? "Retención en la fuente registrada" : "Abono registrado";
   if (hasRecentDuplicate) {
-    redirect(`${returnTo}?${new URLSearchParams({ ok: "Abono registrado" }).toString()}`);
+    redirect(`${returnTo}?${new URLSearchParams({ ok: okMessage }).toString()}`);
   }
 
   const nextSortOrder = sale.salePayments.reduce((max, payment) => Math.max(max, payment.sortOrder + 1), sale.salePayments.length);
@@ -612,8 +629,10 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
         data: {
           saleId: sale.id,
           amount: parsed.data.amount,
-          paymentMethod: account.name,
-          accountId: account.id,
+          paymentMethod: account?.name ?? WITHHOLDING_LABEL,
+          accountId: account?.id ?? null,
+          isWithholding,
+          withholdingCertificate: isWithholding ? withholdingCertificate : null,
           paymentDate: parsed.data.paymentDate ?? new Date(),
           note: note || null,
           receiptUrl: savedReceipt?.url ?? null,
@@ -652,8 +671,9 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
   }
 
   revalidatePath("/admin/ventas");
+  revalidatePath("/admin/ventas/retenciones");
   revalidatePath(`/sales/${sale.invoiceToken}`);
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Abono registrado" }).toString()}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: okMessage }).toString()}`);
 }
 
 const deleteSalePaymentSchema = z.object({
@@ -707,6 +727,7 @@ export async function adminDeleteSalePaymentAction(formData: FormData): Promise<
   }
 
   revalidatePath("/admin/ventas");
+  revalidatePath("/admin/ventas/retenciones");
   revalidatePath(`/sales/${sale.invoiceToken}`);
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Abono eliminado" }).toString()}`);
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Receipt } from "lucide-react";
 
 import { SALE_ORIGIN_LABEL, SALE_ORIGIN_ORDER, type SaleOriginCode } from "../domain/sale-origin";
 
@@ -34,13 +34,22 @@ export function SaleOriginFilterBar({ active, search }: { active: SaleOriginCode
           </Link>
         ))}
       </nav>
-      <Link
-        href="/admin/ventas/origen"
-        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
-      >
-        <BarChart3 className="h-3.5 w-3.5" />
-        Reporte por origen
-      </Link>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Link
+          href="/admin/ventas/origen"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+        >
+          <BarChart3 className="h-3.5 w-3.5" />
+          Reporte por origen
+        </Link>
+        <Link
+          href="/admin/ventas/retenciones"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+        >
+          <Receipt className="h-3.5 w-3.5" />
+          Retenciones
+        </Link>
+      </div>
     </div>
   );
 }

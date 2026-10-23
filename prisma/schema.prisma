@@ -416,6 +416,11 @@ model SalePayment {
   receiptType   String?
   sortOrder     Int       @default(0)
   accountId     String?
+  // Retencion en la fuente: lo que el cliente (empresa) se queda y paga a la DIAN a nombre
+  // de Magilus. Cuenta como pagado en la venta pero no entra a ninguna cuenta (accountId NULL).
+  isWithholding          Boolean @default(false)
+  // Numero del certificado de retencion (opcional).
+  withholdingCertificate String?
   // Quien registro el abono. NULL = abono viejo, sin dato.
   createdById   String?
   // createdAt = momento real del registro (nunca se sobrescribe); paymentDate = la que escribe el usuario.
@@ -428,6 +433,7 @@ model SalePayment {
   @@index([saleId, sortOrder])
   @@index([accountId])
   @@index([createdById])
+  @@index([isWithholding, paymentDate])
 }
 
 // Registro retroactivo: venta, abono o gasto con fecha de un dia anterior al dia en que se

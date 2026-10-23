@@ -147,7 +147,7 @@ export const asesorTools: McpToolDefinition[] = [
     name: "listar_abonos",
     title: "Listar abonos",
     description:
-      "Todos los abonos (pagos de clientes) de un rango de fechas, de ventas pagadas o no, por la fecha del abono. Filtros opcionales por vendedora, cliente o venta. Por abono: venta, cotizacion y su fecha, cliente, vendedora, fecha del abono, dia en que se registro, valor, cuenta, si es el primer abono de la venta, si fue retroactivo (fecha anterior al dia de registro) o anterior a la cotizacion, total de la venta, pagado y saldo pendiente. Trae totales por vendedora. Sirve para: que se pago en un mes, primeros abonos del mes, cuanto debe cada cliente, abonos con fechas sospechosas. Valores en COP.",
+      "Todos los abonos (pagos de clientes) de un rango de fechas, de ventas pagadas o no, por la fecha del abono. Filtros opcionales por vendedora, cliente o venta. Por abono: venta, cotizacion y su fecha, cliente, vendedora, fecha del abono, dia en que se registro, valor, cuenta, si es retencion en la fuente (es_retencion, con certificado_retencion; no entra a ninguna cuenta pero cuenta como pagado), si es el primer abono de la venta, si fue retroactivo (fecha anterior al dia de registro) o anterior a la cotizacion, total de la venta, pagado y saldo pendiente. Trae totales por vendedora. Sirve para: que se pago en un mes, primeros abonos del mes, cuanto debe cada cliente, abonos con fechas sospechosas. Valores en COP.",
     schema: z.object({
       ...rangeArgs,
       vendedora: z.string().optional().describe("Parte del nombre de la vendedora (sin importar tildes)."),
@@ -165,7 +165,7 @@ export const asesorTools: McpToolDefinition[] = [
     name: "ver_venta",
     title: "Ver una venta",
     description:
-      "Detalle completo de una venta por su codigo: cotizacion, orden, cliente, vendedora, origen, productos, forma de pago, cada abono con su fecha, cuenta y si fue retroactivo, fechas (cotizacion, creacion, primer abono, pago completo, entrega), total, pagado, saldo pendiente, si ya cuenta en Balances y su ganancia. Valores en COP.",
+      "Detalle completo de una venta por su codigo: cotizacion, orden, cliente, vendedora, origen, productos, forma de pago, cada abono con su fecha, cuenta, si es retencion en la fuente (con su certificado) y si fue retroactivo, fechas (cotizacion, creacion, primer abono, pago completo, entrega), total, pagado, saldo pendiente, si ya cuenta en Balances y su ganancia. Valores en COP.",
     schema: z.object({
       venta: z.string().min(1).describe("Codigo de la venta, ej. SAL-00069 o 69."),
     }),
@@ -214,7 +214,7 @@ export const asesorTools: McpToolDefinition[] = [
     name: "saldos_de_cuentas",
     title: "Saldos de cuentas (dinero hoy)",
     description:
-      "Cuanto dinero hay HOY en cada cuenta del negocio (efectivo, bancos, billeteras) y el total disponible. Saldo = saldo inicial + pagos de clientes - pagos a proveedoras - fletes - gastos (incluida nomina) +/- movimientos manuales. Avisa cuantos pagos o fletes quedaron registrados SIN cuenta (no suman ni restan en ningun saldo, por eso el saldo puede no cuadrar con el banco). Valores en COP.",
+      "Cuanto dinero hay HOY en cada cuenta del negocio (efectivo, bancos, billeteras) y el total disponible. Saldo = saldo inicial + pagos de clientes - pagos a proveedoras - fletes - gastos (incluida nomina) +/- movimientos manuales. Avisa cuantos pagos o fletes quedaron registrados SIN cuenta (no suman ni restan en ningun saldo, por eso el saldo puede no cuadrar con el banco). Las retenciones en la fuente no cuentan como 'sin cuenta': nunca entran a una cuenta. Valores en COP.",
     schema: z.object({}),
     handler: async (_args, deps) => {
       const position = await getCashPositionUseCase(deps.balances, getMoneyWithoutAccount);

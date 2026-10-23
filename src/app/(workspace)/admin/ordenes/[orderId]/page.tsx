@@ -41,6 +41,7 @@ import {
   PAYMENT_METHOD_SHORT_LABEL,
 } from "@/modules/ventas/domain/payment-method";
 import { SaleOriginBadge } from "@/modules/ventas/presentation/sale-origin-badge";
+import { paymentMethodLabel } from "@/modules/ventas/domain/withholding";
 import type { ShipmentDefaults } from "@/modules/guias/presentation/shipment-dispatch-fields";
 
 type PageProps = {
@@ -714,7 +715,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                 payments={(order.sale?.salePayments ?? []).map((payment) => ({
                   id: payment.id,
                   amount: Number(payment.amount),
-                  method: payment.paymentMethod ?? null,
+                  // Retencion en la fuente: se muestra como tal, con su certificado.
+                  method: payment.isWithholding ? paymentMethodLabel(payment) : (payment.paymentMethod ?? null),
                   note: payment.note ?? null,
                   paidAt: (payment.paymentDate ?? payment.createdAt).toLocaleDateString("es-CO"),
                   receiptUrl: payment.receiptUrl ?? null,

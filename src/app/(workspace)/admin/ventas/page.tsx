@@ -14,6 +14,7 @@ import {
 } from "@/modules/ventas/domain/payment-method";
 import { parseOriginFilter } from "@/modules/ventas/domain/sale-origin";
 import { SaleOriginFilterBar } from "@/modules/ventas/presentation/sale-origin-filter-bar";
+import { paymentMethodLabel } from "@/modules/ventas/domain/withholding";
 
 type SaleWithDiscountFields = {
   grossTotal?: unknown;
@@ -31,6 +32,8 @@ type SaleWithDiscountFields = {
     receiptType?: unknown;
     paymentDate?: unknown;
     createdAt?: unknown;
+    isWithholding?: boolean | null;
+    withholdingCertificate?: string | null;
   }>;
 };
 
@@ -211,7 +214,12 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
             ? (sale as SaleWithDiscountFields).salePayments!.map((payment) => ({
                 id: typeof payment.id === "string" ? payment.id : "",
                 amount: Number(payment.amount ?? 0),
-                paymentMethod: typeof payment.paymentMethod === "string" ? payment.paymentMethod : "",
+                // Retencion en la fuente: se muestra como tal, con su certificado.
+                paymentMethod: payment.isWithholding
+                  ? paymentMethodLabel({ isWithholding: true, withholdingCertificate: payment.withholdingCertificate })
+                  : typeof payment.paymentMethod === "string"
+                    ? payment.paymentMethod
+                    : "",
                 note: typeof payment.note === "string" && payment.note.trim() ? payment.note.trim() : null,
                 receiptUrl: typeof payment.receiptUrl === "string" && payment.receiptUrl.trim() ? payment.receiptUrl.trim() : null,
                 receiptName: typeof payment.receiptName === "string" && payment.receiptName.trim() ? payment.receiptName.trim() : null,

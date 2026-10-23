@@ -44,7 +44,7 @@ en las Server Actions y en `src/lib/`.
 - `expenses`: gastos operativos por categoría y cuenta (nómina, marketing, servicios, etc.).
 - `inventory`: stock por producto, movimientos de entrada/salida/ajuste y compras directas a proveedor (COM-).
 - `transporte`: tipo de envío por departamento, ciudad y corregimiento (datos DANE): gratis, adicional, se cotiza o no llegamos. Lo consulta el cliente en `/cobertura` (solo si es gratis o no) y el CRM de las asesoras por `/api/transporte/ubicaciones`.
-- `ventas`: reglas de la venta: forma de pago (50/50 o contraentrega) y origen de cada venta (lo avisa el CRM por `/api/ventas/origen`; reporte en `/admin/ventas/origen`).
+- `ventas`: reglas de la venta: forma de pago (50/50 o contraentrega), origen de cada venta (lo avisa el CRM por `/api/ventas/origen`; reporte en `/admin/ventas/origen`) y abonos por retención en la fuente (reporte en `/admin/ventas/retenciones`).
 - `nomina`: nómina del mes (salario básico de cada persona + comisiones − lo ya pagado) y el dinero de hoy por cuenta. La configuración (básicos, TRM, días trabajados) vive en `AppSetting` (`payrollConfig`); los pagos son gastos de la categoría Nómina.
 - `equipo`: ficha de cada trabajador (ingreso, salida, contacto, forma de pago) y las reglas de estado Activo/Retirado, edad y "¿trabajaba en tal fecha?". La nómina, las comisiones y las asignaciones la usan para incluir a los activos y sacar a los retirados.
 - `asesor`: consultas de solo lectura para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones, nómina, equipo, saldos de cuentas y esta radiografía. También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
@@ -65,7 +65,7 @@ en las Server Actions y en `src/lib/`.
 - `Quote`: cotización (COT-) a un cliente, con enlace para compartir. Puede convertirse en una venta. Guarda el origen del cliente que avisa el CRM al marcar el chat como ganado.
 - `Sale`: venta (SAL-) nacida de una cotización. Lleva el total a cobrar, descuento, su estado de pago y el origen (copiado de la cotización; Mostrador en venta directa).
 - `ShippingCost`: costo de envío de una venta (transportadora y monto). Resta en la ganancia de esa venta.
-- `SalePayment`: anticipo o abono de un cliente a una venta, con método, fecha, comprobante y cuenta que recibe.
+- `SalePayment`: anticipo o abono de un cliente a una venta, con método, fecha, comprobante y cuenta que recibe. Si es retención en la fuente (`isWithholding`), no tiene cuenta y puede llevar el número de certificado (`withholdingCertificate`).
 - `QuoteItem`: línea de una cotización: producto, cantidad, precio y si sale de stock o se fabrica.
 - `Order`: orden (ORD-) de venta (cumplir una venta) o de compra (comprar a una proveedora). Su historial define la fecha de entrega.
 - `OrderItem`: producto dentro de una orden, con la proveedora confirmada y el costo real que se le paga.
@@ -129,6 +129,7 @@ en las Server Actions y en `src/lib/`.
 - `/admin/comisiones/nomina`: nómina del mes (solo el dueño/admin): "Dinero hoy" por cuenta arriba, y por persona el básico del mes, la comisión, el total, lo pagado y lo que falta. Configurar salario (por quincena, por día o sin básico; en COP o USD), TRM, días trabajados y botón "Registrar pago" que crea un gasto de Nómina desde la cuenta elegida.
 - `/admin/equipo`: equipo de trabajo (solo el dueño/admin): fichas de Activos / Retirados / Todos, búsqueda por nombre y filtro por forma de pago; crear, editar, dar de baja (fecha de salida + motivo) y reactivar.
 - `/admin/ventas/origen`: ventas por origen (Meta Ads, Marketplace, Referido, Recurrente, Mostrador, Sin dato) por mes y por anuncio, con el criterio de Balances.
+- `/admin/ventas/retenciones`: retenciones en la fuente del mes (`?mes=AAAA-MM`): fecha, venta, cliente, NIT/cédula, valor y certificado; total del mes y del año; descarga CSV para la declaración de renta.
 - `/admin/ordenes/[orderId]`: detalle de una orden: fabricar, recoger, despachar, entregar, historial, abonos y órdenes de fabricación.
 - `/admin/ordenes/[orderId]/ganancia`: desglose de por qué se ganó lo que se ganó en esa orden.
 - `/admin/ordenes/[orderId]/editar-compra`: editar una compra directa a proveedor.
@@ -234,6 +235,13 @@ Ventas 2 = Marketplace, Admin = Referido, o Recurrente si el cliente ya tenía u
 muestra en el reporte para no inflar los canales). El CRM avisa al marcar el chat como ganado con su
 cotización; un aviso nuevo reemplaza al anterior. El teléfono del chat solo se usa para decidir si es
 recurrente; no se guarda.
+
+**Retención en la fuente (oct-2026).** Algunas empresas clientes no pagan el 100%: se quedan con una
+parte y la pagan a la DIAN a nombre de Magilus. Se registra como un abono "Retención en la fuente"
+(con número de certificado opcional): suma a lo pagado de la venta (si completa el total, la venta
+queda pagada y entra a Balances y comisiones), pero no entra a ninguna cuenta ni sale en el aviso de
+"plata sin cuenta". No se resta de la ganancia (es un anticipo de impuesto, no un costo). Reporte por
+mes y total del año en `/admin/ventas/retenciones`, con descarga CSV para el contador.
 
 ## Qué NO tiene el sistema
 

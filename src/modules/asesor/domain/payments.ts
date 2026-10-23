@@ -15,6 +15,9 @@ export type LedgerPaymentInput = {
   accountName: string | null;
   method: string | null;
   note: string | null;
+  // Retencion en la fuente: cuenta como pagado, pero no entra a ninguna cuenta.
+  isWithholding?: boolean;
+  withholdingCertificate?: string | null;
 };
 
 export type SaleLedgerInput = {
@@ -53,6 +56,8 @@ export type LedgerPayment = {
   // Pagado guardado en la venta sin abono detallado (ventas viejas).
   legacy: boolean;
   isFirst: boolean;
+  isWithholding: boolean;
+  withholdingCertificate: string | null;
 };
 
 export type SaleLedger = {
@@ -88,6 +93,8 @@ export function buildSaleLedger(input: SaleLedgerInput): SaleLedger {
       beforeQuote: quoteDay !== null && bogotaDay(date) < quoteDay,
       legacy: false,
       isFirst: false,
+      isWithholding: payment.isWithholding ?? false,
+      withholdingCertificate: payment.isWithholding ? (payment.withholdingCertificate ?? null) : null,
     };
   });
 
@@ -105,6 +112,8 @@ export function buildSaleLedger(input: SaleLedgerInput): SaleLedger {
       beforeQuote: quoteDay !== null && bogotaDay(input.saleCreatedAt) < quoteDay,
       legacy: true,
       isFirst: false,
+      isWithholding: false,
+      withholdingCertificate: null,
     });
   }
 
@@ -195,6 +204,9 @@ export function describePayment(payment: LedgerPayment) {
     retroactivo: payment.retroactive,
     antes_de_la_cotizacion: payment.beforeQuote,
     sin_detalle: payment.legacy,
+    // Retencion en la fuente: pagada a la DIAN por el cliente; no entra a ninguna cuenta.
+    es_retencion: payment.isWithholding,
+    certificado_retencion: payment.withholdingCertificate,
   };
 }
 

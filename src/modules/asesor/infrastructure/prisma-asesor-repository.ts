@@ -176,6 +176,8 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
               createdAt: true,
               paymentMethod: true,
               note: true,
+              isWithholding: true,
+              withholdingCertificate: true,
               account: { select: { name: true } },
             },
           },
@@ -219,6 +221,8 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
           accountName: payment.account?.name ?? null,
           method: payment.paymentMethod || null,
           note: payment.note,
+          isWithholding: payment.isWithholding,
+          withholdingCertificate: payment.withholdingCertificate,
         })),
       }));
     },

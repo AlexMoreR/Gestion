@@ -36,6 +36,11 @@ import { PaymentMethodBadge } from "@/modules/ventas/presentation/payment-method
 import { PaymentMethodField } from "@/modules/ventas/presentation/payment-method-field";
 import type { SaleOriginCode } from "@/modules/ventas/domain/sale-origin";
 import { SaleOriginBadge } from "@/modules/ventas/presentation/sale-origin-badge";
+import {
+  WITHHOLDING_ACCOUNT_VALUE,
+  WITHHOLDING_CERTIFICATE_MAX,
+  WITHHOLDING_LABEL,
+} from "@/modules/ventas/domain/withholding";
 import { adminCreateOrderFromSaleAction } from "@/app/actions/orders-actions";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -603,13 +608,19 @@ function AddSalePaymentSheet({
     .slice(0, 10);
   const [amount, setAmount] = React.useState("");
   const [paymentDate, setPaymentDate] = React.useState(todayValue);
+  // Sin cuentas activas arranca vacio: la retencion se escoge a proposito, nunca por defecto.
+  const defaultAccountId = accounts[0]?.id ?? "";
+  const [accountId, setAccountId] = React.useState(defaultAccountId);
+  // Retencion en la fuente: no entra a ninguna cuenta y no pide comprobante.
+  const isWithholding = accountId === WITHHOLDING_ACCOUNT_VALUE;
 
   React.useEffect(() => {
     if (!open) {
       setAmount("");
       setPaymentDate(todayValue);
+      setAccountId(defaultAccountId);
     }
-  }, [open, todayValue]);
+  }, [open, todayValue, defaultAccountId]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -681,20 +692,28 @@ function AddSalePaymentSheet({
                 id="add-payment-account"
                 name="accountId"
                 required
-                defaultValue={accounts[0]?.id ?? ""}
-                disabled={accounts.length === 0}
+                value={accountId}
+                onChange={(event) => setAccountId(event.target.value)}
                 className={inputClass}
               >
                 {accounts.length === 0 ? (
-                  <option value="">Sin cuentas activas</option>
-                ) : (
-                  accounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.name} - {getAccountTypeLabel(account.type)}
-                    </option>
-                  ))
-                )}
+                  <option value="" disabled>
+                    Sin cuentas activas
+                  </option>
+                ) : null}
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name} - {getAccountTypeLabel(account.type)}
+                  </option>
+                ))}
+                <option value={WITHHOLDING_ACCOUNT_VALUE}>{WITHHOLDING_LABEL}</option>
               </select>
+              {isWithholding ? (
+                <p className="text-xs text-muted-foreground">
+                  Lo que la empresa retuvo y paga a la DIAN. Cuenta como pagado en la venta, pero no suma a
+                  ninguna cuenta.
+                </p>
+              ) : null}
               {accounts.length === 0 ? (
                 <p className="text-xs text-destructive">
                   Crea una cuenta activa en Balances para registrar abonos.
@@ -702,7 +721,23 @@ function AddSalePaymentSheet({
               ) : null}
             </div>
 
-            <ReceiptUploadField />
+            {isWithholding ? (
+              <div className="space-y-1.5">
+                <label htmlFor="add-payment-certificate" className="text-sm font-medium text-foreground">
+                  N.º de certificado de retención <span className="font-normal text-muted-foreground">(opcional)</span>
+                </label>
+                <input
+                  id="add-payment-certificate"
+                  name="withholdingCertificate"
+                  type="text"
+                  maxLength={WITHHOLDING_CERTIFICATE_MAX}
+                  className={inputClass}
+                  placeholder="Ej. 2026-0153"
+                />
+              </div>
+            ) : (
+              <ReceiptUploadField />
+            )}
 
             <div className="space-y-1.5">
               <label htmlFor="add-payment-note" className="text-sm font-medium text-foreground">
@@ -717,7 +752,7 @@ function AddSalePaymentSheet({
               />
             </div>
 
-            <SavePaymentButton disabled={accounts.length === 0} />
+            <SavePaymentButton disabled={!accountId} />
           </form>
         ) : null}
 

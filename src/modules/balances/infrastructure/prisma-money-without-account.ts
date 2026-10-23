@@ -3,9 +3,14 @@ import type { MoneyWithoutAccount } from "../domain/cash-position";
 
 // Plata registrada sin decir de que cuenta entro o salio: no suma ni resta en ningun saldo,
 // por eso el saldo de la app puede no cuadrar con el banco hasta que se le asigne cuenta.
+// La retencion en la fuente no entra: nunca llega a una cuenta y eso es correcto.
 export async function getMoneyWithoutAccount(): Promise<MoneyWithoutAccount> {
   const [salePayments, supplierPayments, shippingCosts] = await Promise.all([
-    prisma.salePayment.aggregate({ where: { accountId: null }, _count: { _all: true }, _sum: { amount: true } }),
+    prisma.salePayment.aggregate({
+      where: { accountId: null, isWithholding: false },
+      _count: { _all: true },
+      _sum: { amount: true },
+    }),
     prisma.supplierLedgerEntry.aggregate({
       where: { accountId: null, type: "PAYMENT" },
       _count: { _all: true },

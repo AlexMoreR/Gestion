@@ -25,6 +25,7 @@ import { groupQuoteDisplayItems } from "@/lib/quote-display-items";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { prisma } from "@/lib/prisma";
+import { paymentMethodLabel } from "@/modules/ventas/domain/withholding";
 
 type SaleWithDiscountFields = {
   grossTotal?: unknown;
@@ -37,6 +38,8 @@ type SaleWithDiscountFields = {
     receiptName?: unknown;
     receiptType?: unknown;
     createdAt?: unknown;
+    isWithholding?: boolean | null;
+    withholdingCertificate?: string | null;
   }>;
   paymentReceipts?: unknown;
   quote: {
@@ -104,7 +107,12 @@ function extractSaleReceipts(sale: SaleWithDiscountFields): SaleReceiptSummary[]
     return sale.salePayments
       .map((item) => {
         const amount = Number(item.amount ?? 0);
-        const paymentMethod = typeof item.paymentMethod === "string" ? item.paymentMethod : "";
+        // Retencion en la fuente: se muestra como tal, con su certificado.
+        const paymentMethod = item.isWithholding
+          ? paymentMethodLabel({ isWithholding: true, withholdingCertificate: item.withholdingCertificate })
+          : typeof item.paymentMethod === "string"
+            ? item.paymentMethod
+            : "";
         const note = typeof item.note === "string" && item.note.trim() ? item.note.trim() : null;
         const receiptUrl = typeof item.receiptUrl === "string" && item.receiptUrl.trim() ? item.receiptUrl.trim() : null;
         const receiptName = typeof item.receiptName === "string" && item.receiptName.trim() ? item.receiptName.trim() : null;

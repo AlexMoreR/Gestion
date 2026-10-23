@@ -176,6 +176,7 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
         items: [
           { title: "Listado", url: "/admin/ventas" },
           { title: "Por origen", url: "/admin/ventas/origen" },
+          { title: "Retenciones", url: "/admin/ventas/retenciones" },
         ],
       });
     }

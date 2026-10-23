@@ -122,6 +122,13 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   `DRAFT`/`ACTIVE`/`INVOICED`/`COMPLETED`/`CANCELLED`. `total` es el valor a cobrar; guarda comprobantes
   de pago. **`INVOICED` = totalmente pagada** (ver sección 6).
 - **SalePayment** — abonos/pagos de una venta (método, fecha, comprobante, cuenta que recibe el dinero).
+  **Retención en la fuente** (oct-2026, migración `20261022140000_abono_retencion_fuente`, solo aditiva):
+  `isWithholding` + `withholdingCertificate` (opcional). Es lo que una empresa cliente retiene y paga a la
+  DIAN a nombre de Magilus: suma a lo pagado (puede dejar la venta `INVOICED`), pero va **sin cuenta**
+  (`accountId` NULL), no exige comprobante, no sale en "plata sin cuenta" y no se resta de la ganancia.
+  En el formulario de abono es la opción "Retención en la fuente" de la lista de cuentas
+  (`WITHHOLDING_ACCOUNT_VALUE`). Reglas puras en `src/modules/ventas/domain/withholding.ts`; reporte por
+  mes en `/admin/ventas/retenciones?mes=AAAA-MM` (+ `/export` CSV).
 - **ShippingCost** — **costo de envío por venta** (transportadora + monto). Es el "COSTO DE ENVÍO" que
   reduce la ganancia de esa venta (ej. flete a otra ciudad).
 

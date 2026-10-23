@@ -129,6 +129,13 @@ export function AppShell({ children, initialUser, brandName, adminModuleAccess }
       return [{ label: "Proveedores", href: "", isCurrent: true }];
     }
 
+    if (pathname.startsWith("/admin/ventas/retenciones")) {
+      return [
+        { label: "Ventas", href: "/admin/ventas", isCurrent: false },
+        { label: "Retenciones", href: "", isCurrent: true },
+      ];
+    }
+
     if (pathname.startsWith("/admin/ventas/origen")) {
       return [
         { label: "Ventas", href: "/admin/ventas", isCurrent: false },
