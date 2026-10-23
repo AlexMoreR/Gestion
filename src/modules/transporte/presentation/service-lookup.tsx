@@ -74,9 +74,9 @@ export function ServiceLookup({ departments, brandName, whatsAppHref }: ServiceL
   }
 
   const placeSuffix = result?.placeLabel ? ` a ${result.placeLabel}` : "";
-  // Mensaje cuando SI tiene envio gratis (boton verde de compra).
+  // Mensaje cuando SI tiene envio gratis: solo pagando 50 % y 50 % (boton verde).
   const waBuyLink = `https://wa.me/${whatsAppHref}?text=${encodeURIComponent(
-    `Hola *${brandName}*, tengo envío gratis${placeSuffix} y quiero comprar. 🎉`,
+    `Hola *${brandName}*, quiero comprar con envío gratis${placeSuffix} pagando 50 % de anticipo y 50 % al terminar la fabricación.`,
   )}`;
   // Mensaje cuando NO tiene envio gratis (boton de cotizar).
   const waQuoteLink = `https://wa.me/${whatsAppHref}?text=${encodeURIComponent(
@@ -156,12 +156,9 @@ export function ServiceLookup({ departments, brandName, whatsAppHref }: ServiceL
             <div className="flex items-start gap-3">
               <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-600" />
               <div>
-                <p className="text-base font-semibold text-emerald-800">
-                  ¡Sí! Tenemos <span className="underline decoration-emerald-400">envío gratis</span>
-                </p>
+                <p className="text-base font-semibold text-emerald-800">Envío gratis pagando 50 % y 50 %</p>
                 <p className="text-sm text-emerald-700">
-                  Enviamos gratis a <span className="font-medium">{result.placeLabel}</span> pagando 50 % de
-                  anticipo. 🎉
+                  Tu ciudad tiene envío gratis pagando 50 % de anticipo y 50 % al terminar la fabricación.
                 </p>
               </div>
             </div>
@@ -171,7 +168,7 @@ export function ServiceLookup({ departments, brandName, whatsAppHref }: ServiceL
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
             >
-              <PackageCheck className="h-4 w-4" /> Tengo envío gratis · Comprar por WhatsApp
+              <PackageCheck className="h-4 w-4" /> Quiero envío gratis con pago 50/50 · WhatsApp
             </a>
           </div>
         ) : (
