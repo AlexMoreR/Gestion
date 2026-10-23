@@ -55,6 +55,7 @@ model User {
   shipmentEvents           ShipmentEvent[]       @relation("ShipmentEventActor")
   salePaymentsCreated      SalePayment[]         @relation("SalePaymentCreatedBy")
   registrosRetroactivos    RegistroRetroactivo[] @relation("RegistroRetroactivoUsuario")
+  teamMember               TeamMember?           @relation("TeamMemberUser")
 }
 
 enum ActivityAction {
@@ -1065,4 +1066,50 @@ model ShipmentLookupAttempt {
 
   @@index([ipHash, createdAt])
   @@index([code, createdAt])
+}
+
+// Equipo: ficha de cada trabajador (ingreso, salida, contacto, forma de pago).
+// Puede no tener usuario (alguien de fabrica que no entra al sistema).
+enum TeamEmploymentType {
+  FREELANCE
+  EMPLEADO
+  OTRO
+}
+
+enum TeamPayType {
+  QUINCENAL
+  DIARIO
+  SOLO_COMISION
+}
+
+model TeamMember {
+  id             String             @id @default(cuid())
+  // Usuario de Gestion (opcional, unico). Si se borra el usuario la ficha queda sin enlace.
+  userId         String?            @unique
+  fullName       String
+  // Nombre sin tildes y en minusculas, para buscar.
+  nameKey        String
+  document       String?
+  birthDate      DateTime?          @db.Date
+  phone          String?
+  email          String?
+  address        String?
+  emergencyName  String?
+  emergencyPhone String?
+  // Cargo en lenguaje libre: Asesora, Produccion, Dueno...
+  jobTitle       String?
+  isOwner        Boolean            @default(false)
+  employmentType TeamEmploymentType @default(FREELANCE)
+  payType        TeamPayType?
+  startDate      DateTime?          @db.Date
+  // Ultimo dia trabajado. Con la fecha ya pasada la persona queda Retirada (el estado no se guarda).
+  endDate        DateTime?          @db.Date
+  exitReason     String?
+  notes          String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  user           User?              @relation("TeamMemberUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([endDate])
+  @@index([nameKey])
 }

@@ -70,6 +70,7 @@ const moduleIconMap = {
   sales: BadgeDollarSign,
   balances: Landmark,
   commissions: HandCoins,
+  team: Users,
   expenses: ReceiptText,
   orders: ClipboardList,
   production: Factory,

@@ -48,6 +48,7 @@ const ENTITY_LABELS: Record<string, string> = {
   CATEGORY: "Categoria",
   SUPPLIER: "Proveedor",
   ACCOUNT: "Cuenta",
+  TEAM_MEMBER: "Equipo",
 };
 
 const ALLOWED_ACTIONS = ["CREATE", "UPDATE", "DELETE"] as const;

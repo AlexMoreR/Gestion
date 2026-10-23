@@ -13,6 +13,8 @@ export const EMPLOYEE_FORBIDDEN_MODULES: AdminModuleKey[] = [
   "config_permissions",
   // Comisiones de las asesoras: solo el dueno/admin.
   "commissions",
+  // Fichas del equipo (datos personales): solo el dueno/admin.
+  "team",
 ];
 
 export const adminModuleDefinitions = [
@@ -98,6 +100,13 @@ export const adminModuleDefinitions = [
     label: "Comisiones",
     description: "Comisiones de las asesoras del mes: 15% de la ganancia de cada venta (solo dueno/admin).",
     path: "/admin/comisiones",
+    group: "Comercial",
+  },
+  {
+    key: "team",
+    label: "Equipo",
+    description: "Ficha de cada trabajador: contacto, forma de pago, ingreso y salida (solo dueno/admin).",
+    path: "/admin/equipo",
     group: "Comercial",
   },
   {

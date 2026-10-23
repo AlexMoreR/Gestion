@@ -24,6 +24,16 @@ import { getMoneyWithoutAccount } from "@/modules/balances/infrastructure/prisma
 import { getCashPositionUseCase, getPayrollBoardUseCase } from "@/modules/nomina/application/use-cases";
 import { PAY_PERIOD_LABELS } from "@/modules/nomina/domain/payroll";
 import { createPrismaNominaRepository, loadFixedCommissionRates } from "@/modules/nomina/infrastructure/prisma-nomina-repository";
+import {
+  filterTeam,
+  TEAM_EMPLOYMENT_LABELS,
+  TEAM_PAY_LABELS,
+  TEAM_STATUS_LABELS,
+  teamStatus,
+  todayInBogota,
+  toPublicMember,
+} from "@/modules/equipo/domain/team-member";
+import { loadTeamMembers } from "@/modules/equipo/infrastructure/prisma-team-repository";
 import type { McpServerDefinition, McpToolDefinition, McpToolResult } from "./protocol";
 
 // Todas las herramientas son de SOLO LECTURA: solo llaman casos de uso de consulta.
@@ -238,7 +248,11 @@ export const asesorTools: McpToolDefinition[] = [
     schema: monthArgs,
     handler: async (args, deps) => {
       const { mes, anio } = resolveMonth(args);
-      const board = await getPayrollBoardUseCase({ ...deps, nomina: createPrismaNominaRepository() }, mes, anio);
+      const board = await getPayrollBoardUseCase(
+        { ...deps, nomina: createPrismaNominaRepository(), loadTeam: () => loadTeamMembers() },
+        mes,
+        anio,
+      );
       return {
         mes,
         anio,
@@ -246,6 +260,9 @@ export const asesorTools: McpToolDefinition[] = [
         trm_usada: board.trm,
         personas: board.rows.map((row) => ({
           persona: row.name,
+          estado: row.teamStatus ? TEAM_STATUS_LABELS[row.teamStatus] : "Sin ficha en Equipo",
+          fecha_salida: row.endDate,
+          tiene_usuario: row.hasUser,
           configurada: row.configured,
           tipo_basico: row.period ? PAY_PERIOD_LABELS[row.period] : "Sin configurar",
           basico_unitario: row.period && row.period !== "SIN_BASE" ? { valor: row.baseAmount, moneda: row.currency } : null,
@@ -275,6 +292,46 @@ export const asesorTools: McpToolDefinition[] = [
         notas: [
           "basico_del_mes = null si falta la TRM (basico en dolares) o los dias trabajados (pago diario).",
           "Las comisiones del mes en curso siguen subiendo mientras haya ventas.",
+          "Entran todos los que trabajaron algun dia del mes segun su ficha de Equipo, aunque no tengan salario configurado. Un retirado aparece hasta su mes de salida; despues, solo si todavia tiene comision o pagos de ese mes.",
+        ],
+      };
+    },
+  }),
+  defineTool({
+    name: "equipo",
+    title: "Equipo (trabajadores)",
+    description:
+      "Trabajadores de Magilus segun su ficha en Equipo: nombre, cargo, si es el dueno, tipo de vinculacion (freelance...), forma de pago (por quincena, por dia o solo comision), fecha de ingreso, fecha de salida y motivo, estado (activo o retirado) y si tiene usuario en Gestion. No entrega datos personales (cedula, nacimiento, celular, correo, direccion ni contacto de emergencia). Lo que se paga sale de nomina_del_mes.",
+    schema: z.object({
+      estado: z
+        .enum(["activos", "retirados", "todos"])
+        .default("todos")
+        .describe("activos, retirados o todos. Por defecto: todos."),
+    }),
+    handler: async (args) => {
+      const today = todayInBogota();
+      const members = filterTeam(await loadTeamMembers(), { estado: args.estado, q: "", pago: "" }, today);
+      return {
+        hoy: today,
+        total: members.length,
+        trabajadores: members.map((member) => {
+          const item = toPublicMember(member);
+          return {
+            nombre: item.fullName,
+            cargo: item.isOwner ? "Dueño" : item.jobTitle,
+            es_dueno: item.isOwner,
+            estado: TEAM_STATUS_LABELS[teamStatus(item, today)],
+            vinculacion: TEAM_EMPLOYMENT_LABELS[item.employmentType],
+            forma_de_pago: item.payType ? TEAM_PAY_LABELS[item.payType] : null,
+            fecha_ingreso: item.startDate,
+            fecha_salida: item.endDate,
+            motivo_salida: item.exitReason,
+            tiene_usuario: item.userId !== null,
+          };
+        }),
+        notas: [
+          "Retirado = su fecha de salida (ultimo dia trabajado) ya paso. El historial de ventas y pagos se conserva.",
+          "Fechas vacias = Alexander aun no las ha escrito en /admin/equipo.",
         ],
       };
     },
@@ -311,6 +368,6 @@ export const asesorMcpServer: McpServerDefinition = {
   name: "gestion-magilus",
   version: "1.1.0",
   instructions:
-    "Servidor de SOLO LECTURA de Gestion (Magilus): ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina y saldos de cuentas. Para entender el sistema completo usa primero que_es_esta_aplicacion. No modifica ningun dato. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
+    "Servidor de SOLO LECTURA de Gestion (Magilus): ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados) y saldos de cuentas. Para entender el sistema completo usa primero que_es_esta_aplicacion. No modifica ningun dato. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
   tools: asesorTools,
 };

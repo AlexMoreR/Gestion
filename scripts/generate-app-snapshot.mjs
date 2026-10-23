@@ -38,6 +38,7 @@ const CODE_RULES = [
   { regla: "Precio de venta a partir del margen", archivo: "src/lib/pricing.ts", funcion: "calculateRetailPrice" },
   { regla: "Combos: se muestran como un solo producto", archivo: "src/lib/quote-display-items.ts", funcion: "groupQuoteDisplayItems" },
   { regla: "Comisiones por vendedora", archivo: "src/modules/asesor/domain/calculations.ts", funcion: "computeCommissions" },
+  { regla: "Trabajaba en tal fecha (Equipo: ingreso y salida)", archivo: "src/modules/equipo/domain/team-member.ts", funcion: "isActiveOn" },
 ];
 
 const warnings = [];

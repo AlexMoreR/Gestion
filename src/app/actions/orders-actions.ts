@@ -11,6 +11,7 @@ import { logActivity } from "@/lib/activity-log";
 import { prisma } from "@/lib/prisma";
 import { buildOrderCode, parseOrderCodeNumber } from "@/lib/orders";
 import { expandQuoteItemsToOrderItems } from "@/lib/order-items";
+import { isRetiredUser } from "@/modules/equipo/infrastructure/prisma-team-repository";
 
 const createOrderSchema = z.object({
   saleId: z.string().trim().min(1, "Venta invalida"),
@@ -201,6 +202,9 @@ export async function adminCreateOrderFromSaleAction(formData: FormData): Promis
     if (!validAssigned) {
       redirect(`${returnTo}?error=Responsable+invalido`);
     }
+    if (await isRetiredUser(validAssigned.id)) {
+      redirect(`${returnTo}?error=Esa+persona+ya+salio+del+equipo`);
+    }
   }
 
   const subtotal = Number(sale.total);
@@ -388,6 +392,9 @@ export async function adminAssignOrderAction(formData: FormData): Promise<void> 
 
   if (!isValid) {
     redirect(`${returnTo}?error=Responsable+invalido`);
+  }
+  if (await isRetiredUser(isValid.id)) {
+    redirect(`${returnTo}?error=Esa+persona+ya+salio+del+equipo`);
   }
 
   const assignedOrder = await prisma.order.update({

@@ -42,6 +42,7 @@ módulos y para qué sirven:
 | **Despachos** | `/admin/despachos` | Salidas, transportadora, guía, costo de envío y entrega. |
 | **Balances** | `/admin/balances` | Rentabilidad por venta, cuentas (caja/banco/wallet), movimientos y costos logístico-financieros. |
 | **Nómina** | `/admin/comisiones/nomina` | Básico + comisiones − pagado por persona y mes; "Dinero hoy" por cuenta; registrar pago (gasto de Nómina desde una cuenta). Config en `AppSetting.payrollConfig`; módulo `src/modules/nomina`. Solo dueño/admin (permiso `commissions`). |
+| **Equipo** | `/admin/equipo` | Ficha de cada trabajador (cédula, nacimiento/edad, celular, correo, dirección, contacto de emergencia, cargo, vinculación, forma de pago, ingreso, salida y motivo). Estado Activo/Retirado calculado por la fecha de salida. Tabla `TeamMember`; módulo `src/modules/equipo`. Solo dueño/admin (permiso `team`, reservado). |
 | **Gastos** | `/admin/gastos` | Gastos operativos por categoría y cuenta (nómina, marketing, varios, etc.). |
 | **Transporte** | `/admin/transporte` | Tipo de envío por ciudad/corregimiento (DANE): Gratis / Adicional / Se cotiza / No llegamos / Automático, y "Pendientes de revisar" (lo nuevo que manda el CRM). El cliente ve el envío gratis en `/cobertura`; el CRM consulta `/api/transporte/ubicaciones`. |
 | **Configuración** | `/admin/configuracion/*` | Usuarios y roles, datos del negocio (moneda, marca, color), y control de módulos por rol. |
@@ -168,6 +169,23 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   WhatsApp, logo, textos de la tienda, márgenes mínimos, UVT DIAN, control de módulos por rol, token del
   informe, etc.).
 
+### Equipo (fichas de trabajadores, oct-2026)
+- **TeamMember** — ficha de un trabajador (migración `20261022130000_equipo_trabajadores`, solo aditiva).
+  `userId` opcional y único (SetNull si se borra el usuario): alguien de fábrica puede no tener usuario.
+  Enums `TeamEmploymentType` (`FREELANCE`/`EMPLEADO`/`OTRO`) y `TeamPayType` (`QUINCENAL`/`DIARIO`/
+  `SOLO_COMISION`). Fechas `@db.Date` (`birthDate`, `startDate`, `endDate` = último día trabajado).
+- Reglas puras en `src/modules/equipo/domain/team-member.ts`: `teamStatus` (Retirado = `endDate` < hoy en
+  Colombia; el estado no se guarda), `computeAge`, `isActiveOn` ("¿trabajaba en tal fecha?", ingreso y
+  salida inclusive — base del control de asistencia), `isActiveInMonth`, `payrollTeamEntries`.
+- **Nómina** (`buildPayrollBoard`, parámetro `team`): entran todos los activos del mes aunque no tengan
+  salario; un retirado aparece hasta su mes de salida y después solo con comisión o pagos de ese mes. Una
+  ficha sin usuario sale con clave `team:<id>` y sin formularios de pago. Comisiones: mismo cálculo, solo
+  la etiqueta "Retirado/a". Órdenes/producción rechazan asignar a un retirado (`isRetiredUser`); en gastos
+  el retirado solo se ve al editar un gasto que ya era suyo.
+- Carga inicial una sola vez (`ensureSeed`, marca `AppSetting.teamSeedDone`, candado de Postgres): Alexander
+  (dueño), Ingrid, María Camila, Emanuel Díaz (ingreso 15-oct-2026, por día), Génesis (salida 20-oct-2026).
+  Se une al usuario solo si el nombre coincide sin dudas (`matchStaffUser`).
+
 ### Transporte (cobertura DANE)
 - **TransportDepartment / TransportCity / TransportLocality** — división político-administrativa oficial
   de Colombia (DANE DIVIPOLA): 33 departamentos, ~1.122 municipios y ~7.057 corregimientos/centros
@@ -281,7 +299,10 @@ Route handlers reales (`route.ts`):
 - **Solo lectura**: módulo `src/modules/asesor` (hexagonal). Sus puertos solo tienen métodos de
   consulta; la ganancia por venta y el resumen del mes **reutilizan los casos de uso de Balances**.
 - Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_abonos`, `ver_venta`, `listar_cotizaciones`,
-  `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `saldos_de_cuentas` y `que_es_esta_aplicacion`.
+  `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `equipo`, `saldos_de_cuentas` y `que_es_esta_aplicacion`.
+- `equipo` (oct-2026): trabajadores activos/retirados con cargo, vinculación, forma de pago, ingreso, salida y
+  motivo; **nunca** cédula, nacimiento, celular, correo, dirección ni contacto de emergencia
+  (`toPublicMember`). `nomina_del_mes` trae `estado`, `fecha_salida` y `tiene_usuario` por persona.
 - Abonos y saldo (oct-2026, reglas puras en `src/modules/asesor/domain/payments.ts`): `listar_abonos` da los
   abonos de un rango por fecha del abono (filtros vendedora/cliente/venta); `listar_ventas` acepta
   `estado_pago` (`pagadas` por defecto = criterio de Balances, `pendientes` = con abono que aún no cuentan,

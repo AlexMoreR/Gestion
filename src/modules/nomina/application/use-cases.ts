@@ -5,6 +5,7 @@ import { buildMonthRange } from "../../asesor/domain/calculations";
 import type { AsesorReadRepository } from "../../asesor/domain/repository";
 import { buildPayrollBoard, fixedCommissionRates, monthKey, type PayrollBoard } from "../domain/payroll";
 import type { NominaRepository } from "../infrastructure/prisma-nomina-repository";
+import { payrollTeamEntries, todayInBogota, type TeamMember } from "../../equipo/domain/team-member";
 import type { DateRange } from "../../balances/domain/entities";
 import {
   buildPortalQuotes,
@@ -19,13 +20,15 @@ export type NominaDependencies = {
   balances: BalancesRepository;
   asesor: AsesorReadRepository;
   nomina: NominaRepository;
+  // Fichas de Equipo: activos del mes entran aunque no tengan salario; retirados salen despues de su mes.
+  loadTeam?: () => Promise<TeamMember[]>;
 };
 
 // Nomina del mes: base (salario) + comision (misma regla de /admin/comisiones) - pagado.
 export async function getPayrollBoardUseCase(deps: NominaDependencies, mes: number, anio: number): Promise<PayrollBoard> {
   const period = buildMonthRange(mes, anio);
   const config = await deps.nomina.getConfig();
-  const [staff, payments, commissions] = await Promise.all([
+  const [staff, payments, commissions, team] = await Promise.all([
     deps.nomina.listStaff(),
     deps.nomina.listPayments(period, monthKey(mes, anio)),
     getCommissionsBoardUseCase(
@@ -37,6 +40,7 @@ export async function getPayrollBoardUseCase(deps: NominaDependencies, mes: numb
       mes,
       anio,
     ),
+    deps.loadTeam ? deps.loadTeam() : Promise.resolve([]),
   ]);
   return buildPayrollBoard({
     mes,
@@ -44,6 +48,7 @@ export async function getPayrollBoardUseCase(deps: NominaDependencies, mes: numb
     config,
     staff,
     payments,
+    team: payrollTeamEntries(team, monthKey(mes, anio), todayInBogota()),
     commissions: commissions.sellers.map((seller) => ({
       userId: seller.sellerId,
       name: seller.name,

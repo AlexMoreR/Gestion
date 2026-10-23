@@ -9,6 +9,9 @@ import { BalancesWorkspace } from "@/modules/balances/presentation/balances-work
 import { CashPositionStrip } from "@/modules/balances/presentation/components/cash-position-strip";
 import { getMoneyWithoutAccount } from "@/modules/balances/infrastructure/prisma-money-without-account";
 import { getCashPositionUseCase } from "@/modules/nomina/application/use-cases";
+import { retiredUserIds } from "@/modules/equipo/application/use-cases";
+import { todayInBogota } from "@/modules/equipo/domain/team-member";
+import { loadTeamMembers } from "@/modules/equipo/infrastructure/prisma-team-repository";
 import { redirect } from "next/navigation";
 
 type PageProps = {
@@ -90,6 +93,7 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
     activeAccounts,
     employees,
     cashPosition,
+    team,
   ] = await Promise.all([
     getSystemCurrency(),
     repository.getDashboardMetrics(period),
@@ -122,7 +126,9 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
       select: { id: true, name: true, email: true },
     }),
     getCashPositionUseCase(repository, getMoneyWithoutAccount),
+    loadTeamMembers(),
   ]);
+  const retired = retiredUserIds(team, todayInBogota());
 
   return (
     <section className="w-full space-y-5">
@@ -165,6 +171,7 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
           employees: employees.map((employee) => ({
             id: employee.id,
             name: employee.name ?? employee.email,
+            retired: retired.has(employee.id),
           })),
         }}
       />

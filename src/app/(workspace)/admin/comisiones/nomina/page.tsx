@@ -27,6 +27,8 @@ import { createPrismaNominaRepository } from "@/modules/nomina/infrastructure/pr
 import { listSellerLinks } from "@/modules/nomina/infrastructure/prisma-seller-portal";
 import { getSiteUrl } from "@/lib/site";
 import { CopyButton } from "@/modules/guias/presentation/copy-button";
+import { retiredUserIds } from "@/modules/equipo/application/use-cases";
+import { loadTeamMembers } from "@/modules/equipo/infrastructure/prisma-team-repository";
 
 // Nomina del mes (solo dueno/admin): basico de cada persona + comisiones - lo ya pagado,
 // con el dinero disponible hoy arriba para saber si alcanza. Pagar crea un gasto de
@@ -88,9 +90,10 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
 
   const balances = createPrismaBalancesRepository();
   const nomina = createPrismaNominaRepository();
+  const team = await loadTeamMembers();
   const [currency, board, cash, staff, config, sellerLinks] = await Promise.all([
     getSystemCurrency(),
-    getPayrollBoardUseCase({ balances, asesor: createPrismaAsesorRepository(), nomina }, mes, anio),
+    getPayrollBoardUseCase({ balances, asesor: createPrismaAsesorRepository(), nomina, loadTeam: async () => team }, mes, anio),
     getCashPositionUseCase(balances, getMoneyWithoutAccount),
     nomina.listStaff(),
     nomina.getConfig(),
@@ -98,8 +101,11 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
   ]);
   const money = (value: number) => formatMoney(value, currency as SupportedCurrencyCode);
   const activeAccounts = cash.accounts.filter((account) => account.isActive);
-  const unconfiguredStaff = staff.filter((member) => !config.people.some((person) => person.userId === member.id));
   const today = todayInBogota();
+  const retired = retiredUserIds(team, today);
+  const unconfiguredStaff = staff.filter(
+    (member) => !retired.has(member.id) && !config.people.some((person) => person.userId === member.id),
+  );
 
   return (
     <section className="w-full space-y-4">
@@ -184,7 +190,14 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
           <div key={row.userId} className="space-y-3 rounded-xl border border-border bg-card p-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <h2 className="text-sm font-semibold text-foreground">{row.name}</h2>
+                <h2 className="text-sm font-semibold text-foreground">
+                  {row.name}
+                  {row.teamStatus === "RETIRADO" ? (
+                    <span className="ml-1.5 rounded-full bg-muted px-2 py-0.5 text-[11px] font-normal text-muted-foreground">
+                      Retirado/a{row.endDate ? ` · salió el ${row.endDate}` : ""}
+                    </span>
+                  ) : null}
+                </h2>
                 <p className="text-xs text-muted-foreground">
                   {baseDescription(row, money)}
                   {row.period ? ` · ${PAY_PERIOD_LABELS[row.period]}` : ""}
@@ -241,7 +254,7 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
               </ul>
             ) : null}
 
-            {row.period === "DIARIO" ? (
+            {row.hasUser && row.period === "DIARIO" ? (
               <form action={savePayrollDaysAction} className="flex flex-wrap items-end gap-2">
                 <input type="hidden" name="mes" value={mesValue} />
                 <input type="hidden" name="userId" value={row.userId} />
@@ -278,7 +291,7 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
               </div>
             ) : null}
 
-            {row.earnsCommission ? (
+            {row.hasUser && row.earnsCommission ? (
               <form action={regenerateSellerLinkAction} className="flex flex-wrap items-end gap-2 rounded-lg bg-muted/30 p-2.5">
                 <input type="hidden" name="mes" value={mesValue} />
                 <input type="hidden" name="userId" value={row.userId} />
@@ -311,6 +324,7 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
               </form>
             ) : null}
 
+            {row.hasUser ? (
             <div className="flex flex-wrap gap-2">
               <details className="group w-full rounded-lg border border-border p-3 open:bg-muted/20 md:w-auto md:min-w-[420px]">
                 <summary className="cursor-pointer text-sm font-medium text-primary">Registrar pago</summary>
@@ -390,6 +404,11 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
                 ) : null}
               </details>
             </div>
+            ) : (
+              <Link href="/admin/equipo" className="inline-block text-xs text-primary hover:underline">
+                Ver su ficha en Equipo
+              </Link>
+            )}
           </div>
         ))}
       </div>

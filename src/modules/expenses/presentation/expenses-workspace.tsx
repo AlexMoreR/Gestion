@@ -34,6 +34,8 @@ type AccountOption = {
 type EmployeeOption = {
   id: string;
   name: string;
+  // Ya salio del equipo: solo se muestra al editar un gasto que ya era suyo.
+  retired?: boolean;
 };
 
 type ExpensesWorkspaceProps = {

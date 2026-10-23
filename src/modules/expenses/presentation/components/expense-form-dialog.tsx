@@ -40,7 +40,7 @@ type ExpenseFormDialogProps = {
   returnTo: string;
   categories: Option[];
   accounts: AccountOption[];
-  employees: Option[];
+  employees: (Option & { retired?: boolean })[];
   initialValue?: ExpenseInitialValue | null;
 };
 
@@ -84,6 +84,10 @@ export function ExpenseFormDialog({
   const [expenseDate, setExpenseDate] = React.useState<string>(initialValue?.expenseDate ?? today());
   const [receiptError, setReceiptError] = React.useState(false);
   const [employeeError, setEmployeeError] = React.useState(false);
+  // Los retirados no se escogen en gastos nuevos; si el gasto ya era suyo se sigue viendo su nombre.
+  const employeeOptions = employees.filter(
+    (employee) => !employee.retired || employee.id === initialValue?.employeeId,
+  );
 
   // Limpia la seleccion al abrir/cerrar o cambiar de gasto.
   React.useEffect(() => {
@@ -324,13 +328,13 @@ export function ExpenseFormDialog({
                       <option value="" disabled>
                         Selecciona el empleado
                       </option>
-                      {employees.map((employee) => (
+                      {employeeOptions.map((employee) => (
                         <option key={employee.id} value={employee.id}>
-                          {employee.name}
+                          {employee.retired ? `${employee.name} (retirado/a)` : employee.name}
                         </option>
                       ))}
                     </select>
-                    {employees.length === 0 ? (
+                    {employeeOptions.length === 0 ? (
                       <p className="text-xs text-destructive">
                         No hay empleados registrados. Crea uno en Configuracion &gt; Empleados.
                       </p>

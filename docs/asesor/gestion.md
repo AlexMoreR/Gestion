@@ -46,7 +46,8 @@ en las Server Actions y en `src/lib/`.
 - `transporte`: tipo de envío por departamento, ciudad y corregimiento (datos DANE): gratis, adicional, se cotiza o no llegamos. Lo consulta el cliente en `/cobertura` (solo si es gratis o no) y el CRM de las asesoras por `/api/transporte/ubicaciones`.
 - `ventas`: reglas de la venta: forma de pago (50/50 o contraentrega) y origen de cada venta (lo avisa el CRM por `/api/ventas/origen`; reporte en `/admin/ventas/origen`).
 - `nomina`: nómina del mes (salario básico de cada persona + comisiones − lo ya pagado) y el dinero de hoy por cuenta. La configuración (básicos, TRM, días trabajados) vive en `AppSetting` (`payrollConfig`); los pagos son gastos de la categoría Nómina.
-- `asesor`: consultas de solo lectura para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones, nómina, saldos de cuentas y esta radiografía. También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
+- `equipo`: ficha de cada trabajador (ingreso, salida, contacto, forma de pago) y las reglas de estado Activo/Retirado, edad y "¿trabajaba en tal fecha?". La nómina, las comisiones y las asignaciones la usan para incluir a los activos y sacar a los retirados.
+- `asesor`: consultas de solo lectura para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones, nómina, equipo, saldos de cuentas y esta radiografía. También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
 
 ## Entidades
 
@@ -80,6 +81,7 @@ en las Server Actions y en `src/lib/`.
 - `InventoryMovement`: entrada, salida o ajuste de stock de un producto.
 - `MonthClosure`: cierre de mes congelado (ventas, costos, envíos, gastos, utilidad y margen) que se comparte por correo.
 - `ManufacturingOrder`: orden de fabricación (OF-) de una proveedora dentro de una orden de venta, con enlace para enviársela, fecha y dirección de entrega.
+- `TeamMember`: ficha de un trabajador (Equipo): datos personales, cargo, vinculación, forma de pago, fecha de ingreso, fecha de salida y motivo. Unida opcionalmente (y una sola vez) a su usuario; si se borra el usuario, la ficha queda.
 - `TransportDepartment`: departamento de Colombia (DANE).
 - `TransportCity`: municipio de Colombia (DANE), su tipo de envío (gratis, adicional, se cotiza, no llegamos o automático) y si tiene envío gratis.
 - `TransportLocality`: corregimiento o centro poblado (DANE), o barrio/vereda que agregó el CRM (queda "pendiente de revisar"), con su tipo de envío; sin tipo propio hereda el de su ciudad.
@@ -125,6 +127,7 @@ en las Server Actions y en `src/lib/`.
 - `/admin/comisiones`: comisiones de las asesoras del mes (solo el dueño/admin): resumen por asesora (# ventas, valor vendido, ganancia, comisión), detalle de cada venta con el % aplicado (10/15) y "Falta entregar", y total del mes. Selector de mes (por defecto el actual, hora de Colombia).
 - `/mis-comisiones/[token]`: link privado de cada asesora (sin iniciar sesión): sus ventas del mes con la comisión explicada venta por venta, la regla en lenguaje claro y sus cotizaciones abiertas con la comisión aproximada si las cierra. Nunca muestra costos ni fletes. Se crea o cambia desde Nómina (token en `AppSetting.sellerCommissionLinks`).
 - `/admin/comisiones/nomina`: nómina del mes (solo el dueño/admin): "Dinero hoy" por cuenta arriba, y por persona el básico del mes, la comisión, el total, lo pagado y lo que falta. Configurar salario (por quincena, por día o sin básico; en COP o USD), TRM, días trabajados y botón "Registrar pago" que crea un gasto de Nómina desde la cuenta elegida.
+- `/admin/equipo`: equipo de trabajo (solo el dueño/admin): fichas de Activos / Retirados / Todos, búsqueda por nombre y filtro por forma de pago; crear, editar, dar de baja (fecha de salida + motivo) y reactivar.
 - `/admin/ventas/origen`: ventas por origen (Meta Ads, Marketplace, Referido, Recurrente, Mostrador, Sin dato) por mes y por anuncio, con el criterio de Balances.
 - `/admin/ordenes/[orderId]`: detalle de una orden: fabricar, recoger, despachar, entregar, historial, abonos y órdenes de fabricación.
 - `/admin/ordenes/[orderId]/ganancia`: desglose de por qué se ganó lo que se ganó en esa orden.
@@ -204,6 +207,23 @@ TRM no se calcula, nunca se inventa). Un pago registrado desde la pantalla lleva
 descripción (" · AAAA-MM") y cuenta en ese mes aunque se pague después; un gasto de Nómina sin ese
 mes cuenta por su fecha. Comprobante obligatorio salvo en efectivo (misma regla de Gastos).
 
+**Equipo (`/admin/equipo`, oct-2026).** Cada trabajador tiene una ficha: datos personales (cédula,
+nacimiento con la edad calculada, celular, correo, dirección, contacto de emergencia), cargo,
+vinculación (freelance, empleado u otro), forma de pago (por quincena, por día o solo comisión),
+fecha de ingreso y fecha de salida (último día trabajado) con su motivo. El estado no se escribe:
+Retirado/a = su fecha de salida ya pasó; el día de la salida todavía trabaja. Una ficha puede no
+tener usuario (alguien que no entra al sistema). Regla única "¿trabajaba en tal fecha?": desde el
+ingreso hasta la salida, ambos inclusive (base del control de asistencia). En la **nómina** entra
+todo el que trabajó algún día del mes, aunque no tenga salario configurado; un retirado aparece
+hasta su mes de salida y después solo si todavía tiene comisión o pagos de ese mes (no se esconde
+plata que se le debe). Las **comisiones** no cambian para quien sale; solo se marca "Retirado/a".
+A un retirado no se le asignan órdenes, trabajos de producción ni gastos nuevos, pero su nombre se
+sigue viendo en lo viejo. Lo que se paga sale de Nómina; la forma de pago de la ficha es una pista
+y se avisa si no coincide. Solo el dueño/admin ve y edita las fichas; el asesor de IA (herramienta
+`equipo`) y la bitácora no muestran datos personales. Carga inicial (una sola vez): Alexander
+(dueño), Ingrid Sánchez y María Camila Ardila (activas), Emanuel Díaz (ingreso 15-oct-2026, por
+día) y Génesis (salida 20-oct-2026); lo que faltaba quedó vacío para que Alexander lo complete.
+
 **Dinero hoy.** Saldo de cada cuenta = saldo inicial + pagos de clientes − pagos a proveedoras −
 fletes − gastos ± movimientos. Se muestra arriba de Balances y de Nómina. Los pagos o fletes sin
 cuenta asignada no suman ni restan en ningún saldo y se avisan aparte.
@@ -224,7 +244,8 @@ recurrente; no se guarda.
 - Las órdenes de fabricación (OF-) **no tienen estado** (enviada, en fabricación, recibida).
 - Los reportes de ganancia **no incluyen ventas con saldo pendiente** ni contraentregas sin entregar. Una venta pagada sin entregar sí cuenta; su costo puede subir después si al despachar se registra un flete o se confirma otro costo de proveedora.
 - La contribución **no descuenta gastos operativos**; esos están en el módulo Gastos.
-- Un usuario con historial (ventas, cotizaciones, gastos) **no se puede borrar** y no existe "desactivar usuario": hay que quitarle módulos o cambiarle el rol.
+- Un usuario con historial (ventas, cotizaciones, gastos) **no se puede borrar** y no existe "desactivar usuario": hay que quitarle módulos o cambiarle el rol. Dar de baja en Equipo no le quita el acceso a Gestión.
+- No hay **control de asistencia** todavía (la ficha de Equipo y la regla "¿trabajaba en tal fecha?" son su base). La nómina no prorratea el básico del mes de ingreso o salida: se avisa para revisarlo.
 - No hay **pruebas automáticas** en el pipeline de despliegue (ver riesgos).
 - La foto de la aplicación en producción **no trae el commit**, porque `.git` no entra a la imagen; se identifica por la fecha del build.
 - **Corte de mes:** los meses se cortan a medianoche UTC (7:00 p. m. en Colombia). Un pago (o una entrega, en contraentrega) registrado después de las 7 p. m. del último día del mes cae en el mes siguiente. Si la fecha se edita a mano en el historial, queda al mediodía y no pasa.

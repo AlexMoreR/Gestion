@@ -10,6 +10,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buildProductionJobCode, parseProductionJobCodeNumber } from "@/lib/orders";
 import { syncOrderStatusAfterProduction } from "@/app/actions/orders-actions";
+import { isRetiredUser } from "@/modules/equipo/infrastructure/prisma-team-repository";
 
 const createProductionJobSchema = z.object({
   orderId: z.string().trim().min(1, "Orden invalida"),
@@ -114,6 +115,9 @@ export async function adminCreateProductionJobAction(formData: FormData): Promis
 
     if (!assigned) {
       redirect(`${returnTo}?error=Responsable+invalido`);
+    }
+    if (await isRetiredUser(assigned.id)) {
+      redirect(`${returnTo}?error=Esa+persona+ya+salio+del+equipo`);
     }
   }
 

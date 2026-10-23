@@ -6,6 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import { createPrismaExpensesRepository } from "@/modules/expenses/infrastructure/prisma-expenses-repository";
 import { ExpensesWorkspace } from "@/modules/expenses/presentation/expenses-workspace";
+import { retiredUserIds } from "@/modules/equipo/application/use-cases";
+import { todayInBogota } from "@/modules/equipo/domain/team-member";
+import { loadTeamMembers } from "@/modules/equipo/infrastructure/prisma-team-repository";
 import { redirect } from "next/navigation";
 
 type PageProps = {
@@ -43,7 +46,7 @@ export default async function AdminExpensesPage({ searchParams }: PageProps) {
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
-  const [currency, metrics, expenses, categories, accounts, employees] = await Promise.all([
+  const [currency, metrics, expenses, categories, accounts, employees, team] = await Promise.all([
     getSystemCurrency(),
     expensesRepository.getMetrics(),
     expensesRepository.listExpenses(),
@@ -54,7 +57,9 @@ export default async function AdminExpensesPage({ searchParams }: PageProps) {
       orderBy: { name: "asc" },
       select: { id: true, name: true, email: true },
     }),
+    loadTeamMembers(),
   ]);
+  const retired = retiredUserIds(team, todayInBogota());
 
   return (
     <section className="w-full space-y-5">
@@ -78,6 +83,7 @@ export default async function AdminExpensesPage({ searchParams }: PageProps) {
         employees={employees.map((employee) => ({
           id: employee.id,
           name: employee.name ?? employee.email,
+          retired: retired.has(employee.id),
         }))}
       />
     </section>

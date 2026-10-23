@@ -1,4 +1,5 @@
 import { roundMoney } from "../../../lib/pricing";
+import { TEAM_PAY_LABELS, type PayrollTeamEntry, type TeamPayType, type TeamStatus } from "../../equipo/domain/team-member";
 
 // Nomina de Magilus: salario base de cada persona + comisiones del mes.
 //
@@ -10,6 +11,9 @@ import { roundMoney } from "../../../lib/pricing";
 // - La comision del mes sale de la regla de Comisiones (15% de cada venta desde oct-2026).
 // - Lo pagado son los gastos de la categoria Nomina con ese empleado en el mes.
 // - Pendiente = (base del mes + comision del mes) - pagado en el mes.
+// - Equipo (oct-2026): entra todo el que trabajo algun dia del mes segun su ficha, aunque no
+//   tenga salario ni comision. Quien salio antes del mes solo aparece si todavia tiene
+//   comision o pagos de ese mes (no se esconde plata que se le debe).
 
 export const PAY_PERIODS = ["QUINCENAL", "DIARIO", "SIN_BASE"] as const;
 export type PayPeriod = (typeof PAY_PERIODS)[number];
@@ -174,6 +178,11 @@ export type PayrollRow = {
   pending: number | null;
   payments: PayrollPayment[];
   warnings: string[];
+  // Ficha de Equipo (null = la persona no tiene ficha).
+  teamStatus: TeamStatus | null;
+  endDate: string | null;
+  // false = ficha sin usuario en Gestion: no se le puede configurar salario ni registrar pagos.
+  hasUser: boolean;
 };
 
 export type PayrollBoard = {
@@ -191,8 +200,11 @@ export function buildPayrollBoard(input: {
   staff: PayrollStaffMember[];
   commissions: { userId: string; name: string; salesCount: number; commission: number }[];
   payments: PayrollPayment[];
+  team?: PayrollTeamEntry[];
 }): PayrollBoard {
   const { config } = input;
+  const team = input.team ?? [];
+  const teamByKey = new Map(team.map((entry) => [teamRowKey(entry), entry]));
   const nameById = new Map(input.staff.map((member) => [member.id, member.name]));
   const commissionById = new Map(input.commissions.map((row) => [row.userId, row]));
   const paymentsById = new Map<string, PayrollPayment[]>();
@@ -211,8 +223,17 @@ export function buildPayrollBoard(input: {
   config.people.forEach((person) => add(person.userId));
   input.commissions.forEach((row) => add(row.userId));
   input.payments.forEach((payment) => add(payment.employeeId));
+  team.filter((entry) => entry.activeInMonth).forEach((entry) => add(teamRowKey(entry)));
 
-  const rows = ids.map((userId): PayrollRow => {
+  const visibleIds = ids.filter((id) => {
+    const entry = teamByKey.get(id);
+    if (!entry?.leftBeforeMonth) return true;
+    return commissionById.has(id) || paymentsById.has(id);
+  });
+
+  const rows = visibleIds.map((userId): PayrollRow => {
+    const teamEntry = teamByKey.get(userId) ?? null;
+    const hasUser = !teamEntry || teamEntry.userId !== null;
     const person = config.people.find((item) => item.userId === userId) ?? null;
     const commissionRow = commissionById.get(userId);
     const payments = (paymentsById.get(userId) ?? []).sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -227,14 +248,38 @@ export function buildPayrollBoard(input: {
 
     const daysWorked = person?.period === "DIARIO" ? (days[userId] ?? null) : null;
     const base = person ? computeMonthlyBase(person, config.trm, daysWorked) : { units: 0, original: 0, cop: 0, missing: null };
-    if (!person) warnings.push("Sin salario configurado: solo se cuenta la comisión.");
+    if (!hasUser) {
+      warnings.push(
+        "No tiene usuario en Gestión: créale uno (Configuración → Usuarios) y únelo a su ficha en Equipo para configurar su salario y registrarle pagos.",
+      );
+    } else if (!person) {
+      warnings.push(
+        teamEntry?.payType
+          ? `Sin salario configurado: solo se cuenta la comisión. En su ficha de Equipo dice: ${TEAM_PAY_LABELS[teamEntry.payType]}.`
+          : "Sin salario configurado: solo se cuenta la comisión.",
+      );
+    } else if (teamEntry?.payType && !samePayType(teamEntry.payType, person.period)) {
+      warnings.push(
+        `En Nómina está "${PAY_PERIOD_LABELS[person.period]}" pero en su ficha de Equipo dice "${TEAM_PAY_LABELS[teamEntry.payType]}". Se paga lo de Nómina.`,
+      );
+    }
+    if (teamEntry?.leftBeforeMonth) {
+      warnings.push(`Retirado/a desde ${teamEntry.endDate}: aparece porque todavía tiene comisión o pagos de este mes.`);
+    } else if (
+      teamEntry?.endDate &&
+      person &&
+      person.period !== "SIN_BASE" &&
+      teamEntry.endDate.slice(0, 7) === monthKey(input.mes, input.anio)
+    ) {
+      warnings.push(`Salió el ${teamEntry.endDate}: revisa el básico, se calcula el mes completo.`);
+    }
     if (base.missing === "trm") warnings.push("Falta la TRM (dólar) para pasar el básico a pesos.");
     if (base.missing === "dias") warnings.push("Faltan los días trabajados del mes.");
 
     const totalDue = base.cop === null ? null : base.cop + commission;
     return {
       userId,
-      name: nameById.get(userId) ?? commissionRow?.name ?? "Usuario sin nombre",
+      name: nameById.get(userId) ?? commissionRow?.name ?? teamEntry?.name ?? "Usuario sin nombre",
       configured: Boolean(person),
       period: person?.period ?? null,
       currency: person?.currency ?? null,
@@ -253,6 +298,9 @@ export function buildPayrollBoard(input: {
       pending: totalDue === null ? null : totalDue - paid,
       payments,
       warnings,
+      teamStatus: teamEntry?.status ?? null,
+      endDate: teamEntry?.endDate ?? null,
+      hasUser,
     };
   });
 
@@ -271,6 +319,19 @@ export function buildPayrollBoard(input: {
       incomplete,
     },
   };
+}
+
+// Fila de la nomina de una ficha: su usuario o, si no tiene, "team:<id de la ficha>".
+export function teamRowKey(entry: Pick<PayrollTeamEntry, "userId" | "memberId">): string {
+  return entry.userId ?? `team:${entry.memberId}`;
+}
+
+function samePayType(teamPay: TeamPayType, period: PayPeriod): boolean {
+  return (
+    (teamPay === "QUINCENAL" && period === "QUINCENAL") ||
+    (teamPay === "DIARIO" && period === "DIARIO") ||
+    (teamPay === "SOLO_COMISION" && period === "SIN_BASE")
+  );
 }
 
 // Un pago de nomina pertenece al mes que dice su descripcion ("... · 2026-09"), aunque se

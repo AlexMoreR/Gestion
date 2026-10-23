@@ -14,6 +14,7 @@ import {
   Settings,
   Tag,
   Truck,
+  Users,
   Warehouse,
 } from "lucide-react";
 import type { Role } from "@prisma/client";
@@ -225,6 +226,17 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
           { title: "Del mes", url: "/admin/comisiones" },
           { title: "Nómina", url: "/admin/comisiones/nomina" },
         ],
+      });
+    }
+
+    // Equipo (fichas con datos personales): solo el dueno/admin.
+    if (user.role === "ADMIN" && adminModuleAccess.team) {
+      navMain.push({
+        title: "Equipo",
+        url: "/admin/equipo",
+        icon: Users,
+        isActive: pathname.startsWith("/admin/equipo"),
+        items: [{ title: "Trabajadores", url: "/admin/equipo" }],
       });
     }
 
