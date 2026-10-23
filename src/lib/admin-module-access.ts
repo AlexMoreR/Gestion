@@ -17,6 +17,8 @@ export const EMPLOYEE_FORBIDDEN_MODULES: AdminModuleKey[] = [
   "team",
   // Asistencia de todos y correcciones: solo el dueno/admin (cada quien marca la suya desde la barra).
   "attendance",
+  // Estadisticas de NETMAGI (Marketplace): solo el dueno/admin.
+  "marketplace",
 ];
 
 export const adminModuleDefinitions = [
@@ -116,6 +118,13 @@ export const adminModuleDefinitions = [
     label: "Asistencia",
     description: "Quién está trabajando hoy, entradas y salidas por mes y correcciones (solo dueno/admin).",
     path: "/admin/asistencia",
+    group: "Comercial",
+  },
+  {
+    key: "marketplace",
+    label: "Marketplace",
+    description: "Estadisticas de NETMAGI: chats, pases a WhatsApp, cuentas, productos y publicador (solo dueno/admin).",
+    path: "/admin/marketplace",
     group: "Comercial",
   },
   {

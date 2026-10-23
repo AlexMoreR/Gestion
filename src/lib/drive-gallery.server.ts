@@ -5,6 +5,7 @@ import path from "node:path";
 import sharp from "sharp";
 import { prisma } from "@/lib/prisma";
 import { createImageVariants } from "@/lib/image-variants.server";
+import { getNetmagiConfig, type NetmagiConfig } from "@/lib/netmagi-config.server";
 import {
   DRIVE_GALLERY_MAX,
   DRIVE_MIN_SIDE,
@@ -26,14 +27,8 @@ const MAX_DOWNLOAD_BYTES = 15 * 1024 * 1024;
 const LIST_TIMEOUT_MS = 30_000;
 const FILE_TIMEOUT_MS = 120_000; // el Apps Script de Drive puede tardar
 
-type NetmagiConfig = { baseUrl: string; key: string };
-
-export function getNetmagiConfig(): NetmagiConfig | null {
-  const baseUrl = (process.env.NETMAGI_FOTOS_URL ?? "").trim().replace(/\/+$/, "");
-  const key = (process.env.GESTION_FOTOS_KEY ?? "").trim();
-  if (!baseUrl || !key) return null;
-  return { baseUrl, key };
-}
+// La configuracion vive en netmagi-config.server.ts (la comparte el panel /admin/marketplace).
+export { getNetmagiConfig };
 
 async function fetchWithTimeout(url: string, key: string, ms: number): Promise<Response> {
   const controller = new AbortController();
