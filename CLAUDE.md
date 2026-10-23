@@ -423,6 +423,16 @@ que **redespliega** el stack automáticamente. No hay que hacer nada manual.
 - En ese servidor corren también otros stacks (AizenCRM, Postgres, Traefik, Portainer): tocar solo
   `magilus_app`.
 
+**Respaldo nocturno de la base (oct-2026):** scripts en `scripts/respaldo/`, que corren en aizen1 por
+**cron** (2:30 a. m. Colombia), **fuera de la imagen** (no entran al Dockerfile ni al deploy; se copian a
+mano a `/opt/magilus/respaldo/`). `respaldo-gestion.sh` hace `pg_dump` con el usuario de solo lectura
+`gestion_respaldo`, deja la copia en `/opt/respaldos/gestion/`, la sube a Drive "Respaldos/Gestion"
+(rclone, scope `drive.file`) y luego borra lo de más de 30 días (regla pura `retencion.mjs`, con pruebas:
+solo nombres `gestion-AAAA-MM-DD_HHMM.dump`). Si falla, `aviso-fallo.sh` manda correo a
+gestionmagilus@gmail.com. Claves solo en `/etc/magilus/respaldo.env` (ejemplo: `respaldo.env.example`).
+`restaurar-prueba.sh` carga el último respaldo en un Postgres desechable sin red y compara cantidades
+con producción. Instalación y cómo restaurar: `README.md`. Fotos y comprobantes aún sin respaldo.
+
 ---
 
 ## 10. Convenciones y notas para trabajar en el repo
