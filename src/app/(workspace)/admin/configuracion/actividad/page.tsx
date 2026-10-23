@@ -49,6 +49,7 @@ const ENTITY_LABELS: Record<string, string> = {
   SUPPLIER: "Proveedor",
   ACCOUNT: "Cuenta",
   TEAM_MEMBER: "Equipo",
+  ATTENDANCE: "Asistencia",
 };
 
 const ALLOWED_ACTIONS = ["CREATE", "UPDATE", "DELETE"] as const;

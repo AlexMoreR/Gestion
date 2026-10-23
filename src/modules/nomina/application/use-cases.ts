@@ -6,6 +6,7 @@ import type { AsesorReadRepository } from "../../asesor/domain/repository";
 import { buildPayrollBoard, fixedCommissionRates, monthKey, type PayrollBoard } from "../domain/payroll";
 import type { NominaRepository } from "../infrastructure/prisma-nomina-repository";
 import { payrollTeamEntries, todayInBogota, type TeamMember } from "../../equipo/domain/team-member";
+import { attendanceDrivesPayroll } from "../../asistencia/domain/attendance";
 import type { DateRange } from "../../balances/domain/entities";
 import {
   buildPortalQuotes,
@@ -22,13 +23,17 @@ export type NominaDependencies = {
   nomina: NominaRepository;
   // Fichas de Equipo: activos del mes entran aunque no tengan salario; retirados salen despues de su mes.
   loadTeam?: () => Promise<TeamMember[]>;
+  // Dias trabajados del mes "AAAA-MM" segun la asistencia (userId -> dias). Solo se consulta
+  // desde ASISTENCIA_NOMINA_DESDE; los meses anteriores siguen con los dias escritos a mano.
+  loadAttendanceDays?: (month: string) => Promise<Record<string, number>>;
 };
 
 // Nomina del mes: base (salario) + comision (misma regla de /admin/comisiones) - pagado.
 export async function getPayrollBoardUseCase(deps: NominaDependencies, mes: number, anio: number): Promise<PayrollBoard> {
   const period = buildMonthRange(mes, anio);
   const config = await deps.nomina.getConfig();
-  const [staff, payments, commissions, team] = await Promise.all([
+  const month = monthKey(mes, anio);
+  const [staff, payments, commissions, team, attendanceDays] = await Promise.all([
     deps.nomina.listStaff(),
     deps.nomina.listPayments(period, monthKey(mes, anio)),
     getCommissionsBoardUseCase(
@@ -41,6 +46,7 @@ export async function getPayrollBoardUseCase(deps: NominaDependencies, mes: numb
       anio,
     ),
     deps.loadTeam ? deps.loadTeam() : Promise.resolve([]),
+    deps.loadAttendanceDays && attendanceDrivesPayroll(month) ? deps.loadAttendanceDays(month) : Promise.resolve(undefined),
   ]);
   return buildPayrollBoard({
     mes,
@@ -48,6 +54,7 @@ export async function getPayrollBoardUseCase(deps: NominaDependencies, mes: numb
     config,
     staff,
     payments,
+    attendanceDays,
     team: payrollTeamEntries(team, monthKey(mes, anio), todayInBogota()),
     commissions: commissions.sellers.map((seller) => ({
       userId: seller.sellerId,

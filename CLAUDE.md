@@ -43,6 +43,7 @@ módulos y para qué sirven:
 | **Balances** | `/admin/balances` | Rentabilidad por venta, cuentas (caja/banco/wallet), movimientos y costos logístico-financieros. |
 | **Nómina** | `/admin/comisiones/nomina` | Básico + comisiones − pagado por persona y mes; "Dinero hoy" por cuenta; registrar pago (gasto de Nómina desde una cuenta). Config en `AppSetting.payrollConfig`; módulo `src/modules/nomina`. Solo dueño/admin (permiso `commissions`). |
 | **Equipo** | `/admin/equipo` | Ficha de cada trabajador (cédula, nacimiento/edad, celular, correo, dirección, contacto de emergencia, cargo, vinculación, forma de pago, ingreso, salida y motivo). Estado Activo/Retirado calculado por la fecha de salida. Tabla `TeamMember`; módulo `src/modules/equipo`. Solo dueño/admin (permiso `team`, reservado). |
+| **Asistencia** | `/admin/asistencia` | Registro de entrada y salida: botón "Marcar entrada/salida" en la barra (Empleado y Admin; hora del servidor). Pestañas Hoy (trabajando / salió / no ha llegado) y Por mes (filtro persona y mes); el admin marca por otra persona y corrige/agrega/anula marcas con motivo. Tabla `AsistenciaMarca`; módulo `src/modules/asistencia`. Solo dueño/admin (permiso `attendance`, reservado). |
 | **Gastos** | `/admin/gastos` | Gastos operativos por categoría y cuenta (nómina, marketing, varios, etc.). |
 | **Transporte** | `/admin/transporte` | Tipo de envío por ciudad/corregimiento (DANE): Gratis / Adicional / Se cotiza / No llegamos / Automático, y "Pendientes de revisar" (lo nuevo que manda el CRM). El cliente ve el envío gratis en `/cobertura`; el CRM consulta `/api/transporte/ubicaciones`. |
 | **Configuración** | `/admin/configuracion/*` | Usuarios y roles, datos del negocio (moneda, marca, color), y control de módulos por rol. |
@@ -193,6 +194,21 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   (dueño), Ingrid, María Camila, Emanuel Díaz (ingreso 15-oct-2026, por día), Génesis (salida 20-oct-2026).
   Se une al usuario solo si el nombre coincide sin dudas (`matchStaffUser`).
 
+### Asistencia (entrada y salida, oct-2026)
+- **AsistenciaMarca** — migración `20261022150000_asistencia` (solo aditiva: enums `AsistenciaTipo`
+  `ENTRADA`/`SALIDA` y `AsistenciaOrigen` `PROPIA`/`ADMIN`/`CORRECCION`). `userId` (Restrict), `marcadaEn`
+  (hora del servidor), `dia` (`@db.Date`, día en Colombia de la entrada, aunque la salida pase de
+  medianoche), `creadaPorId`, `motivo`, `corrigeAId`, y anulación (`anuladaEn`, `anuladaPorId`,
+  `motivoAnulacion`). Las marcas **nunca se borran**: corregir = anular la original + crear una CORRECCION.
+- Reglas puras en `src/modules/asistencia/domain/attendance.ts`: `nextMark` (entrada de otro día sigue
+  abierta solo si se marcó desde las 18:00 y lleva < 12 h), `summarizeDay` (estado, horas por pares; salida olvidada no suma horas),
+  `workedDays` (un día cuenta si tiene una ENTRADA vigente), `attendanceDrivesPayroll`.
+- El botón marca con un candado por persona (`pg_advisory_xact_lock`) y compara lo que decía el botón:
+  un doble clic no crea dos entradas. Solo marcan usuarios `EMPLEADO`/`ADMIN` (una ficha sin usuario no).
+- **Nómina**: desde `ASISTENCIA_NOMINA_DESDE = "2026-11"` los días de quien cobra por día salen de la
+  asistencia (`buildPayrollBoard({ attendanceDays })`, fila `daysSource`); antes, `daysByMonth` manual (los
+  meses viejos no cambian).
+
 ### Transporte (cobertura DANE)
 - **TransportDepartment / TransportCity / TransportLocality** — división político-administrativa oficial
   de Colombia (DANE DIVIPOLA): 33 departamentos, ~1.122 municipios y ~7.057 corregimientos/centros
@@ -306,7 +322,10 @@ Route handlers reales (`route.ts`):
 - **Solo lectura**: módulo `src/modules/asesor` (hexagonal). Sus puertos solo tienen métodos de
   consulta; la ganancia por venta y el resumen del mes **reutilizan los casos de uso de Balances**.
 - Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_abonos`, `ver_venta`, `listar_cotizaciones`,
-  `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `equipo`, `saldos_de_cuentas` y `que_es_esta_aplicacion`.
+  `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `equipo`, `asistencia`, `saldos_de_cuentas` y `que_es_esta_aplicacion`.
+- `asistencia` (oct-2026): `fecha` o `desde`/`hasta` (máx. 62 días; por defecto hoy) y `persona` opcional (por
+  nombre) → quién está trabajando ahora, quién no ha llegado, y por día entrada, salida, horas, marcas y
+  correcciones; días trabajados del rango. `nomina_del_mes` trae `dias_fuente` (`asistencia`/`manual`).
 - `equipo` (oct-2026): trabajadores activos/retirados con cargo, vinculación, forma de pago, ingreso, salida y
   motivo; **nunca** cédula, nacimiento, celular, correo, dirección ni contacto de emergencia
   (`toPublicMember`). `nomina_del_mes` trae `estado`, `fecha_salida` y `tiene_usuario` por persona.

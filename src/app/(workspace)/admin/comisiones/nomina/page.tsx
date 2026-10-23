@@ -29,6 +29,7 @@ import { getSiteUrl } from "@/lib/site";
 import { CopyButton } from "@/modules/guias/presentation/copy-button";
 import { retiredUserIds } from "@/modules/equipo/application/use-cases";
 import { loadTeamMembers } from "@/modules/equipo/infrastructure/prisma-team-repository";
+import { loadAttendanceDays } from "@/modules/asistencia/infrastructure/prisma-asistencia-repository";
 
 // Nomina del mes (solo dueno/admin): basico de cada persona + comisiones - lo ya pagado,
 // con el dinero disponible hoy arriba para saber si alcanza. Pagar crea un gasto de
@@ -93,7 +94,11 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
   const team = await loadTeamMembers();
   const [currency, board, cash, staff, config, sellerLinks] = await Promise.all([
     getSystemCurrency(),
-    getPayrollBoardUseCase({ balances, asesor: createPrismaAsesorRepository(), nomina, loadTeam: async () => team }, mes, anio),
+    getPayrollBoardUseCase(
+      { balances, asesor: createPrismaAsesorRepository(), nomina, loadTeam: async () => team, loadAttendanceDays },
+      mes,
+      anio,
+    ),
     getCashPositionUseCase(balances, getMoneyWithoutAccount),
     nomina.listStaff(),
     nomina.getConfig(),
@@ -254,7 +259,15 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
               </ul>
             ) : null}
 
-            {row.hasUser && row.period === "DIARIO" ? (
+            {row.hasUser && row.period === "DIARIO" && row.daysSource === "asistencia" ? (
+              // Desde nov-2026 los dias salen de la asistencia: no se escriben a mano.
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">{row.daysWorked ?? 0} días</span> (de la asistencia) ·{" "}
+                <Link href={`/admin/asistencia?vista=mes&mes=${mesValue}&persona=${row.userId}`} className="underline">
+                  ver el detalle
+                </Link>
+              </p>
+            ) : row.hasUser && row.period === "DIARIO" ? (
               <form action={savePayrollDaysAction} className="flex flex-wrap items-end gap-2">
                 <input type="hidden" name="mes" value={mesValue} />
                 <input type="hidden" name="userId" value={row.userId} />

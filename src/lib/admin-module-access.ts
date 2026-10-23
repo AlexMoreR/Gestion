@@ -15,6 +15,8 @@ export const EMPLOYEE_FORBIDDEN_MODULES: AdminModuleKey[] = [
   "commissions",
   // Fichas del equipo (datos personales): solo el dueno/admin.
   "team",
+  // Asistencia de todos y correcciones: solo el dueno/admin (cada quien marca la suya desde la barra).
+  "attendance",
 ];
 
 export const adminModuleDefinitions = [
@@ -107,6 +109,13 @@ export const adminModuleDefinitions = [
     label: "Equipo",
     description: "Ficha de cada trabajador: contacto, forma de pago, ingreso y salida (solo dueno/admin).",
     path: "/admin/equipo",
+    group: "Comercial",
+  },
+  {
+    key: "attendance",
+    label: "Asistencia",
+    description: "Quién está trabajando hoy, entradas y salidas por mes y correcciones (solo dueno/admin).",
+    path: "/admin/asistencia",
     group: "Comercial",
   },
   {

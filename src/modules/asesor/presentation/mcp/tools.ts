@@ -18,7 +18,7 @@ import {
   listQuotesUseCase,
   listSalesUseCase,
 } from "../../application/use-cases";
-import { AsesorInputError, currentMonthInBogota } from "../../domain/calculations";
+import { AsesorInputError, buildDayRange, currentMonthInBogota } from "../../domain/calculations";
 import { createPrismaAsesorRepository } from "../../infrastructure/prisma-asesor-repository";
 import { getMoneyWithoutAccount } from "@/modules/balances/infrastructure/prisma-money-without-account";
 import { getCashPositionUseCase, getPayrollBoardUseCase } from "@/modules/nomina/application/use-cases";
@@ -26,6 +26,7 @@ import { PAY_PERIOD_LABELS } from "@/modules/nomina/domain/payroll";
 import { createPrismaNominaRepository, loadFixedCommissionRates } from "@/modules/nomina/infrastructure/prisma-nomina-repository";
 import {
   filterTeam,
+  normalizePersonName,
   TEAM_EMPLOYMENT_LABELS,
   TEAM_PAY_LABELS,
   TEAM_STATUS_LABELS,
@@ -34,6 +35,23 @@ import {
   toPublicMember,
 } from "@/modules/equipo/domain/team-member";
 import { loadTeamMembers } from "@/modules/equipo/infrastructure/prisma-team-repository";
+import {
+  ASISTENCIA_NOMINA_DESDE,
+  ATTENDANCE_KIND_LABELS,
+  ATTENDANCE_ORIGIN_LABELS,
+  DAY_STATUS_LABELS,
+  bogotaTime,
+  formatMinutes,
+} from "@/modules/asistencia/domain/attendance";
+import {
+  AttendanceInputError,
+  getRangeBoardUseCase,
+  getTodayBoardUseCase,
+} from "@/modules/asistencia/application/use-cases";
+import {
+  createPrismaAsistenciaRepository,
+  loadAttendanceDays,
+} from "@/modules/asistencia/infrastructure/prisma-asistencia-repository";
 import type { McpServerDefinition, McpToolDefinition, McpToolResult } from "./protocol";
 
 // Todas las herramientas son de SOLO LECTURA: solo llaman casos de uso de consulta.
@@ -249,7 +267,7 @@ export const asesorTools: McpToolDefinition[] = [
     handler: async (args, deps) => {
       const { mes, anio } = resolveMonth(args);
       const board = await getPayrollBoardUseCase(
-        { ...deps, nomina: createPrismaNominaRepository(), loadTeam: () => loadTeamMembers() },
+        { ...deps, nomina: createPrismaNominaRepository(), loadTeam: () => loadTeamMembers(), loadAttendanceDays },
         mes,
         anio,
       );
@@ -267,6 +285,8 @@ export const asesorTools: McpToolDefinition[] = [
           tipo_basico: row.period ? PAY_PERIOD_LABELS[row.period] : "Sin configurar",
           basico_unitario: row.period && row.period !== "SIN_BASE" ? { valor: row.baseAmount, moneda: row.currency } : null,
           dias_trabajados: row.daysWorked,
+          // "asistencia" (registro de entrada y salida, desde nov-2026) o "manual" (escritos en Nomina).
+          dias_fuente: row.daysSource,
           basico_del_mes: row.baseCop,
           ventas: row.salesCount,
           comision: row.commission,
@@ -293,6 +313,110 @@ export const asesorTools: McpToolDefinition[] = [
           "basico_del_mes = null si falta la TRM (basico en dolares) o los dias trabajados (pago diario).",
           "Las comisiones del mes en curso siguen subiendo mientras haya ventas.",
           "Entran todos los que trabajaron algun dia del mes segun su ficha de Equipo, aunque no tengan salario configurado. Un retirado aparece hasta su mes de salida; despues, solo si todavia tiene comision o pagos de ese mes.",
+          `Pago por dia: desde ${ASISTENCIA_NOMINA_DESDE} los dias salen de la asistencia (un dia cuenta si tiene al menos una entrada; dias_fuente = "asistencia"). Antes, de los dias escritos a mano en Nomina (dias_fuente = "manual").`,
+        ],
+      };
+    },
+  }),
+  defineTool({
+    name: "asistencia",
+    title: "Asistencia (entradas y salidas)",
+    description:
+      "Registro de entrada y salida del equipo: quien esta trabajando ahora, y por cada dia la hora de entrada, la de salida, las horas y si hubo correcciones (quien corrigio y el motivo). Recibe una fecha o un rango desde/hasta (por defecto hoy) y una persona opcional (nombre o parte del nombre). Da los dias trabajados del rango: un dia cuenta si tiene al menos una entrada. Horas en hora Colombia (HH:MM).",
+    schema: z.object({
+      fecha: z.string().optional().describe("Un solo dia, formato AAAA-MM-DD. Si no se da fecha ni rango: hoy."),
+      desde: z.string().optional().describe("Fecha inicial inclusiva, AAAA-MM-DD (para un rango; maximo 62 dias)."),
+      hasta: z.string().optional().describe("Fecha final inclusiva, AAAA-MM-DD. Si se omite, igual a desde."),
+      persona: z.string().max(80).optional().describe("Nombre o parte del nombre de la persona. Si se omite, todas."),
+    }),
+    handler: async (args) => {
+      const now = new Date();
+      const today = todayInBogota(now);
+      const desde = args.fecha ?? args.desde ?? args.hasta ?? today;
+      const hasta = args.fecha ?? args.hasta ?? args.desde ?? today;
+      // Valida formato y orden (lanza AsesorInputError con un mensaje claro).
+      const range = buildDayRange(desde, hasta);
+      if ((range.to.getTime() - range.from.getTime()) / 86_400_000 > 62) {
+        throw new AsesorInputError("El rango no puede pasar de 62 dias.");
+      }
+      const repo = createPrismaAsistenciaRepository();
+      let userId: string | undefined;
+      const query = normalizePersonName(args.persona ?? "");
+      if (args.persona?.trim() && !query) {
+        throw new AsesorInputError("Escribe el nombre de la persona (letras).");
+      }
+      if (query) {
+        const staff = await repo.listStaff();
+        const matches = staff.filter((member) => normalizePersonName(member.name).includes(query));
+        if (matches.length === 0) {
+          throw new AsesorInputError(`No hay un trabajador con ese nombre. Trabajadores: ${staff.map((member) => member.name).join(", ")}.`);
+        }
+        if (matches.length > 1) {
+          throw new AsesorInputError(`Hay varias personas con ese nombre: ${matches.map((member) => member.name).join(", ")}. Se mas especifico.`);
+        }
+        userId = matches[0].id;
+      }
+      let board;
+      let todayBoard;
+      try {
+        [board, todayBoard] = await Promise.all([
+          getRangeBoardUseCase(repo, { fromDay: desde, toDay: hasta, userId }, now),
+          desde <= today && today <= hasta ? getTodayBoardUseCase(repo, now) : Promise.resolve(null),
+        ]);
+      } catch (error) {
+        if (error instanceof AttendanceInputError) throw new AsesorInputError(error.message);
+        throw error;
+      }
+      const time = (value: Date | null) => (value ? bogotaTime(value) : null);
+      return {
+        hoy: today,
+        hora_actual: bogotaTime(now),
+        desde,
+        hasta: board.toDay,
+        trabajando_ahora: todayBoard
+          ? todayBoard.rows
+              .filter((row) => (!userId || row.person.id === userId) && row.summary.status === "TRABAJANDO")
+              .map((row) => ({ persona: row.person.name, desde: time(row.summary.firstEntry) }))
+          : null,
+        no_han_llegado_hoy: todayBoard
+          ? todayBoard.rows
+              .filter((row) => (!userId || row.person.id === userId) && row.summary.status === "NO_HA_LLEGADO")
+              .map((row) => row.person.name)
+          : null,
+        personas: board.people.map((row) => ({
+          persona: row.person.name,
+          dias_trabajados: row.workedDays,
+          horas: Math.round((row.minutes / 60) * 100) / 100,
+          horas_texto: formatMinutes(row.minutes),
+          dias_con_correccion: row.corrections,
+          dias_sin_marcar_salida: row.missingExits,
+          dias: row.days.map((day) => ({
+            fecha: day.day,
+            estado: day.day === today ? DAY_STATUS_LABELS[day.status] : day.worked ? "Trabajó" : "Sin entrada",
+            entrada: time(day.firstEntry),
+            salida: time(day.lastExit),
+            horas: Math.round((day.minutes / 60) * 100) / 100,
+            sin_salida: day.openEntry,
+            corregido: day.corrected,
+            motivos: day.reasons,
+            marcas: day.marks.map((mark) => ({
+              tipo: ATTENDANCE_KIND_LABELS[mark.kind],
+              hora: bogotaTime(mark.markedAt),
+              origen: ATTENDANCE_ORIGIN_LABELS[mark.origin],
+              hecha_por: mark.origin === "PROPIA" ? null : mark.createdByName,
+              motivo: mark.reason,
+              anulada: mark.voidedAt !== null,
+              anulada_por: mark.voidedByName,
+              motivo_anulacion: mark.voidReason,
+            })),
+          })),
+        })),
+        notas: [
+          "Un dia cuenta como trabajado si tiene al menos una entrada (no anulada). Una salida olvidada no inventa horas: esa entrada no suma horas.",
+          "La hora de cada marca la pone el servidor; solo un admin puede corregir o agregar una marca, con motivo. Las marcas corregidas no se borran: quedan anuladas.",
+          "El turno que pasa de medianoche cuenta en el dia de la entrada.",
+          `La nomina por dia toma estos dias desde ${ASISTENCIA_NOMINA_DESDE} (ver nomina_del_mes, dias_fuente).`,
+          "Solo marcan los usuarios Empleado o Admin; quien no tiene usuario en Gestion no aparece.",
         ],
       };
     },
@@ -368,6 +492,6 @@ export const asesorMcpServer: McpServerDefinition = {
   name: "gestion-magilus",
   version: "1.1.0",
   instructions:
-    "Servidor de SOLO LECTURA de Gestion (Magilus): ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados) y saldos de cuentas. Para entender el sistema completo usa primero que_es_esta_aplicacion. No modifica ningun dato. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
+    "Servidor de SOLO LECTURA de Gestion (Magilus): ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), asistencia (quien esta trabajando hoy, entradas y salidas, dias trabajados) y saldos de cuentas. Para entender el sistema completo usa primero que_es_esta_aplicacion. No modifica ningun dato. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
   tools: asesorTools,
 };

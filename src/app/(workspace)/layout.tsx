@@ -4,6 +4,7 @@ import { AppShell } from "@/components/app-shell";
 import { WorkspaceTheme } from "@/components/workspace-theme";
 import { getAdminModuleAccess } from "@/lib/admin-module-access";
 import { getSystemBrandName } from "@/lib/system-settings";
+import { loadAttendanceButtonState } from "@/modules/asistencia/presentation/attendance-button-state";
 
 export default async function WorkspaceLayout({
   children,
@@ -11,9 +12,10 @@ export default async function WorkspaceLayout({
   children: ReactNode;
 }) {
   const session = await auth();
-  const [brandName, adminModuleAccess] = await Promise.all([
+  const [brandName, adminModuleAccess, attendance] = await Promise.all([
     getSystemBrandName(),
     getAdminModuleAccess(session?.user?.id, session?.user?.role),
+    loadAttendanceButtonState(session?.user?.id, session?.user?.role),
   ]);
 
   return (
@@ -29,6 +31,7 @@ export default async function WorkspaceLayout({
         initialUser={session?.user ?? null}
         brandName={brandName}
         adminModuleAccess={adminModuleAccess}
+        attendance={attendance}
       >
         {children}
       </AppShell>

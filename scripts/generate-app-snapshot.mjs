@@ -39,6 +39,10 @@ const CODE_RULES = [
   { regla: "Combos: se muestran como un solo producto", archivo: "src/lib/quote-display-items.ts", funcion: "groupQuoteDisplayItems" },
   { regla: "Comisiones por vendedora", archivo: "src/modules/asesor/domain/calculations.ts", funcion: "computeCommissions" },
   { regla: "Trabajaba en tal fecha (Equipo: ingreso y salida)", archivo: "src/modules/equipo/domain/team-member.ts", funcion: "isActiveOn" },
+  { regla: "Asistencia: que toca marcar (entrada o salida)", archivo: "src/modules/asistencia/domain/attendance.ts", funcion: "nextMark" },
+  { regla: "Asistencia: estado y horas del dia", archivo: "src/modules/asistencia/domain/attendance.ts", funcion: "summarizeDay" },
+  { regla: "Asistencia: dias trabajados del mes (base de la nomina por dia)", archivo: "src/modules/asistencia/domain/attendance.ts", funcion: "workedDays" },
+  { regla: "Nomina por dia desde la asistencia (desde nov-2026)", archivo: "src/modules/asistencia/domain/attendance.ts", funcion: "attendanceDrivesPayroll" },
 ];
 
 const warnings = [];

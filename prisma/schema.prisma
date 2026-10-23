@@ -56,6 +56,9 @@ model User {
   salePaymentsCreated      SalePayment[]         @relation("SalePaymentCreatedBy")
   registrosRetroactivos    RegistroRetroactivo[] @relation("RegistroRetroactivoUsuario")
   teamMember               TeamMember?           @relation("TeamMemberUser")
+  asistenciaMarcas         AsistenciaMarca[]     @relation("AsistenciaMarcaUsuario")
+  asistenciaCreadas        AsistenciaMarca[]     @relation("AsistenciaMarcaCreadaPor")
+  asistenciaAnuladas       AsistenciaMarca[]     @relation("AsistenciaMarcaAnuladaPor")
 }
 
 enum ActivityAction {
@@ -1118,4 +1121,44 @@ model TeamMember {
 
   @@index([endDate])
   @@index([nameKey])
+}
+
+// Asistencia: registro de entrada y salida de cada trabajador (oct-2026).
+// La hora la pone el servidor; las marcas no se borran: una correccion anula la original
+// y crea otra con origen CORRECCION (quien, cuando y por que).
+enum AsistenciaTipo {
+  ENTRADA
+  SALIDA
+}
+
+enum AsistenciaOrigen {
+  PROPIA
+  ADMIN
+  CORRECCION
+}
+
+model AsistenciaMarca {
+  id              String           @id @default(cuid())
+  userId          String
+  tipo            AsistenciaTipo
+  // Hora real de la marca (la pone el servidor; en correcciones, la que escribe el admin).
+  marcadaEn       DateTime         @default(now())
+  // Dia en Colombia al que pertenece (el de la entrada, aunque la salida pase de medianoche).
+  dia             DateTime         @db.Date
+  origen          AsistenciaOrigen @default(PROPIA)
+  creadaPorId     String?
+  // Obligatorio en correcciones.
+  motivo          String?
+  // Marca que esta reemplaza (correccion).
+  corrigeAId      String?
+  anuladaEn       DateTime?
+  anuladaPorId    String?
+  motivoAnulacion String?
+  createdAt       DateTime         @default(now())
+  user            User             @relation("AsistenciaMarcaUsuario", fields: [userId], references: [id], onDelete: Restrict)
+  creadaPor       User?            @relation("AsistenciaMarcaCreadaPor", fields: [creadaPorId], references: [id], onDelete: SetNull)
+  anuladaPor      User?            @relation("AsistenciaMarcaAnuladaPor", fields: [anuladaPorId], references: [id], onDelete: SetNull)
+
+  @@index([userId, dia])
+  @@index([dia])
 }

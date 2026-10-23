@@ -206,6 +206,68 @@ describe("buildPayrollBoard con el Equipo", () => {
   });
 });
 
+describe("buildPayrollBoard con la Asistencia", () => {
+  const staff = [
+    { id: "maria", name: "María" },
+    { id: "ingrid", name: "Ingrid" },
+    { id: "emanuel", name: "Emanuel" },
+  ];
+  const daily: PayrollConfig = {
+    ...config,
+    daysByMonth: { "2026-09": { emanuel: 10 }, "2026-10": { emanuel: 3 }, "2026-11": { emanuel: 7 } },
+  };
+  const commissions = [{ userId: "maria", name: "María", salesCount: 1, commission: 40000 }];
+  const build = (mes: number, anio: number, attendanceDays?: Record<string, number>) =>
+    buildPayrollBoard({ mes, anio, config: daily, staff, commissions, payments: [], attendanceDays });
+
+  it("octubre 2026 y anteriores dan exactamente lo mismo con o sin asistencia (dias a mano)", () => {
+    for (const [mes, anio] of [[9, 2026], [10, 2026], [12, 2025]]) {
+      const manual = build(mes, anio);
+      const withAttendance = build(mes, anio, { emanuel: 20, maria: 15 });
+      expect(withAttendance).toEqual(manual);
+      const emanuel = withAttendance.rows.find((row) => row.userId === "emanuel")!;
+      expect(emanuel.daysSource).toBe("manual");
+    }
+    expect(build(10, 2026, { emanuel: 20 }).rows.find((row) => row.userId === "emanuel")).toMatchObject({
+      daysWorked: 3,
+      baseCop: 150000,
+    });
+  });
+
+  it("desde noviembre el pago diario usa los dias de la asistencia (tarifa x dias)", () => {
+    const emanuel = build(11, 2026, { emanuel: 12 }).rows.find((row) => row.userId === "emanuel")!;
+    expect(emanuel).toMatchObject({ daysWorked: 12, daysSource: "asistencia", baseCop: 600000, totalDue: 600000 });
+    expect(build(1, 2027, { emanuel: 2 }).rows.find((row) => row.userId === "emanuel")!.baseCop).toBe(100000);
+  });
+
+  it("noviembre sin marcas: 0 dias con aviso, el total no queda pendiente", () => {
+    const board = build(11, 2026, {});
+    const emanuel = board.rows.find((row) => row.userId === "emanuel")!;
+    expect(emanuel).toMatchObject({ daysWorked: 0, daysSource: "asistencia", baseCop: 0, totalDue: 0 });
+    expect(emanuel.warnings.some((warning) => warning.includes("Asistencia"))).toBe(true);
+    expect(emanuel.warnings.some((warning) => warning.includes("Faltan los días"))).toBe(false);
+    expect(board.totals.incomplete).toBe(false);
+  });
+
+  it("quincenal y sin basico no cambian con la asistencia", () => {
+    const manual = build(11, 2026);
+    const withAttendance = build(11, 2026, { maria: 3, ingrid: 4 });
+    for (const id of ["maria", "ingrid"]) {
+      const before = manual.rows.find((row) => row.userId === id)!;
+      const after = withAttendance.rows.find((row) => row.userId === id)!;
+      expect(after).toEqual(before);
+      expect(after.daysSource).toBeNull();
+      expect(after.daysWorked).toBeNull();
+    }
+    expect(withAttendance.rows.find((row) => row.userId === "maria")!.baseCop).toBe(400000);
+  });
+
+  it("noviembre sin attendanceDays mantiene los dias a mano", () => {
+    const emanuel = build(11, 2026).rows.find((row) => row.userId === "emanuel")!;
+    expect(emanuel).toMatchObject({ daysWorked: 7, daysSource: "manual", baseCop: 350000 });
+  });
+});
+
 describe("parsePayrollConfig", () => {
   it("tolera JSON roto o vacio", () => {
     expect(parsePayrollConfig("no-json").people).toEqual([]);
