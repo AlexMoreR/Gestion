@@ -4,6 +4,7 @@ export function FloatingWhatsAppButton({ href }: { href: string }) {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
+      data-floating-whatsapp=""
       aria-label="Escríbenos por WhatsApp"
       title="Escríbenos por WhatsApp"
       className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-[0_8px_24px_rgba(0,0,0,0.25)] transition-transform duration-200 hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#25D366] active:scale-95 print:hidden"

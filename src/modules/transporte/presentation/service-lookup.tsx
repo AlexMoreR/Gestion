@@ -198,7 +198,7 @@ export function ServiceLookup({ departments, brandName, whatsAppHref }: ServiceL
         )
       ) : (
         <div className="flex items-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-slate-400">
-          <MapPin className="h-4 w-4" /> Elige tu ubicación para ver si tienes envío gratis.
+          <MapPin className="h-4 w-4" /> Elige tu ubicación para consultar el envío.
         </div>
       )}
     </div>

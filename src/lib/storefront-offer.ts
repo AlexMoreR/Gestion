@@ -1,16 +1,16 @@
 // Textos y calculos de oferta de la tienda publica (magilus.com). Reglas puras, sin Prisma.
 //
-// Decisiones de Alexander (8-oct-2026):
-// - "Envio gratis" siempre lleva su condicion: pagando 50 % de anticipo. El envio gratis
-//   aplica solo en las ciudades marcadas GRATIS en Transporte; el cliente lo consulta en /cobertura.
-// - No se muestra precio "antes" tachado. Solo en combos: "Ahorras $X frente a comprar por
-//   separado", con X = suma de los precios actuales de los componentes - precio del combo.
+// Decisiones:
+// - 23-oct-2026 (Emanuel, ficha tipo landing): la tienda ya no promete "envío gratis". El envio
+//   se consulta en /cobertura con el texto "Consulta el envío a tu ciudad".
+// - 8-oct-2026 (Alexander): en combos se muestra "Ahorras $X frente a comprar por separado",
+//   con X = suma de los precios actuales de los componentes - precio del combo. El precio normal
+//   tachado solo aparece con una oferta vigente cargada en Gestion.
 
 import { getCurrentStorePrice, type ProductPromoSource } from "./product-promo";
 
-export const FREE_SHIPPING_LABEL = "Envío gratis pagando 50 % de anticipo";
-export const FREE_SHIPPING_SHORT_LABEL = "Envío gratis con 50 % de anticipo";
-export const FREE_SHIPPING_COVERAGE_PATH = "/cobertura";
+export const SHIPPING_CHECK_LABEL = "Consulta el envío a tu ciudad";
+export const SHIPPING_COVERAGE_PATH = "/cobertura";
 
 export type ComboSavingsComponent = {
   quantity: number;

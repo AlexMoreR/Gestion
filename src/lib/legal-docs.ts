@@ -95,7 +95,7 @@ export function getLegalDoc(slug: string, brandName: string): LegalDoc | null {
         {
           heading: "4. Pedidos, pagos y envíos",
           body: [
-            "El pedido se confirma una vez acordadas las condiciones de pago. Los costos y tiempos de envío dependen de la ciudad de destino; puedes consultar la cobertura de envío gratis en nuestra página de cobertura.",
+            "El pedido se confirma una vez acordadas las condiciones de pago. Los costos y tiempos de envío dependen de la ciudad de destino; puedes consultar el envío a tu ciudad en nuestra página de cobertura.",
           ],
         },
         {
