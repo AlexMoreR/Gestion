@@ -244,6 +244,19 @@ body {
   animation: whatsappBadgePulse 1.6s ease-in-out infinite;
 }
 
+/* Ficha de producto: la barra fija de compra reemplaza a la burbuja flotante generica de
+   WhatsApp (en celular y escritorio), y en celular deja espacio abajo para que la barra no tape
+   el pie de pagina. Solo aplica en paginas que tienen [data-product-buy-bar]. */
+body:has([data-product-buy-bar]) [data-floating-whatsapp] {
+  display: none;
+}
+
+@media (max-width: 1023.98px) {
+  body:has([data-product-buy-bar]) {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .promo-marquee-track {
     animation: none;

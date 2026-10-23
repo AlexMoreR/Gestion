@@ -77,7 +77,7 @@ export default async function CoberturaOpenGraphImage() {
               color: "#a7f3d0",
             }}
           >
-            🚚 Envío gratis
+            🚚 Envío a tu ciudad
           </div>
           <div
             style={{
@@ -88,10 +88,10 @@ export default async function CoberturaOpenGraphImage() {
               maxWidth: 900,
             }}
           >
-            ¿Tienes envío gratis?
+            Consulta el envío a tu ciudad
           </div>
           <div style={{ fontSize: 30, lineHeight: 1.3, color: "rgba(255,255,255,0.85)", maxWidth: 820 }}>
-            Consulta tu ciudad o corregimiento y descubre al instante si te enviamos gratis.
+            Elige tu ciudad o corregimiento y descubre al instante cómo te enviamos.
           </div>
         </div>
 

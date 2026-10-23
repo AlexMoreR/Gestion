@@ -606,15 +606,6 @@ export async function StorefrontCatalog({
                         loading={index < 4 ? "eager" : "lazy"}
                         decoding="async"
                       />
-                      <div className="absolute -bottom-1 left-2.5 z-10 rounded-md border border-[color-mix(in_srgb,var(--primary)_24%,white)] bg-[linear-gradient(135deg,var(--primary)_0%,var(--primary-strong)_100%)] px-1.5 py-1 text-white shadow-[0_12px_20px_-14px_color-mix(in_srgb,var(--primary)_70%,black)]">
-                        <span className="flex items-center gap-1 text-[7px] font-black uppercase leading-none tracking-[0.08em]">
-                          <Truck className="h-2.5 w-2.5" />
-                          Envío gratis
-                        </span>
-                        <span className="mt-0.5 block text-[8px] font-bold leading-none tracking-[0.02em]">
-                          con 50 % de anticipo
-                        </span>
-                      </div>
                       <span className="absolute left-2 top-2 rounded-full border border-white/20 bg-slate-900/85 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
                         {product.code?.trim() || "SKU"}
                       </span>

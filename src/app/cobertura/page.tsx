@@ -27,9 +27,9 @@ const REF_WHATSAPP: Record<string, string> = {
 export async function generateMetadata(): Promise<Metadata> {
   const brandName = await getSystemBrandName();
   // El layout raiz agrega "| Marca" (template); aqui va sin marca para no repetirla.
-  const pageTitle = "Cobertura de envío gratis";
+  const pageTitle = "Consulta el envío a tu ciudad";
   const title = `${pageTitle} | ${brandName}`;
-  const description = `Consulta si tu ciudad o corregimiento tiene envío gratis con ${brandName}.`;
+  const description = `Consulta el envío de ${brandName} a tu ciudad o corregimiento.`;
   return {
     title: pageTitle,
     description,
@@ -96,9 +96,9 @@ export default async function ServicioTransportePage({ searchParams }: PageProps
 
       <main className="mx-auto w-full max-w-3xl px-4 py-8 md:px-6 md:py-10">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">¿Tienes envío gratis?</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Consulta el envío a tu ciudad</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Elige tu ubicación y te decimos al instante si en {brandName} te enviamos <strong>gratis</strong> a tu
+            Elige tu ubicación y te decimos al instante cómo llega tu pedido de {brandName} a tu
             zona.
           </p>
         </div>
