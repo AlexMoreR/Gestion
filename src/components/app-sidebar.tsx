@@ -13,6 +13,7 @@ import {
   Package,
   ReceiptText,
   Settings,
+  Store,
   Tag,
   Truck,
   Users,
@@ -83,7 +84,8 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
         !isAdminOrdersRoute &&
         !isAdminProductionRoute &&
         !isAdminDispatchesRoute &&
-        !isAdminSuppliersRoute),
+        !isAdminSuppliersRoute &&
+        !pathname.startsWith("/admin/marketplace")),
       items: [
         { title: "Vista general", url: dashboardHref },
       ],
@@ -253,6 +255,17 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
           { title: "Hoy", url: "/admin/asistencia" },
           { title: "Por mes", url: "/admin/asistencia?vista=mes" },
         ],
+      });
+    }
+
+    // Estadisticas de NETMAGI (Marketplace): solo el dueno/admin.
+    if (user.role === "ADMIN" && adminModuleAccess.marketplace) {
+      navMain.push({
+        title: "Marketplace",
+        url: "/admin/marketplace",
+        icon: Store,
+        isActive: pathname.startsWith("/admin/marketplace"),
+        items: [{ title: "Estadísticas", url: "/admin/marketplace" }],
       });
     }
 
