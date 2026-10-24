@@ -1,5 +1,5 @@
 import type { AppSnapshot } from "./app-overview";
-import type { DayRange, ProductRow, QuoteRow, QuoteStatusCode, SaleDetail } from "./entities";
+import type { DayRange, ExpenseLine, ProductRow, QuoteRow, QuoteStatusCode, SaleDetail } from "./entities";
 import type { SaleLedgerInput } from "./payments";
 
 // Filtro opcional de ventas para los abonos; sin filtro = todas las ventas.
@@ -17,6 +17,8 @@ export interface AsesorReadRepository {
   listProducts(search?: string): Promise<ProductRow[]>;
   // Ventas con sus abonos, fechas y saldo (pagadas o no).
   listSaleLedgers(filter?: SaleLedgerFilter): Promise<SaleLedgerInput[]>;
+  // Gastos operativos con fecha de gasto dentro del rango.
+  listExpenses(range: DayRange): Promise<ExpenseLine[]>;
 }
 
 export type PackageManifest = {

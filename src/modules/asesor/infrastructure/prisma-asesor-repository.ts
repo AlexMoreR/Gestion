@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { groupQuoteDisplayItems } from "@/lib/quote-display-items";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
-import type { DayRange, ProductRow, QuoteRow, QuoteStatusCode, SaleDetail, Seller } from "../domain/entities";
+import type { DayRange, ExpenseLine, ProductRow, QuoteRow, QuoteStatusCode, SaleDetail, Seller } from "../domain/entities";
 import type { SaleLedgerInput } from "../domain/payments";
 import type { AsesorReadRepository, SaleLedgerFilter } from "../domain/repository";
 
@@ -108,6 +108,33 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
         clientName: quote.client?.name ?? null,
         seller: toSeller(quote.createdBy),
         saleCode: quote.sale?.code ?? null,
+      }));
+    },
+
+    async listExpenses(range: DayRange): Promise<ExpenseLine[]> {
+      const rows = await prisma.expense.findMany({
+        where: { expenseDate: { gte: range.from, lt: range.to } },
+        orderBy: [{ expenseDate: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          expenseDate: true,
+          amount: true,
+          description: true,
+          receiptUrl: true,
+          category: { select: { name: true } },
+          account: { select: { name: true } },
+          employee: { select: { name: true, email: true } },
+        },
+      });
+      return rows.map((row) => ({
+        id: row.id,
+        date: row.expenseDate,
+        category: row.category.name,
+        account: row.account.name,
+        amount: toNumber(row.amount),
+        note: row.description,
+        person: row.employee ? row.employee.name?.trim() || row.employee.email : null,
+        hasReceipt: Boolean(row.receiptUrl),
       }));
     },
 

@@ -5,13 +5,16 @@ import {
   buildDayRange,
   buildMonthRange,
   computeCommissions,
+  computeRealProfit,
   currentMonthInBogota,
   describeRange,
+  filterExpensesByCategory,
   productMargin,
+  summarizeExpensesByCategory,
   summarizeMonth,
   summarizeQuotes,
 } from "./calculations";
-import type { CommissionBoardSaleInput, QuoteRow } from "./entities";
+import type { CommissionBoardSaleInput, ExpenseLine, QuoteRow } from "./entities";
 
 const ana = { id: "u-ana", name: "Ana" };
 const bea = { id: "u-bea", name: "Bea" };
@@ -252,5 +255,59 @@ describe("pantalla de comisiones", () => {
     expect(board.unassigned).toMatchObject({ salesCount: 1, saleAmount: 200_000, profit: 50_000 });
     expect(board.unassigned?.lines[0]).toMatchObject({ saleCode: "SAL-2", clientName: "Sin dueño" });
     expect(board.totals.commission).toBe(10_000);
+  });
+});
+
+describe("gastos y ganancia real", () => {
+  const line = (category: string, amount: number, id = `${category}-${amount}`): ExpenseLine => ({
+    id,
+    date: new Date("2026-10-10T12:00:00Z"),
+    category,
+    account: "Caja",
+    amount,
+    note: null,
+    person: null,
+    hasReceipt: false,
+  });
+
+  it("computeRealProfit no resta dos veces la nomina", () => {
+    const result = computeRealProfit({
+      contribution: 5_000_000,
+      commissions: 500_000,
+      baseSalaries: 1_000_000,
+      expenses: [line("Marketing", 200_000), line("Nomina", 700_000), line("Nómina", 300_000), line("Arriendo", 100_000)],
+    });
+    expect(result.gastos_sin_nomina).toBe(300_000);
+    expect(result.pagos_de_nomina_registrados).toBe(1_000_000);
+    expect(result.ganancia_real).toBe(5_000_000 - 500_000 - 1_000_000 - 300_000);
+  });
+
+  it("computeRealProfit sin gastos", () => {
+    expect(computeRealProfit({ contribution: 100, commissions: 10, baseSalaries: 0, expenses: [] })).toMatchObject({
+      gastos_sin_nomina: 0,
+      pagos_de_nomina_registrados: 0,
+      ganancia_real: 90,
+    });
+  });
+
+  it("filterExpensesByCategory ignora tildes y mayusculas, y sin filtro devuelve todo", () => {
+    const lines = [line("Nómina", 1), line("Marketing", 2), line("Arriendo", 3)];
+    expect(filterExpensesByCategory(lines, "NOMINA").map((l) => l.category)).toEqual(["Nómina"]);
+    expect(filterExpensesByCategory(lines, "mark")).toHaveLength(1);
+    expect(filterExpensesByCategory(lines, undefined)).toHaveLength(3);
+    expect(filterExpensesByCategory(lines, "  ")).toHaveLength(3);
+    expect(filterExpensesByCategory(lines, "zzz")).toHaveLength(0);
+  });
+
+  it("summarizeExpensesByCategory agrupa y ordena por total", () => {
+    const result = summarizeExpensesByCategory([
+      line("Arriendo", 100, "a"),
+      line("Marketing", 300, "b"),
+      line("Arriendo", 250, "c"),
+    ]);
+    expect(result).toEqual([
+      { categoria: "Arriendo", gastos: 2, total: 350 },
+      { categoria: "Marketing", gastos: 1, total: 300 },
+    ]);
   });
 });

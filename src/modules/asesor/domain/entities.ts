@@ -1,6 +1,18 @@
 // Modulo "asesor": consultas de SOLO LECTURA para el asesor de IA (servidor MCP).
 // Tipos planos, sin Prisma.
 
+// Un gasto operativo para el asesor (listar_gastos).
+export type ExpenseLine = {
+  id: string;
+  date: Date;
+  category: string;
+  account: string;
+  amount: number;
+  note: string | null;
+  person: string | null;
+  hasReceipt: boolean;
+};
+
 export type DayRange = {
   // Semiabierto [from, to): misma convencion que Balances (dias calendario en UTC).
   from: Date;

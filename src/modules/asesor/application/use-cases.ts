@@ -11,6 +11,9 @@ import {
   buildMonthRange,
   type CommissionFixedRates,
   computeCommissions,
+  computeRealProfit,
+  filterExpensesByCategory,
+  summarizeExpensesByCategory,
   COMMISSION_FIRST_SALE_RATE,
   COMMISSION_NEXT_SALES_RATE,
   describeRange,
@@ -87,6 +90,64 @@ export async function getMonthSummaryUseCase(deps: AsesorDependencies, mes: numb
     notas: [
       "contribucion = ingresos - costo_producto - fletes; contribucion_pct = contribucion / ingresos.",
       "No incluye gastos operativos (nomina, arriendo, marketing).",
+    ],
+  };
+}
+
+export type PayrollTotals = { base: number; commission: number; incomplete: boolean };
+
+// Gastos del mes (por fecha de gasto) con total por categoria y la ganancia real del mes:
+// ventas - producto - flete - comisiones - sueldos basicos - gastos (sin pagos de Nomina).
+export async function listExpensesUseCase(
+  deps: AsesorDependencies,
+  mes: number,
+  anio: number,
+  categoria: string | undefined,
+  loadPayrollTotals: () => Promise<PayrollTotals>,
+) {
+  const period = buildMonthRange(mes, anio);
+  const [metrics, allExpenses, payroll] = await Promise.all([
+    getDashboardMetricsUseCase(deps.balances, period),
+    deps.asesor.listExpenses(period),
+    loadPayrollTotals(),
+  ]);
+  const expenses = filterExpensesByCategory(allExpenses, categoria);
+  const realProfit = computeRealProfit({
+    contribution: metrics.netProfit,
+    commissions: payroll.commission,
+    baseSalaries: payroll.base,
+    expenses: allExpenses,
+  });
+  return {
+    mes,
+    anio,
+    periodo: describeRange(period),
+    moneda: CURRENCY,
+    categoria_filtrada: categoria?.trim() || null,
+    total_gastos: roundMoney(expenses.reduce((sum, line) => sum + line.amount, 0)),
+    por_categoria: summarizeExpensesByCategory(expenses),
+    gastos: expenses.map((line) => ({
+      id: line.id,
+      fecha: formatDay(line.date),
+      categoria: line.category,
+      cuenta: line.account,
+      monto: roundMoney(line.amount),
+      nota: line.note,
+      persona: line.person,
+      con_foto: line.hasReceipt,
+    })),
+    ganancia_real: {
+      ...summarizeMonth(metrics),
+      ...realProfit,
+      nomina_incompleta: payroll.incomplete,
+      formula:
+        "ganancia_real = contribucion (ventas - producto - flete) - comisiones del mes - sueldos basicos del mes - gastos sin nomina.",
+    },
+    notas: [
+      "La ganancia real usa todos los gastos del mes, aunque se filtre por categoria; el filtro solo cambia la lista y el total_gastos.",
+      "Los pagos de Nomina no se restan como gasto: la nomina ya entra como comisiones + sueldos basicos del tablero de Nomina (restarlos de nuevo contaria dos veces). Se muestran aparte en pagos_de_nomina_registrados.",
+      "nomina_incompleta = true si a alguien le falta el basico por calcular (dias trabajados o TRM): la ganancia real queda sobreestimada.",
+      "Las comisiones del mes en curso siguen subiendo mientras haya ventas.",
     ],
   };
 }

@@ -16,6 +16,7 @@ import type {
   ExpenseMetrics,
   ExpenseRow,
 } from "../domain/entities";
+import { ExpenseDraftUsedError, normalizeWord } from "../domain/expense-draft";
 import { summarizeCategoryTotals, summarizeExpenseMetrics } from "../domain/calculations";
 import { registrarRetroactivos } from "@/modules/retroactivos/infrastructure/registrar-retroactivo";
 
@@ -178,6 +179,34 @@ export function createPrismaExpensesRepository(): ExpensesRepository {
       });
     },
 
+    async ensureCategoryByName(name: string, createdById: string): Promise<ExpenseCategory> {
+      // Pocas categorias: se compara sin tildes ni mayusculas ("Nómina" = "Nomina") para no duplicar.
+      const findByName = async () => {
+        const all = (await prisma.expenseCategory.findMany({ select: categorySelect })) as CategorySelection[];
+        return all.find((row) => normalizeWord(row.name) === normalizeWord(name)) ?? null;
+      };
+      const existing = await findByName();
+      if (existing) {
+        return mapCategory(existing as CategorySelection);
+      }
+      try {
+        const created = (await prisma.expenseCategory.create({
+          data: { name, createdById },
+          select: categorySelect,
+        })) as CategorySelection;
+        return mapCategory(created);
+      } catch (error) {
+        // Dos llamadas a la vez: gana la primera, la otra la lee.
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+          const winner = await findByName();
+          if (winner) {
+            return mapCategory(winner);
+          }
+        }
+        throw error;
+      }
+    },
+
     async listExpenses(period?: DateRange): Promise<ExpenseRow[]> {
       const rows = (await prisma.expense.findMany({
         where: period ? { expenseDate: { gte: period.from, lt: period.to } } : undefined,
@@ -214,6 +243,14 @@ export function createPrismaExpensesRepository(): ExpensesRepository {
 
     async createExpense(input: CreateExpenseInput): Promise<Expense> {
       const row = await prisma.$transaction(async (tx) => {
+        if (input.fromDraft) {
+          // Candado de la fila del borrador: un doble envio espera aqui y luego lo ve GUARDADO.
+          const locked = await tx.$queryRaw<Array<{ estado: string }>>`
+            SELECT "estado"::text AS "estado" FROM "GastoBorrador" WHERE "id" = ${input.fromDraft.id} FOR UPDATE`;
+          if (locked[0]?.estado !== "PENDIENTE") {
+            throw new ExpenseDraftUsedError();
+          }
+        }
         const created = (await tx.expense.create({
           data: {
             categoryId: input.categoryId,
@@ -233,6 +270,17 @@ export function createPrismaExpensesRepository(): ExpensesRepository {
           await registrarRetroactivos(tx, [
             { tipo: "GASTO", registroId: created.id, monto: input.amount, ...input.retroactivo },
           ]);
+        }
+        if (input.fromDraft) {
+          await tx.gastoBorrador.update({
+            where: { id: input.fromDraft.id },
+            data: {
+              estado: "GUARDADO",
+              expenseId: created.id,
+              ultimoMotivoRechazo: null,
+              revision: (input.fromDraft.revision ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+            },
+          });
         }
         return created;
       });

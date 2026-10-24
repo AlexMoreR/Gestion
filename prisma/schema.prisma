@@ -58,6 +58,7 @@ model User {
   teamMember               TeamMember?           @relation("TeamMemberUser")
   asistenciaMarcas         AsistenciaMarca[]     @relation("AsistenciaMarcaUsuario")
   asistenciaCreadas        AsistenciaMarca[]     @relation("AsistenciaMarcaCreadaPor")
+  gastoBorradores          GastoBorrador[]       @relation("GastoBorradorCreadoPor")
   asistenciaAnuladas       AsistenciaMarca[]     @relation("AsistenciaMarcaAnuladaPor")
 }
 
@@ -828,6 +829,7 @@ model Expense {
   account     Account         @relation(fields: [accountId], references: [id], onDelete: Restrict)
   createdBy   User            @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   employee    User?           @relation("ExpenseEmployee", fields: [employeeId], references: [id], onDelete: SetNull)
+  borrador    GastoBorrador?
 
   @@index([categoryId])
   @@index([accountId])
@@ -1161,4 +1163,38 @@ model AsistenciaMarca {
 
   @@index([userId, dia])
   @@index([dia])
+}
+
+enum GastoBorradorEstado {
+  PENDIENTE
+  GUARDADO
+  RECHAZADO
+  VENCIDO
+}
+
+// Gasto dicho a Claude (MCP) que espera la foto del soporte. El token del enlace nunca se guarda:
+// solo su hash. Al pasar la revision de la foto se crea el Expense y el borrador queda GUARDADO.
+model GastoBorrador {
+  id                  String              @id @default(cuid())
+  tokenHash           String              @unique
+  categoryId          String
+  accountId           String
+  amount              Decimal             @db.Decimal(14, 2)
+  expenseDate         DateTime
+  description         String?
+  motivoRetroactivo   String?
+  employeeId          String?
+  estado              GastoBorradorEstado @default(PENDIENTE)
+  intentos            Int                 @default(0)
+  ultimoMotivoRechazo String?
+  // Lo que dijo la IA de la ultima foto: tipo de soporte y monto leido.
+  revision            Json?
+  expenseId           String?             @unique
+  createdById         String
+  creadoEn            DateTime            @default(now())
+  expiraEn            DateTime
+  createdBy           User                @relation("GastoBorradorCreadoPor", fields: [createdById], references: [id], onDelete: Restrict)
+  expense             Expense?            @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+
+  @@index([estado, expiraEn])
 }

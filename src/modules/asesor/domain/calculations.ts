@@ -5,6 +5,7 @@ import type {
   CommissionBoardSaleInput,
   CommissionSaleInput,
   DayRange,
+  ExpenseLine,
   ProductRow,
   QuoteRow,
   QuoteStatusCode,
@@ -88,6 +89,65 @@ export function summarizeMonth(metrics: DashboardMetrics) {
     contribucion: roundMoney(metrics.netProfit),
     contribucion_pct: roundMoney(metrics.marginPercentage),
     ticket_promedio: metrics.salesCount > 0 ? roundMoney(metrics.salesTotal / metrics.salesCount) : 0,
+  };
+}
+
+// --- Gastos y ganancia real -----------------------------------------------------
+
+export function isPayrollCategory(name: string): boolean {
+  return /n[oó]mina/i.test(name);
+}
+
+function normalizeCategoryText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+// Filtra por categoria (parte del nombre, sin importar tildes ni mayusculas).
+export function filterExpensesByCategory(lines: ExpenseLine[], category?: string): ExpenseLine[] {
+  const query = normalizeCategoryText(category ?? "");
+  if (!query) return lines;
+  return lines.filter((line) => normalizeCategoryText(line.category).includes(query));
+}
+
+export function summarizeExpensesByCategory(lines: ExpenseLine[]) {
+  const totals = new Map<string, { gastos: number; total: number }>();
+  for (const line of lines) {
+    const entry = totals.get(line.category) ?? { gastos: 0, total: 0 };
+    entry.gastos += 1;
+    entry.total += line.amount;
+    totals.set(line.category, entry);
+  }
+  return [...totals.entries()]
+    .map(([categoria, entry]) => ({ categoria, gastos: entry.gastos, total: roundMoney(entry.total) }))
+    .sort((left, right) => right.total - left.total || left.categoria.localeCompare(right.categoria));
+}
+
+// Ganancia real = ventas - producto - flete (contribucion) - comisiones - sueldos basicos - gastos.
+// Los pagos de Nomina NO se restan como gasto: la nomina ya entra como comisiones + basicos del mes
+// (restarlos tambien contaria dos veces lo mismo).
+export function computeRealProfit(input: {
+  contribution: number;
+  commissions: number;
+  baseSalaries: number;
+  expenses: ExpenseLine[];
+}) {
+  const operatingExpenses = input.expenses
+    .filter((line) => !isPayrollCategory(line.category))
+    .reduce((sum, line) => sum + line.amount, 0);
+  const payrollPaid = input.expenses
+    .filter((line) => isPayrollCategory(line.category))
+    .reduce((sum, line) => sum + line.amount, 0);
+  return {
+    contribucion: roundMoney(input.contribution),
+    comisiones: roundMoney(input.commissions),
+    sueldos_basicos: roundMoney(input.baseSalaries),
+    gastos_sin_nomina: roundMoney(operatingExpenses),
+    pagos_de_nomina_registrados: roundMoney(payrollPaid),
+    ganancia_real: roundMoney(input.contribution - input.commissions - input.baseSalaries - operatingExpenses),
   };
 }
 

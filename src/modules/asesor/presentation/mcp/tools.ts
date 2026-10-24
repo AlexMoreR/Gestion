@@ -15,6 +15,7 @@ import {
   getSaleUseCase,
   listPaymentsUseCase,
   listProductsUseCase,
+  listExpensesUseCase,
   listQuotesUseCase,
   listSalesUseCase,
 } from "../../application/use-cases";
@@ -52,13 +53,29 @@ import {
   createPrismaAsistenciaRepository,
   loadAttendanceDays,
 } from "@/modules/asistencia/infrastructure/prisma-asistencia-repository";
+import {
+  confirmVoiceExpense,
+  describeVoiceExpense,
+  prepareVoiceExpense,
+} from "@/modules/expenses/application/register-expense-by-voice";
+import { EXPENSE_CATEGORY_WORDS, ExpenseDraftInputError, resolveCategoryName } from "@/modules/expenses/domain/expense-draft";
+import { createVoiceExpenseDeps } from "@/modules/expenses/infrastructure/voice-expense-deps";
 import type { McpServerDefinition, McpToolDefinition, McpToolResult } from "./protocol";
 
-// Todas las herramientas son de SOLO LECTURA: solo llaman casos de uso de consulta.
+// Casi todas las herramientas son de SOLO LECTURA: solo llaman casos de uso de consulta.
+// La unica que escribe es registrar_gasto: solo guarda con la foto del soporte revisada y
+// despues de que el dueno diga "si".
 const READ_ONLY_ANNOTATIONS = {
   readOnlyHint: true,
   destructiveHint: false,
   idempotentHint: true,
+  openWorldHint: false,
+} as const;
+
+const WRITE_ANNOTATIONS = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: false,
   openWorldHint: false,
 } as const;
 
@@ -92,13 +109,15 @@ function defineTool<Schema extends z.ZodObject>(config: {
   description: string;
   schema: Schema;
   handler: (args: z.infer<Schema>, deps: AsesorDependencies) => Promise<unknown>;
+  // true = la herramienta escribe datos (se anuncia sin readOnlyHint).
+  writes?: boolean;
 }): McpToolDefinition {
   return {
     name: config.name,
     title: config.title,
     description: config.description,
     inputSchema: toInputSchema(config.schema),
-    annotations: READ_ONLY_ANNOTATIONS,
+    annotations: config.writes ? WRITE_ANNOTATIONS : READ_ONLY_ANNOTATIONS,
     async run(rawArgs) {
       const parsed = config.schema.safeParse(rawArgs);
       if (!parsed.success) {
@@ -133,6 +152,14 @@ const rangeArgs = {
 function resolveMonth(args: z.infer<typeof monthArgs>): { mes: number; anio: number } {
   const current = currentMonthInBogota();
   return { mes: args.mes ?? current.mes, anio: args.anio ?? current.anio };
+}
+
+function loadPayrollBoard(deps: AsesorDependencies, mes: number, anio: number) {
+  return getPayrollBoardUseCase(
+    { ...deps, nomina: createPrismaNominaRepository(), loadTeam: () => loadTeamMembers(), loadAttendanceDays },
+    mes,
+    anio,
+  );
 }
 
 export const asesorTools: McpToolDefinition[] = [
@@ -266,11 +293,7 @@ export const asesorTools: McpToolDefinition[] = [
     schema: monthArgs,
     handler: async (args, deps) => {
       const { mes, anio } = resolveMonth(args);
-      const board = await getPayrollBoardUseCase(
-        { ...deps, nomina: createPrismaNominaRepository(), loadTeam: () => loadTeamMembers(), loadAttendanceDays },
-        mes,
-        anio,
-      );
+      const board = await loadPayrollBoard(deps, mes, anio);
       return {
         mes,
         anio,
@@ -461,6 +484,104 @@ export const asesorTools: McpToolDefinition[] = [
     },
   }),
   defineTool({
+    name: "listar_gastos",
+    title: "Listar gastos",
+    description:
+      "Gastos operativos de un mes (por fecha de gasto), con total por categoria y la GANANCIA REAL del mes: ventas - producto - flete - comisiones - sueldos basicos - gastos. Cada gasto trae fecha, categoria, cuenta, monto, nota, persona (nomina) y si tiene foto del soporte. Filtro opcional por categoria (ej. publicidad = Marketing, arriendo, servicios, herramientas, varios, nomina). Los pagos de Nomina no se restan como gasto (la nomina ya entra como comisiones + basicos). Sirve para confirmar que un gasto quedo guardado. Valores en COP.",
+    schema: monthArgs.extend({
+      categoria: z
+        .string()
+        .max(60)
+        .optional()
+        .describe("Parte del nombre de la categoria (publicidad = marketing; otros = varios). Si se omite, todas."),
+    }),
+    handler: (args, deps) => {
+      const { mes, anio } = resolveMonth(args);
+      const categoria = args.categoria?.trim()
+        ? (resolveCategoryName(args.categoria) ?? args.categoria)
+        : undefined;
+      return listExpensesUseCase(deps, mes, anio, categoria, async () => {
+        const board = await loadPayrollBoard(deps, mes, anio);
+        return {
+          base: board.totals.base,
+          commission: board.totals.commission,
+          incomplete: board.totals.incomplete,
+        };
+      });
+    },
+  }),
+  defineTool({
+    name: "registrar_gasto",
+    title: "Registrar un gasto (con foto del soporte)",
+    description:
+      "Registra un gasto del negocio. SIEMPRE en dos pasos: (1) llama con confirmado=false (por defecto): NO guarda nada, valida y devuelve el resumen del gasto; repitele el resumen al dueno y pregunta '¿Lo guardo?'. (2) SOLO si el dueno dice 'si', llama otra vez con los MISMOS datos y confirmado=true: devuelve un enlace secreto (30 minutos, un solo uso) para que el dueno suba la foto del soporte desde el celular. Claude no puede subir la foto por esta herramienta: dale el enlace al dueno. El gasto se guarda SOLO si la foto es un comprobante de pago (transferencia, Nequi/Daviplata, factura o recibo; si la cuenta es efectivo tambien sirve la foto del dinero o del recibo firmado) y su monto coincide con el del gasto; si no, no se guarda y la pagina dice por que. Despues puedes verificarlo con listar_gastos. Descuenta el saldo de la cuenta y aparece en Balances del mes. Tope: $20.000.000 por gasto. Nomina exige 'persona'. Si la fecha es anterior a hoy exige 'motivo_fecha_anterior'. Moneda: COP.",
+    schema: z.object({
+      monto: z.number().positive().describe("Monto del gasto en pesos colombianos, ej. 350000."),
+      categoria: z
+        .enum(EXPENSE_CATEGORY_WORDS)
+        .describe("arriendo, publicidad (= Marketing), nomina, servicios, herramientas u otros (= Varios)."),
+      cuenta: z
+        .string()
+        .min(1)
+        .max(80)
+        .describe("De donde salio la plata: efectivo, banco o billetera. Si hay dos cuentas del mismo tipo, el nombre exacto de la cuenta."),
+      fecha: z.string().optional().describe("Fecha del gasto, AAAA-MM-DD. Si se omite, hoy (hora Colombia). No puede ser futura."),
+      nota: z.string().max(500).optional().describe("Detalle del gasto (a quien se pago, por que)."),
+      motivo_fecha_anterior: z
+        .string()
+        .max(500)
+        .optional()
+        .describe("Obligatorio si la fecha es anterior a hoy: por que se registra tarde."),
+      persona: z.string().max(80).optional().describe("Obligatorio en nomina: nombre de la persona a la que se le paga."),
+      confirmado: z
+        .boolean()
+        .default(false)
+        .describe("false = solo mostrar el resumen. true = el dueno ya dijo 'si': crear el enlace para la foto."),
+    }),
+    writes: true,
+    handler: async (args) => {
+      const deps = createVoiceExpenseDeps();
+      const input = {
+        amount: args.monto,
+        category: args.categoria,
+        account: args.cuenta,
+        date: args.fecha,
+        note: args.nota,
+        retroReason: args.motivo_fecha_anterior,
+        person: args.persona,
+      };
+      try {
+        if (!args.confirmado) {
+          const prepared = await prepareVoiceExpense(deps, input);
+          return {
+            guardado: false,
+            resumen: describeVoiceExpense(prepared),
+            categoria: prepared.categoryName,
+            cuenta: prepared.account.name,
+            monto: prepared.amount,
+            fecha: prepared.day,
+            siguiente_paso:
+              "Repite este resumen al dueno y pregunta '¿Lo guardo?'. Si dice si, llama de nuevo con los mismos datos y confirmado=true para recibir el enlace de la foto.",
+          };
+        }
+        const confirmed = await confirmVoiceExpense(deps, input);
+        return {
+          guardado: false,
+          resumen: confirmed.summary,
+          enlace_para_subir_la_foto: confirmed.uploadUrl,
+          vence: confirmed.expiresAt.toISOString(),
+          siguiente_paso:
+            "Dale el enlace al dueno: lo abre en el celular, toma o elige la foto del soporte y la envia. El gasto SOLO se guarda si la foto es un comprobante valido con el monto correcto (la pagina avisa si no). Luego puedes confirmarlo con listar_gastos.",
+        };
+      } catch (error) {
+        if (error instanceof ExpenseDraftInputError) {
+          throw new AsesorInputError(error.message);
+        }
+        throw error;
+      }
+    },
+  }),
+  defineTool({
     name: "que_es_esta_aplicacion",
     title: "Qué es esta aplicación",
     description:
@@ -490,8 +611,8 @@ export const asesorTools: McpToolDefinition[] = [
 
 export const asesorMcpServer: McpServerDefinition = {
   name: "gestion-magilus",
-  version: "1.1.0",
+  version: "1.2.0",
   instructions:
-    "Servidor de SOLO LECTURA de Gestion (Magilus): ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), asistencia (quien esta trabajando hoy, entradas y salidas, dias trabajados) y saldos de cuentas. Para entender el sistema completo usa primero que_es_esta_aplicacion. No modifica ningun dato. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
+    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), asistencia (quien esta trabajando hoy, entradas y salidas, dias trabajados), saldos de cuentas y gastos del mes con la ganancia real (listar_gastos). Para entender el sistema completo usa primero que_es_esta_aplicacion. Todas las herramientas son de lectura salvo registrar_gasto, que es la unica que escribe: antes de guardar un gasto SIEMPRE repite el resumen al dueno y espera su 'si' (primero registrar_gasto con confirmado=false, luego confirmado=true), y el gasto solo queda guardado cuando el dueno sube la foto del soporte por el enlace y esta pasa la revision. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
   tools: asesorTools,
 };

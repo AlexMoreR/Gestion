@@ -44,7 +44,7 @@ módulos y para qué sirven:
 | **Nómina** | `/admin/comisiones/nomina` | Básico + comisiones − pagado por persona y mes; "Dinero hoy" por cuenta; registrar pago (gasto de Nómina desde una cuenta). Config en `AppSetting.payrollConfig`; módulo `src/modules/nomina`. Solo dueño/admin (permiso `commissions`). |
 | **Equipo** | `/admin/equipo` | Ficha de cada trabajador (cédula, nacimiento/edad, celular, correo, dirección, contacto de emergencia, cargo, vinculación, forma de pago, ingreso, salida y motivo). Estado Activo/Retirado calculado por la fecha de salida. Tabla `TeamMember`; módulo `src/modules/equipo`. Solo dueño/admin (permiso `team`, reservado). |
 | **Asistencia** | `/admin/asistencia` | Registro de entrada y salida: botón "Marcar entrada/salida" en la barra (Empleado y Admin; hora del servidor). Pestañas Hoy (trabajando / salió / no ha llegado) y Por mes (filtro persona y mes); el admin marca por otra persona y corrige/agrega/anula marcas con motivo. Tabla `AsistenciaMarca`; módulo `src/modules/asistencia`. Solo dueño/admin (permiso `attendance`, reservado). |
-| **Gastos** | `/admin/gastos` | Gastos operativos por categoría y cuenta (nómina, marketing, varios, etc.). |
+| **Gastos** | `/admin/gastos` | Gastos operativos por categoría y cuenta (nómina, marketing, arriendo, servicios, herramientas, varios). También se registran hablándole a Claude (MCP `registrar_gasto`, con foto del soporte revisada). |
 | **Transporte** | `/admin/transporte` | Tipo de envío por ciudad/corregimiento (DANE): Gratis / Adicional / Se cotiza / No llegamos / Automático, y "Pendientes de revisar" (lo nuevo que manda el CRM). El cliente ve el envío gratis en `/cobertura`; el CRM consulta `/api/transporte/ubicaciones`. |
 | **Configuración** | `/admin/configuracion/*` | Usuarios y roles, datos del negocio (moneda, marca, color), y control de módulos por rol. |
 
@@ -306,7 +306,7 @@ Route handlers reales (`route.ts`):
 | `/uploads/[...path]` | GET | Sirve archivos subidos (comprobantes, imágenes) desde el volumen. | Público (ruta) |
 | `/verify-email` | GET | Verifica el correo del usuario mediante token. | Público (token) |
 | `/admin/productos/export` | GET | Exporta el catálogo de productos a **CSV**. | Solo `ADMIN` |
-| `/api/mcp` | POST | **Servidor MCP de solo lectura** para el asesor de IA (ver abajo). | Llave `MCP_API_KEY` |
+| `/api/mcp` | POST | **Servidor MCP** para el asesor de IA: consulta + `registrar_gasto` (ver abajo). | Llave `MCP_API_KEY` |
 | `/api/mcp/[key]` | POST | Lo mismo, con la llave dentro de la ruta (clientes sin headers, ej. claude.ai). | Llave en la URL |
 | `/api/catalogo/productos` | GET | **Catálogo para otras apps** (el CRM se sincroniza desde acá): código, nombre, descripción, categoría, precio, precio mayorista, imágenes (URL absoluta) y si está oculto. **Nunca costo ni margen.** Módulo `src/modules/catalogo-externo`. | Llave `CATALOGO_API_KEY` (o `MCP_API_KEY` si no existe) |
 | `/api/ventas/origen` | POST | **Origen de la venta desde el CRM.** `{ quoteCode, origin, originDetail?, linea?, contactPhone? }` → 200 `{ ok, quoteCode, origin, saleUpdated }` / 404 `{ error: "cotizacion_no_existe" }` / 400 `{ error: "datos_invalidos" }`. `contactPhone` solo decide recurrencia; no se guarda. Contrato acordado con AgenteLite: **no cambiarlo**. | Misma llave del catálogo o de transporte |
@@ -319,10 +319,31 @@ Route handlers reales (`route.ts`):
   (para conectores de claude.ai, igual que el MCP de AizenCRM). Mínimo 24 caracteres; si la variable
   no está configurada, nadie entra. La variante en la ruta deja la llave en logs del proxy: si se
   filtra, se cambia `MCP_API_KEY`. Las dos rutas comparten `presentation/mcp/http.ts`.
-- **Solo lectura**: módulo `src/modules/asesor` (hexagonal). Sus puertos solo tienen métodos de
-  consulta; la ganancia por venta y el resumen del mes **reutilizan los casos de uso de Balances**.
+- **Consulta + registrar gastos**: módulo `src/modules/asesor` (hexagonal). Sus puertos solo tienen métodos de
+  consulta; la ganancia por venta y el resumen del mes **reutilizan los casos de uso de Balances**. La única
+  herramienta que escribe es `registrar_gasto` (anotada sin `readOnlyHint`; ver "Gastos por voz").
 - Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_abonos`, `ver_venta`, `listar_cotizaciones`,
-  `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `equipo`, `asistencia`, `saldos_de_cuentas` y `que_es_esta_aplicacion`.
+  `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `equipo`, `asistencia`, `saldos_de_cuentas`,
+  `listar_gastos`, `registrar_gasto` y `que_es_esta_aplicacion`.
+- `listar_gastos` (oct-2026): `mes`/`anio` y `categoria` opcionales → gastos con fecha, categoría, cuenta, monto,
+  nota, persona y `con_foto`; total por categoría y **ganancia real** = ventas − producto − flete − comisiones −
+  sueldos básicos − gastos (`computeRealProfit`). Los pagos de Nómina no se restan como gasto (la nómina ya entra
+  como comisiones + básicos del tablero de Nómina); usa todos los gastos del mes aunque se filtre por categoría.
+- **Gastos por voz** (`registrar_gasto`, oct-2026, módulo `src/modules/expenses`, migración
+  `20261023120000_gastos_por_mcp`, solo aditiva): 1) `confirmado=false` valida y devuelve el resumen (no guarda);
+  Claude lo repite y espera el "sí"; 2) `confirmado=true` crea un `GastoBorrador` y devuelve un enlace secreto
+  `/gastos/soporte/<token>` (página pública, 30 min, un solo uso; en la BD solo el hash, firma con `AUTH_SECRET`,
+  `src/lib/expense-draft-token.ts`). El dueño sube la foto desde el celular (acción pública
+  `submitExpenseReceiptAction`); la IA de Anthropic (`claude-receipt-validator.ts`, `fetch` a la API, modelo
+  `ANTHROPIC_RECEIPT_MODEL` o `claude-haiku-5-5`) solo **describe** la foto (tipo y monto leído, sin saber el
+  monto del gasto) y la decisión es de `evaluateReceipt` (`domain/receipt-check.ts`): transferencia, Nequi/
+  Daviplata, factura o recibo; en cuenta de efectivo también foto del dinero o recibo firmado; monto igual
+  ±$1. Si no sirve no se guarda nada (máx. 5 intentos). Se guarda con `createExpense({ fromDraft })`: candado
+  `FOR UPDATE` sobre el borrador, así un doble envío no crea dos gastos. Categorías: arriendo, publicidad
+  (= Marketing), nómina (exige `persona`), servicios, herramientas, otros (= Varios); las que faltan se crean
+  al usarse. Fecha anterior a hoy exige `motivo_fecha_anterior` (retroactivo). Tope $20.000.000. Creador:
+  `MCP_GASTOS_USUARIO_EMAIL` o el ADMIN más antiguo. Sin `ANTHROPIC_API_KEY` no se guarda nada. La foto es
+  obligatoria por este camino también en efectivo.
 - `asistencia` (oct-2026): `fecha` o `desde`/`hasta` (máx. 62 días; por defecto hoy) y `persona` opcional (por
   nombre) → quién está trabajando ahora, quién no ha llegado, y por día entrada, salida, horas, marcas y
   correcciones; días trabajados del rango. `nomina_del_mes` trae `dias_fuente` (`asistencia`/`manual`).
@@ -427,7 +448,9 @@ que **redespliega** el stack automáticamente. No hay que hacer nada manual.
   pierden entre despliegues).
 - Variables de entorno del stack: `DATABASE_URL`, `AUTH_URL`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_APP_URL`,
   `AUTH_SECRET` (requerido por next-auth), SMTP (`SMTP_HOST/PORT/SECURE/USER/PASS/FROM`) para correos,
-  `MONTHLY_REPORT_TOKEN` (opcional) y `MCP_API_KEY` (llave del servidor MCP `/api/mcp`).
+  `MONTHLY_REPORT_TOKEN` (opcional), `MCP_API_KEY` (llave del servidor MCP `/api/mcp`), `ANTHROPIC_API_KEY`
+  (revisión de fotos de `registrar_gasto`; sin ella no se guarda ningún gasto por MCP) y, opcional,
+  `MCP_GASTOS_USUARIO_EMAIL` (creador de esos gastos) y `ANTHROPIC_RECEIPT_MODEL`.
 
 **Dónde viven de verdad las variables (importante):**
 - `docker-compose.portainer.yml` del repo es solo **referencia**. El stack real `magilus_app` es un stack
