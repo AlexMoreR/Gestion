@@ -4,8 +4,8 @@ import { lookupOpenDraft } from "@/modules/expenses/application/register-expense
 import { createVoiceExpenseDeps } from "@/modules/expenses/infrastructure/voice-expense-deps";
 import { SoporteForm } from "./soporte-form";
 
-// Enlace secreto para subir la foto del soporte de un gasto dicho a Claude. Solo muestra el
-// gasto que se va a guardar (categoria, monto, cuenta, fecha); nada mas. Un solo uso, 30 minutos.
+// Enlace secreto para subir la foto (opcional) del soporte de un gasto dicho a Claude. Solo muestra
+// el gasto (categoria, monto, cuenta, fecha); nada mas. Un solo uso, 24 horas.
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +31,7 @@ export default async function SoportePage({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8">
       <div className="mx-auto max-w-md space-y-4">
-        <h1 className="text-xl font-semibold text-slate-900">Foto del soporte del gasto</h1>
+        <h1 className="text-xl font-semibold text-slate-900">Foto del soporte del gasto (opcional)</h1>
         {lookup.ok ? (
           <>
             <dl className="space-y-1 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-800">
@@ -53,10 +53,10 @@ export default async function SoportePage({ params }: PageProps) {
               </div>
             </dl>
             <p className="text-sm text-slate-600">
-              La foto tiene que ser un comprobante de pago (transferencia, Nequi/Daviplata, factura o recibo) por{" "}
-              {formatCop(lookup.draft.amount)}.
-              {lookup.draft.accountType === "CASH" ? " Si pagaste en efectivo, sirve la foto del dinero o del recibo firmado." : ""}{" "}
-              Si la foto no sirve, el gasto no se guarda.
+              {lookup.draft.savedOnConfirm
+                ? "El gasto ya quedó guardado. Sube la foto si la tienes (opcional)."
+                : "Al enviar la foto se guarda el gasto."}{" "}
+              La foto no se revisa. Sirve JPG, PNG, WEBP o PDF de hasta 12 MB.
             </p>
             <SoporteForm token={token} />
           </>

@@ -3,17 +3,14 @@ import {
   confirmVoiceExpense,
   prepareVoiceExpense,
   receiveVoiceExpenseReceipt,
-  type ReceiptValidator,
   type VoiceExpenseDeps,
 } from "./register-expense-by-voice";
 import {
-  DRAFT_MAX_ATTEMPTS,
+  DRAFT_TTL_MINUTES,
   ExpenseDraftInputError,
   ExpenseDraftUsedError,
   type AccountOption,
-  type ExpenseDraftStatus,
 } from "../domain/expense-draft";
-import type { ReceiptReview } from "../domain/receipt-check";
 import type {
   CreateExpenseInput,
   ExpenseDraftRepository,
@@ -21,6 +18,7 @@ import type {
   NewExpenseDraft,
 } from "../domain/repository";
 import type { Expense, ExpenseCategory } from "../domain/entities";
+import { buildDraftToken } from "../../../lib/expense-draft-token";
 
 const NOW = new Date("2026-10-24T15:00:00Z"); // 10:00 en Colombia, dia 2026-10-24
 const KEY = "clave-de-prueba-0123456789";
@@ -41,19 +39,21 @@ class MemoryWorld {
   saved: string[] = [];
   removed: string[] = [];
   logs: string[] = [];
-  forceUsedError = false;
-  rejections: Array<{ draftId: string; reason: string }> = [];
+  attached: string[] = [];
+  failDraftCreate = false;
   private seq = 0;
 
   draftsRepo: ExpenseDraftRepository = {
     create: async (input: NewExpenseDraft) => {
+      if (this.failDraftCreate) throw new Error("BD caida");
       this.seq += 1;
       const account = ACCOUNTS.find((item) => item.id === input.accountId)!;
       this.drafts.push({
         id: `d${this.seq}`,
         tokenHash: input.tokenHash,
         status: "PENDIENTE",
-        attempts: 0,
+        expenseId: input.expenseId,
+        savedOnConfirm: true,
         amount: input.amount,
         expenseDate: input.expenseDate,
         description: input.description,
@@ -74,11 +74,14 @@ class MemoryWorld {
       const found = this.drafts.find((draft) => draft.tokenHash === hash);
       return found ? { ...found } : null;
     },
-    recordRejection: async (draftId, rejection) => {
+    attachReceipt: async (draftId, receipt) => {
       const draft = this.drafts.find((item) => item.id === draftId)!;
-      draft.attempts += 1;
-      if (draft.attempts >= rejection.maxAttempts) draft.status = "RECHAZADO";
-      this.rejections.push({ draftId, reason: rejection.reason });
+      if (draft.status !== "PENDIENTE") throw new ExpenseDraftUsedError();
+      const expense = this.expenses.find((item) => item.id === receipt.expenseId)!;
+      expense.receiptUrl = receipt.url;
+      expense.receiptName = receipt.name;
+      draft.status = "GUARDADO";
+      this.attached.push(receipt.expenseId);
     },
     markExpired: async (draftId) => {
       const draft = this.drafts.find((item) => item.id === draftId)!;
@@ -96,7 +99,6 @@ class MemoryWorld {
     }),
     createExpense: async (input) => {
       this.createCalls.push(input);
-      if (this.forceUsedError) throw new ExpenseDraftUsedError();
       if (input.fromDraft) {
         const draft = this.drafts.find((item) => item.id === input.fromDraft!.id);
         if (!draft || draft.status !== "PENDIENTE") throw new ExpenseDraftUsedError();
@@ -121,32 +123,13 @@ class MemoryWorld {
   };
 }
 
-function makeValidator(overrides: Partial<ReceiptValidator> = {}): ReceiptValidator & { calls: number } {
-  const validator = {
-    calls: 0,
-    review: undefined as unknown as ReceiptValidator["review"],
-    isConfigured: () => true,
-    ...overrides,
-  };
-  if (!overrides.review) {
-    validator.review = async () => ({ kind: "TRANSFERENCIA", readAmount: 350_000 }) satisfies ReceiptReview;
-  }
-  const inner = validator.review;
-  validator.review = async (input) => {
-    validator.calls += 1;
-    return inner(input);
-  };
-  return validator;
-}
-
-function makeDeps(world: MemoryWorld, validator: ReceiptValidator, clock: { now: Date }): VoiceExpenseDeps {
+function makeDeps(world: MemoryWorld, clock: { now: Date }): VoiceExpenseDeps {
   return {
     expenses: world.expensesRepo,
     drafts: world.draftsRepo,
     listAccounts: async () => ACCOUNTS,
     findEmployees: async (query) => (query.includes("ingrid") ? [{ id: "u-ingrid", name: "Ingrid" }] : []),
     resolveActor: async () => ({ id: "u-alex", name: "Alex", email: null }),
-    validator,
     receiptStore: {
       save: async (file) => {
         const url = `/uploads/gastos/${world.saved.length + 1}${file.ext}`;
@@ -173,7 +156,7 @@ describe("prepareVoiceExpense", () => {
   let deps: VoiceExpenseDeps;
   beforeEach(() => {
     world = new MemoryWorld();
-    deps = makeDeps(world, makeValidator(), { now: NOW });
+    deps = makeDeps(world, { now: NOW });
   });
 
   it("arma el gasto con categoria y cuenta resueltas", async () => {
@@ -216,30 +199,53 @@ describe("prepareVoiceExpense", () => {
 
   it("categoria no valida y cuenta ambigua se rechazan", async () => {
     await expect(prepareVoiceExpense(deps, { ...baseInput, category: "viajes" })).rejects.toThrow(/no válida/);
-    const ambiguous = makeDeps(world, makeValidator(), { now: NOW });
+    const ambiguous = makeDeps(world, { now: NOW });
     ambiguous.listAccounts = async () => [...ACCOUNTS, { id: "acc-b2", name: "Davivienda", type: "BANK" }];
     await expect(prepareVoiceExpense(ambiguous, baseInput)).rejects.toThrow(/Davivienda/);
   });
 });
 
 describe("confirmVoiceExpense", () => {
-  it("sin llave del validador rechaza y no crea borrador", async () => {
+  it("guarda UN gasto sin foto (sin llave de Anthropic) y devuelve el enlace de 24 h", async () => {
     const world = new MemoryWorld();
-    const deps = makeDeps(world, makeValidator({ isConfigured: () => false }), { now: NOW });
-    await expect(confirmVoiceExpense(deps, baseInput)).rejects.toThrow(ExpenseDraftInputError);
-    expect(world.drafts).toHaveLength(0);
-  });
-
-  it("crea el borrador y devuelve el enlace con el token", async () => {
-    const world = new MemoryWorld();
-    const deps = makeDeps(world, makeValidator(), { now: NOW });
+    const deps = makeDeps(world, { now: NOW });
     const result = await confirmVoiceExpense(deps, baseInput);
+    expect(world.expenses).toHaveLength(1);
+    expect(world.expenses[0]).toMatchObject({ amount: 350_000, accountId: "acc-banco", receiptUrl: null });
+    expect(result.expenseId).toBe(world.expenses[0].id);
+    expect(world.logs).toEqual(["Registró un gasto de $350.000 (por Claude)"]);
     expect(result.uploadUrl).toMatch(/^https:\/\/gestion\.test\/gastos\/soporte\/[\w-]+\.[\w-]{22}$/);
-    expect(result.expiresAt.getTime()).toBe(NOW.getTime() + 30 * 60_000);
+    expect(DRAFT_TTL_MINUTES).toBe(24 * 60);
+    expect(result.expiresAt.getTime()).toBe(NOW.getTime() + 24 * 60 * 60_000);
     expect(world.drafts).toHaveLength(1);
-    expect(world.drafts[0]).toMatchObject({ status: "PENDIENTE", amount: 350_000, accountId: "acc-banco" });
+    expect(world.drafts[0]).toMatchObject({ status: "PENDIENTE", expenseId: "e1", savedOnConfirm: true });
     // En la BD solo queda el hash, nunca el token.
     expect(result.uploadUrl).not.toContain(world.drafts[0].tokenHash);
+  });
+
+  it.each([
+    ["monto sobre el tope", { amount: 20_000_001 }],
+    ["categoria invalida", { category: "viajes" }],
+    ["nomina sin persona", { category: "nomina" }],
+    ["fecha anterior sin motivo", { date: "2026-10-20" }],
+  ])("%s: no guarda nada", async (_name, patch) => {
+    const world = new MemoryWorld();
+    const deps = makeDeps(world, { now: NOW });
+    await expect(confirmVoiceExpense(deps, { ...baseInput, ...patch })).rejects.toThrow(ExpenseDraftInputError);
+    expect(world.expenses).toHaveLength(0);
+    expect(world.createCalls).toHaveLength(0);
+    expect(world.drafts).toHaveLength(0);
+    expect(world.logs).toHaveLength(0);
+  });
+
+  it("si falla el borrador el gasto queda guardado y uploadUrl es null", async () => {
+    const world = new MemoryWorld();
+    world.failDraftCreate = true;
+    const deps = makeDeps(world, { now: NOW });
+    const result = await confirmVoiceExpense(deps, baseInput);
+    expect(result.uploadUrl).toBeNull();
+    expect(world.expenses).toHaveLength(1);
+    expect(result.expenseId).toBe("e1");
   });
 });
 
@@ -248,137 +254,143 @@ describe("receiveVoiceExpenseReceipt", () => {
   let clock: { now: Date };
   let token: string;
 
-  async function setup(validator: ReceiptValidator) {
+  async function setup() {
     world = new MemoryWorld();
     clock = { now: NOW };
-    const deps = makeDeps(world, validator, clock);
+    const deps = makeDeps(world, clock);
     const confirmed = await confirmVoiceExpense(deps, baseInput);
-    token = confirmed.uploadUrl.split("/").pop()!;
+    token = confirmed.uploadUrl!.split("/").pop()!;
     return deps;
   }
   const file = { bytes: PNG, name: "soporte.png" };
 
-  it("token falso", async () => {
-    const deps = await setup(makeValidator());
+  it("token falso o con firma valida pero desconocido", async () => {
+    const deps = await setup();
     const result = await receiveVoiceExpenseReceipt(deps, "inventado.firmafalsa", file);
     expect(result).toMatchObject({ ok: false, canRetry: false });
-    // Con firma valida pero que no existe en la BD
-    const { buildDraftToken } = await import("../../../lib/expense-draft-token");
     const unknown = buildDraftToken(KEY)!.token;
     expect(await receiveVoiceExpenseReceipt(deps, unknown, file)).toMatchObject({ ok: false, canRetry: false });
-    expect(world.expenses).toHaveLength(0);
+    expect(world.attached).toHaveLength(0);
   });
 
-  it("borrador vencido: no guarda y lo marca VENCIDO", async () => {
-    const deps = await setup(makeValidator());
-    clock.now = new Date(NOW.getTime() + 31 * 60_000);
+  it("enlace vencido: se rechaza, se marca VENCIDO y avisa que el gasto ya esta guardado", async () => {
+    const deps = await setup();
+    clock.now = new Date(NOW.getTime() + DRAFT_TTL_MINUTES * 60_000 + 1000);
     const result = await receiveVoiceExpenseReceipt(deps, token, file);
     expect(result).toMatchObject({ ok: false, canRetry: false });
+    if (!result.ok) expect(result.reason).toContain("ya quedó guardado");
     expect(world.drafts[0].status).toBe("VENCIDO");
-    expect(world.expenses).toHaveLength(0);
-  });
-
-  it("foto valida con el monto correcto: guarda 1 gasto y el borrador queda GUARDADO", async () => {
-    const validator = makeValidator();
-    const deps = await setup(validator);
-    const result = await receiveVoiceExpenseReceipt(deps, token, file);
-    expect(result.ok).toBe(true);
-    expect(world.expenses).toHaveLength(1);
-    expect(world.expenses[0]).toMatchObject({ amount: 350_000, receiptUrl: "/uploads/gastos/1.png" });
-    expect(world.drafts[0].status).toBe("GUARDADO");
-    expect(world.logs).toHaveLength(1);
-    expect(world.removed).toHaveLength(0);
-  });
-
-  it("foto OTRO: no guarda y suma un intento", async () => {
-    const deps = await setup(makeValidator({ review: async () => ({ kind: "OTRO", readAmount: null }) }));
-    const result = await receiveVoiceExpenseReceipt(deps, token, file);
-    expect(result).toMatchObject({ ok: false, canRetry: true });
-    expect(world.expenses).toHaveLength(0);
-    expect(world.drafts[0].attempts).toBe(1);
+    expect(world.attached).toHaveLength(0);
     expect(world.saved).toHaveLength(0);
   });
 
-  it("monto distinto: no guarda y explica el motivo", async () => {
-    const deps = await setup(makeValidator({ review: async () => ({ kind: "TRANSFERENCIA", readAmount: 305_000 }) }));
+  it("la foto se pega al MISMO gasto y no se crea otro", async () => {
+    const deps = await setup();
     const result = await receiveVoiceExpenseReceipt(deps, token, file);
-    expect(result).toMatchObject({ ok: false, canRetry: true });
-    if (!result.ok) expect(result.reason).toContain("La foto dice $305.000 y el gasto es de $350.000");
-    expect(world.expenses).toHaveLength(0);
-    expect(world.rejections[0].reason).toContain("$305.000");
+    expect(result).toMatchObject({ ok: true, expenseId: "e1" });
+    expect(world.expenses).toHaveLength(1);
+    expect(world.createCalls).toHaveLength(1);
+    expect(world.expenses[0]).toMatchObject({ receiptUrl: "/uploads/gastos/1.png", receiptName: "soporte.png" });
+    expect(world.drafts[0].status).toBe("GUARDADO");
+    expect(world.removed).toHaveLength(0);
   });
 
-  it("5 intentos fallidos dejan el borrador RECHAZADO", async () => {
-    const deps = await setup(makeValidator({ review: async () => ({ kind: "OTRO", readAmount: null }) }));
-    for (let i = 1; i <= DRAFT_MAX_ATTEMPTS; i += 1) {
-      const result = await receiveVoiceExpenseReceipt(deps, token, file);
-      expect(result.ok).toBe(false);
-      if (!result.ok) expect(result.canRetry).toBe(i < DRAFT_MAX_ATTEMPTS);
-    }
-    expect(world.drafts[0].status).toBe<ExpenseDraftStatus>("RECHAZADO");
-    // Un sexto intento ya no llega ni al validador.
-    const again = await receiveVoiceExpenseReceipt(deps, token, file);
-    expect(again).toMatchObject({ ok: false, canRetry: false });
-    expect(world.expenses).toHaveLength(0);
-  });
-
-  it("si el validador lanza error: no guarda y cuenta el intento", async () => {
-    const deps = await setup(
-      makeValidator({
-        review: async () => {
-          throw new Error("API caida");
-        },
-      }),
-    );
-    const result = await receiveVoiceExpenseReceipt(deps, token, file);
-    expect(result).toMatchObject({ ok: false, canRetry: true });
-    expect(world.drafts[0].attempts).toBe(1);
-    expect(world.drafts[0].status).toBe("PENDIENTE");
-    expect(world.expenses).toHaveLength(0);
-  });
-
-  it("archivo que no es imagen o PDF: no llega al validador", async () => {
-    const validator = makeValidator();
-    const deps = await setup(validator);
+  it("archivo que no es imagen o PDF se rechaza sin guardarlo", async () => {
+    const deps = await setup();
     const result = await receiveVoiceExpenseReceipt(deps, token, { bytes: new Uint8Array([1, 2, 3, 4, 5]), name: "x.exe" });
     expect(result).toMatchObject({ ok: false, canRetry: true });
-    expect(validator.calls).toBe(0);
-    expect(world.drafts[0].attempts).toBe(0);
+    expect(world.saved).toHaveLength(0);
+    expect(world.drafts[0].status).toBe("PENDIENTE");
   });
 
   it("archivo vacio", async () => {
-    const deps = await setup(makeValidator());
+    const deps = await setup();
     expect(await receiveVoiceExpenseReceipt(deps, token, { bytes: new Uint8Array([]), name: "x.png" })).toMatchObject({
       ok: false,
       canRetry: true,
     });
   });
 
-  it("doble envio: el segundo dice que ya se uso y hay un solo gasto", async () => {
-    const deps = await setup(makeValidator());
+  it("doble envio: el segundo dice que ya se uso y la foto sigue siendo la primera", async () => {
+    const deps = await setup();
     expect((await receiveVoiceExpenseReceipt(deps, token, file)).ok).toBe(true);
     const second = await receiveVoiceExpenseReceipt(deps, token, file);
     expect(second).toMatchObject({ ok: false, canRetry: false });
     if (!second.ok) expect(second.reason).toContain("ya se usó");
     expect(world.expenses).toHaveLength(1);
+    expect(world.expenses[0].receiptUrl).toBe("/uploads/gastos/1.png");
   });
 
-  it("carrera: createExpense lanza ExpenseDraftUsedError y se borra el archivo guardado", async () => {
-    const deps = await setup(makeValidator());
-    world.forceUsedError = true;
+  it("carrera: attachReceipt lanza ExpenseDraftUsedError y se borra el archivo guardado", async () => {
+    const deps = await setup();
+    world.draftsRepo.attachReceipt = async () => {
+      throw new ExpenseDraftUsedError();
+    };
     const result = await receiveVoiceExpenseReceipt(deps, token, file);
     expect(result).toMatchObject({ ok: false, canRetry: false });
-    expect(world.saved).toHaveLength(1);
     expect(world.removed).toEqual(world.saved);
-    expect(world.expenses).toHaveLength(0);
+    expect(world.saved).toHaveLength(1);
   });
 
-  it("un error inesperado al crear tambien borra el archivo y se propaga", async () => {
-    const deps = await setup(makeValidator());
-    world.expensesRepo.createExpense = async () => {
+  it("un error inesperado al pegar borra el archivo y se propaga", async () => {
+    const deps = await setup();
+    world.draftsRepo.attachReceipt = async () => {
       throw new Error("BD caida");
     };
     await expect(receiveVoiceExpenseReceipt(deps, token, file)).rejects.toThrow("BD caida");
     expect(world.removed).toEqual(world.saved);
+  });
+
+  it("sin gasto (savedOnConfirm y sin expenseId): el gasto ya no existe", async () => {
+    const deps = await setup();
+    world.drafts[0].expenseId = null;
+    const result = await receiveVoiceExpenseReceipt(deps, token, file);
+    expect(result).toMatchObject({ ok: false, canRetry: false });
+    if (!result.ok) expect(result.reason).toContain("ya no existe");
+    expect(world.saved).toHaveLength(0);
+  });
+
+  describe("enlace viejo (borrador sin gasto)", () => {
+    async function legacy() {
+      world = new MemoryWorld();
+      clock = { now: NOW };
+      const deps = makeDeps(world, clock);
+      const generated = buildDraftToken(KEY)!;
+      await world.draftsRepo.create({
+        tokenHash: generated.hash,
+        expenseId: "",
+        categoryId: "cat-Marketing",
+        accountId: "acc-banco",
+        amount: 350_000,
+        expenseDate: NOW,
+        description: null,
+        retroMotivo: null,
+        employeeId: null,
+        createdById: "u-alex",
+        expiresAt: new Date(NOW.getTime() + 60_000),
+      });
+      world.drafts[0].expenseId = null;
+      world.drafts[0].savedOnConfirm = false;
+      return { deps, token: generated.token };
+    }
+
+    it("guarda su gasto con la foto al recibirla", async () => {
+      const { deps, token: legacyToken } = await legacy();
+      const result = await receiveVoiceExpenseReceipt(deps, legacyToken, file);
+      expect(result.ok).toBe(true);
+      expect(world.expenses).toHaveLength(1);
+      expect(world.createCalls[0]).toMatchObject({ fromDraft: { id: "d1" }, receiptUrl: "/uploads/gastos/1.png" });
+      expect(world.expenses[0].receiptUrl).toBe("/uploads/gastos/1.png");
+      expect(world.drafts[0].status).toBe("GUARDADO");
+      expect(world.logs).toHaveLength(1);
+    });
+
+    it("doble envio: el segundo no crea otro gasto", async () => {
+      const { deps, token: legacyToken } = await legacy();
+      await receiveVoiceExpenseReceipt(deps, legacyToken, file);
+      const second = await receiveVoiceExpenseReceipt(deps, legacyToken, file);
+      expect(second).toMatchObject({ ok: false, canRetry: false });
+      expect(world.expenses).toHaveLength(1);
+    });
   });
 });

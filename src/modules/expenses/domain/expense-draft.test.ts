@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  DRAFT_MAX_ATTEMPTS,
   draftAvailability,
+  draftExpiresAt,
   isPayrollCategoryName,
   resolveAccount,
   resolveCategoryName,
@@ -13,30 +13,32 @@ const future = new Date(now.getTime() + 10 * 60_000);
 const past = new Date(now.getTime() - 1000);
 
 describe("draftAvailability", () => {
-  it("abierto: pendiente, vigente y con intentos", () => {
-    expect(draftAvailability({ status: "PENDIENTE", expiresAt: future, attempts: 2 }, now)).toEqual({ open: true });
+  it("abierto: pendiente y vigente", () => {
+    expect(draftAvailability({ status: "PENDIENTE", expiresAt: future }, now)).toEqual({ open: true });
   });
 
   it("guardado: ya se uso", () => {
-    const result = draftAvailability({ status: "GUARDADO", expiresAt: future, attempts: 0 }, now);
+    const result = draftAvailability({ status: "GUARDADO", expiresAt: future }, now);
     expect(result).toMatchObject({ open: false, status: "GUARDADO" });
   });
 
-  it("rechazado, o con intentos agotados", () => {
-    expect(draftAvailability({ status: "RECHAZADO", expiresAt: future, attempts: 1 }, now)).toMatchObject({
-      open: false,
-      status: "RECHAZADO",
-    });
-    expect(draftAvailability({ status: "PENDIENTE", expiresAt: future, attempts: DRAFT_MAX_ATTEMPTS }, now)).toMatchObject({
+  it("rechazado (enlaces viejos)", () => {
+    expect(draftAvailability({ status: "RECHAZADO", expiresAt: future }, now)).toMatchObject({
       open: false,
       status: "RECHAZADO",
     });
   });
 
   it("vencido por estado o por hora (incluido el instante exacto)", () => {
-    expect(draftAvailability({ status: "VENCIDO", expiresAt: future, attempts: 0 }, now)).toMatchObject({ status: "VENCIDO" });
-    expect(draftAvailability({ status: "PENDIENTE", expiresAt: past, attempts: 0 }, now)).toMatchObject({ status: "VENCIDO" });
-    expect(draftAvailability({ status: "PENDIENTE", expiresAt: now, attempts: 0 }, now)).toMatchObject({ status: "VENCIDO" });
+    expect(draftAvailability({ status: "VENCIDO", expiresAt: future }, now)).toMatchObject({ status: "VENCIDO" });
+    expect(draftAvailability({ status: "PENDIENTE", expiresAt: past }, now)).toMatchObject({ status: "VENCIDO" });
+    expect(draftAvailability({ status: "PENDIENTE", expiresAt: now }, now)).toMatchObject({ status: "VENCIDO" });
+  });
+});
+
+describe("draftExpiresAt", () => {
+  it("el enlace dura 24 horas", () => {
+    expect(draftExpiresAt(now).getTime()).toBe(now.getTime() + 24 * 60 * 60_000);
   });
 });
 

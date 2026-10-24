@@ -4,16 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { getSiteUrl } from "@/lib/site";
 import { normalizeWord } from "../domain/expense-draft";
 import type { VoiceExpenseDeps } from "../application/register-expense-by-voice";
-import { createClaudeReceiptValidator } from "./claude-receipt-validator";
 import { createPrismaExpenseDraftRepository } from "./prisma-expense-draft-repository";
 import { createPrismaExpensesRepository } from "./prisma-expenses-repository";
 
-// Une los puertos de "registrar gasto por voz/chat" con Prisma, el disco y la IA de Anthropic.
+// Une los puertos de "registrar gasto por voz/chat" con Prisma, y el disco (la foto no se revisa).
 export function createVoiceExpenseDeps(): VoiceExpenseDeps {
   return {
     expenses: createPrismaExpensesRepository(),
     drafts: createPrismaExpenseDraftRepository(),
-    validator: createClaudeReceiptValidator(),
 
     async listAccounts() {
       const accounts = await prisma.account.findMany({

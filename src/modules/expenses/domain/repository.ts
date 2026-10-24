@@ -37,8 +37,9 @@ export type CreateExpenseInput = {
   // transaccion. fechaPuesta = dia AAAA-MM-DD que escribio el usuario.
   retroactivo?: ExpenseRetroactivoInput | null;
   // Gasto dicho a Claude: en la misma transaccion el borrador pasa a GUARDADO (y si ya estaba
-  // usado, falla con ExpenseDraftUsedError y no se crea nada). `revision` = lo que dijo la IA de la foto.
-  fromDraft?: { id: string; revision: unknown } | null;
+  // usado, falla con ExpenseDraftUsedError y no se crea nada). Solo para enlaces viejos: los
+  // gastos nuevos se guardan al confirmar y el borrador se crea despues, ya ligado al gasto.
+  fromDraft?: { id: string } | null;
 };
 
 export type ExpenseRetroactivoInput = {
@@ -69,10 +70,12 @@ export interface ExpensesRepository {
   listCategoryTotals(period?: DateRange): Promise<ExpenseCategoryTotal[]>;
 }
 
-// --- Gastos por voz/chat (MCP): borrador que espera la foto del soporte ---------------------
+// --- Gastos por voz/chat (MCP): borrador = enlace para subir la foto (opcional) del soporte ---
 
 export type NewExpenseDraft = {
   tokenHash: string;
+  // Gasto ya guardado al que se le pegara la foto.
+  expenseId: string;
   categoryId: string;
   accountId: string;
   amount: number;
@@ -87,7 +90,10 @@ export type NewExpenseDraft = {
 export type ExpenseDraftView = {
   id: string;
   status: ExpenseDraftStatus;
-  attempts: number;
+  // Gasto ya guardado (null en enlaces viejos que aun no lo crearon, o si lo borraron).
+  expenseId: string | null;
+  // true = el gasto se guardo al confirmar; false = enlace viejo: se guarda al recibir la foto.
+  savedOnConfirm: boolean;
   amount: number;
   expenseDate: Date;
   description: string | null;
@@ -106,8 +112,9 @@ export type ExpenseDraftView = {
 export interface ExpenseDraftRepository {
   create(input: NewExpenseDraft): Promise<{ id: string }>;
   findByTokenHash(tokenHash: string): Promise<ExpenseDraftView | null>;
-  // Suma un intento fallido (con el motivo y lo que dijo la IA). Si llega al maximo, queda RECHAZADO.
-  recordRejection(draftId: string, rejection: { reason: string; revision: unknown; maxAttempts: number }): Promise<void>;
+  // Pega la foto al gasto ya guardado y cierra el enlace (GUARDADO), todo en una transaccion con
+  // candado. Si el enlace ya no esta PENDIENTE falla con ExpenseDraftUsedError y no cambia nada.
+  attachReceipt(draftId: string, receipt: { expenseId: string; url: string; name: string }): Promise<void>;
   // Un borrador PENDIENTE cuyo enlace ya vencio pasa a VENCIDO.
   markExpired(draftId: string): Promise<void>;
 }

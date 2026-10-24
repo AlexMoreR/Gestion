@@ -5,16 +5,17 @@ import type { ReceiptAccountType } from "./receipt-check";
 
 export type ExpenseDraftStatus = "PENDIENTE" | "GUARDADO" | "RECHAZADO" | "VENCIDO";
 
-// El enlace para subir la foto dura 30 minutos y sirve una sola vez.
-export const DRAFT_TTL_MINUTES = 30;
-// Fotos rechazadas permitidas antes de cerrar el borrador.
-export const DRAFT_MAX_ATTEMPTS = 5;
+// El enlace para subir la foto (opcional) dura 24 horas y sirve una sola vez.
+export const DRAFT_TTL_MINUTES = 24 * 60;
+// Marca en `revision` de los borradores nuevos: el gasto ya se guardo al confirmar y el enlace
+// solo sirve para pegarle la foto. Sin ella (enlaces viejos) el gasto se guarda al recibir la foto.
+export const DRAFT_SAVED_MARK = { modo: "gasto_guardado" } as const;
 // Tope por gasto por este camino (la llave del MCP no debe poder crear gastos enormes).
 export const VOICE_EXPENSE_MAX_AMOUNT = 20_000_000;
 
 export class ExpenseDraftInputError extends Error {}
 
-// Un borrador se cerro de forma definitiva por una carrera (doble envio): ya se guardo el gasto.
+// El enlace ya se uso (doble envio): la foto ya quedo pegada o el gasto ya se guardo.
 export class ExpenseDraftUsedError extends Error {
   constructor() {
     super("Este enlace ya se usó.");
@@ -25,7 +26,7 @@ export function draftExpiresAt(now: Date): Date {
   return new Date(now.getTime() + DRAFT_TTL_MINUTES * 60_000);
 }
 
-export type DraftLike = { status: ExpenseDraftStatus; expiresAt: Date; attempts: number };
+export type DraftLike = { status: ExpenseDraftStatus; expiresAt: Date };
 
 export type DraftAvailability =
   | { open: true }
@@ -34,20 +35,17 @@ export type DraftAvailability =
 // ¿Se puede todavia subir una foto a este borrador?
 export function draftAvailability(draft: DraftLike, now: Date): DraftAvailability {
   if (draft.status === "GUARDADO") {
-    return { open: false, status: "GUARDADO", reason: "Este enlace ya se usó: el gasto quedó guardado." };
+    return { open: false, status: "GUARDADO", reason: "Este enlace ya se usó: la foto ya quedó guardada." };
   }
-  if (draft.status === "RECHAZADO" || draft.attempts >= DRAFT_MAX_ATTEMPTS) {
-    return {
-      open: false,
-      status: "RECHAZADO",
-      reason: "Se agotaron los intentos con este enlace. Pídele a Claude que registre el gasto otra vez.",
-    };
+  if (draft.status === "RECHAZADO") {
+    // Solo enlaces viejos que agotaron los intentos de la antigua revision.
+    return { open: false, status: "RECHAZADO", reason: "Este enlace ya no sirve. El gasto no se guardó." };
   }
   if (draft.status === "VENCIDO" || draft.expiresAt.getTime() <= now.getTime()) {
     return {
       open: false,
       status: "VENCIDO",
-      reason: "El enlace venció. Pídele a Claude que registre el gasto otra vez.",
+      reason: "El enlace venció.",
     };
   }
   return { open: true };

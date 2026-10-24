@@ -278,7 +278,6 @@ export function createPrismaExpensesRepository(): ExpensesRepository {
               estado: "GUARDADO",
               expenseId: created.id,
               ultimoMotivoRechazo: null,
-              revision: (input.fromDraft.revision ?? Prisma.JsonNull) as Prisma.InputJsonValue,
             },
           });
         }

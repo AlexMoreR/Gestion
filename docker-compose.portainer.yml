@@ -23,10 +23,9 @@ services:
       # Llave del servidor MCP de solo lectura (/api/mcp) para el asesor de IA.
       # Minimo 24 caracteres; sin ella el endpoint responde 401 a todo.
       MCP_API_KEY: "${MCP_API_KEY}"
-      # Gastos por MCP (voz/chat): llave de Anthropic para revisar la foto del soporte (sin ella
-      # registrar_gasto no guarda nada) y, opcional, correo del usuario que queda como creador
-      # del gasto (si no, el administrador mas antiguo).
-      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY}"
+      # Gastos por MCP (voz/chat): la foto del soporte es opcional y no se revisa, asi que ya no
+      # se usa ANTHROPIC_API_KEY. Opcional: correo
+      # del usuario que queda como creador del gasto (si no, el administrador mas antiguo).
       MCP_GASTOS_USUARIO_EMAIL: "${MCP_GASTOS_USUARIO_EMAIL}"
       # Fase 6, boton "Traer de Drive": direccion de la API de NETMAGI (crm-api, sin "/" final) y
       # la llave compartida (la misma GESTION_FOTOS_KEY en NETMAGI). Sin ellas el boton avisa

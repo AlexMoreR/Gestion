@@ -43,8 +43,8 @@ const CODE_RULES = [
   { regla: "Asistencia: estado y horas del dia", archivo: "src/modules/asistencia/domain/attendance.ts", funcion: "summarizeDay" },
   { regla: "Asistencia: dias trabajados del mes (base de la nomina por dia)", archivo: "src/modules/asistencia/domain/attendance.ts", funcion: "workedDays" },
   { regla: "Nomina por dia desde la asistencia (desde nov-2026)", archivo: "src/modules/asistencia/domain/attendance.ts", funcion: "attendanceDrivesPayroll" },
-  { regla: "Gastos por voz: la foto sirve como soporte (tipo y monto)", archivo: "src/modules/expenses/domain/receipt-check.ts", funcion: "evaluateReceipt" },
-  { regla: "Gastos por voz: vigencia del enlace de la foto (30 min, un uso)", archivo: "src/modules/expenses/domain/expense-draft.ts", funcion: "draftAvailability" },
+  { regla: "Gastos por voz: archivo permitido para la foto opcional (JPG, PNG, WEBP o PDF; no se revisa)", archivo: "src/modules/expenses/domain/receipt-check.ts", funcion: "sniffReceiptMime" },
+  { regla: "Gastos por voz: vigencia del enlace opcional de la foto (24 h, un uso)", archivo: "src/modules/expenses/domain/expense-draft.ts", funcion: "draftAvailability" },
   { regla: "Ganancia real del mes (ventas - producto - flete - comisiones - gastos)", archivo: "src/modules/asesor/domain/calculations.ts", funcion: "computeRealProfit" },
 ];
 

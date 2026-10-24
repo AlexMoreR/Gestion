@@ -44,7 +44,7 @@ módulos y para qué sirven:
 | **Nómina** | `/admin/comisiones/nomina` | Básico + comisiones − pagado por persona y mes; "Dinero hoy" por cuenta; registrar pago (gasto de Nómina desde una cuenta). Config en `AppSetting.payrollConfig`; módulo `src/modules/nomina`. Solo dueño/admin (permiso `commissions`). |
 | **Equipo** | `/admin/equipo` | Ficha de cada trabajador (cédula, nacimiento/edad, celular, correo, dirección, contacto de emergencia, cargo, vinculación, forma de pago, ingreso, salida y motivo). Estado Activo/Retirado calculado por la fecha de salida. Tabla `TeamMember`; módulo `src/modules/equipo`. Solo dueño/admin (permiso `team`, reservado). |
 | **Asistencia** | `/admin/asistencia` | Registro de entrada y salida: botón "Marcar entrada/salida" en la barra (Empleado y Admin; hora del servidor). Pestañas Hoy (trabajando / salió / no ha llegado) y Por mes (filtro persona y mes); el admin marca por otra persona y corrige/agrega/anula marcas con motivo. Tabla `AsistenciaMarca`; módulo `src/modules/asistencia`. Solo dueño/admin (permiso `attendance`, reservado). |
-| **Gastos** | `/admin/gastos` | Gastos operativos por categoría y cuenta (nómina, marketing, arriendo, servicios, herramientas, varios). También se registran hablándole a Claude (MCP `registrar_gasto`, con foto del soporte revisada). |
+| **Gastos** | `/admin/gastos` | Gastos operativos por categoría y cuenta (nómina, marketing, arriendo, servicios, herramientas, varios). También se registran hablándole a Claude (MCP `registrar_gasto`; se guarda al confirmar, la foto del soporte es opcional y no se revisa). |
 | **Transporte** | `/admin/transporte` | Tipo de envío por ciudad/corregimiento (DANE): Gratis / Adicional / Se cotiza / No llegamos / Automático, y "Pendientes de revisar" (lo nuevo que manda el CRM). El cliente ve el envío gratis en `/cobertura`; el CRM consulta `/api/transporte/ubicaciones`. |
 | **Configuración** | `/admin/configuracion/*` | Usuarios y roles, datos del negocio (moneda, marca, color), y control de módulos por rol. |
 
@@ -331,19 +331,20 @@ Route handlers reales (`route.ts`):
   como comisiones + básicos del tablero de Nómina); usa todos los gastos del mes aunque se filtre por categoría.
 - **Gastos por voz** (`registrar_gasto`, oct-2026, módulo `src/modules/expenses`, migración
   `20261023120000_gastos_por_mcp`, solo aditiva): 1) `confirmado=false` valida y devuelve el resumen (no guarda);
-  Claude lo repite y espera el "sí"; 2) `confirmado=true` crea un `GastoBorrador` y devuelve un enlace secreto
-  `/gastos/soporte/<token>` (página pública, 30 min, un solo uso; en la BD solo el hash, firma con `AUTH_SECRET`,
-  `src/lib/expense-draft-token.ts`). El dueño sube la foto desde el celular (acción pública
-  `submitExpenseReceiptAction`); la IA de Anthropic (`claude-receipt-validator.ts`, `fetch` a la API, modelo
-  `ANTHROPIC_RECEIPT_MODEL` o `claude-haiku-5-5`) solo **describe** la foto (tipo y monto leído, sin saber el
-  monto del gasto) y la decisión es de `evaluateReceipt` (`domain/receipt-check.ts`): transferencia, Nequi/
-  Daviplata, factura o recibo; en cuenta de efectivo también foto del dinero o recibo firmado; monto igual
-  ±$1. Si no sirve no se guarda nada (máx. 5 intentos). Se guarda con `createExpense({ fromDraft })`: candado
-  `FOR UPDATE` sobre el borrador, así un doble envío no crea dos gastos. Categorías: arriendo, publicidad
+  Claude lo repite y espera el "sí"; 2) `confirmado=true` (una sola vez) **guarda el gasto de una vez** con
+  `createExpense` (la misma función de la pantalla de Gastos; bitácora "Registró un gasto de $X (por Claude)") y
+  devuelve su número y un enlace opcional `/gastos/soporte/<token>` (página pública, **24 h**, un solo uso; en la
+  BD solo el hash, firma con `AUTH_SECRET`, `src/lib/expense-draft-token.ts`) respaldado por un `GastoBorrador`
+  ligado al gasto (`expenseId`). La foto es **opcional y no se revisa** (24-oct-2026, decisión de Alexander; se
+  quitó la IA de Anthropic y ya no hace falta `ANTHROPIC_API_KEY`): `submitExpenseReceiptAction` valida solo
+  tipo (JPG/PNG/WEBP/PDF) y tamaño (12 MB) y la pega al gasto existente; `attachReceipt` usa
+  candado `FOR UPDATE` sobre el borrador, así un doble envío la pega una sola vez. Enlaces viejos (borrador sin
+  gasto, sin la marca `revision.modo = "gasto_guardado"`): el gasto se guarda al recibir la foto, sin revisión.
+  Riesgos: gastos sin soporte o con foto que no corresponde; confirmar dos veces crea dos gastos (se borra desde
+  Gastos). Categorías: arriendo, publicidad
   (= Marketing), nómina (exige `persona`), servicios, herramientas, otros (= Varios); las que faltan se crean
   al usarse. Fecha anterior a hoy exige `motivo_fecha_anterior` (retroactivo). Tope $20.000.000. Creador:
-  `MCP_GASTOS_USUARIO_EMAIL` o el ADMIN más antiguo. Sin `ANTHROPIC_API_KEY` no se guarda nada. La foto es
-  obligatoria por este camino también en efectivo.
+  `MCP_GASTOS_USUARIO_EMAIL` o el ADMIN más antiguo.
 - `asistencia` (oct-2026): `fecha` o `desde`/`hasta` (máx. 62 días; por defecto hoy) y `persona` opcional (por
   nombre) → quién está trabajando ahora, quién no ha llegado, y por día entrada, salida, horas, marcas y
   correcciones; días trabajados del rango. `nomina_del_mes` trae `dias_fuente` (`asistencia`/`manual`).
@@ -448,9 +449,8 @@ que **redespliega** el stack automáticamente. No hay que hacer nada manual.
   pierden entre despliegues).
 - Variables de entorno del stack: `DATABASE_URL`, `AUTH_URL`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_APP_URL`,
   `AUTH_SECRET` (requerido por next-auth), SMTP (`SMTP_HOST/PORT/SECURE/USER/PASS/FROM`) para correos,
-  `MONTHLY_REPORT_TOKEN` (opcional), `MCP_API_KEY` (llave del servidor MCP `/api/mcp`), `ANTHROPIC_API_KEY`
-  (revisión de fotos de `registrar_gasto`; sin ella no se guarda ningún gasto por MCP) y, opcional,
-  `MCP_GASTOS_USUARIO_EMAIL` (creador de esos gastos) y `ANTHROPIC_RECEIPT_MODEL`.
+  `MONTHLY_REPORT_TOKEN` (opcional), `MCP_API_KEY` (llave del servidor MCP `/api/mcp`), y, opcional,
+  `MCP_GASTOS_USUARIO_EMAIL` (creador de los gastos por MCP). `ANTHROPIC_API_KEY` ya no se usa.
 
 **Dónde viven de verdad las variables (importante):**
 - `docker-compose.portainer.yml` del repo es solo **referencia**. El stack real `magilus_app` es un stack

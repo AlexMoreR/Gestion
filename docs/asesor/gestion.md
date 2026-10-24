@@ -41,7 +41,7 @@ en las Server Actions y en `src/lib/`.
 ## Módulos
 
 - `balances`: rentabilidad por venta, cuentas de dinero, pagos a proveedores, costos de envío y métricas del mes. Es la fuente única del cálculo de ganancia.
-- `expenses`: gastos operativos por categoría y cuenta (nómina, marketing, arriendo, servicios, herramientas, varios). También registra gastos dichos a Claude por voz o chat (herramienta MCP `registrar_gasto`): el gasto solo se guarda cuando el dueño sube la foto del soporte por un enlace secreto y la IA de Anthropic confirma que es un comprobante con el monto correcto.
+- `expenses`: gastos operativos por categoría y cuenta (nómina, marketing, arriendo, servicios, herramientas, varios). También registra gastos dichos a Claude por voz o chat (herramienta MCP `registrar_gasto`): el gasto se guarda al confirmar el dueño (dos pasos: resumen y "sí"); la foto del soporte es opcional, se sube después por un enlace secreto y no se revisa.
 - `inventory`: stock por producto, movimientos de entrada/salida/ajuste y compras directas a proveedor (COM-).
 - `transporte`: tipo de envío por departamento, ciudad y corregimiento (datos DANE): gratis, adicional, se cotiza o no llegamos. Lo consulta el cliente en `/cobertura` (solo si es gratis o no) y el CRM de las asesoras por `/api/transporte/ubicaciones`.
 - `ventas`: reglas de la venta: forma de pago (50/50 o contraentrega), origen de cada venta (lo avisa el CRM por `/api/ventas/origen`; reporte en `/admin/ventas/origen`) y abonos por retención en la fuente (reporte en `/admin/ventas/retenciones`).
@@ -54,7 +54,7 @@ en las Server Actions y en `src/lib/`.
 
 - `User`: cualquier persona con cuenta: dueño/admin, empleados y clientes (rol `Role`). Los clientes se crean al cotizar. Es el autor de casi todos los registros.
 - `ActivityLog`: bitácora de auditoría: quién creó, editó o borró qué.
-- `GastoBorrador`: gasto dicho a Claude que espera la foto de su soporte. Guarda los datos del gasto, el hash del enlace (nunca el enlace), el estado (`GastoBorradorEstado`: pendiente, guardado, rechazado, vencido), los intentos, el último motivo de rechazo y lo que la IA vio en la foto. El enlace dura 30 minutos y sirve una vez; al pasar la revisión nace el `Expense` y el borrador queda guardado.
+- `GastoBorrador`: enlace para subir la foto (opcional) de un gasto dicho a Claude. Guarda los datos del gasto, el hash del enlace (nunca el enlace) y el estado (`GastoBorradorEstado`: pendiente, guardado, rechazado, vencido). El `Expense` ya existe desde que el dueño confirma; el enlace dura 24 horas, sirve una vez y al subir la foto se pega a ese gasto y el borrador queda guardado. Los campos de intentos, rechazo y revisión son de la antigua revisión con IA (un enlace viejo, sin gasto, guarda el gasto al recibir la foto).
 - `Product`: producto del catálogo con precio de venta, costo de proveedor, flete por unidad, márgenes, precio mayorista, bandera de combo u oculto en tienda y, opcional, su propio envío adicional (COP) que pisa el de la categoría.
 - `ProductReview`: reseña o calificación de un producto en la tienda.
 - `ProductComponent`: composición de un combo: qué productos hijos y en qué cantidad forman un producto combo.
@@ -169,12 +169,11 @@ luego se entrega. Mientras no se entrega aparece como "Falta entregar". Excepci�
 entrega. Una orden cancelada no cuenta.
 
 **Gastos por voz o chat (`registrar_gasto`).** Claude repite el gasto y espera el "sí" del dueño; con
-el "sí" entrega un enlace para subir la foto (30 minutos, un solo uso). La IA solo describe la foto
-(qué es y qué monto se ve, sin saber el monto del gasto); la decisión es de Gestión: sirve una
-transferencia, un pantallazo de Nequi/Daviplata, una factura o un recibo, y en cuentas de efectivo
-también la foto del dinero (suma de billetes) o del recibo firmado. El monto leído debe coincidir con
-el del gasto (diferencia máxima de $1). Si no sirve, no se guarda nada y la página dice por qué
-(hasta 5 intentos por enlace). Sin `ANTHROPIC_API_KEY` no se guarda nada. Tope de $20.000.000 por gasto;
+con el "sí" (`confirmado=true`, una sola vez) el gasto **queda guardado de una vez**, sin foto, y la
+respuesta trae su número y un enlace opcional para subir la foto después (24 horas, un solo uso). La
+foto es opcional y **no se revisa**: se pega al gasto ya guardado (solo JPG, PNG, WEBP o PDF de hasta
+12 MB); si no se sube, el gasto sigue guardado. No hace falta `ANTHROPIC_API_KEY`. Si Claude confirma
+dos veces el mismo gasto quedan dos: el repetido se borra desde la pantalla de Gastos. Tope de $20.000.000 por gasto;
 nómina exige persona; una fecha anterior a hoy exige motivo (gasto retroactivo). El gasto queda a nombre
 de `MCP_GASTOS_USUARIO_EMAIL` o, si no existe, del administrador más antiguo, y usa el mismo guardado
 que la pantalla de Gastos (descuenta el saldo de la cuenta y entra a Balances).
@@ -289,7 +288,7 @@ mes y total del año en `/admin/ventas/retenciones`, con descarga CSV para el co
 - Las órdenes de fabricación (OF-) **no tienen estado** (enviada, en fabricación, recibida).
 - Los reportes de ganancia **no incluyen ventas con saldo pendiente** ni contraentregas sin entregar. Una venta pagada sin entregar sí cuenta; su costo puede subir después si al despachar se registra un flete o se confirma otro costo de proveedora.
 - La contribución (`resumen_del_mes`) **no descuenta gastos operativos**; esos están en el módulo Gastos. La ganancia real con gastos sale de `listar_gastos`.
-- Por `registrar_gasto` la foto del soporte es **siempre obligatoria**, también en efectivo (en la pantalla de Gastos sigue siendo opcional para efectivo). No hay forma de borrar ni editar un gasto por Claude: se hace desde la pantalla de Gastos.
+- Por `registrar_gasto` la foto del soporte es **opcional y no se revisa**, así que puede haber gastos sin comprobante o con una foto que no corresponde (la pantalla de Gastos muestra cuáles no tienen foto). Confirmar dos veces crea dos gastos. No hay forma de borrar ni editar un gasto por Claude: se hace desde la pantalla de Gastos.
 - Un usuario con historial (ventas, cotizaciones, gastos) **no se puede borrar** y no existe "desactivar usuario": hay que quitarle módulos o cambiarle el rol. Dar de baja en Equipo no le quita el acceso a Gestión.
 - La **asistencia** solo la marcan los usuarios Empleado o Admin: una ficha de Equipo sin usuario no puede marcar ni aparece en Asistencia (hay que crearle un usuario, aunque nunca entre, y un admin marca por esa persona). No hay geolocalización ni foto al marcar. La nómina no prorratea el básico del mes de ingreso o salida: se avisa para revisarlo.
 - No hay **pruebas automáticas** en el pipeline de despliegue (ver riesgos).

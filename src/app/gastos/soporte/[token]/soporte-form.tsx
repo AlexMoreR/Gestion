@@ -27,7 +27,7 @@ export function SoporteForm({ token }: Props) {
     return (
       <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
         <p className="flex items-center gap-2 font-semibold">
-          <CheckCircle2 className="h-5 w-5" /> Gasto guardado
+          <CheckCircle2 className="h-5 w-5" /> Foto guardada
         </p>
         <p className="mt-1 text-sm">{saved}</p>
         <p className="mt-2 text-sm">Ya puedes cerrar esta página.</p>
@@ -39,7 +39,7 @@ export function SoporteForm({ token }: Props) {
     return (
       <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-900">
         <p className="flex items-center gap-2 font-semibold">
-          <TriangleAlert className="h-5 w-5" /> No se guardó el gasto
+          <TriangleAlert className="h-5 w-5" /> No se pudo guardar la foto
         </p>
         <p className="mt-1 text-sm">{error.reason}</p>
       </div>
@@ -63,7 +63,7 @@ export function SoporteForm({ token }: Props) {
         disabled={pending}
         className="w-full rounded-xl bg-[#42066E] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
       >
-        {pending ? "Revisando la foto…" : "Enviar foto"}
+        {pending ? "Guardando la foto…" : "Enviar foto"}
       </button>
     </form>
   );

@@ -63,8 +63,8 @@ import { createVoiceExpenseDeps } from "@/modules/expenses/infrastructure/voice-
 import type { McpServerDefinition, McpToolDefinition, McpToolResult } from "./protocol";
 
 // Casi todas las herramientas son de SOLO LECTURA: solo llaman casos de uso de consulta.
-// La unica que escribe es registrar_gasto: solo guarda con la foto del soporte revisada y
-// despues de que el dueno diga "si".
+// La unica que escribe es registrar_gasto: solo guarda despues de que el dueno diga "si"
+// (la foto del soporte es opcional y no se revisa).
 const READ_ONLY_ANNOTATIONS = {
   readOnlyHint: true,
   destructiveHint: false,
@@ -512,9 +512,9 @@ export const asesorTools: McpToolDefinition[] = [
   }),
   defineTool({
     name: "registrar_gasto",
-    title: "Registrar un gasto (con foto del soporte)",
+    title: "Registrar un gasto",
     description:
-      "Registra un gasto del negocio. SIEMPRE en dos pasos: (1) llama con confirmado=false (por defecto): NO guarda nada, valida y devuelve el resumen del gasto; repitele el resumen al dueno y pregunta '¿Lo guardo?'. (2) SOLO si el dueno dice 'si', llama otra vez con los MISMOS datos y confirmado=true: devuelve un enlace secreto (30 minutos, un solo uso) para que el dueno suba la foto del soporte desde el celular. Claude no puede subir la foto por esta herramienta: dale el enlace al dueno. El gasto se guarda SOLO si la foto es un comprobante de pago (transferencia, Nequi/Daviplata, factura o recibo; si la cuenta es efectivo tambien sirve la foto del dinero o del recibo firmado) y su monto coincide con el del gasto; si no, no se guarda y la pagina dice por que. Despues puedes verificarlo con listar_gastos. Descuenta el saldo de la cuenta y aparece en Balances del mes. Tope: $20.000.000 por gasto. Nomina exige 'persona'. Si la fecha es anterior a hoy exige 'motivo_fecha_anterior'. Moneda: COP.",
+      "Registra un gasto del negocio. SIEMPRE en dos pasos: (1) llama con confirmado=false (por defecto): NO guarda nada, valida y devuelve el resumen del gasto; repitele el resumen al dueno y pregunta '¿Lo guardo?'. (2) SOLO si el dueno dice 'si', llama UNA SOLA VEZ con los MISMOS datos y confirmado=true: el gasto queda guardado de una vez y la respuesta trae su numero (gasto_id). NO la repitas: si se llama dos veces quedan dos gastos iguales. La foto del soporte es OPCIONAL y NO se revisa: la respuesta trae un enlace secreto (24 horas, un solo uso) por si el dueno quiere subirla despues desde el celular; Claude no puede subir la foto, solo dar el enlace. Si no la sube, el gasto sigue guardado igual. Descuenta el saldo de la cuenta y aparece en Balances del mes; se puede verificar con listar_gastos. Un gasto repetido se borra desde la pantalla de Gastos. Tope: $20.000.000 por gasto. Nomina exige 'persona'. Si la fecha es anterior a hoy exige 'motivo_fecha_anterior'. Moneda: COP.",
     schema: z.object({
       monto: z.number().positive().describe("Monto del gasto en pesos colombianos, ej. 350000."),
       categoria: z
@@ -536,7 +536,7 @@ export const asesorTools: McpToolDefinition[] = [
       confirmado: z
         .boolean()
         .default(false)
-        .describe("false = solo mostrar el resumen. true = el dueno ya dijo 'si': crear el enlace para la foto."),
+        .describe("false = solo mostrar el resumen. true = el dueno ya dijo 'si': guardar el gasto (una sola vez)."),
     }),
     writes: true,
     handler: async (args) => {
@@ -561,17 +561,19 @@ export const asesorTools: McpToolDefinition[] = [
             monto: prepared.amount,
             fecha: prepared.day,
             siguiente_paso:
-              "Repite este resumen al dueno y pregunta '¿Lo guardo?'. Si dice si, llama de nuevo con los mismos datos y confirmado=true para recibir el enlace de la foto.",
+              "Repite este resumen al dueno y pregunta '¿Lo guardo?'. Si dice si, llama UNA SOLA VEZ mas con los mismos datos y confirmado=true para guardarlo (la foto es opcional y no se revisa).",
           };
         }
         const confirmed = await confirmVoiceExpense(deps, input);
         return {
-          guardado: false,
+          guardado: true,
+          gasto_id: confirmed.expenseId,
           resumen: confirmed.summary,
           enlace_para_subir_la_foto: confirmed.uploadUrl,
-          vence: confirmed.expiresAt.toISOString(),
-          siguiente_paso:
-            "Dale el enlace al dueno: lo abre en el celular, toma o elige la foto del soporte y la envia. El gasto SOLO se guarda si la foto es un comprobante valido con el monto correcto (la pagina avisa si no). Luego puedes confirmarlo con listar_gastos.",
+          vence: confirmed.uploadUrl ? confirmed.expiresAt.toISOString() : null,
+          siguiente_paso: confirmed.uploadUrl
+            ? "El gasto YA quedo guardado (no lo vuelvas a registrar). Dile al dueno su numero (gasto_id). Si quiere, puede subir la foto del soporte desde el celular con el enlace (opcional, no se revisa, un solo uso, 24 horas). Puedes verificarlo con listar_gastos."
+            : "El gasto YA quedo guardado (no lo vuelvas a registrar). Dile al dueno su numero (gasto_id). No se pudo crear el enlace de la foto; si la quiere, la agrega desde la pantalla de Gastos.",
         };
       } catch (error) {
         if (error instanceof ExpenseDraftInputError) {
@@ -613,6 +615,6 @@ export const asesorMcpServer: McpServerDefinition = {
   name: "gestion-magilus",
   version: "1.2.0",
   instructions:
-    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), asistencia (quien esta trabajando hoy, entradas y salidas, dias trabajados), saldos de cuentas y gastos del mes con la ganancia real (listar_gastos). Para entender el sistema completo usa primero que_es_esta_aplicacion. Todas las herramientas son de lectura salvo registrar_gasto, que es la unica que escribe: antes de guardar un gasto SIEMPRE repite el resumen al dueno y espera su 'si' (primero registrar_gasto con confirmado=false, luego confirmado=true), y el gasto solo queda guardado cuando el dueno sube la foto del soporte por el enlace y esta pasa la revision. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
+    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), asistencia (quien esta trabajando hoy, entradas y salidas, dias trabajados), saldos de cuentas y gastos del mes con la ganancia real (listar_gastos). Para entender el sistema completo usa primero que_es_esta_aplicacion. Todas las herramientas son de lectura salvo registrar_gasto, que es la unica que escribe: antes de guardar un gasto SIEMPRE repite el resumen al dueno y espera su 'si' (primero registrar_gasto con confirmado=false, luego confirmado=true), y el gasto queda guardado al confirmar (confirmado=true, UNA sola vez: dos llamadas crean dos gastos). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
   tools: asesorTools,
 };

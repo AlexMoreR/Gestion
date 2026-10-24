@@ -1,13 +1,16 @@
 import { prisma } from "@/lib/prisma";
+import { DRAFT_SAVED_MARK, ExpenseDraftUsedError } from "../domain/expense-draft";
 import type { ExpenseDraftRepository, ExpenseDraftView } from "../domain/repository";
 
-// Borradores de gastos dichos a Claude (MCP) que esperan la foto del soporte.
+// Enlaces de gastos dichos a Claude (MCP) para subir la foto (opcional) del soporte.
 export function createPrismaExpenseDraftRepository(): ExpenseDraftRepository {
   return {
     async create(input) {
       const row = await prisma.gastoBorrador.create({
         data: {
           tokenHash: input.tokenHash,
+          expenseId: input.expenseId,
+          revision: DRAFT_SAVED_MARK,
           categoryId: input.categoryId,
           accountId: input.accountId,
           amount: input.amount,
@@ -41,7 +44,8 @@ export function createPrismaExpenseDraftRepository(): ExpenseDraftRepository {
       return {
         id: draft.id,
         status: draft.estado,
-        attempts: draft.intentos,
+        expenseId: draft.expenseId,
+        savedOnConfirm: (draft.revision as { modo?: unknown } | null)?.modo === DRAFT_SAVED_MARK.modo,
         amount: Number(draft.amount),
         expenseDate: draft.expenseDate,
         description: draft.description,
@@ -58,15 +62,20 @@ export function createPrismaExpenseDraftRepository(): ExpenseDraftRepository {
       };
     },
 
-    async recordRejection(draftId, rejection) {
-      // Un solo UPDATE atomico: suma el intento y, si llega al maximo, cierra el borrador.
-      await prisma.$executeRaw`
-        UPDATE "GastoBorrador"
-        SET "intentos" = "intentos" + 1,
-            "ultimoMotivoRechazo" = ${rejection.reason},
-            "revision" = ${JSON.stringify(rejection.revision ?? null)}::jsonb,
-            "estado" = CASE WHEN "intentos" + 1 >= ${rejection.maxAttempts} THEN 'RECHAZADO'::"GastoBorradorEstado" ELSE "estado" END
-        WHERE "id" = ${draftId} AND "estado" = 'PENDIENTE'::"GastoBorradorEstado"`;
+    async attachReceipt(draftId, receipt) {
+      await prisma.$transaction(async (tx) => {
+        // Candado de la fila: un doble envio espera aqui y luego lo ve GUARDADO.
+        const locked = await tx.$queryRaw<Array<{ estado: string }>>`
+          SELECT "estado"::text AS "estado" FROM "GastoBorrador" WHERE "id" = ${draftId} FOR UPDATE`;
+        if (locked[0]?.estado !== "PENDIENTE") {
+          throw new ExpenseDraftUsedError();
+        }
+        await tx.expense.update({
+          where: { id: receipt.expenseId },
+          data: { receiptUrl: receipt.url, receiptName: receipt.name },
+        });
+        await tx.gastoBorrador.update({ where: { id: draftId }, data: { estado: "GUARDADO" } });
+      });
     },
 
     async markExpired(draftId) {
