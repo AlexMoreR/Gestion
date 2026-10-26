@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { CalendarDays, Factory, MapPin } from "lucide-react";
+import { CalendarDays, Factory } from "lucide-react";
 import { formatMoney } from "@/lib/currency";
-import { suggestDeliveryAddress, toManufacturingLine } from "@/lib/manufacturing-orders";
+import { toManufacturingLine } from "@/lib/manufacturing-orders";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
 import { imageVariantUrl } from "@/lib/image-variants";
@@ -50,13 +50,8 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
     where: { shareToken: token },
     include: {
       supplier: { select: { name: true, displayName: true } },
-      // Solo datos de direccion del cliente (nunca nombre ni telefono).
-      order: {
-        select: {
-          code: true,
-          client: { select: { address: true, neighborhood: true, city: true, department: true } },
-        },
-      },
+      // La proveedora no ve ningún dato del cliente: ni dirección, ni ciudad, ni departamento (26-oct-2026).
+      order: { select: { code: true } },
     },
   });
   if (!manufacturingOrder) notFound();
@@ -87,8 +82,6 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
   const totalCost = lines.reduce((sum, line) => sum + (line.subtotal ?? 0), 0);
   const totalUnits = lines.reduce((sum, line) => sum + line.quantity, 0);
   const supplierName = manufacturingOrder.supplier.displayName || manufacturingOrder.supplier.name;
-  const deliveryAddress =
-    manufacturingOrder.deliveryAddress || suggestDeliveryAddress(manufacturingOrder.order.client);
 
   return (
     <div className="min-h-screen bg-slate-50 print:bg-white">
@@ -135,14 +128,6 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
               {formatCalendarDate(manufacturingOrder.deliveryDate)}
             </p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <MapPin className="h-3.5 w-3.5" /> Dirección de despacho
-            </p>
-            <p className="mt-1 text-sm font-medium text-slate-900">
-              {deliveryAddress || "Por confirmar"}
-            </p>
-          </div>
         </section>
 
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -159,16 +144,17 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
           ) : (
             <ul className="divide-y divide-slate-100">
               {lines.map((line) => (
-                <li key={line.id} className="flex gap-3 px-4 py-4">
+                <li key={line.id} className="flex flex-col gap-3 px-4 py-4">
                   {line.imageUrl ? (
+                    // Foto a todo el ancho de la tarjeta, arriba del nombre (26-oct-2026).
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={imageVariantUrl(getPublicAssetUrl(line.imageUrl), "thumb")}
+                      src={imageVariantUrl(getPublicAssetUrl(line.imageUrl), "large")}
                       alt={line.productName}
-                      className="h-20 w-20 shrink-0 rounded-lg border border-slate-100 object-cover"
+                      className="h-auto w-full rounded-lg border border-slate-100 object-contain"
                     />
                   ) : null}
-                  <div className="min-w-0 flex-1 space-y-1">
+                  <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <p className="text-sm font-semibold text-slate-900">
                         {line.productName}
@@ -178,17 +164,12 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
                       </p>
                       <p className="text-sm font-semibold text-slate-900">Cantidad: {line.quantity}</p>
                     </div>
-                    {line.comboName ? (
-                      <p className="text-xs text-slate-500">Parte del combo: {line.comboName}</p>
-                    ) : null}
                     {line.color ? (
-                      <p className="text-xs text-slate-700">
-                        <span className="font-medium">Color:</span> {line.color}
-                      </p>
+                      <p className="text-sm font-semibold text-slate-900">Color: {line.color}</p>
                     ) : null}
                     {line.details ? (
-                      <p className="whitespace-pre-line text-xs text-slate-700">
-                        <span className="font-medium">Medidas / especificaciones:</span> {line.details}
+                      <p className="whitespace-pre-line text-sm font-semibold text-slate-900">
+                        Medidas / especificaciones: {line.details}
                       </p>
                     ) : null}
                     <p className="text-xs text-slate-500">
