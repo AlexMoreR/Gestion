@@ -146,13 +146,21 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
               {lines.map((line) => (
                 <li key={line.id} className="flex flex-col gap-3 px-4 py-4">
                   {line.imageUrl ? (
-                    // Foto a todo el ancho de la tarjeta, arriba del nombre (26-oct-2026).
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={imageVariantUrl(getPublicAssetUrl(line.imageUrl), "large")}
-                      alt={line.productName}
-                      className="h-auto w-full rounded-lg border border-slate-100 object-contain"
-                    />
+                    // Foto a todo el ancho de la tarjeta, arriba del nombre, con la etiqueta de que es solo
+                    // referencia y en qué color se fabrica (26-oct-2026).
+                    <div className="space-y-2">
+                      <p className="rounded-lg bg-amber-100 px-3 py-2 text-center text-sm font-bold text-amber-900 ring-1 ring-amber-300">
+                        {line.color
+                          ? `Foto de referencia, fabricar en color ${line.color.toUpperCase()}`
+                          : "Foto de referencia"}
+                      </p>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={imageVariantUrl(getPublicAssetUrl(line.imageUrl), "large")}
+                        alt={line.productName}
+                        className="h-auto w-full rounded-lg border border-slate-100 object-contain"
+                      />
+                    </div>
                   ) : null}
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -165,7 +173,9 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
                       <p className="text-sm font-semibold text-slate-900">Cantidad: {line.quantity}</p>
                     </div>
                     {line.color ? (
-                      <p className="text-sm font-semibold text-slate-900">Color: {line.color}</p>
+                      <p className="inline-block rounded-md bg-amber-100 px-2 py-1 text-lg font-bold text-amber-900">
+                        Color: {line.color.toUpperCase()}
+                      </p>
                     ) : null}
                     {line.details ? (
                       <p className="whitespace-pre-line text-sm font-semibold text-slate-900">
