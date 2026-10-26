@@ -6,6 +6,7 @@ import sharp from "sharp";
 import { prisma } from "@/lib/prisma";
 import { createImageVariants } from "@/lib/image-variants.server";
 import { getNetmagiConfig, type NetmagiConfig } from "@/lib/netmagi-config.server";
+import { SOLO_FOTOS, TIPO_FOTO } from "@/lib/product-fichas";
 import {
   DRIVE_GALLERY_MAX,
   DRIVE_MIN_SIDE,
@@ -141,7 +142,8 @@ export async function importDrivePhotosForProduct(productId: string): Promise<Dr
 
   const product = await prisma.product.findUnique({
     where: { id: productId },
-    select: { id: true, code: true, thumbnailUrl: true, images: { select: { url: true, driveFileId: true } } },
+    // SOLO fotos: las fichas tecnicas no cuentan para el cupo de 8 ni para "ya estaba".
+    select: { id: true, code: true, thumbnailUrl: true, images: { where: SOLO_FOTOS, select: { url: true, driveFileId: true } } },
   });
   if (!product) return { ...base, message: "Producto no encontrado" };
   const code = (product.code ?? "").trim().toUpperCase();
@@ -174,7 +176,7 @@ export async function importDrivePhotosForProduct(productId: string): Promise<Dr
       const created = await prisma.$transaction(async (tx) => {
         const current = await tx.product.findUnique({
           where: { id: productId },
-          select: { thumbnailUrl: true, images: { select: { url: true, order: true, driveFileId: true } } },
+          select: { thumbnailUrl: true, images: { where: SOLO_FOTOS, select: { url: true, order: true, driveFileId: true } } },
         });
         if (!current) return "gone" as const;
         if (current.images.some((image) => image.driveFileId === driveFileId)) return "exists" as const;
@@ -183,7 +185,7 @@ export async function importDrivePhotosForProduct(productId: string): Promise<Dr
         }
         const nextOrder = current.images.reduce((maxOrder, image) => Math.max(maxOrder, image.order), -1) + 1;
         await tx.productImage.create({
-          data: { productId, url, order: nextOrder, driveFileId, origen: "drive" },
+          data: { productId, url, order: nextOrder, driveFileId, origen: "drive", tipo: TIPO_FOTO },
         });
         return "created" as const;
       });

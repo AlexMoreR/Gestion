@@ -2,12 +2,14 @@ import Link from "next/link";
 import { ChevronRight, CreditCard, Factory, Palette, ShieldCheck, Star, Truck } from "lucide-react";
 import { adminDeleteProductReviewAction } from "@/app/actions/product-review-actions";
 import { ProductFaq } from "@/components/store/product-faq";
+import { ProductFichaTecnica } from "@/components/store/product-ficha-tecnica";
 import { ProductGallery } from "@/components/store/product-gallery";
 import { ProductReviewForm } from "@/components/store/product-review-form";
 import { ProductStickyBuyBar } from "@/components/store/product-sticky-buy-bar";
 import { WhatsAppIcon } from "@/components/store/whatsapp-icon";
 import { formatMoney } from "@/lib/currency";
 import type { SupportedCurrencyCode } from "@/lib/currency";
+import { altFicha, soloFotos } from "@/lib/product-fichas";
 import { buildProductPath } from "@/lib/product-slugs";
 import { imageVariantUrl } from "@/lib/image-variants";
 import { buildProductLandingData, FACTORY_LOCATIONS, productDisplayName } from "@/lib/product-landing";
@@ -44,7 +46,7 @@ type ProductDetailContentProps = {
     thumbnailUrl: string;
     categoryId: string | null;
     category: { name: string; slug: string } | null;
-    images: Array<{ url: string }>;
+    images: Array<{ url: string; tipo?: string | null }>;
     reviews: Array<{
       id: string;
       authorName: string | null;
@@ -54,6 +56,8 @@ type ProductDetailContentProps = {
       createdAt: Date;
     }>;
   };
+  // Fichas tecnicas (ProductImage.tipo = "ficha"): van en "Medidas y detalles", nunca en la galeria.
+  fichas?: Array<{ id: string; url: string }>;
   currency: SupportedCurrencyCode;
   isAdmin?: boolean;
   relatedProducts: Array<{
@@ -91,6 +95,7 @@ export async function ProductDetailContent({
   currency,
   relatedProducts,
   isAdmin = false,
+  fichas = [],
 }: ProductDetailContentProps) {
   const brandName = await getSystemBrandName();
   const reviews = product.reviews ?? [];
@@ -101,7 +106,7 @@ export async function ProductDetailContent({
   const roundedRating = Math.round(averageRating);
   const gallery = Array.from(
     new Set(
-      [product.thumbnailUrl, ...product.images.map((item) => item.url)]
+      [product.thumbnailUrl, ...soloFotos(product.images).map((item) => item.url)]
         .map((value) => value.trim())
         .filter(Boolean),
     ),
@@ -321,6 +326,20 @@ export async function ProductDetailContent({
               </div>
             ))}
           </dl>
+          {fichas.length > 0 ? (
+            <div className="mt-5">
+              <h3 id="ficha-tecnica" className="mb-2.5 text-[17px] font-bold tracking-tight text-foreground">
+                Ficha técnica
+              </h3>
+              <ProductFichaTecnica
+                fichas={fichas.map((ficha, index) => ({
+                  id: ficha.id,
+                  src: getPublicAssetUrl(ficha.url),
+                  alt: altFicha(landing.displayName, index, fichas.length),
+                }))}
+              />
+            </div>
+          ) : null}
         </div>
         <div className="min-w-0">
           <h2 className="mb-3.5 text-[22px] font-extrabold tracking-tight text-foreground lg:text-[26px]">Colores</h2>

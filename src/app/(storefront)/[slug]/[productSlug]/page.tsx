@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { ProductDetailContent } from "@/components/store/product-detail-content";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
+import { separarImagenes } from "@/lib/product-fichas";
 import { getCurrentStorePrice } from "@/lib/product-promo";
 import { findRedirectTarget } from "@/lib/product-redirect";
 import { buildProductPath } from "@/lib/product-slugs";
@@ -28,6 +29,7 @@ const getProductBySlug = cache((productSlug: string) =>
     where: { slug: productSlug },
     include: {
       category: true,
+      // Fotos y fichas tecnicas juntas; se separan abajo (las fichas nunca van a la galeria).
       images: { orderBy: { order: "asc" } },
       reviews: { orderBy: { createdAt: "desc" } },
       bundleComponents: COMBO_SAVINGS_COMPONENTS_SELECT,
@@ -152,10 +154,12 @@ export default async function CategoryProductPage({ params }: PageProps) {
   });
 
   const isAdmin = session?.user?.role === "ADMIN";
+  const { fotos, fichas } = separarImagenes(product.images);
 
   return (
     <ProductDetailContent
-      product={product}
+      product={{ ...product, images: fotos }}
+      fichas={fichas.map((ficha) => ({ id: ficha.id, url: ficha.url }))}
       currency={currency}
       relatedProducts={relatedProducts}
       isAdmin={isAdmin}

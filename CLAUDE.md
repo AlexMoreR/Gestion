@@ -30,7 +30,7 @@ módulos y para qué sirven:
 
 | Módulo | Ruta | Para qué sirve |
 |---|---|---|
-| **Productos** | `/admin/productos` | Catálogo: crear/editar productos, precios, costos, combos, imágenes, ocultar de la tienda. |
+| **Productos** | `/admin/productos` | Catálogo: crear/editar productos, precios, costos, combos, imágenes, ocultar de la tienda. **Fichas técnicas**: `ProductImage.tipo` = `"foto"` (galería, portada, Traer de Drive, `/api/catalogo`) o `"ficha"` (sección "Ficha técnica" en el admin y en "Medidas y detalles" de la tienda; nunca como foto). Carga en lote en `/admin/productos/fichas` (CSV + imágenes `<driveFileId>.jpg`); simulación local con `npm run fichas:importar`. Lógica en `src/lib/product-fichas.ts`. |
 | **Categorías** | `/admin/categorias` | Categorías del catálogo (con SEO y logo). |
 | **Proveedores** | `/admin/proveedores` | Fabricantes y transportadoras; cuenta corriente (cargos/abonos) por proveedor. |
 | **Inventario** | `/admin/inventario` | Stock por producto, movimientos (entradas/salidas/ajustes) y **compras directas** a proveedor. |

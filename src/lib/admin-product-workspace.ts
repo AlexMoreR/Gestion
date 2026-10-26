@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { SOLO_FOTOS } from "@/lib/product-fichas";
 import { toPromoFormFields, type ProductPromoFormFields } from "@/lib/product-promo";
 import { getPublicAssetUrl } from "@/lib/site";
 
@@ -66,7 +67,9 @@ export async function getProductWorkspaceData(): Promise<ProductWorkspaceData> {
       orderBy: { createdAt: "desc" },
       include: {
         category: true,
+        // SOLO fotos: el formulario de edicion no maneja fichas tecnicas.
         images: {
+          where: SOLO_FOTOS,
           orderBy: { order: "asc" },
         },
         suppliers: {

@@ -1,5 +1,6 @@
 import { getActivePromo, getCurrentStorePrice, getNormalPrice, toBogotaDateOnly } from "../../../lib/product-promo";
 import { buildProductPath, buildProductSlug } from "../../../lib/product-slugs";
+import { soloFotos } from "../../../lib/product-fichas";
 import { getSiteUrl } from "../../../lib/site";
 
 /**
@@ -76,7 +77,8 @@ export type ProductoFuente = {
   thumbnailUrl: string | null;
   updatedAt: Date;
   category: { name: string; slug: string } | null;
-  images: { url: string; order: number }[];
+  // tipo: "foto" | "ficha" (sin tipo = foto). Las fichas se descartan aqui tambien, por si acaso.
+  images: { url: string; order: number; tipo?: string | null }[];
 };
 
 export function urlAbsoluta(ruta: string | null | undefined): string | null {
@@ -94,7 +96,7 @@ export function urlAbsoluta(ruta: string | null | undefined): string | null {
 function armarFotos(producto: ProductoFuente): FotoDelCatalogo[] {
   const fotos: FotoDelCatalogo[] = [];
   const vistas = new Set<string>();
-  for (const imagen of [...producto.images].sort((a, b) => a.order - b.order)) {
+  for (const imagen of soloFotos(producto.images).sort((a, b) => a.order - b.order)) {
     const url = urlAbsoluta(imagen.url);
     if (url && !vistas.has(url)) {
       vistas.add(url);
@@ -110,7 +112,7 @@ function armarFotos(producto: ProductoFuente): FotoDelCatalogo[] {
 }
 
 export function armarProductoDelCatalogo(producto: ProductoFuente, ahora: Date = new Date()): ProductoDelCatalogo {
-  const imagenes = [producto.thumbnailUrl, ...producto.images.map((imagen) => imagen.url)]
+  const imagenes = [producto.thumbnailUrl, ...soloFotos(producto.images).map((imagen) => imagen.url)]
     .map(urlAbsoluta)
     .filter((url): url is string => Boolean(url));
   const promo = getActivePromo(producto, ahora);
