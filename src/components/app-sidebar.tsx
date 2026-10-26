@@ -10,6 +10,7 @@ import {
   Landmark,
   LayoutDashboard,
   MapPinned,
+  MessageCircleQuestionMark,
   Package,
   ReceiptText,
   Settings,
@@ -85,7 +86,8 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
         !isAdminProductionRoute &&
         !isAdminDispatchesRoute &&
         !isAdminSuppliersRoute &&
-        !pathname.startsWith("/admin/marketplace")),
+        !pathname.startsWith("/admin/marketplace") &&
+        !pathname.startsWith("/admin/dudas")),
       items: [
         { title: "Vista general", url: dashboardHref },
       ],
@@ -255,6 +257,17 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
           { title: "Hoy", url: "/admin/asistencia" },
           { title: "Por mes", url: "/admin/asistencia?vista=mes" },
         ],
+      });
+    }
+
+    // Dudas del catalogo (codigos de acceso y respuestas de las asesoras): solo el dueno/admin.
+    if (user.role === "ADMIN" && adminModuleAccess.dudas) {
+      navMain.push({
+        title: "Dudas catálogo",
+        url: "/admin/dudas",
+        icon: MessageCircleQuestionMark,
+        isActive: pathname.startsWith("/admin/dudas"),
+        items: [{ title: "Respuestas y accesos", url: "/admin/dudas" }],
       });
     }
 

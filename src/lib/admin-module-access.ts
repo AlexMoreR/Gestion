@@ -19,6 +19,8 @@ export const EMPLOYEE_FORBIDDEN_MODULES: AdminModuleKey[] = [
   "attendance",
   // Estadisticas de NETMAGI (Marketplace): solo el dueno/admin.
   "marketplace",
+  // Dudas del catalogo: codigos de acceso y respuestas de las asesoras (solo el dueno/admin).
+  "dudas",
 ];
 
 export const adminModuleDefinitions = [
@@ -69,6 +71,13 @@ export const adminModuleDefinitions = [
     label: "Inventario",
     description: "Controla el stock y los movimientos de los productos.",
     path: "/admin/inventario",
+    group: "Catalogo",
+  },
+  {
+    key: "dudas",
+    label: "Dudas del catalogo",
+    description: "Preguntas sobre los productos que responden las asesoras en /dudas y sus codigos de acceso (solo dueno/admin).",
+    path: "/admin/dudas",
     group: "Catalogo",
   },
   {
