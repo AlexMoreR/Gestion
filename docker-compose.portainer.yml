@@ -32,6 +32,11 @@ services:
       # "Falta configurar NETMAGI" y la tienda sigue igual.
       NETMAGI_FOTOS_URL: "${NETMAGI_FOTOS_URL}"
       GESTION_FOTOS_KEY: "${GESTION_FOTOS_KEY}"
+      # Dudas del catalogo (/dudas). Opcionales: sin DUDAS_SESSION_SECRET la firma de la sesion se
+      # deriva de AUTH_SECRET; sin DUDAS_API_KEY, GET /api/dudas/respuestas usa CATALOGO_API_KEY o
+      # MCP_API_KEY. Cambiar DUDAS_SESSION_SECRET cierra todas las sesiones de /dudas.
+      DUDAS_SESSION_SECRET: "${DUDAS_SESSION_SECRET}"
+      DUDAS_API_KEY: "${DUDAS_API_KEY}"
     networks:
       - minha_rede
     deploy:

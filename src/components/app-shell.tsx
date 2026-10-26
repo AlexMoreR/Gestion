@@ -78,6 +78,8 @@ export function AppShell({ children, initialUser, brandName, adminModuleAccess, 
                 ? "Transporte"
               : pathname.startsWith("/admin/marketplace")
                 ? "Marketplace"
+              : pathname.startsWith("/admin/dudas")
+                ? "Dudas del catálogo"
               : pathname.startsWith("/admin/configuracion")
                 ? "Configuracion"
                 : pathname.startsWith("/admin/productos")

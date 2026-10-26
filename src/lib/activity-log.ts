@@ -22,7 +22,8 @@ export type ActivityEntityType =
   | "SHIPMENT"
   | "PAYROLL"
   | "TEAM_MEMBER"
-  | "ATTENDANCE";
+  | "ATTENDANCE"
+  | "DUDAS_ACCESS";
 
 type LogActivityInput = {
   action: ActivityActionType;

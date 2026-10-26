@@ -10,7 +10,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "origen:rellenar": "vite-node scripts/rellenar-origen-ventas.ts --"
+    "origen:rellenar": "vite-node scripts/rellenar-origen-ventas.ts --",
+    "dudas:importar": "vite-node scripts/importar-dudas.ts --"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",

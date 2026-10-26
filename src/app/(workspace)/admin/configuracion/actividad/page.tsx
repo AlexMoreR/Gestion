@@ -50,6 +50,7 @@ const ENTITY_LABELS: Record<string, string> = {
   ACCOUNT: "Cuenta",
   TEAM_MEMBER: "Equipo",
   ATTENDANCE: "Asistencia",
+  DUDAS_ACCESS: "Acceso a dudas",
 };
 
 const ALLOWED_ACTIONS = ["CREATE", "UPDATE", "DELETE"] as const;

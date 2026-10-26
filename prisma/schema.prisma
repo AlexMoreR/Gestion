@@ -1198,3 +1198,62 @@ model GastoBorrador {
 
   @@index([estado, expiraEn])
 }
+
+// Dudas del catalogo (oct-2026): preguntas sobre los productos que responden las asesoras en
+// /dudas, entrando con su nombre y un codigo (AccesoDudas). Se migraron de la encuesta de claude.ai.
+// id = el doc_id de la encuesta (ej. "q001").
+model DudaCatalogo {
+  id         String          @id
+  codigo     String?
+  // nombre | duplicado | categoria | foto | separar | negocio | descripcion
+  grupo      String
+  titulo     String
+  duda       String          @default("")
+  orden      Int             @default(0)
+  // [[etiqueta, valor], ...]
+  datos      Json
+  // [{ id, label, texto? }, ...] (texto = placeholder del detalle que se pide escribir)
+  opciones   Json
+  // [{ label, url }, ...]
+  links      Json
+  // Campos de mas que traiga la pregunta (ej. fotos).
+  extra      Json?
+  activa     Boolean         @default(true)
+  createdAt  DateTime        @default(now())
+  respuestas RespuestaDuda[]
+
+  @@index([grupo, orden])
+}
+
+// Historial: cada guardado crea una fila. La ultima (createdAt) es la vigente.
+model RespuestaDuda {
+  id          String        @id @default(cuid())
+  dudaId      String
+  opcionId    String
+  // Etiqueta de la opcion al momento de responder.
+  opcionTexto String        @default("")
+  // Detalle escrito (cuando la opcion lo pide).
+  texto       String        @default("")
+  nota        String        @default("")
+  autorNombre String
+  accesoId    String?
+  createdAt   DateTime      @default(now())
+  duda        DudaCatalogo  @relation(fields: [dudaId], references: [id], onDelete: Cascade)
+  acceso      AccesoDudas?  @relation(fields: [accesoId], references: [id], onDelete: SetNull)
+
+  @@index([dudaId, createdAt])
+  @@index([createdAt])
+}
+
+// Acceso a /dudas: nombre de la persona + codigo de 6 caracteres. Solo se guarda el hash (bcrypt).
+model AccesoDudas {
+  id         String          @id @default(cuid())
+  nombre     String
+  codigoHash String
+  activo     Boolean         @default(true)
+  createdAt  DateTime        @default(now())
+  ultimoUso  DateTime?
+  respuestas RespuestaDuda[]
+
+  @@index([activo])
+}
