@@ -4,10 +4,12 @@ import { auth } from "@/auth";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { getNetmagiStats } from "@/lib/netmagi-stats.server";
 import { prisma } from "@/lib/prisma";
+import { buildProductPath } from "@/lib/product-slugs";
 import { getSystemCurrency } from "@/lib/system-settings";
 import type { SaleProfit } from "@/modules/balances/domain/entities";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import { bogotaRange, type ChannelSale, marketplaceSales, resolveRangeDays } from "@/modules/marketplace/domain/marketplace-stats";
+import type { ProductLink } from "@/modules/marketplace/presentation/marketplace-ads";
 import { MarketplaceDashboard } from "@/modules/marketplace/presentation/marketplace-dashboard";
 
 // Estadisticas de NETMAGI (CRM de Facebook Marketplace) sin entrar a la extension. Solo dueno/admin.
@@ -47,6 +49,21 @@ async function listChannelSales(period: { from: Date; to: Date }): Promise<Chann
   }));
 }
 
+// Ficha en magilus.com de cada codigo de producto que aparece en la tabla de anuncios. Si falla, la tabla
+// se ve igual, solo que sin enlace a la ficha.
+async function loadProductLinks(codes: string[]): Promise<Record<string, ProductLink>> {
+  if (codes.length === 0) return {};
+  try {
+    const products = await prisma.product.findMany({
+      where: { code: { in: codes } },
+      select: { id: true, code: true, slug: true, name: true, category: { select: { slug: true } } },
+    });
+    return Object.fromEntries(products.map((product) => [product.code, { name: product.name, path: buildProductPath(product) }]));
+  } catch {
+    return {};
+  }
+}
+
 export default async function AdminMarketplacePage({ searchParams }: PageProps) {
   const session = await auth();
   if (!session?.user?.id || session.user.role !== "ADMIN") {
@@ -59,7 +76,10 @@ export default async function AdminMarketplacePage({ searchParams }: PageProps) 
 
   const params = await searchParams;
   const days = resolveRangeDays(params.dias);
-  const range = bogotaRange(days);
+  const tableRange = bogotaRange(days); // ventana inicial de los filtros de la tabla de anuncios
+  // Siempre se piden al menos 30 dias: el grafico y las comparaciones con ayer y con el promedio de 7 dias los necesitan.
+  const range = bogotaRange(Math.max(days, 30));
+  const now = new Date();
 
   // NETMAGI va primero y en serie (ver netmagi-stats.server.ts); las ventas de Gestion, en paralelo.
   const [stats, sales, currency] = await Promise.all([
@@ -68,12 +88,17 @@ export default async function AdminMarketplacePage({ searchParams }: PageProps) 
     getSystemCurrency(),
   ]);
   const channel = sales ? marketplaceSales(sales, range, stats.resumen?.totales.clientes_nuevos ?? 0) : null;
+  const codes = [...new Set((stats.anuncios?.anuncios ?? []).map((ad) => ad.codigo).filter((code): code is string => !!code))];
+  const productLinks = await loadProductLinks(codes);
 
   return (
     <MarketplaceDashboard
       days={days}
-      desde={range.desde}
-      hasta={range.hasta}
+      desde={tableRange.desde}
+      hasta={tableRange.hasta}
+      fetchDesde={range.desde}
+      now={now.toISOString()}
+      productLinks={productLinks}
       stats={stats}
       channel={channel}
       currency={currency}

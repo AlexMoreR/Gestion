@@ -114,6 +114,15 @@ export type CuentaRow = {
   habilitada: boolean;
   pausa: string;
   tope_diario: number;
+  // Semaforo de hoy y de 7 dias (NETMAGI nuevo). Si NETMAGI aun no los manda, tieneHoy = false y valen 0.
+  tieneHoy: boolean;
+  publicados_hoy: number;
+  renovadas_hoy: number;
+  entrantes_hoy: number;
+  restricciones_hoy: number;
+  publicados_7d: number;
+  clientes_7d: number;
+  ubicacion: string; // ubicacion por defecto de la cuenta
 };
 
 export function parseCuentas(body: unknown): CuentaRow[] | null {
@@ -137,6 +146,14 @@ export function parseCuentas(body: unknown): CuentaRow[] | null {
       habilitada: row.publicador_habilitada === true,
       pausa: str(row.publicador_pausa, 200),
       tope_diario: num(row.tope_diario),
+      tieneHoy: "publicados_hoy" in row,
+      publicados_hoy: num(row.publicados_hoy),
+      renovadas_hoy: num(row.renovadas_hoy),
+      entrantes_hoy: num(row.entrantes_hoy),
+      restricciones_hoy: num(row.restricciones_hoy),
+      publicados_7d: num(row.publicados_7d),
+      clientes_7d: num(row.clientes_7d),
+      ubicacion: str(row.ubicacion, 80),
     };
   });
 }
@@ -154,6 +171,60 @@ export function parseProductos(body: unknown): ProductoRow[] | null {
     pct_whatsapp: num(row.pct_whatsapp),
     cuentas: num(row.cuentas),
   }));
+}
+
+// ── Anuncios del publicador (uno por fila) ───────────────────────────────────
+export const AD_STATE_LABEL: Readonly<Record<string, string>> = {
+  publicado: "Publicado",
+  por_verificar: "Por verificar",
+  fallido: "Fallido",
+};
+
+export type AnuncioRow = {
+  id: string;
+  dia: string; // dia de publicacion (Bogota)
+  publicado_at: string | null;
+  cuenta_id: string;
+  cuenta: string;
+  estado: string;
+  codigo: string | null;
+  producto: string;
+  precio: number;
+  url: string | null; // solo enlaces de anuncios de Facebook Marketplace
+  ubicacion: string;
+  ciudad: string;
+  ubicacion_estimada: boolean; // true = no se leyo de Facebook: es la ubicacion por defecto de la cuenta
+  chats: number; // clientes atribuidos al anuncio por titulo (aproximado)
+  whatsapp: number;
+};
+
+export type Anuncios = { total: number; truncado: boolean; anuncios: AnuncioRow[] };
+
+// Solo se enlazan anuncios de Marketplace: nunca un href que venga de fuera con otro destino.
+const AD_URL = /^https:\/\/(www\.|web\.|m\.)?facebook\.com\/marketplace\/item\/\d+/;
+
+export function parseAnuncios(body: unknown): Anuncios | null {
+  if (!isObj(body) || body.ok !== true || !Array.isArray(body.anuncios)) return null;
+  const anuncios = body.anuncios
+    .filter((row): row is Json => isObj(row) && isDay(row.dia))
+    .map((row) => ({
+      id: str(row.id, 20),
+      dia: row.dia as string,
+      publicado_at: strOrNull(row.publicado_at, 30),
+      cuenta_id: str(row.cuenta_id, 20),
+      cuenta: str(row.cuenta, 80) || "(sin nombre)",
+      estado: str(row.estado, 30),
+      codigo: typeof row.codigo === "string" && /^[A-Z]{2,3}\d{3}$/.test(row.codigo) ? row.codigo : null,
+      producto: str(row.producto, 120) || "(sin titulo)",
+      precio: num(row.precio),
+      url: typeof row.url === "string" && AD_URL.test(row.url) ? row.url.slice(0, 200) : null,
+      ubicacion: str(row.ubicacion, 120),
+      ciudad: str(row.ciudad, 80) || "(sin ciudad)",
+      ubicacion_estimada: row.ubicacion_estimada !== false,
+      chats: num(row.chats),
+      whatsapp: num(row.whatsapp),
+    }));
+  return { total: num(body.total) || anuncios.length, truncado: body.truncado === true, anuncios };
 }
 
 export type PublicadorItem = { hora: string | null; estado: string; cuenta: string; producto: string; codigo: string | null; modo?: string | null; campo?: string | null };
@@ -331,4 +402,7 @@ export type NetmagiStats = {
   cuentas: CuentaRow[] | null;
   productos: ProductoRow[] | null;
   publicador: Publicador | null;
+  anuncios: Anuncios | null;
+  // true = NETMAGI todavia no tiene la ruta /anuncios (se despliegan por separado): el resto de la pagina funciona.
+  anunciosFaltan: boolean;
 };
