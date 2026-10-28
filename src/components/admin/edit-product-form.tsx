@@ -343,6 +343,12 @@ export function EditProductForm({
     }
   };
   const canSubmit = step1Ready && step2Ready;
+  // Qué falta para poder guardar (antes el botón quedaba gris sin decir por qué).
+  const faltaParaGuardar: string[] = [];
+  if (!step1Ready) faltaParaGuardar.push("nombre (paso 1)");
+  if (!(Number(baseCost) > 0)) faltaParaGuardar.push("costo de compra (paso 2)");
+  if (!(pricing.finalRetail > 0)) faltaParaGuardar.push("precio final (paso 2)");
+  if (wholesaleEnabled && !(pricing.finalWholesale > 0 && Number(minWholesaleQty) >= 1)) faltaParaGuardar.push("precio mayor y cantidad mínima (paso 2)");
 
   const syncSelectedFiles = (files: File[]) => {
     const input = fileInputRef.current;
@@ -945,6 +951,11 @@ export function EditProductForm({
 
             </div>
 
+            {!canSubmit && currentStep !== 4 && faltaParaGuardar.length > 0 ? (
+              <p className="shrink-0 border-t bg-white px-6 pt-3 text-right text-xs font-medium text-amber-700">
+                Para guardar falta: {faltaParaGuardar.join(", ")}
+              </p>
+            ) : null}
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t bg-white px-6 py-4">
               <div>
                 {currentStep > 1 ? (
