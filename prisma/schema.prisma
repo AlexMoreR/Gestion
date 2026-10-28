@@ -166,6 +166,10 @@ model ProductImage {
   // origen: "drive" | "servidor". NULL = foto anterior a la sincronizacion.
   driveFileId String?
   origen      String?
+  // "foto" = galeria de la tienda (portada, Traer de Drive, API /api/catalogo para NETMAGI y el CRM).
+  // "ficha" = ficha tecnica (imagen con nombre, medidas y materiales). Va en su propia seccion y
+  // NUNCA sale como foto. Ver src/lib/product-fichas.ts.
+  tipo        String   @default("foto")
   createdAt DateTime @default(now())
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 

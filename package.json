@@ -11,7 +11,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "origen:rellenar": "vite-node scripts/rellenar-origen-ventas.ts --",
-    "dudas:importar": "vite-node scripts/importar-dudas.ts --"
+    "dudas:importar": "vite-node scripts/importar-dudas.ts --",
+    "fichas:importar": "vite-node scripts/importar-fichas.ts --"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",

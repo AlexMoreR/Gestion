@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/activity-log";
 import { hasAnyModuleAccess } from "@/lib/admin-module-access";
 import { planGallerySave } from "@/lib/gallery-organizer";
 import { prisma } from "@/lib/prisma";
+import { SOLO_FOTOS } from "@/lib/product-fichas";
 
 export type GallerySaveResult = { ok: boolean; message: string };
 
@@ -39,7 +40,13 @@ export async function adminSaveProductGalleryAction(input: {
 
   const product = await prisma.product.findUnique({
     where: { id: productId },
-    select: { id: true, name: true, thumbnailUrl: true, images: { select: { id: true, url: true, order: true, origen: true, driveFileId: true } } },
+    // SOLO fotos: una ficha tecnica nunca entra al organizador ni puede quedar de portada.
+    select: {
+      id: true,
+      name: true,
+      thumbnailUrl: true,
+      images: { where: SOLO_FOTOS, select: { id: true, url: true, order: true, origen: true, driveFileId: true } },
+    },
   });
   if (!product) return { ok: false, message: "El producto ya no existe" };
 
@@ -60,7 +67,7 @@ export async function adminSaveProductGalleryAction(input: {
   try {
     await prisma.$transaction([
       ...(plan.remove.length > 0
-        ? [prisma.productImage.deleteMany({ where: { productId, id: { in: plan.remove } } })]
+        ? [prisma.productImage.deleteMany({ where: { productId, id: { in: plan.remove }, ...SOLO_FOTOS } })]
         : []),
       ...plan.update.map((item) =>
         prisma.productImage.update({ where: { id: item.id }, data: { order: item.order } }),

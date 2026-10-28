@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { SOLO_FOTOS } from "@/lib/product-fichas";
 
 import {
   armarProductoDelCatalogo,
@@ -43,7 +44,8 @@ const SELECT = {
   thumbnailUrl: true,
   updatedAt: true,
   category: { select: { name: true, slug: true } },
-  images: { orderBy: { order: "asc" }, select: { url: true, order: true } },
+  // SOLO fotos: NETMAGI publica estas imagenes en Marketplace; una ficha tecnica nunca sale aca.
+  images: { where: SOLO_FOTOS, orderBy: { order: "asc" }, select: { url: true, order: true, tipo: true } },
 } as const;
 
 /** Sin filtros = todos (tambien los ocultos), como siempre. */

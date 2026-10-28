@@ -18,6 +18,7 @@ import { productCodeSchema, validateProductCode } from "@/lib/product-code";
 import { calculateMarginPctFromPrice, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
 import { createImageVariants } from "@/lib/image-variants.server";
 import { planImageSync } from "@/lib/drive-gallery";
+import { SOLO_FOTOS } from "@/lib/product-fichas";
 import { parseShippingExtraInput } from "@/modules/transporte/domain/shipping";
 
 const baseProductSchema = z.object({
@@ -581,8 +582,9 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
 
   // Fase 6: se conservan las ProductImage que siguen (con driveFileId y origen); solo cambian de
   // orden. Se crean las nuevas y se borran las que se quitaron en el formulario.
+  // SOLO fotos: las fichas tecnicas no estan en el formulario y no se deben borrar al editar.
   const currentImages = await prisma.productImage.findMany({
-    where: { productId: parsed.data.productId },
+    where: { productId: parsed.data.productId, ...SOLO_FOTOS },
     select: { id: true, url: true, order: true },
   });
   const imagePlan = planImageSync(currentImages, imageList, uploadedImages);
@@ -632,7 +634,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
       ...(imagePlan.remove.length > 0
         ? [
             prisma.productImage.deleteMany({
-              where: { productId: parsed.data.productId, id: { in: imagePlan.remove } },
+              where: { productId: parsed.data.productId, id: { in: imagePlan.remove }, ...SOLO_FOTOS },
             }),
           ]
         : []),

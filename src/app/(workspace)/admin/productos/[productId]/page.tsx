@@ -3,11 +3,13 @@ import { PackageSearch } from "lucide-react";
 import { auth } from "@/auth";
 import { DriveImportButton } from "@/components/admin/drive-import-button";
 import { EditProductForm } from "@/components/admin/edit-product-form";
+import { ProductFichasSection } from "@/components/admin/product-fichas-section";
 import { ProductPhotoOrganizer } from "@/components/admin/product-photo-organizer";
 import { getLocalImageBytes } from "@/lib/gallery-organizer.server";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
+import { enlaceDrive, separarImagenes } from "@/lib/product-fichas";
 import { toPromoFormFields } from "@/lib/product-promo";
 import { getProductPurchaseHistory } from "@/lib/product-purchase-history";
 import { getPublicAssetUrl } from "@/lib/site";
@@ -38,6 +40,7 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
       where: { id: productId },
       include: {
         category: true,
+        // Fotos y fichas tecnicas; se separan abajo. El organizador y el formulario solo ven fotos.
         images: { orderBy: { order: "asc" } },
         suppliers: {
           orderBy: [{ isPreferred: "desc" }, { createdAt: "asc" }],
@@ -63,9 +66,10 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
     notFound();
   }
 
-  const imageBytes = await getLocalImageBytes(product.images.map((image) => image.url));
+  const { fotos, fichas } = separarImagenes(product.images);
+  const imageBytes = await getLocalImageBytes(fotos.map((image) => image.url));
   // Si cambian las fotos (organizador o Drive), el formulario se vuelve a montar con la galeria nueva.
-  const gallerySignature = `${product.thumbnailUrl}|${product.images.map((image) => `${image.id}:${image.order}`).join(",")}`;
+  const gallerySignature = `${product.thumbnailUrl}|${fotos.map((image) => `${image.id}:${image.order}`).join(",")}`;
 
   return (
     <section className="w-full space-y-5">
@@ -95,7 +99,7 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
         key={`org-${gallerySignature}`}
         productId={product.id}
         thumbnailUrl={product.thumbnailUrl}
-        photos={product.images.map((image) => ({
+        photos={fotos.map((image) => ({
           id: image.id,
           url: image.url,
           src: getPublicAssetUrl(image.url),
@@ -103,6 +107,15 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
           origen: image.origen,
           driveFileId: image.driveFileId,
           bytes: imageBytes[image.url] ?? null,
+        }))}
+      />
+
+      <ProductFichasSection
+        productId={product.id}
+        fichas={fichas.map((ficha) => ({
+          id: ficha.id,
+          src: getPublicAssetUrl(ficha.url),
+          driveUrl: ficha.driveFileId ? enlaceDrive(ficha.driveFileId) : null,
         }))}
       />
 
@@ -146,7 +159,7 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
             childId: component.childId,
             quantity: component.quantity,
           })),
-          imageUrls: product.images.map((image) => getPublicAssetUrl(image.url)),
+          imageUrls: fotos.map((image) => getPublicAssetUrl(image.url)),
         }}
       />
     </section>
