@@ -19,6 +19,7 @@ import { AccountsSection } from "./marketplace-accounts";
 import { AdsSection, type ProductLink } from "./marketplace-ads";
 import { TrendChart } from "./marketplace-chart";
 import { DetailSection } from "./marketplace-detail";
+import { FormulaSection } from "./marketplace-formula";
 import { TodayCards, VerdictBanner } from "./marketplace-today";
 
 type Props = {
@@ -125,6 +126,8 @@ export function MarketplaceDashboard({ days, desde, hasta, fetchDesde, now, stat
             hasta={hasta}
             fetchDesde={fetchDesde}
           />
+
+          <FormulaSection formula={stats.formula} faltan={stats.formulaFaltan} />
 
           <TrendChart points={chart.points} startLabel={chart.startLabel} />
 

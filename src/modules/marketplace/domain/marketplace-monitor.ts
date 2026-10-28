@@ -8,12 +8,43 @@ import {
   type AnuncioRow,
   type CuentaRow,
   type DayRow,
+  type Formula,
   type Publicador,
   type Resumen,
   shortDayLabel,
 } from "./marketplace-stats";
 
 const BOGOTA_OFFSET_MS = 5 * 60 * 60 * 1000;
+
+// ── "Qué funciona" (fórmula de venta) ─────────────────────────────────────────
+const SENAL_LABEL: Record<string, string> = { clientes: "clientes", mensajes: "mensajes", clics: "clics" };
+const decimal = (value: number) => String(Math.round(value * 100) / 100).replace(".", ",");
+
+// Titular de la sección: qué fórmula de título va ganando y qué tan firme es.
+// confirmada = todas las fórmulas tienen datos suficientes; provisional = gana una, pero faltan datos en otras.
+export function formulaVerdict(formula: Formula): { tone: Tone; title: string; reasons: string[] } {
+  const reasons: string[] = [];
+  const window = formula.faltan.ventana_dias || formula.config.ventana_dias;
+  if (!formula.config.activo) reasons.push("Las fórmulas están apagadas: todos los anuncios salen con el título base.");
+  else if (formula.config.fija) reasons.push("Hay una fórmula fijada a mano: no se está probando otra.");
+  if (formula.faltan.anuncios_totales > 0) {
+    reasons.push(`Faltan ${formula.faltan.anuncios_totales} anuncio(s) en total para que cada fórmula tenga sus ${formula.faltan.minimo} (ventana de ${window} días).`);
+  }
+  if (!formula.metricas.confirmadas) reasons.push("Aún no se leen clics ni mensajes de Facebook: se aprende de los clientes que llegan.");
+  const g = formula.ganadora;
+  if (g && (formula.estado === "confirmada" || formula.estado === "provisional")) {
+    const unit = SENAL_LABEL[g.senal] ?? g.senal;
+    const lead = g.ventaja_sobre_base != null && g.ventaja_sobre_base > 0 ? ` (+${g.ventaja_sobre_base} % sobre el título solo)` : "";
+    return {
+      tone: formula.estado === "confirmada" ? "ok" : "warn",
+      title: `${formula.estado === "confirmada" ? "Gana" : "Va ganando"} «${g.nombre}»: ${decimal(g.tasa)} ${unit} por anuncio${lead}`,
+      reasons,
+    };
+  }
+  if (formula.estado === "falta_comparar") return { tone: "neutral", title: "Todavía no hay con qué comparar: solo una fórmula tiene datos suficientes", reasons };
+  if (formula.estado === "sin_ganadora") return { tone: "neutral", title: "Todavía no hay una fórmula ganadora", reasons };
+  return { tone: "neutral", title: "Todavía no hay datos para comparar títulos", reasons };
+}
 
 // Dia en que arranco el publicador (los anuncios del publicador empiezan ahi). Linea del grafico.
 export const PUBLISHER_START = "2026-10-23";

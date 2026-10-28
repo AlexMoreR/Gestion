@@ -18,6 +18,14 @@ const OK = {
   productos: { ok: true, productos: [] },
   publicador: { ok: true, config: { activo: true }, hoy: {}, periodo: {}, ultimos: [], inventario: {} },
   anuncios: { ok: true, total: 1, truncado: false, anuncios: [{ id: "9", dia: "2026-10-02", url: "https://www.facebook.com/marketplace/item/9/", ciudad: "Cali", ubicacion_estimada: false }] },
+  formula: {
+    ok: true,
+    disponible: true,
+    estado_ganadora: "provisional",
+    senal: "clientes",
+    ganadora: { variante: "precio", nombre: "Producto + precio", tasa: 2, senal: "clientes", n: 5, ventaja_sobre_base: 100 },
+    variantes: [{ variante: "precio", nombre: "Producto + precio", anuncios: 5, clientes: 10, tasa: 2, suficiente: true }],
+  },
 };
 
 function mockNetmagi(overrides: Partial<Record<keyof typeof OK, Response>> = {}) {
@@ -43,10 +51,12 @@ describe("getNetmagiStats", () => {
     vi.unstubAllEnvs();
   });
 
-  it("trae las cinco rutas una tras otra, incluida la de anuncios", async () => {
+  it("trae las seis rutas una tras otra, incluidas la de anuncios y la de qué funciona", async () => {
     const calls = mockNetmagi();
     const stats = await getNetmagiStats({ desde: "2026-10-01", hasta: "2026-10-02" });
-    expect(calls).toEqual(["resumen", "cuentas", "productos", "publicador", "anuncios"]);
+    expect(calls).toEqual(["resumen", "cuentas", "productos", "publicador", "anuncios", "formula"]);
+    expect(stats.formulaFaltan).toBe(false);
+    expect(stats.formula?.ganadora?.variante).toBe("precio");
     expect(stats.ok).toBe(true);
     expect(stats.error).toBeNull();
     expect(stats.anunciosFaltan).toBe(false);
@@ -62,6 +72,33 @@ describe("getNetmagiStats", () => {
     expect(stats.anunciosFaltan).toBe(true);
     expect(stats.resumen?.totales.entrantes).toBe(3);
     expect(stats.cuentas).toHaveLength(1);
+  });
+
+  it("si NETMAGI todavia no tiene /formula (404) la pagina funciona y solo falta esa seccion", async () => {
+    mockNetmagi({ formula: json({ error: "no" }, 404) });
+    const stats = await getNetmagiStats({ desde: "2026-10-01", hasta: "2026-10-02" });
+    expect(stats.ok).toBe(true);
+    expect(stats.error).toBeNull();
+    expect(stats.formula).toBeNull();
+    expect(stats.formulaFaltan).toBe(true);
+    expect(stats.anunciosFaltan).toBe(false);
+    expect(stats.anuncios).not.toBeNull();
+  });
+
+  it("si NETMAGI responde ok con disponible:false tambien se trata como ruta que falta", async () => {
+    mockNetmagi({ formula: json({ ok: true, disponible: false }) });
+    const stats = await getNetmagiStats({ desde: "2026-10-01", hasta: "2026-10-02" });
+    expect(stats.ok).toBe(true);
+    expect(stats.error).toBeNull();
+    expect(stats.formulaFaltan).toBe(true);
+  });
+
+  it("si /anuncios falta y /formula esta, cada aviso es de su ruta", async () => {
+    mockNetmagi({ anuncios: json({}, 404) });
+    const stats = await getNetmagiStats({ desde: "2026-10-01", hasta: "2026-10-02" });
+    expect(stats.anunciosFaltan).toBe(true);
+    expect(stats.formulaFaltan).toBe(false);
+    expect(stats.formula).not.toBeNull();
   });
 
   it("un NETMAGI viejo (cuentas sin los campos de hoy) se lee igual", async () => {

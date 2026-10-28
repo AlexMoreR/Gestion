@@ -2,9 +2,11 @@ import "server-only";
 import { getNetmagiConfig } from "@/lib/netmagi-config.server";
 import {
   type BogotaRange,
+  formulaNoDisponible,
   type NetmagiStats,
   parseAnuncios,
   parseCuentas,
+  parseFormula,
   parseProductos,
   parsePublicador,
   parseResumen,
@@ -13,12 +15,14 @@ import {
 export type { NetmagiStats };
 
 // Estadisticas de NETMAGI para /admin/marketplace. SOLO LECTURA y solo agregados (NETMAGI nunca manda
-// nombres de clientes, textos ni telefonos). Las 5 rutas se piden UNA TRAS OTRA: el Postgres de NETMAGI
+// nombres de clientes, textos ni telefonos). Las 6 rutas se piden UNA TRAS OTRA: el Postgres de NETMAGI
 // tiene un pool de 5 conexiones compartido con las extensiones. NETMAGI guarda cada respuesta 5 min
 // (1 min la de cuentas, que trae el estado en vivo).
 //
 // Compatibilidad: NETMAGI y Gestion se despliegan por separado. La ruta /anuncios es nueva: si NETMAGI
 // todavia no la tiene (404) la pagina sigue funcionando sin la tabla de anuncios (anunciosFaltan = true).
+// Igual la ruta /formula ("Que funciona", fase 9): sin ella (404, o ok con disponible:false) la pagina muestra un
+// aviso en esa seccion (formulaFaltan = true) y todo lo demas funciona igual.
 
 const TIMEOUT_MS = 20_000;
 
@@ -49,7 +53,18 @@ async function getJson(baseUrl: string, key: string, path: string, optional = fa
 }
 
 export async function getNetmagiStats(range: Pick<BogotaRange, "desde" | "hasta">): Promise<NetmagiStats> {
-  const empty: NetmagiStats = { ok: false, error: null, resumen: null, cuentas: null, productos: null, publicador: null, anuncios: null, anunciosFaltan: false };
+  const empty: NetmagiStats = {
+    ok: false,
+    error: null,
+    resumen: null,
+    cuentas: null,
+    productos: null,
+    publicador: null,
+    anuncios: null,
+    anunciosFaltan: false,
+    formula: null,
+    formulaFaltan: false,
+  };
   const config = getNetmagiConfig();
   if (!config) return { ...empty, error: "Falta configurar NETMAGI (NETMAGI_FOTOS_URL y GESTION_FOTOS_KEY)" };
 
@@ -62,17 +77,24 @@ export async function getNetmagiStats(range: Pick<BogotaRange, "desde" | "hasta"
     ["productos", parseProductos, false],
     ["publicador", parsePublicador, false],
     ["anuncios", parseAnuncios, true],
+    ["formula", parseFormula, true],
   ] as const;
 
   for (const [name, parse, optional] of steps) {
     try {
-      const parsed = parse(await getJson(config.baseUrl, config.key, `/gestion/estadisticas/${name}${query}`, optional));
+      const body = await getJson(config.baseUrl, config.key, `/gestion/estadisticas/${name}${query}`, optional);
+      if (name === "formula" && formulaNoDisponible(body)) {
+        result.formulaFaltan = true;
+        continue;
+      }
+      const parsed = parse(body);
       if (parsed == null) errors.push(`${name}: respuesta inválida`);
       // Asignacion por nombre: cada parse devuelve el tipo de su llave.
       (result as Record<string, unknown>)[name] = parsed;
     } catch (error) {
       if (error instanceof NetmagiRouteMissing) {
-        result.anunciosFaltan = true;
+        if (name === "formula") result.formulaFaltan = true;
+        else result.anunciosFaltan = true;
         continue;
       }
       // Si NETMAGI no esta (caido, sin llave, sin desplegar), no se insiste con las demas rutas.
