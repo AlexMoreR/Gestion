@@ -125,6 +125,22 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
   const [dragActive, setDragActive] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  // 27-oct-2026: si un campo obligatorio de otro paso no cumple (p. ej. el código de un producto viejo), el
+  // navegador frenaba el guardado sin decir nada porque el campo estaba oculto. Ahora se abre ese paso y se dice el motivo.
+  const [avisoInvalido, setAvisoInvalido] = useState<string | null>(null);
+  const yaAvisado = useRef(false);
+  const alCampoInvalido = (evento: React.FormEvent<HTMLFormElement>) => {
+    if (yaAvisado.current) return;
+    yaAvisado.current = true;
+    setTimeout(() => { yaAvisado.current = false; }, 300);
+    const campo = evento.target as HTMLInputElement;
+    const paso = Number(campo.closest("[data-paso]")?.getAttribute("data-paso") ?? 0);
+    if (paso) setCurrentStep(paso);
+    const etiqueta = (campo.closest("label")?.textContent ?? campo.name ?? "").replace(/\s+/g, " ").trim().slice(0, 40);
+    const motivo = campo.validity?.patternMismatch && campo.title ? campo.title : campo.validationMessage;
+    setAvisoInvalido(`No se pudo guardar${paso ? ` (paso ${paso})` : ""}: ${etiqueta ? `${etiqueta}: ` : ""}${motivo}`);
+    setTimeout(() => { campo.focus(); campo.reportValidity(); }, 60);
+  };
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -391,9 +407,9 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
             ))}
           </TabsList>
         </Tabs>
-        <form action={adminCreateProductAction} className="flex min-h-0 flex-1 flex-col">
+        <form action={adminCreateProductAction} className="flex min-h-0 flex-1 flex-col" onInvalidCapture={alCampoInvalido} onSubmitCapture={() => setAvisoInvalido(null)}>
             <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-6 py-5">
-            <div className={currentStep === 1 ? "space-y-4" : "hidden"}>
+            <div data-paso="1" className={currentStep === 1 ? "space-y-4" : "hidden"}>
               <div className="space-y-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                 <div className="block shrink-0 space-y-2">
@@ -563,7 +579,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
               </div>
             </div>
 
-            <div className={currentStep === 2 ? "space-y-4" : "hidden"}>
+            <div data-paso="2" className={currentStep === 2 ? "space-y-4" : "hidden"}>
               <div className="grid gap-4 md:grid-cols-12">
                 <label className="space-y-1.5 md:col-span-6">
                   <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Tag className="h-4 w-4 text-slate-500" />Precio final</span>
@@ -690,7 +706,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
               </div>
             </div>
 
-            <div className={currentStep === 3 ? "space-y-4" : "hidden"}>
+            <div data-paso="3" className={currentStep === 3 ? "space-y-4" : "hidden"}>
               <label className="block max-w-xs space-y-1.5">
                 <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Boxes className="h-4 w-4 text-slate-500" />Stock minimo</span>
                 <Input
@@ -742,6 +758,7 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
+                  {avisoInvalido ? <p role="alert" className="mr-auto max-w-md text-sm font-medium text-red-600">{avisoInvalido}</p> : null}
                   {currentStep >= 2 ? <SaveProductButton disabled={!canSubmit} /> : null}
                   {currentStep < 3 ? (
                     <Button type="button" onClick={() => goToStep(currentStep + 1)} disabled={!canGoToStep(currentStep + 1)}>

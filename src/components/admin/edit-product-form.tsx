@@ -192,6 +192,22 @@ export function EditProductForm({
   const [newImageUrls, setNewImageUrls] = useState<string[]>([]);
   const [existingImageUrls, setExistingImageUrls] = useState(initialData.imageUrls);
   const [currentStep, setCurrentStep] = useState(1);
+  // 27-oct-2026: si un campo obligatorio de otro paso no cumple (p. ej. el código de un producto viejo), el
+  // navegador frenaba el guardado sin decir nada porque el campo estaba oculto. Ahora se abre ese paso y se dice el motivo.
+  const [avisoInvalido, setAvisoInvalido] = useState<string | null>(null);
+  const yaAvisado = useRef(false);
+  const alCampoInvalido = (evento: React.FormEvent<HTMLFormElement>) => {
+    if (yaAvisado.current) return;
+    yaAvisado.current = true;
+    setTimeout(() => { yaAvisado.current = false; }, 300);
+    const campo = evento.target as HTMLInputElement;
+    const paso = Number(campo.closest("[data-paso]")?.getAttribute("data-paso") ?? 0);
+    if (paso) setCurrentStep(paso);
+    const etiqueta = (campo.closest("label")?.textContent ?? campo.name ?? "").replace(/\s+/g, " ").trim().slice(0, 40);
+    const motivo = campo.validity?.patternMismatch && campo.title ? campo.title : campo.validationMessage;
+    setAvisoInvalido(`No se pudo guardar${paso ? ` (paso ${paso})` : ""}: ${etiqueta ? `${etiqueta}: ` : ""}${motivo}`);
+    setTimeout(() => { campo.focus(); campo.reportValidity(); }, 60);
+  };
   const [supplierRows, setSupplierRows] = useState<ProductSupplierDraft[]>(() =>
     initialData.suppliers.length > 0
       ? initialData.suppliers.map((supplier) => ({
@@ -409,12 +425,12 @@ export function EditProductForm({
             ))}
           </TabsList>
         </Tabs>
-        <form action={adminUpdateProductAction} className="flex min-h-0 flex-1 flex-col">
+        <form action={adminUpdateProductAction} className="flex min-h-0 flex-1 flex-col" onInvalidCapture={alCampoInvalido} onSubmitCapture={() => setAvisoInvalido(null)}>
             <input type="hidden" name="productId" value={initialData.id} />
             <input type="hidden" name="existingImages" value={existingImageUrls.join("\n")} />
             <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-6 py-5">
 
-            <div className={currentStep === 1 ? "space-y-4" : "hidden"}>
+            <div data-paso="1" className={currentStep === 1 ? "space-y-4" : "hidden"}>
               <div className="space-y-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                   <div className="block shrink-0 space-y-2">
@@ -593,7 +609,7 @@ export function EditProductForm({
               </div>
             </div>
 
-            <div className={currentStep === 2 ? "space-y-4" : "hidden"}>
+            <div data-paso="2" className={currentStep === 2 ? "space-y-4" : "hidden"}>
               <div className="grid gap-4 md:grid-cols-12">
                 <label className="space-y-1.5 md:col-span-5">
                   <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Tag className="h-4 w-4 text-slate-500" />Precio final</span>
@@ -759,7 +775,7 @@ export function EditProductForm({
               </div>
             </div>
 
-            <div className={currentStep === 3 ? "space-y-4" : "hidden"}>
+            <div data-paso="3" className={currentStep === 3 ? "space-y-4" : "hidden"}>
               <label className="block max-w-xs space-y-1.5">
                 <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-700"><Boxes className="h-4 w-4 text-slate-500" />Stock minimo</span>
                 <Input
@@ -868,7 +884,7 @@ export function EditProductForm({
               </div>
             </div>
 
-            <div className={currentStep === 4 ? "space-y-3" : "hidden"}>
+            <div data-paso="4" className={currentStep === 4 ? "space-y-3" : "hidden"}>
               {activityLoading ? (
                 <p className="rounded-lg border border-dashed border-[var(--line)] bg-slate-50/60 px-3 py-3 text-xs text-slate-500">
                   Cargando actividad...
@@ -946,6 +962,7 @@ export function EditProductForm({
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-3">
+                {avisoInvalido ? <p role="alert" className="mr-auto max-w-md text-sm font-medium text-red-600">{avisoInvalido}</p> : null}
                 {currentStep >= 2 && currentStep !== 4 ? (
                   <Button type="submit" disabled={!canSubmit}>
                     Guardar cambios
