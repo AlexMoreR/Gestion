@@ -154,7 +154,10 @@ export default async function CategoryProductPage({ params }: PageProps) {
   });
 
   const isAdmin = session?.user?.role === "ADMIN";
-  const { fotos, fichas } = separarImagenes(product.images);
+  const { fotos, fichas: todasLasFichas } = separarImagenes(product.images);
+  // Las fichas traen marca de agua del proveedor: por ahora solo las ven los admin (decision 28-oct).
+  // FICHAS_EN_TIENDA=true las muestra a todos.
+  const fichas = isAdmin || process.env.FICHAS_EN_TIENDA === "true" ? todasLasFichas : [];
 
   return (
     <ProductDetailContent
