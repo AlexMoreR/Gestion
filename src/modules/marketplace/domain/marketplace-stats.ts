@@ -295,6 +295,136 @@ export function parsePublicador(body: unknown): Publicador | null {
   };
 }
 
+// ── "Qué funciona": fórmula de venta de NETMAGI (ruta /formula, fase 9) ─────────
+// NETMAGI prueba varias fórmulas de título, mide cuál trae más clientes y usa la mejor (80 %) mientras sigue
+// explorando (20 %). Aquí solo se lee el reporte: ranking de variantes, categorías, productos, cuentas y la
+// variante ganadora con lo que falta para confirmarla.
+export type FormulaVariante = {
+  variante: string;
+  nombre: string;
+  anuncios: number;
+  clics: number;
+  con_clics: number; // anuncios de los que se leyeron clics (los demás no cuentan en el promedio)
+  mensajes: number;
+  con_mensajes: number;
+  clientes: number;
+  whatsapp: number;
+  tasa: number; // por anuncio, con la señal elegida (clientes > mensajes > clics)
+  suficiente: boolean;
+  faltan: number; // anuncios que faltan para llegar al mínimo
+  clientes_por_anuncio: number;
+};
+export type FormulaGrupo = { nombre: string; anuncios: number; clientes: number; clientes_por_anuncio: number; mejor_variante: string | null };
+export type FormulaEstado = "confirmada" | "provisional" | "falta_comparar" | "sin_ganadora" | "sin_datos";
+export type Formula = {
+  senal: "clientes" | "mensajes" | "clics" | null;
+  estado: FormulaEstado;
+  ganadora: { variante: string; nombre: string; tasa: number; senal: string; n: number; ventaja_sobre_base: number | null } | null;
+  variantes: FormulaVariante[];
+  faltan: { anuncios_totales: number; minimo: number; ventana_dias: number; variantes: { variante: string; nombre: string; faltan: number }[] };
+  porCategoria: FormulaGrupo[];
+  porProducto: FormulaGrupo[];
+  porCuenta: FormulaGrupo[];
+  config: { activo: boolean; fija: string | null; epsilon: number; min_anuncios: number; ventana_dias: number };
+  atribucion: { id: number; titulo_exacto: number; titulo_aproximado: number; pct_exacta: number | null };
+  metricas: {
+    confirmadas: boolean; // alguna lectura de Tus publicaciones trajo cifras
+    cuentas: { cuenta: string; ultima_lectura: string | null; anuncios_vistos: number; con_metricas: number; restriccion: boolean }[];
+  };
+};
+
+const FORMULA_ESTADOS: readonly FormulaEstado[] = ["confirmada", "provisional", "falta_comparar", "sin_ganadora", "sin_datos"];
+
+// NETMAGI sin el cálculo responde ok con disponible:false (se trata como "ruta que falta").
+export function formulaNoDisponible(body: unknown): boolean {
+  return isObj(body) && body.disponible === false;
+}
+
+function parseFormulaGrupos(value: unknown): FormulaGrupo[] {
+  return (Array.isArray(value) ? value : []).filter(isObj).slice(0, 30).map((row) => ({
+    nombre: str(row.nombre, 120) || "(sin nombre)",
+    anuncios: num(row.anuncios),
+    clientes: num(row.clientes),
+    clientes_por_anuncio: num(row.clientes_por_anuncio),
+    mejor_variante: strOrNull(row.mejor_variante, 40),
+  }));
+}
+
+export function parseFormula(body: unknown): Formula | null {
+  if (!isObj(body) || body.ok !== true || body.disponible === false || !Array.isArray(body.variantes)) return null;
+  const cfg = isObj(body.config) ? body.config : {};
+  const falta = isObj(body.faltan_para_confirmar) ? body.faltan_para_confirmar : {};
+  const g = isObj(body.ganadora) ? body.ganadora : null;
+  const at = isObj(body.atribucion) ? body.atribucion : {};
+  const met = isObj(body.metricas_leidas) ? body.metricas_leidas : {};
+  const estado = FORMULA_ESTADOS.find((e) => e === body.estado_ganadora) ?? "sin_datos";
+  return {
+    senal: body.senal === "clientes" || body.senal === "mensajes" || body.senal === "clics" ? body.senal : null,
+    estado,
+    ganadora: g
+      ? {
+          variante: str(g.variante, 40),
+          nombre: str(g.nombre, 120) || str(g.variante, 40),
+          tasa: num(g.tasa),
+          senal: str(g.senal, 20),
+          n: num(g.n),
+          ventaja_sobre_base: g.ventaja_sobre_base == null ? null : num(g.ventaja_sobre_base),
+        }
+      : null,
+    variantes: body.variantes.filter(isObj).slice(0, 30).map((row) => ({
+      variante: str(row.variante, 40),
+      nombre: str(row.nombre, 120) || str(row.variante, 40),
+      anuncios: num(row.anuncios),
+      clics: num(row.clics),
+      con_clics: num(row.con_clics),
+      mensajes: num(row.mensajes),
+      con_mensajes: num(row.con_mensajes),
+      clientes: num(row.clientes),
+      whatsapp: num(row.whatsapp),
+      tasa: num(row.tasa),
+      suficiente: row.suficiente === true,
+      faltan: num(row.faltan),
+      clientes_por_anuncio: num(row.clientes_por_anuncio),
+    })),
+    faltan: {
+      anuncios_totales: num(falta.anuncios_totales),
+      minimo: num(falta.minimo_por_variante),
+      ventana_dias: num(falta.ventana_dias),
+      variantes: (Array.isArray(falta.variantes) ? falta.variantes : []).filter(isObj).slice(0, 30).map((row) => ({
+        variante: str(row.variante, 40),
+        nombre: str(row.nombre, 120) || str(row.variante, 40),
+        faltan: num(row.faltan),
+      })),
+    },
+    porCategoria: parseFormulaGrupos(body.por_categoria),
+    porProducto: parseFormulaGrupos(body.por_producto),
+    porCuenta: parseFormulaGrupos(body.por_cuenta),
+    config: {
+      activo: cfg.activo !== false,
+      fija: strOrNull(cfg.fija, 40),
+      epsilon: num(cfg.epsilon),
+      min_anuncios: num(cfg.min_anuncios),
+      ventana_dias: num(cfg.ventana_dias),
+    },
+    atribucion: {
+      id: num(at.id),
+      titulo_exacto: num(at.titulo_exacto),
+      titulo_aproximado: num(at.titulo_aproximado),
+      pct_exacta: at.pct_exacta == null ? null : num(at.pct_exacta),
+    },
+    metricas: {
+      confirmadas: met.confirmadas === true,
+      cuentas: (Array.isArray(met.cuentas) ? met.cuentas : []).filter(isObj).slice(0, 20).map((row) => ({
+        cuenta: str(row.cuenta, 80) || "(sin nombre)",
+        ultima_lectura: strOrNull(row.ultima_lectura, 40),
+        anuncios_vistos: num(row.anuncios_vistos),
+        con_metricas: num(row.con_metricas),
+        restriccion: row.restriccion === true,
+      })),
+    },
+  };
+}
+
 // ── Cruce con las ventas de Gestion (origen MARKETPLACE = linea Ventas 2) ─────
 export type ChannelSale = { recognizedAt: Date; amount: number; profit: number; origin: unknown };
 export type ChannelSales = { count: number; revenue: number; profit: number; byDay: Record<string, number>; closeRatePct: number | null };
@@ -405,4 +535,7 @@ export type NetmagiStats = {
   anuncios: Anuncios | null;
   // true = NETMAGI todavia no tiene la ruta /anuncios (se despliegan por separado): el resto de la pagina funciona.
   anunciosFaltan: boolean;
+  // "Que funciona" (fase 9). formulaFaltan = NETMAGI todavia no tiene la ruta /formula: se muestra un aviso y nada mas.
+  formula: Formula | null;
+  formulaFaltan: boolean;
 };
