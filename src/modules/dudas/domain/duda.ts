@@ -1,7 +1,7 @@
 // Reglas puras de "Dudas del catalogo": forma de una pregunta, validacion de la respuesta,
 // agrupado/filtro de la lista y deteccion de fotos. Sin Prisma ni Next.
 
-export const GRUPOS_DUDAS = ["nombre", "duplicado", "categoria", "foto", "separar", "negocio", "descripcion"] as const;
+export const GRUPOS_DUDAS = ["nombre", "duplicado", "categoria", "foto", "separar", "negocio", "descripcion", "sincronizar_igual", "sincronizar_eliminar", "sincronizar_cargar"] as const;
 
 export const ETIQUETAS_GRUPO: Record<string, string> = {
   nombre: "Nombre del producto",
@@ -11,6 +11,9 @@ export const ETIQUETAS_GRUPO: Record<string, string> = {
   separar: "Separar fotos",
   negocio: "Datos del negocio",
   descripcion: "Descripción",
+  sincronizar_igual: "¿Es el mismo producto?",
+  sincronizar_eliminar: "¿Se elimina esta carpeta?",
+  sincronizar_cargar: "Producto por cargar (precio y descripción)",
 };
 
 export function etiquetaGrupo(grupo: string): string {

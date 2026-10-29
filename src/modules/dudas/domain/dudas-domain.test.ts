@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ALFABETO_CODIGO, esCodigoBienFormado, formatearCodigo, generarCodigoAcceso, normalizarCodigo } from "./codigo";
-import { armarTablero, filasCsv, fotosDeLaDuda, respuestaVigentePorDuda, validarRespuesta, type Duda, type Respuesta } from "./duda";
+import { armarTablero, etiquetaGrupo, GRUPOS_DUDAS, filasCsv, fotosDeLaDuda, respuestaVigentePorDuda, validarRespuesta, type Duda, type Respuesta } from "./duda";
 import { crearFrenoIntentos, ipDelCliente } from "./freno-intentos";
 import { idDesdeArchivo, leerPreguntaExportada, leerRespuestaExportada } from "./importacion";
 import { crearTokenSesion, leerTokenSesion, secretoSesionDudas } from "./sesion";
@@ -171,5 +171,17 @@ describe("importacion", () => {
       autorNombre: "Magilus (claude.ai)",
       createdAt: new Date("2026-10-21T17:12:28.374Z"),
     });
+  });
+});
+
+describe("grupos de sincronizacion", () => {
+  it("conoce los 3 grupos y los ordena igual, eliminar, cargar", () => {
+    for (const g of ["sincronizar_igual", "sincronizar_eliminar", "sincronizar_cargar"]) {
+      expect((GRUPOS_DUDAS as readonly string[]).includes(g)).toBe(true);
+      expect(etiquetaGrupo(g)).not.toBe(g);
+    }
+    const i = (g: string) => (GRUPOS_DUDAS as readonly string[]).indexOf(g);
+    expect(i("sincronizar_igual")).toBeLessThan(i("sincronizar_cargar"));
+    expect(i("sincronizar_eliminar")).toBeLessThan(i("sincronizar_cargar"));
   });
 });
