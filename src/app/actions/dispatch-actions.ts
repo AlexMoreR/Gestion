@@ -5,13 +5,14 @@ import { hasAnyModuleAccess } from "@/lib/admin-module-access";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { Prisma } from "@prisma/client";
+import { Prisma, type OrderStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buildDispatchCode, parseDispatchCodeNumber } from "@/lib/orders";
+import { isOrderFullyDelivered } from "@/lib/order-partial-delivery";
 import { parseWeightKg } from "@/modules/guias/domain/weight";
 import {
   buildShippingLegs,
@@ -30,6 +31,38 @@ import {
 
 // Check "Crear guia Magilus" del modal de despacho (solo envios con transportadora). Si la
 // guia falla, el despacho ya quedo creado: se avisa en el mensaje y se crea luego desde la orden.
+// Cierra la orden (COMPLETED) solo si cada unidad ya está en un despacho entregado;
+// si falta algo queda DISPATCHED con la nota "Entrega parcial". Va dentro de la
+// misma transacción que marcó el despacho como entregado.
+async function closeOrderIfFullyDelivered(
+  tx: Prisma.TransactionClient,
+  input: { orderId: string; fromStatus: OrderStatus; note: string; changedById: string },
+) {
+  const items = await tx.orderItem.findMany({
+    where: { orderId: input.orderId },
+    select: {
+      quantity: true,
+      dispatchItems: { select: { quantity: true, dispatch: { select: { status: true } } } },
+    },
+  });
+  const complete = isOrderFullyDelivered(items);
+  const toStatus = complete ? "COMPLETED" : "DISPATCHED";
+
+  await tx.order.update({
+    where: { id: input.orderId },
+    data: complete ? { status: toStatus, completedAt: new Date() } : { status: toStatus },
+  });
+  await tx.orderStatusHistory.create({
+    data: {
+      orderId: input.orderId,
+      fromStatus: input.fromStatus,
+      toStatus,
+      note: complete ? input.note : `Entrega parcial. ${input.note}`,
+      changedById: input.changedById,
+    },
+  });
+}
+
 async function createShipmentIfRequested(
   formData: FormData,
   dispatchCode: string | null,
@@ -258,19 +291,11 @@ export async function adminCompleteDeliveryAction(formData: FormData): Promise<v
         },
       });
 
-      await tx.order.update({
-        where: { id: dispatch.orderId },
-        data: { status: "COMPLETED", completedAt: new Date() },
-      });
-
-      await tx.orderStatusHistory.create({
-        data: {
-          orderId: dispatch.orderId,
-          fromStatus: dispatch.order.status,
-          toStatus: "COMPLETED",
-          note: parsed.data.note || "Pedido entregado al cliente",
-          changedById,
-        },
+      await closeOrderIfFullyDelivered(tx, {
+        orderId: dispatch.orderId,
+        fromStatus: dispatch.order.status,
+        note: parsed.data.note || "Pedido entregado al cliente",
+        changedById,
       });
 
       // Redes sociales: se guardan en la ficha del cliente (reutilizables para marketing).
@@ -1353,19 +1378,11 @@ export async function adminUpdateDispatchStatusAction(formData: FormData): Promi
     }
 
     if (parsed.data.status === "DELIVERED") {
-      await tx.order.update({
-        where: { id: dispatch.orderId },
-        data: { status: "COMPLETED", completedAt: new Date() },
-      });
-
-      await tx.orderStatusHistory.create({
-        data: {
-          orderId: dispatch.orderId,
-          fromStatus: dispatch.order.status,
-          toStatus: "COMPLETED",
-          note: parsed.data.note || "Pedido entregado",
-          changedById,
-        },
+      await closeOrderIfFullyDelivered(tx, {
+        orderId: dispatch.orderId,
+        fromStatus: dispatch.order.status,
+        note: parsed.data.note || "Pedido entregado",
+        changedById,
       });
     }
   });

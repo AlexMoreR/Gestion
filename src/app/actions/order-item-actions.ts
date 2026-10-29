@@ -11,6 +11,8 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buildProductionJobCode, parseProductionJobCodeNumber } from "@/lib/orders";
+import { splitOrderItemQuantities } from "@/lib/order-partial-delivery";
+import { logActivity } from "@/lib/activity-log";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { syncOrderStatusAfterProduction } from "@/app/actions/orders-actions";
 import {
@@ -1447,4 +1449,95 @@ export async function adminDeleteOrderItemPhotoAction(formData: FormData): Promi
   revalidatePath("/admin/ordenes");
   revalidatePath(`/admin/ordenes/${photo.orderItem.orderId}`);
   redirect(`${returnTo}?ok=Foto+eliminada`);
+}
+
+// Separa unidades de una línea en otra línea igual (mismo precio, costo, proveedor y modo)
+// para poder despachar, entregar o devolver a stock solo una parte. No toca cargos al proveedor:
+// quedan en la línea original.
+export async function adminSplitOrderItemAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/ordenes");
+
+  const parsed = z
+    .object({
+      orderItemId: z.string().trim().min(1),
+      splitQty: z.coerce.number().int().min(1),
+    })
+    .safeParse({ orderItemId: formData.get("orderItemId"), splitQty: formData.get("splitQty") });
+  if (!parsed.success) {
+    redirect(`${returnTo}?error=Cantidad+invalida`);
+  }
+
+  const item = await prisma.orderItem.findUnique({
+    where: { id: parsed.data.orderItemId },
+    include: {
+      order: { select: { id: true, code: true, status: true } },
+      product: { select: { name: true } },
+      _count: { select: { productionJobs: true } },
+      dispatchItems: {
+        where: { dispatch: { status: { notIn: ["CANCELLED", "RETURNED"] } } },
+        select: { id: true },
+      },
+    },
+  });
+  if (!item) {
+    redirect(`${returnTo}?error=Producto+no+encontrado`);
+  }
+  if (item.order.status === "CANCELLED" || item.order.status === "COMPLETED") {
+    redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
+  }
+  if (item.dispatchItems.length > 0) {
+    redirect(`${returnTo}?error=Deshaz+primero+el+despacho+del+producto`);
+  }
+  if (item._count.productionJobs > 0) {
+    redirect(`${returnTo}?error=No+se+puede+separar+un+producto+con+produccion`);
+  }
+
+  const split = splitOrderItemQuantities(
+    item.quantity,
+    Number(item.lineTotal),
+    Number(item.unitPrice),
+    parsed.data.splitQty,
+  );
+  if (!split) {
+    redirect(`${returnTo}?error=Cantidad+invalida`);
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.orderItem.update({
+        where: { id: item.id },
+        data: { quantity: split.keep.quantity, lineTotal: split.keep.lineTotal },
+      });
+      await tx.orderItem.create({
+        data: {
+          orderId: item.orderId,
+          productId: item.productId,
+          quantity: split.moved.quantity,
+          unitPrice: item.unitPrice,
+          lineTotal: split.moved.lineTotal,
+          fulfillmentMode: item.fulfillmentMode,
+          notes: item.notes,
+          confirmedSupplierId: item.confirmedSupplierId,
+          purchaseCost: item.purchaseCost,
+          confirmedAt: item.confirmedAt,
+          supplierPaymentStatus: item.supplierPaymentStatus,
+        },
+      });
+    });
+  } catch (error) {
+    console.error("Failed to split order item:", error);
+    redirect(`${returnTo}?error=No+se+pudo+separar+el+producto`);
+  }
+
+  await logActivity({
+    action: "UPDATE",
+    entityType: "ORDER",
+    entityId: item.order.id,
+    summary: `Separó ${split.moved.quantity} de ${item.quantity} unidades de ${item.product.name} en la orden ${item.order.code}`,
+  });
+
+  revalidatePath("/admin/ordenes");
+  revalidatePath(`/admin/ordenes/${item.order.id}`);
+  redirect(`${returnTo}?ok=Unidades+separadas`);
 }

@@ -9,6 +9,7 @@ import {
   adminDeleteOrderItemPhotoAction,
   adminDispatchItemAction,
   adminUndoConfirmOrderItemAction,
+  adminSplitOrderItemAction,
   adminUndoPickupOrderItemAction,
 } from "@/app/actions/order-item-actions";
 import {
@@ -191,6 +192,7 @@ export function OrderItemManager({
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [dispatchOpen, setDispatchOpen] = useState(false);
   const [undoOpen, setUndoOpen] = useState(false);
+  const [splitOpen, setSplitOpen] = useState(false);
   const [undoPickupOpen, setUndoPickupOpen] = useState(false);
   const [undoConfirmOpen, setUndoConfirmOpen] = useState(false);
   const [dispatchDeliveryType, setDispatchDeliveryType] = useState<"COUNTER" | "PICKUP" | "SHIPPING">("SHIPPING");
@@ -230,6 +232,15 @@ export function OrderItemManager({
         <p className="text-sm font-medium text-foreground">{item.productName}</p>
         <p className="text-xs text-muted-foreground">
           {item.productCode ? `${item.productCode} · ` : ""}x{item.quantity}
+          {item.quantity > 1 && !item.isDespachado && !item.hasProductionJob && (
+            <button
+              type="button"
+              onClick={() => setSplitOpen(true)}
+              className="ml-2 underline hover:text-foreground"
+            >
+              Separar unidades
+            </button>
+          )}
         </p>
         <Badge
           variant="outline"
@@ -793,6 +804,28 @@ export function OrderItemManager({
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="orderItemId" value={item.id} />
             <UndoDispatchSubmitButton />
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={splitOpen} onOpenChange={(value) => (value ? null : setSplitOpen(false))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Separar unidades</DialogTitle>
+            <DialogDescription>
+              <span className="font-medium text-foreground">{item.productName}</span> (x{item.quantity}) se
+              divide en dos lineas con el mismo precio, para entregar o devolver solo una parte. El total de
+              la orden no cambia.
+            </DialogDescription>
+          </DialogHeader>
+          <form action={adminSplitOrderItemAction} className="space-y-3">
+            <input type="hidden" name="returnTo" value={returnTo} />
+            <input type="hidden" name="orderItemId" value={item.id} />
+            <label className="block text-sm">
+              Unidades a separar (1 a {item.quantity - 1})
+              <Input name="splitQty" type="number" min={1} max={item.quantity - 1} defaultValue={1} required />
+            </label>
+            <Button type="submit" className="w-full">Separar</Button>
           </form>
         </DialogContent>
       </Dialog>
