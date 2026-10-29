@@ -86,9 +86,9 @@ export function TarjetaDuda({ tarjeta }: { tarjeta: TarjetaVista }) {
       {tarjeta.fotos.length ? (
         <div className="grid grid-cols-3 gap-2">
           {tarjeta.fotos.map((url) => (
-            <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg bg-slate-100">
+            <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg bg-slate-100 has-[img[hidden]]:hidden">
               {/* eslint-disable-next-line @next/next/no-img-element -- URLs externas (Drive), sin optimizar */}
-              <img src={url} alt="" loading="lazy" referrerPolicy="no-referrer" className="aspect-square w-full object-cover" />
+              <img src={url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.hidden = true; }} className="aspect-square w-full object-cover" />
             </a>
           ))}
         </div>

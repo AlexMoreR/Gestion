@@ -1209,7 +1209,7 @@ model GastoBorrador {
 model DudaCatalogo {
   id         String          @id
   codigo     String?
-  // nombre | duplicado | categoria | foto | separar | negocio | descripcion
+  // nombre | duplicado | categoria | foto | separar | negocio | descripcion | sincronizar_igual | sincronizar_eliminar | sincronizar_cargar
   grupo      String
   titulo     String
   duda       String          @default("")
