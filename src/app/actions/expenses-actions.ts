@@ -97,6 +97,11 @@ async function categoryIsPayroll(categoryId: string): Promise<boolean> {
   return category ? /n[oó]mina/i.test(category.name) : false;
 }
 
+// Texto que se suma a la bitacora cuando el gasto queda con fecha anterior a hoy.
+function retroactivoEnBitacora(motivo: string | null): string {
+  return motivo ? ` (retroactivo; motivo: ${motivo})` : "";
+}
+
 export async function adminCreateExpenseCategoryAction(formData: FormData): Promise<void> {
   const createdById = await requireAdminSession();
   const returnTo = getReturnTo(formData);
@@ -286,7 +291,7 @@ export async function adminCreateExpenseAction(formData: FormData): Promise<void
     action: "CREATE",
     entityType: "EXPENSE",
     entityId: createdExpenseId,
-    summary: `Registró un gasto de $${Number(parsed.data.amount).toLocaleString("es-CO")}`,
+    summary: `Registró un gasto de $${Number(parsed.data.amount).toLocaleString("es-CO")}${retroactivoEnBitacora(motivoCheck.motivo)}`,
   });
 
   revalidatePath("/admin/gastos");
@@ -367,7 +372,7 @@ export async function adminUpdateExpenseAction(formData: FormData): Promise<void
     action: "UPDATE",
     entityType: "EXPENSE",
     entityId: parsed.data.expenseId,
-    summary: `Actualizó un gasto de $${Number(parsed.data.amount).toLocaleString("es-CO")}`,
+    summary: `Actualizó un gasto de $${Number(parsed.data.amount).toLocaleString("es-CO")}${retroactivoEnBitacora(motivoCheck.motivo)}`,
   });
 
   revalidatePath("/admin/gastos");

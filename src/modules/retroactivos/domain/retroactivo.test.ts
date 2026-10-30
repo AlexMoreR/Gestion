@@ -89,6 +89,35 @@ describe("motivo", () => {
   });
 });
 
+describe("puertas: hoy, ayer y medianoche en Bogota", () => {
+  it("hoy no pide motivo; ayer sin motivo se rechaza; ayer con motivo de 5 a 500 caracteres pasa", () => {
+    expect(exigirMotivoSiRetroactivo(esRetroactivo("2026-10-20", AHORA), undefined)).toEqual({ ok: true, motivo: null });
+    expect(exigirMotivoSiRetroactivo(esRetroactivo("2026-10-19", AHORA), undefined).ok).toBe(false);
+    expect(exigirMotivoSiRetroactivo(esRetroactivo("2026-10-19", AHORA), "x".repeat(4)).ok).toBe(false);
+    expect(exigirMotivoSiRetroactivo(esRetroactivo("2026-10-19", AHORA), "x".repeat(5))).toEqual({ ok: true, motivo: "xxxxx" });
+    expect(exigirMotivoSiRetroactivo(esRetroactivo("2026-10-19", AHORA), "x".repeat(500)).ok).toBe(true);
+    expect(exigirMotivoSiRetroactivo(esRetroactivo("2026-10-19", AHORA), "x".repeat(501)).ok).toBe(false);
+  });
+
+  it("00:00 Colombia (05:00 UTC) ya es dia nuevo; 23:59 Colombia (04:59 UTC del dia siguiente) sigue en el mismo", () => {
+    const medianoche = new Date("2026-10-21T05:00:00Z"); // 21-oct 00:00 en Colombia
+    expect(esRetroactivo("2026-10-20", medianoche)).toBe(true);
+    expect(esRetroactivo("2026-10-21", medianoche)).toBe(false);
+    const casiMedianoche = new Date("2026-10-21T04:59:00Z"); // 20-oct 23:59 en Colombia
+    expect(esRetroactivo("2026-10-20", casiMedianoche)).toBe(false);
+    expect(esRetroactivo("2026-10-19", casiMedianoche)).toBe(true);
+  });
+
+  it("editar un registro viejo sin cambiar de dia no pide motivo", () => {
+    const anterior = new Date("2026-10-10T12:00:00Z");
+    expect(exigirMotivoSiRetroactivo(esEdicionRetroactiva("2026-10-10", anterior, AHORA), undefined)).toEqual({
+      ok: true,
+      motivo: null,
+    });
+    expect(exigirMotivoSiRetroactivo(esEdicionRetroactiva("2026-10-09", anterior, AHORA), undefined).ok).toBe(false);
+  });
+});
+
 describe("fechas del reporte", () => {
   it("guarda la fecha puesta a mediodia UTC", () => {
     expect(fechaPuestaParaGuardar("2026-10-03").toISOString()).toBe("2026-10-03T12:00:00.000Z");
