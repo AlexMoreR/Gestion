@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Loader2, Plus } from "lucide-react";
 import { adminAddDispatchShippingLegAction } from "@/app/actions/dispatch-actions";
@@ -14,8 +14,16 @@ import { CarrierSelect, type CarrierSelectOption } from "@/modules/guias/present
 const SELECT_CLASS =
   "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
 
-function SubmitButton() {
+// Al terminar de guardar cierra el modal y lo vacia: asi un segundo toque no paga el flete dos veces.
+function SubmitButton({ onDone }: { onDone: () => void }) {
   const { pending } = useFormStatus();
+  const wasPending = useRef(false);
+  useEffect(() => {
+    if (wasPending.current && !pending) {
+      onDone();
+    }
+    wasPending.current = pending;
+  }, [pending, onDone]);
   return (
     <Button type="submit" className="w-full" disabled={pending}>
       {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -41,6 +49,12 @@ export function AddShippingLegDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
+  const [formKey, setFormKey] = useState(0);
+  const reset = () => {
+    setOpen(false);
+    setAmount("");
+    setFormKey((key) => key + 1);
+  };
 
   return (
     <>
@@ -56,7 +70,7 @@ export function AddShippingLegDialog({
               Despacho {dispatchCode}. El valor se suma al flete de la venta y queda pagado desde la cuenta que elijas.
             </DialogDescription>
           </DialogHeader>
-          <form action={adminAddDispatchShippingLegAction} className="space-y-3">
+          <form key={formKey} action={adminAddDispatchShippingLegAction} className="space-y-3">
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="dispatchId" value={dispatchId} />
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem]">
@@ -79,7 +93,7 @@ export function AddShippingLegDialog({
               <Input name="trackingNumber" placeholder="Guía (opcional)" maxLength={120} className="h-8 text-xs" />
               <Input name="note" placeholder="Nota (ej. Cali a cliente)" maxLength={250} className="h-8 text-xs" />
             </div>
-            <SubmitButton />
+            <SubmitButton onDone={reset} />
           </form>
         </DialogContent>
       </Dialog>

@@ -33,6 +33,7 @@ import {
   transactionDateUpdateSchema,
 } from "@/modules/balances/application/schemas";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
+import { matchFreightPayments } from "@/modules/balances/domain/unassigned-freight";
 import { esEdicionRetroactiva, exigirMotivoSiRetroactivo } from "@/modules/retroactivos/domain/retroactivo";
 import { datosRegistroRetroactivo } from "@/modules/retroactivos/infrastructure/registrar-retroactivo";
 
@@ -618,7 +619,7 @@ export async function adminLinkFreightToSupplierPaymentAction(formData: FormData
         type: true,
         saleId: true,
         accountId: true,
-        supplier: { select: { name: true } },
+        supplier: { select: { name: true, displayName: true } },
         account: { select: { name: true } },
         _count: { select: { shippingCosts: true } },
       },
@@ -627,8 +628,13 @@ export async function adminLinkFreightToSupplierPaymentAction(formData: FormData
   if (!cost || cost.accountId || cost.supplierPaymentId) {
     redirectWithError(FREIGHT_RETURN_TO, "Ese flete ya tiene cuenta o pago");
   }
-  if (!payment || payment.type !== "PAYMENT" || !payment.accountId || payment.saleId !== cost.saleId) {
-    redirectWithError(FREIGHT_RETURN_TO, "Ese pago no corresponde a la venta del flete");
+  const sameFreight =
+    payment &&
+    (matchFreightPayments([cost], [
+      { id: payment.id, saleId: payment.saleId, supplierName: payment.supplier.name, supplierDisplayName: payment.supplier.displayName },
+    ]).get(cost.id)?.length ?? 0) > 0;
+  if (!payment || payment.type !== "PAYMENT" || !payment.accountId || !sameFreight) {
+    redirectWithError(FREIGHT_RETURN_TO, "Ese pago no es del mismo transportador y venta del flete");
   }
   if (payment._count.shippingCosts > 0) {
     redirectWithError(FREIGHT_RETURN_TO, "Ese pago ya esta enlazado a otro flete");

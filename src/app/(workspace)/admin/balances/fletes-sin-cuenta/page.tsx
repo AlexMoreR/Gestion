@@ -116,7 +116,7 @@ export default async function AdminUnassignedFreightPage({ searchParams }: PageP
             </p>
           </div>
 
-          <div className="sticky top-0 z-10 flex flex-col gap-2 rounded-xl border border-border bg-card p-3 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3 sm:flex-row sm:items-center">
             <label className="text-sm font-medium text-foreground" htmlFor="freight-account">
               Cuenta de donde salió la plata
             </label>
