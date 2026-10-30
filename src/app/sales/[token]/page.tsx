@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
   Calendar,
@@ -26,6 +27,15 @@ import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { prisma } from "@/lib/prisma";
 import { paymentMethodLabel } from "@/modules/ventas/domain/withholding";
+
+// Datos privados por enlace secreto: que Google no la indexe ni herede el canonical "/".
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+  alternates: { canonical: null },
+};
 
 type SaleWithDiscountFields = {
   grossTotal?: unknown;

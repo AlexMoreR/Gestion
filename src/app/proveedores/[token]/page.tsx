@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Building2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +9,15 @@ import { distributeAmount } from "@/lib/dispatch-shipping-legs";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
+
+// Datos privados por enlace secreto: que Google no la indexe ni herede el canonical "/".
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+  alternates: { canonical: null },
+};
 
 type PageProps = {
   params: Promise<{ token: string }>;
