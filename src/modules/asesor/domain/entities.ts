@@ -27,10 +27,20 @@ export type Seller = {
   role?: string | null;
 };
 
+// "orden" = items de la orden; "cotizacion" = la venta no tiene orden (o esta vacia).
+export type SaleProductsSource = "orden" | "cotizacion" | "ninguna";
+
+export type SaleCostOrigin = "confirmado" | "estimado de catálogo" | "sin dato";
+
 export type SaleProductLine = {
   nombre: string;
   codigo: string | null;
   cantidad: number;
+  color: string | null;
+  precio_unitario: number;
+  total_linea: number;
+  costo_unitario: number;
+  costo_origen: SaleCostOrigin;
 };
 
 // Datos de una venta que no estan en el calculo de ganancia (Balances).
@@ -46,6 +56,7 @@ export type SaleDetail = {
   // Quien registro la venta en el sistema (puede ser distinta de la vendedora).
   registeredBy: Seller | null;
   products: SaleProductLine[];
+  productsSource: SaleProductsSource;
   // Origen de la venta (enum SaleOrigin; null = sin dato) y su detalle (anuncio, cuenta MK, linea).
   origin: string | null;
   originDetail: unknown;
