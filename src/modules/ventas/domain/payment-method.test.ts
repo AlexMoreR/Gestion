@@ -7,6 +7,7 @@ import {
   contraentregaShippingFee,
   isCamillaComboProduct,
   parsePaymentMethodInput,
+  quotePaymentTermsText,
   suggestAmountToCollect,
   toComboCheckProduct,
 } from "./payment-method";
@@ -96,5 +97,17 @@ describe("combo de camilla", () => {
     expect(contraentregaComboWarning("CONTRAENTREGA", [{ code: "CMB02", categoryName: "COMBO DE CAMILLAS" }])).toBeNull();
     expect(contraentregaComboWarning("ANTICIPO_50_50", [])).toBeNull();
     expect(contraentregaComboWarning(null, [])).toBeNull();
+  });
+});
+
+describe("quotePaymentTermsText", () => {
+  it("sin combo: anticipo 50/50 y envio gratis, sin contraentrega", () => {
+    const text = quotePaymentTermsText(false);
+    expect(text).toContain("50 %");
+    expect(text).toContain("ciudades principales");
+    expect(text).not.toContain("contraentrega");
+  });
+  it("con Combo Camillas: agrega contraentrega", () => {
+    expect(quotePaymentTermsText(true)).toContain("contraentrega");
   });
 });
