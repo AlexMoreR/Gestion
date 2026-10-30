@@ -4,7 +4,10 @@
 // - Garantia: "1 año de garantía" en todos; "y 5 años en el sistema hidráulico" SOLO si el
 //   producto tiene sistema hidraulico (categoria o nombre/descripcion con "hidrau").
 // - Nada de datos inventados: lo que no esta en Gestion dice "Pregúntale a la asesora".
-// - Sin "envío gratis": el envio se consulta en /cobertura.
+// - Pago y envio: 50 % para fabricar + 50 % antes de despachar, con envio gratis a ciudades
+//   principales (la lista no se escribe aca: se manda a consultar en /cobertura).
+// - Contraentrega pagando el envio: SOLO el Combo Camillas (isCamillasCombo).
+// - No llegamos a San Andrés, Leticia, Inírida, Mitú ni Bahía Solano.
 
 import { expandProductNameForSeo, toSentenceCase } from "./seo-metadata";
 
@@ -46,6 +49,11 @@ export function hasHydraulicSystem(product: HydraulicSource): boolean {
   return [product.categoryName, product.name, product.description].some((value) =>
     mentionsHydraulic(normalizeForMatch(value)),
   );
+}
+
+/** ¿Es el Combo Camillas? Combo (isBundle) cuyo nombre, sin tildes ni mayusculas, contiene "camilla". */
+export function isCamillasCombo(product: { isBundle: boolean; name: string }): boolean {
+  return product.isBundle && normalizeForMatch(product.name).includes("camilla");
 }
 
 /** Texto de garantia segun el producto (solo menciona el hidraulico si lo tiene). */
@@ -123,6 +131,7 @@ export type ProductFaqItem = {
 export type ProductLandingSource = HydraulicSource & {
   code?: string | null;
   brandName: string;
+  isBundle?: boolean;
 };
 
 export type ProductLandingData = {
@@ -134,6 +143,7 @@ export type ProductLandingData = {
   chips: string[];
   specs: ProductSpecRow[];
   faq: ProductFaqItem[];
+  cashOnDelivery: boolean;
 };
 
 function specRow(label: string, value: string | null | undefined): ProductSpecRow {
@@ -141,17 +151,19 @@ function specRow(label: string, value: string | null | undefined): ProductSpecRo
   return clean ? { label, value: clean, missing: false } : { label, value: ASK_ADVISOR_LABEL, missing: true };
 }
 
-/** Preguntas frecuentes con las reglas vigentes (sin cifras de envio ni tiempos inventados). */
-export function buildProductFaq(input: { warrantyText: string }): ProductFaqItem[] {
+/** Preguntas frecuentes con las reglas vigentes (sin cifras de envio, lista de ciudades ni tiempos inventados). */
+export function buildProductFaq(input: { warrantyText: string; cashOnDelivery?: boolean }): ProductFaqItem[] {
   return [
     {
       question: "¿Cuánto cuesta el envío?",
       answer:
-        "Depende de tu ciudad. Consulta el envío a tu ciudad en la página de cobertura o pregúntale a la asesora por WhatsApp.",
+        "Envío gratis a ciudades principales. Para otras ciudades consulta la página de cobertura o pregúntale a la asesora por WhatsApp. No llegamos a San Andrés, Leticia, Inírida, Mitú ni Bahía Solano.",
     },
     {
       question: "¿Cómo se paga?",
-      answer: "50 % de anticipo para empezar la fabricación y 50 % antes del despacho.",
+      answer: `50 % para fabricar y 50 % antes de despachar, con envío gratis a ciudades principales.${
+        input.cashOnDelivery ? " También puedes pagar contraentrega, pagando tú el envío." : ""
+      }`,
     },
     {
       question: "¿Qué garantía tiene?",
@@ -176,6 +188,7 @@ export function buildProductLandingData(product: ProductLandingSource): ProductL
   const measure = extractMeasureFromDescription(product.description);
   const description = readableDescription(product.description);
   const categoryName = product.categoryName?.trim();
+  const cashOnDelivery = isCamillasCombo({ isBundle: product.isBundle ?? false, name: product.name });
 
   const chips = [
     ...(measure ? [`Medida ${measure}`] : []),
@@ -200,6 +213,7 @@ export function buildProductLandingData(product: ProductLandingSource): ProductL
     description,
     chips,
     specs,
-    faq: buildProductFaq({ warrantyText }),
+    faq: buildProductFaq({ warrantyText, cashOnDelivery }),
+    cashOnDelivery,
   };
 }

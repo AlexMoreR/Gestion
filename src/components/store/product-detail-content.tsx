@@ -138,6 +138,7 @@ export async function ProductDetailContent({
     description: product.description || product.seoDescription,
     categoryName,
     brandName,
+    isBundle: product.isBundle,
   });
   const leadText = landing.description || fallbackDescription;
   // El mensaje dice que viene de magilus.com, con precio y enlace de la ficha (mide ventas por SEO).

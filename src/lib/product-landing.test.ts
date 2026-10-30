@@ -5,6 +5,7 @@ import {
   buildProductLandingData,
   extractMeasureFromDescription,
   hasHydraulicSystem,
+  isCamillasCombo,
   productDisplayName,
   readableDescription,
   WARRANTY_BASE_TEXT,
@@ -138,9 +139,72 @@ describe("buildProductLandingData", () => {
     expect(data.specs.find((row) => row.label === "Garantía")?.value).toBe(WARRANTY_HYDRAULIC_TEXT);
   });
 
-  it("las preguntas frecuentes nunca prometen envio gratis", () => {
+  it("las preguntas frecuentes del hidraulico dicen la garantia completa", () => {
     const faq = buildProductFaq({ warrantyText: WARRANTY_HYDRAULIC_TEXT });
     expect(faq).toHaveLength(5);
-    expect(faq.map((item) => `${item.question} ${item.answer}`).join(" ").toLowerCase()).not.toContain("gratis");
+    expect(faq.find((item) => item.question === "¿Qué garantía tiene?")?.answer).toBe(
+      "1 año de garantía y 5 años en el sistema hidráulico.",
+    );
+  });
+});
+
+const faqText = (faq: { question: string; answer: string }[]) =>
+  faq.map((item) => `${item.question} ${item.answer}`).join(" ");
+
+describe("isCamillasCombo", () => {
+  it("solo un combo con 'camilla' en el nombre (sin tildes ni mayusculas)", () => {
+    expect(isCamillasCombo({ isBundle: true, name: "COMBO CAMILLAS DIVÁN" })).toBe(true);
+    expect(isCamillasCombo({ isBundle: false, name: "CAMILLA PORTATIL" })).toBe(false);
+    expect(isCamillasCombo({ isBundle: true, name: "COMBO PREMIUM SPA" })).toBe(false);
+  });
+});
+
+describe("buildProductFaq: pago, envio y contraentrega", () => {
+  it("producto normal: 50/50, envio gratis a ciudades principales, ciudades sin cobertura, garantia y sin contraentrega", () => {
+    const text = faqText(buildProductFaq({ warrantyText: WARRANTY_BASE_TEXT }));
+    expect(text).toContain("50 % para fabricar y 50 % antes de despachar");
+    expect(text).toContain("Envío gratis a ciudades principales");
+    for (const city of ["San Andrés", "Leticia", "Inírida", "Mitú", "Bahía Solano"]) {
+      expect(text).toContain(city);
+    }
+    expect(text).toContain("1 año de garantía");
+    expect(text.toLowerCase()).not.toContain("contraentrega");
+  });
+
+  it("con contraentrega, '¿Cómo se paga?' la ofrece pagando el envio", () => {
+    const faq = buildProductFaq({ warrantyText: WARRANTY_BASE_TEXT, cashOnDelivery: true });
+    expect(faq.find((item) => item.question === "¿Cómo se paga?")?.answer).toBe(
+      "50 % para fabricar y 50 % antes de despachar, con envío gratis a ciudades principales. También puedes pagar contraentrega, pagando tú el envío.",
+    );
+  });
+});
+
+describe("buildProductLandingData: contraentrega solo en el Combo Camillas", () => {
+  const base = { code: null, description: null, categoryName: "Combos de Camillas", brandName: "Magilus" };
+
+  it("combo con 'camilla' en el nombre ofrece contraentrega", () => {
+    const data = buildProductLandingData({ ...base, name: "COMBO CAMILLAS DIVAN", isBundle: true });
+    expect(data.cashOnDelivery).toBe(true);
+    const text = faqText(data.faq);
+    expect(text).toContain("También puedes pagar contraentrega, pagando tú el envío.");
+    expect(text).toContain("Envío gratis a ciudades principales");
+    expect(text).toContain("1 año de garantía");
+  });
+
+  it("combo sin 'camilla', camilla que no es combo, o sin isBundle: sin contraentrega", () => {
+    for (const product of [
+      { ...base, name: "COMBO PREMIUM SPA", isBundle: true },
+      { ...base, name: "CAMILLA PORTATIL", isBundle: false },
+      { ...base, name: "COMBO CAMILLA DIVAN" },
+    ]) {
+      const data = buildProductLandingData(product);
+      expect(data.cashOnDelivery).toBe(false);
+      expect(faqText(data.faq).toLowerCase()).not.toContain("contraentrega");
+    }
+  });
+
+  it("producto hidraulico sigue con la garantia del sistema hidraulico en la FAQ", () => {
+    const data = buildProductLandingData({ ...base, name: "HIDRAU PRO REY", categoryName: "Sillas Hidráulicas" });
+    expect(faqText(data.faq)).toContain("1 año de garantía y 5 años en el sistema hidráulico");
   });
 });
