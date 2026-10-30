@@ -133,12 +133,21 @@ export function createPrismaTeamRepository(): TeamRepository {
       return row ? toDomain(row) : null;
     },
 
+    // Si la ficha tiene usuario, su nombre tambien queda como User.name (ventas, nomina, etc. lo leen por id).
     async create(input) {
-      return toDomain(await prisma.teamMember.create({ data: toData(input) }));
+      return prisma.$transaction(async (tx) => {
+        const row = await tx.teamMember.create({ data: toData(input) });
+        if (row.userId) await tx.user.update({ where: { id: row.userId }, data: { name: row.fullName } });
+        return toDomain(row);
+      });
     },
 
     async update(id, input) {
-      return toDomain(await prisma.teamMember.update({ where: { id }, data: toData(input) }));
+      return prisma.$transaction(async (tx) => {
+        const row = await tx.teamMember.update({ where: { id }, data: toData(input) });
+        if (row.userId) await tx.user.update({ where: { id: row.userId }, data: { name: row.fullName } });
+        return toDomain(row);
+      });
     },
 
     async setExit(id, endDate, exitReason) {
