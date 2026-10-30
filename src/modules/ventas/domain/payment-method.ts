@@ -44,6 +44,32 @@ export function parsePaymentMethodInput(raw: unknown): SalePaymentMethod | null 
   return isSalePaymentMethod(value) ? value : undefined;
 }
 
+// --- Pasar una cotizacion a venta (caso SAL-00081, 26-oct-2026) ---
+// La venta no nace sin forma de pago ni sin comprobante (foto o PDF) de cada abono, tambien en
+// efectivo: la orden de fabricacion de la proveedora necesita saber como se le paga.
+export const MISSING_PAYMENT_METHOD_MESSAGE = "Falta escoger la forma de pago (50/50 o Contraentrega).";
+export const MISSING_FIRST_RECEIPT_MESSAGE = "Falta subir el comprobante del primer pago (foto o PDF).";
+export const MISSING_RECEIPT_MESSAGE = "Falta subir el comprobante de cada abono (foto o PDF).";
+
+// Devuelve lo que falta para crear la venta (vacio = puede pasar). El faltante de abonos lo
+// revisa aparte quien llama ("Agrega al menos un abono").
+export function missingForSaleFromQuote(params: {
+  paymentMethod: SalePaymentMethod | null | undefined;
+  installments: { hasFile: boolean }[];
+}): string[] {
+  const missing: string[] = [];
+  if (!params.paymentMethod) {
+    missing.push(MISSING_PAYMENT_METHOD_MESSAGE);
+  }
+  const [first, ...rest] = params.installments;
+  if (first && !first.hasFile) {
+    missing.push(MISSING_FIRST_RECEIPT_MESSAGE);
+  } else if (rest.some((installment) => !installment.hasFile)) {
+    missing.push(MISSING_RECEIPT_MESSAGE);
+  }
+  return missing;
+}
+
 // --- Envio en contraentrega ---
 
 export const CONTRAENTREGA_FEE_BOGOTA = 100_000;

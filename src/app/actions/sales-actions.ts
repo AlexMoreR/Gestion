@@ -14,7 +14,11 @@ import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
 import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
-import { PAYMENT_METHOD_SHORT_LABEL, parsePaymentMethodInput } from "@/modules/ventas/domain/payment-method";
+import {
+  missingForSaleFromQuote,
+  PAYMENT_METHOD_SHORT_LABEL,
+  parsePaymentMethodInput,
+} from "@/modules/ventas/domain/payment-method";
 import { CONSUMIDOR_FINAL_EMAIL } from "@/modules/ventas/domain/sale-origin";
 import {
   WITHHOLDING_LABEL,
@@ -299,10 +303,6 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
     const fileEntry = receiptEntries[index];
     const file = fileEntry instanceof File && fileEntry.size > 0 ? fileEntry : null;
 
-    if (account.type !== "CASH" && !file) {
-      redirectWithError(returnTo, "Los abonos que no sean en efectivo deben incluir comprobante");
-    }
-
     if (file) {
       const validationError = validateReceiptFile(file);
       if (validationError) {
@@ -320,6 +320,16 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
       file,
     };
   });
+
+  // Forma de pago y comprobante de cada abono (tambien en efectivo) son obligatorios: la misma
+  // regla del boton, por si alguien llama la accion sin pasar por la pantalla.
+  const missing = missingForSaleFromQuote({
+    paymentMethod,
+    installments: installments.map((installment) => ({ hasFile: Boolean(installment.file) })),
+  });
+  if (missing.length > 0) {
+    redirectWithError(returnTo, missing.join(" "));
+  }
 
   // Retroactivo: algun abono (y por tanto la venta, que toma la fecha del mas temprano) con
   // fecha de un dia anterior a hoy. Exige motivo.
@@ -1390,7 +1400,7 @@ export async function adminUpdateSaleDateAction(formData: FormData): Promise<voi
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Fecha de la venta actualizada" }).toString()}`);
 }
 
-// Cambia la forma de pago de una venta (50/50, contraentrega o sin definir). No toca abonos.
+// Cambia la forma de pago de una venta (50/50 o contraentrega; ya no se deja sin definir). No toca abonos.
 export async function adminUpdateSalePaymentMethodAction(formData: FormData): Promise<void> {
   await requireAdminSession();
   const returnTo = getReturnTo(formData);
@@ -1404,6 +1414,9 @@ export async function adminUpdateSalePaymentMethodAction(formData: FormData): Pr
   const paymentMethod = parsePaymentMethodInput(formData.get("paymentMethod"));
   if (paymentMethod === undefined) {
     redirectWithError(returnTo, "Forma de pago invalida");
+  }
+  if (paymentMethod === null) {
+    redirectWithError(returnTo, "Escoge la forma de pago (50/50 o Contraentrega)");
   }
 
   const sale = await prisma.sale.findUnique({
@@ -1420,9 +1433,7 @@ export async function adminUpdateSalePaymentMethodAction(formData: FormData): Pr
     action: "UPDATE",
     entityType: "SALE",
     entityId: sale.id,
-    summary: `Cambió la forma de pago de la venta ${sale.code} a ${
-      paymentMethod ? PAYMENT_METHOD_SHORT_LABEL[paymentMethod] : "sin definir"
-    }`,
+    summary: `Cambió la forma de pago de la venta ${sale.code} a ${PAYMENT_METHOD_SHORT_LABEL[paymentMethod]}`,
   });
 
   revalidatePath("/admin/ventas");

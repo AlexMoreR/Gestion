@@ -161,6 +161,14 @@ de esa venta. El costo de cada producto vendido es, en este orden: el costo conf
 proveedora en la orden; si no hay y el producto sale de stock, costo de catálogo + flete por unidad;
 si no, el costo de la proveedora preferida o el costo de catálogo. No resta gastos operativos.
 
+**Pasar una cotización a venta.** Desde el 30-oct-2026 (caso SAL-00081) la venta no se crea sin
+forma de pago (50/50 o Contraentrega; "Sin definir" ya no sirve) ni sin el comprobante (foto o PDF)
+de cada abono, también en efectivo: la orden de fabricación necesita saber cómo se le paga a la
+proveedora. Lo exigen el botón "Enviar a ventas" y el servidor (`missingForSaleFromQuote`). Las
+ventas viejas sin forma de pago se corrigen con "Cambiar forma de pago" en el detalle de la orden
+o "Forma de pago" en el menú de la venta, que tampoco permiten dejarla sin definir. Las ventas
+directas de mostrador no cambian.
+
 **Cuándo cuenta una venta.** Cuenta cuando está pagada por completo (estado "facturada": lo pagado
 ≥ total), aunque falte entregarla: el recaudo y la entrega son cosas distintas (decisión de
 Alexander, 11-oct-2026). Se reconoce en la fecha del pago que la completó, y no cambia de mes cuando
