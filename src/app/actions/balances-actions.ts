@@ -9,6 +9,7 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { logActivity } from "@/lib/activity-log";
 import { prisma } from "@/lib/prisma";
 import {
   createAccountMovementUseCase,
@@ -320,6 +321,17 @@ export async function adminUpdateShippingCostAction(formData: FormData): Promise
     redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos invalidos");
   }
 
+  // Un flete pagado por Proveedores ya resta desde la cuenta de ese pago: ponerle otra cuenta lo restaria dos veces.
+  if (parsed.data.accountId) {
+    const linked = await prisma.shippingCost.findUnique({
+      where: { id: parsed.data.shippingCostId },
+      select: { supplierPaymentId: true },
+    });
+    if (linked?.supplierPaymentId) {
+      redirectWithError(returnTo, "Este flete ya esta pagado desde Proveedores: no le pongas otra cuenta");
+    }
+  }
+
   await updateShippingCostUseCase(repository, parsed.data.shippingCostId, {
     saleId: parsed.data.saleId,
     shippingProvider: parsed.data.shippingProvider,
@@ -573,4 +585,117 @@ export async function adminCreateAccountMovementAction(formData: FormData): Prom
 
   revalidatePath("/admin/balances");
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Movimiento registrado" }).toString()}`);
+}
+
+// --- Fletes sin cuenta (/admin/balances/fletes-sin-cuenta) ---
+// Fletes viejos que no restan de ningun saldo. Nada se asigna solo: lo hace la persona,
+// flete por flete o varios a la vez, y queda en la bitacora.
+
+const FREIGHT_RETURN_TO = "/admin/balances/fletes-sin-cuenta";
+
+function freightLabel(cost: { amount: Prisma.Decimal; shippingProvider: string; sale: { code: string } }): string {
+  return `flete ${cost.shippingProvider} $${Math.round(Number(cost.amount)).toLocaleString("es-CO")} (${cost.sale.code})`;
+}
+
+// "Ya esta pagado en Proveedores": enlaza el flete con ese pago. No cambia ningun saldo
+// (la plata ya salio con el pago); solo deja de contar como "sin cuenta".
+export async function adminLinkFreightToSupplierPaymentAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const [shippingCostId, supplierPaymentId] = getStringField(formData, "link").split(":");
+  if (!shippingCostId || !supplierPaymentId) {
+    redirectWithError(FREIGHT_RETURN_TO, "Elige el pago a enlazar");
+  }
+
+  const [cost, payment] = await Promise.all([
+    prisma.shippingCost.findUnique({
+      where: { id: shippingCostId },
+      select: { id: true, saleId: true, amount: true, shippingProvider: true, accountId: true, supplierPaymentId: true, sale: { select: { code: true } } },
+    }),
+    prisma.supplierLedgerEntry.findUnique({
+      where: { id: supplierPaymentId },
+      select: {
+        id: true,
+        type: true,
+        saleId: true,
+        accountId: true,
+        supplier: { select: { name: true } },
+        account: { select: { name: true } },
+        _count: { select: { shippingCosts: true } },
+      },
+    }),
+  ]);
+  if (!cost || cost.accountId || cost.supplierPaymentId) {
+    redirectWithError(FREIGHT_RETURN_TO, "Ese flete ya tiene cuenta o pago");
+  }
+  if (!payment || payment.type !== "PAYMENT" || !payment.accountId || payment.saleId !== cost.saleId) {
+    redirectWithError(FREIGHT_RETURN_TO, "Ese pago no corresponde a la venta del flete");
+  }
+  if (payment._count.shippingCosts > 0) {
+    redirectWithError(FREIGHT_RETURN_TO, "Ese pago ya esta enlazado a otro flete");
+  }
+
+  const updated = await prisma.shippingCost.updateMany({
+    where: { id: cost.id, accountId: null, supplierPaymentId: null },
+    data: { supplierPaymentId: payment.id },
+  });
+  if (updated.count === 0) {
+    redirectWithError(FREIGHT_RETURN_TO, "Ese flete ya tiene cuenta o pago");
+  }
+
+  await logActivity({
+    action: "UPDATE",
+    entityType: "ACCOUNT",
+    entityId: cost.id,
+    summary: `Enlazó el ${freightLabel(cost)} al pago de Proveedores a ${payment.supplier.name} desde ${payment.account?.name ?? "su cuenta"}`,
+  });
+
+  revalidatePath("/admin/balances");
+  revalidatePath(FREIGHT_RETURN_TO);
+  redirect(`${FREIGHT_RETURN_TO}?${new URLSearchParams({ ok: "Flete enlazado al pago de Proveedores" }).toString()}`);
+}
+
+// "Asignar cuenta": a uno o a varios fletes marcados. Desde ahi el flete resta de esa cuenta.
+export async function adminAssignFreightAccountAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const ids = [...new Set(formData.getAll("shippingCostIds").map((value) => String(value).trim()).filter(Boolean))];
+  const accountId = getStringField(formData, "accountId");
+  if (ids.length === 0) {
+    redirectWithError(FREIGHT_RETURN_TO, "Marca al menos un flete");
+  }
+  if (ids.length > 500) {
+    redirectWithError(FREIGHT_RETURN_TO, "Demasiados fletes a la vez");
+  }
+  const account = accountId
+    ? await prisma.account.findFirst({ where: { id: accountId, isActive: true }, select: { id: true, name: true } })
+    : null;
+  if (!account) {
+    redirectWithError(FREIGHT_RETURN_TO, "Elige la cuenta de donde salio la plata");
+  }
+
+  // Solo los que siguen sin cuenta ni pago: si otra persona ya los arreglo, no se tocan.
+  const costs = await prisma.shippingCost.findMany({
+    where: { id: { in: ids }, accountId: null, supplierPaymentId: null },
+    select: { id: true, amount: true, shippingProvider: true, sale: { select: { code: true } } },
+  });
+  if (costs.length === 0) {
+    redirectWithError(FREIGHT_RETURN_TO, "Esos fletes ya tienen cuenta o pago");
+  }
+  await prisma.shippingCost.updateMany({
+    where: { id: { in: costs.map((cost) => cost.id) }, accountId: null, supplierPaymentId: null },
+    data: { accountId: account.id },
+  });
+
+  for (const cost of costs) {
+    await logActivity({
+      action: "UPDATE",
+      entityType: "ACCOUNT",
+      entityId: cost.id,
+      summary: `Asignó la cuenta ${account.name} al ${freightLabel(cost)}`,
+    });
+  }
+
+  revalidatePath("/admin/balances");
+  revalidatePath(FREIGHT_RETURN_TO);
+  const ok = costs.length === 1 ? `1 flete asignado a ${account.name}` : `${costs.length} fletes asignados a ${account.name}`;
+  redirect(`${FREIGHT_RETURN_TO}?${new URLSearchParams({ ok }).toString()}`);
 }

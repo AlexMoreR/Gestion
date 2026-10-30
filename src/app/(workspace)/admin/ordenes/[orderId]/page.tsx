@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { AddShippingLegDialog } from "@/components/admin/add-shipping-leg-dialog";
 import { OrderActionsMenu } from "@/components/admin/order-actions-menu";
 import { OrderHistoryTabs } from "@/components/admin/order-history-tabs";
 import { OrderItemsTable } from "@/components/admin/order-items-table";
@@ -144,7 +145,10 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           include: {
             shipment: { select: { id: true, code: true, status: true } },
             carrierSupplier: { select: { name: true } },
-            shippingLegs: { orderBy: { position: "asc" } },
+            shippingLegs: {
+              orderBy: { position: "asc" },
+              include: { supplierPayment: { select: { receiptUrl: true, account: { select: { name: true } } } } },
+            },
             createdBy: true,
             items: {
               include: {
@@ -174,7 +178,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     }),
     prisma.account.findMany({
       where: { isActive: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, type: true },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -396,10 +400,20 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           trackingNumber: dispatch.trackingNumber,
         },
       );
+      // Pago de cada tramo (cuenta + comprobante), por posicion.
+      const paymentByPosition = new Map(
+        dispatch.shippingLegs.map((leg) => [
+          leg.position,
+          leg.supplierPayment
+            ? { accountName: leg.supplierPayment.account?.name ?? null, receiptUrl: leg.supplierPayment.receiptUrl }
+            : null,
+        ]),
+      );
       return {
         id: dispatch.id,
         code: dispatch.code,
-        legs,
+        canAddLeg: dispatch.status !== "RETURNED",
+        legs: legs.map((leg) => ({ ...leg, payment: paymentByPosition.get(leg.position) ?? null })),
         total: sumShippingLegs(legs),
       };
     })
@@ -632,6 +646,24 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                                 .join(" · ")}
                             </p>
                           ) : null}
+                          {leg.payment ? (
+                            <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                              Pagado desde {leg.payment.accountName ?? "su cuenta"}
+                              {leg.payment.receiptUrl ? (
+                                <>
+                                  {" · "}
+                                  <a
+                                    href={leg.payment.receiptUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="underline underline-offset-2"
+                                  >
+                                    ver comprobante
+                                  </a>
+                                </>
+                              ) : null}
+                            </p>
+                          ) : null}
                         </div>
                         <span className="shrink-0 font-medium text-foreground">{formatMoney(leg.amount, currency)}</span>
                       </div>
@@ -642,6 +674,15 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                       </span>
                       <span className="font-semibold text-foreground">{formatMoney(card.total, currency)}</span>
                     </div>
+                    {card.canAddLeg ? (
+                      <AddShippingLegDialog
+                        dispatchId={card.id}
+                        dispatchCode={card.code}
+                        returnTo={returnTo}
+                        carriers={carriers}
+                        accounts={accounts}
+                      />
+                    ) : null}
                   </div>
                 ))}
               </CardContent>

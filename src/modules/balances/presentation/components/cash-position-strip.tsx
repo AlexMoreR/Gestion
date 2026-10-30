@@ -63,6 +63,14 @@ export function CashPositionStrip({ position, currency }: { position: CashPositi
             {missing.supplierPayments.count > 0 ? ` ${missing.supplierPayments.count} pago(s) a proveedoras por ${money(missing.supplierPayments.amount)};` : ""}
             {missing.shippingCosts.count > 0 ? ` ${missing.shippingCosts.count} flete(s) por ${money(missing.shippingCosts.amount)};` : ""}
             {" "}hasta asignarles cuenta, el saldo puede no cuadrar con el banco.
+            {missing.shippingCosts.count > 0 ? (
+              <>
+                {" "}
+                <Link href="/admin/balances/fletes-sin-cuenta" className="font-semibold underline underline-offset-2">
+                  Asignar cuenta a los fletes
+                </Link>
+              </>
+            ) : null}
           </p>
         </div>
       ) : null}

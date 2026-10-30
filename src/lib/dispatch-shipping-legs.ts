@@ -7,6 +7,8 @@
 // - Dispatch.shippingCost = suma de los tramos. Balances, comisiones y cierres siguen sumando
 //   ShippingCost (una fila por tramo), asi que todos leen el total sin cambios.
 // - Cada tramo genera su propio cargo en la cuenta del proveedor que lo cobra.
+// - Al transportador se le paga de una (decision del dueno, 30-oct-2026): cada tramo con valor
+//   lleva la cuenta de donde salio la plata y el comprobante (salvo efectivo, como en Gastos).
 
 export const MAX_EXTRA_SHIPPING_LEGS = 10;
 const TRACKING_MAX = 120;
@@ -17,7 +19,30 @@ export type ExtraShippingLegInput = {
   amount: number;
   trackingNumber: string | null;
   note: string | null;
+  /** Cuenta de donde salio el pago del tramo. */
+  accountId: string | null;
+  /** Nombre del campo de archivo con el comprobante del tramo (legReceipt-<n>). */
+  receiptField: string | null;
 };
+
+// Pago del tramo: valor > 0 exige una cuenta activa, y el comprobante salvo cuenta de efectivo.
+// Un tramo en $0 no mueve plata y no pide nada.
+export function legPaymentError(input: {
+  amount: number;
+  account: { isActive: boolean; type: string } | null;
+  hasReceipt: boolean;
+}): string | null {
+  if (!(input.amount > 0)) {
+    return null;
+  }
+  if (!input.account || !input.account.isActive) {
+    return "Elige la cuenta de donde salio el pago del flete";
+  }
+  if (input.account.type !== "CASH" && !input.hasReceipt) {
+    return "Sube el comprobante del pago del flete (solo en efectivo no hace falta)";
+  }
+  return null;
+}
 
 export type ShippingLeg = {
   position: number;
@@ -78,6 +103,9 @@ export function parseExtraShippingLegs(
     const amount = isBlankAmount ? 0 : toMoney(rawAmount);
     const trackingNumber = toText(row.trackingNumber, TRACKING_MAX);
     const note = toText(row.note, NOTE_MAX);
+    const accountId = toText(row.accountId, 64);
+    const receiptField =
+      typeof row.receiptField === "string" && /^legReceipt-\d{1,6}$/.test(row.receiptField) ? row.receiptField : null;
 
     if (!carrierSupplierId && amount === 0 && !trackingNumber && !note) {
       continue; // fila vacia
@@ -88,7 +116,7 @@ export function parseExtraShippingLegs(
     if (!carrierSupplierId) {
       return { legs: [], error: "Selecciona el proveedor de cada tramo de envio" };
     }
-    legs.push({ carrierSupplierId, amount, trackingNumber, note });
+    legs.push({ carrierSupplierId, amount, trackingNumber, note, accountId, receiptField });
   }
 
   if (legs.length > MAX_EXTRA_SHIPPING_LEGS) {
@@ -105,7 +133,7 @@ export function sumShippingLegs(legs: { amount: number }[]): number {
 // Arma la lista ordenada de tramos: el principal (posicion 0) y luego los adicionales.
 export function buildShippingLegs(
   main: { carrierSupplierId: string; carrierName: string; amount: number; trackingNumber: string | null },
-  extras: (ExtraShippingLegInput & { carrierName: string })[],
+  extras: (Omit<ExtraShippingLegInput, "accountId" | "receiptField"> & { carrierName: string })[],
 ): ShippingLeg[] {
   return [
     {

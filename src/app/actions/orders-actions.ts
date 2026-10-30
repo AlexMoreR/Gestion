@@ -328,6 +328,16 @@ export async function adminUpdateOrderStatusAction(formData: FormData): Promise<
     redirect(`${returnTo}?error=Transicion+de+estado+invalida`);
   }
 
+  // A DESPACHADO solo se llega creando el despacho, que exige el pago del flete.
+  if (parsed.data.status === "DISPATCHED") {
+    const activeDispatches = await prisma.dispatch.count({
+      where: { orderId: order.id, status: { notIn: ["CANCELLED", "RETURNED"] } },
+    });
+    if (activeDispatches === 0) {
+      redirect(`${returnTo}?error=${encodeURIComponent("Crea el despacho con el pago del flete")}`);
+    }
+  }
+
   const updateData: Record<string, unknown> = {
     status: parsed.data.status,
   };

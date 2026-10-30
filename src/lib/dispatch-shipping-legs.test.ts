@@ -4,6 +4,7 @@ import {
   distributeAmount,
   extraLegShippingReference,
   legacyDispatchLeg,
+  legPaymentError,
   MAX_EXTRA_SHIPPING_LEGS,
   parseExtraShippingLegs,
   resolveDispatchLegs,
@@ -22,7 +23,16 @@ describe("parseExtraShippingLegs", () => {
       { carrierSupplierId: "s-marcos", amount: "80.000", trackingNumber: " G-1 ", note: "Cali a cliente" },
     ]);
     expect(parseExtraShippingLegs(raw)).toEqual({
-      legs: [{ carrierSupplierId: "s-marcos", amount: 80000, trackingNumber: "G-1", note: "Cali a cliente" }],
+      legs: [
+        {
+          carrierSupplierId: "s-marcos",
+          amount: 80000,
+          trackingNumber: "G-1",
+          note: "Cali a cliente",
+          accountId: null,
+          receiptField: null,
+        },
+      ],
       error: null,
     });
   });
@@ -44,6 +54,16 @@ describe("parseExtraShippingLegs", () => {
     expect(parseExtraShippingLegs(JSON.stringify([{ carrierSupplierId: "s", amount: "abc" }])).error).toBeTruthy();
     expect(parseExtraShippingLegs("{no json").error).toBeTruthy();
     expect(parseExtraShippingLegs(JSON.stringify({ a: 1 })).error).toBeTruthy();
+  });
+
+  it("lee la cuenta y el campo del comprobante; un campo con otro nombre se ignora", () => {
+    const raw = JSON.stringify([
+      { carrierSupplierId: "s-1", amount: 5000, accountId: " acc-1 ", receiptField: "legReceipt-3" },
+      { carrierSupplierId: "s-2", amount: 5000, accountId: "", receiptField: "../shippingReceipt" },
+    ]);
+    const { legs } = parseExtraShippingLegs(raw);
+    expect(legs[0]).toMatchObject({ accountId: "acc-1", receiptField: "legReceipt-3" });
+    expect(legs[1]).toMatchObject({ accountId: null, receiptField: null });
   });
 
   it("limita la cantidad de tramos", () => {
@@ -162,5 +182,25 @@ describe("despachos viejos (migracion)", () => {
     ];
     expect(resolveDispatchLegs(stored, dispatch).map((leg) => leg.carrierName)).toEqual(["Don Rafa", "Don Marcos"]);
     expect(resolveDispatchLegs([], dispatch)).toHaveLength(1);
+  });
+});
+
+describe("legPaymentError (pago del flete al despachar)", () => {
+  const bank = { isActive: true, type: "BANK" };
+  const cash = { isActive: true, type: "CASH" };
+
+  it("tramo en $0 no pide cuenta ni comprobante", () => {
+    expect(legPaymentError({ amount: 0, account: null, hasReceipt: false })).toBeNull();
+  });
+
+  it("con valor exige cuenta activa", () => {
+    expect(legPaymentError({ amount: 186000, account: null, hasReceipt: true })).toMatch(/cuenta/);
+    expect(legPaymentError({ amount: 186000, account: { ...bank, isActive: false }, hasReceipt: true })).toMatch(/cuenta/);
+  });
+
+  it("banco sin comprobante no deja despachar; efectivo si", () => {
+    expect(legPaymentError({ amount: 186000, account: bank, hasReceipt: false })).toMatch(/comprobante/);
+    expect(legPaymentError({ amount: 186000, account: bank, hasReceipt: true })).toBeNull();
+    expect(legPaymentError({ amount: 186000, account: cash, hasReceipt: false })).toBeNull();
   });
 });

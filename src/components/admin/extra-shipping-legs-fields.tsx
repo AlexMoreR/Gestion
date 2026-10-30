@@ -8,6 +8,7 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { MAX_EXTRA_SHIPPING_LEGS } from "@/lib/dispatch-shipping-legs";
 import type { CarrierSelectOption } from "@/modules/guias/presentation/carrier-select";
+import { ShippingPaymentFields, type PaymentAccountOption } from "@/components/admin/shipping-payment-fields";
 
 type LegRow = {
   key: number;
@@ -15,6 +16,7 @@ type LegRow = {
   amount: string;
   trackingNumber: string;
   note: string;
+  accountId: string;
 };
 
 const SELECT_CLASS =
@@ -22,14 +24,17 @@ const SELECT_CLASS =
 
 // Otros proveedores de envio del mismo despacho (tramos adicionales). Ej.: el pedido llega a
 // Cali con un transportador y desde Cali se despacha con otro. Cada fila es proveedor + valor
-// (+ guia/nota opcional). Muestra en vivo el total del envio = principal + tramos, y manda las
-// filas al servidor en el input oculto "extraShippingLegs".
+// + su pago (cuenta y comprobante) (+ guia/nota opcional). Muestra en vivo el total del envio =
+// principal + tramos, y manda las filas al servidor en el input oculto "extraShippingLegs"; el
+// comprobante de cada fila va en su propio campo de archivo "legReceipt-<n>".
 export function ExtraShippingLegsFields({
   carriers,
+  accounts,
   currency,
   mainAmount,
 }: {
   carriers: CarrierSelectOption[];
+  accounts: PaymentAccountOption[];
   currency: SupportedCurrencyCode;
   /** Valor del tramo principal (la transportadora de arriba). */
   mainAmount: number;
@@ -41,7 +46,7 @@ export function ExtraShippingLegsFields({
     if (rows.length >= MAX_EXTRA_SHIPPING_LEGS) {
       return;
     }
-    setRows((current) => [...current, { key: nextKey, carrierSupplierId: "", amount: "", trackingNumber: "", note: "" }]);
+    setRows((current) => [...current, { key: nextKey, carrierSupplierId: "", amount: "", trackingNumber: "", note: "", accountId: "" }]);
     setNextKey((key) => key + 1);
   };
 
@@ -58,6 +63,8 @@ export function ExtraShippingLegsFields({
       amount: Number(row.amount) || 0,
       trackingNumber: row.trackingNumber,
       note: row.note,
+      accountId: row.accountId,
+      receiptField: `legReceipt-${row.key}`,
     })),
   );
 
@@ -137,6 +144,12 @@ export function ExtraShippingLegsFields({
                   className="h-8 text-xs"
                 />
               </div>
+              <ShippingPaymentFields
+                accounts={accounts}
+                amount={Number(row.amount) || 0}
+                receiptName={`legReceipt-${row.key}`}
+                onAccountChange={(accountId) => updateRow(row.key, { accountId })}
+              />
             </div>
           ))}
         </div>

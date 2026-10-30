@@ -38,6 +38,7 @@ import {
 } from "@/modules/guias/presentation/shipment-dispatch-fields";
 import { CarrierSelect, type CarrierSelectOption } from "@/modules/guias/presentation/carrier-select";
 import { ExtraShippingLegsFields } from "@/components/admin/extra-shipping-legs-fields";
+import { ShippingPaymentFields, type PaymentAccountOption } from "@/components/admin/shipping-payment-fields";
 
 type SupplierOption = {
   id: string;
@@ -46,10 +47,7 @@ type SupplierOption = {
 
 type CarrierOption = CarrierSelectOption;
 
-type AccountOption = {
-  id: string;
-  name: string;
-};
+type AccountOption = PaymentAccountOption;
 
 type ItemPhoto = {
   id: string;
@@ -181,6 +179,7 @@ export function OrderItemManager({
   item,
   currency,
   returnTo,
+  accounts,
   carriers,
   defaultAddress,
   shipmentDefaults,
@@ -752,15 +751,22 @@ export function OrderItemManager({
                     />
                   </div>
 
+                  <ShippingPaymentFields
+                    accounts={accounts}
+                    amount={Number(dispatchShippingCost) || 0}
+                    accountName="accountId"
+                    receiptName="shippingReceipt"
+                  />
+
                   <ExtraShippingLegsFields
                     carriers={carriers}
+                    accounts={accounts}
                     currency={currency}
                     mainAmount={Number(dispatchShippingCost) || 0}
                   />
 
-                  <input type="hidden" name="shippingMode" value="PAY_LATER" />
                   <p className="text-xs text-muted-foreground">
-                    El costo de cada envío queda como saldo pendiente con su transportadora.
+                    Al transportador se le paga al despachar: cada envío con valor pide la cuenta y el comprobante.
                   </p>
 
                   <div className="space-y-1">

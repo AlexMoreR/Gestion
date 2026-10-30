@@ -259,7 +259,7 @@ export const asesorTools: McpToolDefinition[] = [
     name: "saldos_de_cuentas",
     title: "Saldos de cuentas (dinero hoy)",
     description:
-      "Cuanto dinero hay HOY en cada cuenta del negocio (efectivo, bancos, billeteras) y el total disponible. Saldo = saldo inicial + pagos de clientes - pagos a proveedoras - fletes - gastos (incluida nomina) +/- movimientos manuales. Avisa cuantos pagos o fletes quedaron registrados SIN cuenta (no suman ni restan en ningun saldo, por eso el saldo puede no cuadrar con el banco). Las retenciones en la fuente no cuentan como 'sin cuenta': nunca entran a una cuenta. Valores en COP.",
+      "Cuanto dinero hay HOY en cada cuenta del negocio (efectivo, bancos, billeteras) y el total disponible. Saldo = saldo inicial + pagos de clientes - pagos a proveedoras - fletes - gastos (incluida nomina) +/- movimientos manuales. Avisa cuantos pagos o fletes quedaron registrados SIN cuenta (no suman ni restan en ningun saldo, por eso el saldo puede no cuadrar con el banco). Las retenciones en la fuente no cuentan como 'sin cuenta': nunca entran a una cuenta. Un flete enlazado a su pago al transportador tampoco: resta desde la cuenta de ese pago. Valores en COP.",
     schema: z.object({}),
     handler: async (_args, deps) => {
       const position = await getCashPositionUseCase(deps.balances, getMoneyWithoutAccount);
@@ -281,6 +281,7 @@ export const asesorTools: McpToolDefinition[] = [
         },
         notas: [
           "Es el saldo de hoy segun lo registrado en la app; si hay registros sin cuenta, comparar con el extracto del banco.",
+          "Los fletes sin cuenta los asigna la persona en Balances > Fletes sin cuenta (/admin/balances/fletes-sin-cuenta).",
         ],
       };
     },
