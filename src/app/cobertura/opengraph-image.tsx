@@ -2,6 +2,8 @@ import { ImageResponse } from "next/og";
 import { getSystemBrandName } from "@/lib/system-settings";
 
 export const runtime = "nodejs";
+// Se arma al pedirla, no en el build: el emoji 🚚 se descarga de cdn.jsdelivr.net y sin red el build se caía.
+export const dynamic = "force-dynamic";
 export const size = {
   width: 1200,
   height: 630,
