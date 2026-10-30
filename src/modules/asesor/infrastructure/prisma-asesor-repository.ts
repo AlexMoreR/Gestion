@@ -2,7 +2,16 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { groupQuoteDisplayItems } from "@/lib/quote-display-items";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
-import type { DayRange, ExpenseLine, ProductRow, QuoteRow, QuoteStatusCode, SaleDetail, Seller } from "../domain/entities";
+import type {
+  DayRange,
+  ExpenseLine,
+  ProductRow,
+  QuoteRow,
+  QuoteStatusCode,
+  SaleDetail,
+  Seller,
+  SupplierLedger,
+} from "../domain/entities";
 import type { SaleLedgerInput } from "../domain/payments";
 import type { AsesorReadRepository, SaleLedgerFilter } from "../domain/repository";
 
@@ -136,6 +145,91 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
         person: row.employee ? row.employee.name?.trim() || row.employee.email : null,
         hasReceipt: Boolean(row.receiptUrl),
       }));
+    },
+
+    async listSupplierLedgers(): Promise<SupplierLedger[]> {
+      const suppliers = await prisma.supplier.findMany({
+        where: { ledgerEntries: { some: {} } },
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          ledgerEntries: {
+            orderBy: { createdAt: "asc" },
+            select: {
+              type: true,
+              amount: true,
+              orderId: true,
+              paymentDate: true,
+              createdAt: true,
+              note: true,
+              account: { select: { name: true } },
+            },
+          },
+        },
+      });
+      const orderIds = [...new Set(suppliers.flatMap((s) => s.ledgerEntries.flatMap((e) => (e.orderId ? [e.orderId] : []))))];
+      const orders = orderIds.length
+        ? await prisma.order.findMany({
+            where: { id: { in: orderIds } },
+            select: {
+              id: true,
+              code: true,
+              createdAt: true,
+              sale: { select: { code: true } },
+              client: { select: { name: true } },
+              manufacturingOrders: { select: { supplierId: true, code: true, createdAt: true } },
+              items: {
+                orderBy: { createdAt: "asc" },
+                select: {
+                  quantity: true,
+                  notes: true,
+                  confirmedSupplierId: true,
+                  product: { select: { name: true } },
+                },
+              },
+            },
+          })
+        : [];
+      const orderById = new Map(orders.map((order) => [order.id, order]));
+
+      return suppliers.map((supplier) => {
+        const supplierOrderIds = [...new Set(supplier.ledgerEntries.flatMap((e) => (e.orderId ? [e.orderId] : [])))];
+        return {
+          supplierId: supplier.id,
+          name: supplier.name,
+          entries: supplier.ledgerEntries.map((entry) => ({
+            type: entry.type,
+            amount: toNumber(entry.amount),
+            orderId: entry.orderId,
+            date: entry.paymentDate ?? entry.createdAt,
+            accountName: entry.account?.name ?? null,
+            note: entry.note,
+          })),
+          orders: supplierOrderIds.flatMap((orderId) => {
+            const order = orderById.get(orderId);
+            if (!order) return [];
+            const of = order.manufacturingOrders.find((record) => record.supplierId === supplier.id);
+            return [
+              {
+                orderId,
+                orderCode: order.code,
+                manufacturingCode: of?.code ?? null,
+                date: of?.createdAt ?? order.createdAt,
+                saleCode: order.sale?.code ?? null,
+                clientName: order.client?.name ?? null,
+                products: order.items
+                  .filter((item) => item.confirmedSupplierId === supplier.id)
+                  .map((item) => ({
+                    nombre: item.product.name,
+                    cantidad: item.quantity,
+                    color: parseQuoteItemMeta(item.notes).color.trim() || null,
+                  })),
+              },
+            ];
+          }),
+        };
+      });
     },
 
     async listProducts(search?: string): Promise<ProductRow[]> {

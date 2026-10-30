@@ -88,3 +88,34 @@ export type CommissionBoardSaleInput = CommissionSaleInput & {
   saleAmount: number;
   pendingDelivery: boolean;
 };
+
+// Movimiento de la cuenta de una proveedora (deuda_con_proveedoras).
+export type SupplierLedgerLine = {
+  type: "CHARGE" | "PAYMENT";
+  amount: number;
+  orderId: string | null;
+  // Fecha del pago escrita (o del registro), igual que la pantalla Proveedores.
+  date: Date;
+  accountName: string | null;
+  note: string | null;
+};
+
+// Orden de venta con lo que se le encargo a esa proveedora.
+export type SupplierOrderInfo = {
+  orderId: string;
+  orderCode: string;
+  // Orden de fabricacion (OF-...) de esa proveedora en esa orden; null si no se creo.
+  manufacturingCode: string | null;
+  // Fecha de la OF (o de la orden si no hay OF): es la que filtra por fechas.
+  date: Date;
+  saleCode: string | null;
+  clientName: string | null;
+  products: { nombre: string; cantidad: number; color: string | null }[];
+};
+
+export type SupplierLedger = {
+  supplierId: string;
+  name: string;
+  entries: SupplierLedgerLine[];
+  orders: SupplierOrderInfo[];
+};
