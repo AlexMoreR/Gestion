@@ -59,6 +59,8 @@ type ProductDetailContentProps = {
   // Fichas tecnicas (ProductImage.tipo = "ficha"): van en "Medidas y detalles", nunca en la galeria.
   fichas?: Array<{ id: string; url: string }>;
   currency: SupportedCurrencyCode;
+  // Unidades en Inventario (suma de movimientos): decide InStock o MadeToOrder para Google.
+  stock?: number;
   isAdmin?: boolean;
   relatedProducts: Array<{
     id: string;
@@ -96,6 +98,7 @@ export async function ProductDetailContent({
   relatedProducts,
   isAdmin = false,
   fichas = [],
+  stock = 0,
 }: ProductDetailContentProps) {
   const brandName = await getSystemBrandName();
   const reviews = product.reviews ?? [];
@@ -164,7 +167,7 @@ export async function ProductDetailContent({
       priceCurrency: currency,
       price: retailPrice,
       ...(activePromo ? { priceValidUntil: toBogotaDateOnly(activePromo.endsAt) } : {}),
-      availability: "https://schema.org/InStock",
+      availability: stock > 0 ? "https://schema.org/InStock" : "https://schema.org/MadeToOrder",
       seller: {
         "@type": "Organization",
         name: brandName,

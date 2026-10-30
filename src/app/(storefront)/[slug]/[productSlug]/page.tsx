@@ -142,16 +142,23 @@ export default async function CategoryProductPage({ params }: PageProps) {
     permanentRedirect(buildProductPath(product));
   }
 
-  const relatedProducts = await prisma.product.findMany({
-    where: {
-      id: { not: product.id },
-      hiddenFromStore: false,
-      ...(product.categoryId ? { categoryId: product.categoryId } : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    take: 4,
-    include: { category: true },
-  });
+  const [relatedProducts, stockAgg] = await Promise.all([
+    prisma.product.findMany({
+      where: {
+        id: { not: product.id },
+        hiddenFromStore: false,
+        ...(product.categoryId ? { categoryId: product.categoryId } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      take: 4,
+      include: { category: true },
+    }),
+    // Misma cuenta que /admin/inventario: suma de entradas y salidas del producto.
+    prisma.inventoryMovement.aggregate({
+      where: { productId: product.id },
+      _sum: { change: true },
+    }),
+  ]);
 
   const isAdmin = session?.user?.role === "ADMIN";
   const { fotos, fichas: todasLasFichas } = separarImagenes(product.images);
@@ -164,6 +171,7 @@ export default async function CategoryProductPage({ params }: PageProps) {
       product={{ ...product, images: fotos }}
       fichas={fichas.map((ficha) => ({ id: ficha.id, url: ficha.url }))}
       currency={currency}
+      stock={stockAgg._sum.change ?? 0}
       relatedProducts={relatedProducts}
       isAdmin={isAdmin}
     />
