@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { formatMoney } from "@/lib/currency";
 import {
@@ -7,6 +8,15 @@ import {
   type MonthlyReportProduct,
 } from "@/lib/monthly-report";
 import { getSystemCurrency } from "@/lib/system-settings";
+
+// Datos privados por enlace secreto: que Google no la indexe ni herede el canonical "/".
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+  alternates: { canonical: null },
+};
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
