@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MessageCircle, Shield, ShoppingCart, Star, Truck } from "lucide-react";
+import { Shield, ShoppingCart, Star, Truck } from "lucide-react";
 import { CatalogPagination } from "@/components/store/catalog-pagination";
 import { CategoriesCarousel } from "@/components/store/categories-carousel";
 import { GuaranteeBadge } from "@/components/store/guarantee-badge";
@@ -456,8 +456,10 @@ export async function StorefrontCatalog({
                         rel="noopener noreferrer"
                         className="inline-flex h-9 items-center gap-2 rounded-full bg-[var(--primary)] px-3.5 text-[13px] font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--primary-strong)] active:translate-y-0 md:h-10 md:px-4.5"
                       >
-                        <MessageCircle className="h-4 w-4" />
-                        Cotiza aqui
+                        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white">
+                          <WhatsAppIcon className="h-3.5 w-3.5 fill-current text-[#25D366]" />
+                        </span>
+                        Cotiza por WhatsApp
                       </Link>
                       <Link
                         href="/catalogo"
@@ -478,10 +480,12 @@ export async function StorefrontCatalog({
                         href={storefrontWhatsAppHref}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex h-9 items-center gap-2 rounded-full bg-[var(--primary)] px-3.5 text-[13px] font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--primary-strong)] active:translate-y-0"
+                        className="inline-flex h-9 whitespace-nowrap items-center gap-2 rounded-full bg-[var(--primary)] px-3.5 text-[13px] font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--primary-strong)] active:translate-y-0"
                       >
-                        <MessageCircle className="h-4 w-4" />
-                        Cotiza aqui
+                        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white">
+                          <WhatsAppIcon className="h-3.5 w-3.5 fill-current text-[#25D366]" />
+                        </span>
+                        Cotiza por WhatsApp
                       </Link>
                       <Link
                         href="/catalogo"
