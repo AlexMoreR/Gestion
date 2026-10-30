@@ -6,6 +6,7 @@ import { adminUpdateManufacturingOrderAction } from "@/app/actions/manufacturing
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import type { ManufacturingPaymentSummary } from "@/lib/manufacturing-orders";
 
 export type ManufacturingCard = {
   id: string;
@@ -20,6 +21,8 @@ export type ManufacturingCard = {
   totalCost: number;
   hasMissingCost: boolean;
   units: number;
+  // Pagado y Falta a la proveedora (null si no se pudo leer).
+  pago: ManufacturingPaymentSummary | null;
   lines: Array<{ id: string; name: string; code: string | null; quantity: number }>;
 };
 
@@ -100,6 +103,43 @@ export function OrderManufacturingTab({ cards, currency, returnTo, brandName }: 
               <p className="text-[11px] text-amber-600 dark:text-amber-400">
                 Hay productos sin costo confirmado; el total puede estar incompleto.
               </p>
+            ) : null}
+
+            {card.pago ? (
+              <div className="space-y-1 rounded-lg border border-border bg-muted/40 px-2.5 py-2">
+                <p className="text-xs font-medium text-foreground">
+                  Pagado {formatMoney(card.pago.pagado, currency)}
+                  {" · "}
+                  {card.pago.costoConfirmado && card.pago.falta != null ? (
+                    <>Falta {formatMoney(card.pago.falta, currency)}</>
+                  ) : (
+                    <span className="text-amber-600 dark:text-amber-400">Costo sin confirmar</span>
+                  )}
+                </p>
+                {card.pago.pagos.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground">Aún no hay pagos a esta proveedora.</p>
+                ) : (
+                  <ul className="space-y-0.5 text-[11px] text-muted-foreground">
+                    {card.pago.pagos.map((pago) => (
+                      <li key={pago.id} className="flex flex-wrap items-center gap-x-1.5">
+                        <span>{pago.date}</span>
+                        <span>· {pago.accountName ?? "Sin cuenta"}</span>
+                        <span className="font-medium text-foreground">· {formatMoney(pago.amount, currency)}</span>
+                        {pago.receiptUrl ? (
+                          <a
+                            href={pago.receiptUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-primary hover:underline"
+                          >
+                            Comprobante
+                          </a>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             ) : null}
 
             <form action={adminUpdateManufacturingOrderAction} className="space-y-2">

@@ -3,6 +3,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { stableShareToken } from "@/lib/manufacturing-share-token";
+import { todayInBogota } from "../modules/equipo/domain/team-member";
+import { computeOfBalance, type OfBalance } from "../modules/proveedores/domain/supplier-payment";
 
 // Ordenes de fabricacion (OF-00001): una por orden de venta + proveedora.
 
@@ -146,4 +148,75 @@ export async function ensureManufacturingOrders(orderId: string, supplierIds: st
     where: { orderId, supplierId: { in: uniqueSupplierIds } },
     orderBy: { code: "asc" },
   });
+}
+
+export type ManufacturingPayment = {
+  id: string;
+  amount: number;
+  date: string; // yyyy-MM-dd
+  accountName: string | null;
+  note: string | null;
+  receiptUrl: string | null;
+  receiptName: string | null;
+};
+
+// Una fecha escrita (AAAA-MM-DD) llega como medianoche UTC; un instante (sin fecha escrita o
+// pagos viejos sin fecha de pago) se lleva al dia en Colombia.
+function ledgerDay(date: Date): string {
+  const iso = date.toISOString();
+  return iso.endsWith("T00:00:00.000Z") ? iso.slice(0, 10) : todayInBogota(date);
+}
+
+export type ManufacturingPaymentSummary = OfBalance & { pagos: ManufacturingPayment[] };
+
+// Pagado y Falta de cada OF: los mismos cargos y abonos (orden + proveedora) que la cuenta del
+// proveedor en /admin/proveedores. lineSubtotals (por proveedora) solo se usa si no hay cargos.
+export async function getManufacturingPayments(
+  orderId: string,
+  supplierIds: string[],
+  lineSubtotals: Record<string, Array<number | null>> = {},
+): Promise<Map<string, ManufacturingPaymentSummary>> {
+  const uniqueSupplierIds = Array.from(new Set(supplierIds.filter(Boolean)));
+  const result = new Map<string, ManufacturingPaymentSummary>();
+  if (uniqueSupplierIds.length === 0) return result;
+
+  const entries = await prisma.supplierLedgerEntry.findMany({
+    where: { orderId, supplierId: { in: uniqueSupplierIds }, type: { in: ["CHARGE", "PAYMENT"] } },
+    orderBy: [{ paymentDate: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      supplierId: true,
+      type: true,
+      amount: true,
+      paymentDate: true,
+      createdAt: true,
+      note: true,
+      receiptUrl: true,
+      receiptName: true,
+      account: { select: { name: true } },
+    },
+  });
+
+  for (const supplierId of uniqueSupplierIds) {
+    const own = entries.filter((entry) => entry.supplierId === supplierId);
+    const payments = own.filter((entry) => entry.type === "PAYMENT");
+    const balance = computeOfBalance({
+      charges: own.filter((entry) => entry.type === "CHARGE").map((entry) => Number(entry.amount)),
+      payments: payments.map((entry) => Number(entry.amount)),
+      lineSubtotals: lineSubtotals[supplierId] ?? [],
+    });
+    result.set(supplierId, {
+      ...balance,
+      pagos: payments.map((entry) => ({
+        id: entry.id,
+        amount: Number(entry.amount),
+        date: ledgerDay(entry.paymentDate ?? entry.createdAt),
+        accountName: entry.account?.name ?? null,
+        note: entry.note,
+        receiptUrl: entry.receiptUrl,
+        receiptName: entry.receiptName,
+      })),
+    });
+  }
+  return result;
 }

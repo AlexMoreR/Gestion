@@ -23,6 +23,7 @@ import { getSystemBrandName, getSystemCurrency } from "@/lib/system-settings";
 import { getPublicAssetUrl, getSiteUrl } from "@/lib/site";
 import {
   ensureManufacturingOrders,
+  getManufacturingPayments,
   isManufacturingItem,
   suggestDeliveryAddress,
 } from "@/lib/manufacturing-orders";
@@ -419,12 +420,18 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   let brandName = "";
   if (!isPurchase) {
     const manufacturingItems = order.items.filter(isManufacturingItem);
-    const [manufacturingOrders, systemBrandName] = await Promise.all([
-      ensureManufacturingOrders(
-        order.id,
-        manufacturingItems.map((item) => item.confirmedSupplierId ?? ""),
-      ),
+    const manufacturingSupplierIds = manufacturingItems.map((item) => item.confirmedSupplierId ?? "");
+    const lineSubtotals: Record<string, Array<number | null>> = {};
+    for (const item of manufacturingItems) {
+      const supplierId = item.confirmedSupplierId ?? "";
+      (lineSubtotals[supplierId] ??= []).push(
+        item.purchaseCost == null ? null : Number(item.purchaseCost) * item.quantity,
+      );
+    }
+    const [manufacturingOrders, systemBrandName, manufacturingPayments] = await Promise.all([
+      ensureManufacturingOrders(order.id, manufacturingSupplierIds),
       getSystemBrandName(),
+      getManufacturingPayments(order.id, manufacturingSupplierIds, lineSubtotals),
     ]);
     brandName = systemBrandName;
     const suggestedAddress = suggestDeliveryAddress(order.client);
@@ -455,6 +462,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         ),
         hasMissingCost: supplierItems.some((item) => item.purchaseCost == null),
         units: supplierItems.reduce((sum, item) => sum + item.quantity, 0),
+        pago: manufacturingPayments.get(manufacturingOrder.supplierId) ?? null,
         lines: supplierItems.map((item) => ({
           id: item.id,
           name: item.product.name,
