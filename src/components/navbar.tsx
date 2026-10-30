@@ -34,6 +34,7 @@ export function Navbar({
   brandName,
   storefrontLogoPath,
   adminModuleAccess,
+  whatsAppHref,
 }: {
   initialUser: InitialUser | null;
   brandName: string;
@@ -43,6 +44,7 @@ export function Navbar({
     config_business?: boolean;
     config_permissions?: boolean;
   };
+  whatsAppHref: string;
 }) {
   const { data, status } = useSession();
   const user = data?.user ?? initialUser;
@@ -67,15 +69,10 @@ export function Navbar({
       ? "rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[var(--primary)] shadow-[0_6px_16px_-10px_rgba(15,23,42,0.35)]"
       : "rounded-full px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/15 hover:text-white";
   const topMenuLinks = [
-    { label: "Tiendas", href: "/" },
-    { label: "Quienes somos", href: "/" },
-    { label: "Clientes satisfechos", href: "/" },
-    { label: "Centro de ayuda", href: "/" },
-    { label: "Envios", href: "/" },
-    { label: "Ofertas", href: "/" },
-    { label: "Vende con nosotros", href: "/" },
+    { label: "Tiendas", href: "/cobertura" },
+    { label: "Centro de ayuda", href: whatsAppHref, external: true },
+    { label: "Envíos", href: "/cobertura" },
   ];
-
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-[var(--primary)] text-white backdrop-blur-md">
       <div className="hidden border-b border-white/10 bg-black/10 md:block">
@@ -84,7 +81,11 @@ export function Navbar({
           {topMenuLinks.map((item) => (
             <Fragment key={item.label}>
               <span className="text-white/40">|</span>
-              <Link href={item.href} className="transition hover:text-white">
+              <Link
+                href={item.href}
+                className="transition hover:text-white"
+                {...(item.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+              >
                 {item.label}
               </Link>
             </Fragment>
