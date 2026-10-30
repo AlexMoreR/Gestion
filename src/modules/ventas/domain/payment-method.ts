@@ -119,6 +119,12 @@ export function isCamillaComboProduct(product: ComboCheckProduct): boolean {
   return looksLikeCamillaCombo(product) || (product.parents ?? []).some(looksLikeCamillaCombo);
 }
 
+// Texto "Forma de pago" de la cotizacion; contraentrega solo con el Combo Camillas (misma regla de contraentregaComboWarning).
+export function quotePaymentTermsText(hasCamillaCombo: boolean): string {
+  const base = "50 % de anticipo para fabricar y 50 % al despachar. Envío gratis a ciudades principales.";
+  return hasCamillaCombo ? `${base} O contraentrega pagando el envío.` : base;
+}
+
 // Aviso suave: contraentrega sin ningun combo de camilla en la venta. No bloquea.
 export function contraentregaComboWarning(
   paymentMethod: SalePaymentMethod | null | undefined,
