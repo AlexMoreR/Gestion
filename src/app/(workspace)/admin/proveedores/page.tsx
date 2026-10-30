@@ -6,6 +6,7 @@ import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { prisma } from "@/lib/prisma";
+import { summarizeSupplierDebt } from "@/lib/supplier-debt";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -76,37 +77,20 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
         currency={currency}
         accounts={accounts}
         suppliers={suppliers.map((supplier) => {
-          const balance = supplier.ledgerEntries.reduce((acc, entry) => {
-            const amount = Number(entry.amount);
-            return entry.type === "CHARGE" ? acc + amount : acc - amount;
-          }, 0);
+          const debt = summarizeSupplierDebt(
+            supplier.ledgerEntries.map((entry) => ({ ...entry, amount: Number(entry.amount) })),
+          );
+          const balance = debt.balance;
 
           // Ordenes asociadas a este proveedor con su saldo pendiente (cargos - pagos).
-          const ordersMap = new Map<
-            string,
-            { orderId: string; code: string; saleId: string | null; charged: number; paid: number }
-          >();
-          for (const entry of supplier.ledgerEntries) {
-            if (!entry.order) continue;
-            const current = ordersMap.get(entry.order.id) ?? {
-              orderId: entry.order.id,
-              code: entry.order.code,
-              saleId: entry.order.saleId,
-              charged: 0,
-              paid: 0,
-            };
-            const amount = Number(entry.amount);
-            if (entry.type === "CHARGE") current.charged += amount;
-            else current.paid += amount;
-            ordersMap.set(entry.order.id, current);
-          }
-          const orders = Array.from(ordersMap.values())
-            .map((order) => ({
-              orderId: order.orderId,
-              code: order.code,
-              saleId: order.saleId,
-              pending: order.charged - order.paid,
-            }))
+          const orderById = new Map(
+            supplier.ledgerEntries.flatMap((entry) => (entry.order ? [[entry.order.id, entry.order] as const] : [])),
+          );
+          const orders = debt.orders
+            .flatMap((order) => {
+              const info = orderById.get(order.orderId);
+              return info ? [{ orderId: info.id, code: info.code, saleId: info.saleId, pending: order.pending }] : [];
+            })
             .filter((order) => order.pending > 0.0001)
             .sort((a, b) => a.code.localeCompare(b.code, "es", { numeric: true }));
 

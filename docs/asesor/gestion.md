@@ -48,7 +48,7 @@ en las Server Actions y en `src/lib/`.
 - `nomina`: nómina del mes (salario básico de cada persona + comisiones − lo ya pagado) y el dinero de hoy por cuenta. La configuración (básicos, TRM, días trabajados) vive en `AppSetting` (`payrollConfig`); los pagos son gastos de la categoría Nómina.
 - `equipo`: ficha de cada trabajador (ingreso, salida, contacto, forma de pago) y las reglas de estado Activo/Retirado, edad y "¿trabajaba en tal fecha?". La nómina, las comisiones y las asignaciones la usan para incluir a los activos y sacar a los retirados.
 - `asistencia`: registro de entrada y salida (hora del servidor), correcciones con motivo hechas por un admin, asistencia de hoy y por mes, y los días trabajados del mes que usa la nómina por día desde nov-2026.
-- `asesor`: consultas para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones, nómina, equipo, asistencia, saldos de cuentas, gastos del mes con la ganancia real (`listar_gastos`) y esta radiografía. Es de solo lectura salvo `registrar_gasto` (ver reglas). También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
+- `asesor`: consultas para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones, nómina, equipo, asistencia, saldos de cuentas, gastos del mes con la ganancia real (`listar_gastos`), cuánto se le debe a cada proveedora orden por orden (`deuda_con_proveedoras`) y esta radiografía. Es de solo lectura salvo `registrar_gasto` (ver reglas). También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
 
 ## Entidades
 
@@ -182,6 +182,14 @@ que la pantalla de Gastos (descuenta el saldo de la cuenta y entra a Balances).
 − comisiones del mes − sueldos básicos del mes − gastos. Los pagos de Nómina no se restan como gasto:
 la nómina ya entra como comisiones + básicos del tablero de Nómina, y restarlos de nuevo la contaría
 dos veces.
+
+**Deuda con proveedoras (`deuda_con_proveedoras`).** Solo lectura. Lo que se le debe a una proveedora
+= todo lo cargado en su cuenta − todo lo abonado (el saldo de su tarjeta en Proveedores; regla en
+`src/lib/supplier-debt.ts`, la misma que usa esa pantalla). Por orden: costo acordado (lo cargado),
+pagos con fecha y cuenta, y lo que falta; lo que no va a ninguna orden sale como "otros". Las fechas
+solo filtran qué órdenes se listan (por fecha de la OF), nunca el total. Trae los pagos a proveedoras
+sin cuenta (el mismo total de Balances). La página de detalle por mes de la proveedora cuenta distinto
+y puede dar otro saldo.
 
 **Estados de una cotización.** Revisión (borrador), Enviada, Aceptada, Rechazada y Expirada. Al
 convertirla en venta queda "Aceptada". Un empleado solo ve, edita y convierte sus propias

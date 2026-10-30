@@ -13,6 +13,7 @@ import {
   getMonthlyCommissionsUseCase,
   getMonthSummaryUseCase,
   getSaleUseCase,
+  getSupplierDebtsUseCase,
   listPaymentsUseCase,
   listProductsUseCase,
   listExpensesUseCase,
@@ -511,6 +512,18 @@ export const asesorTools: McpToolDefinition[] = [
     },
   }),
   defineTool({
+    name: "deuda_con_proveedoras",
+    title: "Deuda con proveedoras",
+    description:
+      "Cuanto se le debe a cada proveedora (fabricas y transportadoras), orden por orden. SOLO LECTURA: no registra ni cambia pagos. Por orden: codigo OF, orden, venta (SAL), cliente, productos con color, costo acordado, pagado, cada pago (fecha, cuenta, monto) y lo que falta. Por proveedora: debemos_total (el mismo saldo de su tarjeta en /admin/proveedores, nunca filtrado por fechas) y 'otros' (inventario o abonos sin orden). Trae aviso de pagos a proveedoras sin cuenta. Sirve para: cuanto le debemos a Laura, de que ordenes, cuadre de fin de mes. Valores en COP.",
+    schema: z.object({
+      proveedora: z.string().max(80).optional().describe("Parte del nombre de la proveedora (sin importar tildes), ej. laura. Si se omite, todas."),
+      desde: z.string().optional().describe("Fecha inicial inclusiva AAAA-MM-DD (fecha de la OF). Va con 'hasta'."),
+      hasta: z.string().optional().describe("Fecha final inclusiva AAAA-MM-DD (fecha de la OF). Va con 'desde'."),
+    }),
+    handler: (args, deps) => getSupplierDebtsUseCase(deps, args),
+  }),
+  defineTool({
     name: "registrar_gasto",
     title: "Registrar un gasto",
     description:
@@ -615,6 +628,6 @@ export const asesorMcpServer: McpServerDefinition = {
   name: "gestion-magilus",
   version: "1.2.0",
   instructions:
-    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), asistencia (quien esta trabajando hoy, entradas y salidas, dias trabajados), saldos de cuentas y gastos del mes con la ganancia real (listar_gastos). Para entender el sistema completo usa primero que_es_esta_aplicacion. Todas las herramientas son de lectura salvo registrar_gasto, que es la unica que escribe: antes de guardar un gasto SIEMPRE repite el resumen al dueno y espera su 'si' (primero registrar_gasto con confirmado=false, luego confirmado=true), y el gasto queda guardado al confirmar (confirmado=true, UNA sola vez: dos llamadas crean dos gastos). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
+    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), asistencia (quien esta trabajando hoy, entradas y salidas, dias trabajados), saldos de cuentas, gastos del mes con la ganancia real (listar_gastos) y cuanto se le debe a cada proveedora orden por orden (deuda_con_proveedoras). Para entender el sistema completo usa primero que_es_esta_aplicacion. Todas las herramientas son de lectura salvo registrar_gasto, que es la unica que escribe: antes de guardar un gasto SIEMPRE repite el resumen al dueno y espera su 'si' (primero registrar_gasto con confirmado=false, luego confirmado=true), y el gasto queda guardado al confirmar (confirmado=true, UNA sola vez: dos llamadas crean dos gastos). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
   tools: asesorTools,
 };

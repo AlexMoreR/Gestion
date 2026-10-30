@@ -1,4 +1,5 @@
 import { roundMoney } from "../../../lib/pricing";
+import { summarizeSupplierDebt } from "../../../lib/supplier-debt";
 import {
   getDashboardMetricsUseCase,
   getProfitReportUseCase,
@@ -537,6 +538,119 @@ export async function getSaleUseCase(deps: AsesorDependencies, codigo: string) {
       "cuenta_en_balances = true cuando la venta ya esta pagada completa (contraentrega: entregada); ahi cuenta para ventas del mes y comisiones.",
       "La ganancia puede cambiar mientras falten costos por confirmar (flete, costo de la proveedora).",
       PAYMENT_DATES_NOTE,
+    ],
+  };
+}
+
+export type SupplierDebtFilters = {
+  proveedora?: string;
+  desde?: string;
+  hasta?: string;
+};
+
+// Cuanto se le debe a cada proveedora, orden por orden (SOLO LECTURA). El total es el mismo
+// saldo de la lista /admin/proveedores (cargos - abonos) y nunca se filtra por fechas.
+export async function getSupplierDebtsUseCase(deps: AsesorDependencies, filters: SupplierDebtFilters) {
+  if (Boolean(filters.desde) !== Boolean(filters.hasta)) {
+    throw new AsesorInputError('Para filtrar por fechas manda "desde" y "hasta" (AAAA-MM-DD), o ninguna de las dos.');
+  }
+  const range = filters.desde && filters.hasta ? describeRange(buildDayRange(filters.desde, filters.hasta)) : null;
+  const inRange = (date: Date) => !range || (bogotaDay(date) >= range.desde && bogotaDay(date) <= range.hasta);
+
+  const ledgers = await deps.asesor.listSupplierLedgers();
+  const matching = ledgers.filter((ledger) => matchesText(ledger.name, filters.proveedora));
+  if (filters.proveedora?.trim() && matching.length === 0) {
+    throw new AsesorInputError(
+      `No hay una proveedora con movimientos que se llame "${filters.proveedora}". Con movimientos: ${ledgers.map((l) => l.name).join(", ") || "ninguna"}.`,
+    );
+  }
+
+  const describeAbono = (entry: { date: Date; accountName: string | null; amount: number; note: string | null }) => ({
+    fecha: bogotaDay(entry.date),
+    cuenta: entry.accountName ?? "Sin cuenta",
+    monto: roundMoney(entry.amount),
+    nota: entry.note,
+  });
+
+  const proveedoras = matching.flatMap((ledger) => {
+    const debt = summarizeSupplierDebt(ledger.entries);
+    const infoById = new Map(ledger.orders.map((order) => [order.orderId, order]));
+    const ordenes = debt.orders.flatMap((order) => {
+      const info = infoById.get(order.orderId);
+      if (!info || !inRange(info.date)) return [];
+      return [
+        {
+          of: info.manufacturingCode,
+          orden: info.orderCode,
+          fecha_of: bogotaDay(info.date),
+          venta: info.saleCode,
+          cliente: info.clientName,
+          productos: info.products,
+          costo_acordado: roundMoney(order.charged),
+          pagado: roundMoney(order.paid),
+          pagos: order.payments.map(describeAbono),
+          falta: roundMoney(order.pending),
+        },
+      ];
+    });
+    const hasOthers = Math.abs(debt.others.charged) > 0.0001 || Math.abs(debt.others.paid) > 0.0001;
+    // Sin filtro de nombre se omiten las que no tienen saldo ni ordenes en el rango.
+    if (!filters.proveedora?.trim() && Math.abs(debt.balance) < 0.0001 && ordenes.length === 0) return [];
+    return [
+      {
+        proveedora: ledger.name,
+        debemos_total: roundMoney(debt.balance),
+        falta_ordenes_listadas: roundMoney(ordenes.reduce((sum, orden) => sum + orden.falta, 0)),
+        ordenes_con_saldo: ordenes.filter((orden) => orden.falta > 0.0001).length,
+        ordenes,
+        otros: hasOthers
+          ? {
+              cargado: roundMoney(debt.others.charged),
+              pagado: roundMoney(debt.others.paid),
+              falta: roundMoney(debt.others.pending),
+              pagos: debt.others.payments.map(describeAbono),
+            }
+          : null,
+      },
+    ];
+  });
+
+  // Siempre de TODAS las proveedoras: es el mismo aviso de Balances ("pagos a proveedores sin cuenta").
+  const sinCuenta = ledgers.flatMap((ledger) => {
+    const infoById = new Map(ledger.orders.map((order) => [order.orderId, order]));
+    return ledger.entries
+      .filter((entry) => entry.type === "PAYMENT" && entry.accountName === null)
+      .map((entry) => {
+        const info = entry.orderId ? infoById.get(entry.orderId) : undefined;
+        return {
+          proveedora: ledger.name,
+          fecha: bogotaDay(entry.date),
+          monto: roundMoney(entry.amount),
+          of: info?.manufacturingCode ?? null,
+          orden: info?.orderCode ?? null,
+          venta: info?.saleCode ?? null,
+          nota: entry.note,
+        };
+      });
+  });
+
+  return {
+    filtros: { proveedora: filters.proveedora ?? null, ...(range ?? {}) },
+    moneda: CURRENCY,
+    proveedoras,
+    debemos_total: roundMoney(proveedoras.reduce((sum, row) => sum + row.debemos_total, 0)),
+    pagos_sin_cuenta: {
+      cantidad: sinCuenta.length,
+      total: Math.round(sinCuenta.reduce((sum, row) => sum + row.monto, 0)),
+      pagos: sinCuenta,
+    },
+    notas: [
+      "debemos_total = todo lo cargado menos todo lo abonado a esa proveedora, sin importar las fechas: es el saldo de su tarjeta en /admin/proveedores. Positivo = le debemos; negativo = le pagamos de mas.",
+      "costo_acordado = lo cargado a la proveedora en esa orden (se carga al confirmar el costo de compra). falta = costo_acordado - pagado.",
+      "desde/hasta filtran las ordenes por la fecha de su orden de fabricacion (OF), o de la orden si no tiene OF (of = null). falta_ordenes_listadas es solo de esas ordenes.",
+      "otros = cargos de inventario o manuales y abonos que no van a ninguna orden; entran en debemos_total.",
+      "La pagina de detalle por mes de la proveedora cuenta distinto (marca cada producto pagado o no) y su saldo del mes puede no coincidir.",
+      "pagos_sin_cuenta = abonos a proveedoras sin cuenta, de todas las proveedoras (no se filtra). Restan de lo que se debe pero no salen de ningun saldo de cuenta.",
     ],
   };
 }

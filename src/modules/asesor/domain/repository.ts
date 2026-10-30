@@ -1,5 +1,5 @@
 import type { AppSnapshot } from "./app-overview";
-import type { DayRange, ExpenseLine, ProductRow, QuoteRow, QuoteStatusCode, SaleDetail } from "./entities";
+import type { DayRange, ExpenseLine, ProductRow, QuoteRow, QuoteStatusCode, SaleDetail, SupplierLedger } from "./entities";
 import type { SaleLedgerInput } from "./payments";
 
 // Filtro opcional de ventas para los abonos; sin filtro = todas las ventas.
@@ -19,6 +19,8 @@ export interface AsesorReadRepository {
   listSaleLedgers(filter?: SaleLedgerFilter): Promise<SaleLedgerInput[]>;
   // Gastos operativos con fecha de gasto dentro del rango.
   listExpenses(range: DayRange): Promise<ExpenseLine[]>;
+  // Cuenta corriente de cada proveedora con movimientos, con las ordenes de esos movimientos.
+  listSupplierLedgers(): Promise<SupplierLedger[]>;
 }
 
 export type PackageManifest = {

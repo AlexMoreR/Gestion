@@ -327,7 +327,12 @@ Route handlers reales (`route.ts`):
   herramienta que escribe es `registrar_gasto` (anotada sin `readOnlyHint`; ver "Gastos por voz").
 - Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_abonos`, `ver_venta`, `listar_cotizaciones`,
   `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `equipo`, `asistencia`, `saldos_de_cuentas`,
-  `listar_gastos`, `registrar_gasto` y `que_es_esta_aplicacion`.
+  `listar_gastos`, `deuda_con_proveedoras`, `registrar_gasto` y `que_es_esta_aplicacion`.
+- `deuda_con_proveedoras` (oct-2026, solo lectura): `proveedora` (nombre, sin tildes) y `desde`/`hasta` (fecha de
+  la OF) opcionales → por orden: OF, orden, venta, cliente, productos con color, `costo_acordado`, `pagos[]`
+  (fecha, cuenta, monto) y `falta`; por proveedora `debemos_total` = cargos − abonos (el saldo de la lista
+  `/admin/proveedores`, nunca filtrado por fechas) y `otros` (lo que no va a ninguna orden); `pagos_sin_cuenta`
+  de todas las proveedoras (= Balances). Regla compartida con la pantalla: `src/lib/supplier-debt.ts`.
 - `listar_gastos` (oct-2026): `mes`/`anio` y `categoria` opcionales → gastos con fecha, categoría, cuenta, monto,
   nota, persona y `con_foto`; total por categoría y **ganancia real** = ventas − producto − flete − comisiones −
   sueldos básicos − gastos (`computeRealProfit`). Los pagos de Nómina no se restan como gasto (la nómina ya entra
