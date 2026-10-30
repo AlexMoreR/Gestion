@@ -9,9 +9,15 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
 import { prisma } from "@/lib/prisma";
-import { buildOrderCode, parseOrderCodeNumber } from "@/lib/orders";
-import { expandQuoteItemsToOrderItems } from "@/lib/order-items";
 import { isRetiredUser } from "@/modules/equipo/infrastructure/prisma-team-repository";
+import { createSaleOrder, type CreateSaleOrderMotivo, type CreateSaleOrderResult } from "@/lib/sale-order";
+
+const CREATE_ORDER_ERRORS: Record<CreateSaleOrderMotivo, string> = {
+  venta_no_encontrada: "Venta+no+encontrada",
+  ya_tiene_orden: "Esta+venta+ya+tiene+una+orden",
+  responsable_invalido: "Responsable+invalido",
+  responsable_retirado: "Esa+persona+ya+salio+del+equipo",
+};
 
 const createOrderSchema = z.object({
   saleId: z.string().trim().min(1, "Venta invalida"),
@@ -77,26 +83,6 @@ function parseAllowedOrderStatusTransitions(status: string): string[] {
   }
 }
 
-async function getNextOrderCode(tx: Prisma.TransactionClient): Promise<string> {
-  const lastOrder = await tx.order.findFirst({
-    select: { code: true },
-    orderBy: { code: "desc" },
-  });
-
-  const baseCodeNumber = lastOrder ? parseOrderCodeNumber(lastOrder.code) : 0;
-  const maxAttempts = 30;
-
-  for (let offset = 0; offset < maxAttempts; offset += 1) {
-    const code = buildOrderCode(baseCodeNumber + 1 + offset);
-    const existing = await tx.order.findUnique({ where: { code }, select: { id: true } });
-    if (!existing) {
-      return code;
-    }
-  }
-
-  throw new Error("Unable to allocate order code");
-}
-
 export async function syncOrderStatusAfterProduction(
   tx: Prisma.TransactionClient,
   orderId: string,
@@ -144,6 +130,7 @@ export async function syncOrderStatusAfterProduction(
 
   return false;
 }
+
 export async function adminCreateOrderFromSaleAction(formData: FormData): Promise<void> {
   const createdById = await requireAdminSession();
   const returnTo = getReturnTo(formData, "/admin/ventas");
@@ -158,141 +145,30 @@ export async function adminCreateOrderFromSaleAction(formData: FormData): Promis
     redirect(`${returnTo}?error=Datos+de+orden+invalidos`);
   }
 
-  const sale = await prisma.sale.findUnique({
-    where: { id: parsed.data.saleId },
-    include: {
-      order: true,
-      quote: {
-        include: {
-          items: {
-            include: {
-              product: {
-                include: {
-                  bundleComponents: {
-                    orderBy: { sortOrder: "asc" },
-                    include: { child: true },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-      client: true,
-    },
-  });
-
-  if (!sale) {
-    redirect(`${returnTo}?error=Venta+no+encontrada`);
-  }
-
-  if (sale.order) {
-    redirect(`${returnTo}?error=Esta+venta+ya+tiene+una+orden`);
-  }
-
-  if (parsed.data.assignedToId) {
-    const validAssigned = await prisma.user.findFirst({
-      where: {
-        id: parsed.data.assignedToId,
-        role: { in: ["ADMIN", "EMPLEADO"] },
-      },
-      select: { id: true },
-    });
-
-    if (!validAssigned) {
-      redirect(`${returnTo}?error=Responsable+invalido`);
-    }
-    if (await isRetiredUser(validAssigned.id)) {
-      redirect(`${returnTo}?error=Esa+persona+ya+salio+del+equipo`);
-    }
-  }
-
-  const subtotal = Number(sale.total);
-  const total = Number(sale.total);
-
-  // Expande los combos en sus componentes para que la orden de fabricacion
-  // muestre los subproductos reales y no el combo padre.
-  const orderItemInputs = expandQuoteItemsToOrderItems(
-    sale.quote.items.map((item) => ({
-      id: item.id,
-      productId: item.productId,
-      quantity: item.quantity,
-      unitPrice: Number(item.unitPrice),
-      lineTotal: Number(item.lineTotal),
-      fulfillmentMode: item.fulfillmentMode,
-      notes: item.notes,
-      product: {
-        name: item.product.name,
-        isBundle: item.product.isBundle,
-        bundleComponents: item.product.bundleComponents.map((component) => ({
-          quantity: component.quantity,
-          child: {
-            id: component.child.id,
-            name: component.child.name,
-            code: component.child.code,
-            price: Number(component.child.price),
-          },
-        })),
-      },
-    })),
-  );
-
-  // El inventario de los productos "por stock" ya no se valida ni se descuenta al
-  // crear la orden: la salida se registra cuando el operador confirma el item
-  // (adminConfirmStockOrderItemAction), que es donde se valida el stock suficiente.
-
-  let createdOrderCode: string | null = null;
-  let createdOrderId: string | null = null;
+  let result: CreateSaleOrderResult;
   try {
-    await prisma.$transaction(async (tx) => {
-      const code = await getNextOrderCode(tx);
-      createdOrderCode = code;
-      const order = await tx.order.create({
-        data: {
-          code,
-          saleId: sale.id,
-          quoteId: sale.quoteId,
-          clientId: sale.clientId,
-          createdById,
-          assignedToId: parsed.data.assignedToId || null,
-          status: "RELEASED",
-          notes: sale.quote.notes,
-          internalNotes: parsed.data.internalNotes || null,
-          committedAt: new Date(),
-          releasedAt: new Date(),
-          subtotal: new Prisma.Decimal(subtotal),
-          total: new Prisma.Decimal(total),
-          items: {
-            create: orderItemInputs,
-          },
-        },
-      });
-
-      createdOrderId = order.id;
-
-      await tx.orderStatusHistory.create({
-        data: {
-          orderId: order.id,
-          fromStatus: null,
-          toStatus: "RELEASED",
-          note: "Orden creada desde venta",
-          changedById: createdById,
-        },
-      });
-
-      // Las lineas "por stock" ya no descuentan inventario aqui: la salida se
-      // registra cuando el operador confirma cada item en el detalle de la orden.
-    });
+    result = await prisma.$transaction((tx) =>
+      createSaleOrder(tx, {
+        saleId: parsed.data.saleId,
+        actorId: createdById,
+        assigneeId: parsed.data.assignedToId,
+        internalNotes: parsed.data.internalNotes,
+      }),
+    );
   } catch (error) {
     console.error("Failed to create order:", error);
     redirect(`${returnTo}?error=No+se+pudo+crear+la+orden`);
   }
 
+  if (!result.ok) {
+    redirect(`${returnTo}?error=${CREATE_ORDER_ERRORS[result.motivo]}`);
+  }
+
   await logActivity({
     action: "CREATE",
     entityType: "ORDER",
-    entityId: createdOrderId,
-    summary: createdOrderCode ? `Creó la orden ${createdOrderCode}` : "Creó una orden",
+    entityId: result.orderId,
+    summary: `Creó la orden ${result.orderCode}`,
   });
 
   revalidatePath("/admin/ventas");

@@ -16,6 +16,11 @@ import { logActivity } from "@/lib/activity-log";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { syncOrderStatusAfterProduction } from "@/app/actions/orders-actions";
 import {
+  confirmOrderItemSupplier,
+  type ConfirmOrderItemSupplierMotivo,
+  type ConfirmOrderItemSupplierResult,
+} from "@/lib/confirm-order-item-supplier";
+import {
   MOTIVO_FIELD,
   esEdicionRetroactiva,
   exigirMotivoSiRetroactivo,
@@ -44,6 +49,12 @@ const confirmOrderItemSchema = z.object({
   supplierId: z.string().trim().min(1, "Proveedor invalido"),
   purchaseCost: z.coerce.number().nonnegative("Costo invalido"),
 });
+
+const CONFIRM_ITEM_ERRORS: Record<ConfirmOrderItemSupplierMotivo, string> = {
+  item_no_encontrado: "Item+no+encontrado",
+  orden_cerrada: "La+orden+no+admite+cambios",
+  proveedor_no_permitido: "El+proveedor+no+pertenece+al+producto",
+};
 
 const deletePhotoSchema = z.object({
   photoId: z.string().trim().min(1, "Foto invalida"),
@@ -469,129 +480,28 @@ export async function adminConfirmOrderItemAction(formData: FormData): Promise<v
     redirect(`${returnTo}?error=Datos+de+confirmacion+invalidos`);
   }
 
-  const orderItem = await prisma.orderItem.findUnique({
-    where: { id: parsed.data.orderItemId },
-    include: {
-      order: { select: { id: true, code: true, status: true, saleId: true } },
-      product: { select: { suppliers: { select: { supplierId: true } } } },
-      productionJobs: { select: { id: true } },
-    },
-  });
-
-  if (!orderItem) {
-    redirect(`${returnTo}?error=Item+no+encontrado`);
-  }
-
-  if (orderItem.order.status === "CANCELLED" || orderItem.order.status === "COMPLETED") {
-    redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
-  }
-
-  const supplierAllowed = orderItem.product.suppliers.some(
-    (entry) => entry.supplierId === parsed.data.supplierId,
-  );
-  if (!supplierAllowed) {
-    redirect(`${returnTo}?error=El+proveedor+no+pertenece+al+producto`);
-  }
-
-  const meta = parseQuoteItemMeta(orderItem.notes);
-  const jobNotes = [meta.description, meta.color ? `Color: ${meta.color}` : ""]
-    .filter(Boolean)
-    .join(" - ");
-
+  let result: ConfirmOrderItemSupplierResult;
   try {
-    // El cargo (saldo) al proveedor se genera al confirmar la compra/fabricacion,
-    // una sola vez por item. Antes se generaba al recoger.
-    const chargeAmount = Number(parsed.data.purchaseCost) * orderItem.quantity;
-    const shouldCharge = orderItem.supplierPaymentStatus === null && chargeAmount > 0;
-
-    await prisma.$transaction(async (tx) => {
-      await tx.orderItem.update({
-        where: { id: orderItem.id },
-        data: {
-          confirmedSupplierId: parsed.data.supplierId,
-          purchaseCost: parsed.data.purchaseCost,
-          confirmedAt: new Date(),
-          ...(shouldCharge ? { supplierPaymentStatus: "PENDING" } : {}),
-        },
-      });
-
-      if (shouldCharge) {
-        await tx.supplierLedgerEntry.create({
-          data: {
-            supplierId: parsed.data.supplierId,
-            type: "CHARGE",
-            amount: chargeAmount,
-            note: `Compra item - Orden ${orderItem.order.code}`,
-            saleId: orderItem.order.saleId,
-            orderId: orderItem.order.id,
-            orderItemId: orderItem.id,
-            createdById,
-          },
-        });
-      }
-
-      // Al confirmar (Fabricar) se envia el item a produccion, una sola vez.
-      if (orderItem.productionJobs.length === 0) {
-        const lastJob = await tx.productionJob.findFirst({
-          select: { code: true },
-          orderBy: { code: "desc" },
-        });
-        const baseCodeNumber = lastJob ? parseProductionJobCodeNumber(lastJob.code) : 0;
-
-        let code = "";
-        for (let offset = 0; offset < 30; offset += 1) {
-          const candidate = buildProductionJobCode(baseCodeNumber + 1 + offset);
-          const exists = await tx.productionJob.findUnique({
-            where: { code: candidate },
-            select: { id: true },
-          });
-          if (!exists) {
-            code = candidate;
-            break;
-          }
-        }
-        if (!code) {
-          throw new Error("No se pudo asignar codigo de produccion");
-        }
-
-        await tx.productionJob.create({
-          data: {
-            code,
-            orderId: orderItem.order.id,
-            orderItemId: orderItem.id,
-            status: "IN_PROGRESS",
-            quantity: orderItem.quantity,
-            notes: jobNotes || null,
-            startedAt: new Date(),
-            createdById,
-          },
-        });
-
-        if (orderItem.order.status === "DRAFT" || orderItem.order.status === "RELEASED") {
-          await tx.order.update({
-            where: { id: orderItem.order.id },
-            data: { status: "IN_PRODUCTION" },
-          });
-          await tx.orderStatusHistory.create({
-            data: {
-              orderId: orderItem.order.id,
-              fromStatus: orderItem.order.status,
-              toStatus: "IN_PRODUCTION",
-              note: "Item confirmado y enviado a produccion",
-              changedById: createdById,
-            },
-          });
-        }
-      }
-    });
+    result = await prisma.$transaction((tx) =>
+      confirmOrderItemSupplier(tx, {
+        orderItemId: parsed.data.orderItemId,
+        supplierId: parsed.data.supplierId,
+        unitCost: parsed.data.purchaseCost,
+        actorId: createdById,
+      }),
+    );
   } catch (error) {
     console.error("Failed to confirm order item:", error);
     redirect(`${returnTo}?error=No+se+pudo+confirmar+el+item`);
   }
 
+  if (!result.ok) {
+    redirect(`${returnTo}?error=${CONFIRM_ITEM_ERRORS[result.motivo]}`);
+  }
+
   revalidatePath("/admin/ordenes");
   revalidatePath("/admin/produccion");
-  revalidatePath(`/admin/ordenes/${orderItem.order.id}`);
+  revalidatePath(`/admin/ordenes/${result.orderId}`);
   redirect(`${returnTo}?ok=Item+confirmado+y+enviado+a+produccion`);
 }
 
