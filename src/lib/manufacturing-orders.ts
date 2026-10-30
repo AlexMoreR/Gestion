@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
-import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
-import { stableShareToken } from "@/lib/manufacturing-share-token";
+import { prisma } from "./prisma";
+import { parseQuoteItemMeta } from "./quote-item-meta";
+import { stableShareToken } from "./manufacturing-share-token";
 
 // Ordenes de fabricacion (OF-00001): una por orden de venta + proveedora.
 
@@ -62,6 +62,14 @@ export function suggestDeliveryAddress(client: {
     .map((part) => part?.trim())
     .filter(Boolean)
     .join(", ");
+}
+
+// Ciudad de destino para la proveedora: solo "Ciudad, Departamento", nunca direccion ni barrio.
+export function destinationCityLabel(
+  client: { city?: string | null; department?: string | null } | null | undefined,
+): string | null {
+  if (!client) return null;
+  return [client.city, client.department].map((part) => part?.trim()).filter(Boolean).join(", ") || null;
 }
 
 async function nextManufacturingCode(): Promise<string> {
