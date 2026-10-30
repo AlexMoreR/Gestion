@@ -64,6 +64,14 @@ export function suggestDeliveryAddress(client: {
     .join(", ");
 }
 
+// Ciudad de destino para la proveedora: solo ciudad y departamento, nunca la direccion ni el barrio.
+export function destinationCityLabel(
+  client: { city?: string | null; department?: string | null } | null | undefined,
+): string | null {
+  const label = [client?.city?.trim(), client?.department?.trim()].filter(Boolean).join(", ");
+  return label || null;
+}
+
 async function nextManufacturingCode(): Promise<string> {
   const last = await prisma.manufacturingOrder.findFirst({
     orderBy: { code: "desc" },
