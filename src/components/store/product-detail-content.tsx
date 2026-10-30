@@ -266,8 +266,11 @@ export async function ProductDetailContent({
 
           {Number(product.wholesalePrice) > 0 ? (
             <p className="mt-3 text-sm text-muted-foreground">
-              Por compra mayor a <span className="font-semibold text-foreground">{product.minWholesaleQty} unidades</span>
-              {" · "}Precio exclusivo{" "}
+              Desde{" "}
+              <span className="font-semibold text-foreground">
+                {product.minWholesaleQty} {product.minWholesaleQty === 1 ? "unidad" : "unidades"}
+              </span>
+              {" · "}Precio por mayor{" "}
               <span className="font-semibold text-foreground">
                 {formatMoney(String(product.wholesalePrice), currency)}
               </span>
