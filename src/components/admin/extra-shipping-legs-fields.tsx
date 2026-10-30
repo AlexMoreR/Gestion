@@ -15,10 +15,77 @@ type LegRow = {
   amount: string;
   trackingNumber: string;
   note: string;
+  accountId: string;
 };
+
+export type LegAccountOption = { id: string; name: string; type?: string };
 
 const SELECT_CLASS =
   "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
+
+// Pago de un tramo: cuenta de donde salio la plata + comprobante. Con valor > 0 los dos son
+// obligatorios (el comprobante no, si la cuenta es de efectivo). El servidor lo vuelve a revisar.
+export function LegPaymentFields({
+  accounts,
+  amount,
+  accountFieldName,
+  receiptFieldName,
+  onAccountChange,
+}: {
+  accounts: LegAccountOption[];
+  amount: number;
+  /** Nombre del campo de la cuenta; sin nombre, la cuenta viaja por onAccountChange. */
+  accountFieldName?: string;
+  receiptFieldName: string;
+  onAccountChange?: (accountId: string) => void;
+}) {
+  const [accountId, setAccountId] = useState("");
+  const needsPayment = amount > 0;
+  const isCash = accounts.find((account) => account.id === accountId)?.type === "CASH";
+
+  return (
+    <div className="grid gap-1.5 sm:grid-cols-2">
+      <div className="space-y-1">
+        <label className="text-xs text-muted-foreground">Pagado desde (cuenta)</label>
+        <select
+          name={accountFieldName}
+          value={accountId}
+          onChange={(event) => {
+            setAccountId(event.target.value);
+            onAccountChange?.(event.target.value);
+          }}
+          required={needsPayment}
+          className={SELECT_CLASS}
+          aria-label="Cuenta de donde salio el pago del flete"
+        >
+          <option value="" disabled>
+            Elige la cuenta
+          </option>
+          {accounts.map((account) => (
+            <option key={account.id} value={account.id}>
+              {account.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs text-muted-foreground">
+          Comprobante del pago{isCash ? " (opcional en efectivo)" : ""}
+        </label>
+        <Input
+          type="file"
+          name={receiptFieldName}
+          accept="image/*,application/pdf"
+          required={needsPayment && !isCash}
+          className="h-8 text-xs"
+        />
+      </div>
+      {accounts.length === 0 ? (
+        <p className="text-xs text-destructive sm:col-span-2">No hay cuentas activas. Crea una en Configuración.</p>
+      ) : null}
+    </div>
+  );
+}
 
 // Otros proveedores de envio del mismo despacho (tramos adicionales). Ej.: el pedido llega a
 // Cali con un transportador y desde Cali se despacha con otro. Cada fila es proveedor + valor
@@ -26,10 +93,12 @@ const SELECT_CLASS =
 // filas al servidor en el input oculto "extraShippingLegs".
 export function ExtraShippingLegsFields({
   carriers,
+  accounts,
   currency,
   mainAmount,
 }: {
   carriers: CarrierSelectOption[];
+  accounts: LegAccountOption[];
   currency: SupportedCurrencyCode;
   /** Valor del tramo principal (la transportadora de arriba). */
   mainAmount: number;
@@ -41,7 +110,7 @@ export function ExtraShippingLegsFields({
     if (rows.length >= MAX_EXTRA_SHIPPING_LEGS) {
       return;
     }
-    setRows((current) => [...current, { key: nextKey, carrierSupplierId: "", amount: "", trackingNumber: "", note: "" }]);
+    setRows((current) => [...current, { key: nextKey, carrierSupplierId: "", amount: "", trackingNumber: "", note: "", accountId: "" }]);
     setNextKey((key) => key + 1);
   };
 
@@ -58,6 +127,8 @@ export function ExtraShippingLegsFields({
       amount: Number(row.amount) || 0,
       trackingNumber: row.trackingNumber,
       note: row.note,
+      accountId: row.accountId,
+      receiptField: `legReceipt_${row.key}`,
     })),
   );
 
@@ -137,6 +208,12 @@ export function ExtraShippingLegsFields({
                   className="h-8 text-xs"
                 />
               </div>
+              <LegPaymentFields
+                accounts={accounts}
+                amount={Number(row.amount) || 0}
+                receiptFieldName={`legReceipt_${row.key}`}
+                onAccountChange={(accountId) => updateRow(row.key, { accountId })}
+              />
             </div>
           ))}
         </div>

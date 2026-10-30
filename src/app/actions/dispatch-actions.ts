@@ -18,6 +18,9 @@ import {
   buildShippingLegs,
   distributeAmount,
   extraLegShippingReference,
+  legacyDispatchLeg,
+  legPaymentError,
+  MAX_EXTRA_SHIPPING_LEGS,
   parseExtraShippingLegs,
   sumShippingLegs,
   type ExtraShippingLegInput,
@@ -108,17 +111,6 @@ const ALLOWED_RECEIPT_MIME_TYPES = new Set([
   "application/pdf",
 ]);
 const ALLOWED_RECEIPT_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".pdf"]);
-
-const createDispatchSchema = z.object({
-  orderId: z.string().trim().min(1, "Orden invalida"),
-  deliveryType: z.enum(["COUNTER", "PICKUP", "SHIPPING"]).default("SHIPPING"),
-  carrierSupplierId: z.string().trim().optional(),
-  shippingCost: z.coerce.number().nonnegative("Costo de envio invalido"),
-  shippingMode: z.enum(["PAY_NOW", "PAY_LATER"]).default("PAY_LATER"),
-  trackingNumber: z.string().trim().max(120, "Guia demasiado larga").optional(),
-  shippingAddress: z.string().trim().max(250, "Direccion demasiado larga").optional(),
-  notes: z.string().trim().max(4000, "Notas demasiado largas").optional(),
-});
 
 function getReceiptExtension(file: File): string {
   const fromName = path.extname(file.name).toLowerCase();
@@ -415,28 +407,151 @@ async function resolveExtraShippingLegs(
   return legs.map((leg) => ({ ...leg, carrierName: nameById.get(leg.carrierSupplierId) ?? "" }));
 }
 
+type LegPaymentInput = { accountId: string | null; file: File | null };
+type PaidShippingLeg = ShippingLeg & { accountId: string | null; receipt: { url: string; name: string } | null };
+
+function textOrNull(value: FormDataEntryValue | null): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function fileOrNull(value: FormDataEntryValue | null): File | null {
+  return value instanceof File && value.size > 0 ? value : null;
+}
+
+// Pago de cada tramo que manda el modal: el principal usa "accountId" + "shippingReceipt"; cada
+// tramo adicional trae su cuenta y el nombre de su campo de comprobante. Mismo orden que los tramos.
+function readLegPayments(formData: FormData, extraLegs: ResolvedExtraLeg[]): LegPaymentInput[] {
+  return [
+    { accountId: textOrNull(formData.get("accountId")), file: fileOrNull(formData.get("shippingReceipt")) },
+    ...extraLegs.map((leg) => ({
+      accountId: leg.accountId,
+      file: leg.receiptField ? fileOrNull(formData.get(leg.receiptField)) : null,
+    })),
+  ];
+}
+
+// Al transportador se le paga de una (decision del dueno, 30-oct-2026): cada tramo con valor
+// exige la cuenta de donde salio la plata y el comprobante (salvo efectivo). Si falta algo, no
+// se crea el despacho y la orden no pasa a DESPACHADO.
+async function assertLegPayments(
+  legs: { amount: number }[],
+  payments: LegPaymentInput[],
+  returnTo: string,
+): Promise<void> {
+  const ids = [...new Set(payments.map((payment) => payment.accountId).filter((id): id is string => Boolean(id)))];
+  const accounts = ids.length
+    ? await prisma.account.findMany({ where: { id: { in: ids } }, select: { id: true, isActive: true, type: true } })
+    : [];
+  const accountById = new Map(accounts.map((account) => [account.id, account]));
+  for (const [index, leg] of legs.entries()) {
+    const payment = payments[index] ?? { accountId: null, file: null };
+    const error = legPaymentError(
+      { amount: leg.amount, accountId: payment.accountId, hasReceipt: Boolean(payment.file) },
+      payment.accountId ? accountById.get(payment.accountId) : null,
+    );
+    if (error) {
+      const label = legs.length > 1 ? `Tramo ${index + 1}: ${error}` : error;
+      redirect(`${returnTo}?error=${encodeURIComponent(label)}`);
+    }
+  }
+}
+
+// Guarda el comprobante de cada tramo con valor y arma los tramos listos para registrar.
+async function saveLegPayments(
+  legs: ShippingLeg[],
+  payments: LegPaymentInput[],
+  orderId: string,
+): Promise<PaidShippingLeg[]> {
+  const paid: PaidShippingLeg[] = [];
+  for (const [index, leg] of legs.entries()) {
+    const payment = leg.amount > 0 ? payments[index] : undefined;
+    const receipt = payment?.file ? await saveShippingReceipt(payment.file, orderId) : null;
+    paid.push({ ...leg, accountId: payment?.accountId ?? null, receipt });
+  }
+  return paid;
+}
+
 // Registra los tramos del envio de un despacho y sus efectos de dinero, tramo por tramo:
-// - DispatchShippingLeg (detalle visible en la orden y en Despachos).
-// - ShippingCost de la venta (gasto que resta de la utilidad; balances/comisiones lo suman).
-// - Cargo (CHARGE) en la cuenta corriente del proveedor que cobra ese tramo.
-// - "Pagar ahora" (comprobante) solo salda el tramo principal; los demas quedan como saldo.
+// - Cargo (CHARGE) y pago (PAYMENT) en la cuenta corriente del transportador de ese tramo: se le
+//   paga de una, con la cuenta y el comprobante. El pago es lo UNICO que resta del saldo de la cuenta.
+// - ShippingCost de la venta (resta de la utilidad) enlazado a ese pago y sin cuenta propia, para
+//   no restar dos veces del saldo.
+// - DispatchShippingLeg (detalle visible en la orden y en Despachos) con su pago.
 // - En ordenes de COMPRA el flete total se suma al total de la orden.
 async function recordDispatchShippingLegs(
   tx: Prisma.TransactionClient,
   input: {
-    legs: ShippingLeg[];
+    legs: PaidShippingLeg[];
     dispatch: { id: string; code: string };
     order: { id: string; code: string; saleId: string | null; type: string };
     createdById: string;
     mainReference: string;
-    payNow: { accountId: string | null; receipt: { url: string; name: string } | null } | null;
   },
 ): Promise<void> {
-  const { legs, dispatch, order, createdById, mainReference, payNow } = input;
+  const { legs, dispatch, order, createdById, mainReference } = input;
   let total = 0;
 
   for (const leg of legs) {
     const isMain = leg.position === 0;
+    const hasPayment = Boolean(leg.carrierSupplierId) && leg.amount > 0;
+    let paymentId: string | null = null;
+
+    if (hasPayment && leg.carrierSupplierId) {
+      total += leg.amount;
+      // 1) Cuenta corriente del transportador: lo que cobra y el pago que se le hizo.
+      await tx.supplierLedgerEntry.create({
+        data: {
+          supplierId: leg.carrierSupplierId,
+          type: "CHARGE",
+          amount: leg.amount,
+          note: isMain
+            ? `Envio - Despacho ${dispatch.code} (Orden ${order.code})`
+            : `Envio tramo ${leg.position + 1} - Despacho ${dispatch.code} (Orden ${order.code})`,
+          saleId: order.saleId,
+          orderId: order.id,
+          dispatchId: dispatch.id,
+          createdById,
+        },
+      });
+      const payment = await tx.supplierLedgerEntry.create({
+        data: {
+          supplierId: leg.carrierSupplierId,
+          type: "PAYMENT",
+          amount: leg.amount,
+          note: isMain
+            ? `Pago envio - Despacho ${dispatch.code}`
+            : `Pago envio tramo ${leg.position + 1} - Despacho ${dispatch.code}`,
+          saleId: order.saleId,
+          orderId: order.id,
+          dispatchId: dispatch.id,
+          paymentDate: new Date(),
+          accountId: leg.accountId,
+          receiptUrl: leg.receipt?.url ?? null,
+          receiptName: leg.receipt?.name ?? null,
+          createdById,
+        },
+        select: { id: true },
+      });
+      paymentId = payment.id;
+
+      // 2) Modulo balances: el envio es gasto de la venta. Una compra no es venta.
+      if (order.type !== "PURCHASE" && order.saleId) {
+        await tx.shippingCost.create({
+          data: {
+            saleId: order.saleId,
+            shippingProvider: leg.carrierName,
+            amount: leg.amount,
+            transactionReference: isMain ? mainReference : extraLegShippingReference(dispatch.code, leg.position),
+            paymentDate: new Date(),
+            // Sin cuenta propia: el pago enlazado es el que resta del saldo.
+            accountId: null,
+            supplierPaymentId: paymentId,
+            createdById,
+          },
+        });
+      }
+    }
+
     await tx.dispatchShippingLeg.create({
       data: {
         dispatchId: dispatch.id,
@@ -446,64 +561,9 @@ async function recordDispatchShippingLegs(
         amount: leg.amount,
         trackingNumber: leg.trackingNumber,
         note: leg.note,
+        supplierPaymentId: paymentId,
       },
     });
-
-    if (!leg.carrierSupplierId || leg.amount <= 0) {
-      continue;
-    }
-    total += leg.amount;
-    const payNowLeg = isMain ? payNow : null;
-
-    // 1) Modulo balances: el envio es gasto de la venta. Una compra no es venta.
-    if (order.type !== "PURCHASE" && order.saleId) {
-      await tx.shippingCost.create({
-        data: {
-          saleId: order.saleId,
-          shippingProvider: leg.carrierName,
-          amount: leg.amount,
-          transactionReference: isMain ? mainReference : extraLegShippingReference(dispatch.code, leg.position),
-          paymentDate: new Date(),
-          // La cuenta solo se asocia cuando se paga ahora (salida real de dinero).
-          accountId: payNowLeg ? payNowLeg.accountId : null,
-          createdById,
-        },
-      });
-    }
-
-    // 2) Cuenta corriente del proveedor de ese tramo.
-    await tx.supplierLedgerEntry.create({
-      data: {
-        supplierId: leg.carrierSupplierId,
-        type: "CHARGE",
-        amount: leg.amount,
-        note: isMain
-          ? `Envio - Despacho ${dispatch.code} (Orden ${order.code})`
-          : `Envio tramo ${leg.position + 1} - Despacho ${dispatch.code} (Orden ${order.code})`,
-        saleId: order.saleId,
-        orderId: order.id,
-        dispatchId: dispatch.id,
-        createdById,
-      },
-    });
-
-    if (payNowLeg) {
-      await tx.supplierLedgerEntry.create({
-        data: {
-          supplierId: leg.carrierSupplierId,
-          type: "PAYMENT",
-          amount: leg.amount,
-          note: `Pago envio - Despacho ${dispatch.code}`,
-          saleId: order.saleId,
-          orderId: order.id,
-          dispatchId: dispatch.id,
-          paymentDate: new Date(),
-          receiptUrl: payNowLeg.receipt?.url ?? null,
-          receiptName: payNowLeg.receipt?.name ?? null,
-          createdById,
-        },
-      });
-    }
   }
 
   // En ordenes de COMPRA el flete es parte del costo: se suma al total.
@@ -515,220 +575,12 @@ async function recordDispatchShippingLegs(
   }
 }
 
-export async function adminCreateDispatchAction(formData: FormData): Promise<void> {
-  const createdById = await requireAdminSession();
-  const returnTo = getReturnTo(formData, "/admin/despachos");
-
-  const parsed = createDispatchSchema.safeParse({
-    orderId: formData.get("orderId"),
-    deliveryType: formData.get("deliveryType") || "SHIPPING",
-    carrierSupplierId: formData.get("carrierSupplierId") || undefined,
-    shippingCost: formData.get("shippingCost") || 0,
-    shippingMode: formData.get("shippingMode") || "PAY_LATER",
-    trackingNumber: formData.get("trackingNumber") || undefined,
-    shippingAddress: formData.get("shippingAddress") || undefined,
-    notes: formData.get("notes") || undefined,
-  });
-
-  if (!parsed.success) {
-    redirect(`${returnTo}?error=Datos+de+despacho+invalidos`);
-  }
-
-  const isShipping = parsed.data.deliveryType === "SHIPPING";
-
-  // La transportadora solo es obligatoria cuando hay envío a domicilio.
-  let carrier: { id: string; name: string } | null = null;
-  if (parsed.data.carrierSupplierId) {
-    carrier = await prisma.supplier.findUnique({
-      where: { id: parsed.data.carrierSupplierId },
-      select: { id: true, name: true },
-    });
-    if (!carrier) {
-      redirect(`${returnTo}?error=Transportadora+no+encontrada`);
-    }
-  }
-  if (isShipping && !carrier) {
-    redirect(`${returnTo}?error=Selecciona+la+transportadora+para+el+envio`);
-  }
-  // Otros proveedores de envio del mismo despacho (tramos adicionales).
-  const extraLegs = await resolveExtraShippingLegs(formData, returnTo, isShipping);
-
-  const accountIdRaw = formData.get("accountId");
-  const accountId = typeof accountIdRaw === "string" && accountIdRaw.trim() ? accountIdRaw.trim() : null;
-
-  const shippingReceiptFile = formData.get("shippingReceipt");
-  const hasShippingReceipt = shippingReceiptFile instanceof File && shippingReceiptFile.size > 0;
-  if (isShipping && parsed.data.shippingMode === "PAY_NOW" && !hasShippingReceipt) {
-    redirect(`${returnTo}?error=Sube+el+comprobante+del+envio+o+selecciona+pagar+luego`);
-  }
-
-  const order = await prisma.order.findUnique({
-    where: { id: parsed.data.orderId },
-    include: {
-      items: {
-        include: {
-          photos: { select: { id: true } },
-        },
-      },
-      dispatches: {
-        where: {
-          status: {
-            in: ["PENDING", "PACKING", "SHIPPED"],
-          },
-        },
-      },
-    },
-  });
-
-  if (!order) {
-    redirect(`${returnTo}?error=Orden+no+encontrada`);
-  }
-
-  if (order.status === "CANCELLED" || order.status === "COMPLETED") {
-    redirect(`${returnTo}?error=La+orden+no+acepta+despachos`);
-  }
-
-  if (order.dispatches.length > 0) {
-    redirect(`${returnTo}?error=Ya+existe+un+despacho+activo+para+esta+orden`);
-  }
-
-  if (order.items.length === 0) {
-    redirect(`${returnTo}?error=La+orden+no+tiene+items`);
-  }
-
-  // En una compra los items ya vienen comprados (pueden no tener proveedor ni
-  // foto), y los productos de stock ya estan en bodega (no pasan por proveedor,
-  // foto ni pago); en una venta de fabricacion hay que confirmar todo eso.
-  const isPurchaseOrder = order.type === "PURCHASE";
-  const itemNeedsSupplierFlow = (item: { fulfillmentMode: string }) =>
-    !isPurchaseOrder && item.fulfillmentMode !== "STOCK";
-  {
-    const unconfirmedItem = order.items.find(
-      (item) => itemNeedsSupplierFlow(item) && (!item.confirmedSupplierId || item.purchaseCost === null),
-    );
-    if (unconfirmedItem) {
-      redirect(`${returnTo}?error=Confirma+el+proveedor+y+costo+de+todos+los+items+antes+de+despachar`);
-    }
-
-    const itemWithoutPhoto = order.items.find(
-      (item) => itemNeedsSupplierFlow(item) && item.photos.length === 0,
-    );
-    if (itemWithoutPhoto) {
-      redirect(`${returnTo}?error=Sube+al+menos+una+foto+del+producto+terminado+por+cada+item`);
-    }
-
-    const itemWithoutPayment = order.items.find(
-      (item) => itemNeedsSupplierFlow(item) && item.supplierPaymentStatus === null,
-    );
-    if (itemWithoutPayment) {
-      redirect(`${returnTo}?error=Registra+el+pago+al+proveedor+de+cada+item+antes+de+despachar`);
-    }
-
-    const unconfirmedStock = order.items.find(
-      (item) => !isPurchaseOrder && item.fulfillmentMode === "STOCK" && item.confirmedAt === null,
-    );
-    if (unconfirmedStock) {
-      redirect(`${returnTo}?error=Confirma+la+salida+de+stock+de+todos+los+productos+antes+de+despachar`);
-    }
-  }
-
-  // Tramos del envio: la transportadora principal + los adicionales. El valor del envio
-  // del despacho es la suma de todos.
-  const legs =
-    isShipping && carrier
-      ? buildShippingLegs(
-          {
-            carrierSupplierId: carrier.id,
-            carrierName: carrier.name,
-            amount: parsed.data.shippingCost,
-            trackingNumber: parsed.data.trackingNumber || null,
-          },
-          extraLegs,
-        )
-      : [];
-  const shippingCost = isShipping ? sumShippingLegs(legs) : 0;
-  let createdDispatchCode: string | null = null;
-
-  try {
-    let receipt: { url: string; name: string } | null = null;
-    if (isShipping && parsed.data.shippingMode === "PAY_NOW" && hasShippingReceipt) {
-      receipt = await saveShippingReceipt(shippingReceiptFile, order.id);
-    }
-
-    await prisma.$transaction(async (tx) => {
-      const code = await getNextDispatchCode(tx);
-      createdDispatchCode = code;
-      const dispatch = await tx.dispatch.create({
-        data: {
-          code,
-          orderId: order.id,
-          status: "PACKING",
-          deliveryType: parsed.data.deliveryType,
-          carrierName: carrier?.name ?? null,
-          carrierSupplierId: carrier?.id ?? null,
-          shippingCost,
-          shippingReceiptUrl: receipt?.url ?? null,
-          shippingReceiptName: receipt?.name ?? null,
-          trackingNumber: parsed.data.trackingNumber || null,
-          shippingAddress: parsed.data.shippingAddress || null,
-          notes: parsed.data.notes || null,
-          createdById,
-          items: {
-            create: order.items.map((item) => ({
-              orderItemId: item.id,
-              quantity: item.quantity,
-              notes: item.notes,
-            })),
-          },
-        },
-      });
-
-      // Costo de envio por tramo: gasto de la venta y cargo a cada transportador.
-      await recordDispatchShippingLegs(tx, {
-        legs,
-        dispatch,
-        order,
-        createdById,
-        mainReference: receipt?.name ?? parsed.data.trackingNumber ?? `Despacho ${dispatch.code}`,
-        payNow: parsed.data.shippingMode === "PAY_NOW" ? { accountId, receipt } : null,
-      });
-
-      if (order.status !== "DISPATCHED") {
-        await tx.order.update({
-          where: { id: order.id },
-          data: { status: "DISPATCHED" },
-        });
-        await tx.orderStatusHistory.create({
-          data: {
-            orderId: order.id,
-            fromStatus: order.status,
-            toStatus: "DISPATCHED",
-            note: `Despacho ${dispatch.code} creado`,
-            changedById: createdById,
-          },
-        });
-      }
-    });
-  } catch (error) {
-    console.error("Failed to create dispatch:", error);
-    redirect(`${returnTo}?error=No+se+pudo+crear+el+despacho`);
-  }
-
-  revalidatePath("/admin/despachos");
-  revalidatePath("/admin/ordenes");
-  revalidatePath(`/admin/ordenes/${order.id}`);
-  revalidatePath("/admin/proveedores");
-  const shipmentNote = await createShipmentIfRequested(formData, createdDispatchCode, createdById, isShipping);
-  redirect(`${returnTo}?ok=${encodeURIComponent(`Despacho creado${shipmentNote}`)}`);
-}
-
 const dispatchOrderItemSchema = z.object({
   orderId: z.string().trim().min(1, "Orden invalida"),
   orderItemId: z.string().trim().min(1, "Producto invalido"),
   deliveryType: z.enum(["COUNTER", "PICKUP", "SHIPPING"]).default("SHIPPING"),
   carrierSupplierId: z.string().trim().optional(),
   shippingCost: z.coerce.number().nonnegative("Costo de envio invalido"),
-  shippingMode: z.enum(["PAY_NOW", "PAY_LATER"]).default("PAY_LATER"),
   trackingNumber: z.string().trim().max(120, "Guia demasiado larga").optional(),
   shippingAddress: z.string().trim().max(250, "Direccion demasiado larga").optional(),
   notes: z.string().trim().max(4000, "Notas demasiado largas").optional(),
@@ -748,7 +600,6 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
     deliveryType: formData.get("deliveryType") || "SHIPPING",
     carrierSupplierId: formData.get("carrierSupplierId") || undefined,
     shippingCost: formData.get("shippingCost") || 0,
-    shippingMode: formData.get("shippingMode") || "PAY_LATER",
     trackingNumber: formData.get("trackingNumber") || undefined,
     shippingAddress: formData.get("shippingAddress") || undefined,
     notes: formData.get("notes") || undefined,
@@ -776,14 +627,7 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
   // Otros proveedores de envio del mismo despacho (tramos adicionales).
   const extraLegs = await resolveExtraShippingLegs(formData, returnTo, isShipping);
 
-  const accountIdRaw = formData.get("accountId");
-  const accountId = typeof accountIdRaw === "string" && accountIdRaw.trim() ? accountIdRaw.trim() : null;
-
-  const shippingReceiptFile = formData.get("shippingReceipt");
-  const hasShippingReceipt = shippingReceiptFile instanceof File && shippingReceiptFile.size > 0;
-  if (isShipping && parsed.data.shippingMode === "PAY_NOW" && !hasShippingReceipt) {
-    redirect(`${returnTo}?error=Sube+el+comprobante+del+envio+o+selecciona+pagar+luego`);
-  }
+  const legPayments = readLegPayments(formData, extraLegs);
 
   const order = await prisma.order.findUnique({
     where: { id: parsed.data.orderId },
@@ -856,13 +700,12 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
         )
       : [];
   const shippingCost = isShipping ? sumShippingLegs(legs) : 0;
+  await assertLegPayments(legs, legPayments, returnTo);
   let createdDispatchCode: string | null = null;
 
   try {
-    let receipt: { url: string; name: string } | null = null;
-    if (isShipping && parsed.data.shippingMode === "PAY_NOW" && hasShippingReceipt) {
-      receipt = await saveShippingReceipt(shippingReceiptFile, order.id);
-    }
+    const paidLegs = await saveLegPayments(legs, legPayments, order.id);
+    const receipt = paidLegs[0]?.receipt ?? null;
 
     let trackingPhoto: { url: string; name: string } | null = null;
     if (isShipping && hasTrackingPhoto) {
@@ -903,12 +746,11 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
 
       // Costo de envio por tramo: gasto de la venta y cargo a cada transportador.
       await recordDispatchShippingLegs(tx, {
-        legs,
+        legs: paidLegs,
         dispatch,
         order,
         createdById,
         mainReference: receipt?.name ?? parsed.data.trackingNumber ?? `Despacho ${dispatch.code}`,
-        payNow: parsed.data.shippingMode === "PAY_NOW" ? { accountId, receipt } : null,
       });
 
       // La orden pasa a DISPATCHED solo cuando todos los productos estan despachados.
@@ -1124,11 +966,16 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
     }
   }
 
+  const legPayments = readLegPayments(formData, extraLegs);
+  await assertLegPayments(legs, legPayments, returnTo);
+
   const trackingPhotoFile = formData.get("trackingPhoto");
   const hasTrackingPhoto = trackingPhotoFile instanceof File && trackingPhotoFile.size > 0;
   let createdDispatchCode: string | null = null;
 
   try {
+    const paidLegs = await saveLegPayments(legs, legPayments, order.id);
+    const receipt = paidLegs[0]?.receipt ?? null;
     let trackingPhoto: { url: string; name: string } | null = null;
     if (isShipping && hasTrackingPhoto) {
       trackingPhoto = await saveTrackingPhoto(trackingPhotoFile, order.id);
@@ -1146,6 +993,8 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
           carrierName: carrier?.name ?? null,
           carrierSupplierId: carrier?.id ?? null,
           shippingCost,
+          shippingReceiptUrl: receipt?.url ?? null,
+          shippingReceiptName: receipt?.name ?? null,
           trackingPhotoUrl: trackingPhoto?.url ?? null,
           trackingPhotoName: trackingPhoto?.name ?? null,
           shippingAddress: parsed.data.shippingAddress || null,
@@ -1164,12 +1013,11 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
 
       // Costo de envio por tramo: gasto de la venta y cargo a cada transportador.
       await recordDispatchShippingLegs(tx, {
-        legs,
+        legs: paidLegs,
         dispatch,
         order,
         createdById,
-        mainReference: trackingPhoto?.name ?? `Despacho ${dispatch.code}`,
-        payNow: null,
+        mainReference: receipt?.name ?? trackingPhoto?.name ?? `Despacho ${dispatch.code}`,
       });
 
       const dispatchedCount = await tx.dispatchItem.count({
@@ -1267,15 +1115,22 @@ export async function adminUndoDispatchItemAction(formData: FormData): Promise<v
 
   try {
     await prisma.$transaction(async (tx) => {
-      // 1) Revertir movimientos de la cuenta corriente de la transportadora.
-      await tx.supplierLedgerEntry.deleteMany({ where: { dispatchId: dispatch.id } });
-
-      // 2) Revertir el costo de envio registrado como gasto de la venta.
-      if (order.saleId && shippingRefs.length > 0) {
+      // 1) Revertir el costo de envio registrado como gasto de la venta (por referencia o por
+      //    estar enlazado a un pago de este despacho). Va antes de borrar los pagos.
+      if (order.saleId) {
         await tx.shippingCost.deleteMany({
-          where: { saleId: order.saleId, transactionReference: { in: shippingRefs } },
+          where: {
+            saleId: order.saleId,
+            OR: [
+              { transactionReference: { in: shippingRefs } },
+              { supplierPayment: { dispatchId: dispatch.id } },
+            ],
+          },
         });
       }
+
+      // 2) Revertir movimientos de la cuenta corriente de la transportadora (cargos y pagos).
+      await tx.supplierLedgerEntry.deleteMany({ where: { dispatchId: dispatch.id } });
 
       // 3) En compras, el flete se sumo al total: se descuenta.
       if (order.type === "PURCHASE" && shippingCost > 0) {
@@ -1475,6 +1330,155 @@ export async function adminUpdateDispatchShippingCostsAction(input: {
   revalidatePath("/admin/inventario");
   revalidatePath("/admin/productos");
   return { ok: true };
+}
+
+const addShippingLegSchema = z.object({
+  dispatchId: z.string().trim().min(1, "Despacho invalido"),
+  carrierSupplierId: z.string().trim().min(1, "Selecciona el transportador del tramo"),
+  amount: z.coerce.number().int("Valor invalido").positive("El valor del tramo debe ser mayor a 0"),
+  trackingNumber: z.string().trim().max(120, "Guia demasiado larga").optional(),
+  note: z.string().trim().max(250, "Nota demasiado larga").optional(),
+});
+
+// "Agregar tramo" en el recuadro Envio de la orden: otro transportador del mismo despacho (ej. uno
+// lo trae a Cali y otro lo entrega). Mismas reglas que al despachar: se le paga de una, con cuenta
+// y comprobante. El valor se suma al flete del despacho, se reparte entre sus productos y, en
+// compras, se suma al total de la orden.
+export async function adminAddDispatchShippingLegAction(formData: FormData): Promise<void> {
+  const createdById = await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/ordenes");
+
+  const parsed = addShippingLegSchema.safeParse({
+    dispatchId: formData.get("dispatchId"),
+    carrierSupplierId: formData.get("carrierSupplierId"),
+    amount: String(formData.get("amount") ?? "").replace(/[.\s$]/g, ""),
+    trackingNumber: formData.get("trackingNumber") || undefined,
+    note: formData.get("note") || undefined,
+  });
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message ?? "Datos del tramo invalidos";
+    redirect(`${returnTo}?error=${encodeURIComponent(message)}`);
+  }
+
+  const [dispatch, carrier] = await Promise.all([
+    prisma.dispatch.findUnique({
+      where: { id: parsed.data.dispatchId },
+      select: {
+        id: true,
+        code: true,
+        status: true,
+        deliveryType: true,
+        carrierSupplierId: true,
+        carrierName: true,
+        shippingCost: true,
+        trackingNumber: true,
+        carrierSupplier: { select: { name: true } },
+        order: { select: { id: true, code: true, saleId: true, type: true, status: true } },
+        shippingLegs: { select: { position: true } },
+        items: { select: { id: true, quantity: true, shippingCost: true } },
+      },
+    }),
+    prisma.supplier.findUnique({ where: { id: parsed.data.carrierSupplierId }, select: { id: true, name: true } }),
+  ]);
+  if (!dispatch) {
+    redirect(`${returnTo}?error=Despacho+no+encontrado`);
+  }
+  if (!carrier) {
+    redirect(`${returnTo}?error=Transportador+no+encontrado`);
+  }
+  if (
+    dispatch.deliveryType !== "SHIPPING" ||
+    dispatch.status === "CANCELLED" ||
+    dispatch.status === "RETURNED" ||
+    dispatch.order.status === "CANCELLED"
+  ) {
+    redirect(`${returnTo}?error=Este+despacho+no+acepta+tramos+de+envio`);
+  }
+  if (dispatch.shippingLegs.length > MAX_EXTRA_SHIPPING_LEGS) {
+    redirect(`${returnTo}?error=Demasiados+tramos+de+envio`);
+  }
+
+  const payments: LegPaymentInput[] = [
+    { accountId: textOrNull(formData.get("accountId")), file: fileOrNull(formData.get("shippingReceipt")) },
+  ];
+  await assertLegPayments([{ amount: parsed.data.amount }], payments, returnTo);
+
+  // Despacho viejo sin tramos guardados: su envio de siempre queda como tramo 1 (sin pago nuevo),
+  // asi no desaparece de la orden al guardar el tramo agregado.
+  const legacy =
+    dispatch.shippingLegs.length === 0
+      ? legacyDispatchLeg({
+          carrierSupplierId: dispatch.carrierSupplierId,
+          carrierName: dispatch.carrierName,
+          carrierSupplierName: dispatch.carrierSupplier?.name ?? null,
+          shippingCost: dispatch.shippingCost === null ? null : Number(dispatch.shippingCost),
+          trackingNumber: dispatch.trackingNumber,
+        })
+      : null;
+  const position =
+    dispatch.shippingLegs.length > 0
+      ? Math.max(...dispatch.shippingLegs.map((leg) => leg.position)) + 1
+      : legacy
+        ? 1
+        : 0;
+  const leg: ShippingLeg = {
+    position,
+    carrierSupplierId: carrier.id,
+    carrierName: carrier.name,
+    amount: parsed.data.amount,
+    trackingNumber: parsed.data.trackingNumber || null,
+    note: parsed.data.note || null,
+  };
+  // El tramo agregado se reparte entre los productos en la proporcion que ya tenian.
+  const shares = distributeAmount(
+    dispatch.items.map((item) => ({ id: item.id, quantity: item.quantity, weight: Number(item.shippingCost ?? 0) })),
+    leg.amount,
+  );
+
+  try {
+    const [paidLeg] = await saveLegPayments([leg], payments, dispatch.order.id);
+    await prisma.$transaction(async (tx) => {
+      if (legacy) {
+        await tx.dispatchShippingLeg.create({
+          data: {
+            dispatchId: dispatch.id,
+            position: 0,
+            carrierSupplierId: legacy.carrierSupplierId,
+            carrierName: legacy.carrierName,
+            amount: legacy.amount,
+            trackingNumber: legacy.trackingNumber,
+          },
+        });
+      }
+      await recordDispatchShippingLegs(tx, {
+        legs: [paidLeg],
+        dispatch,
+        order: dispatch.order,
+        createdById,
+        mainReference: extraLegShippingReference(dispatch.code, leg.position),
+      });
+      await tx.dispatch.update({
+        where: { id: dispatch.id },
+        // shippingCost puede ser NULL en despachos viejos: se fija en vez de incrementar.
+        data: { shippingCost: Number(dispatch.shippingCost ?? 0) + leg.amount },
+      });
+      for (const [itemId, share] of shares) {
+        if (share !== 0) {
+          await tx.dispatchItem.update({ where: { id: itemId }, data: { shippingCost: { increment: share } } });
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Failed to add dispatch shipping leg:", error);
+    redirect(`${returnTo}?error=No+se+pudo+agregar+el+tramo`);
+  }
+
+  revalidatePath("/admin/despachos");
+  revalidatePath("/admin/ordenes");
+  revalidatePath(`/admin/ordenes/${dispatch.order.id}`);
+  revalidatePath("/admin/proveedores");
+  revalidatePath("/admin/balances");
+  redirect(`${returnTo}?ok=${encodeURIComponent(`Tramo agregado al despacho ${dispatch.code}`)}`);
 }
 
 // --- Seguimiento con la transportadora (/admin/despachos/transportadora) ---

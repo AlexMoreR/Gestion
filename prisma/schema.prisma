@@ -255,6 +255,8 @@ model SupplierLedgerEntry {
   inventoryMovement    InventoryMovement?    @relation(fields: [inventoryMovementId], references: [id], onDelete: Cascade)
   account              Account?              @relation(fields: [accountId], references: [id], onDelete: SetNull)
   createdBy            User                  @relation("SupplierLedgerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  shippingCosts        ShippingCost[]        @relation("ShippingCostSupplierPayment")
+  shippingLegs         DispatchShippingLeg[] @relation("DispatchShippingLegSupplierPayment")
   settlesEntry         SupplierLedgerEntry?  @relation("ChargeSettlement", fields: [settlesEntryId], references: [id], onDelete: Cascade)
   settledByEntries     SupplierLedgerEntry[] @relation("ChargeSettlement")
 
@@ -400,16 +402,21 @@ model ShippingCost {
   transactionReference String
   paymentDate          DateTime
   accountId            String?
+  // Pago al transportador (SupplierLedgerEntry PAYMENT) que cubre este flete: ese pago es el
+  // que resta del saldo de la cuenta; este costo solo resta de la ganancia de la venta.
+  supplierPaymentId    String?
   createdById          String
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   sale                 Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
   account              Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  supplierPayment      SupplierLedgerEntry? @relation("ShippingCostSupplierPayment", fields: [supplierPaymentId], references: [id], onDelete: SetNull)
   createdBy            User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([saleId, createdAt])
   @@index([createdById, createdAt])
   @@index([accountId])
+  @@index([supplierPaymentId])
 }
 
 model SalePayment {
@@ -727,13 +734,17 @@ model DispatchShippingLeg {
   trackingNumber    String?
   note              String?
   legDate           DateTime  @default(now())
+  // Pago al transportador de este tramo (cuenta + comprobante).
+  supplierPaymentId String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   dispatch          Dispatch  @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
   carrierSupplier   Supplier? @relation("DispatchShippingLegCarrier", fields: [carrierSupplierId], references: [id], onDelete: SetNull)
+  supplierPayment   SupplierLedgerEntry? @relation("DispatchShippingLegSupplierPayment", fields: [supplierPaymentId], references: [id], onDelete: SetNull)
 
   @@index([dispatchId, position])
   @@index([carrierSupplierId])
+  @@index([supplierPaymentId])
 }
 
 model OrderStatusHistory {

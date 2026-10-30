@@ -4,6 +4,7 @@ import {
   distributeAmount,
   extraLegShippingReference,
   legacyDispatchLeg,
+  legPaymentError,
   MAX_EXTRA_SHIPPING_LEGS,
   parseExtraShippingLegs,
   resolveDispatchLegs,
@@ -22,7 +23,16 @@ describe("parseExtraShippingLegs", () => {
       { carrierSupplierId: "s-marcos", amount: "80.000", trackingNumber: " G-1 ", note: "Cali a cliente" },
     ]);
     expect(parseExtraShippingLegs(raw)).toEqual({
-      legs: [{ carrierSupplierId: "s-marcos", amount: 80000, trackingNumber: "G-1", note: "Cali a cliente" }],
+      legs: [
+        {
+          carrierSupplierId: "s-marcos",
+          amount: 80000,
+          trackingNumber: "G-1",
+          note: "Cali a cliente",
+          accountId: null,
+          receiptField: null,
+        },
+      ],
       error: null,
     });
   });
@@ -162,5 +172,44 @@ describe("despachos viejos (migracion)", () => {
     ];
     expect(resolveDispatchLegs(stored, dispatch).map((leg) => leg.carrierName)).toEqual(["Don Rafa", "Don Marcos"]);
     expect(resolveDispatchLegs([], dispatch)).toHaveLength(1);
+  });
+});
+
+describe("pago del flete de cada tramo", () => {
+  it("lee la cuenta y el campo del comprobante; un nombre de campo raro se descarta", () => {
+    const raw = JSON.stringify([
+      { carrierSupplierId: "s-1", amount: 5000, accountId: " acc-1 ", receiptField: "legReceipt_3" },
+      { carrierSupplierId: "s-2", amount: 6000, accountId: "acc-2", receiptField: "../../etc/passwd" },
+    ]);
+    const { legs } = parseExtraShippingLegs(raw);
+    expect(legs[0]).toMatchObject({ accountId: "acc-1", receiptField: "legReceipt_3" });
+    expect(legs[1]).toMatchObject({ accountId: "acc-2", receiptField: null });
+  });
+
+  const bank = { isActive: true, type: "BANK" };
+  const cash = { isActive: true, type: "CASH" };
+
+  it("sin valor no exige nada", () => {
+    expect(legPaymentError({ amount: 0, accountId: null, hasReceipt: false }, null)).toBeNull();
+  });
+
+  it("con valor exige la cuenta", () => {
+    expect(legPaymentError({ amount: 186000, accountId: null, hasReceipt: true }, null)).toMatch(/cuenta/);
+  });
+
+  it("la cuenta debe existir y estar activa", () => {
+    expect(legPaymentError({ amount: 186000, accountId: "x", hasReceipt: true }, null)).toMatch(/inactiva/);
+    expect(
+      legPaymentError({ amount: 186000, accountId: "x", hasReceipt: true }, { isActive: false, type: "BANK" }),
+    ).toMatch(/inactiva/);
+  });
+
+  it("banco sin comprobante no pasa; con comprobante si", () => {
+    expect(legPaymentError({ amount: 186000, accountId: "b", hasReceipt: false }, bank)).toMatch(/comprobante/);
+    expect(legPaymentError({ amount: 186000, accountId: "b", hasReceipt: true }, bank)).toBeNull();
+  });
+
+  it("efectivo va sin comprobante (misma regla de Gastos)", () => {
+    expect(legPaymentError({ amount: 50000, accountId: "c", hasReceipt: false }, cash)).toBeNull();
   });
 });

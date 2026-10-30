@@ -16,7 +16,12 @@ export async function getMoneyWithoutAccount(): Promise<MoneyWithoutAccount> {
       _count: { _all: true },
       _sum: { amount: true },
     }),
-    prisma.shippingCost.aggregate({ where: { accountId: null }, _count: { _all: true }, _sum: { amount: true } }),
+    // Un flete enlazado al pago al transportador ya resta del saldo por ese pago.
+    prisma.shippingCost.aggregate({
+      where: { accountId: null, supplierPaymentId: null },
+      _count: { _all: true },
+      _sum: { amount: true },
+    }),
   ]);
   const pick = (row: { _count: { _all: number }; _sum: { amount: unknown } }) => ({
     count: row._count._all,

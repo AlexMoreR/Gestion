@@ -10,6 +10,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/activity-log";
 import {
   createAccountMovementUseCase,
   createAccountUseCase,
@@ -320,6 +321,17 @@ export async function adminUpdateShippingCostAction(formData: FormData): Promise
     redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos invalidos");
   }
 
+  // Un flete pagado al despachar resta del saldo por su pago: darle cuenta propia lo restaria dos veces.
+  if (parsed.data.accountId) {
+    const linked = await prisma.shippingCost.findUnique({
+      where: { id: parsed.data.shippingCostId },
+      select: { supplierPaymentId: true },
+    });
+    if (linked?.supplierPaymentId) {
+      redirectWithError(returnTo, "Este flete ya se pago al despachar: su cuenta es la del pago al transportador");
+    }
+  }
+
   await updateShippingCostUseCase(repository, parsed.data.shippingCostId, {
     saleId: parsed.data.saleId,
     shippingProvider: parsed.data.shippingProvider,
@@ -573,4 +585,137 @@ export async function adminCreateAccountMovementAction(formData: FormData): Prom
 
   revalidatePath("/admin/balances");
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Movimiento registrado" }).toString()}`);
+}
+
+// --- Fletes viejos sin cuenta (/admin/balances/fletes-sin-cuenta) ---
+// Los asigna una persona (el dueno o Ingrid), nunca el sistema. Solo se tocan fletes que siguen
+// sin cuenta y sin pago enlazado, asi un doble envio no cambia nada.
+
+const FREIGHT_PATH = "/admin/balances/fletes-sin-cuenta";
+const FREIGHT_BULK_MAX = 300;
+
+function revalidateFreight() {
+  revalidatePath(FREIGHT_PATH);
+  revalidatePath("/admin/balances");
+  revalidatePath("/admin/comisiones/nomina");
+}
+
+// "Asignar cuenta": el flete pasa a restar del saldo de esa cuenta.
+export async function adminAssignFreightAccountAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const ids = [
+    ...new Set(
+      formData
+        .getAll("shippingCostIds")
+        .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+        .map((value) => value.trim()),
+    ),
+  ];
+  if (ids.length === 0) {
+    redirectWithError(FREIGHT_PATH, "Marca al menos un flete");
+  }
+  if (ids.length > FREIGHT_BULK_MAX) {
+    redirectWithError(FREIGHT_PATH, "Demasiados fletes a la vez");
+  }
+  const accountId = getStringField(formData, "accountId").trim();
+  const account = accountId
+    ? await prisma.account.findUnique({ where: { id: accountId }, select: { id: true, name: true, isActive: true } })
+    : null;
+  if (!account || !account.isActive) {
+    redirectWithError(FREIGHT_PATH, "Elige la cuenta de donde salio la plata");
+  }
+
+  const pending = await prisma.shippingCost.findMany({
+    where: { id: { in: ids }, accountId: null, supplierPaymentId: null },
+    select: { id: true, amount: true, shippingProvider: true, sale: { select: { code: true } } },
+  });
+  if (pending.length === 0) {
+    redirectWithError(FREIGHT_PATH, "Esos fletes ya tienen cuenta");
+  }
+  const updated = await prisma.shippingCost.updateMany({
+    where: { id: { in: pending.map((row) => row.id) }, accountId: null, supplierPaymentId: null },
+    data: { accountId: account.id },
+  });
+
+  for (const row of pending) {
+    await logActivity({
+      action: "UPDATE",
+      entityType: "ACCOUNT",
+      entityId: account.id,
+      summary: `Asignó la cuenta ${account.name} al flete de ${row.shippingProvider} por $${Math.round(Number(row.amount)).toLocaleString("es-CO")} (venta ${row.sale.code})`,
+    });
+  }
+
+  revalidateFreight();
+  redirect(`${FREIGHT_PATH}?ok=${encodeURIComponent(`${updated.count} flete(s) con cuenta ${account.name}`)}`);
+}
+
+// "Ya esta pagado en Proveedores": enlaza el flete con ese pago. No cambia ningun saldo (el pago
+// ya restaba); el flete solo sale del aviso.
+export async function adminLinkFreightPaymentAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const [shippingCostId = "", paymentId = ""] = getStringField(formData, "link").split("|");
+  if (!shippingCostId || !paymentId) {
+    redirectWithError(FREIGHT_PATH, "Pago invalido");
+  }
+
+  const [cost, payment] = await Promise.all([
+    prisma.shippingCost.findUnique({
+      where: { id: shippingCostId },
+      select: { id: true, saleId: true, accountId: true, supplierPaymentId: true, shippingProvider: true, amount: true, sale: { select: { code: true } } },
+    }),
+    prisma.supplierLedgerEntry.findUnique({
+      where: { id: paymentId },
+      select: {
+        id: true,
+        type: true,
+        saleId: true,
+        accountId: true,
+        amount: true,
+        order: { select: { saleId: true } },
+        account: { select: { name: true } },
+        supplier: { select: { name: true } },
+        _count: { select: { shippingCosts: true } },
+      },
+    }),
+  ]);
+  if (!cost || cost.accountId || cost.supplierPaymentId) {
+    redirectWithError(FREIGHT_PATH, "Ese flete ya tiene cuenta");
+  }
+  const paymentSaleId = payment?.saleId ?? payment?.order?.saleId ?? null;
+  if (
+    !payment ||
+    payment.type !== "PAYMENT" ||
+    !payment.accountId ||
+    paymentSaleId !== cost.saleId ||
+    payment._count.shippingCosts > 0
+  ) {
+    redirectWithError(FREIGHT_PATH, "Ese pago no sirve para este flete (otra venta, sin cuenta o ya enlazado)");
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    // El mismo pago no puede cubrir dos fletes: se revisa otra vez dentro de la transaccion.
+    const taken = await tx.shippingCost.count({ where: { supplierPaymentId: payment.id } });
+    if (taken > 0) {
+      return 0;
+    }
+    const result = await tx.shippingCost.updateMany({
+      where: { id: cost.id, accountId: null, supplierPaymentId: null },
+      data: { supplierPaymentId: payment.id },
+    });
+    return result.count;
+  });
+  if (updated === 0) {
+    redirectWithError(FREIGHT_PATH, "Ese pago o ese flete ya estaban enlazados");
+  }
+
+  await logActivity({
+    action: "UPDATE",
+    entityType: "ACCOUNT",
+    entityId: payment.accountId,
+    summary: `Enlazó el flete de ${cost.shippingProvider} por $${Math.round(Number(cost.amount)).toLocaleString("es-CO")} (venta ${cost.sale.code}) con el pago a ${payment.supplier.name} desde ${payment.account?.name ?? "su cuenta"}`,
+  });
+
+  revalidateFreight();
+  redirect(`${FREIGHT_PATH}?ok=${encodeURIComponent("Flete enlazado con su pago en Proveedores")}`);
 }

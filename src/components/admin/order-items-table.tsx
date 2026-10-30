@@ -33,10 +33,10 @@ import {
   type ShipmentDefaults,
 } from "@/modules/guias/presentation/shipment-dispatch-fields";
 import { CarrierSelect, type CarrierSelectOption } from "@/modules/guias/presentation/carrier-select";
-import { ExtraShippingLegsFields } from "@/components/admin/extra-shipping-legs-fields";
+import { ExtraShippingLegsFields, LegPaymentFields } from "@/components/admin/extra-shipping-legs-fields";
 
 type CarrierOption = CarrierSelectOption;
-type AccountOption = { id: string; name: string };
+type AccountOption = { id: string; name: string; type?: string };
 
 type Stage = "fabricar" | "recoger" | "despachar" | "done";
 
@@ -344,13 +344,24 @@ export function OrderItemsTable({
                     </div>
                   </div>
 
-                  <ExtraShippingLegsFields carriers={carriers} currency={currency} mainAmount={dispatchCostTotal} />
+                  <LegPaymentFields
+                    accounts={accounts}
+                    amount={dispatchCostTotal}
+                    accountFieldName="accountId"
+                    receiptFieldName="shippingReceipt"
+                  />
 
-                  <input type="hidden" name="shippingMode" value="PAY_LATER" />
+                  <ExtraShippingLegsFields
+                    carriers={carriers}
+                    accounts={accounts}
+                    currency={currency}
+                    mainAmount={dispatchCostTotal}
+                  />
+
                   <input type="hidden" name="itemShippingCosts" value={itemShippingCostsJson} />
                   <input type="hidden" name="shippingCost" value={dispatchCostTotal} />
                   <p className="text-xs text-muted-foreground">
-                    El costo de cada envío queda como saldo pendiente con su transportadora.
+                    Al transportador se le paga de una: cada envío con valor necesita la cuenta y el comprobante.
                   </p>
 
                   <div className="space-y-1">
