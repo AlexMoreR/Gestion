@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { CalendarDays, Factory } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { formatMoney } from "@/lib/currency";
-import { toManufacturingLine } from "@/lib/manufacturing-orders";
+import { supplierPaymentLabel, toManufacturingLine } from "@/lib/manufacturing-orders";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
 import { imageVariantUrl } from "@/lib/image-variants";
@@ -51,7 +51,8 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
     include: {
       supplier: { select: { name: true, displayName: true } },
       // La proveedora no ve ningún dato del cliente: ni dirección, ni ciudad, ni departamento (26-oct-2026).
-      order: { select: { code: true } },
+      // De la venta solo la forma de pago, para decirle cómo se le paga (30-oct-2026).
+      order: { select: { code: true, sale: { select: { paymentMethod: true } } } },
     },
   });
   if (!manufacturingOrder) notFound();
@@ -97,9 +98,6 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
           />
           <div className="ml-auto flex items-center gap-2">
             <PrintButton />
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1 text-xs font-medium text-white">
-              <Factory className="h-3.5 w-3.5" /> Orden de fabricación
-            </span>
           </div>
         </div>
       </header>
@@ -107,7 +105,6 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
       <main className="mx-auto w-full max-w-4xl space-y-5 px-4 py-6 md:px-6 md:py-8">
         <section className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Orden de fabricación</p>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{manufacturingOrder.code}</h1>
             <p className="text-sm text-slate-600">
               Para <span className="font-semibold text-slate-900">{supplierName}</span> · Pedido{" "}
@@ -126,6 +123,13 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
             </p>
             <p className="mt-1 text-base font-semibold text-slate-900">
               {formatCalendarDate(manufacturingOrder.deliveryDate)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total a pagar a la proveedora</p>
+            <p className="mt-1 text-xl font-bold text-slate-900">{formatMoney(totalCost, currency)}</p>
+            <p className="mt-1 text-sm font-semibold text-slate-700">
+              {supplierPaymentLabel(manufacturingOrder.order.sale?.paymentMethod)}
             </p>
           </div>
         </section>
@@ -198,11 +202,6 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
               ))}
             </ul>
           )}
-
-          <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total a pagar a la proveedora</p>
-            <p className="text-lg font-bold text-slate-900">{formatMoney(totalCost, currency)}</p>
-          </div>
         </section>
 
         {manufacturingOrder.notes ? (

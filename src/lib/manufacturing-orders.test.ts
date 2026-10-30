@@ -5,7 +5,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 vi.mock("@/lib/quote-item-meta", async () => await import("./quote-item-meta"));
 vi.mock("@/lib/manufacturing-share-token", async () => await import("./manufacturing-share-token"));
 
-import { destinationCityLabel } from "./manufacturing-orders";
+import { destinationCityLabel, supplierPaymentLabel } from "./manufacturing-orders";
 
 describe("destinationCityLabel", () => {
   it("une ciudad y departamento", () => {
@@ -35,5 +35,22 @@ describe("destinationCityLabel", () => {
   it("no usa la direccion ni el barrio aunque vengan en el objeto", () => {
     const client = { city: "Ocaña", department: "Norte de Santander", address: "Cra 1 #2-3", neighborhood: "Centro" };
     expect(destinationCityLabel(client)).toBe("Ocaña, Norte de Santander");
+  });
+});
+
+describe("supplierPaymentLabel", () => {
+  it("venta 50% y 50%: se paga de una vez", () => {
+    expect(supplierPaymentLabel("ANTICIPO_50_50")).toBe("Pago: se te paga de una vez");
+  });
+
+  it("contraentrega: se paga cuando le llegue al cliente", () => {
+    expect(supplierPaymentLabel("CONTRAENTREGA")).toBe(
+      "Pago: contraentrega, se te paga cuando el producto le llegue al cliente",
+    );
+  });
+
+  it("sin definir o sin venta: por confirmar", () => {
+    expect(supplierPaymentLabel(null)).toBe("Pago: por confirmar");
+    expect(supplierPaymentLabel(undefined)).toBe("Pago: por confirmar");
   });
 });
