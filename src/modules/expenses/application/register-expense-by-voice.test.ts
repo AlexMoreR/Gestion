@@ -223,6 +223,24 @@ describe("confirmVoiceExpense", () => {
     expect(result.uploadUrl).not.toContain(world.drafts[0].tokenHash);
   });
 
+  it("fecha anterior con motivo: guarda el gasto con su registro retroactivo", async () => {
+    const world = new MemoryWorld();
+    const deps = makeDeps(world, { now: NOW });
+    await confirmVoiceExpense(deps, { ...baseInput, date: "2026-10-20", retroReason: "Se me olvido registrarlo" });
+    expect(world.createCalls).toHaveLength(1);
+    expect(world.createCalls[0].retroactivo).toMatchObject({
+      fechaPuesta: "2026-10-20",
+      motivo: "Se me olvido registrarlo",
+    });
+  });
+
+  it("fecha de hoy: guarda el gasto sin registro retroactivo", async () => {
+    const world = new MemoryWorld();
+    const deps = makeDeps(world, { now: NOW });
+    await confirmVoiceExpense(deps, { ...baseInput, date: "2026-10-24" });
+    expect(world.createCalls[0].retroactivo ?? null).toBeNull();
+  });
+
   it.each([
     ["monto sobre el tope", { amount: 20_000_001 }],
     ["categoria invalida", { category: "viajes" }],
