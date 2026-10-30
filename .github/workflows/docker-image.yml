@@ -6,7 +6,43 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Antes de construir la imagen: si los tipos o las pruebas fallan, no se
+  # construye ni se publica nada, y por lo tanto no se despliega.
+  pruebas:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      # Direcciones falsas a proposito: las pruebas no deben tocar ninguna base real.
+      DATABASE_URL: postgresql://ci:no-usar@127.0.0.1:1/no_usar
+      DIRECT_URL: postgresql://ci:no-usar@127.0.0.1:1/no_usar
+      # Las pruebas no usan Chromium; evita descargarlo en cada run.
+      PUPPETEER_SKIP_DOWNLOAD: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Generar cliente Prisma
+        run: npx prisma generate
+
+      - name: Revisar tipos
+        run: npx tsc --noEmit
+
+      - name: Correr pruebas
+        run: npm test
+
   build-and-push:
+    needs: pruebas
     runs-on: ubuntu-latest
     permissions:
       contents: read
