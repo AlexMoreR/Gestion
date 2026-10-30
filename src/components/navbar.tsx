@@ -73,6 +73,7 @@ export function Navbar({
     { label: "Centro de ayuda", href: whatsAppHref, external: true },
     { label: "Envíos", href: "/cobertura" },
   ];
+
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-[var(--primary)] text-white backdrop-blur-md">
       <div className="hidden border-b border-white/10 bg-black/10 md:block">
