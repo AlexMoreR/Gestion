@@ -305,6 +305,17 @@ export async function StorefrontCatalog({
 
   // Una sola "hora actual" para toda la pagina (ofertas vigentes).
   const now = new Date();
+  // Texto automatico de la categoria (el mismo de Google) para las que no tienen descripcion propia.
+  const categoryStorePrices = products
+    .map((product) => getCurrentStorePrice(product, now))
+    .filter((value) => value > 0);
+  const toCategoryPriceLabel = (value: number) => compactPriceLabel(formatMoney(String(value), systemCurrency));
+  const autoCategoryDescription = category ? buildCategorySeoDescription({
+    categoryName: category.name,
+    productCount: products.length,
+    minPriceLabel: categoryStorePrices.length > 0 ? toCategoryPriceLabel(Math.min(...categoryStorePrices)) : null,
+    maxPriceLabel: categoryStorePrices.length > 0 ? toCategoryPriceLabel(Math.max(...categoryStorePrices)) : null,
+  }) : "";
   const featuredProducts = products.slice(0, 5).map((product) => ({
     id: product.id,
     href: buildProductPath(product),
@@ -340,12 +351,10 @@ export async function StorefrontCatalog({
     ? category.name
     : storefrontHeroTitle;
   const pageIntro = category
-    ? category.description?.trim() ||
-      `Explora ${category.name.toLowerCase()} en ${brandName}, con referencias para peluquería, salón de belleza y barbería.`
+    ? category.description?.trim() || autoCategoryDescription
     : storefrontHeroDescription;
   const collectionDescription = category
-    ? category.description?.trim() ||
-      `${category.name} para negocios que buscan imagen, funcionalidad y experiencia premium en cada servicio.`
+    ? category.description?.trim() || autoCategoryDescription
     : "Catálogo de sillas, estaciones y mobiliario profesional premium para salón de belleza, barbería y espacios de alto nivel.";
   const baseUrl = category ? `/${category.slug}` : "/";
   // Los mensajes de WhatsApp dicen que vienen de magilus.com (y de que categoria o ficha).
