@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { CalendarDays, Factory } from "lucide-react";
+import { CalendarDays, Factory, MapPin } from "lucide-react";
 import { formatMoney } from "@/lib/currency";
-import { toManufacturingLine } from "@/lib/manufacturing-orders";
+import { destinationCityLabel, toManufacturingLine } from "@/lib/manufacturing-orders";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
 import { imageVariantUrl } from "@/lib/image-variants";
@@ -16,7 +16,8 @@ import {
 import { PrintButton } from "./print-button";
 
 // Orden de fabricacion publica para la proveedora. A proposito NO muestra
-// precio de venta, margen ni datos personales del cliente (nombre, telefono).
+// precio de venta, margen ni datos personales del cliente (nombre, telefono, direccion);
+// del cliente solo muestra la ciudad y el departamento de destino.
 
 export const dynamic = "force-dynamic";
 
@@ -50,8 +51,8 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
     where: { shareToken: token },
     include: {
       supplier: { select: { name: true, displayName: true } },
-      // La proveedora no ve ningún dato del cliente: ni dirección, ni ciudad, ni departamento (26-oct-2026).
-      order: { select: { code: true } },
+      // Del cliente solo se pide ciudad y departamento: nunca dirección, barrio, nombre ni teléfono (29-oct-2026).
+      order: { select: { code: true, client: { select: { city: true, department: true } } } },
     },
   });
   if (!manufacturingOrder) notFound();
@@ -126,6 +127,14 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
             </p>
             <p className="mt-1 text-base font-semibold text-slate-900">
               {formatCalendarDate(manufacturingOrder.deliveryDate)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <MapPin className="h-3.5 w-3.5" /> Ciudad de destino
+            </p>
+            <p className="mt-1 text-base font-semibold text-slate-900">
+              {destinationCityLabel(manufacturingOrder.order.client) ?? "Por confirmar"}
             </p>
           </div>
         </section>
