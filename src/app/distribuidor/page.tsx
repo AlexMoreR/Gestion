@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { Store } from "lucide-react";
+import { FloatingWhatsAppButton } from "@/components/store/floating-whatsapp-button";
 import { WholesaleCatalog, type WholesaleProduct } from "@/components/store/wholesale-catalog";
+import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
-import { getPublicAssetUrl, getSiteUrl } from "@/lib/site";
+import { compactPriceLabel } from "@/lib/seo-metadata";
+import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl } from "@/lib/site";
 import {
+  buildStorefrontQuoteWhatsAppHref,
+  buildSystemWhatsAppHref,
   getSystemBrandName,
   getSystemCurrency,
   getSystemStorefrontLogoPath,
@@ -44,15 +49,24 @@ export default async function WholesalePublicPage() {
     getSystemStorefrontLogoPath(),
   ]);
 
-  const products: WholesaleProduct[] = rows.map((product) => ({
-    id: product.id,
-    name: product.name,
-    code: product.code,
-    categoryName: product.category?.name ?? null,
-    thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
-    wholesalePrice: Number(product.wholesalePrice),
-    minWholesaleQty: product.minWholesaleQty,
-  }));
+  // Mismo mensaje que "Comprar por WhatsApp" de la ficha, con el precio por mayor y la cantidad minima.
+  const products: WholesaleProduct[] = await Promise.all(
+    rows.map(async (product) => ({
+      id: product.id,
+      name: product.name,
+      code: product.code,
+      categoryName: product.category?.name ?? null,
+      thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
+      wholesalePrice: Number(product.wholesalePrice),
+      minWholesaleQty: product.minWholesaleQty,
+      whatsAppHref: await buildSystemWhatsAppHref(
+        buildWhatsAppBuyMessage(brandName, product.name, product.code, {
+          priceLabel: `${compactPriceLabel(formatMoney(String(product.wholesalePrice), currency))} x mayor, desde ${product.minWholesaleQty} und.`,
+        }),
+      ),
+    })),
+  );
+  const floatingWhatsAppHref = await buildStorefrontQuoteWhatsAppHref(brandName, "Precios al por mayor");
 
   const categories = Array.from(
     new Set(products.map((product) => product.categoryName ?? "Sin categoria")),
@@ -77,9 +91,12 @@ export default async function WholesalePublicPage() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-6 md:px-6">
+      {/* pb-24: que el botón flotante no tape la última tarjeta. */}
+      <main className="mx-auto w-full max-w-6xl px-4 pt-6 pb-24 md:px-6">
         <WholesaleCatalog products={products} categories={categories} currency={currency} />
       </main>
+
+      <FloatingWhatsAppButton href={floatingWhatsAppHref} />
     </div>
   );
 }

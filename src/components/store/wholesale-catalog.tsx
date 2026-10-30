@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Search, Tags, X } from "lucide-react";
 import { ProductThumb } from "@/components/admin/product-thumb";
+import { WhatsAppIcon } from "@/components/store/whatsapp-icon";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 
 export type WholesaleProduct = {
@@ -13,6 +14,7 @@ export type WholesaleProduct = {
   thumbnailUrl: string;
   wholesalePrice: number;
   minWholesaleQty: number;
+  whatsAppHref: string;
 };
 
 type WholesaleCatalogProps = {
@@ -123,6 +125,15 @@ export function WholesaleCatalog({ products, categories, currency }: WholesaleCa
                   <p className="text-[11px] text-slate-500">
                     Precio x mayor · desde {product.minWholesaleQty} und.
                   </p>
+                  <a
+                    href={product.whatsAppHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 text-xs font-semibold text-white transition hover:bg-emerald-700 active:scale-[0.98]"
+                  >
+                    <WhatsAppIcon className="h-4 w-4 shrink-0 fill-current" />
+                    Pedir por WhatsApp
+                  </a>
                 </div>
               </div>
             </article>
