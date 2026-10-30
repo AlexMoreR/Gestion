@@ -41,6 +41,7 @@ export default async function StorefrontLayout({
         brandName={brandName}
         storefrontLogoPath={storefrontLogoPath}
         adminModuleAccess={adminModuleAccess}
+        whatsAppHref={whatsAppHref}
       />
       <main
         suppressHydrationWarning
