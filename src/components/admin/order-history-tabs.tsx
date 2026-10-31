@@ -16,6 +16,7 @@ import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { OrderManufacturingTab, type ManufacturingCard } from "@/components/admin/order-manufacturing-tab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { stripCodeZeros } from "@/lib/code-display";
 
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -112,7 +113,7 @@ export function OrderHistoryTabs({
                 </Avatar>
                 <p className="text-xs text-muted-foreground">
                   {item.by}
-                  {item.note ? ` - ${item.note}` : ""}
+                  {item.note ? ` - ${stripCodeZeros(item.note)}` : ""}
                 </p>
               </div>
             </button>
@@ -137,7 +138,7 @@ export function OrderHistoryTabs({
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {payment.method || "Sin método"}
-                  {payment.note ? ` - ${payment.note}` : ""}
+                  {payment.note ? ` - ${stripCodeZeros(payment.note)}` : ""}
                 </p>
                 {payment.receiptUrl ? (
                   <button

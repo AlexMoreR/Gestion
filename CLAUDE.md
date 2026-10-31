@@ -501,6 +501,10 @@ con producción. Instalación y cómo restaurar: `README.md`. Fotos y comprobant
 - **Archivos subidos:** viven en `/public/uploads` (volumen persistente) y se sirven por
   `/uploads/[...path]`.
 - **Auditoría:** las acciones importantes registran `ActivityLog`.
+- **Códigos sin ceros (oct-2026):** se guardan y generan con ceros (`OF-00035`, para ordenar y numerar) y se
+  muestran sin ceros (`OF-35`) con `displayCode`/`stripCodeZeros` de `src/lib/code-display.ts` (COT, SAL, ORD, OF,
+  PRO, DSP, INV, COM, MAN); los buscadores aceptan las dos formas (`storedCodeCandidates`). Factura: `SAL-00012` → N° 112.
+  Formatear solo al pintar, nunca al ordenar o comparar. Las API al CRM siguen con el código guardado.
 - **Pruebas:** `npm run test` (Vitest). Nota: dentro de `src/modules/*/domain` se usan imports relativos
   a `src/lib` porque el alias `@/` no lo resuelve Vitest.
 

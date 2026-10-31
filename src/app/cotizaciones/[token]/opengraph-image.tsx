@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { getSystemBrandName, getSystemCurrency } from "@/lib/system-settings";
+import { displayCode } from "@/lib/code-display";
 
 export const runtime = "nodejs";
 export const size = {
@@ -107,7 +108,7 @@ export default async function QuoteOpenGraphImage({ params }: ImageProps) {
             COTIZACION
           </div>
           <div style={{ fontSize: 96, fontWeight: 800, lineHeight: 0.95, letterSpacing: "-0.05em" }}>
-            {code}
+            {displayCode(code)}
           </div>
           {clientName ? (
             <div style={{ fontSize: 30, color: "rgba(255,255,255,0.86)" }}>{`Para ${clientName}`}</div>

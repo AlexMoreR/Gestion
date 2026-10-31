@@ -78,7 +78,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { MoneyInput } from "@/components/ui/money-input";
 import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-field";
-import { displayCode } from "@/lib/code-display";
+import { displayCode, stripCodeZeros } from "@/lib/code-display";
 
 type SaleStatus = "DRAFT" | "ACTIVE" | "INVOICED" | "COMPLETED" | "CANCELLED";
 
@@ -777,7 +777,7 @@ function AddSalePaymentSheet({
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
                       {payment.paidAt || "Sin fecha"}
-                      {payment.note ? ` · ${payment.note}` : ""}
+                      {payment.note ? ` · ${stripCodeZeros(payment.note)}` : ""}
                     </p>
                   </div>
                   {payment.id ? (

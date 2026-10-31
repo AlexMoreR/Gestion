@@ -12,6 +12,7 @@ import {
   type TipoRetroactivo,
 } from "@/modules/retroactivos/domain/retroactivo";
 import { resumirPorPersona } from "@/modules/retroactivos/domain/resumen";
+import { displayCode } from "@/lib/code-display";
 
 // Registros retroactivos: ventas, abonos y gastos con fecha de un dia anterior al dia real del
 // registro. Solo el dueno/admin con acceso a Balances. Filtra por el mes del registro real.
@@ -222,7 +223,7 @@ export default async function AdminRetroactivosPage({ searchParams }: PageProps)
                       <td className="py-2 whitespace-nowrap">
                         {href ? (
                           <Link href={href} className="text-primary hover:underline">
-                            {codigo ?? "Ver gastos"}
+                            {displayCode(codigo) ?? "Ver gastos"}
                           </Link>
                         ) : (
                           <span className="text-muted-foreground">Borrado</span>

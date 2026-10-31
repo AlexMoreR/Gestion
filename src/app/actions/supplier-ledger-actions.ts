@@ -11,6 +11,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buildManualChargeCode, parseManualChargeCodeNumber } from "@/lib/orders";
+import { displayCode } from "@/lib/code-display";
 
 // Siguiente código de cargo manual (MAN-00001...), a partir del mayor existente.
 async function getNextManualChargeCode(): Promise<string> {
@@ -460,12 +461,12 @@ export async function adminCreateSupplierPaymentsAction(formData: FormData): Pro
       ]);
       const pending = Number(charges._sum.amount ?? 0) - Number(payments._sum.amount ?? 0);
       if (pending <= 0.0001) {
-        redirect(`${returnTo}?error=${encodeURIComponent(`La orden ${order.code} ya no tiene saldo pendiente`)}`);
+        redirect(`${returnTo}?error=${encodeURIComponent(`La orden ${displayCode(order.code)} ya no tiene saldo pendiente`)}`);
       }
       if (line.amount > pending + 0.5) {
         redirect(
           `${returnTo}?error=${encodeURIComponent(
-            `El abono para ${order.code} supera el saldo pendiente (${pending.toLocaleString("es-CO")})`,
+            `El abono para ${displayCode(order.code)} supera el saldo pendiente (${pending.toLocaleString("es-CO")})`,
           )}`,
         );
       }

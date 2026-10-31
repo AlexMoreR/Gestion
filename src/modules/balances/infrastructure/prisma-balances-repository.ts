@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
-import { storedCodeCandidates } from "@/lib/code-display";
+import { displayCode, storedCodeCandidates } from "@/lib/code-display";
 import { prisma } from "@/lib/prisma";
 import type {
   BalancesRepository,
@@ -881,7 +881,7 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           id: `sale-payment:${row.id}`,
           date: row.paymentDate ?? row.createdAt,
           type: "INCOME" as const,
-          concept: row.sale ? `Pago venta ${row.sale.code}` : "Pago de venta",
+          concept: row.sale ? `Pago venta ${displayCode(row.sale.code)}` : "Pago de venta",
           reference: row.note ?? row.paymentMethod ?? null,
           amount: toNumber(row.amount),
           receiptUrl: row.receiptUrl ?? null,
@@ -891,7 +891,7 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           id: `supplier-payment:${row.id}`,
           date: row.paymentDate ?? row.createdAt,
           type: "EXPENSE" as const,
-          concept: `Pago proveedor ${row.supplier.name}${row.sale ? ` (${row.sale.code})` : ""}`,
+          concept: `Pago proveedor ${row.supplier.name}${row.sale ? ` (${displayCode(row.sale.code)})` : ""}`,
           reference: row.transactionReference ?? row.note ?? null,
           amount: -toNumber(row.amount),
           receiptUrl: row.receiptUrl ?? null,
@@ -901,7 +901,7 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           id: `shipping:${row.id}`,
           date: row.paymentDate,
           type: "EXPENSE" as const,
-          concept: `Envio ${row.shippingProvider}${row.sale ? ` (${row.sale.code})` : ""}`,
+          concept: `Envio ${row.shippingProvider}${row.sale ? ` (${displayCode(row.sale.code)})` : ""}`,
           reference: row.transactionReference ?? null,
           amount: -toNumber(row.amount),
           receiptUrl: null,

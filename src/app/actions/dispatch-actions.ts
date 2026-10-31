@@ -31,6 +31,7 @@ import {
   ShipmentError,
   syncShipmentFromDispatch,
 } from "@/modules/guias/infrastructure/shipments-repository";
+import { displayCode } from "@/lib/code-display";
 
 // Check "Crear guia Magilus" del modal de despacho (solo envios con transportadora). Si la
 // guia falla, el despacho ya quedo creado: se avisa en el mensaje y se crea luego desde la orden.
@@ -1478,7 +1479,7 @@ export async function adminAddDispatchShippingLegAction(formData: FormData): Pro
   revalidatePath(`/admin/ordenes/${dispatch.order.id}`);
   revalidatePath("/admin/proveedores");
   revalidatePath("/admin/balances");
-  redirect(`${returnTo}?ok=${encodeURIComponent(`Tramo agregado al despacho ${dispatch.code}`)}`);
+  redirect(`${returnTo}?ok=${encodeURIComponent(`Tramo agregado al despacho ${displayCode(dispatch.code)}`)}`);
 }
 
 // --- Seguimiento con la transportadora (/admin/despachos/transportadora) ---

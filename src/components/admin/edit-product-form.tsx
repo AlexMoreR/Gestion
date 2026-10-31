@@ -36,7 +36,7 @@ import type { ProductPromoFormFields } from "@/lib/product-promo";
 import type { ProductPurchaseRow } from "@/lib/product-purchase-history";
 import { calculateProfit, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
 import { Button, buttonVariants } from "../ui/button";
-import { displayCode } from "@/lib/code-display";
+import { displayCode, stripCodeZeros } from "@/lib/code-display";
 
 type CategoryOption = {
   id: string;
@@ -932,7 +932,7 @@ export function EditProductForm({
                         <div className="min-w-0 flex-1 pb-1">
                           <div className="flex items-baseline justify-between gap-2">
                             <p className="text-xs text-slate-700">
-                              <ActivitySummary summary={item.summary} />
+                              <ActivitySummary summary={stripCodeZeros(item.summary)} />
                             </p>
                             <span className="shrink-0 text-[11px] text-slate-500">
                               {new Date(item.createdAt).toLocaleString("es-CO", {

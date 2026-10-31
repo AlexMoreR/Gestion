@@ -17,7 +17,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { InventoryDataGrid } from "@/modules/inventory/presentation/components/inventory-data-grid";
-import { displayCode } from "@/lib/code-display";
+import { displayCode, stripCodeZeros } from "@/lib/code-display";
 
 // Fecha local (YYYY-MM-DD) a partir del ISO, para comparar con los <input type="date">.
 function localDay(iso: string): string {
@@ -219,7 +219,7 @@ export function SupplierLedgerTable({
     {
       accessorKey: "note",
       header: "Detalle",
-      cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.note ?? "-"}</span>,
+      cell: ({ row }) => <span className="text-sm text-muted-foreground">{stripCodeZeros(row.original.note) ?? "-"}</span>,
     },
     {
       id: "createdBy",
@@ -433,7 +433,7 @@ function OrderMovementsModal({
                     >
                       {entry.type === "CHARGE" ? "Cargo" : "Abono"}
                     </Badge>
-                    <p className="truncate text-sm text-foreground">{entry.note ?? "-"}</p>
+                    <p className="truncate text-sm text-foreground">{stripCodeZeros(entry.note) ?? "-"}</p>
                     <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <span className="min-w-0 truncate">
                         {new Date(entry.createdAt).toLocaleDateString("es-CO")}
