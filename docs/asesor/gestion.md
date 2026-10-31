@@ -168,6 +168,11 @@ luego se entrega. Mientras no se entrega aparece como "Falta entregar". Excepci�
 **contraentrega** se cobra al entregar, así que solo cuenta con la orden entregada y en el mes de la
 entrega. Una orden cancelada no cuenta.
 
+**Editar o anular una compra.** Editar una compra actualiza la misma orden: conserva su número
+ORD, su COM, su estado, sus despachos y sus pagos a la proveedora; el stock solo cambia por la
+diferencia de unidades. No se quita una línea despachada o con pagos. Una compra con pagos no se
+borra: solo se anula, con motivo; anularla no toca stock, cargos ni pagos.
+
 **Gastos por voz o chat (`registrar_gasto`).** Claude repite el gasto y espera el "sí" del dueño; con
 con el "sí" (`confirmado=true`, una sola vez) el gasto **queda guardado de una vez**, sin foto, y la
 respuesta trae su número y un enlace opcional para subir la foto después (24 horas, un solo uso). La

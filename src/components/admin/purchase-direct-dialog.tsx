@@ -382,6 +382,9 @@ export function PurchaseDirectDialog({
             })),
           }
         : {
+            // En edicion, el id de la linea existente (uid = id del item): asi se
+            // actualiza en su lugar en vez de borrarse y crearse otra vez.
+            orderItemId: isEditing ? line.uid : undefined,
             productId: line.productId,
             quantity: line.quantity,
             cost: line.unitCost,

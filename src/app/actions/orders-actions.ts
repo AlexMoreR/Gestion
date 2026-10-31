@@ -431,16 +431,20 @@ export async function adminCancelOrderAction(formData: FormData): Promise<void> 
   const returnTo = getReturnTo(formData, "/admin/ordenes");
 
   const orderId = String(formData.get("orderId") || "").trim();
-  const note = String(formData.get("note") || "").trim() || null;
+  const note = String(formData.get("note") || "").trim();
 
   if (!orderId) {
     redirect(`${returnTo}?error=Orden+invalida`);
+  }
+  if (!note) {
+    redirect(`${returnTo}?error=${encodeURIComponent("Escribe el motivo para anular la orden.")}`);
   }
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     select: {
       id: true,
+      type: true,
       status: true,
       code: true,
       items: {
@@ -453,15 +457,18 @@ export async function adminCancelOrderAction(formData: FormData): Promise<void> 
     redirect(`${returnTo}?error=Orden+no+encontrada`);
   }
 
-  if (order.status === "COMPLETED" || order.status === "CANCELLED") {
+  // Una compra completada sí se puede anular (no se borra); una venta completada no.
+  if (order.status === "CANCELLED" || (order.status === "COMPLETED" && order.type !== "PURCHASE")) {
     redirect(`${returnTo}?error=La+orden+no+puede+cancelarse`);
   }
 
   // Repone el inventario de los items "por stock" que ya se habian confirmado
   // (su salida OUT se registro al confirmar). Los no confirmados nunca tocaron
   // stock y los de fabricacion tampoco.
+  // Una compra no repone nada: sus items son ENTRADAS, no salidas. Anularla no toca
+  // stock ni cargos ni pagos (todo queda visible); ajustarlos es a mano.
   const restoreByProduct = new Map<string, number>();
-  for (const item of order.items) {
+  for (const item of order.type === "PURCHASE" ? [] : order.items) {
     if (item.fulfillmentMode === "STOCK" && item.confirmedAt !== null) {
       restoreByProduct.set(item.productId, (restoreByProduct.get(item.productId) ?? 0) + item.quantity);
     }
@@ -500,7 +507,7 @@ export async function adminCancelOrderAction(formData: FormData): Promise<void> 
     action: "DELETE",
     entityType: "ORDER",
     entityId: order.id,
-    summary: `Canceló la orden ${order.code}`,
+    summary: `Canceló la orden ${order.code}. Motivo: ${note}`,
   });
 
   revalidatePath("/admin/ordenes");

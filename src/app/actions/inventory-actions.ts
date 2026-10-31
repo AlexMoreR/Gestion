@@ -26,6 +26,12 @@ import {
   parsePurchaseCodeNumber,
 } from "@/lib/orders";
 import { getProductPurchaseHistory, type ProductPurchaseRow } from "@/lib/product-purchase-history";
+import {
+  planPurchaseEdit,
+  purchaseEditTotals,
+  purchaseStockDeltas,
+  type ExistingPurchaseItem,
+} from "@/lib/purchase-edit";
 
 const repository = createPrismaInventoryRepository();
 
@@ -350,23 +356,9 @@ export async function adminCreateInventoryMovementAction(formData: FormData): Pr
 // operacion, cada uno con su proveedor. Por cada linea genera una entrada de
 // stock (IN) y, si tiene proveedor y costo, un cargo (deuda) a ese proveedor
 // por su costo de compra (costo unitario x cantidad).
-// Revierte los efectos de una compra (para editarla o rehacerla): borra sus
-// movimientos de inventario (el stock deja de sumar y sus cargos al proveedor se
-// van en cascada), limpia cargos restantes de la orden, sus despachos y la orden.
-async function reversePurchaseForEdit(orderId: string, purchaseCode: string | null): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    if (purchaseCode) {
-      await tx.inventoryMovement.deleteMany({ where: { purchaseCode } });
-    }
-    await tx.supplierLedgerEntry.deleteMany({ where: { orderId } });
-    await tx.dispatch.deleteMany({ where: { orderId } });
-    await tx.order.delete({ where: { id: orderId } });
-  });
-}
-
-// Registra una compra directa. Si se pasa replaceOrderId, primero revierte esa
-// compra y reusa su codigo COM (modo edicion); si no, crea una nueva.
-async function runDirectPurchase(formData: FormData, replaceOrderId?: string): Promise<void> {
+// Registra una compra directa. Si se pasa editOrderId, actualiza ESA misma orden
+// (mismo numero, estado, pagos y despachos; ver runPurchaseEdit); si no, crea una nueva.
+async function runDirectPurchase(formData: FormData, editOrderId?: string): Promise<void> {
   const createdById = await requireAdminSession();
   const returnTo = getReturnTo(formData, "/admin/ordenes");
 
@@ -381,6 +373,7 @@ async function runDirectPurchase(formData: FormData, replaceOrderId?: string): P
   // cada componente con su proveedor y costo (costo por combo).
   type ComponentCharge = { childId: string; supplierId: string; cost: number };
   let items: Array<{
+    orderItemId: string;
     productId: string;
     quantity: number;
     cost: number;
@@ -399,6 +392,7 @@ async function runDirectPurchase(formData: FormData, replaceOrderId?: string): P
           (entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object",
         )
         .map((entry) => ({
+          orderItemId: typeof entry.orderItemId === "string" ? entry.orderItemId.trim() : "",
           productId: typeof entry.productId === "string" ? entry.productId.trim() : "",
           quantity: Math.trunc(Number(entry.quantity) || 0),
           cost: Number(entry.cost) || 0,
@@ -509,23 +503,11 @@ async function runDirectPurchase(formData: FormData, replaceOrderId?: string): P
     return supplier;
   };
 
-  // Al editar: revierte la compra anterior y reusa su codigo COM; al crear:
-  // genera un codigo nuevo. Se hace despues de validar, para no borrar la
-  // compra vieja si los datos nuevos son invalidos.
-  let purchaseCode: string;
-  if (replaceOrderId) {
-    const previous = await prisma.order.findUnique({
-      where: { id: replaceOrderId },
-      select: { type: true, purchaseCode: true },
-    });
-    if (!previous || previous.type !== "PURCHASE") {
-      redirectWithError(returnTo, "La compra a editar no existe.");
-    }
-    purchaseCode = previous.purchaseCode ?? (await getNextPurchaseCode());
-    await reversePurchaseForEdit(replaceOrderId, previous.purchaseCode);
-  } else {
-    purchaseCode = await getNextPurchaseCode();
+  if (editOrderId) {
+    await runPurchaseEdit({ orderId: editOrderId, items, productInfoById, movementDate, rawDate, resolveSupplier, createdById, returnTo });
+    return;
   }
+  const purchaseCode = await getNextPurchaseCode();
 
   let invSeq = await getNextInventoryChargeSeq();
   const movementIds: string[] = [];
@@ -740,26 +722,421 @@ async function runDirectPurchase(formData: FormData, replaceOrderId?: string): P
   }
 
   await logActivity({
-    action: replaceOrderId ? "UPDATE" : "CREATE",
+    action: "CREATE",
     entityType: "PURCHASE",
     entityId: purchaseOrderId,
-    summary: `${replaceOrderId ? "Edito" : "Registró"} la compra ${purchaseCode} (${items.length} producto${items.length === 1 ? "" : "s"})`,
+    summary: `Registró la compra ${purchaseCode} (${items.length} producto${items.length === 1 ? "" : "s"})`,
   });
 
   revalidatePath("/admin/inventario");
   revalidatePath("/admin/proveedores");
   revalidatePath("/admin/ordenes");
   redirect(
-    `/admin/ordenes/${purchaseOrderId}?${new URLSearchParams({ ok: replaceOrderId ? "Compra actualizada" : "Compra registrada" }).toString()}`,
+    `/admin/ordenes/${purchaseOrderId}?${new URLSearchParams({ ok: "Compra registrada" }).toString()}`,
   );
+}
+
+// Error de negocio dentro de la transaccion de edicion (se muestra al usuario).
+class PurchaseEditError extends Error {}
+
+function toDateInput(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+type PurchaseEditInput = {
+  orderId: string;
+  items: Array<{
+    orderItemId: string;
+    productId: string;
+    quantity: number;
+    cost: number;
+    supplierId: string;
+    color: string;
+    description: string;
+    imageUrl: string;
+    components: Array<{ childId: string; supplierId: string; cost: number }>;
+  }>;
+  productInfoById: Map<
+    string,
+    { name: string; isBundle: boolean; components: Array<{ childId: string; quantity: number; name: string }> }
+  >;
+  movementDate: Date;
+  rawDate: string;
+  resolveSupplier: (supplierId: string) => Promise<{ id: string; name: string } | null>;
+  createdById: string;
+  returnTo: string;
+};
+
+// Edita una compra SOBRE LA MISMA ORDEN: conserva su numero ORD, el COM, el estado,
+// el historial, los despachos y los pagos a proveedoras. Las lineas existentes se
+// actualizan, las nuevas se crean y las quitadas se borran (no si tienen despacho o
+// pagos). El stock solo cambia por la diferencia de unidades; sin cambios, no se mueve.
+async function runPurchaseEdit(input: PurchaseEditInput): Promise<void> {
+  const { orderId, items, productInfoById, movementDate, rawDate, resolveSupplier, createdById, returnTo } = input;
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      type: true,
+      status: true,
+      purchaseCode: true,
+      subtotal: true,
+      total: true,
+      releasedAt: true,
+      createdAt: true,
+      items: {
+        select: {
+          id: true,
+          productId: true,
+          quantity: true,
+          unitPrice: true,
+          purchaseCost: true,
+          lineTotal: true,
+          notes: true,
+          confirmedSupplierId: true,
+          supplierPaymentStatus: true,
+          product: { select: { name: true } },
+          photos: { select: { url: true } },
+          _count: { select: { dispatchItems: true } },
+        },
+      },
+    },
+  });
+  if (!order || order.type !== "PURCHASE") {
+    redirectWithError(returnTo, "La compra a editar no existe.");
+  }
+  if (order.status === "CANCELLED") {
+    redirectWithError(returnTo, "Esta compra está anulada: no se puede editar.");
+  }
+  if (!order.purchaseCode) {
+    redirectWithError(returnTo, "Esta compra no tiene código COM: no se puede editar aquí.");
+  }
+  const purchaseCode = order.purchaseCode;
+
+  const itemIds = order.items.map((item) => item.id);
+  const charges = await prisma.supplierLedgerEntry.findMany({
+    where: { type: "CHARGE", orderItemId: { in: itemIds } },
+    select: { id: true, orderItemId: true, supplierId: true, amount: true },
+  });
+  const payments = await prisma.supplierLedgerEntry.findMany({
+    where: {
+      type: "PAYMENT",
+      OR: [{ orderItemId: { in: itemIds } }, { settlesEntryId: { in: charges.map((charge) => charge.id) } }],
+    },
+    select: { orderItemId: true, settlesEntryId: true },
+  });
+  const itemIdByCharge = new Map(charges.map((charge) => [charge.id, charge.orderItemId]));
+  const paidItemIds = new Set(
+    payments.map((payment) => payment.orderItemId ?? itemIdByCharge.get(payment.settlesEntryId ?? "") ?? null),
+  );
+
+  const existing: ExistingPurchaseItem[] = order.items.map((item) => ({
+    id: item.id,
+    productId: item.productId,
+    name: item.product.name,
+    quantity: item.quantity,
+    cost: Number(item.purchaseCost ?? item.unitPrice),
+    supplierId: item.confirmedSupplierId,
+    dispatched: item._count.dispatchItems > 0,
+    hasPayments: paidItemIds.has(item.id),
+  }));
+  // Los combos nuevos siempre se crean; las lineas sueltas se cruzan con las existentes.
+  const bundleLines = items.filter((item) => productInfoById.get(item.productId)!.isBundle);
+  const plan = planPurchaseEdit(
+    existing,
+    items.filter((item) => !productInfoById.get(item.productId)!.isBundle),
+  );
+  if (plan.error) {
+    redirectWithError(returnTo, plan.error);
+  }
+
+  // Resuelve proveedores antes de la transaccion.
+  const supplierByLine = new Map<string, { id: string; name: string } | null>();
+  for (const item of items) {
+    supplierByLine.set(item.supplierId, await resolveSupplier(item.supplierId));
+    for (const component of item.components) {
+      supplierByLine.set(component.supplierId, await resolveSupplier(component.supplierId));
+    }
+  }
+  const supplierOf = (supplierId: string) => supplierByLine.get(supplierId) ?? null;
+  const notesOf = (item: { color: string; description: string }) =>
+    [item.color ? `Color: ${item.color}` : "", item.description].filter(Boolean).join(" · ") || null;
+  const dateChanged = rawDate !== "" && rawDate !== toDateInput(order.releasedAt ?? order.createdAt);
+  // Sin cambio de fecha se conserva la de la compra (no se corre de dia).
+  const effectiveDate = dateChanged ? movementDate : (order.releasedAt ?? order.createdAt);
+  let invSeq = await getNextInventoryChargeSeq();
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Nunca se borra un cargo que ya tiene abonos: el abono se iria en cascada.
+      const deleteCharges = async (ids: string[]) => {
+        if (ids.length === 0) return;
+        const settled = await tx.supplierLedgerEntry.count({ where: { type: "PAYMENT", settlesEntryId: { in: ids } } });
+        if (settled > 0) throw new PurchaseEditError("Un cargo de esta compra tiene pagos: no se puede cambiar.");
+        await tx.supplierLedgerEntry.deleteMany({ where: { id: { in: ids } } });
+      };
+      const createCharge = (data: { supplierId: string; amount: number; note: string; orderItemId: string }) =>
+        tx.supplierLedgerEntry.create({
+          data: {
+            ...data,
+            code: buildInventoryChargeCode((invSeq += 1)),
+            type: "CHARGE",
+            paymentDate: effectiveDate,
+            orderId,
+            createdById,
+          },
+        });
+
+      // 1) Lineas quitadas: sus cargos y la linea (el plan ya bloqueo despachos y pagos).
+      const removedIds = plan.remove.map((item) => item.id);
+      await deleteCharges(charges.filter((charge) => removedIds.includes(charge.orderItemId ?? "")).map((c) => c.id));
+      if (removedIds.length > 0) {
+        await tx.orderItem.deleteMany({ where: { id: { in: removedIds } } });
+      }
+
+      // 2) Lineas existentes: se actualizan en su lugar (sin cambios, solo notas y foto).
+      for (const { item, line, changed } of plan.keep) {
+        const stored = order.items.find((orderItem) => orderItem.id === item.id)!;
+        const notes = notesOf(line);
+        if (changed) {
+          const supplier = supplierOf(line.supplierId);
+          const lineTotal = line.cost * line.quantity;
+          const itemCharges = charges.filter((charge) => charge.orderItemId === item.id);
+          const sameSupplier = supplier ? itemCharges.find((charge) => charge.supplierId === supplier.id) : undefined;
+          await deleteCharges(itemCharges.filter((charge) => charge !== sameSupplier).map((charge) => charge.id));
+          if (supplier && line.cost > 0) {
+            if (sameSupplier) {
+              await tx.supplierLedgerEntry.update({ where: { id: sameSupplier.id }, data: { amount: lineTotal } });
+            } else {
+              await createCharge({
+                supplierId: supplier.id,
+                amount: lineTotal,
+                note: `Compra inventario - ${item.name} (x${line.quantity})`,
+                orderItemId: item.id,
+              });
+            }
+          } else if (sameSupplier) {
+            await deleteCharges([sameSupplier.id]);
+          }
+          await tx.orderItem.update({
+            where: { id: item.id },
+            data: {
+              quantity: line.quantity,
+              unitPrice: line.cost,
+              lineTotal,
+              purchaseCost: line.cost,
+              confirmedSupplierId: supplier?.id ?? null,
+              supplierPaymentStatus: supplier ? (stored.supplierPaymentStatus ?? "PENDING") : null,
+              notes,
+            },
+          });
+        } else if (notes !== stored.notes) {
+          await tx.orderItem.update({ where: { id: item.id }, data: { notes } });
+        }
+        if (line.imageUrl && !stored.photos.some((photo) => photo.url === line.imageUrl)) {
+          await tx.orderItemPhoto.create({ data: { orderItemId: item.id, url: line.imageUrl } });
+        }
+      }
+
+      // 3) Lineas nuevas (productos sueltos y combos repartidos en sus componentes).
+      const newRows: Array<{
+        productId: string;
+        name: string;
+        units: number;
+        lineTotal: number;
+        supplierId: string;
+        notes: string | null;
+        imageUrl: string;
+        chargeNote: string;
+      }> = [];
+      for (const line of plan.create) {
+        const name = productInfoById.get(line.productId)!.name;
+        newRows.push({
+          productId: line.productId,
+          name,
+          units: line.quantity,
+          lineTotal: line.cost * line.quantity,
+          supplierId: line.supplierId,
+          notes: notesOf(line),
+          imageUrl: line.imageUrl,
+          chargeNote: `Compra inventario - ${name} (x${line.quantity})`,
+        });
+      }
+      for (const line of bundleLines) {
+        const product = productInfoById.get(line.productId)!;
+        const chargeByChild = new Map(line.components.map((component) => [component.childId, component]));
+        for (const component of product.components) {
+          const charge = chargeByChild.get(component.childId);
+          newRows.push({
+            productId: component.childId,
+            name: component.name,
+            units: component.quantity * line.quantity,
+            lineTotal: (charge?.cost ?? 0) * line.quantity,
+            supplierId: charge?.supplierId ?? "",
+            notes: `Combo ${product.name}`,
+            imageUrl: "",
+            chargeNote: `Compra inventario - ${component.name} (Combo ${product.name} x${line.quantity})`,
+          });
+        }
+      }
+      for (const row of newRows) {
+        const supplier = supplierOf(row.supplierId);
+        const unitPrice = row.units > 0 ? Math.round(row.lineTotal / row.units) : 0;
+        const created = await tx.orderItem.create({
+          data: {
+            orderId,
+            productId: row.productId,
+            quantity: row.units,
+            unitPrice,
+            lineTotal: row.lineTotal,
+            fulfillmentMode: "STOCK",
+            confirmedSupplierId: supplier?.id ?? null,
+            purchaseCost: unitPrice,
+            confirmedAt: effectiveDate,
+            supplierPaymentStatus: supplier ? "PENDING" : null,
+            notes: row.notes,
+          },
+          select: { id: true },
+        });
+        if (row.imageUrl) {
+          await tx.orderItemPhoto.create({ data: { orderItemId: created.id, url: row.imageUrl } });
+        }
+        if (supplier && row.lineTotal > 0) {
+          await createCharge({ supplierId: supplier.id, amount: row.lineTotal, note: row.chargeNote, orderItemId: created.id });
+        }
+      }
+
+      // 4) Stock: solo la diferencia de unidades por producto contra las entradas de la compra.
+      const finalItems = await tx.orderItem.findMany({
+        where: { orderId },
+        select: { id: true, productId: true, quantity: true, lineTotal: true, confirmedSupplierId: true },
+      });
+      const movements = await tx.inventoryMovement.findMany({
+        where: { purchaseCode },
+        select: { id: true, productId: true, change: true },
+      });
+      const currentUnits = new Map<string, number>();
+      for (const movement of movements) {
+        currentUnits.set(movement.productId, (currentUnits.get(movement.productId) ?? 0) + movement.change);
+      }
+      const newUnits = new Map<string, number>();
+      for (const item of finalItems) {
+        newUnits.set(item.productId, (newUnits.get(item.productId) ?? 0) + item.quantity);
+      }
+      for (const [productId, delta] of purchaseStockDeltas(currentUnits, newUnits)) {
+        if (delta < 0) {
+          const stock = await tx.inventoryMovement.aggregate({ where: { productId }, _sum: { change: true } });
+          if ((stock._sum.change ?? 0) + delta < 0) {
+            const name = order.items.find((item) => item.productId === productId)?.product.name ?? "un producto";
+            throw new PurchaseEditError(`No se puede bajar ${name}: esas unidades ya salieron del inventario.`);
+          }
+        }
+        // Rehace la entrada del producto con el total nuevo. Antes se desligan los
+        // cargos (el borrado del movimiento los borraria en cascada, y con ellos sus abonos).
+        const oldIds = movements.filter((movement) => movement.productId === productId).map((movement) => movement.id);
+        await tx.supplierLedgerEntry.updateMany({ where: { inventoryMovementId: { in: oldIds } }, data: { inventoryMovementId: null } });
+        await tx.inventoryMovement.deleteMany({ where: { id: { in: oldIds } } });
+        const units = newUnits.get(productId) ?? 0;
+        if (units > 0) {
+          const movement = await tx.inventoryMovement.create({
+            data: {
+              productId,
+              type: "IN",
+              change: units,
+              note: `Compra ${purchaseCode} (editada)`,
+              purchaseCode,
+              movementDate: effectiveDate,
+              createdById,
+            },
+            select: { id: true },
+          });
+          await tx.supplierLedgerEntry.updateMany({
+            where: { type: "CHARGE", orderItemId: { in: finalItems.filter((item) => item.productId === productId).map((item) => item.id) } },
+            data: { inventoryMovementId: movement.id },
+          });
+        }
+      }
+
+      // 5) Fecha: solo si se cambio en el formulario.
+      if (dateChanged) {
+        await tx.inventoryMovement.updateMany({ where: { purchaseCode }, data: { movementDate } });
+        await tx.supplierLedgerEntry.updateMany({ where: { orderId, type: "CHARGE" }, data: { paymentDate: movementDate } });
+      }
+
+      // 6) Totales (conservan envio y costos adicionales) y proveedor de la orden.
+      const newSubtotal = finalItems.reduce((sum, item) => sum + Number(item.lineTotal), 0);
+      const totals = purchaseEditTotals({ subtotal: Number(order.subtotal), total: Number(order.total) }, newSubtotal);
+      const extraCharges = await tx.supplierLedgerEntry.findMany({
+        where: { orderId, type: "CHARGE", orderItemId: null },
+        select: { supplierId: true },
+      });
+      const supplierIds = new Set<string>([
+        ...finalItems.map((item) => item.confirmedSupplierId).filter((id): id is string => Boolean(id)),
+        ...extraCharges.map((charge) => charge.supplierId),
+      ]);
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          ...totals,
+          supplierId: supplierIds.size === 1 ? Array.from(supplierIds)[0] : null,
+          ...(dateChanged ? { releasedAt: movementDate } : {}),
+        },
+      });
+
+      // 7) Pagado/pendiente por proveedora, con la misma regla de los abonos.
+      for (const supplierId of new Set(finalItems.map((item) => item.confirmedSupplierId).filter(Boolean) as string[])) {
+        const [chargeAgg, payAgg] = await Promise.all([
+          tx.supplierLedgerEntry.aggregate({ _sum: { amount: true }, where: { orderId, supplierId, type: "CHARGE" } }),
+          tx.supplierLedgerEntry.aggregate({ _sum: { amount: true }, where: { orderId, supplierId, type: "PAYMENT" } }),
+        ]);
+        const charged = Number(chargeAgg._sum.amount ?? 0);
+        if (charged <= 0) continue;
+        const pending = charged - Number(payAgg._sum.amount ?? 0);
+        if (pending <= 0.0001) {
+          await tx.orderItem.updateMany({ where: { orderId, confirmedSupplierId: supplierId }, data: { supplierPaymentStatus: "PAID" } });
+        } else {
+          const itemLevelPaid = await tx.supplierLedgerEntry.findMany({
+            where: { type: "PAYMENT", orderItemId: { in: finalItems.map((item) => item.id) } },
+            select: { orderItemId: true },
+          });
+          await tx.orderItem.updateMany({
+            where: {
+              orderId,
+              confirmedSupplierId: supplierId,
+              supplierPaymentStatus: "PAID",
+              id: { notIn: itemLevelPaid.map((entry) => entry.orderItemId!).filter(Boolean) },
+            },
+            data: { supplierPaymentStatus: "PENDING" },
+          });
+        }
+      }
+    });
+  } catch (error) {
+    if (error instanceof PurchaseEditError) {
+      redirectWithError(returnTo, error.message);
+    }
+    throw error;
+  }
+
+  await logActivity({
+    action: "UPDATE",
+    entityType: "PURCHASE",
+    entityId: orderId,
+    summary: `Editó la compra ${purchaseCode} (${items.length} producto${items.length === 1 ? "" : "s"})`,
+  });
+
+  revalidatePath("/admin/inventario");
+  revalidatePath("/admin/proveedores");
+  revalidatePath("/admin/ordenes");
+  redirect(`/admin/ordenes/${orderId}?${new URLSearchParams({ ok: "Compra actualizada" }).toString()}`);
 }
 
 export async function adminCreateDirectPurchaseAction(formData: FormData): Promise<void> {
   await runDirectPurchase(formData);
 }
 
-// Edita una compra: reabre el formulario y, al guardar, revierte la anterior y
-// aplica la nueva con el mismo codigo COM.
+// Edita una compra: reabre el formulario y, al guardar, actualiza la misma orden.
 export async function adminUpdateDirectPurchaseAction(formData: FormData): Promise<void> {
   const orderId = getStringField(formData, "orderId").trim();
   if (!orderId) {
@@ -782,6 +1159,22 @@ export async function adminDeletePurchaseOrderAction(
   });
   if (!order || order.type !== "PURCHASE") {
     return { ok: false, error: "Solo se pueden eliminar ordenes de compra." };
+  }
+
+  // Una compra con pagos no se borra (los abonos se irian con ella): solo se anula.
+  const paymentCount = await prisma.supplierLedgerEntry.count({
+    where: {
+      type: "PAYMENT",
+      OR: [
+        { orderId },
+        { orderItem: { orderId } },
+        { settlesEntry: { orderId } },
+        ...(order.purchaseCode ? [{ settlesEntry: { inventoryMovement: { purchaseCode: order.purchaseCode } } }] : []),
+      ],
+    },
+  });
+  if (paymentCount > 0) {
+    return { ok: false, error: "Esta compra tiene pagos: anúlala con un motivo." };
   }
 
   await prisma.$transaction(async (tx) => {

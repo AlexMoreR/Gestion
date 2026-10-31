@@ -41,6 +41,8 @@ type OrderEditItem = {
 type OrderActionsMenuProps = {
   orderId: string;
   status: OrderStatus;
+  // Una compra completada se puede anular (con motivo); una venta completada no.
+  isPurchase?: boolean;
   returnTo: string;
   items: OrderEditItem[];
   // Fecha actual de la orden (YYYY-MM-DD) para precargar el campo de edicion.
@@ -54,10 +56,11 @@ const STATUS_ACTIONS: Partial<Record<OrderStatus, { status: OrderStatus; label: 
   DISPATCHED: { status: "COMPLETED", label: "Cerrar orden" },
 };
 
-export function OrderActionsMenu({ orderId, status, returnTo, items, orderDate }: OrderActionsMenuProps) {
+export function OrderActionsMenu({ orderId, status, isPurchase = false, returnTo, items, orderDate }: OrderActionsMenuProps) {
   const statusAction = STATUS_ACTIONS[status];
-  const canCancel = status !== "COMPLETED" && status !== "CANCELLED";
+  const canCancel = status !== "CANCELLED" && (isPurchase || status !== "COMPLETED");
   const [editOpen, setEditOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
   // Modo elegido por producto dentro del modal (controlado).
   const [modes, setModes] = useState<Record<string, "STOCK" | "MANUFACTURE">>({});
   // Fecha de la orden dentro del modal (controlada).
@@ -100,19 +103,53 @@ export function OrderActionsMenu({ orderId, status, returnTo, items, orderDate }
           ) : null}
           {canCancel ? <DropdownMenuSeparator /> : null}
           {canCancel ? (
-            <form action={adminCancelOrderAction}>
-              <input type="hidden" name="returnTo" value={returnTo} />
-              <input type="hidden" name="orderId" value={orderId} />
-              <input type="hidden" name="note" value="Cancelada desde detalle" />
-              <DropdownMenuItem asChild>
-                <button type="submit" className="w-full text-destructive focus:text-destructive">
-                  Cancelar
-                </button>
-              </DropdownMenuItem>
-            </form>
+            <DropdownMenuItem
+              onSelect={() => setCancelOpen(true)}
+              className="text-destructive focus:text-destructive"
+            >
+              Cancelar
+            </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancelar orden</DialogTitle>
+          </DialogHeader>
+          <form action={adminCancelOrderAction} className="space-y-3">
+            <input type="hidden" name="returnTo" value={returnTo} />
+            <input type="hidden" name="orderId" value={orderId} />
+            <div className="space-y-1.5">
+              <label htmlFor="order-cancel-note" className="text-sm font-medium text-foreground">
+                Motivo
+              </label>
+              <textarea
+                id="order-cancel-note"
+                name="note"
+                required
+                rows={3}
+                placeholder="Por qué se cancela"
+                className="w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+              />
+              <p className="text-xs text-muted-foreground">
+                {isPurchase
+                  ? "La compra queda anulada con sus pagos visibles. El stock no cambia."
+                  : "El motivo queda en el historial de la orden."}
+              </p>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCancelOpen(false)}>
+                Volver
+              </Button>
+              <Button type="submit" variant="destructive">
+                Cancelar orden
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={editOpen} onOpenChange={(open) => (open ? null : setEditOpen(false))}>
         <DialogContent className="max-h-[88vh] max-w-lg overflow-y-auto">

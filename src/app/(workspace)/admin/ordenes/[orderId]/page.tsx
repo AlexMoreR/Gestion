@@ -519,6 +519,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           <OrderActionsMenu
             orderId={order.id}
             status={order.status}
+            isPurchase={order.type === "PURCHASE"}
             returnTo={returnTo}
             orderDate={toDateInputValue(order.createdAt)}
             items={order.items.map((item) => ({
