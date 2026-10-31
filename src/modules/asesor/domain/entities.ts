@@ -1,5 +1,6 @@
 // Modulo "asesor": consultas de SOLO LECTURA para el asesor de IA (servidor MCP).
 // Tipos planos, sin Prisma.
+import type { ProductSource } from "./product-source";
 
 // Un gasto operativo para el asesor (listar_gastos).
 export type ExpenseLine = {
@@ -49,6 +50,8 @@ export type SaleDetail = {
   // Origen de la venta (enum SaleOrigin; null = sin dato) y su detalle (anuncio, cuenta MK, linea).
   origin: string | null;
   originDetail: unknown;
+  // Si salio de stock o por fabricacion (con OF y proveedora), segun lo marcado en la orden.
+  productSource: ProductSource;
 };
 
 export type QuoteStatusCode = "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED";

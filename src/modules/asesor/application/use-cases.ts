@@ -202,6 +202,7 @@ export async function listSalesUseCase(
       origen: saleOriginLabel(detail?.origin ?? null),
       origen_codigo: effectiveOrigin(detail?.origin ?? null),
       origen_detalle: originDetailSummary(detail?.originDetail ?? null),
+      origen_producto: detail?.productSource ?? null,
     };
   };
 
@@ -520,6 +521,7 @@ export async function getSaleUseCase(deps: AsesorDependencies, codigo: string) {
     registrada_por: detail?.registeredBy?.name ?? null,
     origen: saleOriginLabel(detail?.origin ?? null),
     origen_detalle: originDetailSummary(detail?.originDetail ?? null),
+    origen_producto: detail?.productSource ?? null,
     productos: detail?.products ?? [],
     moneda: CURRENCY,
     total: roundMoney(ledger.input.total),
