@@ -61,10 +61,12 @@ import {
 } from "@/modules/expenses/application/register-expense-by-voice";
 import { EXPENSE_CATEGORY_WORDS, ExpenseDraftInputError, resolveCategoryName } from "@/modules/expenses/domain/expense-draft";
 import { createVoiceExpenseDeps } from "@/modules/expenses/infrastructure/voice-expense-deps";
+import { CierreInputError, cerrarMes, CIERRE_TOPE_AJUSTE, mesEnCursoBogota } from "@/modules/balances/application/close-month";
+import { createMonthCloseDeps } from "@/modules/balances/infrastructure/month-close-deps";
 import type { McpServerDefinition, McpToolDefinition, McpToolResult } from "./protocol";
 
 // Casi todas las herramientas son de SOLO LECTURA: solo llaman casos de uso de consulta.
-// La unica que escribe es registrar_gasto: solo guarda despues de que el dueno diga "si"
+// Escriben solo registrar_gasto y cerrar_mes: guardan despues de que el dueno diga "si"
 // (la foto del soporte es opcional y no se revisa).
 const READ_ONLY_ANNOTATIONS = {
   readOnlyHint: true,
@@ -597,6 +599,71 @@ export const asesorTools: McpToolDefinition[] = [
     },
   }),
   defineTool({
+    name: "cerrar_mes",
+    title: "Cerrar el mes (cuadre con el banco)",
+    description:
+      "Cierre de mes: el dueno dicta el saldo REAL de cada cuenta activa al final del mes (lo que dice el banco, la caja o la billetera) y Gestion lo compara con su saldo de cierre de ese mes. Si hay diferencia crea UN movimiento manual de ajuste por cuenta (ingreso si en Gestion faltaba plata, salida si sobraba) con la nota 'Cierre de mes AAAA-MM: cuadre con el banco', fechado el ultimo dia del mes. Una cuenta que ya tiene el ajuste de ese mes no se vuelve a ajustar. SIEMPRE en dos pasos: (1) confirmado=false (por defecto): NO guarda, devuelve el resumen; repitelo al dueno y pregunta '¿Lo ajusto?'. (2) SOLO si dice 'si', llama con los MISMOS datos y confirmado=true. Si un ajuste pasa del tope ($" + CIERRE_TOPE_AJUSTE.toLocaleString("es-CO") + ") NO se guarda: dile al dueno el monto, preguntale si el saldo esta bien dictado y, solo si lo confirma, llama otra vez con acepto_ajuste_grande=true. Responde al dueno con la frase de 'resumen', en una linea. Nada se borra: un ajuste equivocado se corrige con un movimiento contrario en Balances. Moneda: COP.",
+    schema: z.object({
+      mes: z.string().optional().describe("Mes que se cierra, AAAA-MM. Si se omite, el mes en curso (hora Colombia)."),
+      saldos: z
+        .array(
+          z.object({
+            cuenta: z.string().min(1).max(80).describe("Nombre de la cuenta (o efectivo, banco, billetera si hay una sola de ese tipo)."),
+            saldo: z.number().min(-1_000_000_000).max(1_000_000_000).describe("Saldo real de la cuenta en COP, ej. 2350000."),
+          }),
+        )
+        .min(1)
+        .max(30)
+        .describe("Saldo real de cada cuenta que dicto el dueno."),
+      confirmado: z.boolean().default(false).describe("false = solo mostrar el resumen. true = el dueno ya dijo 'si': guardar los ajustes."),
+      acepto_ajuste_grande: z
+        .boolean()
+        .default(false)
+        .describe("true solo si el dueno confirmo de nuevo un ajuste mayor al tope."),
+    }),
+    writes: true,
+    handler: async (args) => {
+      const actor = await createVoiceExpenseDeps().resolveActor();
+      if (!actor) {
+        throw new AsesorInputError("No hay un usuario administrador a cuyo nombre dejar el ajuste.");
+      }
+      try {
+        const mes = args.mes?.trim() || mesEnCursoBogota();
+        const result = await cerrarMes(createMonthCloseDeps(actor), {
+          mes,
+          dictados: args.saldos,
+          confirmado: args.confirmado,
+          aceptoAjusteGrande: args.acepto_ajuste_grande,
+        });
+        const pendienteGrande = !result.guardado && args.confirmado && result.grandes.length > 0;
+        return {
+          mes,
+          guardado: result.guardado,
+          resumen: result.resumen,
+          cuentas: result.lineas.map((linea) => ({
+            cuenta: linea.cuenta,
+            saldo_gestion: linea.saldoGestion,
+            saldo_real: linea.saldoReal,
+            diferencia: linea.diferencia,
+            ajuste: linea.ajuste ? { tipo: linea.ajuste.type === "IN" ? "ingreso" : "salida", monto: linea.ajuste.amount } : null,
+            ya_cerrada: linea.yaCerrada,
+          })),
+          cuentas_sin_saldo_dictado: result.faltan,
+          siguiente_paso: result.guardado
+            ? "Los ajustes YA quedaron guardados (no lo vuelvas a llamar). Dile al dueno la frase de 'resumen'."
+            : pendienteGrande
+              ? `NO se guardo: hay ajustes mayores a $${CIERRE_TOPE_AJUSTE.toLocaleString("es-CO")}. Preguntale al dueno si el saldo esta bien dictado; solo si lo confirma, llama otra vez con confirmado=true y acepto_ajuste_grande=true.`
+              : "Repite el resumen al dueno y pregunta '¿Lo ajusto?'. Si dice si, llama UNA vez mas con los mismos datos y confirmado=true.",
+        };
+      } catch (error) {
+        if (error instanceof CierreInputError) {
+          throw new AsesorInputError(error.message);
+        }
+        throw error;
+      }
+    },
+  }),
+  defineTool({
     name: "que_es_esta_aplicacion",
     title: "Qué es esta aplicación",
     description:
@@ -626,8 +693,8 @@ export const asesorTools: McpToolDefinition[] = [
 
 export const asesorMcpServer: McpServerDefinition = {
   name: "gestion-magilus",
-  version: "1.2.0",
+  version: "1.3.0",
   instructions:
-    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), asistencia (quien esta trabajando hoy, entradas y salidas, dias trabajados), saldos de cuentas, gastos del mes con la ganancia real (listar_gastos) y cuanto se le debe a cada proveedora orden por orden (deuda_con_proveedoras). Para entender el sistema completo usa primero que_es_esta_aplicacion. Todas las herramientas son de lectura salvo registrar_gasto, que es la unica que escribe: antes de guardar un gasto SIEMPRE repite el resumen al dueno y espera su 'si' (primero registrar_gasto con confirmado=false, luego confirmado=true), y el gasto queda guardado al confirmar (confirmado=true, UNA sola vez: dos llamadas crean dos gastos). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
+    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), asistencia (quien esta trabajando hoy, entradas y salidas, dias trabajados), saldos de cuentas (y cierre de mes: cuadre con el banco), gastos del mes con la ganancia real (listar_gastos) y cuanto se le debe a cada proveedora orden por orden (deuda_con_proveedoras). Para entender el sistema completo usa primero que_es_esta_aplicacion. Todas las herramientas son de lectura salvo registrar_gasto y cerrar_mes, las unicas que escriben. cerrar_mes: el dueno dicta el saldo real de cada cuenta y se crea un ajuste por cuenta si no cuadra; SIEMPRE primero confirmado=false, repite el resumen y espera su 'si'. registrar_gasto: antes de guardar un gasto SIEMPRE repite el resumen al dueno y espera su 'si' (primero registrar_gasto con confirmado=false, luego confirmado=true), y el gasto queda guardado al confirmar (confirmado=true, UNA sola vez: dos llamadas crean dos gastos). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
   tools: asesorTools,
 };

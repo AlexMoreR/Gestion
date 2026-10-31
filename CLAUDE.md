@@ -312,6 +312,7 @@ Route handlers reales (`route.ts`):
 | `/api/mcp/[key]` | POST | Lo mismo, con la llave dentro de la ruta (clientes sin headers, ej. claude.ai). | Llave en la URL |
 | `/api/catalogo/productos` | GET | **Catálogo para otras apps** (el CRM se sincroniza desde acá): código, nombre, descripción, categoría, precio, precio mayorista, imágenes (URL absoluta) y si está oculto. **Nunca costo ni margen.** Módulo `src/modules/catalogo-externo`. | Llave `CATALOGO_API_KEY` (o `MCP_API_KEY` si no existe) |
 | `/api/dudas/respuestas` | GET | **Respuestas de Dudas del catálogo** para Claude: `?estado=todas|pendientes|respondidas` (def. todas), `?grupo=`, `?historial=1` → `{ total, pendientes, respondidas, dudas: [{ id, codigo, grupo, titulo, duda, datos, opciones, respondida, respuesta: { opcion_id, opcion, texto, nota, por, fecha }, historial? }] }`. Solo lectura. | Llave `DUDAS_API_KEY` (si no, `CATALOGO_API_KEY`, si no `MCP_API_KEY`) |
+| `/api/cierre-mes/pendiente` | GET | **Aviso del cierre de mes para el CRM** (solo lectura, sin saldos): `{ mes, ultimo_dia, ya_cerrado, enviar, destino, cuentas, mensaje }`. `enviar` = hoy es el último día en Colombia y el mes no se ha cerrado. | Llave `CIERRE_MES_API_KEY` (si no, `CATALOGO_API_KEY`, si no `MCP_API_KEY`) |
 | `/api/ventas/origen` | POST | **Origen de la venta desde el CRM.** `{ quoteCode, origin, originDetail?, linea?, contactPhone? }` → 200 `{ ok, quoteCode, origin, saleUpdated }` / 404 `{ error: "cotizacion_no_existe" }` / 400 `{ error: "datos_invalidos" }`. `contactPhone` solo decide recurrencia; no se guarda. Contrato acordado con AgenteLite: **no cambiarlo**. | Misma llave del catálogo o de transporte |
 | `/api/transporte/ubicaciones` | GET/POST | **Envíos para el CRM.** GET `?q=&producto=&limit=` (q normalizado ≥ 2, limit 1..50, def. 20) → `{ resultados: [{ tipo, id, cityId, nombre, ciudad, departamento, envio, pendienteRevision, exacta, cotizacion }], producto }`; `cotizacion` (`{tipo, envio, total}`) solo si vino `producto` y existe. POST `{ cityId, nombre (2..80), origen? }` → 201 `{creado:true,id,nombre}` / 200 `{creado:false,...}` si ya existía / 404 ciudad no encontrada; lo nuevo queda "pendiente de revisar". El CRM ya está programado contra este contrato: **no cambiarlo**. | Llave `TRANSPORTE_API_KEY` (si no, `CATALOGO_API_KEY`, si no `MCP_API_KEY`) |
 
@@ -327,7 +328,14 @@ Route handlers reales (`route.ts`):
   herramienta que escribe es `registrar_gasto` (anotada sin `readOnlyHint`; ver "Gastos por voz").
 - Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_abonos`, `ver_venta`, `listar_cotizaciones`,
   `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `equipo`, `asistencia`, `saldos_de_cuentas`,
-  `listar_gastos`, `deuda_con_proveedoras`, `registrar_gasto` y `que_es_esta_aplicacion`.
+  `listar_gastos`, `deuda_con_proveedoras`, `registrar_gasto`, `cerrar_mes` y `que_es_esta_aplicacion`.
+- **Cierre de mes** (`cerrar_mes`, nov-2026, sin migración): el dueño dicta el saldo real de cada cuenta activa;
+  se compara con el saldo de cierre del mes (`listAccountBalances(periodo).balance`) y, si no cuadra, se crea UN
+  `AccountMovement` por cuenta (IN si en Gestión faltaba, OUT si sobraba) con nota `Cierre de mes AAAA-MM: cuadre
+  con el banco`, fechado el último día a mediodía UTC. Dos pasos (`confirmado`); no duplica (busca la nota, con
+  candado por cuenta); tope $5.000.000 (`acepto_ajuste_grande`); bitácora `ACCOUNT` `cierre-mes:AAAA-MM` siempre
+  (marca el mes como cerrado). Reglas en `src/modules/balances/application/close-month.ts`. El aviso por WhatsApp
+  del último día lo manda el CRM leyendo `/api/cierre-mes/pendiente`; Gestión no envía WhatsApp.
 - `deuda_con_proveedoras` (oct-2026, solo lectura): `proveedora` (nombre, sin tildes) y `desde`/`hasta` (fecha de
   la OF) opcionales → por orden: OF, orden, venta, cliente, productos con color, `costo_acordado`, `pagos[]`
   (fecha, cuenta, monto) y `falta`; por proveedora `debemos_total` = cargos − abonos (el saldo de la lista
@@ -495,6 +503,10 @@ con producción. Instalación y cómo restaurar: `README.md`. Fotos y comprobant
   en código (p. ej. categorías de gasto o los datos DANE de transporte).
 - **Zona horaria:** el servidor corre en `America/Bogota`; las fechas "de calendario" (fecha de gasto,
   entrega, etc.) se manejan con cuidado para no correrse de día/mes.
+- **Corte de mes (desde nov-2026):** medianoche de Colombia. Los rangos de mes siguen siendo de calendario
+  (`[día 1 00:00 UTC, …)`); las horas reales (pago completo, entrega) se pasan a hora de Colombia con
+  `fechaContable`/`enPeriodo` (`src/lib/corte-mes.ts`) y las fechas de calendario (medianoche UTC exacta) no se
+  corren. Antes de nov-2026 todo queda igual. El "mes en curso" se toma en Colombia (`ahoraBogota`).
 - **Fechas de negocio:** los ingresos/ganancias se reconocen cuando la venta queda **pagada por
   completo** (fecha de ese pago), aunque falte entregarla; la **contraentrega**, por fecha de entrega
   (orden `COMPLETED`). Nunca por fecha de creación de la venta.

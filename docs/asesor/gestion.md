@@ -48,7 +48,7 @@ en las Server Actions y en `src/lib/`.
 - `nomina`: nómina del mes (salario básico de cada persona + comisiones − lo ya pagado) y el dinero de hoy por cuenta. La configuración (básicos, TRM, días trabajados) vive en `AppSetting` (`payrollConfig`); los pagos son gastos de la categoría Nómina.
 - `equipo`: ficha de cada trabajador (ingreso, salida, contacto, forma de pago) y las reglas de estado Activo/Retirado, edad y "¿trabajaba en tal fecha?". La nómina, las comisiones y las asignaciones la usan para incluir a los activos y sacar a los retirados.
 - `asistencia`: registro de entrada y salida (hora del servidor), correcciones con motivo hechas por un admin, asistencia de hoy y por mes, y los días trabajados del mes que usa la nómina por día desde nov-2026.
-- `asesor`: consultas para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones, nómina, equipo, asistencia, saldos de cuentas, gastos del mes con la ganancia real (`listar_gastos`), cuánto se le debe a cada proveedora orden por orden (`deuda_con_proveedoras`) y esta radiografía. Es de solo lectura salvo `registrar_gasto` (ver reglas). También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
+- `asesor`: consultas para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones, nómina, equipo, asistencia, saldos de cuentas, gastos del mes con la ganancia real (`listar_gastos`), cuánto se le debe a cada proveedora orden por orden (`deuda_con_proveedoras`) y esta radiografía. Es de solo lectura salvo `registrar_gasto` y `cerrar_mes` (ver reglas). También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
 
 ## Entidades
 
@@ -287,6 +287,21 @@ queda pagada y entra a Balances y comisiones), pero no entra a ninguna cuenta ni
 "plata sin cuenta". No se resta de la ganancia (es un anticipo de impuesto, no un costo). Reporte por
 mes y total del año en `/admin/ventas/retenciones`, con descarga CSV para el contador.
 
+**Corte de mes (desde nov-2026).** El mes termina a medianoche de Colombia, no de UTC (7 p. m.).
+Las horas reales (pago completo, entrega) se pasan a hora de Colombia antes de decidir el mes
+(`fechaContable` en `src/lib/corte-mes.ts`); las fechas escritas por el usuario (gasto, abono,
+movimiento) no se corren. Los meses anteriores a noviembre de 2026 no cambian. Un pago a las 8 p. m.
+del 31-oct ya cuenta en octubre.
+
+**Cierre de mes (`cerrar_mes`).** El dueño le dicta a Claude el saldo real de cada cuenta activa y
+Gestión lo compara con su saldo de cierre del mes. Si no cuadra, crea UN movimiento manual por cuenta
+(ingreso si en Gestión faltaba plata, salida si sobraba), con la nota "Cierre de mes AAAA-MM: cuadre
+con el banco", fechado el último día del mes, y responde en una línea ("Cuadró" o "En X faltaban N
+pesos, ya quedó ajustado"). Dos pasos (resumen y "sí"); una cuenta ya ajustada ese mes no se vuelve a
+ajustar; un ajuste de más de $5.000.000 pide confirmarse aparte. Nada se borra: un error se corrige
+con un movimiento contrario. El CRM lee `/api/cierre-mes/pendiente` (llave) para mandar el aviso del
+último día a Alexander por la línea Admin.
+
 ## Qué NO tiene el sistema
 
 - El **origen** de las ventas anteriores a oct-2026 casi siempre es "Sin dato" (se puede rellenar con `npm run origen:rellenar`, que cruza el teléfono del cliente con el CRM).
@@ -297,6 +312,7 @@ mes y total del año en `/admin/ventas/retenciones`, con descarga CSV para el co
 - Los reportes de ganancia **no incluyen ventas con saldo pendiente** ni contraentregas sin entregar. Una venta pagada sin entregar sí cuenta; su costo puede subir después si al despachar se registra un flete o se confirma otro costo de proveedora.
 - La contribución (`resumen_del_mes`) **no descuenta gastos operativos**; esos están en el módulo Gastos. La ganancia real con gastos sale de `listar_gastos`.
 - Por `registrar_gasto` la foto del soporte es **opcional y no se revisa**, así que puede haber gastos sin comprobante o con una foto que no corresponde (la pantalla de Gastos muestra cuáles no tienen foto). Confirmar dos veces crea dos gastos. No hay forma de borrar ni editar un gasto por Claude: se hace desde la pantalla de Gastos.
+- Gestión **no envía WhatsApp**: el aviso del cierre de mes depende de que el CRM lea `/api/cierre-mes/pendiente` y lo mande. Sin eso, el cierre se hace igual dictándole los saldos a Claude.
 - Un usuario con historial (ventas, cotizaciones, gastos) **no se puede borrar** y no existe "desactivar usuario": hay que quitarle módulos o cambiarle el rol. Dar de baja en Equipo no le quita el acceso a Gestión.
 - La **asistencia** solo la marcan los usuarios Empleado o Admin: una ficha de Equipo sin usuario no puede marcar ni aparece en Asistencia (hay que crearle un usuario, aunque nunca entre, y un admin marca por esa persona). No hay geolocalización ni foto al marcar. La nómina no prorratea el básico del mes de ingreso o salida: se avisa para revisarlo.
 - No hay **pruebas automáticas** en el pipeline de despliegue (ver riesgos).
