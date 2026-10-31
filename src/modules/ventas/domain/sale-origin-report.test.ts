@@ -42,6 +42,11 @@ describe("groupByMonth", () => {
     expect(months.map((month) => month.month)).toEqual(["2026-09", "2026-08"]);
     expect(months[0].totals).toMatchObject({ count: 2, revenue: 5 });
   });
+
+  it("desde nov-2026 una venta pagada a las 8 p. m. del ultimo dia (Colombia) queda en su mes", () => {
+    const months = groupByMonth([sale({ amount: 1, recognizedAt: new Date("2026-12-01T01:00:00Z") })]);
+    expect(months.map((month) => month.month)).toEqual(["2026-11"]);
+  });
 });
 
 describe("por anuncio", () => {

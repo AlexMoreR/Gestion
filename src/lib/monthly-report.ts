@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { ahoraBogota } from "@/lib/corte-mes";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import type { DateRange } from "@/modules/balances/domain/entities";
 
@@ -54,8 +55,9 @@ export function monthRange(monthKey: string): DateRange | null {
 
 // Mes anterior al actual (por defecto del informe: "el mes pasado").
 export function previousMonthKey(now: Date = new Date()): string {
-  const year = now.getUTCFullYear();
-  const month = now.getUTCMonth(); // 0-based; el mes anterior es este indice
+  const bogota = ahoraBogota(now);
+  const year = bogota.getUTCFullYear();
+  const month = bogota.getUTCMonth(); // 0-based; el mes anterior es este indice
   const date = new Date(Date.UTC(year, month - 1, 1));
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }

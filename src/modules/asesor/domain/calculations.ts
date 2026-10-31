@@ -1,4 +1,5 @@
 // Calculos puros del asesor. Imports relativos (Vitest no resuelve el alias "@/").
+import { fechaContable } from "../../../lib/corte-mes";
 import { calculateMarginPctFromPrice, calculateProfit, roundMoney } from "../../../lib/pricing";
 import type { DashboardMetrics } from "../../balances/domain/entities";
 import type {
@@ -273,7 +274,7 @@ export function computeCommissions(sales: CommissionSaleInput[], fixedRates: Com
         const base = sale.profit > 0 ? sale.profit : 0;
         const line: CommissionLine = {
           venta: sale.saleCode,
-          fecha: formatDay(sale.recognizedAt),
+          fecha: formatDay(fechaContable(sale.recognizedAt)),
           numero_en_el_mes: index + 1,
           ganancia: roundMoney(sale.profit),
           tasa_pct: roundMoney(rate * 100),
@@ -297,7 +298,7 @@ export function computeCommissions(sales: CommissionSaleInput[], fixedRates: Com
 
   const unassignedLines = sortSales(unassigned).map((sale) => ({
     venta: sale.saleCode,
-    fecha: formatDay(sale.recognizedAt),
+    fecha: formatDay(fechaContable(sale.recognizedAt)),
     ganancia: roundMoney(sale.profit),
   }));
 

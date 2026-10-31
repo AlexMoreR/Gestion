@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { ahoraBogota } from "@/lib/corte-mes";
 import type {
   CreateExpenseCategoryInput,
   CreateExpenseInput,
@@ -102,7 +103,8 @@ const categorySelect = {
 function startOfCurrentMonth(reference: Date): Date {
   // En UTC: las fechas de gasto se guardan como medianoche UTC, asi que el corte
   // de "mes en curso" debe usar el mismo huso para no desfasar el dia 1.
-  return new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth(), 1));
+  const bogota = ahoraBogota(reference); // mes en curso en Colombia
+  return new Date(Date.UTC(bogota.getUTCFullYear(), bogota.getUTCMonth(), 1));
 }
 
 export function createPrismaExpensesRepository(): ExpensesRepository {

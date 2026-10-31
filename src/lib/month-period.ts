@@ -1,4 +1,5 @@
 import type { DateRange } from "@/modules/balances/domain/entities";
+import { ahoraBogota } from "./corte-mes";
 
 export type ResolvedMonth = {
   period: DateRange;
@@ -11,11 +12,11 @@ export type ResolvedMonth = {
 // Resuelve un mes solicitado (YYYY-MM) o el mes en curso por defecto, y devuelve
 // el rango semiabierto [from, to) en UTC junto con el valor y la etiqueta.
 //
-// Limites en UTC: las fechas de gasto/pago se guardan como medianoche UTC, asi
+// Limites en UTC (las horas reales se pasan a Colombia al comparar, ver corte-mes.ts): las fechas de gasto/pago se guardan como medianoche UTC, asi
 // que un movimiento del dia 1 cae dentro de su mes y no del anterior. Es la misma
 // convencion que usa la pagina de Balances.
 export function resolveMonthPeriod(monthParam?: string): ResolvedMonth {
-  const now = new Date();
+  const now = ahoraBogota(); // el mes en curso es el de Colombia, no el de UTC
   let year = now.getUTCFullYear();
   let monthIndex = now.getUTCMonth();
 

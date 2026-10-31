@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { enPeriodo } from "@/lib/corte-mes";
 import type {
   BalancesRepository,
   CreateAccountInput,
@@ -224,12 +225,12 @@ function buildProfitWhere(search?: string): Prisma.SaleWhereInput {
 
 // Mes en que cuenta la venta: SaleProfit.createdAt ya viene con la fecha de
 // reconocimiento (pago completo; en contraentrega, la ultima entrega). Se filtra
-// en JS para no depender de campos que "deshacer / re-entregar" pueden desajustar.
+// en JS (con el corte de Colombia, ver corte-mes.ts) para no depender de campos que "deshacer / re-entregar" pueden desajustar.
 function filterByRecognitionPeriod(rows: SaleProfit[], period?: DateRange): SaleProfit[] {
   if (!period) {
     return rows;
   }
-  return rows.filter((row) => row.createdAt >= period.from && row.createdAt < period.to);
+  return rows.filter((row) => enPeriodo(row.createdAt, period));
 }
 
 // onlyRecognized: solo las ventas que cuentan en Balances (resolveProfitRecognition).

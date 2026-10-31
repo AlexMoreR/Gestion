@@ -2,6 +2,7 @@
 // Las ventas que entran y su monto/fecha vienen de Balances (ver la pagina): aqui solo se agrupan.
 
 import { adKeyFromDetail, effectiveOrigin, SALE_ORIGIN_LABEL, SALE_ORIGIN_ORDER, type SaleOriginCode } from "./sale-origin";
+import { fechaContable } from "../../../lib/corte-mes";
 
 export type OriginReportSale = {
   saleId: string;
@@ -74,8 +75,9 @@ export function summarizeByOrigin(sales: OriginReportSale[]): OriginReportRow[] 
   }).filter((row) => row.count > 0 || row.origin === "SIN_DATO");
 }
 
-// Mes en UTC: misma convencion de limites de mes que Balances (resolveMonthPeriod).
-export function monthKey(date: Date): string {
+// Mes con el mismo corte que Balances (corte de Colombia desde nov-2026, ver corte-mes.ts).
+export function monthKey(rawDate: Date): string {
+  const date = fechaContable(rawDate);
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
