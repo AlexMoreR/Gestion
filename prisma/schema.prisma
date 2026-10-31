@@ -125,6 +125,7 @@ model Product {
   orderItems         OrderItem[]
   bundleComponents   ProductComponent[]  @relation("BundleParent")
   partOfBundles      ProductComponent[]  @relation("BundleChild")
+  alternateOf        ProductComponentAlternate[]
   inventoryMovements InventoryMovement[]
   reviews            ProductReview[]
 }
@@ -151,10 +152,27 @@ model ProductComponent {
   createdAt DateTime @default(now())
   parent    Product  @relation("BundleParent", fields: [parentId], references: [id], onDelete: Cascade)
   child     Product  @relation("BundleChild", fields: [childId], references: [id], onDelete: Restrict)
+  alternates ProductComponentAlternate[]
 
   @@unique([parentId, childId])
   @@index([parentId])
   @@index([childId])
+}
+
+// Pieza alterna de un componente de combo (ej. butaco BMV016 o BMV003): el
+// stock del componente suma la principal y sus alternas; al vender por stock
+// sale la que alcance. Misma cantidad por combo que la principal.
+model ProductComponentAlternate {
+  id          String           @id @default(cuid())
+  componentId String
+  productId   String
+  sortOrder   Int              @default(0)
+  createdAt   DateTime         @default(now())
+  component   ProductComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  product     Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([componentId, productId])
+  @@index([productId])
 }
 
 model ProductImage {

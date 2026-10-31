@@ -25,6 +25,7 @@ import { InventoryMovementEditDialog } from "./components/inventory-movement-edi
 import { MinStockFormDialog } from "./components/min-stock-form-dialog";
 import { ProductEditModal } from "@/components/admin/product-edit-modal";
 import { ProductCostModal } from "@/components/admin/product-cost-modal";
+import { comboStock } from "@/lib/combo";
 import type {
   BundleProductOption,
   ProductWorkspaceOption,
@@ -96,18 +97,13 @@ export function InventoryWorkspace({
     const combos = editableProducts
       .filter((product) => product.isBundle && product.components.length > 0)
       .map((product) => {
-        const buildable = Math.min(
-          ...product.components.map((component) =>
-            component.quantity > 0
-              ? Math.floor((stockMap.get(component.childId) ?? 0) / component.quantity)
-              : 0,
-          ),
-        );
+        // Solo la pieza principal: las salidas manuales de combos no usan alternas.
+        const buildable = comboStock(product.components, (productId) => stockMap.get(productId) ?? 0);
         return {
           id: product.id,
           name: `${product.name} (Combo)`,
           code: product.code,
-          stock: Number.isFinite(buildable) ? Math.max(0, buildable) : 0,
+          stock: buildable,
         };
       });
 

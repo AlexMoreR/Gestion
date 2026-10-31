@@ -30,7 +30,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ProductThumb } from "@/components/admin/product-thumb";
-import { expandComboLines, type ComboComponent } from "@/lib/combo";
+import { expandComboLines, pickComboPieces, type ComboComponent } from "@/lib/combo";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { calculateQuoteLineTotal } from "@/lib/quote-item-meta";
 import { imageVariantUrl } from "@/lib/image-variants";
@@ -501,7 +501,10 @@ export function QuoteWizardModal({
     // lineas (proporcional a su valor) para que ninguna linea quede recortada a
     // 0 y el desglose cuadre con el total.
     if (draftProduct?.isBundle && draftProduct.components && draftProduct.components.length > 0) {
-      const expanded = expandComboLines(draftProduct.components, quantity, unitPrice);
+      // Por stock: cada pieza sale de la que hay (principal o alterna, ej. butaco BMV016 o BMV003).
+      const pieces =
+        draftFulfillmentMode === "STOCK" ? pickComboPieces(draftProduct.components, quantity) : draftProduct.components;
+      const expanded = expandComboLines(pieces, quantity, unitPrice);
       const weights = expanded.map((line) => line.quantity * line.unitPrice);
       const discountParts = distributeAmount(discount, weights);
       const additionalParts = distributeAmount(additionalCost, weights);

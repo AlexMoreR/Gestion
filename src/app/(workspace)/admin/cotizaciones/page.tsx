@@ -5,6 +5,7 @@ import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
+import { comboStock } from "@/lib/combo";
 import { getSystemCurrency } from "@/lib/system-settings";
 import {
   COMBO_CHECK_PRODUCT_SELECT,
@@ -73,7 +74,7 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
         },
         bundleComponents: {
           orderBy: { sortOrder: "asc" },
-          include: { child: true },
+          include: { child: true, alternates: { orderBy: { sortOrder: "asc" }, include: { product: true } } },
         },
       },
       take: 500,
@@ -92,18 +93,11 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
   ]);
 
   // Stock de productos normales; para combos, cuantos se pueden armar con sus
-  // componentes (minimo de stock del componente / unidades requeridas).
+  // piezas (cada pieza suma su stock y el de sus alternas).
   const stockByProduct = new Map(stockRows.map((row) => [row.productId, row._sum.change ?? 0]));
-  const stockFor = (product: (typeof products)[number]): number => {
-    if (product.isBundle) {
-      const valid = product.bundleComponents.filter((component) => component.quantity > 0);
-      if (valid.length === 0) return 0;
-      return Math.min(
-        ...valid.map((component) => Math.floor((stockByProduct.get(component.childId) ?? 0) / component.quantity)),
-      );
-    }
-    return stockByProduct.get(product.id) ?? 0;
-  };
+  const stockOf = (productId: string) => stockByProduct.get(productId) ?? 0;
+  const stockFor = (product: (typeof products)[number]): number =>
+    product.isBundle ? comboStock(product.bundleComponents, stockOf) : stockOf(product.id);
 
   return (
     <section className="w-full space-y-4">
@@ -164,6 +158,16 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
             quantity: component.quantity,
             retailPrice: Number(component.child.price),
             thumbnailUrl: getPublicAssetUrl(component.child.thumbnailUrl),
+            stock: stockOf(component.childId),
+            alternates: component.alternates.map((alternate) => ({
+              productId: alternate.productId,
+              name: alternate.product.name,
+              code: alternate.product.code,
+              quantity: component.quantity,
+              retailPrice: Number(alternate.product.price),
+              thumbnailUrl: getPublicAssetUrl(alternate.product.thumbnailUrl),
+              stock: stockOf(alternate.productId),
+            })),
           })),
         }))}
       />

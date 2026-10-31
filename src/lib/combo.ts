@@ -13,6 +13,8 @@ export type ComboComponent = {
   quantity: number; // unidades del componente por cada combo
   retailPrice: number; // precio individual del componente (peso para repartir)
   thumbnailUrl?: string | null;
+  stock?: number; // existencias de la pieza (para escoger la que hay al vender por stock)
+  alternates?: ComboComponent[]; // piezas que pueden ir en su lugar (misma cantidad por combo)
 };
 
 export type ExpandedComboLine = {
@@ -72,5 +74,39 @@ export function expandComboLines(
       quantity: lineQuantity,
       unitPrice,
     };
+  });
+}
+
+type StockComponent = { childId: string; quantity: number; alternates?: { productId: string }[] };
+
+/**
+ * Cuantos combos se pueden armar: minimo, por pieza, de (stock de la pieza
+ * principal + sus alternas) / unidades requeridas. Sin piezas validas, 0.
+ */
+export function comboStock(components: StockComponent[], stockOf: (productId: string) => number): number {
+  const valid = components.filter((component) => component.quantity > 0);
+  if (valid.length === 0) return 0;
+  const buildable = Math.min(
+    ...valid.map((component) => {
+      const ids = [component.childId, ...(component.alternates ?? []).map((alternate) => alternate.productId)];
+      const available = ids.reduce((sum, id) => sum + Math.max(0, stockOf(id)), 0);
+      return Math.floor(available / component.quantity);
+    }),
+  );
+  return Math.max(0, buildable);
+}
+
+/**
+ * Antes de partir un combo vendido "por stock": cambia cada pieza por la
+ * primera que tenga existencias para toda la cantidad (primero la principal,
+ * luego las alternas). Si ninguna alcanza, deja la principal.
+ * shortcut: no mezcla principal y alterna en una misma linea (ej. 1 BMV016 + 1 BMV003); si hiciera falta, partir la linea.
+ */
+export function pickComboPieces(components: ComboComponent[], comboQuantity: number): ComboComponent[] {
+  return components.map((component) => {
+    const needed = component.quantity * comboQuantity;
+    if ((component.stock ?? 0) >= needed) return component;
+    const alternate = (component.alternates ?? []).find((option) => (option.stock ?? 0) >= needed);
+    return alternate ? { ...alternate, quantity: component.quantity } : component;
   });
 }

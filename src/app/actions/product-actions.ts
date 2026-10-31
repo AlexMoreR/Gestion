@@ -113,6 +113,7 @@ type ParsedProductComponent = {
   childId: string;
   quantity: number;
   sortOrder: number;
+  alternateIds: string[]; // piezas alternas (misma cantidad por combo)
 };
 
 function parseProductComponents(formData: FormData): ParsedProductComponent[] {
@@ -139,17 +140,41 @@ function parseProductComponents(formData: FormData): ParsedProductComponent[] {
     }
 
     seenChildIds.add(childId);
-    components.push({ childId, quantity, sortOrder: components.length });
+    components.push({ childId, quantity, sortOrder: components.length, alternateIds: [] });
+  }
+
+  // Alternas: "<childId>:<alternaId>" por cada una (ver ProductBundleField).
+  for (const raw of formData.getAll("componentAlternates")) {
+    const [childId, alternateId] = typeof raw === "string" ? raw.trim().split(":") : [];
+    const component = components.find((item) => item.childId === childId);
+    if (!component || !alternateId || alternateId === childId || component.alternateIds.includes(alternateId)) {
+      continue;
+    }
+    component.alternateIds.push(alternateId);
   }
 
   return components;
+}
+
+// Datos para crear una pieza del combo con sus alternas (el orden de la lista es su orden).
+function componentCreateData(component: ParsedProductComponent) {
+  return {
+    childId: component.childId,
+    quantity: component.quantity,
+    sortOrder: component.sortOrder,
+    alternates: {
+      create: component.alternateIds.map((productId, index) => ({ productId, sortOrder: index })),
+    },
+  };
 }
 
 async function assertComponentsAreNotBundles(components: ParsedProductComponent[]): Promise<void> {
   if (components.length === 0) {
     return;
   }
-  const childIds = components.map((component) => component.childId);
+  const childIds = [
+    ...new Set(components.flatMap((component) => [component.childId, ...component.alternateIds])),
+  ];
   const found = await prisma.product.findMany({
     where: { id: { in: childIds } },
     select: { id: true, isBundle: true },
@@ -447,9 +472,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
           : undefined,
         bundleComponents: productComponents.length > 0
           ? {
-              createMany: {
-                data: productComponents,
-              },
+              create: productComponents.map(componentCreateData),
             }
           : undefined,
       },
@@ -565,7 +588,13 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
     if (isBundle && productComponents.length === 0) {
       throw new Error("Un combo debe tener al menos un componente.");
     }
-    if (isBundle && productComponents.some((component) => component.childId === parsed.data.productId)) {
+    if (
+      isBundle &&
+      productComponents.some(
+        (component) =>
+          component.childId === parsed.data.productId || component.alternateIds.includes(parsed.data.productId),
+      )
+    ) {
       throw new Error("Un combo no puede incluirse a si mismo como componente.");
     }
     if (isBundle) {
@@ -672,16 +701,12 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
       prisma.productComponent.deleteMany({
         where: { parentId: parsed.data.productId },
       }),
-      ...(productComponents.length > 0
-        ? [
-            prisma.productComponent.createMany({
-              data: productComponents.map((component) => ({
-                parentId: parsed.data.productId,
-                ...component,
-              })),
-            }),
-          ]
-        : []),
+      // Una por una para crear tambien sus alternas (createMany no anida).
+      ...productComponents.map((component) =>
+        prisma.productComponent.create({
+          data: { parentId: parsed.data.productId, ...componentCreateData(component) },
+        }),
+      ),
     ]);
   } catch (error) {
     buildErrorRedirect(redirectBase, resolveProductMutationError(error));

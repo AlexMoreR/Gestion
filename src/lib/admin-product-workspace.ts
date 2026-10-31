@@ -25,6 +25,7 @@ export type ProductWorkspaceRow = {
   components: Array<{
     childId: string;
     quantity: number;
+    alternateIds: string[];
   }>;
   thumbnailUrl: string;
   imageUrls: string[];
@@ -78,6 +79,7 @@ export async function getProductWorkspaceData(): Promise<ProductWorkspaceData> {
         },
         bundleComponents: {
           orderBy: { sortOrder: "asc" },
+          include: { alternates: { orderBy: { sortOrder: "asc" }, select: { productId: true } } },
         },
       },
     }),
@@ -117,6 +119,8 @@ export async function getProductWorkspaceData(): Promise<ProductWorkspaceData> {
       components: product.bundleComponents.map((component) => ({
         childId: component.childId,
         quantity: component.quantity,
+        // Se reenvian al guardar: editar el combo borra y recrea sus piezas.
+        alternateIds: component.alternates.map((alternate) => alternate.productId),
       })),
       thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
       imageUrls: product.images.map((image) => getPublicAssetUrl(image.url)),
