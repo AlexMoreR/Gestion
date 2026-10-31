@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { adminModuleDefinitions } from "@/lib/admin-module-access";
+import { stripCodeZeros } from "@/lib/code-display";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import { APP_OVERVIEW_SECTIONS, describeApplicationUseCase } from "../../application/describe-application";
 import {
@@ -89,8 +90,9 @@ function getDependencies(): AsesorDependencies {
 }
 
 // JSON compacto: el asesor de IA no necesita sangrias y asi ahorra tokens.
+// Los codigos salen sin ceros (SAL-81), igual que en las pantallas.
 function textResult(data: unknown): McpToolResult {
-  return { content: [{ type: "text", text: JSON.stringify(data) }] };
+  return { content: [{ type: "text", text: stripCodeZeros(JSON.stringify(data)) }] };
 }
 
 function errorResult(message: string): McpToolResult {
@@ -198,7 +200,7 @@ export const asesorTools: McpToolDefinition[] = [
       ...rangeArgs,
       vendedora: z.string().optional().describe("Parte del nombre de la vendedora (sin importar tildes)."),
       cliente: z.string().optional().describe("Parte del nombre del cliente (sin importar tildes)."),
-      venta: z.string().optional().describe("Codigo de la venta, ej. SAL-00069 o 69."),
+      venta: z.string().optional().describe("Codigo de la venta, ej. SAL-69, SAL-00069 o 69."),
     }),
     handler: (args, deps) =>
       listPaymentsUseCase(deps, args.desde, args.hasta, {
@@ -213,7 +215,7 @@ export const asesorTools: McpToolDefinition[] = [
     description:
       "Detalle completo de una venta por su codigo: cotizacion, orden, cliente, vendedora, origen, productos, forma de pago, cada abono con su fecha, cuenta, si es retencion en la fuente (con su certificado) y si fue retroactivo, fechas (cotizacion, creacion, primer abono, pago completo, entrega), total, pagado, saldo pendiente, si ya cuenta en Balances y su ganancia. Valores en COP.",
     schema: z.object({
-      venta: z.string().min(1).describe("Codigo de la venta, ej. SAL-00069 o 69."),
+      venta: z.string().min(1).describe("Codigo de la venta, ej. SAL-69, SAL-00069 o 69."),
     }),
     handler: (args, deps) => getSaleUseCase(deps, args.venta),
   }),

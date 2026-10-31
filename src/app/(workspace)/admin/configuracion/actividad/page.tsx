@@ -6,6 +6,7 @@ import { ConfigTabs } from "@/components/admin/config-tabs";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { storedCodeCandidates, stripCodeZeros } from "@/lib/code-display";
 import {
   Table,
   TableBody,
@@ -98,7 +99,10 @@ export default async function AdminConfiguracionActividadPage({ searchParams }: 
     ...(actorId ? { actorId } : {}),
     ...(action ? { action } : {}),
     ...(entityType ? { entityType } : {}),
-    ...(query ? { summary: { contains: query, mode: "insensitive" as const } } : {}),
+    // La bitácora guarda los códigos con ceros: "COT-150" busca también "COT-00150".
+    ...(query
+      ? { OR: storedCodeCandidates(query).map((text) => ({ summary: { contains: text, mode: "insensitive" as const } })) }
+      : {}),
   };
 
   let total = 0;
@@ -234,7 +238,7 @@ export default async function AdminConfiguracionActividadPage({ searchParams }: 
                       <TableCell className="text-sm text-slate-600">
                         {ENTITY_LABELS[log.entityType] ?? log.entityType}
                       </TableCell>
-                      <TableCell className="text-sm text-slate-700">{log.summary}</TableCell>
+                      <TableCell className="text-sm text-slate-700">{stripCodeZeros(log.summary)}</TableCell>
                     </TableRow>
                   ))
                 )}

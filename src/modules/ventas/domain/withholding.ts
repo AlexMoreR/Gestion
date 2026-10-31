@@ -4,6 +4,8 @@
 // isWithholding = true, sin cuenta (accountId NULL) y con certificado opcional.
 // Reglas puras: sin Prisma ni Next, para poder probarlas con Vitest.
 
+import { displayCode } from "../../../lib/code-display";
+
 export const WITHHOLDING_LABEL = "Retención en la fuente";
 
 // Valor que manda el formulario de abono en el campo "accountId" cuando se escoge la retencion.
@@ -166,7 +168,7 @@ export function withholdingsCsv(report: WithholdingReport): string {
   const lines = report.rows.map((row) =>
     [
       bogotaDateKey(row.date),
-      row.saleCode,
+      displayCode(row.saleCode),
       row.clientName,
       row.clientTaxId ?? "",
       String(roundMoney(row.amount)),

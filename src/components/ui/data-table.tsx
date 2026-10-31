@@ -15,6 +15,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Input } from "@/components/ui/input";
+import { stripCodeZeros } from "@/lib/code-display";
 import {
   Table,
   TableBody,
@@ -145,7 +146,11 @@ export function DataTable<TData>({
 
       return row
         .getAllCells()
-        .some((cell) => String(cell.getValue() ?? "").toLowerCase().includes(query));
+        .some((cell) => {
+          // El valor guarda el código con ceros (para ordenar); se busca también sin ceros.
+          const value = String(cell.getValue() ?? "");
+          return [value, stripCodeZeros(value)].some((text) => text.toLowerCase().includes(query));
+        });
     },
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),

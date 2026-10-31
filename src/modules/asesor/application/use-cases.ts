@@ -1,4 +1,5 @@
 import { roundMoney } from "../../../lib/pricing";
+import { displayCode } from "../../../lib/code-display";
 import { summarizeSupplierDebt } from "../../../lib/supplier-debt";
 import {
   getDashboardMetricsUseCase,
@@ -502,7 +503,7 @@ export async function getSaleUseCase(deps: AsesorDependencies, codigo: string) {
   const code = normalizeSaleCode(codigo);
   const [ledger] = await loadLedgers(deps, { saleCodes: [code] });
   if (!ledger) {
-    throw new AsesorInputError(`No existe la venta ${code}. Usa el codigo SAL-..., por ejemplo SAL-00069.`);
+    throw new AsesorInputError(`No existe la venta ${displayCode(code)}. Usa el codigo SAL-..., por ejemplo SAL-69.`);
   }
 
   const [details, profit] = await Promise.all([

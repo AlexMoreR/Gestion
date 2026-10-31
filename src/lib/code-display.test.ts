@@ -43,3 +43,12 @@ describe("storedCodeCandidates", () => {
     expect(stored.map((code) => displayCode(code))).toEqual(["OF-9", "OF-35"]);
   });
 });
+
+describe("nombres de documentos", () => {
+  it("factura y PDF sin ceros", async () => {
+    const { formatInvoiceNumber, invoicePdfFileName, quotePdfFileName } = await import("./document-names");
+    expect(formatInvoiceNumber("SAL-00012")).toBe("112");
+    expect(invoicePdfFileName("SAL-00012")).toBe("FACTURA 112.pdf");
+    expect(quotePdfFileName("COT-00150")).toBe("COTIZACION COT-150.pdf");
+  });
+});

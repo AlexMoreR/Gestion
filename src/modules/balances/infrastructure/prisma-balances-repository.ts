@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
+import { storedCodeCandidates } from "@/lib/code-display";
 import { prisma } from "@/lib/prisma";
 import type {
   BalancesRepository,
@@ -180,7 +181,9 @@ function buildSupplierPaymentWhere(search?: string): Prisma.SupplierLedgerEntryW
       { transactionReference: { contains: normalizedSearch, mode: "insensitive" } },
       { note: { contains: normalizedSearch, mode: "insensitive" } },
       { supplier: { name: { contains: normalizedSearch, mode: "insensitive" } } },
-      { sale: { code: { contains: normalizedSearch, mode: "insensitive" } } },
+      ...storedCodeCandidates(normalizedSearch).map((code) => ({
+        sale: { code: { contains: code, mode: "insensitive" as const } },
+      })),
     ],
   };
 }
@@ -195,7 +198,9 @@ function buildShippingWhere(search?: string): Prisma.ShippingCostWhereInput {
     OR: [
       { shippingProvider: { contains: normalizedSearch, mode: "insensitive" } },
       { transactionReference: { contains: normalizedSearch, mode: "insensitive" } },
-      { sale: { code: { contains: normalizedSearch, mode: "insensitive" } } },
+      ...storedCodeCandidates(normalizedSearch).map((code) => ({
+        sale: { code: { contains: code, mode: "insensitive" as const } },
+      })),
       { sale: { client: { name: { contains: normalizedSearch, mode: "insensitive" } } } },
     ],
   };
@@ -215,9 +220,12 @@ function buildProfitWhere(search?: string): Prisma.SaleWhereInput {
   return {
     ...base,
     OR: [
-      { code: { contains: normalizedSearch, mode: "insensitive" } },
       { client: { name: { contains: normalizedSearch, mode: "insensitive" } } },
-      { quote: { code: { contains: normalizedSearch, mode: "insensitive" } } },
+      // "SAL-81" y "SAL-00081" encuentran lo mismo.
+      ...storedCodeCandidates(normalizedSearch).flatMap((code) => [
+        { code: { contains: code, mode: "insensitive" as const } },
+        { quote: { code: { contains: code, mode: "insensitive" as const } } },
+      ]),
     ],
   };
 }

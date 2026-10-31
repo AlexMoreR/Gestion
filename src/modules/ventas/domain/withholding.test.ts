@@ -300,11 +300,11 @@ describe("withholdingsCsv", () => {
   });
 
   it("pone comillas a valores con ';'", () => {
-    expect(lines[1]).toBe('2026-10-20;SAL-00070;"Salón; Belleza";900123456-1;113575;CR-1');
+    expect(lines[1]).toBe('2026-10-20;SAL-70;"Salón; Belleza";900123456-1;113575;CR-1');
   });
 
   it("duplica comillas, usa fecha de Colombia y protege fórmulas", () => {
-    expect(lines[2]).toBe(`2026-10-31;SAL-00071;"Peluquería ""La 10""";;1000;"'=HYPERLINK(""x"")"`);
+    expect(lines[2]).toBe(`2026-10-31;SAL-71;"Peluquería ""La 10""";;1000;"'=HYPERLINK(""x"")"`);
   });
 
   it("protege fórmulas sin comillas", () => {
@@ -314,7 +314,7 @@ describe("withholdingsCsv", () => {
       ]),
     );
     const line = simple.replace(/^﻿/, "").split("\r\n")[1];
-    expect(line).toBe("2026-10-20;SAL-00001;'=1+1;;5;'+57");
+    expect(line).toBe("2026-10-20;SAL-1;'=1+1;;5;'+57");
   });
 
   it("fila final con el total del mes", () => {
