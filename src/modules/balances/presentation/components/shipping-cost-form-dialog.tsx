@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import {
   shippingCostCreateSchema,
 } from "@/modules/balances/application/schemas";
+import { displayCode } from "@/lib/code-display";
 
 type SaleOption = {
   id: string;
@@ -169,7 +170,7 @@ export function ShippingCostFormDialog({
                 <option value="">Selecciona una venta</option>
                 {sales.map((sale) => (
                   <option key={sale.id} value={sale.id}>
-                    {sale.code} - {sale.clientName ?? "Sin cliente"}
+                    {displayCode(sale.code)} - {sale.clientName ?? "Sin cliente"}
                   </option>
                 ))}
               </select>

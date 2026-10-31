@@ -5,6 +5,7 @@ import { Truck } from "lucide-react";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type { SaleProfit } from "@/modules/balances/domain/entities";
 import { BalancesDataGrid } from "./balances-data-grid";
+import { displayCode } from "@/lib/code-display";
 
 type ProfitReportTableProps = {
   data: SaleProfit[];
@@ -18,7 +19,7 @@ export function ProfitReportTable({ data, currency }: ProfitReportTableProps) {
       header: "Venta",
       cell: ({ row }) => (
         <div>
-          <p className="text-sm font-medium text-foreground">{row.original.saleCode}</p>
+          <p className="text-sm font-medium text-foreground">{displayCode(row.original.saleCode)}</p>
           <p className="text-xs text-muted-foreground">
             {new Date(row.original.createdAt).toLocaleDateString("es-CO")}
           </p>

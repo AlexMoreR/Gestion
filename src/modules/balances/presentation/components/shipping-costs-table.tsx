@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type { ShippingCostRow } from "@/modules/balances/domain/entities";
 import { BalancesDataGrid } from "./balances-data-grid";
+import { displayCode } from "@/lib/code-display";
 
 type ShippingCostsTableProps = {
   data: ShippingCostRow[];
@@ -27,7 +28,7 @@ export function ShippingCostsTable({ data, currency, onEdit, onDelete }: Shippin
       cell: ({ row }) => (
         <div>
           <p className="text-sm font-medium text-foreground">{row.original.shippingProvider}</p>
-          <p className="text-xs text-muted-foreground">Venta {row.original.saleCode}</p>
+          <p className="text-xs text-muted-foreground">Venta {displayCode(row.original.saleCode)}</p>
         </div>
       ),
     },

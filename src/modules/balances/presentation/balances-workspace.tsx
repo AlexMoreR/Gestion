@@ -21,6 +21,7 @@ import { AccountBalancesTable } from "./components/account-balances-table";
 import { AccountFormDialog } from "./components/account-form-dialog";
 import { MonthFilter } from "./components/month-filter";
 import { ExpensesWorkspace } from "@/modules/expenses/presentation/expenses-workspace";
+import { displayCode } from "@/lib/code-display";
 
 type SaleOption = {
   id: string;
@@ -161,7 +162,7 @@ export function BalancesWorkspace({
                       topSales.map((sale) => (
                         <div key={sale.saleId} className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2">
                           <div>
-                            <p className="text-sm font-medium text-foreground">{sale.saleCode}</p>
+                            <p className="text-sm font-medium text-foreground">{displayCode(sale.saleCode)}</p>
                             <p className="text-xs text-muted-foreground">{sale.clientName ?? "Sin cliente"}</p>
                           </div>
                           <p className="text-sm font-semibold text-emerald-600">{formatMoney(sale.netProfit, currency)}</p>
@@ -185,7 +186,7 @@ export function BalancesWorkspace({
                       bottomSales.map((sale) => (
                         <div key={sale.saleId} className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-2">
                           <div>
-                            <p className="text-sm font-medium text-foreground">{sale.saleCode}</p>
+                            <p className="text-sm font-medium text-foreground">{displayCode(sale.saleCode)}</p>
                             <p className="text-xs text-muted-foreground">{sale.clientName ?? "Sin cliente"}</p>
                           </div>
                           <p className={`text-sm font-semibold ${sale.netProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>

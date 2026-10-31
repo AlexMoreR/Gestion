@@ -26,6 +26,7 @@ import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { prisma } from "@/lib/prisma";
 import { paymentMethodLabel } from "@/modules/ventas/domain/withholding";
+import { displayCode } from "@/lib/code-display";
 
 type SaleWithDiscountFields = {
   grossTotal?: unknown;
@@ -305,7 +306,7 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
               <p className="text-xs text-slate-500">Ciudad: {clientCity || "Por confirmar"}</p>
               <p className="text-xs text-slate-500">Dirección: {deliveryAddress || "Por confirmar"}</p>
               <p className="text-xs text-slate-500">Referencia: {sale.client.neighborhood || "Por confirmar"}</p>
-              <p className="text-xs text-slate-500">Cotización ref: {sale.quote.code}</p>
+              <p className="text-xs text-slate-500">Cotización ref: {displayCode(sale.quote.code)}</p>
             </div>
           </div>
 
@@ -485,7 +486,7 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
               <p className="text-xs text-slate-500">Ciudad: {clientCity || "Por confirmar"}</p>
               <p className="text-xs text-slate-500">Dirección: {deliveryAddress || "Por confirmar"}</p>
               <p className="text-xs text-slate-500">Referencia: {sale.client.neighborhood || "Por confirmar"}</p>
-              <p className="text-xs text-slate-500">Cotización ref: {sale.quote.code}</p>
+              <p className="text-xs text-slate-500">Cotización ref: {displayCode(sale.quote.code)}</p>
             </div>
           </section>
 

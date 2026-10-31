@@ -15,6 +15,7 @@ import {
   SHIPMENT_STATUS_BADGE,
   SHIPMENT_STATUS_LABEL,
 } from "@/modules/guias/domain/statuses";
+import { displayCode } from "@/lib/code-display";
 
 // Lista de guias Magilus: activas, con novedad y entregadas.
 
@@ -157,7 +158,7 @@ export default async function AdminGuiasPage({ searchParams }: PageProps) {
                     ) : null}
                   </div>
                   <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                    {row.dispatch.order.code} · {row.dispatch.code}
+                    {displayCode(row.dispatch.order.code)} · {displayCode(row.dispatch.code)}
                     <ArrowUpRight className="h-3 w-3" />
                   </span>
                 </div>

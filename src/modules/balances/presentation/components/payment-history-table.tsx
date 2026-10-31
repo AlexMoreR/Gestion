@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type { PaymentHistoryRow } from "@/modules/balances/domain/entities";
 import { BalancesDataGrid } from "./balances-data-grid";
+import { displayCode } from "@/lib/code-display";
 
 type PaymentHistoryTableProps = {
   data: PaymentHistoryRow[];
@@ -36,7 +37,7 @@ export function PaymentHistoryTable({ data, currency, onEdit, onDelete }: Paymen
       cell: ({ row }) => (
         <div>
           <p className="text-sm font-medium text-foreground">{row.original.supplierName}</p>
-          <p className="text-xs text-muted-foreground">Venta {row.original.saleCode ?? "sin venta"}</p>
+          <p className="text-xs text-muted-foreground">Venta {displayCode(row.original.saleCode) ?? "sin venta"}</p>
         </div>
       ),
     },

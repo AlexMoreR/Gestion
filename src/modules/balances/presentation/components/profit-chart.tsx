@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/chart";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type { SaleProfit } from "@/modules/balances/domain/entities";
+import { displayCode } from "@/lib/code-display";
 
 type ProfitChartProps = {
   data: SaleProfit[];
@@ -49,6 +50,7 @@ export function ProfitChart({ data, currency }: ProfitChartProps) {
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="saleCode"
+              tickFormatter={(value) => displayCode(String(value))}
               tickLine={false}
               tickMargin={8}
               axisLine={false}
@@ -58,6 +60,7 @@ export function ProfitChart({ data, currency }: ProfitChartProps) {
               cursor={false}
               content={
                 <ChartTooltipContent
+                  labelFormatter={(value) => displayCode(String(value))}
                   formatter={(value) => (
                     <div className="flex flex-1 items-center justify-between gap-3">
                       <span className="text-muted-foreground">Ganancia neta</span>

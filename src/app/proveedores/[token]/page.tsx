@@ -8,6 +8,7 @@ import { distributeAmount } from "@/lib/dispatch-shipping-legs";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
+import { displayCode } from "@/lib/code-display";
 
 type PageProps = {
   params: Promise<{ token: string }>;
@@ -324,7 +325,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
           id: charge.id,
           orderCode,
           productName: "Envío",
-          productCode: charge.dispatch?.code ?? null,
+          productCode: displayCode(charge.dispatch?.code) ?? null,
           productImage: null,
           quantity: 1,
           amount,

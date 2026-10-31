@@ -11,6 +11,7 @@ import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { matchFreightPayments } from "@/modules/balances/domain/freight-without-account";
+import { displayCode } from "@/lib/code-display";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -130,7 +131,7 @@ export default async function FreightWithoutAccountPage({ searchParams }: PagePr
                       name="shippingCostIds"
                       value={row.id}
                       className="mt-1 h-4 w-4 shrink-0 accent-primary"
-                      aria-label={`Marcar flete de ${row.shippingProvider} de la venta ${row.sale.code}`}
+                      aria-label={`Marcar flete de ${row.shippingProvider} de la venta ${displayCode(row.sale.code)}`}
                     />
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-baseline justify-between gap-x-3">
@@ -140,8 +141,8 @@ export default async function FreightWithoutAccountPage({ searchParams }: PagePr
                         </span>
                       </span>
                       <span className="block text-xs text-muted-foreground">
-                        {dateLabel(row.paymentDate)} · {row.sale.code}
-                        {row.sale.order ? ` · ${row.sale.order.code}` : ""}
+                        {dateLabel(row.paymentDate)} · {displayCode(row.sale.code)}
+                        {row.sale.order ? ` · ${displayCode(row.sale.order.code)}` : ""}
                         {row.sale.client?.name ? ` · ${row.sale.client.name}` : ""}
                       </span>
                       {row.transactionReference ? (

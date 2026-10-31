@@ -14,6 +14,7 @@ import {
   getSystemWhatsAppPhoneDisplay,
 } from "@/lib/system-settings";
 import { PrintButton } from "./print-button";
+import { displayCode } from "@/lib/code-display";
 
 // Orden de fabricacion publica para la proveedora. A proposito NO muestra
 // precio de venta, margen ni datos personales del cliente (nombre, telefono).
@@ -108,10 +109,10 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
         <section className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Orden de fabricación</p>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{manufacturingOrder.code}</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{displayCode(manufacturingOrder.code)}</h1>
             <p className="text-sm text-slate-600">
               Para <span className="font-semibold text-slate-900">{supplierName}</span> · Pedido{" "}
-              {manufacturingOrder.order.code}
+              {displayCode(manufacturingOrder.order.code)}
             </p>
           </div>
           <p className="text-xs text-slate-500">

@@ -54,6 +54,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { toast } from "react-toastify";
 import { useFormStatus } from "react-dom";
+import { displayCode } from "@/lib/code-display";
 
 type QuoteStatus = "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED";
 
@@ -285,7 +286,7 @@ function RowActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones ${quote.code}`}>
+        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones ${displayCode(quote.code)}`}>
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
@@ -733,7 +734,7 @@ function SaleInstallmentsModal({
                   <span>Enviar a ventas</span>
                 </h2>
                 <Badge variant="outline" className="border-border bg-muted/40 text-foreground">
-                  {quote.code}
+                  {displayCode(quote.code)}
                 </Badge>
                 <Badge variant="outline" className="border-border bg-muted/40 text-foreground">
                   {installments.length} abonos
@@ -1166,7 +1167,7 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
         header: "Cotizacion",
         cell: ({ row }) => (
           <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
-            {row.original.code}
+            {displayCode(row.original.code)}
             <SaleOriginBadge origin={row.original.origin} detail={row.original.originDetail} />
           </p>
         ),
@@ -1323,7 +1324,7 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
             <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">
                 <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                  {quote.code}
+                  {displayCode(quote.code)}
                   <SaleOriginBadge origin={quote.origin} detail={quote.originDetail} />
                 </p>
                 <span className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClassName(quote.status)}`}>
@@ -1353,7 +1354,7 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
             <div className="space-y-1">
               <h3 className="text-base font-semibold text-foreground">Eliminar cotizacion</h3>
               <p className="text-sm text-muted-foreground">
-                Se eliminara <span className="font-medium text-foreground">{pendingDelete.code}</span>. Esta accion no se puede deshacer.
+                Se eliminara <span className="font-medium text-foreground">{displayCode(pendingDelete.code)}</span>. Esta accion no se puede deshacer.
               </p>
             </div>
             <div className="mt-5 flex items-center justify-end gap-2">

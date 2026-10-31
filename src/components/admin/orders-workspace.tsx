@@ -20,6 +20,7 @@ import { PurchaseDirectDialog } from "@/components/admin/purchase-direct-dialog"
 import { PurchaseDeleteMenuItem, PurchaseDeleteDialog } from "@/components/admin/purchase-delete-menu-item";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { getOrderStatusBadgeClassName, getOrderStatusLabel } from "@/lib/orders";
+import { displayCode } from "@/lib/code-display";
 
 type PurchaseProductOption = {
   id: string;
@@ -102,7 +103,7 @@ function RowActions({ order }: { order: OrderRow }) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones ${order.code}`}>
+          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones ${displayCode(order.code)}`}>
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -214,12 +215,12 @@ export function OrdersWorkspace({
     {
       accessorKey: "code",
       header: "Orden",
-      cell: ({ row }) => <span className="text-sm font-semibold text-foreground">{row.original.code}</span>,
+      cell: ({ row }) => <span className="text-sm font-semibold text-foreground">{displayCode(row.original.code)}</span>,
     },
     {
       accessorKey: "saleCode",
       header: "Venta",
-      cell: ({ row }) => <span className="text-sm text-foreground">{row.original.saleCode}</span>,
+      cell: ({ row }) => <span className="text-sm text-foreground">{displayCode(row.original.saleCode)}</span>,
     },
     {
       accessorKey: "clientName",
@@ -265,10 +266,10 @@ export function OrdersWorkspace({
     <article className="space-y-2.5 rounded-xl border border-border bg-card p-3">
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-semibold text-foreground">{order.code}</p>
+          <p className="text-sm font-semibold text-foreground">{displayCode(order.code)}</p>
           <StatusBadge order={order} />
         </div>
-        <p className="text-sm text-foreground">{order.saleCode}</p>
+        <p className="text-sm text-foreground">{displayCode(order.saleCode)}</p>
         <p className="text-sm text-foreground">{order.clientName}</p>
         <p className="text-xs text-muted-foreground">{order.assignedToName ?? "Sin asignar"}</p>
         <p className="text-sm font-semibold text-foreground">{formatMoney(order.total, currency)}</p>

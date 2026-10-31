@@ -6,6 +6,7 @@ import { adminUpdateManufacturingOrderAction } from "@/app/actions/manufacturing
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { displayCode } from "@/lib/code-display";
 
 export type ManufacturingCard = {
   id: string;
@@ -67,7 +68,7 @@ export function OrderManufacturingTab({ cards, currency, returnTo, brandName }: 
   return (
     <div className="space-y-3">
       {cards.map((card) => {
-        const message = `Hola ${card.supplierName}, te compartimos la orden de fabricación *${card.code}* de ${brandName}:\n${card.url}`;
+        const message = `Hola ${card.supplierName}, te compartimos la orden de fabricación *${displayCode(card.code)}* de ${brandName}:\n${card.url}`;
         const waHref = `https://wa.me/${card.supplierWhatsApp}?text=${encodeURIComponent(message)}`;
 
         return (
@@ -75,7 +76,7 @@ export function OrderManufacturingTab({ cards, currency, returnTo, brandName }: 
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                  <Factory className="h-4 w-4 text-muted-foreground" /> {card.code}
+                  <Factory className="h-4 w-4 text-muted-foreground" /> {displayCode(card.code)}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">{card.supplierName}</p>
               </div>

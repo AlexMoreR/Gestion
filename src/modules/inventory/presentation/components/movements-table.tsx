@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { InventoryMovementRow, InventoryMovementType } from "@/modules/inventory/domain/entities";
 import { InventoryDataGrid } from "./inventory-data-grid";
+import { displayCode } from "@/lib/code-display";
 
 type MovementsTableProps = {
   data: InventoryMovementRow[];
@@ -92,9 +93,9 @@ export function MovementsTable({ data, onEdit, onDelete }: MovementsTableProps) 
         }
         return (
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-foreground">{purchaseCode ?? orderCode}</p>
+            <p className="truncate text-sm font-medium text-foreground">{displayCode(purchaseCode ?? orderCode)}</p>
             {purchaseCode && orderCode ? (
-              <p className="truncate text-xs text-muted-foreground">{orderCode}</p>
+              <p className="truncate text-xs text-muted-foreground">{displayCode(orderCode)}</p>
             ) : null}
           </div>
         );

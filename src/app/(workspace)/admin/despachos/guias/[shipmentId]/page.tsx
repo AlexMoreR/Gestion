@@ -36,6 +36,7 @@ import { AdminEventDialog } from "@/modules/guias/presentation/admin-event-dialo
 import { CityPicker } from "@/modules/guias/presentation/city-picker";
 import { CopyButton } from "@/modules/guias/presentation/copy-button";
 import { CarrierLinkMenu, ClientLinkMenu } from "@/modules/guias/presentation/link-actions-menu";
+import { displayCode } from "@/lib/code-display";
 
 type PageProps = {
   params: Promise<{ shipmentId: string }>;
@@ -165,7 +166,7 @@ export default async function AdminGuiaDetailPage({ params, searchParams }: Page
           <p className="break-words text-sm text-muted-foreground">
             {clientName} · {maskPhone(client?.phone)} ·{" "}
             <Link href={`/admin/ordenes/${shipment.dispatch.order.id}`} className="inline-flex items-center gap-0.5 text-primary hover:underline">
-              {shipment.dispatch.order.code} / {shipment.dispatch.code}
+              {displayCode(shipment.dispatch.order.code)} / {displayCode(shipment.dispatch.code)}
               <ArrowUpRight className="h-3 w-3" />
             </Link>
           </p>

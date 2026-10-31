@@ -14,6 +14,7 @@ import { loadFixedCommissionRates } from "@/modules/nomina/infrastructure/prisma
 import { retiredUserIds } from "@/modules/equipo/application/use-cases";
 import { todayInBogota } from "@/modules/equipo/domain/team-member";
 import { loadTeamMembers } from "@/modules/equipo/infrastructure/prisma-team-repository";
+import { displayCode } from "@/lib/code-display";
 
 // Comisiones de las asesoras del mes (solo dueno/admin).
 //
@@ -298,7 +299,7 @@ export default async function AdminComisionesPage({ searchParams }: PageProps) {
                   <tr key={line.saleCode} className="border-b border-border/60 align-top">
                     <td className="py-2 pr-3 tabular-nums text-muted-foreground">{line.numberInMonth}</td>
                     <td className="py-2 pr-3">
-                      <span className="font-medium text-foreground">{line.saleCode}</span>
+                      <span className="font-medium text-foreground">{displayCode(line.saleCode)}</span>
                       {line.pendingDelivery ? (
                         <div className="mt-1">
                           <PendingDeliveryBadge />
@@ -343,7 +344,7 @@ export default async function AdminComisionesPage({ searchParams }: PageProps) {
                 {board.unassigned.lines.map((line) => (
                   <tr key={line.saleCode} className="border-b border-border/60 align-top">
                     <td className="py-2 pr-3">
-                      <span className="font-medium text-foreground">{line.saleCode}</span>
+                      <span className="font-medium text-foreground">{displayCode(line.saleCode)}</span>
                       {line.pendingDelivery ? (
                         <div className="mt-1">
                           <PendingDeliveryBadge />

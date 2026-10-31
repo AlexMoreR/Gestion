@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { formatMoney } from "@/lib/currency";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { getOrderStatusLabel } from "@/lib/orders";
+import { displayCode } from "@/lib/code-display";
 
 export const metadata: Metadata = {
   robots: {
@@ -129,7 +130,7 @@ export default async function ClientePage() {
                   className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2 transition-colors hover:bg-muted"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{quote.code}</p>
+                    <p className="truncate text-sm font-medium">{displayCode(quote.code)}</p>
                     <p className="text-xs text-muted-foreground">{formatDate(quote.createdAt)}</p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -158,7 +159,7 @@ export default async function ClientePage() {
                   className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2 transition-colors hover:bg-muted"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{sale.code}</p>
+                    <p className="truncate text-sm font-medium">{displayCode(sale.code)}</p>
                     <p className="text-xs text-muted-foreground">
                       {sale.order ? getOrderStatusLabel(sale.order.status) : SALE_STATUS_LABEL[sale.status] ?? sale.status}
                     </p>

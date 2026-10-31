@@ -17,6 +17,7 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { displayCode } from "@/lib/code-display";
 
 type LedgerEntry = {
   id: string;
@@ -132,14 +133,14 @@ export function SupplierLedgerForm({
         target: `order:${order.orderId}`,
         kind: "order" as const,
         code: order.code,
-        label: `Orden ${order.code}`,
+        label: `Orden ${displayCode(order.code)}`,
         pending: order.pending,
       })),
       ...charges.map((charge) => ({
         target: `charge:${charge.chargeId}`,
         kind: "charge" as const,
         code: charge.code,
-        label: `Cargo ${charge.code}`,
+        label: `Cargo ${displayCode(charge.code)}`,
         pending: charge.pending,
       })),
     ],
@@ -542,7 +543,7 @@ export function SupplierLedgerForm({
                           const target = `order:${order.orderId}`;
                           return (
                             <SelectItem key={order.orderId} value={target} disabled={draftUsedTargets.has(target)}>
-                              {order.code} - {formatMoney(order.pending, currency)}
+                              {displayCode(order.code)} - {formatMoney(order.pending, currency)}
                             </SelectItem>
                           );
                         })}
@@ -558,7 +559,7 @@ export function SupplierLedgerForm({
                           const target = `charge:${charge.chargeId}`;
                           return (
                             <SelectItem key={charge.chargeId} value={target} disabled={draftUsedTargets.has(target)}>
-                              {charge.code} - {formatMoney(charge.pending, currency)}
+                              {displayCode(charge.code)} - {formatMoney(charge.pending, currency)}
                             </SelectItem>
                           );
                         })}

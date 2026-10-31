@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { prisma } from "@/lib/prisma";
 import { getOrderStatusLabel, getProductionJobStatusLabel } from "@/lib/orders";
+import { displayCode } from "@/lib/code-display";
 
 export const metadata: Metadata = {
   robots: {
@@ -108,7 +109,7 @@ export default async function EmpleadoPage() {
                   className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2 transition-colors hover:bg-muted"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{order.code}</p>
+                    <p className="truncate text-sm font-medium">{displayCode(order.code)}</p>
                     <p className="truncate text-xs text-muted-foreground">
                       {order.client?.name ?? "Cliente"} · {order._count.items} ítem(s)
                     </p>
@@ -136,9 +137,9 @@ export default async function EmpleadoPage() {
                   className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2 transition-colors hover:bg-muted"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{job.code}</p>
+                    <p className="truncate text-sm font-medium">{displayCode(job.code)}</p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {job.order.code} · {job.quantity} und
+                      {displayCode(job.order.code)} · {job.quantity} und
                       {job.dueDate ? ` · vence ${formatDate(job.dueDate)}` : ""}
                     </p>
                   </div>

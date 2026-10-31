@@ -36,6 +36,7 @@ import type { ProductPromoFormFields } from "@/lib/product-promo";
 import type { ProductPurchaseRow } from "@/lib/product-purchase-history";
 import { calculateProfit, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
 import { Button, buttonVariants } from "../ui/button";
+import { displayCode } from "@/lib/code-display";
 
 type CategoryOption = {
   id: string;
@@ -680,10 +681,10 @@ export function EditProductForm({
                   <p className="mt-2 border-t border-[var(--line)] pt-2 text-xs text-slate-500">
                     Origen:{" "}
                     <span className="font-medium text-slate-700">
-                      {purchaseHistory[0].orderCode ?? purchaseHistory[0].purchaseCode ?? "—"}
+                      {displayCode(purchaseHistory[0].orderCode ?? purchaseHistory[0].purchaseCode) ?? "—"}
                     </span>
                     {purchaseHistory[0].purchaseCode && purchaseHistory[0].orderCode
-                      ? ` · ${purchaseHistory[0].purchaseCode}`
+                      ? ` · ${displayCode(purchaseHistory[0].purchaseCode)}`
                       : ""}
                   </p>
                 ) : null}

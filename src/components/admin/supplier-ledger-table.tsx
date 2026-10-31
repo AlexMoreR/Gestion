@@ -17,6 +17,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { InventoryDataGrid } from "@/modules/inventory/presentation/components/inventory-data-grid";
+import { displayCode } from "@/lib/code-display";
 
 // Fecha local (YYYY-MM-DD) a partir del ISO, para comparar con los <input type="date">.
 function localDay(iso: string): string {
@@ -210,7 +211,7 @@ export function SupplierLedgerTable({
             >
               {entry.type === "CHARGE" ? "Cargo" : "Abono"}
             </Badge>
-            {reference ? <span className="text-xs text-muted-foreground">{reference}</span> : null}
+            {reference ? <span className="text-xs text-muted-foreground">{displayCode(reference)}</span> : null}
           </div>
         );
       },
@@ -391,7 +392,7 @@ function OrderMovementsModal({
       className="fixed inset-0 z-[75] flex items-center justify-center bg-black/50 p-4 backdrop-blur-[1px]"
       role="dialog"
       aria-modal="true"
-      aria-label={`Movimientos de la orden ${orderCode}`}
+      aria-label={`Movimientos de la orden ${displayCode(orderCode)}`}
       onClick={onClose}
     >
       <div
@@ -401,7 +402,7 @@ function OrderMovementsModal({
         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
           <div>
             <p className="text-sm font-semibold text-foreground">Movimientos de la orden</p>
-            <p className="text-xs text-muted-foreground">{orderCode} · {entries.length} movimiento{entries.length === 1 ? "" : "s"}</p>
+            <p className="text-xs text-muted-foreground">{displayCode(orderCode)} · {entries.length} movimiento{entries.length === 1 ? "" : "s"}</p>
           </div>
           <Button type="button" variant="outline" size="icon" onClick={onClose} aria-label="Cerrar">
             <X className="h-4 w-4" />

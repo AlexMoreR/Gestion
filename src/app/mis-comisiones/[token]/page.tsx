@@ -9,6 +9,7 @@ import { getSellerPortalUseCase } from "@/modules/nomina/application/use-cases";
 import { explainSaleLine } from "@/modules/nomina/domain/seller-portal";
 import { createPrismaNominaRepository } from "@/modules/nomina/infrastructure/prisma-nomina-repository";
 import { findSellerByToken, listOpenQuotesBySeller } from "@/modules/nomina/infrastructure/prisma-seller-portal";
+import { displayCode } from "@/lib/code-display";
 
 // Link privado de cada asesora (sin iniciar sesion, por enlace secreto): sus ventas del mes,
 // su comision explicada venta por venta y lo que ganaria si cierra sus cotizaciones abiertas.
@@ -129,7 +130,7 @@ export default async function MisComisionesPage({ params, searchParams }: PagePr
                   <div>
                     <p className="text-sm font-semibold">{sale.clientName ?? "Cliente"}</p>
                     <p className="text-xs text-slate-500">
-                      {dayLabel(sale.day)} · {sale.saleCode} · venta de {money(sale.saleAmount)}
+                      {dayLabel(sale.day)} · {displayCode(sale.saleCode)} · venta de {money(sale.saleAmount)}
                     </p>
                   </div>
                   <p className="text-base font-bold tabular-nums text-violet-800">{money(sale.commission)}</p>
@@ -163,7 +164,7 @@ export default async function MisComisionesPage({ params, searchParams }: PagePr
                   <div className="min-w-0">
                     <p className="text-sm font-semibold">{quote.clientName ?? "Cliente"}</p>
                     <p className="text-xs text-slate-500">
-                      {dayLabel(quote.day)} · {quote.quoteCode} · {quote.statusLabel} · {money(quote.total)}
+                      {dayLabel(quote.day)} · {displayCode(quote.quoteCode)} · {quote.statusLabel} · {money(quote.total)}
                     </p>
                     {quote.products.length > 0 ? <p className="truncate text-xs text-slate-500">{quote.products.join(", ")}</p> : null}
                   </div>

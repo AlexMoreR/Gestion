@@ -21,6 +21,7 @@ import {
 import { TransactionModal } from "@/components/ui/transaction-modal";
 import { cn } from "@/lib/utils";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { displayCode } from "@/lib/code-display";
 
 type ProductOption = {
   id: string;
@@ -407,7 +408,7 @@ export function PurchaseDirectDialog({
       <TransactionModal
         open={open}
         onOpenChange={(value) => (value ? null : handleClose())}
-        title={isEditing ? `Editar compra ${editOrder?.code ?? ""}`.trim() : "Comprar"}
+        title={isEditing ? `Editar compra ${displayCode(editOrder?.code) ?? ""}`.trim() : "Comprar"}
         icon={<ShoppingCart className="h-4 w-4" />}
         headerExtra={
           <DatePicker

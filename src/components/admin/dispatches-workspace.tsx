@@ -14,6 +14,7 @@ import {
 } from "@/lib/orders";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type { OrderStatus } from "@prisma/client";
+import { displayCode } from "@/lib/code-display";
 
 type DispatchRow = DispatchReviewData & {
   orderId: string;
@@ -173,7 +174,7 @@ export function DispatchesWorkspace({ dispatches, currency, paidNotDispatched, s
               ) : (
                 paidNotDispatched.map((sale) => (
                   <TableRow key={sale.saleId}>
-                    <TableCell className="text-sm font-semibold text-foreground">{sale.saleCode}</TableCell>
+                    <TableCell className="text-sm font-semibold text-foreground">{displayCode(sale.saleCode)}</TableCell>
                     <TableCell className="text-sm text-foreground">{sale.clientName}</TableCell>
                     <TableCell className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
                       {formatMoney(sale.total, currency)}
@@ -243,10 +244,10 @@ export function DispatchesWorkspace({ dispatches, currency, paidNotDispatched, s
             ) : (
               dispatches.map((dispatch) => (
                 <TableRow key={dispatch.id}>
-                  <TableCell className="text-sm font-semibold text-foreground">{dispatch.code}</TableCell>
+                  <TableCell className="text-sm font-semibold text-foreground">{displayCode(dispatch.code)}</TableCell>
                   <TableCell>
                     <Link href={`/admin/ordenes/${dispatch.orderId}`} className="inline-flex items-center gap-1 text-sm text-foreground hover:underline">
-                      {dispatch.orderCode}
+                      {displayCode(dispatch.orderCode)}
                       <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
                     </Link>
                   </TableCell>

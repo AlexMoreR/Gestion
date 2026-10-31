@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { OperationsTabs } from "@/components/admin/operations-tabs";
 import { getProductionJobStatusBadgeClassName, getProductionJobStatusLabel } from "@/lib/orders";
+import { displayCode } from "@/lib/code-display";
 
 type ProductionJobRow = {
   id: string;
@@ -41,7 +42,7 @@ function JobActions({ job }: { job: ProductionJobRow }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones ${job.code}`}>
+        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones ${displayCode(job.code)}`}>
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
@@ -120,10 +121,10 @@ export function ProductionWorkspace({ jobs, stats }: ProductionWorkspaceProps) {
             ) : (
               jobs.map((job) => (
                 <TableRow key={job.id}>
-                  <TableCell className="py-2 pr-2 text-sm font-semibold text-foreground">{job.code}</TableCell>
+                  <TableCell className="py-2 pr-2 text-sm font-semibold text-foreground">{displayCode(job.code)}</TableCell>
                   <TableCell className="px-2 py-2">
                     <Link href={`/admin/ordenes/${job.orderId}`} className="inline-flex items-center gap-1 text-sm text-foreground hover:underline">
-                      {job.orderCode}
+                      {displayCode(job.orderCode)}
                     </Link>
                   </TableCell>
                   <TableCell className="py-2 text-sm text-foreground">{job.productName}</TableCell>

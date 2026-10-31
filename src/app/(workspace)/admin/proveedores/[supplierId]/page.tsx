@@ -29,6 +29,7 @@ import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
+import { displayCode } from "@/lib/code-display";
 
 type PageProps = {
   params: Promise<{ supplierId: string }>;
@@ -322,10 +323,10 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
                   <TableCell className="w-px whitespace-nowrap">
                     {row.orderId ? (
                       <Link href={`/admin/ordenes/${row.orderId}`} className="text-sm font-semibold text-foreground hover:underline">
-                        {row.orderCode}
+                        {displayCode(row.orderCode)}
                       </Link>
                     ) : (
-                      <span className="text-sm font-medium text-muted-foreground">{row.orderCode}</span>
+                      <span className="text-sm font-medium text-muted-foreground">{displayCode(row.orderCode)}</span>
                     )}
                   </TableCell>
                   <TableCell className="text-sm text-foreground">

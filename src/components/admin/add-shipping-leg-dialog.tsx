@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { CarrierSelect, type CarrierSelectOption } from "@/modules/guias/presentation/carrier-select";
+import { displayCode } from "@/lib/code-display";
 
 const FIELD_CLASS =
   "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
@@ -51,7 +52,7 @@ export function AddShippingLegDialog({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[88vh] max-w-md overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Agregar tramo al despacho {dispatchCode}</DialogTitle>
+            <DialogTitle>Agregar tramo al despacho {displayCode(dispatchCode)}</DialogTitle>
             <DialogDescription>
               Otro transportador del mismo envío. Se le paga de una: el valor se suma al flete de la venta.
             </DialogDescription>
