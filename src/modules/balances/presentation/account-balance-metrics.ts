@@ -95,3 +95,111 @@ export function attachAccountTransactionBalances(
     runningBalance: balancesByIndex.get(index) ?? openingBalance + transaction.amount,
   }));
 }
+
+export type AccountReviewPoint = {
+  id: string;
+  date: Date;
+  concept: string;
+  amount: number;
+};
+
+export type SuspiciousOutflow = AccountReviewPoint & {
+  // Por qué parece un pago de banco y no de esta cuenta.
+  signal: string;
+};
+
+export type AccountHistoryReview = {
+  lowestBalance: number;
+  // null si el punto más bajo es el saldo inicial (ningún movimiento lo bajó).
+  lowestDate: Date | null;
+  // Cuánto saldo inicial más haría falta para no quedar nunca en negativo.
+  neededOpening: number;
+  firstNegative: (AccountReviewPoint & { balance: number }) | null;
+  suspicious: SuspiciousOutflow[];
+  neededOpeningWithoutSuspicious: number;
+};
+
+const BANK_WORDS = /\b(transferencia|bancolombia|nequi|bre-b|pse)\b/;
+
+function bankSignal(txn: AccountTransaction): string | null {
+  const reference = txn.transactionReference?.trim();
+  if (reference) {
+    return `Número de comprobante: ${reference}`;
+  }
+  if (txn.receiptUrl) {
+    return "Tiene foto del comprobante";
+  }
+  const note = (txn.note ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const word = BANK_WORDS.exec(note)?.[1];
+  return word ? `La nota dice "${word}"` : null;
+}
+
+// Orden cronológico; dentro del mismo día, las entradas antes que las salidas.
+function sortChronologically(transactions: AccountTransaction[]): AccountTransaction[] {
+  return [...transactions].sort((a, b) => {
+    const dateA = toAccountDate(a.date);
+    const dateB = toAccountDate(b.date);
+    const dayA = dateA.toISOString().slice(0, 10);
+    const dayB = dateB.toISOString().slice(0, 10);
+    if (dayA !== dayB) {
+      return dayA < dayB ? -1 : 1;
+    }
+    const inflowA = a.amount >= 0 ? 0 : 1;
+    const inflowB = b.amount >= 0 ? 0 : 1;
+    return inflowA - inflowB || dateA.getTime() - dateB.getTime();
+  });
+}
+
+function walkBalance(sorted: AccountTransaction[], openingBalance: number) {
+  let balance = openingBalance;
+  let lowestBalance = openingBalance;
+  let lowestDate: Date | null = null;
+  let firstNegative: AccountHistoryReview["firstNegative"] = null;
+
+  for (const txn of sorted) {
+    balance += txn.amount;
+    const date = toAccountDate(txn.date);
+    if (balance < lowestBalance) {
+      lowestBalance = balance;
+      lowestDate = date;
+    }
+    if (!firstNegative && balance < 0) {
+      firstNegative = { id: txn.id, date, concept: txn.concept, amount: txn.amount, balance };
+    }
+  }
+
+  // = max(0, −punto más bajo sin el saldo inicial) − saldo inicial, mínimo 0.
+  return { lowestBalance, lowestDate, firstNegative, neededOpening: Math.max(0, -lowestBalance) };
+}
+
+// Revisión de solo lectura: dónde quedó la cuenta en negativo y qué salidas de una caja
+// en efectivo parecen pagos hechos desde un banco. Es una pista, no una certeza.
+export function reviewAccountHistory(
+  transactions: AccountTransaction[],
+  opts: { openingBalance: number; accountType: string },
+): AccountHistoryReview {
+  const sorted = sortChronologically(transactions);
+  const walk = walkBalance(sorted, opts.openingBalance);
+
+  const suspicious: SuspiciousOutflow[] = [];
+  if (opts.accountType === "CASH") {
+    for (const txn of sorted) {
+      const signal = txn.amount < 0 ? bankSignal(txn) : null;
+      if (signal) {
+        suspicious.push({ id: txn.id, date: toAccountDate(txn.date), concept: txn.concept, amount: txn.amount, signal });
+      }
+    }
+  }
+
+  const suspiciousIds = new Set(suspicious.map((row) => row.id));
+  const withoutSuspicious = walkBalance(
+    sorted.filter((txn) => !suspiciousIds.has(txn.id)),
+    opts.openingBalance,
+  );
+
+  return {
+    ...walk,
+    suspicious,
+    neededOpeningWithoutSuspicious: withoutSuspicious.neededOpening,
+  };
+}

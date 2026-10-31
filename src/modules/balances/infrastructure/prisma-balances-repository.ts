@@ -851,6 +851,8 @@ export function createPrismaBalancesRepository(): BalancesRepository {
             amount: true,
             description: true,
             reference: true,
+            receiptUrl: true,
+            receiptName: true,
             expenseDate: true,
             category: { select: { name: true } },
           },
@@ -888,6 +890,8 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           amount: -toNumber(row.amount),
           receiptUrl: row.receiptUrl ?? null,
           receiptName: row.receiptName ?? null,
+          note: row.note ?? null,
+          transactionReference: row.transactionReference ?? null,
         })),
         ...shippingCosts.map((row) => ({
           id: `shipping:${row.id}`,
@@ -906,8 +910,10 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           concept: `Gasto ${row.category.name}${row.description ? ` - ${row.description}` : ""}`,
           reference: row.reference ?? null,
           amount: -toNumber(row.amount),
-          receiptUrl: null,
-          receiptName: null,
+          receiptUrl: row.receiptUrl ?? null,
+          receiptName: row.receiptName ?? null,
+          note: row.description ?? null,
+          transactionReference: row.reference ?? null,
         })),
         ...movements.map((row) => ({
           id: `movement:${row.id}`,
@@ -920,6 +926,7 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           amount: row.type === "IN" ? toNumber(row.amount) : -toNumber(row.amount),
           receiptUrl: null,
           receiptName: null,
+          note: row.note ?? null,
         })),
       ];
 

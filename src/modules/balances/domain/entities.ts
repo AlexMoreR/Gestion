@@ -106,6 +106,9 @@ export type AccountTransaction = {
   amount: number;
   receiptUrl: string | null;
   receiptName: string | null;
+  // Solo para la revisión del saldo: nota escrita y número de comprobante/transacción.
+  note?: string | null;
+  transactionReference?: string | null;
 };
 
 export type PaymentHistoryRow = SupplierPayment & {

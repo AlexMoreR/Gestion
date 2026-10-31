@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
+import { reviewAccountHistory } from "@/modules/balances/presentation/account-balance-metrics";
 import { AccountBalanceView } from "@/modules/balances/presentation/components/account-balance-view";
 
 type PageProps = {
@@ -64,6 +65,7 @@ export default async function AdminAccountTransactionsPage({ params }: PageProps
         transactions={transactions}
         openingBalance={account.openingBalance}
         currency={currency}
+        review={reviewAccountHistory(transactions, { openingBalance: account.openingBalance, accountType: account.type })}
       />
     </section>
   );
