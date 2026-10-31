@@ -210,7 +210,7 @@ export default async function AdminRetroactivosPage({ searchParams }: PageProps)
                 {filas.map((fila) => {
                   const codigo = codigoPorRegistro.get(fila.registroId);
                   const href =
-                    fila.tipo === "GASTO" ? "/admin/gastos" : codigo ? `/admin/ventas?q=${encodeURIComponent(codigo)}` : null;
+                    fila.tipo === "GASTO" ? "/admin/gastos" : codigo ? `/admin/ventas?q=${encodeURIComponent(displayCode(codigo))}` : null;
                   return (
                     <tr key={fila.id} className="border-b border-border/60 align-top">
                       <td className="py-2 pr-3 whitespace-nowrap tabular-nums">{fechaHora(fila.registradoEn)}</td>

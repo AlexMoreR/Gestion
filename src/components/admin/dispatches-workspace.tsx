@@ -204,7 +204,7 @@ export function DispatchesWorkspace({ dispatches, currency, paidNotDispatched, s
                         </Link>
                       ) : (
                         <Link
-                          href={`/admin/ventas?q=${encodeURIComponent(sale.saleCode)}`}
+                          href={`/admin/ventas?q=${encodeURIComponent(displayCode(sale.saleCode))}`}
                           className="inline-flex items-center gap-1 text-sm text-foreground hover:underline"
                         >
                           Ver venta

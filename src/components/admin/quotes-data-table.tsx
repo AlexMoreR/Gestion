@@ -305,7 +305,7 @@ function RowActions({
         </DropdownMenuItem>
         {quote.hasSale ? (
           <DropdownMenuItem asChild>
-            <Link href={`/admin/ventas?q=${encodeURIComponent(quote.code)}`}>
+            <Link href={`/admin/ventas?q=${encodeURIComponent(displayCode(quote.code))}`}>
               <BadgeDollarSign className="mr-2 h-4 w-4" />
               Ver venta
             </Link>
