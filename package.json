@@ -11,6 +11,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "origen:rellenar": "vite-node scripts/rellenar-origen-ventas.ts --",
+    "ventas:revisar-costos": "vite-node scripts/revisar-ventas-sin-costo.ts --",
     "dudas:importar": "vite-node scripts/importar-dudas.ts --",
     "fichas:importar": "vite-node scripts/importar-fichas.ts --"
   },

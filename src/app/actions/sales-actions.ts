@@ -16,6 +16,7 @@ import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-ite
 import { prisma } from "@/lib/prisma";
 import { PAYMENT_METHOD_SHORT_LABEL, parsePaymentMethodInput } from "@/modules/ventas/domain/payment-method";
 import { CONSUMIDOR_FINAL_EMAIL } from "@/modules/ventas/domain/sale-origin";
+import { productsWithoutCost } from "@/modules/balances/domain/calculations";
 import {
   WITHHOLDING_LABEL,
   isWithholdingAccountValue,
@@ -196,6 +197,15 @@ async function getNextSaleCode(tx: Prisma.TransactionClient): Promise<string> {
   throw new Error("Unable to allocate sale code");
 }
 
+// Pide el costo en el catalogo si algun producto no lo tiene (si no, la ganancia sale inflada).
+function missingCostMessage(products: Array<{ name: string; baseCost: number; additionalCost: number }>): string | null {
+  const names = Array.from(new Set(productsWithoutCost(products).map((product) => product.name)));
+  if (names.length === 0) {
+    return null;
+  }
+  return `Sin costo en el catalogo: ${names.join(", ")}. Cargale el costo en Productos antes de crear la venta`;
+}
+
 export async function adminCreateSaleFromQuoteAction(formData: FormData): Promise<void> {
   const createdById = await requireAdminSession();
   const returnTo = getReturnTo(formData);
@@ -219,7 +229,7 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
     where: { id: parsed.data.quoteId },
     include: {
       client: true,
-      items: true,
+      items: { select: { product: { select: { name: true, baseCost: true, additionalCost: true } } } },
       sale: true,
     },
   });
@@ -236,6 +246,21 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
 
   if (quote.sale) {
     redirectWithError(returnTo, "Esta cotizacion ya fue enviada a ventas");
+  }
+
+  // Sin productos (o sin costo) la ganancia y la comision saldrian infladas (caso SAL-00083).
+  if (quote.items.length === 0) {
+    redirectWithError(returnTo, "La cotizacion no tiene productos. Editala y agrega al menos uno antes de crear la venta");
+  }
+  const quoteCostError = missingCostMessage(
+    quote.items.map((item) => ({
+      name: item.product.name,
+      baseCost: Number(item.product.baseCost),
+      additionalCost: Number(item.product.additionalCost),
+    })),
+  );
+  if (quoteCostError) {
+    redirectWithError(returnTo, quoteCostError);
   }
 
   const grossTotal = Number(quote.total);
@@ -953,10 +978,20 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
   const productIds = Array.from(new Set(parsedItems.map((item) => item.productId)));
   const products = await prisma.product.findMany({
     where: { id: { in: productIds } },
-    select: { id: true },
+    select: { id: true, name: true, baseCost: true, additionalCost: true },
   });
   if (products.length !== productIds.length) {
     redirectWithError(returnTo, "Uno o mas productos no existen");
+  }
+  const directCostError = missingCostMessage(
+    products.map((product) => ({
+      name: product.name,
+      baseCost: Number(product.baseCost),
+      additionalCost: Number(product.additionalCost),
+    })),
+  );
+  if (directCostError) {
+    redirectWithError(returnTo, directCostError);
   }
 
   const normalizedItems = parsedItems.map((item) => {

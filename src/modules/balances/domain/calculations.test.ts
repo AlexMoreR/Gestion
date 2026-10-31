@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateSaleProfitSummary,
+  pickSaleCostItems,
+  productsWithoutCost,
+  saleCostIssues,
   summarizeAccountBalance,
   summarizeDashboardMetrics,
   summarizeSupplierBalance,
@@ -42,6 +45,51 @@ describe("balances calculations", () => {
 
     expect(result.supplierCosts).toBe(700);
     expect(result.netProfit).toBe(300);
+  });
+
+  it("venta de stock sin orden: el costo sale de la cotizacion con el catalogo (caso SAL-00083)", () => {
+    const quoteItems = [{ quantity: 1, purchaseCost: null, fulfillmentMode: "STOCK", baseCost: 450000, additionalCost: 30000 }];
+    const result = calculateSaleProfitSummary({
+      saleId: "sale-3",
+      saleCode: "SAL-00083",
+      saleAmount: 749000,
+      createdAt: new Date("2026-10-20T12:00:00.000Z"),
+      clientName: null,
+      orderItems: pickSaleCostItems(undefined, quoteItems),
+      shippingCosts: [],
+    });
+
+    expect(result.supplierCosts).toBe(480000);
+    expect(result.netProfit).toBe(269000);
+  });
+
+  it("con orden se siguen usando los items de la orden (costo confirmado)", () => {
+    const orderItems = [{ quantity: 1, purchaseCost: 500, fulfillmentMode: "MANUFACTURE", baseCost: 300, additionalCost: 0 }];
+    const quoteItems = [{ quantity: 1, purchaseCost: null, fulfillmentMode: "MANUFACTURE", baseCost: 300, additionalCost: 0 }];
+    expect(pickSaleCostItems(orderItems, quoteItems)).toBe(orderItems);
+    // Orden vacia: cae a la cotizacion.
+    expect(pickSaleCostItems([], quoteItems)).toBe(quoteItems);
+  });
+
+  it("detecta productos sin costo en el catalogo", () => {
+    const result = productsWithoutCost([
+      { name: "Silla", baseCost: 0, additionalCost: 0 },
+      { name: "Camilla", baseCost: 100, additionalCost: 0 },
+      { name: "Butaco", baseCost: 0, additionalCost: 20 },
+    ]);
+    expect(result.map((product) => product.name)).toEqual(["Silla"]);
+  });
+
+  it("explica por que una venta tiene costo dudoso", () => {
+    const item = { quantity: 1, purchaseCost: null, fulfillmentMode: "STOCK", baseCost: 100, additionalCost: 0 };
+    expect(saleCostIssues({ orderItems: null, quoteItems: [], productsWithoutCostNames: [] })).toEqual([
+      "sin productos (ni en la orden ni en la cotizacion)",
+    ]);
+    expect(saleCostIssues({ orderItems: [], quoteItems: [item], productsWithoutCostNames: ["Silla"] })).toEqual([
+      "sin orden: antes costo 0, ahora usa el costo del catalogo",
+      "producto sin costo en el catalogo: Silla",
+    ]);
+    expect(saleCostIssues({ orderItems: [item], quoteItems: [item], productsWithoutCostNames: [] })).toEqual([]);
   });
 
   it("summarizes supplier balances", () => {

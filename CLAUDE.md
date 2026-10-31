@@ -263,6 +263,12 @@ Vive en `src/modules/balances/domain/calculations.ts` con el helper de costo uni
 2. Si no, y el ítem es **STOCK** → `baseCost + additionalCost` (costo de inventario + flete del producto).
 3. Si no → costo del proveedor preferido, o `baseCost` como último recurso.
 
+Si la venta **no tiene orden** (o está vacía), los ítems de costo son los de su **cotización**, sin
+`purchaseCost` (venta de stock: `baseCost + additionalCost`) — `pickSaleCostItems`. Crear una venta
+(desde cotización o directa) exige al menos un producto y que ninguno tenga costo 0 en el catálogo
+(`productsWithoutCost`). Revisión de solo lectura: `npm run ventas:revisar-costos -- --mes=AAAA-MM`
+(`scripts/revisar-ventas-sin-costo.ts`).
+
 Con eso:
 
 ```

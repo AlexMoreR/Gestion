@@ -19,6 +19,39 @@ export type SaleProfitInput = {
   shippingCosts: number[];
 };
 
+export type SaleCostItem = SaleProfitInput["orderItems"][number];
+
+// Items que dan el costo de la venta: los de su orden; si la venta no tiene orden (o esta
+// vacia), los de su cotizacion, con el costo del catalogo (venta de stock despachada sin
+// orden, p. ej. SAL-00083). Asi el costo nunca queda en 0 por falta de orden.
+export function pickSaleCostItems(orderItems: SaleCostItem[] | null | undefined, quoteItems: SaleCostItem[]): SaleCostItem[] {
+  return orderItems && orderItems.length > 0 ? orderItems : quoteItems;
+}
+
+// Productos sin costo en el catalogo (base + flete = 0): con ellos la ganancia saldria inflada.
+export function productsWithoutCost<T extends { baseCost: number; additionalCost: number }>(products: T[]): T[] {
+  return products.filter((product) => product.baseCost + product.additionalCost <= 0);
+}
+
+// Revision (solo lectura) de ventas con costo dudoso: por que su ganancia puede estar inflada.
+export function saleCostIssues(input: {
+  orderItems: SaleCostItem[] | null | undefined;
+  quoteItems: SaleCostItem[];
+  productsWithoutCostNames: string[];
+}): string[] {
+  const issues: string[] = [];
+  const hasOrderItems = Boolean(input.orderItems && input.orderItems.length > 0);
+  if (!hasOrderItems && input.quoteItems.length === 0) {
+    issues.push("sin productos (ni en la orden ni en la cotizacion)");
+  } else if (!hasOrderItems) {
+    issues.push("sin orden: antes costo 0, ahora usa el costo del catalogo");
+  }
+  if (input.productsWithoutCostNames.length > 0) {
+    issues.push(`producto sin costo en el catalogo: ${input.productsWithoutCostNames.join(", ")}`);
+  }
+  return issues;
+}
+
 export function calculateSaleProfitSummary(input: SaleProfitInput): SaleProfit {
   const supplierCosts = input.orderItems.reduce((sum, item) => {
     const unitCost = computeItemUnitCost({

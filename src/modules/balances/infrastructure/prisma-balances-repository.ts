@@ -29,6 +29,7 @@ import type {
 } from "../domain/entities";
 import {
   calculateSaleProfitSummary,
+  pickSaleCostItems,
   summarizeAccountBalance,
   summarizeDashboardMetrics,
   summarizeSupplierBalance,
@@ -273,6 +274,18 @@ async function getSaleProfitRows(
           },
         },
       },
+      // Sin orden, el costo sale de los productos de la cotizacion (pickSaleCostItems).
+      quote: {
+        select: {
+          items: {
+            select: {
+              quantity: true,
+              fulfillmentMode: true,
+              product: { select: { baseCost: true, additionalCost: true } },
+            },
+          },
+        },
+      },
       shippingCosts: {
         select: {
           amount: true,
@@ -315,13 +328,22 @@ async function getSaleProfitRows(
       createdAt: recognition?.recognizedAt ?? deliveredAt ?? sale.createdAt,
       pendingDelivery: recognition?.pendingDelivery ?? sale.order?.status !== "COMPLETED",
       clientName: sale.client.name,
-      orderItems: sale.order?.items.map((item) => ({
-        quantity: item.quantity,
-        purchaseCost: item.purchaseCost === null ? null : toNumber(item.purchaseCost),
-        fulfillmentMode: item.fulfillmentMode,
-        baseCost: toNumber(item.product.baseCost),
-        additionalCost: toNumber(item.product.additionalCost),
-      })) ?? [],
+      orderItems: pickSaleCostItems(
+        sale.order?.items.map((item) => ({
+          quantity: item.quantity,
+          purchaseCost: item.purchaseCost === null ? null : toNumber(item.purchaseCost),
+          fulfillmentMode: item.fulfillmentMode,
+          baseCost: toNumber(item.product.baseCost),
+          additionalCost: toNumber(item.product.additionalCost),
+        })),
+        sale.quote.items.map((item) => ({
+          quantity: item.quantity,
+          purchaseCost: null,
+          fulfillmentMode: item.fulfillmentMode,
+          baseCost: toNumber(item.product.baseCost),
+          additionalCost: toNumber(item.product.additionalCost),
+        })),
+      ),
       shippingCosts: sale.shippingCosts.map((entry) => toNumber(entry.amount)),
     }));
   }

@@ -160,6 +160,11 @@ en las Server Actions y en `src/lib/`.
 de esa venta. El costo de cada producto vendido es, en este orden: el costo confirmado con la
 proveedora en la orden; si no hay y el producto sale de stock, costo de catálogo + flete por unidad;
 si no, el costo de la proveedora preferida o el costo de catálogo. No resta gastos operativos.
+Si la venta no tiene orden (venta de stock despachada sin orden), el costo sale de los productos de
+su cotización con el costo de catálogo + flete; nunca queda en 0 por falta de orden. No se puede
+crear una venta (desde cotización o directa) sin productos ni con un producto sin costo en el
+catálogo. `npm run ventas:revisar-costos` lista (solo lectura) las ventas de un mes sin productos,
+sin orden o con productos sin costo.
 
 **Cuándo cuenta una venta.** Cuenta cuando está pagada por completo (estado "facturada": lo pagado
 ≥ total), aunque falte entregarla: el recaudo y la entrega son cosas distintas (decisión de
