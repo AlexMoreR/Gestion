@@ -52,3 +52,12 @@ describe("nombres de documentos", () => {
     expect(quotePdfFileName("COT-00150")).toBe("COTIZACION COT-150.pdf");
   });
 });
+
+describe("MCP", () => {
+  it("ver_venta acepta SAL-81, SAL-00081 y 81", async () => {
+    const { normalizeSaleCode } = await import("../modules/asesor/domain/payments");
+    for (const input of ["SAL-81", "SAL-00081", "81", "sal-81"]) {
+      expect(normalizeSaleCode(input)).toBe("SAL-00081");
+    }
+  });
+});
