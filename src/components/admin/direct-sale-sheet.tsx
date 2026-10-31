@@ -50,7 +50,7 @@ export type DirectSaleClient = {
   address: string;
 };
 
-type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER";
+type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER" | "OWNER";
 
 type AccountOption = {
   id: string;

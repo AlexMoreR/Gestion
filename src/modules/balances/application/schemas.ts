@@ -33,7 +33,7 @@ export const shippingCostUpdateSchema = shippingCostCreateSchema.extend({
   shippingCostId: z.string().trim().min(1, "El costo es obligatorio"),
 });
 
-const accountTypeSchema = z.enum(["CASH", "BANK", "WALLET", "OTHER"]);
+const accountTypeSchema = z.enum(["CASH", "BANK", "WALLET", "OTHER", "OWNER"]);
 
 export const accountCreateSchema = z.object({
   name: z.string().trim().min(1, "El nombre es obligatorio").max(120, "Nombre muy largo"),

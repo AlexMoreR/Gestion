@@ -81,7 +81,7 @@ import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-fi
 
 type SaleStatus = "DRAFT" | "ACTIVE" | "INVOICED" | "COMPLETED" | "CANCELLED";
 
-type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER";
+type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER" | "OWNER";
 
 type AccountOption = {
   id: string;

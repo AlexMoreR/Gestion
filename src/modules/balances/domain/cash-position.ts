@@ -11,6 +11,7 @@ export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
   BANK: "Bancos",
   WALLET: "Billeteras",
   OTHER: "Otras",
+  OWNER: "Aporte del dueño",
 };
 
 export type CashAccountLine = {
@@ -40,7 +41,9 @@ export function currentAccountBalance(account: AccountBalance): number {
 
 export function summarizeCashPosition(allTime: AccountBalance[], withoutAccount: MoneyWithoutAccount): CashPosition {
   // Las cuentas inactivas solo se muestran si todavia tienen plata.
+  // "Aportes del dueño" (OWNER) no es plata del negocio: no entra en la lista ni en los totales.
   const accounts = allTime
+    .filter((account) => account.type !== "OWNER")
     .map((account) => ({
       id: account.id,
       name: account.name,

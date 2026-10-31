@@ -71,7 +71,7 @@ export type PagedResult<T> = {
   pageCount: number;
 };
 
-export type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER";
+export type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER" | "OWNER";
 
 export type AccountMovementType = "IN" | "OUT" | "TRANSFER";
 
