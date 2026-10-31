@@ -12,6 +12,7 @@ import type {
   ProductStock,
 } from "@/modules/inventory/domain/entities";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { comboStock } from "@/lib/combo";
 import {
   adminCreateInventoryMovementAction,
   adminDeleteInventoryMovementAction,
@@ -96,18 +97,19 @@ export function InventoryWorkspace({
     const combos = editableProducts
       .filter((product) => product.isBundle && product.components.length > 0)
       .map((product) => {
-        const buildable = Math.min(
-          ...product.components.map((component) =>
-            component.quantity > 0
-              ? Math.floor((stockMap.get(component.childId) ?? 0) / component.quantity)
-              : 0,
-          ),
+        const buildable = comboStock(
+          product.components.map((component) => ({
+            childId: component.childId,
+            quantity: component.quantity,
+            alternates: component.alternateIds.map((productId) => ({ productId })),
+          })),
+          (productId) => stockMap.get(productId) ?? 0,
         );
         return {
           id: product.id,
           name: `${product.name} (Combo)`,
           code: product.code,
-          stock: Number.isFinite(buildable) ? Math.max(0, buildable) : 0,
+          stock: buildable,
         };
       });
 

@@ -48,6 +48,7 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
         },
         bundleComponents: {
           orderBy: { sortOrder: "asc" },
+          include: { alternates: { orderBy: { sortOrder: "asc" }, select: { productId: true } } },
         },
       },
     }),
@@ -158,6 +159,7 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
           components: product.bundleComponents.map((component) => ({
             childId: component.childId,
             quantity: component.quantity,
+            alternateIds: component.alternates.map((alt) => alt.productId),
           })),
           imageUrls: fotos.map((image) => getPublicAssetUrl(image.url)),
         }}
