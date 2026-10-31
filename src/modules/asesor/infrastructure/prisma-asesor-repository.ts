@@ -13,6 +13,7 @@ import type {
   SupplierLedger,
 } from "../domain/entities";
 import type { SaleLedgerInput } from "../domain/payments";
+import { describeProductSource } from "../domain/product-source";
 import type { AsesorReadRepository, SaleLedgerFilter } from "../domain/repository";
 
 // Adaptador Prisma de SOLO LECTURA: unicamente findMany (ningun create/update/delete).
@@ -50,6 +51,7 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
           order: {
             select: {
               code: true,
+              manufacturingOrders: { select: { code: true, supplierId: true } },
               items: {
                 orderBy: { createdAt: "asc" },
                 select: {
@@ -58,6 +60,9 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
                   unitPrice: true,
                   lineTotal: true,
                   notes: true,
+                  fulfillmentMode: true,
+                  confirmedSupplierId: true,
+                  confirmedSupplier: { select: { name: true } },
                   product: { select: { name: true, code: true, thumbnailUrl: true, description: true } },
                 },
               },
@@ -77,6 +82,18 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
         registeredBy: toSeller(sale.createdBy),
         origin: sale.origin ?? null,
         originDetail: sale.originDetail ?? null,
+        productSource: describeProductSource({
+          lines: sale.order
+            ? sale.order.items.map((item) => ({
+                productName: item.product.name,
+                quantity: item.quantity,
+                fulfillmentMode: item.fulfillmentMode,
+                supplierId: item.confirmedSupplierId,
+                supplierName: item.confirmedSupplier?.name ?? null,
+              }))
+            : null,
+          manufacturingOrders: sale.order?.manufacturingOrders ?? [],
+        }),
         // Los combos se muestran como un solo producto (igual que en la factura).
         products: groupQuoteDisplayItems(
           (sale.order?.items ?? []).map((item) => ({

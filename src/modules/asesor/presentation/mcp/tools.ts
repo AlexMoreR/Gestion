@@ -179,7 +179,7 @@ export const asesorTools: McpToolDefinition[] = [
     name: "listar_ventas",
     title: "Listar ventas",
     description:
-      "Ventas de un rango de fechas. Por defecto (estado_pago 'pagadas') las pagadas por completo, por la fecha en que quedaron pagadas (contraentrega: entregadas, por fecha de entrega), con ganancia real como Balances. Con 'pendientes' trae las ventas con abono que todavia no estan pagadas completas (o contraentrega sin entregar), por fecha del primer abono, con lo pagado y el saldo; 'todas' trae ambas. Cada venta trae cliente, productos, total, vendedora, origen (Meta Ads, Marketplace, Referido, Recurrente, Mostrador o Sin dato), forma de pago y fechas de cotizacion, creacion, primer abono, pago completo y entrega, pagado y saldo pendiente. Valores en COP.",
+      "Ventas de un rango de fechas. Por defecto (estado_pago 'pagadas') las pagadas por completo, por la fecha en que quedaron pagadas (contraentrega: entregadas, por fecha de entrega), con ganancia real como Balances. Con 'pendientes' trae las ventas con abono que todavia no estan pagadas completas (o contraentrega sin entregar), por fecha del primer abono, con lo pagado y el saldo; 'todas' trae ambas. Cada venta trae cliente, productos, total, vendedora, origen (Meta Ads, Marketplace, Referido, Recurrente, Mostrador o Sin dato), origen_producto (tipo stock, fabricacion, mixto o sin_orden, segun lo marcado en la orden, y ordenes_fabricacion con codigo OF, proveedora y productos), forma de pago y fechas de cotizacion, creacion, primer abono, pago completo y entrega, pagado y saldo pendiente. Valores en COP.",
     schema: z.object({
       ...rangeArgs,
       estado_pago: z
@@ -211,7 +211,7 @@ export const asesorTools: McpToolDefinition[] = [
     name: "ver_venta",
     title: "Ver una venta",
     description:
-      "Detalle completo de una venta por su codigo: cotizacion, orden, cliente, vendedora, origen, productos, forma de pago, cada abono con su fecha, cuenta, si es retencion en la fuente (con su certificado) y si fue retroactivo, fechas (cotizacion, creacion, primer abono, pago completo, entrega), total, pagado, saldo pendiente, si ya cuenta en Balances y su ganancia. Valores en COP.",
+      "Detalle completo de una venta por su codigo: cotizacion, orden, cliente, vendedora, origen, origen_producto (si salio de stock o por fabricacion: tipo stock, fabricacion, mixto o sin_orden segun lo marcado en la orden, y ordenes_fabricacion con codigo OF, proveedora y productos), productos, forma de pago, cada abono con su fecha, cuenta, si es retencion en la fuente (con su certificado) y si fue retroactivo, fechas (cotizacion, creacion, primer abono, pago completo, entrega), total, pagado, saldo pendiente, si ya cuenta en Balances y su ganancia. Valores en COP.",
     schema: z.object({
       venta: z.string().min(1).describe("Codigo de la venta, ej. SAL-00069 o 69."),
     }),
