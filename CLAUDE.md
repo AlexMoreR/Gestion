@@ -207,9 +207,8 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   `workedDays` (un día cuenta si tiene una ENTRADA vigente), `attendanceDrivesPayroll`.
 - El botón marca con un candado por persona (`pg_advisory_xact_lock`) y compara lo que decía el botón:
   un doble clic no crea dos entradas. Solo marcan usuarios `EMPLEADO`/`ADMIN` (una ficha sin usuario no).
-- **Nómina**: desde `ASISTENCIA_NOMINA_DESDE = "2026-11"` los días de quien cobra por día salen de la
-  asistencia (`buildPayrollBoard({ attendanceDays })`, fila `daysSource`); antes, `daysByMonth` manual (los
-  meses viejos no cambian).
+- **Nómina**: los días de quien cobra por día se escriben a mano (`daysByMonth`) en todos los meses; la
+  asistencia no afecta pagos (decisión de Alexander, 28-oct-2026).
 
 ### Transporte (cobertura DANE)
 - **TransportDepartment / TransportCity / TransportLocality** — división político-administrativa oficial
@@ -355,7 +354,7 @@ Route handlers reales (`route.ts`):
   `MCP_GASTOS_USUARIO_EMAIL` o el ADMIN más antiguo.
 - `asistencia` (oct-2026): `fecha` o `desde`/`hasta` (máx. 62 días; por defecto hoy) y `persona` opcional (por
   nombre) → quién está trabajando ahora, quién no ha llegado, y por día entrada, salida, horas, marcas y
-  correcciones; días trabajados del rango. `nomina_del_mes` trae `dias_fuente` (`asistencia`/`manual`).
+  correcciones; días trabajados del rango.
 - `equipo` (oct-2026): trabajadores activos/retirados con cargo, vinculación, forma de pago, ingreso, salida y
   motivo; **nunca** cédula, nacimiento, celular, correo, dirección ni contacto de emergencia
   (`toPublicMember`). `nomina_del_mes` trae `estado`, `fecha_salida` y `tiene_usuario` por persona.

@@ -1,6 +1,5 @@
 import { roundMoney } from "../../../lib/pricing";
 import { TEAM_PAY_LABELS, type PayrollTeamEntry, type TeamPayType, type TeamStatus } from "../../equipo/domain/team-member";
-import { attendanceDrivesPayroll } from "../../asistencia/domain/attendance";
 
 // Nomina de Magilus: salario base de cada persona + comisiones del mes.
 //
@@ -15,9 +14,6 @@ import { attendanceDrivesPayroll } from "../../asistencia/domain/attendance";
 // - Equipo (oct-2026): entra todo el que trabajo algun dia del mes segun su ficha, aunque no
 //   tenga salario ni comision. Quien salio antes del mes solo aparece si todavia tiene
 //   comision o pagos de ese mes (no se esconde plata que se le debe).
-// - Asistencia (oct-2026): desde ASISTENCIA_NOMINA_DESDE (nov-2026) los dias de quien cobra
-//   por dia salen del registro de entrada y salida (un dia cuenta si tiene entrada). Los meses
-//   anteriores siguen con los dias escritos a mano (`daysByMonth`), como estaban.
 
 export const PAY_PERIODS = ["QUINCENAL", "DIARIO", "SIN_BASE"] as const;
 export type PayPeriod = (typeof PAY_PERIODS)[number];
@@ -161,9 +157,6 @@ export type PayrollPayment = {
 
 export type PayrollStaffMember = { id: string; name: string };
 
-// De donde salen los dias trabajados de una fila DIARIO: escritos a mano o de la asistencia.
-export type PayrollDaysSource = "manual" | "asistencia";
-
 export type PayrollRow = {
   userId: string;
   name: string;
@@ -172,8 +165,6 @@ export type PayrollRow = {
   currency: PayCurrency | null;
   baseAmount: number;
   daysWorked: number | null;
-  // Solo en filas DIARIO; null en las demas.
-  daysSource: PayrollDaysSource | null;
   baseUnits: number | null;
   baseOriginal: number | null;
   baseCop: number | null;
@@ -210,9 +201,6 @@ export function buildPayrollBoard(input: {
   commissions: { userId: string; name: string; salesCount: number; commission: number }[];
   payments: PayrollPayment[];
   team?: PayrollTeamEntry[];
-  // Dias trabajados del mes segun la asistencia (userId -> dias). Solo manda desde
-  // ASISTENCIA_NOMINA_DESDE; antes se usan los dias escritos a mano.
-  attendanceDays?: Record<string, number>;
 }): PayrollBoard {
   const { config } = input;
   const team = input.team ?? [];
@@ -226,8 +214,6 @@ export function buildPayrollBoard(input: {
     paymentsById.set(payment.employeeId, list);
   }
   const days = config.daysByMonth[monthKey(input.mes, input.anio)] ?? {};
-  const fromAttendance = attendanceDrivesPayroll(monthKey(input.mes, input.anio)) && input.attendanceDays !== undefined;
-  const attendanceDays = input.attendanceDays ?? {};
 
   // Personas: las configuradas + quien tenga comision o pagos de nomina en el mes.
   const ids: string[] = [];
@@ -261,9 +247,7 @@ export function buildPayrollBoard(input: {
     }
 
     const isDaily = person?.period === "DIARIO";
-    // Con asistencia, un dia sin entradas es 0 (no "faltan los dias").
-    const daysWorked = !isDaily ? null : fromAttendance ? (attendanceDays[userId] ?? 0) : (days[userId] ?? null);
-    const daysSource: PayrollDaysSource | null = !isDaily ? null : fromAttendance ? "asistencia" : "manual";
+    const daysWorked = !isDaily ? null : (days[userId] ?? null);
     const base = person ? computeMonthlyBase(person, config.trm, daysWorked) : { units: 0, original: 0, cop: 0, missing: null };
     if (!hasUser) {
       warnings.push(
@@ -292,9 +276,6 @@ export function buildPayrollBoard(input: {
     }
     if (base.missing === "trm") warnings.push("Falta la TRM (dólar) para pasar el básico a pesos.");
     if (base.missing === "dias") warnings.push("Faltan los días trabajados del mes.");
-    if (daysSource === "asistencia" && daysWorked === 0) {
-      warnings.push("No tiene entradas marcadas este mes en Asistencia: el básico por día sale en 0.");
-    }
 
     const totalDue = base.cop === null ? null : base.cop + commission;
     return {
@@ -305,7 +286,6 @@ export function buildPayrollBoard(input: {
       currency: person?.currency ?? null,
       baseAmount: person?.baseAmount ?? 0,
       daysWorked,
-      daysSource,
       baseUnits: base.units,
       baseOriginal: base.original,
       baseCop: base.cop,
