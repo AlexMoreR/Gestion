@@ -47,7 +47,7 @@ en las Server Actions y en `src/lib/`.
 - `ventas`: reglas de la venta: forma de pago (50/50 o contraentrega), origen de cada venta (lo avisa el CRM por `/api/ventas/origen`; reporte en `/admin/ventas/origen`) y abonos por retención en la fuente (reporte en `/admin/ventas/retenciones`).
 - `nomina`: nómina del mes (salario básico de cada persona + comisiones − lo ya pagado) y el dinero de hoy por cuenta. La configuración (básicos, TRM, días trabajados) vive en `AppSetting` (`payrollConfig`); los pagos son gastos de la categoría Nómina.
 - `equipo`: ficha de cada trabajador (ingreso, salida, contacto, forma de pago) y las reglas de estado Activo/Retirado, edad y "¿trabajaba en tal fecha?". La nómina, las comisiones y las asignaciones la usan para incluir a los activos y sacar a los retirados.
-- `asistencia`: registro de entrada y salida (hora del servidor), correcciones con motivo hechas por un admin, asistencia de hoy y por mes, y los días trabajados del mes que usa la nómina por día desde nov-2026.
+- `asistencia`: registro de entrada y salida (hora del servidor), correcciones con motivo hechas por un admin y asistencia de hoy y por mes (no afecta la nómina).
 - `asesor`: consultas para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones, nómina, equipo, asistencia, saldos de cuentas, gastos del mes con la ganancia real (`listar_gastos`), cuánto se le debe a cada proveedora orden por orden (`deuda_con_proveedoras`) y esta radiografía. Es de solo lectura salvo `registrar_gasto` (ver reglas). También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
 
 ## Entidades
@@ -230,8 +230,8 @@ Camila 15% fijo desde oct-2026). Aplica igual en Comisiones, Nómina, su link y 
 
 **Nómina (`/admin/comisiones/nomina`, decisión de Alexander 15-oct-2026).** Total del mes por
 persona = básico del mes + comisión del mes; falta pagar = total − pagos de Nómina de esa persona para
-ese mes. Básico por quincena = 2 quincenas al mes; por día = tarifa × días trabajados (hasta oct-2026
-los escribe el dueño; desde nov-2026 salen de la Asistencia); sin básico = solo comisión. Un básico en dólares se pasa a pesos con la TRM guardada (si no hay
+ese mes. Básico por quincena = 2 quincenas al mes; por día = tarifa × días trabajados
+(los escribe el dueño a mano en todos los meses); sin básico = solo comisión. Un básico en dólares se pasa a pesos con la TRM guardada (si no hay
 TRM no se calcula, nunca se inventa). Un pago registrado desde la pantalla lleva el mes en la
 descripción (" · AAAA-MM") y cuenta en ese mes aunque se pague después; un gasto de Nómina sin ese
 mes cuenta por su fecha. Comprobante obligatorio salvo en efectivo (misma regla de Gastos).
