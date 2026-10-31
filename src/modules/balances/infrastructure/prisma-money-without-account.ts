@@ -1,10 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import type { MoneyWithoutAccount } from "../domain/cash-position";
+import { runFreightAutoLinkSafely } from "./prisma-freight-auto-link";
 
 // Plata registrada sin decir de que cuenta entro o salio: no suma ni resta en ningun saldo,
 // por eso el saldo de la app puede no cuadrar con el banco hasta que se le asigne cuenta.
 // La retencion en la fuente no entra: nunca llega a una cuenta y eso es correcto.
 export async function getMoneyWithoutAccount(): Promise<MoneyWithoutAccount> {
+  // La primera vez une solos los fletes viejos con su pago en Proveedores (no cambia saldos).
+  await runFreightAutoLinkSafely();
   const [salePayments, supplierPayments, shippingCosts] = await Promise.all([
     prisma.salePayment.aggregate({
       where: { accountId: null, isWithholding: false },

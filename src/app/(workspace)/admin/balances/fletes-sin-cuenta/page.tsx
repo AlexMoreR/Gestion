@@ -11,6 +11,7 @@ import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { matchFreightPayments } from "@/modules/balances/domain/freight-without-account";
+import { runFreightAutoLinkSafely } from "@/modules/balances/infrastructure/prisma-freight-auto-link";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -22,7 +23,8 @@ const SELECT_CLASS =
 const dateLabel = (value: Date) => value.toLocaleDateString("es-CO", { timeZone: "America/Bogota" });
 
 // Fletes viejos que quedaron sin cuenta (antes de exigir el pago al despachar). La persona les
-// asigna la cuenta o los enlaza con el pago que ya hizo en Proveedores; nada se asigna solo.
+// asigna la cuenta o los enlaza con el pago que ya hizo en Proveedores. Una sola vez, el cruce
+// automatico une solos los que tienen pareja segura (ver planFreightAutoLink).
 export default async function FreightWithoutAccountPage({ searchParams }: PageProps) {
   const session = await auth();
   if (!session?.user?.id || !(await hasAdminModuleAccess(session.user.id, session.user.role, "balances"))) {
@@ -32,6 +34,9 @@ export default async function FreightWithoutAccountPage({ searchParams }: PagePr
   const query = await searchParams;
   const okMessage = typeof query.ok === "string" ? query.ok : "";
   const errorMessage = typeof query.error === "string" ? query.error : "";
+
+  // Antes de listar: la primera vez se unen solos los fletes que ya tienen su pago en Proveedores.
+  const autoLink = await runFreightAutoLinkSafely();
 
   const [currency, accounts, freights] = await Promise.all([
     getSystemCurrency(),
@@ -98,6 +103,12 @@ export default async function FreightWithoutAccountPage({ searchParams }: PagePr
           <p className="text-sm text-muted-foreground">
             {freights.length} flete(s) por {formatMoney(total, currency)} que no restan de ningún saldo.
           </p>
+          {autoLink ? (
+            <p className="text-xs text-muted-foreground">
+              Cruce automático: {autoLink.linked} fletes unidos a su pago en Proveedores por{" "}
+              {formatMoney(autoLink.amount, currency)}.
+            </p>
+          ) : null}
         </div>
         <Link href="/admin/balances" className="ml-auto text-sm text-primary hover:underline">
           Volver a Balances
