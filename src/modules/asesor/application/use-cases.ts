@@ -42,6 +42,7 @@ import {
   type SaleLedger,
 } from "../domain/payments";
 import type { AsesorReadRepository } from "../domain/repository";
+import { buildPreciosVigentes } from "../domain/precios-vigentes";
 import { effectiveOrigin, originDetailSummary, saleOriginLabel } from "../../ventas/domain/sale-origin";
 
 export type AsesorDependencies = {
@@ -351,6 +352,13 @@ export async function listProductsUseCase(deps: AsesorDependencies, busqueda: st
       "El costo real de una venta puede variar: se usa el costo confirmado con la proveedora en la orden.",
     ],
   };
+}
+
+// Hoja "Precios vigentes" (Markdown con precio y COSTO), ordenada por lo mas vendido en 90 dias.
+export async function preciosVigentesUseCase(repo: AsesorReadRepository, now: Date): Promise<string> {
+  const desde = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+  const [products, unitsSold] = await Promise.all([repo.listProducts(), repo.unitsSoldByProduct(desde)]);
+  return buildPreciosVigentes(products, unitsSold, now);
 }
 
 export async function getMonthlyCommissionsUseCase(deps: AsesorDependencies, mes: number, anio: number) {

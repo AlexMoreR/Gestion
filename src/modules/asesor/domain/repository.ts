@@ -15,6 +15,8 @@ export interface AsesorReadRepository {
   getSaleDetails(saleIds: string[]): Promise<SaleDetail[]>;
   listQuotes(range: DayRange, statuses: readonly QuoteStatusCode[] | null): Promise<QuoteRow[]>;
   listProducts(search?: string): Promise<ProductRow[]>;
+  // Unidades vendidas por producto (productId) en ordenes de venta no canceladas creadas desde `desde`.
+  unitsSoldByProduct(desde: Date): Promise<Map<string, number>>;
   // Ventas con sus abonos, fechas y saldo (pagadas o no).
   listSaleLedgers(filter?: SaleLedgerFilter): Promise<SaleLedgerInput[]>;
   // Gastos operativos con fecha de gasto dentro del rango.

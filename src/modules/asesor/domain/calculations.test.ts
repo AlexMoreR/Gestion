@@ -189,6 +189,7 @@ describe("cotizaciones", () => {
 describe("margen de producto", () => {
   it("resta el flete del margen real", () => {
     const margin = productMargin({
+      id: "p1",
       code: "CAV04",
       name: "Camilla",
       categoryName: "CAMILLA",

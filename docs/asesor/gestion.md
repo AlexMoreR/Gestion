@@ -149,6 +149,7 @@ en las Server Actions y en `src/lib/`.
 - `/api/informe/link`: entrega al dueño el enlace del informe con su token.
 - `/api/mcp`: servidor MCP de solo lectura del asesor de IA (llave en header).
 - `/api/mcp/[key]`: el mismo servidor MCP con la llave dentro de la ruta (conectores de claude.ai).
+- `/api/asesor/precios-vigentes`: hoja Markdown "Precios vigentes" para el cerebro de Claude: productos visibles en la tienda con código, nombre, qué es, precio y **costo**, los más vendidos de 90 días primero. Solo lectura. **Lleva costos**: solo con la llave `MCP_API_KEY`, nunca con la del catálogo, y no se comparte con clientes.
 - `/api/ventas/origen`: para el CRM (con llave). POST avisa de dónde vino el cliente de una cotización (al marcar el chat como ganado); se guarda en la cotización y en su venta.
 - `/api/transporte/ubicaciones`: para el CRM (con llave). GET busca ciudades y corregimientos sin importar acentos, dice su tipo de envío y, si se manda un producto, el total con envío. POST agrega un corregimiento o barrio nuevo bajo una ciudad sin duplicar.
 - `/uploads/[...path]`: sirve los archivos subidos (comprobantes, imágenes).

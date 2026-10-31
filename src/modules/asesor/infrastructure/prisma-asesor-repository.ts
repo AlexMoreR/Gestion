@@ -246,6 +246,7 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
           : undefined,
         orderBy: { name: "asc" },
         select: {
+          id: true,
           code: true,
           name: true,
           price: true,
@@ -258,6 +259,7 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
       });
 
       return products.map((product) => ({
+        id: product.id,
         code: product.code,
         name: product.name,
         categoryName: product.category?.name ?? null,
@@ -267,6 +269,14 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
         isBundle: product.isBundle,
         hiddenFromStore: product.hiddenFromStore,
       }));
+    },
+    async unitsSoldByProduct(desde: Date): Promise<Map<string, number>> {
+      const rows = await prisma.orderItem.groupBy({
+        by: ["productId"],
+        where: { createdAt: { gte: desde }, order: { type: "SALE", status: { not: "CANCELLED" } } },
+        _sum: { quantity: true },
+      });
+      return new Map(rows.map((row) => [row.productId, row._sum.quantity ?? 0]));
     },
     async listSaleLedgers(filter?: SaleLedgerFilter): Promise<SaleLedgerInput[]> {
       const where: Prisma.SaleWhereInput = {};
