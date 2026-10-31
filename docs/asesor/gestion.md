@@ -287,6 +287,15 @@ queda pagada y entra a Balances y comisiones), pero no entra a ninguna cuenta ni
 "plata sin cuenta". No se resta de la ganancia (es un anticipo de impuesto, no un costo). Reporte por
 mes y total del año en `/admin/ventas/retenciones`, con descarga CSV para el contador.
 
+**Aviso diario de dinero por WhatsApp (oct-2026).** Para que no se acumule otro hueco sin que nadie
+lo note: cada mañana (7:00 a. m., cron en aizen1, `scripts/alertas`) se le pregunta a Gestión
+(`GET /api/alertas/dinero`, solo lectura, llave `ALERTAS_API_KEY` o `MCP_API_KEY`) y, solo si hay
+algo, se le manda a Alexander un WhatsApp corto por la línea Admin: cuentas en saldo negativo (se
+repite cada día mientras sigan así) y abonos, fletes o pagos a proveedoras guardados sin cuenta en
+las últimas 24 h, con la venta o la proveedora y el monto (máximo 2 líneas, 3 casos y "y N más"). La
+retención en la fuente no cuenta; los gastos no pueden quedar sin cuenta. Si todo está bien no llega
+nada. Regla en `src/modules/balances/domain/money-alert.ts`.
+
 ## Qué NO tiene el sistema
 
 - El **origen** de las ventas anteriores a oct-2026 casi siempre es "Sin dato" (se puede rellenar con `npm run origen:rellenar`, que cruza el teléfono del cliente con el CRM).
@@ -310,4 +319,5 @@ mes y total del año en `/admin/ventas/retenciones`, con descarga CSV para el co
 - `/cobertura` solo mira la marca de envío gratis de la ubicación elegida: un corregimiento sin tipo propio de una ciudad gratis sale "no gratis" en `/cobertura`, aunque el CRM lo informe como gratis por herencia.
 - `/api/transporte/ubicaciones` (POST) crea corregimientos desde el CRM: si la llave se filtra, alguien podría llenar la lista de pendientes. Se cambia `TRANSPORTE_API_KEY` (o la llave que esté en uso).
 - La **base de datos** tiene respaldo nocturno (2:30 a. m.) en aizen1 y en Google Drive ("Respaldos/Gestion", 30 días; ver `scripts/respaldo` y el README), pero las **fotos y comprobantes** (`/public/uploads`) **todavía no tienen respaldo**. Si falla el respaldo llega un correo; si el servidor está apagado no llega nada: la señal es que no haya archivo nuevo en Drive esa mañana. Los respaldos traen datos personales: la carpeta de Drive no se comparte.
+- El **aviso diario de dinero** (`scripts/alertas`) corre fuera de la imagen: si el cron, Gestión o WAHA fallan ese día no llega nada (el error queda en `/var/log/magilus-alertas.log`) y no se reintenta. Lo que quedó sin cuenta hace más de 24 h no se vuelve a avisar; se ve en Balances. Quien tenga `ALERTAS_API_KEY` ve los saldos de las cuentas.
 - Los riesgos que se deducen de la configuración (arranque, pipeline, réplicas, volúmenes) los detecta la herramienta sola desde el Dockerfile, el workflow y el docker-compose; aquí van solo los que no se pueden deducir.
