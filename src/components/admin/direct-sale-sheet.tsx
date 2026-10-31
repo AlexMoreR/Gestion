@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { expandComboLines, type ComboComponent } from "@/lib/combo";
+import { expandComboLines, pickComboPieces, type ComboComponent } from "@/lib/combo";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { PaymentMethodField } from "@/modules/ventas/presentation/payment-method-field";
 
@@ -251,7 +251,8 @@ export function DirectSaleSheet({
     // Si es un combo, se separa en sus componentes (cada uno conserva su
     // producto real); el precio del combo se reparte entre las líneas.
     if (draftProduct.isBundle && draftProduct.components && draftProduct.components.length > 0) {
-      const expanded = expandComboLines(draftProduct.components, quantity, unitPrice);
+      // Venta de mostrador: cada pieza sale de la que hay (principal o alterna).
+      const expanded = expandComboLines(pickComboPieces(draftProduct.components, quantity), quantity, unitPrice);
       setLines((prev) => [
         ...prev,
         ...expanded.map((line) => ({

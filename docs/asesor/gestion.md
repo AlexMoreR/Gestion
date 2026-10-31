@@ -58,6 +58,7 @@ en las Server Actions y en `src/lib/`.
 - `Product`: producto del catálogo con precio de venta, costo de proveedor, flete por unidad, márgenes, precio mayorista, bandera de combo u oculto en tienda y, opcional, su propio envío adicional (COP) que pisa el de la categoría.
 - `ProductReview`: reseña o calificación de un producto en la tienda.
 - `ProductComponent`: composición de un combo: qué productos hijos y en qué cantidad forman un producto combo.
+- `ProductComponentAlternate`: pieza alterna de un componente de combo (ej. butaco BMV016 o BMV003); misma cantidad que la principal y suma a su stock.
 - `ProductImage`: imágenes ordenadas de un producto.
 - `Category`: categoría del catálogo. Guarda el envío adicional (COP) de sus productos; vacío = se cotiza.
 - `Supplier`: proveedora: fábrica (`MANUFACTURER`) o transportadora (`SHIPPING`). Tiene enlace de estado de cuenta.
@@ -203,6 +204,9 @@ cotizaciones; el dueño ve todas.
 **Combos.** Un combo es un producto hecho de otros productos (componentes). En la cotización cada
 componente es una línea, pero se muestra como un solo producto con el precio del combo. El combo no
 tiene proveedora propia: se toma la de sus componentes.
+Una pieza del combo puede tener alternas: el stock de esa pieza es la principal más sus alternas
+(así se cuenta cuántos combos se pueden armar), y al cotizar o vender por stock la línea sale con la
+primera pieza que alcanza para toda la cantidad (principal, luego alternas); no mezcla piezas.
 
 **Fletes.** Hay dos: el flete de compra por unidad (en la ficha del producto, sube el costo de lo que
 sale de stock) y el flete de envío al cliente (se registra por venta al despachar y resta en su

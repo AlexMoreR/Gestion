@@ -76,6 +76,7 @@ type EditProductInitialData = {
   components: Array<{
     childId: string;
     quantity: number;
+    alternateIds?: string[];
   }>;
   imageUrls: string[];
 };
@@ -231,6 +232,7 @@ export function EditProductForm({
           id: globalThis.crypto?.randomUUID?.() ?? `${component.childId}-${Math.random()}`,
           childId: component.childId,
           quantity: String(component.quantity),
+          alternateIds: component.alternateIds ?? [],
         }))
       : [
           {

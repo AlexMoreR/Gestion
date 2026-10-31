@@ -113,11 +113,23 @@ type ParsedProductComponent = {
   childId: string;
   quantity: number;
   sortOrder: number;
+  alternateIds: string[];
 };
+
+// Prisma "create" de una pieza con sus alternas (createMany no crea hijos).
+function componentCreateData(component: ParsedProductComponent) {
+  const { alternateIds, ...data } = component;
+  return {
+    ...data,
+    alternates: { create: alternateIds.map((productId, sortOrder) => ({ productId, sortOrder })) },
+  };
+}
 
 function parseProductComponents(formData: FormData): ParsedProductComponent[] {
   const childIds = formData.getAll("componentProductIds");
   const quantities = formData.getAll("componentQuantities");
+  // Alternas por pieza, alineadas con componentProductIds ("id1,id2"; vacio = ninguna).
+  const alternatesRaw = formData.getAll("componentAlternates");
   const components: ParsedProductComponent[] = [];
   const seenChildIds = new Set<string>();
 
@@ -138,8 +150,22 @@ function parseProductComponents(formData: FormData): ParsedProductComponent[] {
       throw new Error("Cada componente del combo debe tener una cantidad entera mayor a cero.");
     }
 
+    const rawAlternates = alternatesRaw[index];
+    const alternateIds = [
+      ...new Set(
+        (typeof rawAlternates === "string" ? rawAlternates.split(",") : [])
+          .map((id) => id.trim())
+          .filter((id) => id && id !== childId),
+      ),
+    ];
+
     seenChildIds.add(childId);
-    components.push({ childId, quantity, sortOrder: components.length });
+    components.push({ childId, quantity, sortOrder: components.length, alternateIds });
+  }
+
+  // Una alterna no puede ser otra pieza del combo (contaria doble su stock).
+  if (components.some((component) => component.alternateIds.some((id) => seenChildIds.has(id)))) {
+    throw new Error("Una pieza alterna no puede ser otra pieza del mismo combo.");
   }
 
   return components;
@@ -149,7 +175,9 @@ async function assertComponentsAreNotBundles(components: ParsedProductComponent[
   if (components.length === 0) {
     return;
   }
-  const childIds = components.map((component) => component.childId);
+  const childIds = [
+    ...new Set(components.flatMap((component) => [component.childId, ...component.alternateIds])),
+  ];
   const found = await prisma.product.findMany({
     where: { id: { in: childIds } },
     select: { id: true, isBundle: true },
@@ -446,11 +474,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
             }
           : undefined,
         bundleComponents: productComponents.length > 0
-          ? {
-              createMany: {
-                data: productComponents,
-              },
-            }
+          ? { create: productComponents.map(componentCreateData) }
           : undefined,
       },
     });
@@ -565,7 +589,13 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
     if (isBundle && productComponents.length === 0) {
       throw new Error("Un combo debe tener al menos un componente.");
     }
-    if (isBundle && productComponents.some((component) => component.childId === parsed.data.productId)) {
+    if (
+      isBundle &&
+      productComponents.some(
+        (component) =>
+          component.childId === parsed.data.productId || component.alternateIds.includes(parsed.data.productId),
+      )
+    ) {
       throw new Error("Un combo no puede incluirse a si mismo como componente.");
     }
     if (isBundle) {
@@ -672,16 +702,11 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
       prisma.productComponent.deleteMany({
         where: { parentId: parsed.data.productId },
       }),
-      ...(productComponents.length > 0
-        ? [
-            prisma.productComponent.createMany({
-              data: productComponents.map((component) => ({
-                parentId: parsed.data.productId,
-                ...component,
-              })),
-            }),
-          ]
-        : []),
+      ...productComponents.map((component) =>
+        prisma.productComponent.create({
+          data: { parentId: parsed.data.productId, ...componentCreateData(component) },
+        }),
+      ),
     ]);
   } catch (error) {
     buildErrorRedirect(redirectBase, resolveProductMutationError(error));

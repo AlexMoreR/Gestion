@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { comboStock } from "@/lib/combo";
 import { getPublicAssetUrl } from "@/lib/site";
 import { createPrismaInventoryRepository } from "@/modules/inventory/infrastructure/prisma-inventory-repository";
 
@@ -44,6 +45,7 @@ export async function getPurchaseFormData(): Promise<PurchaseFormData> {
             childId: true,
             quantity: true,
             child: { select: { name: true, code: true, thumbnailUrl: true } },
+            alternates: { select: { productId: true } },
           },
         },
       },
@@ -65,13 +67,8 @@ export async function getPurchaseFormData(): Promise<PurchaseFormData> {
   ]);
 
   const stockByProduct = new Map(productStocks.map((stock) => [stock.productId, stock.stock]));
-  const bundleStock = (components: { childId: string; quantity: number }[]): number => {
-    const valid = components.filter((component) => component.quantity > 0);
-    if (valid.length === 0) return 0;
-    return Math.min(
-      ...valid.map((component) => Math.floor((stockByProduct.get(component.childId) ?? 0) / component.quantity)),
-    );
-  };
+  const bundleStock = (components: Parameters<typeof comboStock>[0]): number =>
+    comboStock(components, (productId) => stockByProduct.get(productId) ?? 0);
 
   const purchaseComboComponents: PurchaseFormData["purchaseComboComponents"] = {};
   for (const bundle of bundleProducts) {

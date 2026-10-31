@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import { ProductSearchSelect } from "@/components/admin/product-search-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ export type ProductComponentDraft = {
   id: string;
   childId: string;
   quantity: string;
+  alternateIds?: string[]; // piezas que pueden ir en lugar de esta (ej. otro butaco)
 };
 
 export type BundleProductOption = {
@@ -86,6 +87,7 @@ export function ProductBundleField({
             <div className="space-y-2">
               {rows.map((row) => {
                 const product = productById.get(row.childId);
+                const alternateIds = row.alternateIds ?? [];
                 return (
                   <div
                     key={row.id}
@@ -130,11 +132,56 @@ export function ProductBundleField({
                       </Button>
                     </div>
 
+                    {row.childId ? (
+                      <div className="space-y-1.5 md:col-span-3">
+                        <span className="text-xs font-medium text-slate-600">Alternas (si no hay esta pieza, sale otra)</span>
+                        {alternateIds.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {alternateIds.map((alternateId) => {
+                              const alternate = productById.get(alternateId);
+                              return (
+                                <span
+                                  key={alternateId}
+                                  className="inline-flex max-w-full items-center gap-1 rounded-full border border-[var(--line)] bg-white px-2 py-0.5 text-[11px] text-slate-700"
+                                >
+                                  <span className="truncate">
+                                    {alternate ? `${alternate.code || "SIN-CODIGO"} - ${alternate.name}` : "Producto"}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="text-slate-500 hover:text-slate-900"
+                                    onClick={() =>
+                                      onChange(row.id, { alternateIds: alternateIds.filter((id) => id !== alternateId) })
+                                    }
+                                    aria-label="Quitar alterna"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                        <ProductSearchSelect
+                          products={products}
+                          value=""
+                          placeholder="Agregar alterna"
+                          onChange={(productId) => {
+                            if (productId && !alternateIds.includes(productId)) {
+                              onChange(row.id, { alternateIds: [...alternateIds, productId] });
+                            }
+                          }}
+                          disabledIds={new Set([...selectedChildIds, ...alternateIds])}
+                        />
+                      </div>
+                    ) : null}
+
                     {/* Campos enviados al servidor (solo filas con producto) */}
                     {row.childId ? (
                       <>
                         <input type="hidden" name="componentProductIds" value={row.childId} />
                         <input type="hidden" name="componentQuantities" value={Number(row.quantity) || 0} />
+                        <input type="hidden" name="componentAlternates" value={alternateIds.join(",")} />
                       </>
                     ) : null}
                   </div>
