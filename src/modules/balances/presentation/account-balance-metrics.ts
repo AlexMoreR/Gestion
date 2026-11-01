@@ -198,6 +198,11 @@ export function reviewAccountHistory(
     }
   }
 
+  // Saldo inicial ya negativo que no baja más: el punto más bajo es el arranque.
+  if (!lowestDate && firstNegative) {
+    lowestDate = firstNegative.date;
+  }
+
   const suspicious: SuspiciousAccountExit[] = [];
   if (opts.accountType === "CASH") {
     for (const txn of sorted) {

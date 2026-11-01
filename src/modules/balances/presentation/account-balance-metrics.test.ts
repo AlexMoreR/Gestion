@@ -129,6 +129,12 @@ describe("reviewAccountHistory", () => {
     expect(result.neededOpening).toBe(300);
   });
 
+  it("con saldo inicial negativo que no baja más, el punto más bajo tiene fecha", () => {
+    const result = reviewAccountHistory([txn("a", "2026-06-01", 0)], { openingBalance: -50, accountType: "CASH" });
+    expect(result.lowestBalance).toBe(-50);
+    expect(result.lowestDate?.toISOString()).toBe("2026-06-01T00:00:00.000Z");
+  });
+
   it("el mismo día cuenta primero la entrada y luego la salida", () => {
     const result = reviewAccountHistory(
       [txn("salida", "2026-06-01", -400), txn("entrada", "2026-06-01", 400)],
