@@ -1,5 +1,5 @@
 // Reglas puras del pago a la proveedora en su orden de fabricacion (OF).
-// Sin Prisma: imports relativos porque Vitest no resuelve el alias "@/".
+// Sin base de datos: imports relativos porque Vitest no resuelve el alias del proyecto.
 import { colombiaDayKey } from "../../../lib/colombia-time";
 
 export const SUPPLIER_PAYMENT_MAX = 20_000_000;
