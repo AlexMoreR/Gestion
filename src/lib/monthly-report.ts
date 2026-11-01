@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import type { DateRange } from "@/modules/balances/domain/entities";
-import { colombiaMonthKey, colombiaMonthRange } from "@/lib/colombia-time";
+import { colombiaMonthKey, colombiaMonthRange } from "./colombia-time";
 
 // Token del link del informe. Si hay MONTHLY_REPORT_TOKEN se usa tal cual; si no,
 // se deriva de AUTH_SECRET (ya existe en produccion) para no depender de Portainer.
