@@ -52,6 +52,8 @@ export type AppSnapshot = {
   reglasEnCodigo: Array<{ regla: string; archivo: string; funcion: string; encontrada: boolean; codigo: string | null }>;
   despliegue: SnapshotDeploy;
   documento: { archivo: string; contenido: string } | null;
+  // Manual de pantallas (docs/asesor/pantallas.md). Opcional: fotos viejas no lo traen.
+  manualPantallas?: { archivo: string; contenido: string } | null;
   avisos: string[];
 };
 

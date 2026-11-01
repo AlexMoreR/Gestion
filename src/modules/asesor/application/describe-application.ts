@@ -18,6 +18,7 @@ export const APP_OVERVIEW_SECTIONS = [
   "arquitectura",
   "modelo_de_datos",
   "pantallas_y_rutas",
+  "pantallas",
   "reglas_de_negocio",
   "lo_que_no_tiene",
   "riesgos_de_operacion",
@@ -205,6 +206,19 @@ export async function describeApplicationUseCase(
 
   if (wants("volumen_de_datos")) {
     result.volumen_de_datos = counts;
+  }
+
+  // Manual de pantallas (docs/asesor/pantallas.md): solo con seccion='pantallas', porque pesa decenas de KB.
+  if (section === "pantallas") {
+    const liveManual = await source.readScreensManual();
+    const snapshotManual = snapshot?.manualPantallas?.contenido ?? null;
+    result.pantallas = {
+      archivo: "docs/asesor/pantallas.md",
+      leido_de: liveManual ? "repositorio (en vivo)" : snapshotManual ? "foto del build" : "no disponible",
+      contenido: liveManual ?? snapshotManual,
+    };
+  } else if (section === "todo") {
+    result.pantallas = "Para saber dónde está cada botón y cómo hacer las tareas del día a día, pide seccion='pantallas'.";
   }
 
   if (section === "todo") {

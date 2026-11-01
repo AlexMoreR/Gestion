@@ -45,5 +45,7 @@ export interface AppIntrospectionSource {
   readBuildSnapshot(): Promise<AppSnapshot | null>;
   // El documento editable si existe en disco (desarrollo); en produccion viene en la foto.
   readOverviewDocument(): Promise<string | null>;
+  // El manual de pantallas si existe en disco (desarrollo); en produccion viene en la foto.
+  readScreensManual(): Promise<string | null>;
   countRecords(modelNames: string[]): Promise<Record<string, number | null>>;
 }

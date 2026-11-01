@@ -10,6 +10,7 @@ import type { AppIntrospectionSource, PackageManifest } from "../domain/reposito
 const ROOT = process.cwd();
 const SNAPSHOT_FILE = path.join(ROOT, ".next", "gestion-snapshot.json");
 const DOC_FILE = path.join(ROOT, "docs", "asesor", "gestion.md");
+const SCREENS_FILE = path.join(ROOT, "docs", "asesor", "pantallas.md");
 
 async function readText(filePath: string): Promise<string | null> {
   try {
@@ -83,6 +84,10 @@ export function createFilesystemAppIntrospection(): AppIntrospectionSource {
 
     readOverviewDocument() {
       return readText(DOC_FILE);
+    },
+
+    readScreensManual() {
+      return readText(SCREENS_FILE);
     },
 
     async countRecords(modelNames: string[]) {

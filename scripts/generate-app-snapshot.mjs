@@ -24,6 +24,7 @@ import {
 const ROOT = process.cwd();
 const OUTPUT = path.join(ROOT, ".next", "gestion-snapshot.json");
 const DOC_FILE = "docs/asesor/gestion.md";
+const SCREENS_FILE = "docs/asesor/pantallas.md";
 
 // Reglas de negocio cuyo CODIGO se copia tal cual en la foto. Si una funcion se
 // renombra o se mueve, aparece un aviso para actualizar este listado.
@@ -186,7 +187,7 @@ async function readGitCommit() {
 }
 
 async function main() {
-  const [rutas, modulos, accionesDeServidor, reglasEnCodigo, despliegue, git, documento] = await Promise.all([
+  const [rutas, modulos, accionesDeServidor, reglasEnCodigo, despliegue, git, documento, manualPantallas] = await Promise.all([
     collectRoutes(),
     collectModules(),
     collectServerActions(),
@@ -194,9 +195,11 @@ async function main() {
     collectDeploy(),
     readGitCommit(),
     readText(DOC_FILE),
+    readText(SCREENS_FILE),
   ]);
 
   if (!documento) warnings.push(`No se encontro ${DOC_FILE}.`);
+  if (!manualPantallas) warnings.push(`No se encontro ${SCREENS_FILE}.`);
 
   const snapshot = {
     version: 1,
@@ -209,6 +212,7 @@ async function main() {
     reglasEnCodigo,
     despliegue,
     documento: documento ? { archivo: DOC_FILE, contenido: documento } : null,
+    manualPantallas: manualPantallas ? { archivo: SCREENS_FILE, contenido: manualPantallas } : null,
     avisos: warnings,
   };
 
