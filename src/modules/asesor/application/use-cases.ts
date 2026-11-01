@@ -42,7 +42,7 @@ import {
   type SaleLedger,
 } from "../domain/payments";
 import type { AsesorReadRepository } from "../domain/repository";
-import { buildSaleLinks } from "../domain/sale-products";
+import { assessProfit, buildSaleLinks, isProfitReliable } from "../domain/sale-products";
 import type { SaleDetail } from "../domain/entities";
 import { getSiteUrl } from "../../../lib/site";
 import { effectiveOrigin, originDetailSummary, saleOriginLabel } from "../../ventas/domain/sale-origin";
@@ -239,6 +239,7 @@ export async function listSalesUseCase(
       flete: roundMoney(row.shippingCosts),
       ganancia: roundMoney(row.netProfit),
       margen_pct: roundMoney(row.marginPercentage),
+      ganancia_confiable: isProfitReliable(Boolean(detail?.orderCode), detail?.products ?? []),
       ...describeOrigin(row.saleId),
       ...saleLinks(detail),
       ...(ledger ? describeLedgerDates(ledger) : {}),
@@ -299,6 +300,7 @@ export async function listSalesUseCase(
       SELLER_NOTE,
       "'origen' sale de la linea de WhatsApp del chat en el CRM (Ventas 1 = Meta Ads, Ventas 2 = Marketplace, Admin = Referido, o Recurrente si ya habia comprado); venta directa = Mostrador. 'Sin dato' = la venta no tiene origen registrado (casi todas las anteriores a oct-2026). 'origen_detalle' trae el anuncio o la cuenta MK cuando el CRM los conoce.",
       "Pagadas: 'fecha' = cuando la venta empezo a contar (pago completo; contraentrega: entrega) y traen ganancia real. 'entregada' = false si solo falta entregarla.",
+      "ganancia_confiable = false en una pagada: falta la orden o algun costo esta sin confirmar; su ganancia es de Balances pero no es definitiva (ver_venta da la estimada). Los totales no cambian.",
       "Pendientes (estado_pago 'pendientes' o 'todas'): ventas con abono que todavia no cuentan en Balances (falta plata, o contraentrega sin entregar). Su 'fecha' = fecha del primer abono y no traen ganancia. 'totales' de arriba son solo de las pagadas; las pendientes van en totales.pendientes.",
       PAYMENT_DATES_NOTE,
       "No incluye ventas canceladas.",
@@ -551,17 +553,17 @@ export async function getSaleUseCase(deps: AsesorDependencies, codigo: string) {
     ...describeLedgerDates(ledger),
     entregada: ledger.input.deliveredAt !== null,
     abonos: ledger.payments.map(describePayment),
-    ganancia: profit
-      ? {
-          costo_producto: roundMoney(profit.supplierCosts),
-          flete: roundMoney(profit.shippingCosts),
-          ganancia: roundMoney(profit.netProfit),
-          margen_pct: roundMoney(profit.marginPercentage),
-        }
-      : null,
+    ...assessProfit({
+      total: ledger.input.total,
+      hasOrder: Boolean(detail?.orderCode),
+      productos: detail?.products ?? [],
+      shippingCosts: profit?.shippingCosts ?? 0,
+      balancesProfit: profit,
+    }),
     notas: [
       "cuenta_en_balances = true cuando la venta ya esta pagada completa (contraentrega: entregada); ahi cuenta para ventas del mes y comisiones.",
       "La ganancia puede cambiar mientras falten costos por confirmar (flete, costo de la proveedora).",
+      "ganancia_confiable = true solo si hay orden y todos los productos tienen costo 'confirmado' o de 'inventario'. Si es false, 'ganancia' (la de Balances) queda con confiable: false y NO se da como real: usa 'ganancia_estimada' (estimada: true, costos de las lineas) y di el 'aviso_ganancia'.",
       PAYMENT_DATES_NOTE,
     ],
   };

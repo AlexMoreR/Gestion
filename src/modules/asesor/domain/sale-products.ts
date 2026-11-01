@@ -41,8 +41,9 @@ function toNullableNumber(value: unknown): number | null {
 // De mejor a peor: el combo toma el peor origen de sus hijos.
 const ORIGIN_RANK: Record<SaleProductCostOrigin, number> = {
   confirmado: 0,
-  "estimado de catálogo": 1,
-  "sin dato": 2,
+  inventario: 1,
+  "estimado de catálogo": 2,
+  "sin dato": 3,
 };
 
 function itemCost(item: SaleProductItemInput): { unitCost: number; origin: SaleProductCostOrigin } {
@@ -56,6 +57,7 @@ function itemCost(item: SaleProductItemInput): { unitCost: number; origin: SaleP
   });
   if (!(unitCost > 0)) return { unitCost: 0, origin: "sin dato" };
   if (purchaseCost != null) return { unitCost, origin: "confirmado" };
+  if (item.fulfillmentMode === "STOCK") return { unitCost, origin: "inventario" };
   return { unitCost, origin: "estimado de catálogo" };
 }
 
@@ -169,5 +171,57 @@ export function buildSaleLinks(params: {
       supplierLinks.length === 0 ? null : supplierLinks.length === 1 ? supplierLinks[0] : supplierLinks,
     aviso_orden: params.hasOrder ? null : MISSING_ORDER_NOTICE,
     aviso_proveedora: params.hasOrder && supplierLinks.length === 0 ? MISSING_MANUFACTURING_NOTICE : null,
+  };
+}
+
+export const UNRELIABLE_PROFIT_NOTICE = "Costo aún no confirmado: la ganancia real no se puede dar";
+
+type ProfitBlock = { costo_producto: number; flete: number; ganancia: number; margen_pct: number };
+
+// La ganancia es confiable solo si hay orden y todas sus lineas tienen costo confirmado o de inventario.
+export function isProfitReliable(hasOrder: boolean, productos: Pick<SaleProductLine, "costo_origen">[]): boolean {
+  return (
+    hasOrder &&
+    productos.length > 0 &&
+    productos.every((p) => p.costo_origen === "confirmado" || p.costo_origen === "inventario")
+  );
+}
+
+// Solo lectura: no recalcula Balances. Si la ganancia no es confiable, la de Balances queda marcada
+// confiable: false y se agrega una estimada con los costos de las lineas (catalogo si no hay orden).
+export function assessProfit(params: {
+  total: number;
+  hasOrder: boolean;
+  productos: SaleProductLine[];
+  shippingCosts: number;
+  balancesProfit: { supplierCosts: number; shippingCosts: number; netProfit: number; marginPercentage: number } | null;
+}) {
+  const confiable = isProfitReliable(params.hasOrder, params.productos);
+  const balances = params.balancesProfit;
+  const ganancia: (ProfitBlock & { confiable: boolean }) | null = balances
+    ? {
+        costo_producto: roundMoney(balances.supplierCosts),
+        flete: roundMoney(balances.shippingCosts),
+        ganancia: roundMoney(balances.netProfit),
+        margen_pct: roundMoney(balances.marginPercentage),
+        confiable,
+      }
+    : null;
+  if (confiable) {
+    return { ganancia_confiable: true, aviso_ganancia: null, ganancia, ganancia_estimada: null };
+  }
+  const costoProducto = params.productos.reduce((sum, p) => sum + p.costo_unitario * p.cantidad, 0);
+  const neta = params.total - costoProducto - params.shippingCosts;
+  return {
+    ganancia_confiable: false,
+    aviso_ganancia: UNRELIABLE_PROFIT_NOTICE,
+    ganancia,
+    ganancia_estimada: {
+      costo_producto: roundMoney(costoProducto),
+      flete: roundMoney(params.shippingCosts),
+      ganancia: roundMoney(neta),
+      margen_pct: params.total > 0 ? roundMoney((neta / params.total) * 100) : 0,
+      estimada: true as const,
+    },
   };
 }

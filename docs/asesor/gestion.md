@@ -162,6 +162,17 @@ de esa venta. El costo de cada producto vendido es, en este orden: el costo conf
 proveedora en la orden; si no hay y el producto sale de stock, costo de catálogo + flete por unidad;
 si no, el costo de la proveedora preferida o el costo de catálogo. No resta gastos operativos.
 
+**Productos, links y ganancia en el asesor (`ver_venta`, `listar_ventas`, `listar_cotizaciones`).** Solo
+lectura. Los productos de una venta salen de su orden o, si no tiene, de la cotización (`productos_fuente`),
+con nombre, código, color, cantidad, precio, `costo_unitario` y `costo_origen`: `confirmado` (costo de la
+proveedora en la orden), `inventario` (stock: costo de catálogo + flete), `estimado de catálogo` o `sin dato`.
+Trae `link_cotizacion`, `link_venta` y `link_proveedora` (abren sin contraseña); sin orden, `orden: null` y
+el aviso "Falta crear la orden". La ganancia es **confiable** (`ganancia_confiable = true`) solo si hay orden
+y todos los productos tienen costo `confirmado` o de `inventario`; entonces es la de Balances. Si no, la de
+Balances sale con `confiable: false` y no se presenta como real: `ver_venta` agrega el aviso "Costo aún no
+confirmado: la ganancia real no se puede dar" y una `ganancia_estimada` (`estimada: true`) = total − Σ
+costo_unitario × cantidad − flete. Balances, comisiones y nómina no cambian.
+
 **Cuándo cuenta una venta.** Cuenta cuando está pagada por completo (estado "facturada": lo pagado
 ≥ total), aunque falte entregarla: el recaudo y la entrega son cosas distintas (decisión de
 Alexander, 11-oct-2026). Se reconoce en la fecha del pago que la completó, y no cambia de mes cuando
@@ -323,6 +334,7 @@ nada. Regla en `src/modules/balances/domain/money-alert.ts`.
 ## Riesgos de operación
 
 - La **llave del MCP en la ruta** (`/api/mcp/{llave}`) queda escrita en la URL: puede aparecer en logs de Traefik o del proxy y en la configuración del conector. Si se filtra, cambia `MCP_API_KEY` en Portainer y vuelve a desplegar.
+- Los **links de `ver_venta`/`listar_ventas`/`listar_cotizaciones`** (cotización, venta, orden de fabricación) abren sin contraseña, y el MCP muestra costos: quien tenga la llave del MCP los ve. Se comparten solo con el cliente o la proveedora que corresponde.
 - Un **cambio de base de datos** que salga mal se aplica directo en producción al arrancar; revisa bien las migraciones antes de hacer push a `main`.
 - `/cobertura` solo mira la marca de envío gratis de la ubicación elegida: un corregimiento sin tipo propio de una ciudad gratis sale "no gratis" en `/cobertura`, aunque el CRM lo informe como gratis por herencia.
 - `/api/transporte/ubicaciones` (POST) crea corregimientos desde el CRM: si la llave se filtra, alguien podría llenar la lista de pendientes. Se cambia `TRANSPORTE_API_KEY` (o la llave que esté en uso).
