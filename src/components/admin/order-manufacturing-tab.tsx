@@ -5,7 +5,9 @@ import { Check, Copy, ExternalLink, Factory, MessageCircle } from "lucide-react"
 import { adminUpdateManufacturingOrderAction } from "@/app/actions/manufacturing-order-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import type { ManufacturingPaymentSummary } from "@/lib/manufacturing-orders";
 
 export type ManufacturingCard = {
   id: string;
@@ -21,6 +23,8 @@ export type ManufacturingCard = {
   hasMissingCost: boolean;
   units: number;
   lines: Array<{ id: string; name: string; code: string | null; quantity: number }>;
+  // Lo pagado a la proveedora en esta orden (cuenta de Proveedores). null = sin datos.
+  pago: ManufacturingPaymentSummary | null;
 };
 
 type OrderManufacturingTabProps = {
@@ -51,6 +55,52 @@ function CopyLinkButton({ url }: { url: string }) {
       {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
       {copied ? "Copiado" : "Copiar enlace"}
     </Button>
+  );
+}
+
+function formatDay(day: string): string {
+  const [year, month, date] = day.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, date)).toLocaleDateString("es-CO", { timeZone: "UTC" });
+}
+
+function SupplierPayments({ pago, currency }: { pago: ManufacturingPaymentSummary | null; currency: SupportedCurrencyCode }) {
+  const [receiptUrl, setReceiptUrl] = React.useState<string | null>(null);
+  const pagos = pago?.pagos ?? [];
+  return (
+    <div className="space-y-1 rounded-lg border border-border bg-muted/40 px-2.5 py-2">
+      <p className="text-xs font-medium text-foreground">
+        Pagado {formatMoney(pago?.pagado ?? 0, currency)}
+        {" · "}
+        {pago?.costoConfirmado && pago.falta != null ? (
+          <>Falta {formatMoney(pago.falta, currency)}</>
+        ) : (
+          <span className="text-amber-600 dark:text-amber-400">Costo sin confirmar</span>
+        )}
+      </p>
+      {pagos.length === 0 ? (
+        <p className="text-[11px] text-muted-foreground">Aún no hay pagos a esta proveedora en esta orden.</p>
+      ) : (
+        <ul className="space-y-0.5 text-[11px] text-muted-foreground">
+          {pagos.map((entry) => (
+            <li key={entry.id} className="flex flex-wrap items-center gap-x-1.5">
+              <span>{formatDay(entry.date)}</span>
+              <span>· {entry.accountName ?? "Sin cuenta"}</span>
+              <span className="font-medium text-foreground">· {formatMoney(entry.amount, currency)}</span>
+              {entry.receiptUrl ? (
+                <button
+                  type="button"
+                  onClick={() => setReceiptUrl(entry.receiptUrl)}
+                  className="font-medium text-primary hover:underline"
+                >
+                  Comprobante
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      <ReceiptLightbox url={receiptUrl} onClose={() => setReceiptUrl(null)} />
+    </div>
   );
 }
 
@@ -95,6 +145,8 @@ export function OrderManufacturingTab({ cards, currency, returnTo, brandName }: 
                 </li>
               ))}
             </ul>
+
+            <SupplierPayments pago={card.pago} currency={currency} />
 
             {card.hasMissingCost ? (
               <p className="text-[11px] text-amber-600 dark:text-amber-400">
