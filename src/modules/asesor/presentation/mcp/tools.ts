@@ -57,11 +57,18 @@ import {
 } from "@/modules/expenses/application/register-expense-by-voice";
 import { EXPENSE_CATEGORY_WORDS, ExpenseDraftInputError, resolveCategoryName } from "@/modules/expenses/domain/expense-draft";
 import { createVoiceExpenseDeps } from "@/modules/expenses/infrastructure/voice-expense-deps";
+import {
+  SupplierPaymentInputError,
+  confirmSupplierPayment,
+  describeSupplierPayment,
+  prepareSupplierPayment,
+} from "@/modules/proveedores/application/register-supplier-payment-by-voice";
+import { createPrismaSupplierPaymentDeps } from "@/modules/proveedores/infrastructure/prisma-supplier-payment-repository";
 import type { McpServerDefinition, McpToolDefinition, McpToolResult } from "./protocol";
 
 // Casi todas las herramientas son de SOLO LECTURA: solo llaman casos de uso de consulta.
-// La unica que escribe es registrar_gasto: solo guarda despues de que el dueno diga "si"
-// (la foto del soporte es opcional y no se revisa).
+// Solo escriben registrar_gasto y registrar_pago_proveedora: guardan despues de que el dueno
+// diga "si" (en gastos la foto del soporte es opcional y no se revisa).
 const READ_ONLY_ANNOTATIONS = {
   readOnlyHint: true,
   destructiveHint: false,
@@ -590,6 +597,86 @@ export const asesorTools: McpToolDefinition[] = [
     },
   }),
   defineTool({
+    name: "registrar_pago_proveedora",
+    title: "Registrar un pago a la proveedora",
+    description:
+      "Registra un pago a la proveedora en su orden de fabricacion (OF, ej. OF-00035): queda como abono en la cuenta de la proveedora y descuenta el saldo de la cuenta de dinero. SIEMPRE en dos pasos: (1) llama con confirmado=false (por defecto): NO guarda nada y devuelve el resumen (OF, proveedora, venta, costo, pagado, falta, cuenta, fecha y avisos); repitele el resumen al dueno y pregunta '¿Lo guardo?'. (2) SOLO si el dueno dice 'si', llama UNA SOLA VEZ con los MISMOS datos y confirmado=true. NO uses registrar_gasto para pagos a proveedoras: el pago ya es costo de la venta y como gasto se contaria dos veces. Regla del negocio: con venta 50%/50% a la proveedora se le paga de una vez; en contraentrega, cuando el producto le llega al cliente (la herramienta solo avisa, no bloquea). Si el pago es mayor que lo que falta exige 'motivo_sobrepago'; si la fecha es anterior a hoy exige 'motivo_fecha_anterior'. Un pago igual (misma OF, monto y dia) a los pocos minutos se rechaza. Sin foto del comprobante. Tope: $20.000.000. Moneda: COP.",
+    schema: z.object({
+      of: z.string().min(1).max(20).describe("Codigo de la orden de fabricacion, ej. OF-00035."),
+      monto: z.number().positive().describe("Monto pagado a la proveedora en pesos colombianos, ej. 300000."),
+      cuenta: z
+        .string()
+        .min(1)
+        .max(80)
+        .describe("De donde salio la plata: efectivo, banco o billetera. Si hay dos cuentas del mismo tipo, el nombre exacto de la cuenta."),
+      fecha: z.string().optional().describe("Fecha del pago, AAAA-MM-DD. Si se omite, hoy (hora Colombia). No puede ser futura."),
+      nota: z.string().max(300).optional().describe("Detalle del pago (ej. transferencia, segundo 50%)."),
+      motivo_fecha_anterior: z
+        .string()
+        .max(200)
+        .optional()
+        .describe("Obligatorio si la fecha es anterior a hoy: por que se registra tarde."),
+      motivo_sobrepago: z
+        .string()
+        .max(200)
+        .optional()
+        .describe("Obligatorio si el pago es mayor que lo que falta en la OF: por que."),
+      confirmado: z
+        .boolean()
+        .default(false)
+        .describe("false = solo mostrar el resumen. true = el dueno ya dijo 'si': guardar el pago (una sola vez)."),
+    }),
+    writes: true,
+    handler: async (args) => {
+      const deps = createPrismaSupplierPaymentDeps();
+      const input = {
+        of: args.of,
+        monto: args.monto,
+        cuenta: args.cuenta,
+        fecha: args.fecha,
+        nota: args.nota,
+        motivoFechaAnterior: args.motivo_fecha_anterior,
+        motivoSobrepago: args.motivo_sobrepago,
+      };
+      try {
+        if (!args.confirmado) {
+          const prepared = await prepareSupplierPayment(deps, input);
+          return {
+            guardado: false,
+            resumen: describeSupplierPayment(prepared),
+            of: prepared.of.code,
+            proveedora: prepared.of.supplier.name,
+            venta: prepared.of.saleCode,
+            costo: prepared.balance.costo,
+            pagado: prepared.balance.pagado,
+            falta: prepared.balance.falta,
+            cuenta: prepared.account.name,
+            monto: prepared.monto,
+            fecha: prepared.day,
+            avisos: prepared.avisos,
+            siguiente_paso: prepared.duplicado
+              ? "Parece un pago repetido: ya se registro uno igual hace pocos minutos. Confirmalo con el dueno; si se confirma se rechazara."
+              : "Repite este resumen (y los avisos) al dueno y pregunta '¿Lo guardo?'. Si dice si, llama UNA SOLA VEZ mas con los mismos datos y confirmado=true.",
+          };
+        }
+        const confirmed = await confirmSupplierPayment(deps, input);
+        return {
+          guardado: true,
+          pago_id: confirmed.paymentId,
+          resumen: confirmed.summary,
+          pagado: confirmed.balance.pagado,
+          falta: confirmed.balance.falta,
+          siguiente_paso: "El pago YA quedo guardado (no lo vuelvas a registrar). Dile al dueno cuanto se ha pagado y cuanto falta.",
+        };
+      } catch (error) {
+        if (error instanceof SupplierPaymentInputError) {
+          throw new AsesorInputError(error.message);
+        }
+        throw error;
+      }
+    },
+  }),
+  defineTool({
     name: "que_es_esta_aplicacion",
     title: "Qué es esta aplicación",
     description:
@@ -621,6 +708,6 @@ export const asesorMcpServer: McpServerDefinition = {
   name: "gestion-magilus",
   version: "1.2.0",
   instructions:
-    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), asistencia (quien esta trabajando hoy, entradas y salidas, dias trabajados), saldos de cuentas, gastos del mes con la ganancia real (listar_gastos) y cuanto se le debe a cada proveedora orden por orden (deuda_con_proveedoras). Para entender el sistema completo usa primero que_es_esta_aplicacion. Todas las herramientas son de lectura salvo registrar_gasto, que es la unica que escribe: antes de guardar un gasto SIEMPRE repite el resumen al dueno y espera su 'si' (primero registrar_gasto con confirmado=false, luego confirmado=true), y el gasto queda guardado al confirmar (confirmado=true, UNA sola vez: dos llamadas crean dos gastos). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
+    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos y pagos a proveedoras: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), asistencia (quien esta trabajando hoy, entradas y salidas, dias trabajados), saldos de cuentas, gastos del mes con la ganancia real (listar_gastos) y cuanto se le debe a cada proveedora orden por orden (deuda_con_proveedoras). Para entender el sistema completo usa primero que_es_esta_aplicacion. Todas las herramientas son de lectura salvo registrar_gasto y registrar_pago_proveedora, las unicas que escriben: antes de guardar SIEMPRE repite el resumen al dueno y espera su 'si' (primero con confirmado=false, luego confirmado=true, UNA sola vez: dos llamadas de registrar_gasto crean dos gastos). Un pago a una proveedora por su orden de fabricacion (OF) va con registrar_pago_proveedora, nunca como gasto (contaria el costo dos veces). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
   tools: asesorTools,
 };

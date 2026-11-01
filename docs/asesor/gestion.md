@@ -48,7 +48,7 @@ en las Server Actions y en `src/lib/`.
 - `nomina`: nómina del mes (salario básico de cada persona + comisiones − lo ya pagado) y el dinero de hoy por cuenta. La configuración (básicos, TRM, días trabajados) vive en `AppSetting` (`payrollConfig`); los pagos son gastos de la categoría Nómina.
 - `equipo`: ficha de cada trabajador (ingreso, salida, contacto, forma de pago) y las reglas de estado Activo/Retirado, edad y "¿trabajaba en tal fecha?". La nómina, las comisiones y las asignaciones la usan para incluir a los activos y sacar a los retirados.
 - `asistencia`: registro de entrada y salida (hora del servidor), correcciones con motivo hechas por un admin, asistencia de hoy y por mes, y los días trabajados del mes que usa la nómina por día desde nov-2026.
-- `asesor`: consultas para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones, nómina, equipo, asistencia, saldos de cuentas, gastos del mes con la ganancia real (`listar_gastos`), cuánto se le debe a cada proveedora orden por orden (`deuda_con_proveedoras`) y esta radiografía. Es de solo lectura salvo `registrar_gasto` (ver reglas). También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
+- `asesor`: consultas para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones, nómina, equipo, asistencia, saldos de cuentas, gastos del mes con la ganancia real (`listar_gastos`), cuánto se le debe a cada proveedora orden por orden (`deuda_con_proveedoras`) y esta radiografía. Es de solo lectura salvo `registrar_gasto` y `registrar_pago_proveedora` (ver reglas). También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
 
 ## Entidades
 
@@ -194,6 +194,16 @@ dos veces el mismo gasto quedan dos: el repetido se borra desde la pantalla de G
 nómina exige persona; una fecha anterior a hoy exige motivo (gasto retroactivo). El gasto queda a nombre
 de `MCP_GASTOS_USUARIO_EMAIL` o, si no existe, del administrador más antiguo, y usa el mismo guardado
 que la pantalla de Gastos (descuenta el saldo de la cuenta y entra a Balances).
+
+**Pagos a proveedoras por voz o chat (`registrar_pago_proveedora`).** Dos pasos como los gastos: con
+`confirmado=false` Claude muestra el resumen (OF, proveedora, venta, costo, pagado, falta, cuenta, fecha y
+avisos) sin guardar; con el "sí" (`confirmado=true`, una sola vez) se guarda **un abono** (`PAYMENT`) en la
+cuenta de la proveedora ligado a la orden y la venta, sin comprobante, y descuenta el saldo de la cuenta de
+dinero. **Nunca se registra como gasto**: el pago ya es costo de la venta y como gasto se contaría dos veces.
+Rechaza un pago igual (misma OF, monto y día) a los pocos minutos, un sobrepago sin motivo y una fecha
+anterior sin motivo. Si ya no falta nada, los productos de esa proveedora en la orden quedan "pagados".
+Regla del negocio (solo avisa): con 50%/50% a la proveedora se le paga de una vez; en contraentrega, cuando
+el producto le llega al cliente. Queda a nombre de `MCP_GASTOS_USUARIO_EMAIL` o del administrador más antiguo.
 
 **Ganancia real del mes (`listar_gastos`).** Ganancia real = ventas − producto − flete (contribución)
 − comisiones del mes − sueldos básicos del mes − gastos. Los pagos de Nómina no se restan como gasto:
