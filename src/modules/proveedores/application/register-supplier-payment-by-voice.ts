@@ -5,7 +5,7 @@
 
 import { diaBogota, fechaPuestaParaGuardar } from "../../retroactivos/domain/retroactivo";
 import { resolveAccount, type AccountOption } from "../../expenses/domain/expense-draft";
-import { RECEIPT_MAX_BYTES, formatCop, sniffReceiptMime } from "../../expenses/domain/receipt-check";
+import { RECEIPT_MAX_BYTES, RECEIPT_MIME_EXTENSION, formatCop, sniffReceiptMime } from "../../expenses/domain/receipt-check";
 import { buildDraftToken, hashDraftToken, verifyDraftToken } from "../../../lib/expense-draft-token";
 import {
   isLikelyDuplicate,
@@ -72,7 +72,11 @@ export type SupplierPaymentDeps = {
   findDraftByTokenHash(hash: string): Promise<PaymentDraftView | null>;
   // Pega la foto al pago con candado sobre el borrador; lanza SupplierPaymentDraftUsedError si ya se uso o vencio.
   attachReceipt(draftId: string, receipt: { ledgerEntryId: string; url: string; name: string }): Promise<void>;
-  receiptStore: { save(file: File): Promise<{ url: string; name: string }>; remove(url: string): Promise<void> };
+  receiptStore: {
+    // ext sale del tipo real del archivo (sus bytes), nunca del nombre que manda el navegador.
+    save(file: { bytes: Uint8Array; name: string; ext: ".jpg" | ".png" | ".webp" | ".pdf" }): Promise<{ url: string; name: string }>;
+    remove(url: string): Promise<void>;
+  };
   now?: () => Date;
   // Para pruebas; en produccion se arma con AUTH_SECRET.
   newToken?: () => { token: string; hash: string } | null;
@@ -298,7 +302,7 @@ export async function lookupPaymentDraft(deps: SupplierPaymentDeps, rawToken: st
   if (draft.expiraEn.getTime() <= now.getTime()) {
     return {
       ok: false,
-      reason: "Este enlace venció (dura 24 horas). El pago sigue guardado; la foto se puede agregar desde la cuenta de la proveedora.",
+      reason: "Este enlace venció (dura 24 horas). El pago sigue guardado, pero sin la foto del comprobante.",
     };
   }
   return { ok: true, draft };
@@ -324,12 +328,18 @@ export async function receiveSupplierPaymentReceipt(
   if (file.size > RECEIPT_MAX_BYTES) {
     return { ok: false, reason: "La foto supera el límite de 12 MB.", canRetry: true };
   }
-  // El tipo se mira en los primeros bytes: no se confia en el nombre ni en el navegador.
-  if (!sniffReceiptMime(new Uint8Array(await file.slice(0, 16).arrayBuffer()))) {
+  // El tipo se mira en los bytes: no se confia en el nombre ni en el navegador.
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const mime = sniffReceiptMime(bytes);
+  if (!mime) {
     return { ok: false, reason: "El archivo no es compatible. Solo JPG, PNG, WEBP o PDF.", canRetry: true };
   }
   const { draft } = lookup;
-  const stored = await deps.receiptStore.save(file);
+  const stored = await deps.receiptStore.save({
+    bytes,
+    name: file.name,
+    ext: RECEIPT_MIME_EXTENSION[mime] as ".jpg" | ".png" | ".webp" | ".pdf",
+  });
   try {
     await deps.attachReceipt(draft.id, { ledgerEntryId: draft.ledgerEntryId, url: stored.url, name: stored.name });
   } catch (error) {

@@ -2,7 +2,7 @@ import { logActivityAs } from "@/lib/activity-log";
 import { getManufacturingPayments, isManufacturingItem } from "@/lib/manufacturing-orders";
 import { prisma } from "@/lib/prisma";
 import { getSiteUrl } from "@/lib/site";
-import { removeSupplierPaymentReceipt, saveSupplierPaymentReceipt } from "@/lib/supplier-payment-receipt";
+import { removeSupplierPaymentReceipt, saveSupplierPaymentReceiptBytes } from "@/lib/supplier-payment-receipt";
 import type { AccountOption } from "@/modules/expenses/domain/expense-draft";
 import { isLikelyDuplicate, type OfBalance } from "../domain/supplier-payment";
 import {
@@ -204,7 +204,10 @@ export function createPrismaSupplierPaymentDeps(): SupplierPaymentDeps {
       });
     },
 
-    receiptStore: { save: saveSupplierPaymentReceipt, remove: removeSupplierPaymentReceipt },
+    receiptStore: {
+      save: (file) => saveSupplierPaymentReceiptBytes(file.bytes, file.name, file.ext),
+      remove: removeSupplierPaymentReceipt,
+    },
 
     logActivity: (actor, entry) =>
       logActivityAs(actor, { action: "CREATE", entityType: "SUPPLIER", entityId: entry.entryId, summary: entry.summary }),

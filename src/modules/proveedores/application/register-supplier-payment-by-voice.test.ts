@@ -96,7 +96,7 @@ function makeDeps(world: World): SupplierPaymentDeps {
     },
     receiptStore: {
       save: async (file) => {
-        const url = `/uploads/suppliers/payments/${world.saved.length + 1}.png`;
+        const url = `/uploads/suppliers/payments/${world.saved.length + 1}${file.ext}`;
         world.saved.push(url);
         return { url, name: file.name };
       },
@@ -165,7 +165,8 @@ describe("registrar pago a la proveedora por voz", () => {
     expect((await lookupPaymentDraft(deps, "inventado.xxx")).ok).toBe(false);
     const raro = await receiveSupplierPaymentReceipt(deps, token, new File([new Uint8Array([1, 2, 3, 4])], "x.png"));
     expect(raro).toMatchObject({ ok: false, canRetry: true });
-    const first = await receiveSupplierPaymentReceipt(deps, token, new File([PNG], "comprobante.png"));
+    // El nombre dice .svg pero los bytes son PNG: se guarda como .png.
+    const first = await receiveSupplierPaymentReceipt(deps, token, new File([PNG], "comprobante.svg", { type: "image/svg+xml" }));
     expect(first).toEqual({ ok: true, summary: "OF-00035 · P-03 Laura · $300.000" });
     expect(world.receipts.get(paymentId)).toBe("/uploads/suppliers/payments/1.png");
     const second = await receiveSupplierPaymentReceipt(deps, token, new File([PNG], "otra.png"));

@@ -47,3 +47,17 @@ export async function removeSupplierPaymentReceipt(url: string): Promise<void> {
   }
   await rm(path.join(process.cwd(), "public", "uploads", "suppliers", "payments", fileName), { force: true });
 }
+
+// Para la ruta publica (enlace secreto): la extension la decide quien llama segun los bytes del
+// archivo (sniffReceiptMime), nunca el nombre ni el tipo que manda el navegador.
+export async function saveSupplierPaymentReceiptBytes(
+  bytes: Uint8Array,
+  name: string,
+  ext: ".jpg" | ".png" | ".webp" | ".pdf",
+): Promise<{ url: string; name: string }> {
+  const uploadDir = path.join(process.cwd(), "public", "uploads", "suppliers", "payments");
+  await mkdir(uploadDir, { recursive: true });
+  const fileName = `${Date.now()}-${randomUUID()}${ext}`;
+  await writeFile(path.join(uploadDir, fileName), bytes);
+  return { url: `/uploads/suppliers/payments/${fileName}`, name: name.slice(0, 200) || fileName };
+}
