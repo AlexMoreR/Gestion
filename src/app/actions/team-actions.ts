@@ -114,10 +114,17 @@ export async function saveTeamMemberAction(formData: FormData) {
     action: memberId ? "UPDATE" : "CREATE",
     entityType: "TEAM_MEMBER",
     entityId: saved.id,
-    summary: memberId ? `Editó la ficha de ${saved.fullName} en Equipo` : `Creó la ficha de ${saved.fullName} en Equipo`,
+    summary:
+      (memberId ? `Editó la ficha de ${saved.fullName} en Equipo` : `Creó la ficha de ${saved.fullName} en Equipo`) +
+      (saved.userId ? " (también el nombre del usuario)" : ""),
   });
   revalidatePath(BASE_PATH);
   revalidatePath("/admin/comisiones/nomina");
+  // El nombre del usuario unido se ve en estas pantallas.
+  revalidatePath("/admin/ventas");
+  revalidatePath("/admin/cotizaciones");
+  revalidatePath("/admin/asistencia");
+  revalidatePath("/admin/comisiones");
   back(formData, "ok", memberId ? "Ficha actualizada" : "Ficha creada");
 }
 

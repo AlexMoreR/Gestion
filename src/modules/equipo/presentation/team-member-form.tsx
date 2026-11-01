@@ -152,6 +152,7 @@ export function TeamMemberForm({
       <label className="space-y-1 text-xs text-muted-foreground sm:col-span-2">
         Nombre completo
         <input name="fullName" required minLength={2} maxLength={120} defaultValue={member?.fullName ?? ""} className={inputClass} />
+        <span className="block text-[11px] text-muted-foreground">Si tiene usuario, este nombre se verá en ventas, asistencia y nómina</span>
       </label>
       <label className="space-y-1 text-xs text-muted-foreground">
         Cédula

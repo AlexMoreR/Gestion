@@ -84,7 +84,7 @@ en las Server Actions y en `src/lib/`.
 - `InventoryMovement`: entrada, salida o ajuste de stock de un producto.
 - `MonthClosure`: cierre de mes congelado (ventas, costos, envíos, gastos, utilidad y margen) que se comparte por correo.
 - `ManufacturingOrder`: orden de fabricación (OF-) de una proveedora dentro de una orden de venta, con enlace para enviársela, fecha y dirección de entrega.
-- `TeamMember`: ficha de un trabajador (Equipo): datos personales, cargo, vinculación, forma de pago, fecha de ingreso, fecha de salida y motivo. Unida opcionalmente (y una sola vez) a su usuario; si se borra el usuario, la ficha queda.
+- `TeamMember`: ficha de un trabajador (Equipo): datos personales, cargo, vinculación, forma de pago, fecha de ingreso, fecha de salida y motivo. Unida opcionalmente (y una sola vez) a su usuario; si se borra el usuario, la ficha queda. El nombre de la ficha es el nombre visible del usuario unido: al guardarla se copia a `User.name` y todo lo demás sigue ligado al id. La sesión de la persona puede mostrar el nombre viejo hasta que vuelva a entrar, y los PDF ya generados conservan el nombre viejo.
 - `AsistenciaMarca`: una marca de entrada o salida de un usuario (Empleado/Admin): hora real del servidor, día en Colombia al que pertenece (el de la entrada), origen (la persona, un admin por ella o una corrección), quién la creó, motivo, la marca que corrige y, si se anuló, quién, cuándo y por qué. Nunca se borra. Un usuario con marcas no se puede borrar.
 - `TransportDepartment`: departamento de Colombia (DANE).
 - `TransportCity`: municipio de Colombia (DANE), su tipo de envío (gratis, adicional, se cotiza, no llegamos o automático) y si tiene envío gratis.
