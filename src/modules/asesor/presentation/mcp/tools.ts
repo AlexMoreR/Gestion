@@ -17,6 +17,7 @@ import {
   listPaymentsUseCase,
   listProductsUseCase,
   listExpensesUseCase,
+  listRetroactivosUseCase,
   listQuotesUseCase,
   listSalesUseCase,
 } from "../../application/use-cases";
@@ -510,6 +511,27 @@ export const asesorTools: McpToolDefinition[] = [
         };
       });
     },
+  }),
+  defineTool({
+    name: "listar_retroactivos",
+    title: "Listar registros retroactivos",
+    description:
+      "SOLO LECTURA. Ventas, abonos y gastos registrados con una fecha anterior al dia en que se cargaron (lo mismo que /admin/retroactivos). Por mes del registro REAL (hora Colombia; por defecto el mes actual). Cada registro trae tipo, persona que lo hizo, cuando lo registro de verdad, la fecha que puso, dias de atraso, monto y motivo ('sin dato' si falta). Trae el resumen por persona del mes (cantidad y monto por tipo, de todas las personas). Filtros opcionales: persona (nombre) y tipo. Valores en COP.",
+    schema: z.object({
+      mes: z
+        .string()
+        .regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Usa AAAA-MM")
+        .optional()
+        .describe("Mes del registro real, AAAA-MM. Si se omite, el mes actual (hora Colombia)."),
+      persona: z.string().max(80).optional().describe("Parte del nombre de quien registro (sin tildes da igual). Si se omite, todas."),
+      tipo: z.enum(["venta", "abono", "gasto"]).optional().describe("venta, abono o gasto. Si se omite, todos."),
+    }),
+    handler: (args, deps) =>
+      listRetroactivosUseCase(deps, {
+        mes: args.mes,
+        persona: args.persona,
+        tipo: args.tipo ? (args.tipo.toUpperCase() as "VENTA" | "ABONO" | "GASTO") : null,
+      }),
   }),
   defineTool({
     name: "deuda_con_proveedoras",

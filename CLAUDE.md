@@ -45,6 +45,7 @@ módulos y para qué sirven:
 | **Equipo** | `/admin/equipo` | Ficha de cada trabajador (cédula, nacimiento/edad, celular, correo, dirección, contacto de emergencia, cargo, vinculación, forma de pago, ingreso, salida y motivo). Estado Activo/Retirado calculado por la fecha de salida. Tabla `TeamMember`; módulo `src/modules/equipo`. Solo dueño/admin (permiso `team`, reservado). |
 | **Asistencia** | `/admin/asistencia` | Registro de entrada y salida: botón "Marcar entrada/salida" en la barra (Empleado y Admin; hora del servidor). Pestañas Hoy (trabajando / salió / no ha llegado) y Por mes (filtro persona y mes); el admin marca por otra persona y corrige/agrega/anula marcas con motivo. Tabla `AsistenciaMarca`; módulo `src/modules/asistencia`. Solo dueño/admin (permiso `attendance`, reservado). |
 | **Gastos** | `/admin/gastos` | Gastos operativos por categoría y cuenta (nómina, marketing, arriendo, servicios, herramientas, varios). También se registran hablándole a Claude (MCP `registrar_gasto`; se guarda al confirmar, la foto del soporte es opcional y no se revisa). |
+| **Retroactivos** | `/admin/retroactivos` | Ventas, abonos y gastos registrados con una fecha anterior al día en que se cargaron (hora Colombia): quién, cuándo de verdad, fecha puesta, días de atraso, monto y motivo; resumen por persona; filtros mes (del registro real), persona y tipo. Tabla `RegistroRetroactivo`; módulo `src/modules/retroactivos`. También por Claude (MCP `listar_retroactivos`, solo lectura). Solo `ADMIN` con acceso a Balances. |
 | **Dudas del catálogo** | `/admin/dudas` | Preguntas sobre los productos (nombre, duplicados, categoría, fotos, descripción, datos del negocio) que responden las asesoras en la página pública **`/dudas`** entrando con su **nombre + un código de 6 caracteres** (sin cuenta ni correo). El admin crea el código (se muestra una sola vez; en la BD solo el hash bcrypt), ve último uso, desactiva, ve el resumen por grupo y todas las respuestas (historial; la última es la vigente) y exporta CSV (`/admin/dudas/export`). Sesión: cookie `dudas_sesion` firmada (HMAC, 30 días, httpOnly, secure, path `/dudas`); freno de 5 códigos fallidos por IP cada 15 min (en memoria). Tablas `DudaCatalogo`, `RespuestaDuda`, `AccesoDudas` (migración `20261026120000_dudas_catalogo`, solo aditiva); módulo `src/modules/dudas`; carga inicial con `npm run dudas:importar` (simulación; `--aplicar` escribe). Solo dueño/admin (permiso `dudas`, reservado). |
 | **Marketplace** | `/admin/marketplace` | Monitoreo del canal Facebook Marketplace (NETMAGI). Arriba, la respuesta de 5 segundos: ¿está publicando bien hoy?, tarjetas de HOY con semáforo (publicados vs tope, renovados, mensajes, clientes nuevos, pases a WhatsApp, cuentas vivas, restricciones) contra ayer y el promedio de 7 días; luego Cuentas (en vivo / caída, último latido), Anuncios (uno por fila con "Ver en Facebook", ciudad, producto con enlace a su ficha, clientes atribuidos; filtros y CSV), Por ciudad y el gráfico de 30 días con la línea del 23-oct (arranque del publicador). Sección "Qué funciona" (fórmula de venta, ruta `/formula` de NETMAGI): qué fórmula de título trae más clientes, ranking de variantes, mejores categorías y productos, la ganadora y cuántos datos faltan para confirmarla; si NETMAGI aún no tiene la ruta, la sección muestra un aviso y el resto funciona. Todo lo anterior (ventas del canal, por producto, publicador) queda plegado en "Más detalle". Datos de `/gestion/estadisticas/*` de NETMAGI con `GESTION_FOTOS_KEY`; si NETMAGI aún no tiene la ruta `/anuncios` la página funciona sin esa tabla. Lógica en `src/modules/marketplace/domain/marketplace-monitor.ts`. Solo dueño/admin (permiso `marketplace`). |
 | **Transporte** | `/admin/transporte` | Tipo de envío por ciudad/corregimiento (DANE): Gratis / Adicional / Se cotiza / No llegamos / Automático, y "Pendientes de revisar" (lo nuevo que manda el CRM). El cliente ve el envío gratis en `/cobertura`; el CRM consulta `/api/transporte/ubicaciones`. |
@@ -170,6 +171,10 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   las dos patas de una transferencia entre cuentas.
 - **ExpenseCategory** — categorías de gasto (nómina, marketing, varios, servicios, etc.).
 - **Expense** — gasto operativo (categoría, cuenta que paga, monto, fecha, comprobante, empleado).
+- **RegistroRetroactivo** — bitácora de registros con fecha anterior a hoy en Colombia: `tipo` (`VENTA`/`ABONO`/
+  `GASTO`), `registroId` (sin llave foránea: queda aunque se borre el registro), `fechaPuesta` (mediodía UTC),
+  `registradoEn` (momento real), `usuarioId`, `motivo` y `monto` (copia). Reglas puras en
+  `src/modules/retroactivos/domain/` (`esRetroactivo`, `diasDeAtraso`, `rangoMesBogota`, `resumirPorPersona`).
 - **MonthClosure** — cierre de mes: foto congelada del resumen (ventas, costos, envíos, gastos,
   utilidad, margen) que se comparte por correo.
 
@@ -328,7 +333,7 @@ Route handlers reales (`route.ts`):
   herramienta que escribe es `registrar_gasto` (anotada sin `readOnlyHint`; ver "Gastos por voz").
 - Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_abonos`, `ver_venta`, `listar_cotizaciones`,
   `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `equipo`, `asistencia`, `saldos_de_cuentas`,
-  `listar_gastos`, `deuda_con_proveedoras`, `registrar_gasto`, `registrar_pago_proveedora` y `que_es_esta_aplicacion`.
+  `listar_gastos`, `listar_retroactivos`, `deuda_con_proveedoras`, `registrar_gasto`, `registrar_pago_proveedora` y `que_es_esta_aplicacion`.
 - `deuda_con_proveedoras` (oct-2026, solo lectura): `proveedora` (nombre, sin tildes) y `desde`/`hasta` (fecha de
   la OF) opcionales → por orden: OF, orden, venta, cliente, productos con color, `costo_acordado`, `pagos[]`
   (fecha, cuenta, monto) y `falta`; por proveedora `debemos_total` = cargos − abonos (el saldo de la lista
@@ -363,6 +368,11 @@ Route handlers reales (`route.ts`):
   `/proveedores-pago/soporte/<token>` (**24 h, un solo uso**, en la BD solo el hash, tabla `PagoProveedoraBorrador`;
   tokens de `src/lib/expense-draft-token.ts`) para pegar la foto del comprobante; `submitSupplierPaymentReceiptAction`
   valida tipo (JPG/PNG/WEBP/PDF por sus bytes) y 12 MB y la pega con `FOR UPDATE` sobre el borrador.
+- `listar_retroactivos` (oct-2026, solo lectura): `mes` (AAAA-MM, mes del registro real; por defecto el actual en
+  Bogotá), `persona` (nombre) y `tipo` (venta/abono/gasto) opcionales → lo mismo que `/admin/retroactivos`: cada
+  registro con tipo, persona, `registrado_el` (hora Colombia), `fecha_puesta`, `dias_de_atraso`, monto y motivo
+  ("sin dato" si falta, nunca se inventa), y `resumen_por_persona` del mes (`resumirPorPersona`; cuenta a todas las
+  personas aunque se filtre la lista). Lista cortada en 500 como la página. Regla en `src/modules/asesor/domain/retroactivos.ts`.
 - `asistencia` (oct-2026): `fecha` o `desde`/`hasta` (máx. 62 días; por defecto hoy) y `persona` opcional (por
   nombre) → quién está trabajando ahora, quién no ha llegado, y por día entrada, salida, horas, marcas y
   correcciones; días trabajados del rango.

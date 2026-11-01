@@ -42,6 +42,7 @@ en las Server Actions y en `src/lib/`.
 
 - `balances`: rentabilidad por venta, cuentas de dinero, pagos a proveedores, costos de envío y métricas del mes. Es la fuente única del cálculo de ganancia.
 - `expenses`: gastos operativos por categoría y cuenta (nómina, marketing, arriendo, servicios, herramientas, varios). También registra gastos dichos a Claude por voz o chat (herramienta MCP `registrar_gasto`): el gasto se guarda al confirmar el dueño (dos pasos: resumen y "sí"); la foto del soporte es opcional, se sube después por un enlace secreto y no se revisa.
+- `retroactivos`: registro de ventas, abonos y gastos cargados con una fecha anterior al día real (hora Colombia): exige motivo y guarda quién, cuándo de verdad, la fecha puesta y el monto. Se consulta en `/admin/retroactivos` y por Claude con `listar_retroactivos` (solo lectura).
 - `inventory`: stock por producto, movimientos de entrada/salida/ajuste y compras directas a proveedor (COM-).
 - `transporte`: tipo de envío por departamento, ciudad y corregimiento (datos DANE): gratis, adicional, se cotiza o no llegamos. Lo consulta el cliente en `/cobertura` (solo si es gratis o no) y el CRM de las asesoras por `/api/transporte/ubicaciones`.
 - `ventas`: reglas de la venta: forma de pago (50/50 o contraentrega), origen de cada venta (lo avisa el CRM por `/api/ventas/origen`; reporte en `/admin/ventas/origen`) y abonos por retención en la fuente (reporte en `/admin/ventas/retenciones`).
@@ -81,6 +82,7 @@ en las Server Actions y en `src/lib/`.
 - `AccountMovement`: entrada, salida o transferencia manual de dinero en una cuenta.
 - `ExpenseCategory`: categoría de gasto operativo.
 - `Expense`: gasto operativo pagado desde una cuenta.
+- `RegistroRetroactivo`: una venta, abono o gasto registrado con fecha anterior a hoy: tipo, a qué registro apunta (queda aunque el registro se borre), fecha puesta, momento real del registro, quién, motivo y monto copiado.
 - `InventoryMovement`: entrada, salida o ajuste de stock de un producto.
 - `MonthClosure`: cierre de mes congelado (ventas, costos, envíos, gastos, utilidad y margen) que se comparte por correo.
 - `ManufacturingOrder`: orden de fabricación (OF-) de una proveedora dentro de una orden de venta, con enlace para enviársela, fecha y dirección de entrega.
@@ -142,6 +144,7 @@ en las Server Actions y en `src/lib/`.
 - `/admin/proveedores/[supplierId]`: ficha de una proveedora.
 - `/admin/proveedores/[supplierId]/cuenta`: cuenta corriente de una proveedora (cargos y abonos).
 - `/admin/balances/cuentas/[accountId]`: movimientos de una cuenta de dinero.
+- `/admin/retroactivos`: registros retroactivos del mes (por el día real del registro): lista con quién, cuándo, fecha puesta, días de atraso, monto y motivo, y resumen por persona; filtros mes, persona y tipo. Solo el dueño/admin con acceso a Balances.
 - `/admin/productos/export`: descarga el catálogo de productos en CSV.
 - `/api/auth/[...nextauth]`: inicio y cierre de sesión (next-auth).
 - `/api/generate-quote-pdf`: genera el PDF de una cotización.

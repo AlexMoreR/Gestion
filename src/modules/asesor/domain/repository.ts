@@ -1,6 +1,8 @@
 import type { AppSnapshot } from "./app-overview";
 import type { DayRange, ExpenseLine, ProductRow, QuoteRow, QuoteStatusCode, SaleDetail, SupplierLedger } from "./entities";
 import type { SaleLedgerInput } from "./payments";
+import type { RetroactivoRow } from "./retroactivos";
+import type { TipoRetroactivo } from "../../retroactivos/domain/retroactivo";
 
 // Filtro opcional de ventas para los abonos; sin filtro = todas las ventas.
 export type SaleLedgerFilter = {
@@ -19,6 +21,8 @@ export interface AsesorReadRepository {
   listSaleLedgers(filter?: SaleLedgerFilter): Promise<SaleLedgerInput[]>;
   // Gastos operativos con fecha de gasto dentro del rango.
   listExpenses(range: DayRange): Promise<ExpenseLine[]>;
+  // Registros retroactivos por momento real del registro [desde, hasta) y tipo opcional; del mas reciente al mas viejo.
+  listRetroactivos(filter: { desde: Date; hasta: Date; tipo: TipoRetroactivo | null }): Promise<RetroactivoRow[]>;
   // Cuenta corriente de cada proveedora con movimientos, con las ordenes de esos movimientos.
   listSupplierLedgers(): Promise<SupplierLedger[]>;
 }

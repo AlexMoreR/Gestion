@@ -217,6 +217,34 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
       }));
     },
 
+    async listRetroactivos({ desde, hasta, tipo }) {
+      // Misma consulta que /admin/retroactivos (mes del registro real y tipo).
+      const found = await prisma.registroRetroactivo.findMany({
+        where: { registradoEn: { gte: desde, lt: hasta }, ...(tipo ? { tipo } : {}) },
+        orderBy: { registradoEn: "desc" },
+        select: {
+          usuarioId: true,
+          tipo: true,
+          registroId: true,
+          fechaPuesta: true,
+          registradoEn: true,
+          motivo: true,
+          monto: true,
+          usuario: { select: { name: true, email: true } },
+        },
+      });
+      return found.map((row) => ({
+        usuarioId: row.usuarioId,
+        usuarioNombre: row.usuario.name ?? row.usuario.email,
+        tipo: row.tipo,
+        registroId: row.registroId,
+        fechaPuesta: row.fechaPuesta,
+        registradoEn: row.registradoEn,
+        motivo: row.motivo,
+        monto: toNumber(row.monto),
+      }));
+    },
+
     async listExpenses(range: DayRange): Promise<ExpenseLine[]> {
       // La fecha del gasto es escrita (medianoche UTC) o un momento: ventana amplia y luego dia de Colombia.
       const period = { start: range.from, end: range.to };

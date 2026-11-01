@@ -44,6 +44,8 @@ import {
 import type { AsesorReadRepository } from "../domain/repository";
 import { assessProfit, buildSaleLinks, isProfitReliable } from "../domain/sale-products";
 import type { SaleDetail } from "../domain/entities";
+import { buildRetroactivosReport } from "../domain/retroactivos";
+import { rangoMesBogota, type TipoRetroactivo } from "../../retroactivos/domain/retroactivo";
 import { getSiteUrl } from "../../../lib/site";
 import { effectiveOrigin, originDetailSummary, saleOriginLabel } from "../../ventas/domain/sale-origin";
 
@@ -680,4 +682,15 @@ export async function getSupplierDebtsUseCase(deps: AsesorDependencies, filters:
       "pagos_sin_cuenta = abonos a proveedoras sin cuenta, de todas las proveedoras (no se filtra). Restan de lo que se debe pero no salen de ningun saldo de cuenta.",
     ],
   };
+}
+
+// Registros retroactivos del mes (AAAA-MM, por defecto el actual en Bogota): lo mismo que
+// /admin/retroactivos. Solo lectura.
+export async function listRetroactivosUseCase(
+  deps: AsesorDependencies,
+  filtros: { mes?: string; persona?: string; tipo?: TipoRetroactivo | null },
+) {
+  const { valor: mes, desde, hasta } = rangoMesBogota(filtros.mes);
+  const rows = await deps.asesor.listRetroactivos({ desde, hasta, tipo: filtros.tipo ?? null });
+  return buildRetroactivosReport(rows, { mes, persona: filtros.persona });
 }
