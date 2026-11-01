@@ -2,7 +2,6 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { AttendanceMark } from "../domain/attendance";
 import type { AsistenciaRepository, AttendanceStaff, NewAttendanceMark } from "../domain/repository";
-import { getWorkedDaysByMonthUseCase } from "../application/use-cases";
 
 // Las columnas @db.Date llegan como medianoche UTC: se leen y escriben como "AAAA-MM-DD".
 function toDay(value: Date): string {
@@ -79,11 +78,6 @@ function toData(mark: NewAttendanceMark): Prisma.AsistenciaMarcaUncheckedCreateI
 // anular de una misma persona no se cruzan.
 async function lockPerson(tx: Prisma.TransactionClient, userId: string): Promise<void> {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`asistencia:${userId}`}))`;
-}
-
-// Dias trabajados del mes por persona, para la nomina (solo se usa desde ASISTENCIA_NOMINA_DESDE).
-export async function loadAttendanceDays(month: string): Promise<Record<string, number>> {
-  return getWorkedDaysByMonthUseCase(createPrismaAsistenciaRepository(), month);
 }
 
 export function createPrismaAsistenciaRepository(): AsistenciaRepository {

@@ -274,9 +274,8 @@ una salida olvidada no inventa horas (el día cuenta, esa entrada no suma horas)
 de medianoche cuenta en el día de la entrada (una entrada de otro día sigue abierta solo si se marcó
 desde las 6 p. m. y lleva menos de 12 horas; si no, se toma como salida olvidada y toca entrada).
 Solo marca quien está activo según su ficha de Equipo (no un retirado ni antes de su ingreso); un
-usuario sin ficha solo aparece en Asistencia los días que marca. Desde **noviembre de 2026** (`ASISTENCIA_NOMINA_DESDE`) la nómina de quien cobra por día
-toma los días de la asistencia (si no marcó nada, 0 días); octubre y antes siguen con los días
-escritos a mano. Quien cobra por quincena no cambia.
+usuario sin ficha solo aparece en Asistencia los días que marca. La asistencia **no afecta la
+nómina**: los días de quien cobra por día se escriben a mano en Nómina, en todos los meses.
 
 **Dinero hoy.** Saldo de cada cuenta = saldo inicial + pagos de clientes − pagos a proveedoras −
 fletes − gastos ± movimientos. Se muestra arriba de Balances y de Nómina. Los pagos o fletes sin

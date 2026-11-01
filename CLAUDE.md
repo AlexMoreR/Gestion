@@ -204,7 +204,7 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   `motivoAnulacion`). Las marcas **nunca se borran**: corregir = anular la original + crear una CORRECCION.
 - Reglas puras en `src/modules/asistencia/domain/attendance.ts`: `nextMark` (entrada de otro día sigue
   abierta solo si se marcó desde las 18:00 y lleva < 12 h), `summarizeDay` (estado, horas por pares; salida olvidada no suma horas),
-  `workedDays` (un día cuenta si tiene una ENTRADA vigente), `attendanceDrivesPayroll`.
+  `workedDays` (un día cuenta si tiene una ENTRADA vigente).
 - El botón marca con un candado por persona (`pg_advisory_xact_lock`) y compara lo que decía el botón:
   un doble clic no crea dos entradas. Solo marcan usuarios `EMPLEADO`/`ADMIN` (una ficha sin usuario no).
 - **Nómina**: los días de quien cobra por día se escriben a mano (`daysByMonth`) en todos los meses; la

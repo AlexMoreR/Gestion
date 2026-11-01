@@ -27,10 +27,6 @@ export const ATTENDANCE_ORIGIN_LABELS: Record<AttendanceOrigin, string> = {
   CORRECCION: "Corregida",
 };
 
-// Desde este mes la nomina por dia toma los dias de la asistencia. Los meses anteriores
-// siguen con los dias escritos a mano (no se mezcla un mes a medias).
-export const ASISTENCIA_NOMINA_DESDE = "2026-11";
-
 // Una entrada abierta de otro dia sigue abierta (turno que pasa de medianoche) solo si se marco
 // de noche (desde las 18:00) y tiene menos de estas horas. Si no, se toma como "salida olvidada"
 // y la siguiente marca es ENTRADA (ej. entrada 17:00 sin salida: al otro dia toca entrada).
@@ -226,11 +222,6 @@ export function formatMinutes(minutes: number): string {
   const rest = minutes % 60;
   if (hours === 0) return `${rest} min`;
   return `${hours} h ${String(rest).padStart(2, "0")} min`;
-}
-
-// La nomina de este mes toma los dias de la asistencia (desde ASISTENCIA_NOMINA_DESDE).
-export function attendanceDrivesPayroll(month: string): boolean {
-  return month >= ASISTENCIA_NOMINA_DESDE;
 }
 
 export const MAX_REASON_LENGTH = 300;
