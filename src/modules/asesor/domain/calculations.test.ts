@@ -162,6 +162,9 @@ describe("cotizaciones", () => {
     createdAt: new Date("2026-09-01T00:00:00Z"),
     clientName: "Cliente",
     seller: ana,
+    shareToken: null,
+    saleInvoiceToken: null,
+    products: [],
   };
 
   it("cuenta como aprobadas las convertidas en venta y calcula el % de cierre", () => {

@@ -45,6 +45,14 @@ export type SaleProductLine = {
   costo_origen: SaleProductCostOrigin;
 };
 
+// Lista corta de productos de una cotizacion (sin precios ni costos).
+export type QuoteProductSummary = {
+  nombre: string;
+  codigo: string | null;
+  color: string | null;
+  cantidad: number;
+};
+
 // Datos de una venta que no estan en el calculo de ganancia (Balances).
 export type SaleDetail = {
   saleId: string;
@@ -64,6 +72,11 @@ export type SaleDetail = {
   originDetail: unknown;
   // Si salio de stock o por fabricacion (con OF y proveedora), segun lo marcado en la orden.
   productSource: ProductSource;
+  // Tokens de los enlaces publicos (cotizacion, venta y ordenes de fabricacion de la proveedora).
+  quoteShareToken: string | null;
+  invoiceToken: string | null;
+  // Ordenes de fabricacion (OF) de la orden; vacio si no hay orden o no tiene OF.
+  manufacturingOrders: { code: string; supplierName: string; shareToken: string }[];
 };
 
 export type QuoteStatusCode = "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED";
@@ -76,6 +89,9 @@ export type QuoteRow = {
   clientName: string | null;
   seller: Seller | null;
   saleCode: string | null;
+  shareToken: string | null;
+  saleInvoiceToken: string | null;
+  products: QuoteProductSummary[];
 };
 
 export type ProductRow = {

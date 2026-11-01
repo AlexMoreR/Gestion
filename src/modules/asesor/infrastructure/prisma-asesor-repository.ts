@@ -13,7 +13,7 @@ import type {
 } from "../domain/entities";
 import type { SaleLedgerInput } from "../domain/payments";
 import { describeProductSource } from "../domain/product-source";
-import { buildSaleProducts, type SaleProductItemInput } from "../domain/sale-products";
+import { buildQuoteProductSummary, buildSaleProducts, type SaleProductItemInput } from "../domain/sale-products";
 import type { AsesorReadRepository, SaleLedgerFilter } from "../domain/repository";
 
 // Adaptador Prisma de SOLO LECTURA: unicamente findMany (ningun create/update/delete).
@@ -78,6 +78,7 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
         select: {
           id: true,
           code: true,
+          invoiceToken: true,
           createdAt: true,
           origin: true,
           originDetail: true,
@@ -86,6 +87,7 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
           quote: {
             select: {
               code: true,
+              shareToken: true,
               createdBy: { select: userSelect },
               items: {
                 orderBy: { createdAt: "asc" },
@@ -104,7 +106,10 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
           order: {
             select: {
               code: true,
-              manufacturingOrders: { select: { code: true, supplierId: true } },
+              manufacturingOrders: {
+                orderBy: { createdAt: "asc" },
+                select: { code: true, supplierId: true, shareToken: true, supplier: { select: { name: true } } },
+              },
               items: {
                 orderBy: { createdAt: "asc" },
                 select: {
@@ -156,6 +161,13 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
           // Productos de la orden o, si no tiene items, de la cotizacion (combos agrupados).
           products: productos,
           productsSource: fuente,
+          quoteShareToken: sale.quote?.shareToken ?? null,
+          invoiceToken: sale.invoiceToken,
+          manufacturingOrders: (sale.order?.manufacturingOrders ?? []).map((of) => ({
+            code: of.code,
+            supplierName: of.supplier.name,
+            shareToken: of.shareToken,
+          })),
         };
       });
     },
@@ -173,8 +185,20 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
           status: true,
           total: true,
           client: { select: { name: true } },
+          shareToken: true,
           createdBy: { select: userSelect },
-          sale: { select: { code: true } },
+          sale: { select: { code: true, invoiceToken: true } },
+          items: {
+            orderBy: { createdAt: "asc" },
+            select: {
+              id: true,
+              quantity: true,
+              unitPrice: true,
+              lineTotal: true,
+              notes: true,
+              product: { select: { name: true, code: true, thumbnailUrl: true, description: true } },
+            },
+          },
         },
       });
 
@@ -186,6 +210,9 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
         clientName: quote.client?.name ?? null,
         seller: toSeller(quote.createdBy),
         saleCode: quote.sale?.code ?? null,
+        shareToken: quote.shareToken,
+        saleInvoiceToken: quote.sale?.invoiceToken ?? null,
+        products: buildQuoteProductSummary(quote.items),
       }));
     },
 

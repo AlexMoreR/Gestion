@@ -42,6 +42,9 @@ import {
   type SaleLedger,
 } from "../domain/payments";
 import type { AsesorReadRepository } from "../domain/repository";
+import { buildSaleLinks } from "../domain/sale-products";
+import type { SaleDetail } from "../domain/entities";
+import { getSiteUrl } from "../../../lib/site";
 import { effectiveOrigin, originDetailSummary, saleOriginLabel } from "../../ventas/domain/sale-origin";
 
 export type AsesorDependencies = {
@@ -50,6 +53,17 @@ export type AsesorDependencies = {
   // Comisiones fijas pactadas por persona (Nomina). Sin esto, todas usan la regla general.
   loadFixedCommissionRates?: (mes: number, anio: number) => Promise<CommissionFixedRates>;
 };
+
+// Enlaces publicos de la venta (cotizacion, venta, proveedora) y avisos si falta la orden o la OF.
+function saleLinks(detail: SaleDetail | undefined) {
+  return buildSaleLinks({
+    siteUrl: getSiteUrl(),
+    quoteShareToken: detail?.quoteShareToken ?? null,
+    invoiceToken: detail?.invoiceToken ?? null,
+    hasOrder: Boolean(detail?.orderCode),
+    manufacturingOrders: detail?.manufacturingOrders ?? [],
+  });
+}
 
 async function fixedRatesFor(deps: AsesorDependencies, mes: number, anio: number): Promise<CommissionFixedRates> {
   return deps.loadFixedCommissionRates ? deps.loadFixedCommissionRates(mes, anio) : {};
@@ -226,6 +240,7 @@ export async function listSalesUseCase(
       ganancia: roundMoney(row.netProfit),
       margen_pct: roundMoney(row.marginPercentage),
       ...describeOrigin(row.saleId),
+      ...saleLinks(detail),
       ...(ledger ? describeLedgerDates(ledger) : {}),
     };
   });
@@ -244,6 +259,7 @@ export async function listSalesUseCase(
       productos_fuente: detail?.productsSource ?? "ninguna",
       total: roundMoney(ledger.input.total),
       ...describeOrigin(ledger.input.saleId),
+      ...saleLinks(detail),
       ...describeLedgerDates(ledger),
     };
   });
@@ -316,6 +332,9 @@ export async function listQuotesUseCase(
       vendedora: quote.seller?.name ?? UNASSIGNED_SELLER,
       aprobada: isQuoteApproved(quote),
       venta: quote.saleCode,
+      productos: quote.products,
+      link_cotizacion: quote.shareToken ? getSiteUrl(`/cotizaciones/${quote.shareToken}`) : null,
+      link_venta: quote.saleInvoiceToken ? getSiteUrl(`/sales/${quote.saleInvoiceToken}`) : null,
       ...describeQuotePayments(quote.saleCode ? ledgerByCode.get(quote.saleCode) : undefined),
     })),
     notas: [
@@ -526,6 +545,7 @@ export async function getSaleUseCase(deps: AsesorDependencies, codigo: string) {
     origen_producto: detail?.productSource ?? null,
     productos: detail?.products ?? [],
     productos_fuente: detail?.productsSource ?? "ninguna",
+    ...saleLinks(detail),
     moneda: CURRENCY,
     total: roundMoney(ledger.input.total),
     ...describeLedgerDates(ledger),

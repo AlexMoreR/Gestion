@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { stringifyQuoteItemMeta } from "../../../lib/quote-item-meta";
-import { buildSaleProducts, type SaleProductItemInput } from "./sale-products";
+import {
+  buildQuoteProductSummary,
+  buildSaleLinks,
+  buildSaleProducts,
+  MISSING_MANUFACTURING_NOTICE,
+  MISSING_ORDER_NOTICE,
+  type SaleProductItemInput,
+} from "./sale-products";
 
 function item(
   overrides: Partial<Omit<SaleProductItemInput, "product">> & { product?: Partial<SaleProductItemInput["product"]> } = {},
@@ -127,5 +134,65 @@ describe("buildSaleProducts", () => {
       [0, "sin dato"],
       [0, "sin dato"],
     ]);
+  });
+});
+
+describe("buildSaleLinks", () => {
+  const siteUrl = "https://magilus.com/";
+  const of1 = { code: "OF-001", supplierName: "Tapicería Ana", shareToken: "tok-of1" };
+  const of2 = { code: "OF-002", supplierName: "Metales Luz", shareToken: "tok-of2" };
+
+  it("arma los links de cotizacion, venta y una proveedora", () => {
+    expect(
+      buildSaleLinks({ siteUrl, quoteShareToken: "tok-q", invoiceToken: "tok-s", hasOrder: true, manufacturingOrders: [of1] }),
+    ).toEqual({
+      link_cotizacion: "https://magilus.com/cotizaciones/tok-q",
+      link_venta: "https://magilus.com/sales/tok-s",
+      link_proveedora: { proveedora: "Tapicería Ana", orden_fabricacion: "OF-001", link: "https://magilus.com/fabricacion/tok-of1" },
+      aviso_orden: null,
+      aviso_proveedora: null,
+    });
+  });
+
+  it("devuelve una lista si hay varias proveedoras", () => {
+    const links = buildSaleLinks({ siteUrl, quoteShareToken: null, invoiceToken: "s", hasOrder: true, manufacturingOrders: [of1, of2] });
+    expect(links.link_proveedora).toEqual([
+      { proveedora: "Tapicería Ana", orden_fabricacion: "OF-001", link: "https://magilus.com/fabricacion/tok-of1" },
+      { proveedora: "Metales Luz", orden_fabricacion: "OF-002", link: "https://magilus.com/fabricacion/tok-of2" },
+    ]);
+    expect(links.link_cotizacion).toBeNull();
+  });
+
+  it("avisa 'Falta crear la orden' cuando la venta no tiene orden", () => {
+    const links = buildSaleLinks({ siteUrl, quoteShareToken: null, invoiceToken: null, hasOrder: false, manufacturingOrders: [] });
+    expect(links).toEqual({
+      link_cotizacion: null,
+      link_venta: null,
+      link_proveedora: null,
+      aviso_orden: MISSING_ORDER_NOTICE,
+      aviso_proveedora: null,
+    });
+    expect(MISSING_ORDER_NOTICE).toBe("Falta crear la orden");
+  });
+
+  it("avisa cuando hay orden pero ninguna orden de fabricacion", () => {
+    const links = buildSaleLinks({ siteUrl, quoteShareToken: "q", invoiceToken: "s", hasOrder: true, manufacturingOrders: [] });
+    expect(links.link_proveedora).toBeNull();
+    expect(links.aviso_orden).toBeNull();
+    expect(links.aviso_proveedora).toBe(MISSING_MANUFACTURING_NOTICE);
+  });
+});
+
+describe("buildQuoteProductSummary", () => {
+  it("agrupa combos y trae nombre, codigo, color y cantidad", () => {
+    const combo = stringifyQuoteItemMeta({ comboKey: "c1", comboName: "Combo Barbero", color: "Negro" });
+    const result = buildQuoteProductSummary([
+      item({ id: "a", notes: stringifyQuoteItemMeta({ color: "Rojo" }) }),
+      item({ id: "b", notes: combo, product: { name: "Hijo 1", code: "H1" } }),
+      item({ id: "c", notes: combo, product: { name: "Hijo 2", code: "H2" } }),
+    ]);
+    expect(result[0]).toEqual({ nombre: "Silla Barbera", codigo: "SB-01", color: "Rojo", cantidad: 1 });
+    expect(result).toHaveLength(2);
+    expect(result[1].color).toBe("Negro");
   });
 });
