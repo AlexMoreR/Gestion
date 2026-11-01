@@ -9,21 +9,25 @@ import {
   currentMonthInBogota,
   describeRange,
   filterExpensesByCategory,
+  firstSaleRate,
+  formatDay,
   productMargin,
   summarizeExpensesByCategory,
   summarizeMonth,
   summarizeQuotes,
 } from "./calculations";
+import { inColombiaPeriod } from "../../../lib/colombia-time";
+import { bogotaDay } from "./payments";
 import type { CommissionBoardSaleInput, ExpenseLine, QuoteRow } from "./entities";
 
 const ana = { id: "u-ana", name: "Ana" };
 const bea = { id: "u-bea", name: "Bea" };
 
 describe("fechas", () => {
-  it("convierte un rango inclusivo en semiabierto UTC", () => {
+  it("convierte un rango inclusivo en semiabierto desde 00:00 de Colombia", () => {
     const range = buildDayRange("2026-09-01", "2026-09-30");
-    expect(range.from.toISOString()).toBe("2026-09-01T00:00:00.000Z");
-    expect(range.to.toISOString()).toBe("2026-10-01T00:00:00.000Z");
+    expect(range.from.toISOString()).toBe("2026-09-01T05:00:00.000Z");
+    expect(range.to.toISOString()).toBe("2026-10-01T05:00:00.000Z");
     expect(describeRange(range)).toEqual({ desde: "2026-09-01", hasta: "2026-09-30" });
   });
 
@@ -35,9 +39,29 @@ describe("fechas", () => {
 
   it("arma el mes con la convencion de Balances", () => {
     const range = buildMonthRange(12, 2026);
-    expect(range.from.toISOString()).toBe("2026-12-01T00:00:00.000Z");
-    expect(range.to.toISOString()).toBe("2027-01-01T00:00:00.000Z");
+    expect(range.from.toISOString()).toBe("2026-12-01T05:00:00.000Z");
+    expect(range.to.toISOString()).toBe("2027-01-01T05:00:00.000Z");
     expect(() => buildMonthRange(13, 2026)).toThrow(AsesorInputError);
+  });
+
+  it("un abono escrito '2026-11-01' (medianoche UTC) es del 1-nov", () => {
+    const written = new Date("2026-11-01");
+    expect(formatDay(written)).toBe("2026-11-01");
+    expect(bogotaDay(written)).toBe("2026-11-01");
+    expect(inColombiaPeriod(written, { start: buildMonthRange(11, 2026).from, end: buildMonthRange(11, 2026).to })).toBe(true);
+    expect(inColombiaPeriod(written, { start: buildMonthRange(10, 2026).from, end: buildMonthRange(10, 2026).to })).toBe(false);
+  });
+
+  it("un pago a las 7 p. m. del 31-oct en Colombia es de octubre", () => {
+    const moment = new Date("2026-11-01T00:30:00Z");
+    expect(formatDay(moment)).toBe("2026-10-31");
+    expect(inColombiaPeriod(moment, { start: buildMonthRange(10, 2026).from, end: buildMonthRange(10, 2026).to })).toBe(true);
+  });
+
+  it("la tasa plana de comision arranca el 1-oct en Colombia", () => {
+    // 30-sep a las 10 p. m. en Colombia: todavia septiembre (10%).
+    expect(firstSaleRate(new Date("2026-10-01T03:00:00Z"))).toBe(0.1);
+    expect(firstSaleRate(new Date("2026-10-01T05:00:00Z"))).toBe(0.15);
   });
 
   it("toma el mes en curso en hora de Colombia", () => {

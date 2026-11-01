@@ -11,7 +11,6 @@ import {
   parseWithholdingCertificate,
   parseWithholdingMonth,
   paymentMethodLabel,
-  withholdingPaymentDateYearRange,
   withholdingRowDate,
   withholdingYearRange,
   withholdingsCsv,
@@ -134,14 +133,6 @@ describe("withholdingRowDate (fecha del abono sin correrse de dia)", () => {
     ]);
     expect(report.monthTotal).toBe(113575);
     expect(report.rows).toHaveLength(1);
-  });
-});
-
-describe("withholdingPaymentDateYearRange", () => {
-  it("va de 1-ene a 1-ene en UTC (fechas de calendario)", () => {
-    const range = withholdingPaymentDateYearRange("2026-10");
-    expect(range.from.toISOString()).toBe("2026-01-01T00:00:00.000Z");
-    expect(range.to.toISOString()).toBe("2027-01-01T00:00:00.000Z");
   });
 });
 

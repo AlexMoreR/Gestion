@@ -4,6 +4,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { auth } from "@/auth";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
+import { colombiaMonthRange, todayInColombia } from "@/lib/colombia-time";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { getSystemCurrency } from "@/lib/system-settings";
@@ -32,10 +33,9 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-// Año en curso en hora de Colombia (mismo ajuste que la pagina de Balances).
+// Año en curso en hora de Colombia.
 function resolveYear(raw: unknown): number {
-  const bogotaNow = new Date(Date.now() - 5 * 60 * 60 * 1000);
-  const current = bogotaNow.getUTCFullYear();
+  const current = Number(todayInColombia().slice(0, 4));
   const parsed = typeof raw === "string" && /^\d{4}$/.test(raw) ? Number(raw) : current;
   return parsed >= 2020 && parsed <= current + 1 ? parsed : current;
 }
@@ -122,7 +122,7 @@ export default async function AdminVentasOrigenPage({ searchParams }: PageProps)
 
   const params = await searchParams;
   const year = resolveYear(params.anio);
-  const period = { from: new Date(Date.UTC(year, 0, 1)), to: new Date(Date.UTC(year + 1, 0, 1)) };
+  const period = { from: colombiaMonthRange(`${year}-01`).start, to: colombiaMonthRange(`${year + 1}-01`).start };
 
   const [currency, recognized] = await Promise.all([getSystemCurrency(), listRecognizedSales(period)]);
   const origins = recognized.length

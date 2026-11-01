@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { dbWindow, inColombiaPeriod } from "@/lib/colombia-time";
 import { prisma } from "@/lib/prisma";
 import { groupQuoteDisplayItems } from "@/lib/quote-display-items";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
@@ -138,8 +139,11 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
     },
 
     async listExpenses(range: DayRange): Promise<ExpenseLine[]> {
-      const rows = await prisma.expense.findMany({
-        where: { expenseDate: { gte: range.from, lt: range.to } },
+      // Fecha escrita o mixta: ventana 5 h antes y luego se filtra por dia de Colombia.
+      const period = { start: range.from, end: range.to };
+      const window = dbWindow(period);
+      const found = await prisma.expense.findMany({
+        where: { expenseDate: { gte: window.start, lt: window.end } },
         orderBy: [{ expenseDate: "asc" }, { createdAt: "asc" }],
         select: {
           id: true,
@@ -152,6 +156,7 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
           employee: { select: { name: true, email: true } },
         },
       });
+      const rows = found.filter((row) => inColombiaPeriod(row.expenseDate, period));
       return rows.map((row) => ({
         id: row.id,
         date: row.expenseDate,

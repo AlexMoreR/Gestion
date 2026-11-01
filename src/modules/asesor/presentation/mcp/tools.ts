@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { adminModuleDefinitions } from "@/lib/admin-module-access";
+import { todayInColombia } from "@/lib/colombia-time";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import { APP_OVERVIEW_SECTIONS, describeApplicationUseCase } from "../../application/describe-application";
 import {
@@ -33,7 +34,6 @@ import {
   TEAM_PAY_LABELS,
   TEAM_STATUS_LABELS,
   teamStatus,
-  todayInBogota,
   toPublicMember,
 } from "@/modules/equipo/domain/team-member";
 import { loadTeamMembers } from "@/modules/equipo/infrastructure/prisma-team-repository";
@@ -355,7 +355,7 @@ export const asesorTools: McpToolDefinition[] = [
     }),
     handler: async (args) => {
       const now = new Date();
-      const today = todayInBogota(now);
+      const today = todayInColombia(now);
       const desde = args.fecha ?? args.desde ?? args.hasta ?? today;
       const hasta = args.fecha ?? args.hasta ?? args.desde ?? today;
       // Valida formato y orden (lanza AsesorInputError con un mensaje claro).
@@ -457,7 +457,7 @@ export const asesorTools: McpToolDefinition[] = [
         .describe("activos, retirados o todos. Por defecto: todos."),
     }),
     handler: async (args) => {
-      const today = todayInBogota();
+      const today = todayInColombia();
       const members = filterTeam(await loadTeamMembers(), { estado: args.estado, q: "", pago: "" }, today);
       return {
         hoy: today,

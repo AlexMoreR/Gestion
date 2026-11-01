@@ -1,5 +1,6 @@
 // Abonos y saldo de cada venta para el asesor de IA. Reglas puras, sin Prisma.
 // Imports relativos (Vitest no resuelve el alias "@/").
+import { colombiaDayKey } from "../../../lib/colombia-time";
 import { roundMoney } from "../../../lib/pricing";
 import { computeFullyPaidAt } from "../../balances/domain/recognition";
 
@@ -72,9 +73,9 @@ export type SaleLedger = {
   countsInBalances: boolean;
 };
 
-// Dia calendario en Colombia (UTC-5), formato AAAA-MM-DD.
+// Dia calendario en Colombia, formato AAAA-MM-DD; una fecha escrita (medianoche UTC) se toma tal cual.
 export function bogotaDay(date: Date): string {
-  return new Date(date.getTime() - 5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return colombiaDayKey(date);
 }
 
 export function buildSaleLedger(input: SaleLedgerInput): SaleLedger {

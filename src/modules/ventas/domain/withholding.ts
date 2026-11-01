@@ -4,6 +4,8 @@
 // isWithholding = true, sin cuenta (accountId NULL) y con certificado opcional.
 // Reglas puras: sin Prisma ni Next, para poder probarlas con Vitest.
 
+import { colombiaDayKey, colombiaMonthKey, colombiaMonthRange, inColombiaPeriod, todayInColombia } from "../../../lib/colombia-time";
+
 export const WITHHOLDING_LABEL = "Retención en la fuente";
 
 // Valor que manda el formulario de abono en el campo "accountId" cuando se escoge la retencion.
@@ -11,8 +13,6 @@ export const WITHHOLDING_LABEL = "Retención en la fuente";
 export const WITHHOLDING_ACCOUNT_VALUE = "__retencion_fuente__";
 
 export const WITHHOLDING_CERTIFICATE_MAX = 80;
-
-const BOGOTA_TIME_ZONE = "America/Bogota";
 
 export function isWithholdingAccountValue(value: unknown): boolean {
   return typeof value === "string" && value.trim() === WITHHOLDING_ACCOUNT_VALUE;
@@ -52,24 +52,12 @@ export function paymentMethodLabel(payment: PaymentLabelInput): string {
 
 // Mes AAAA-MM de una fecha, en hora de Colombia.
 export function bogotaMonthKey(date: Date): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: BOGOTA_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-  }).formatToParts(date);
-  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
-  const month = parts.find((part) => part.type === "month")?.value ?? "01";
-  return `${year}-${month}`;
+  return colombiaMonthKey(date);
 }
 
 // Fecha AAAA-MM-DD en hora de Colombia.
 export function bogotaDateKey(date: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: BOGOTA_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
+  return colombiaDayKey(date);
 }
 
 // ?mes=AAAA-MM valido; si no, el mes actual en Colombia.
@@ -77,30 +65,20 @@ export function parseWithholdingMonth(value: unknown, now: Date = new Date()): s
   if (typeof value === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(value.trim())) {
     return value.trim();
   }
-  return bogotaMonthKey(now);
+  return todayInColombia(now).slice(0, 7);
 }
 
-// Rango [inicio, fin) del año de un mes AAAA-MM, en hora de Colombia (UTC-5, sin horario de verano).
+// Rango [inicio, fin) del año de un mes AAAA-MM, de 00:00 Colombia del 1-ene al 1-ene siguiente.
 export function withholdingYearRange(month: string): { from: Date; to: Date } {
   const year = Number(month.slice(0, 4));
-  return {
-    from: new Date(`${year}-01-01T00:00:00.000-05:00`),
-    to: new Date(`${year + 1}-01-01T00:00:00.000-05:00`),
-  };
-}
-
-// Rango [inicio, fin) del año para la fecha escrita del abono (paymentDate). Esa fecha de calendario
-// se guarda como medianoche UTC (igual que en Balances), asi que el año va de 1-ene a 1-ene en UTC.
-export function withholdingPaymentDateYearRange(month: string): { from: Date; to: Date } {
-  const year = Number(month.slice(0, 4));
-  return { from: new Date(Date.UTC(year, 0, 1)), to: new Date(Date.UTC(year + 1, 0, 1)) };
+  return { from: colombiaMonthRange(`${year}-01`).start, to: colombiaMonthRange(`${year + 1}-01`).start };
 }
 
 // Dia de la retencion como fecha estable (mediodia en Colombia) para agrupar por mes sin correrse:
 // - con fecha escrita (paymentDate, medianoche UTC): ese mismo dia de calendario;
 // - sin fecha escrita: el dia en Colombia del momento en que se registro (createdAt).
 export function withholdingRowDate(paymentDate: Date | null, createdAt: Date): Date {
-  const day = paymentDate ? paymentDate.toISOString().slice(0, 10) : bogotaDateKey(createdAt);
+  const day = colombiaDayKey(paymentDate ?? createdAt);
   return new Date(`${day}T12:00:00.000-05:00`);
 }
 
@@ -131,10 +109,10 @@ function roundMoney(value: number): number {
 // Reporte del mes: las retenciones del mes (por fecha del abono, en Colombia), total del mes y
 // total del año. `rows` puede traer el año completo; aca se filtra.
 export function buildWithholdingReport(month: string, rows: WithholdingRow[]): WithholdingReport {
-  const year = month.slice(0, 4);
-  const yearRows = rows.filter((row) => bogotaMonthKey(row.date).startsWith(`${year}-`));
+  const { from, to } = withholdingYearRange(month);
+  const yearRows = rows.filter((row) => inColombiaPeriod(row.date, { start: from, end: to }));
   const monthRows = yearRows
-    .filter((row) => bogotaMonthKey(row.date) === month)
+    .filter((row) => inColombiaPeriod(row.date, month))
     .sort((a, b) => a.date.getTime() - b.date.getTime() || a.saleCode.localeCompare(b.saleCode));
 
   const totals = new Map<string, number>();

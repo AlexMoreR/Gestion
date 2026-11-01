@@ -1,8 +1,8 @@
+import { dbWindow } from "@/lib/colombia-time";
 import { prisma } from "@/lib/prisma";
 
 import {
   buildWithholdingReport,
-  withholdingPaymentDateYearRange,
   withholdingRowDate,
   withholdingYearRange,
   type WithholdingReport,
@@ -12,13 +12,14 @@ import {
 // Retenciones en la fuente del año del mes pedido (AAAA-MM). El filtro por mes y los totales
 // los hace la regla pura (buildWithholdingReport), en hora de Colombia.
 export async function getWithholdingReport(month: string): Promise<WithholdingReport> {
-  const paymentDateRange = withholdingPaymentDateYearRange(month);
   const createdAtRange = withholdingYearRange(month);
+  // Fecha escrita (medianoche UTC): ventana 5 h antes; el filtro fino lo hace buildWithholdingReport.
+  const window = dbWindow({ start: createdAtRange.from, end: createdAtRange.to });
   const payments = await prisma.salePayment.findMany({
     where: {
       isWithholding: true,
       OR: [
-        { paymentDate: { gte: paymentDateRange.from, lt: paymentDateRange.to } },
+        { paymentDate: { gte: window.start, lt: window.end } },
         // Abono sin fecha escrita: cuenta el dia (en Colombia) en que se registro.
         { paymentDate: null, createdAt: { gte: createdAtRange.from, lt: createdAtRange.to } },
       ],

@@ -1,6 +1,7 @@
 // Reporte de ventas por origen (/admin/ventas/origen). Calculos puros, sin Prisma.
 // Las ventas que entran y su monto/fecha vienen de Balances (ver la pagina): aqui solo se agrupan.
 
+import { colombiaMonthKey } from "../../../lib/colombia-time";
 import { adKeyFromDetail, effectiveOrigin, SALE_ORIGIN_LABEL, SALE_ORIGIN_ORDER, type SaleOriginCode } from "./sale-origin";
 
 export type OriginReportSale = {
@@ -74,9 +75,9 @@ export function summarizeByOrigin(sales: OriginReportSale[]): OriginReportRow[] 
   }).filter((row) => row.count > 0 || row.origin === "SIN_DATO");
 }
 
-// Mes en UTC: misma convencion de limites de mes que Balances (resolveMonthPeriod).
+// Mes en Colombia: misma convencion de limites de mes que Balances (resolveMonthPeriod).
 export function monthKey(date: Date): string {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  return colombiaMonthKey(date);
 }
 
 // Meses con ventas, del mas reciente al mas viejo.

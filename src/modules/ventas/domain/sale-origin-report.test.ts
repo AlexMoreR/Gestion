@@ -33,14 +33,17 @@ describe("summarizeByOrigin", () => {
 });
 
 describe("groupByMonth", () => {
-  it("mes por fecha de entrega en UTC, del mas reciente al mas viejo", () => {
+  it("mes por fecha de entrega en Colombia, del mas reciente al mas viejo", () => {
     const months = groupByMonth([
       sale({ amount: 1, recognizedAt: new Date("2026-08-31T23:00:00Z") }),
+      // 31-ago a las 10 p. m. en Colombia: sigue siendo agosto.
+      sale({ amount: 4, recognizedAt: new Date("2026-09-01T03:00:00Z") }),
       sale({ amount: 2, recognizedAt: new Date("2026-09-01T00:00:00Z") }),
       sale({ amount: 3, recognizedAt: new Date("2026-09-20T00:00:00Z") }),
     ]);
     expect(months.map((month) => month.month)).toEqual(["2026-09", "2026-08"]);
     expect(months[0].totals).toMatchObject({ count: 2, revenue: 5 });
+    expect(months[1].totals).toMatchObject({ count: 2, revenue: 5 });
   });
 });
 
