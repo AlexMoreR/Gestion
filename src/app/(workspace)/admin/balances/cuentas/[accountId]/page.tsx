@@ -69,6 +69,7 @@ export default async function AdminAccountTransactionsPage({ params }: PageProps
           openingBalance: account.openingBalance,
           accountType: account.type,
         })}
+        isCash={account.type === "CASH"}
       />
     </section>
   );

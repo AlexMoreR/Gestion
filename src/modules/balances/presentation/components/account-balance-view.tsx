@@ -22,6 +22,7 @@ type AccountBalanceViewProps = {
   currency: SupportedCurrencyCode;
   // Revisión de TODO el historial (no depende del mes elegido).
   review: AccountHistoryReview;
+  isCash: boolean;
 };
 
 const ALL_MONTHS = "all";
@@ -41,7 +42,15 @@ function dayLabel(date: Date | null): string {
 }
 
 // Recuadro "Revisión del saldo": por qué la cuenta quedó en negativo. Solo lectura.
-function AccountReviewPanel({ review, currency }: { review: AccountHistoryReview; currency: SupportedCurrencyCode }) {
+function AccountReviewPanel({
+  review,
+  currency,
+  isCash,
+}: {
+  review: AccountHistoryReview;
+  currency: SupportedCurrencyCode;
+  isCash: boolean;
+}) {
   const money = (value: number) => formatMoney(value, currency);
 
   if (!review.firstNegative) {
@@ -68,7 +77,7 @@ function AccountReviewPanel({ review, currency }: { review: AccountHistoryReview
           <p className="text-xs text-muted-foreground">{dayLabel(review.lowestDate)}</p>
         </div>
         <div className="rounded-lg border border-border p-3">
-          <p className="text-xs text-muted-foreground">Saldo inicial que haría falta</p>
+          <p className="text-xs text-muted-foreground">Saldo inicial que haría falta (además del actual)</p>
           <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">{money(review.neededOpening)}</p>
           <p className="text-xs text-muted-foreground">Para que nunca bajara de cero</p>
         </div>
@@ -101,16 +110,18 @@ function AccountReviewPanel({ review, currency }: { review: AccountHistoryReview
             ))}
           </ul>
           <p className="text-sm text-muted-foreground">
-            Si las salidas marcadas se pasaran a su banco, el saldo inicial que haría falta sería{" "}
+            Si las salidas marcadas se pasaran a su banco, el saldo inicial que haría falta (además del actual) sería{" "}
             <span className="font-semibold tabular-nums text-foreground">{money(review.neededOpeningWithoutSuspicious)}</span>.
           </p>
         </div>
+      ) : isCash ? (
+        <p className="text-sm text-muted-foreground">No encontramos salidas con señales de pago por banco.</p>
       ) : null}
     </div>
   );
 }
 
-export function AccountBalanceView({ transactions, openingBalance, currency, review }: AccountBalanceViewProps) {
+export function AccountBalanceView({ transactions, openingBalance, currency, review, isCash }: AccountBalanceViewProps) {
   // Opciones de mes: meses con transacciones + el mes actual, en orden descendente.
   const monthOptions = React.useMemo<MonthOption[]>(() => {
     const keys = new Set<string>();
@@ -182,7 +193,7 @@ export function AccountBalanceView({ transactions, openingBalance, currency, rev
         ]}
       />
 
-      <AccountReviewPanel review={review} currency={currency} />
+      <AccountReviewPanel review={review} currency={currency} isCash={isCash} />
 
       <AccountTransactionsTable
         data={filteredTransactions}
