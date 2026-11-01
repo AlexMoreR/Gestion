@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { stringifyQuoteItemMeta } from "../../../lib/quote-item-meta";
 import {
+  assessProfit,
   buildQuoteProductSummary,
   buildSaleLinks,
   buildSaleProducts,
   MISSING_MANUFACTURING_NOTICE,
   MISSING_ORDER_NOTICE,
   type SaleProductItemInput,
+  UNRELIABLE_PROFIT_NOTICE,
 } from "./sale-products";
 
 function item(
@@ -111,12 +113,12 @@ describe("buildSaleProducts", () => {
         precio_unitario: 500000,
         total_linea: 500000,
         costo_unitario: 150000,
-        costo_origen: "estimado de catálogo",
+        costo_origen: "inventario",
       },
     ]);
   });
 
-  it("costo confirmado, estimado de catalogo y sin dato", () => {
+  it("costo confirmado, inventario (stock), estimado de catalogo y sin dato", () => {
     const result = buildSaleProducts({
       orderItems: [
         item({ id: "a", purchaseCost: 100000, product: { baseCost: 1 } }),
@@ -129,7 +131,7 @@ describe("buildSaleProducts", () => {
     });
     expect(result.productos.map((p) => [p.costo_unitario, p.costo_origen])).toEqual([
       [100000, "confirmado"],
-      [60000, "estimado de catálogo"],
+      [60000, "inventario"],
       [70000, "estimado de catálogo"],
       [0, "sin dato"],
       [0, "sin dato"],
@@ -194,5 +196,54 @@ describe("buildQuoteProductSummary", () => {
     expect(result[0]).toEqual({ nombre: "Silla Barbera", codigo: "SB-01", color: "Rojo", cantidad: 1 });
     expect(result).toHaveLength(2);
     expect(result[1].color).toBe("Negro");
+  });
+});
+
+describe("assessProfit", () => {
+  it("venta sin orden: no confiable y estimada con los costos de catalogo de la cotizacion", () => {
+    const { productos } = buildSaleProducts({
+      orderItems: null,
+      quoteItems: [
+        item({ id: "a", quantity: 2, fulfillmentMode: "MANUFACTURE", product: { baseCost: 100000, preferredSupplierCost: 120000 } }),
+        item({ id: "b", product: { baseCost: 50000, additionalCost: 10000 } }),
+      ],
+    });
+    const balancesProfit = { supplierCosts: 0, shippingCosts: 20000, netProfit: 480000, marginPercentage: 96 };
+    const result = assessProfit({ total: 500000, hasOrder: false, productos, shippingCosts: 20000, balancesProfit });
+    expect(result.ganancia_confiable).toBe(false);
+    expect(result.aviso_ganancia).toBe(UNRELIABLE_PROFIT_NOTICE);
+    expect(result.ganancia).toEqual({ costo_producto: 0, flete: 20000, ganancia: 480000, margen_pct: 96, confiable: false });
+    // 500.000 - (120.000 x 2 + 60.000) - 20.000 = 180.000
+    expect(result.ganancia_estimada).toEqual({ costo_producto: 300000, flete: 20000, ganancia: 180000, margen_pct: 36, estimada: true });
+  });
+
+  it("con orden pero un costo sin confirmar: no confiable", () => {
+    const { productos } = buildSaleProducts({
+      orderItems: [item({ purchaseCost: 100000 }), item({ id: "b", fulfillmentMode: "MANUFACTURE", product: { baseCost: 10 } })],
+      quoteItems: null,
+    });
+    const result = assessProfit({ total: 400000, hasOrder: true, productos, shippingCosts: 0, balancesProfit: null });
+    expect(result.ganancia_confiable).toBe(false);
+    expect(result.ganancia).toBeNull();
+    expect(result.ganancia_estimada?.costo_producto).toBe(100010);
+  });
+
+  it("venta con orden y costos confirmados o de inventario: confiable e igual a Balances", () => {
+    const { productos } = buildSaleProducts({
+      orderItems: [item({ purchaseCost: 100000 }), item({ id: "b", product: { baseCost: 50000, additionalCost: 10000 } })],
+      quoteItems: null,
+    });
+    const balancesProfit = { supplierCosts: 160000, shippingCosts: 15000, netProfit: 225000, marginPercentage: 56.25 };
+    const result = assessProfit({ total: 400000, hasOrder: true, productos, shippingCosts: 15000, balancesProfit });
+    expect(result).toEqual({
+      ganancia_confiable: true,
+      aviso_ganancia: null,
+      ganancia: { costo_producto: 160000, flete: 15000, ganancia: 225000, margen_pct: 56.25, confiable: true },
+      ganancia_estimada: null,
+    });
+  });
+
+  it("con orden pero sin productos no es confiable", () => {
+    expect(assessProfit({ total: 1, hasOrder: true, productos: [], shippingCosts: 0, balancesProfit: null }).ganancia_confiable).toBe(false);
   });
 });

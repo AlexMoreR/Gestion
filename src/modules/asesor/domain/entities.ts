@@ -28,8 +28,9 @@ export type Seller = {
   role?: string | null;
 };
 
-// De donde sale el costo: confirmado con la proveedora, estimado del catalogo o sin dato (0).
-export type SaleProductCostOrigin = "confirmado" | "estimado de catálogo" | "sin dato";
+// De donde sale el costo: confirmado con la proveedora, inventario (stock: costo base + flete del
+// producto), estimado del catalogo (fabricacion sin confirmar) o sin dato (0).
+export type SaleProductCostOrigin = "confirmado" | "inventario" | "estimado de catálogo" | "sin dato";
 
 // De donde salen los productos de la venta: la orden o, si no tiene items, la cotizacion.
 export type SaleProductsSource = "orden" | "cotizacion" | "ninguna";
