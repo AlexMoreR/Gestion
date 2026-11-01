@@ -38,7 +38,6 @@ import {
 } from "@/modules/equipo/domain/team-member";
 import { loadTeamMembers } from "@/modules/equipo/infrastructure/prisma-team-repository";
 import {
-  ASISTENCIA_NOMINA_DESDE,
   ATTENDANCE_KIND_LABELS,
   ATTENDANCE_ORIGIN_LABELS,
   DAY_STATUS_LABELS,
@@ -50,10 +49,7 @@ import {
   getRangeBoardUseCase,
   getTodayBoardUseCase,
 } from "@/modules/asistencia/application/use-cases";
-import {
-  createPrismaAsistenciaRepository,
-  loadAttendanceDays,
-} from "@/modules/asistencia/infrastructure/prisma-asistencia-repository";
+import { createPrismaAsistenciaRepository } from "@/modules/asistencia/infrastructure/prisma-asistencia-repository";
 import {
   confirmVoiceExpense,
   describeVoiceExpense,
@@ -157,7 +153,7 @@ function resolveMonth(args: z.infer<typeof monthArgs>): { mes: number; anio: num
 
 function loadPayrollBoard(deps: AsesorDependencies, mes: number, anio: number) {
   return getPayrollBoardUseCase(
-    { ...deps, nomina: createPrismaNominaRepository(), loadTeam: () => loadTeamMembers(), loadAttendanceDays },
+    { ...deps, nomina: createPrismaNominaRepository(), loadTeam: () => loadTeamMembers() },
     mes,
     anio,
   );
@@ -309,8 +305,6 @@ export const asesorTools: McpToolDefinition[] = [
           tipo_basico: row.period ? PAY_PERIOD_LABELS[row.period] : "Sin configurar",
           basico_unitario: row.period && row.period !== "SIN_BASE" ? { valor: row.baseAmount, moneda: row.currency } : null,
           dias_trabajados: row.daysWorked,
-          // "asistencia" (registro de entrada y salida, desde nov-2026) o "manual" (escritos en Nomina).
-          dias_fuente: row.daysSource,
           basico_del_mes: row.baseCop,
           ventas: row.salesCount,
           comision: row.commission,
@@ -337,7 +331,7 @@ export const asesorTools: McpToolDefinition[] = [
           "basico_del_mes = null si falta la TRM (basico en dolares) o los dias trabajados (pago diario).",
           "Las comisiones del mes en curso siguen subiendo mientras haya ventas.",
           "Entran todos los que trabajaron algun dia del mes segun su ficha de Equipo, aunque no tengan salario configurado. Un retirado aparece hasta su mes de salida; despues, solo si todavia tiene comision o pagos de ese mes.",
-          `Pago por dia: desde ${ASISTENCIA_NOMINA_DESDE} los dias salen de la asistencia (un dia cuenta si tiene al menos una entrada; dias_fuente = "asistencia"). Antes, de los dias escritos a mano en Nomina (dias_fuente = "manual").`,
+          "Pago por dia: dias escritos a mano en Nomina.",
         ],
       };
     },
@@ -439,7 +433,6 @@ export const asesorTools: McpToolDefinition[] = [
           "Un dia cuenta como trabajado si tiene al menos una entrada (no anulada). Una salida olvidada no inventa horas: esa entrada no suma horas.",
           "La hora de cada marca la pone el servidor; solo un admin puede corregir o agregar una marca, con motivo. Las marcas corregidas no se borran: quedan anuladas.",
           "El turno que pasa de medianoche cuenta en el dia de la entrada.",
-          `La nomina por dia toma estos dias desde ${ASISTENCIA_NOMINA_DESDE} (ver nomina_del_mes, dias_fuente).`,
           "Solo marcan los usuarios Empleado o Admin; quien no tiene usuario en Gestion no aparece.",
         ],
       };
