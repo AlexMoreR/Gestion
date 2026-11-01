@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   activeMarks,
-  attendanceDrivesPayroll,
   bogotaDay,
   bogotaInstant,
   bogotaTime,
@@ -268,15 +267,6 @@ describe("monthDays y formatMinutes", () => {
     expect(formatMinutes(0)).toBe("0 min");
     expect(formatMinutes(45)).toBe("45 min");
     expect(formatMinutes(425)).toBe("7 h 05 min");
-  });
-});
-
-describe("attendanceDrivesPayroll", () => {
-  it("desde noviembre de 2026", () => {
-    expect(attendanceDrivesPayroll("2026-09")).toBe(false);
-    expect(attendanceDrivesPayroll("2026-10")).toBe(false);
-    expect(attendanceDrivesPayroll("2026-11")).toBe(true);
-    expect(attendanceDrivesPayroll("2027-01")).toBe(true);
   });
 });
 

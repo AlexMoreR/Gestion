@@ -5,12 +5,7 @@ import { auth } from "@/auth";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { getMonthBoardUseCase, getTodayBoardUseCase } from "@/modules/asistencia/application/use-cases";
-import {
-  attendanceDrivesPayroll,
-  formatMinutes,
-  isMonthKey,
-  ASISTENCIA_NOMINA_DESDE,
-} from "@/modules/asistencia/domain/attendance";
+import { formatMinutes, isMonthKey } from "@/modules/asistencia/domain/attendance";
 import { createPrismaAsistenciaRepository } from "@/modules/asistencia/infrastructure/prisma-asistencia-repository";
 import {
   AddMarkForm,
@@ -72,12 +67,12 @@ export default async function AdminAsistenciaPage({ searchParams }: PageProps) {
         <p className="max-w-2xl text-xs text-muted-foreground">
           Cada trabajador marca su entrada y su salida con el botón de la barra (celular o PC); la hora la pone el servidor y
           no se puede cambiar. Si alguien olvidó marcar, aquí se agrega o se corrige con un motivo: la marca original no se
-          borra, queda anulada. Un día cuenta como trabajado si tiene al menos una entrada. Desde{" "}
-          {monthTitle(ASISTENCIA_NOMINA_DESDE).toLowerCase()} la{" "}
+          borra, queda anulada. Un día cuenta como trabajado si tiene al menos una entrada. La asistencia no afecta la nómina; los días se
+          escriben en{" "}
           <Link href="/admin/comisiones/nomina" className="underline">
             Nómina
-          </Link>{" "}
-          de quien cobra por día toma los días de aquí.
+          </Link>
+          .
         </p>
       </div>
 
@@ -152,11 +147,6 @@ export default async function AdminAsistenciaPage({ searchParams }: PageProps) {
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             {monthTitle(mes)}
-            {attendanceDrivesPayroll(mes)
-              ? " · la nómina por día de este mes sale de estos registros."
-              : " · este mes la nómina usa los días escritos a mano (la asistencia manda desde " +
-                monthTitle(ASISTENCIA_NOMINA_DESDE).toLowerCase() +
-                ")."}
           </p>
           {monthBoard.people.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
