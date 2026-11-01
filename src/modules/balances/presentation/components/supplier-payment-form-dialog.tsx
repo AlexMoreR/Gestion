@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { todayInColombia } from "@/lib/colombia-time";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -93,7 +94,7 @@ export function SupplierPaymentFormDialog({
       supplierId: initialValue?.supplierId ?? suppliers[0]?.id ?? "",
       amount: initialValue?.amount ?? 0,
       transactionReference: initialValue?.transactionReference ?? "",
-      paymentDate: initialValue?.paymentDate ?? new Date().toISOString().slice(0, 10),
+      paymentDate: initialValue?.paymentDate ?? todayInColombia(),
       notes: initialValue?.notes ?? "",
       accountId: initialValue?.accountId ?? "",
     },
@@ -106,7 +107,7 @@ export function SupplierPaymentFormDialog({
         supplierId: suppliers[0]?.id ?? "",
         amount: 0,
         transactionReference: "",
-        paymentDate: new Date().toISOString().slice(0, 10),
+        paymentDate: todayInColombia(),
         notes: "",
         accountId: "",
       });
@@ -120,7 +121,7 @@ export function SupplierPaymentFormDialog({
       supplierId: initialValue?.supplierId ?? suppliers[0]?.id ?? "",
       amount: initialValue?.amount ?? 0,
       transactionReference: initialValue?.transactionReference ?? "",
-      paymentDate: initialValue?.paymentDate ?? new Date().toISOString().slice(0, 10),
+      paymentDate: initialValue?.paymentDate ?? todayInColombia(),
       notes: initialValue?.notes ?? "",
       accountId: initialValue?.accountId ?? "",
     });

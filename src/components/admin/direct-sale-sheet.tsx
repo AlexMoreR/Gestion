@@ -4,6 +4,7 @@ import * as React from "react";
 import { AlignLeft, Boxes, Coins, Plus, PlusCircle, RefreshCw, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { useFormStatus } from "react-dom";
 import { adminCreateDirectSaleAction } from "@/app/actions/sales-actions";
+import { todayInColombia } from "@/lib/colombia-time";
 import { ProductThumb } from "@/components/admin/product-thumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,8 +76,7 @@ const inputClass =
   "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
 
 function todayInputValue(): string {
-  const now = new Date();
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  return todayInColombia();
 }
 
 function getAccountTypeLabel(type: AccountType): string {

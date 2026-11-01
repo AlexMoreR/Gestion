@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { todayInColombia } from "@/lib/colombia-time";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -77,7 +78,7 @@ export function ShippingCostFormDialog({
       shippingProvider: initialValue?.shippingProvider ?? "",
       amount: initialValue?.amount ?? 0,
       transactionReference: initialValue?.transactionReference ?? "",
-      paymentDate: initialValue?.paymentDate ?? new Date().toISOString().slice(0, 10),
+      paymentDate: initialValue?.paymentDate ?? todayInColombia(),
       accountId: initialValue?.accountId ?? "",
     },
   });
@@ -89,7 +90,7 @@ export function ShippingCostFormDialog({
         shippingProvider: "",
         amount: 0,
         transactionReference: "",
-        paymentDate: new Date().toISOString().slice(0, 10),
+        paymentDate: todayInColombia(),
         accountId: "",
       });
       setFormKey((current) => current + 1);
@@ -102,7 +103,7 @@ export function ShippingCostFormDialog({
       shippingProvider: initialValue?.shippingProvider ?? "",
       amount: initialValue?.amount ?? 0,
       transactionReference: initialValue?.transactionReference ?? "",
-      paymentDate: initialValue?.paymentDate ?? new Date().toISOString().slice(0, 10),
+      paymentDate: initialValue?.paymentDate ?? todayInColombia(),
       accountId: initialValue?.accountId ?? "",
     });
   }, [form, initialValue, open, sales]);

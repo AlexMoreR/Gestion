@@ -1,6 +1,5 @@
 import type { AccountTransaction } from "../domain/entities";
-
-const BOGOTA_OFFSET_MS = 5 * 60 * 60 * 1000;
+import { colombiaDayKey, colombiaMonthKey, colombiaMonthRange, inColombiaPeriod, todayInColombia } from "../../../lib/colombia-time";
 
 export type AccountBalanceMetrics = {
   periodOpening: number;
@@ -19,18 +18,22 @@ export function toAccountDate(value: Date | string): Date {
 }
 
 export function accountMonthKey(date: Date): string {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  return colombiaMonthKey(date);
 }
 
 export function currentBogotaMonthKey(date: Date = new Date()): string {
-  const bogotaDate = new Date(date.getTime() - BOGOTA_OFFSET_MS);
-  return accountMonthKey(bogotaDate);
+  return todayInColombia(date).slice(0, 7);
 }
 
-// Límites [from, to) en UTC: las fechas contables se guardan como medianoche UTC.
+// Límites [from, to) del mes en Colombia; para comparar usar inAccountRange / colombiaDayKey.
 export function accountMonthRange(key: string): { from: Date; to: Date } {
-  const [year, month] = key.split("-").map(Number);
-  return { from: new Date(Date.UTC(year, month - 1, 1)), to: new Date(Date.UTC(year, month, 1)) };
+  const { start, end } = colombiaMonthRange(key);
+  return { from: start, to: end };
+}
+
+// ¿La fecha cae en el periodo? Fecha escrita (medianoche UTC) = ese día; otra hora = día en Colombia.
+export function inAccountRange(date: Date, range: { from: Date; to: Date }): boolean {
+  return inColombiaPeriod(date, { start: range.from, end: range.to });
 }
 
 // Misma lógica que summarizeAccountBalance, pero a partir de las transacciones.
@@ -46,12 +49,12 @@ export function computeAccountBalanceMetrics(
 
   for (const txn of transactions) {
     const date = toAccountDate(txn.date);
-    if (range && date < range.from) {
+    if (range && colombiaDayKey(date) < colombiaDayKey(range.from)) {
       // Saldo de cierre del periodo anterior: apertura + todos los flujos previos.
       periodOpening += txn.amount;
       continue;
     }
-    if (range && date >= range.to) {
+    if (range && !inAccountRange(date, range)) {
       continue;
     }
 

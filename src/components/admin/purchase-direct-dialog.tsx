@@ -8,6 +8,7 @@ import {
   adminUpdateDirectPurchaseAction,
 } from "@/app/actions/inventory-actions";
 import { adminUploadQuoteImageAction } from "@/app/actions/quote-actions";
+import { todayInColombia } from "@/lib/colombia-time";
 import { ProductThumb } from "@/components/admin/product-thumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -100,8 +101,7 @@ const controlClassName =
   "h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
 
 function today(): string {
-  const now = new Date();
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  return todayInColombia();
 }
 
 export function PurchaseDirectDialog({

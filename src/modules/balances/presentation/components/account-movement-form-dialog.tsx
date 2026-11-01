@@ -3,6 +3,7 @@
 import * as React from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { todayInColombia } from "@/lib/colombia-time";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -79,7 +80,7 @@ export function AccountMovementFormDialog({ open, action, onClose, returnTo, acc
 
             <label className="space-y-1.5">
               <span className="text-sm font-medium text-foreground">Fecha</span>
-              <DatePicker name="movementDate" defaultValue={new Date().toISOString().slice(0, 10)} />
+              <DatePicker name="movementDate" defaultValue={todayInColombia()} />
             </label>
 
             <label className="space-y-1.5">

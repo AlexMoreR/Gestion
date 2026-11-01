@@ -3,6 +3,7 @@
 import * as React from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { colombiaDayKey } from "@/lib/colombia-time";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -21,8 +22,7 @@ const controlClassName =
   "h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
 
 function toInputDate(value: Date): string {
-  const d = new Date(value);
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  return colombiaDayKey(new Date(value));
 }
 
 export function InventoryMovementEditDialog({

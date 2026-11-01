@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { SalesDataTable } from "@/components/admin/sales-data-table";
+import { colombiaDayKey, colombiaMonthRange, todayInColombia } from "@/lib/colombia-time";
 import { DirectSaleSheet, type DirectSaleProduct, type DirectSaleClient } from "@/components/admin/direct-sale-sheet";
 import { ArrowDownLeft, Clock, ShoppingCart, Wallet } from "lucide-react";
 import { StatList } from "@/components/ui/stat-list";
@@ -63,20 +64,16 @@ type SalesWorkspaceProps = {
   initialSearch?: string;
 };
 
-// Fecha local (YYYY-MM-DD) para comparar con el DateRangePicker.
+// Dia en Colombia (YYYY-MM-DD) para comparar con el DateRangePicker.
 function localDay(value: string): string {
-  const date = new Date(value);
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+  return colombiaDayKey(new Date(value));
 }
 
-// Rango por defecto: primer y ultimo dia del mes actual (en hora local).
+// Rango por defecto: primer y ultimo dia del mes actual en Colombia.
 function currentMonthRange(): { from: string; to: string } {
-  const now = new Date();
-  const toLocalISO = (date: Date) =>
-    new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-  const first = new Date(now.getFullYear(), now.getMonth(), 1);
-  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return { from: toLocalISO(first), to: toLocalISO(last) };
+  const month = todayInColombia().slice(0, 7);
+  const { end } = colombiaMonthRange(month);
+  return { from: `${month}-01`, to: colombiaDayKey(new Date(end.getTime() - 60 * 60 * 1000)) };
 }
 
 export function SalesWorkspace({ sales, currency, accounts, products, clients, initialSearch = "" }: SalesWorkspaceProps) {

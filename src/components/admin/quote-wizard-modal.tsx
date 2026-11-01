@@ -27,6 +27,7 @@ import {
   adminUploadQuoteImageAction,
 } from "@/app/actions/quote-actions";
 import { DatePicker } from "@/components/ui/date-picker";
+import { todayInColombia } from "@/lib/colombia-time";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ProductThumb } from "@/components/admin/product-thumb";
@@ -125,8 +126,7 @@ type QuoteWizardModalProps = {
   initialNotes?: string;
 };
 
-const todayLocal = () =>
-  new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+const todayLocal = () => todayInColombia();
 
 // Reparte un monto (descuento o costo adicional del combo) entre las lineas en
 // proporcion a su peso. El ultimo elemento absorbe el redondeo para que la suma

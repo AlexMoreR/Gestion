@@ -1,4 +1,5 @@
 import type { ExpenseCategoryTotal, ExpenseMetrics, ExpenseRow } from "./entities";
+import { colombiaDayKey } from "../../../lib/colombia-time";
 
 export function summarizeExpenseMetrics(
   expenses: ExpenseRow[],
@@ -22,8 +23,10 @@ export function summarizeExpenseMetrics(
     }
   }
 
+  // Corte por dia de Colombia: fecha escrita (medianoche UTC) = ese dia; otra hora, en Colombia.
+  const startKey = colombiaDayKey(monthStart);
   const currentMonthAmount = expenses
-    .filter((expense) => expense.expenseDate >= monthStart)
+    .filter((expense) => colombiaDayKey(expense.expenseDate) >= startKey)
     .reduce((sum, expense) => sum + expense.amount, 0);
 
   return {

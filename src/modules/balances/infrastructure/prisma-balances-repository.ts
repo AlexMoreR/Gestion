@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
-import { inColombiaPeriod } from "@/lib/colombia-time";
+import { colombiaDayKey, inColombiaPeriod } from "@/lib/colombia-time";
 import { prisma } from "@/lib/prisma";
 import type {
   BalancesRepository,
@@ -669,14 +669,12 @@ export function createPrismaBalancesRepository(): BalancesRepository {
     },
 
     async listAccountBalances(period?: DateRange): Promise<AccountBalance[]> {
-      // Cada flujo se filtra por su propia fecha contable cuando hay periodo. El periodo
-      // empieza a las 00:00 de Colombia (05:00Z); estas fechas se escriben a medianoche UTC,
-      // asi que el mismo mes en la base va de inicio - 5 h a fin - 5 h.
-      // shortcut: un momento real en esas columnas sigue con corte UTC, upgrade en las partes 2 a 4 del corte de mes
-      const writtenFrom = period ? new Date(period.from.getTime() - 5 * 60 * 60 * 1000) : undefined;
-      const writtenTo = period ? new Date(period.to.getTime() - 5 * 60 * 60 * 1000) : undefined;
-      const periodFilter = period ? { gte: writtenFrom, lt: writtenTo } : undefined;
-      const [accounts, incomeByAccount, expenseByAccount, shippingByAccount, operatingExpenseByAccount, movementsByAccount] = await Promise.all([
+      // Con periodo se traen las filas hasta su fin y se reparten en la app por dia de Colombia:
+      // fecha escrita (medianoche UTC) = ese dia; cualquier otra hora se lee en Colombia.
+      const dateFilter = period ? { lt: period.to } : undefined;
+      const range = period ? { start: period.from, end: period.to } : null;
+      const startKey = period ? colombiaDayKey(period.from) : "";
+      const [accounts, salePayments, supplierPayments, shippingCosts, expenses, movements] = await Promise.all([
         prisma.account.findMany({
           orderBy: [{ isActive: "desc" }, { name: "asc" }],
           select: {
@@ -689,122 +687,63 @@ export function createPrismaBalancesRepository(): BalancesRepository {
             createdAt: true,
           } satisfies Prisma.AccountSelect,
         }) as unknown as AccountSelection[],
-        prisma.salePayment.groupBy({
-          by: ["accountId"],
-          where: { accountId: { not: null }, ...(periodFilter ? { paymentDate: periodFilter } : {}) },
-          _sum: { amount: true },
+        prisma.salePayment.findMany({
+          where: { accountId: { not: null }, ...(dateFilter ? { paymentDate: dateFilter } : {}) },
+          select: { accountId: true, amount: true, paymentDate: true },
         }),
-        prisma.supplierLedgerEntry.groupBy({
-          by: ["accountId"],
-          where: { accountId: { not: null }, type: "PAYMENT", ...(periodFilter ? { paymentDate: periodFilter } : {}) },
-          _sum: { amount: true },
+        prisma.supplierLedgerEntry.findMany({
+          where: { accountId: { not: null }, type: "PAYMENT", ...(dateFilter ? { paymentDate: dateFilter } : {}) },
+          select: { accountId: true, amount: true, paymentDate: true },
         }),
-        prisma.shippingCost.groupBy({
-          by: ["accountId"],
-          where: { accountId: { not: null }, ...(periodFilter ? { paymentDate: periodFilter } : {}) },
-          _sum: { amount: true },
+        prisma.shippingCost.findMany({
+          where: { accountId: { not: null }, ...(dateFilter ? { paymentDate: dateFilter } : {}) },
+          select: { accountId: true, amount: true, paymentDate: true },
         }),
-        prisma.expense.groupBy({
-          by: ["accountId"],
-          where: periodFilter ? { expenseDate: periodFilter } : undefined,
-          _sum: { amount: true },
+        prisma.expense.findMany({
+          where: dateFilter ? { expenseDate: dateFilter } : undefined,
+          select: { accountId: true, amount: true, expenseDate: true },
         }),
-        prisma.accountMovement.groupBy({
-          by: ["accountId", "type"],
-          where: periodFilter ? { movementDate: periodFilter } : undefined,
-          _sum: { amount: true },
+        prisma.accountMovement.findMany({
+          // TRANSFER se desglosa en filas IN/OUT al crearse, por eso solo se suman IN y OUT.
+          where: { type: { in: ["IN", "OUT"] }, ...(dateFilter ? { movementDate: dateFilter } : {}) },
+          select: { accountId: true, type: true, amount: true, movementDate: true },
         }),
       ]);
 
-      const incomeMap = new Map<string, number>();
-      for (const row of incomeByAccount) {
-        if (row.accountId) incomeMap.set(row.accountId, toNumber(row._sum.amount));
-      }
-
-      const expenseMap = new Map<string, number>();
-      for (const row of expenseByAccount) {
-        if (row.accountId) expenseMap.set(row.accountId, toNumber(row._sum.amount));
-      }
-      for (const row of shippingByAccount) {
-        if (row.accountId) {
-          expenseMap.set(row.accountId, (expenseMap.get(row.accountId) ?? 0) + toNumber(row._sum.amount));
-        }
-      }
-      // Los gastos operativos (nomina, marketing, varios) tambien descuentan del saldo.
-      for (const row of operatingExpenseByAccount) {
-        expenseMap.set(row.accountId, (expenseMap.get(row.accountId) ?? 0) + toNumber(row._sum.amount));
-      }
-
-      const movementInMap = new Map<string, number>();
-      const movementOutMap = new Map<string, number>();
-      for (const row of movementsByAccount) {
-        const amount = toNumber(row._sum.amount);
-        // TRANSFER se desglosa en filas IN/OUT al crearse, por eso solo se suman IN y OUT.
-        if (row.type === "IN") {
-          movementInMap.set(row.accountId, (movementInMap.get(row.accountId) ?? 0) + amount);
-        } else if (row.type === "OUT") {
-          movementOutMap.set(row.accountId, (movementOutMap.get(row.accountId) ?? 0) + amount);
-        }
-      }
-
+      type Totals = { ingreso: number; gasto: number; movimientosIn: number; movimientosOut: number };
+      const totalsById = new Map<string, Totals>();
       // Saldo inicial del periodo = saldo de cierre del mes anterior: el saldo
       // inicial configurado mas TODOS los flujos anteriores al inicio del periodo.
       const openingById = new Map<string, number>();
       for (const account of accounts) {
         openingById.set(account.id, toNumber(account.openingBalance));
       }
-      if (period) {
-        const priorFilter = { lt: writtenFrom };
-        const [pIncome, pSupplierPay, pShipping, pExpense, pMovements] = await Promise.all([
-          prisma.salePayment.groupBy({
-            by: ["accountId"],
-            where: { accountId: { not: null }, paymentDate: priorFilter },
-            _sum: { amount: true },
-          }),
-          prisma.supplierLedgerEntry.groupBy({
-            by: ["accountId"],
-            where: { accountId: { not: null }, type: "PAYMENT", paymentDate: priorFilter },
-            _sum: { amount: true },
-          }),
-          prisma.shippingCost.groupBy({
-            by: ["accountId"],
-            where: { accountId: { not: null }, paymentDate: priorFilter },
-            _sum: { amount: true },
-          }),
-          prisma.expense.groupBy({
-            by: ["accountId"],
-            where: { expenseDate: priorFilter },
-            _sum: { amount: true },
-          }),
-          prisma.accountMovement.groupBy({
-            by: ["accountId", "type"],
-            where: { movementDate: priorFilter },
-            _sum: { amount: true },
-          }),
-        ]);
-        const addPrior = (accountId: string, delta: number) => {
-          openingById.set(accountId, (openingById.get(accountId) ?? 0) + delta);
-        };
-        for (const row of pIncome) if (row.accountId) addPrior(row.accountId, toNumber(row._sum.amount));
-        for (const row of pSupplierPay) if (row.accountId) addPrior(row.accountId, -toNumber(row._sum.amount));
-        for (const row of pShipping) if (row.accountId) addPrior(row.accountId, -toNumber(row._sum.amount));
-        for (const row of pExpense) addPrior(row.accountId, -toNumber(row._sum.amount));
-        for (const row of pMovements) {
-          const amount = toNumber(row._sum.amount);
-          if (row.type === "IN") addPrior(row.accountId, amount);
-          else if (row.type === "OUT") addPrior(row.accountId, -amount);
+      const add = (accountId: string | null, date: Date | null, amount: Prisma.Decimal, field: keyof Totals) => {
+        if (!accountId || !date) return;
+        const value = toNumber(amount);
+        if (range && colombiaDayKey(date) < startKey) {
+          const sign = field === "ingreso" || field === "movimientosIn" ? 1 : -1;
+          openingById.set(accountId, (openingById.get(accountId) ?? 0) + sign * value);
+          return;
         }
+        if (range && !inColombiaPeriod(date, range)) return;
+        const totals = totalsById.get(accountId) ?? { ingreso: 0, gasto: 0, movimientosIn: 0, movimientosOut: 0 };
+        totals[field] += value;
+        totalsById.set(accountId, totals);
+      };
+      for (const row of salePayments) add(row.accountId, row.paymentDate, row.amount, "ingreso");
+      for (const row of supplierPayments) add(row.accountId, row.paymentDate, row.amount, "gasto");
+      for (const row of shippingCosts) add(row.accountId, row.paymentDate, row.amount, "gasto");
+      // Los gastos operativos (nomina, marketing, varios) tambien descuentan del saldo.
+      for (const row of expenses) add(row.accountId, row.expenseDate, row.amount, "gasto");
+      for (const row of movements) {
+        add(row.accountId, row.movementDate, row.amount, row.type === "IN" ? "movimientosIn" : "movimientosOut");
       }
 
       return accounts.map((account) =>
         summarizeAccountBalance(
           mapAccount(account),
-          {
-            ingreso: incomeMap.get(account.id) ?? 0,
-            gasto: expenseMap.get(account.id) ?? 0,
-            movimientosIn: movementInMap.get(account.id) ?? 0,
-            movimientosOut: movementOutMap.get(account.id) ?? 0,
-          },
+          totalsById.get(account.id) ?? { ingreso: 0, gasto: 0, movimientosIn: 0, movimientosOut: 0 },
           openingById.get(account.id) ?? toNumber(account.openingBalance),
         ),
       );
