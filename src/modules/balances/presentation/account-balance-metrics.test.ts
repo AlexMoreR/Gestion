@@ -42,6 +42,24 @@ describe("account balance metrics", () => {
     expect(result.balance).toBe(5568000);
   });
 
+  it("un registro entre 19:00 y 24:00 del último día cuenta en ese mes (Colombia)", () => {
+    const late: AccountTransaction = {
+      id: "sale-payment:late",
+      date: new Date("2026-11-01T03:00:00.000Z"), // 31-oct 10 p. m. en Colombia
+      type: "INCOME",
+      concept: "Pago venta",
+      reference: null,
+      amount: 100000,
+      receiptUrl: null,
+      receiptName: null,
+    };
+    expect(accountMonthKey(late.date)).toBe("2026-10");
+    expect(computeAccountBalanceMetrics([late], 0, accountMonthRange("2026-10")).ingreso).toBe(100000);
+    const november = computeAccountBalanceMetrics([late], 0, accountMonthRange("2026-11"));
+    expect(november.ingreso).toBe(0);
+    expect(november.periodOpening).toBe(100000);
+  });
+
   it("uses UTC keys for accounting dates and Bogota for the current month default", () => {
     expect(accountMonthKey(new Date("2026-06-01T00:00:00.000Z"))).toBe("2026-06");
     expect(currentBogotaMonthKey(new Date("2026-07-01T01:00:00.000Z"))).toBe("2026-06");

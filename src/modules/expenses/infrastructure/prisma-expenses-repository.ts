@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { dbWindow, inColombiaPeriod } from "@/lib/colombia-time";
+import { colombiaMonthRange, dbWindow, inColombiaPeriod, todayInColombia } from "@/lib/colombia-time";
 import { prisma } from "@/lib/prisma";
 import type {
   CreateExpenseCategoryInput,
@@ -101,9 +101,7 @@ const categorySelect = {
 } satisfies Prisma.ExpenseCategorySelect;
 
 function startOfCurrentMonth(reference: Date): Date {
-  // En UTC: las fechas de gasto se guardan como medianoche UTC, asi que el corte
-  // de "mes en curso" debe usar el mismo huso para no desfasar el dia 1.
-  return new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth(), 1));
+  return colombiaMonthRange(todayInColombia(reference).slice(0, 7)).start;
 }
 
 export function createPrismaExpensesRepository(): ExpensesRepository {
@@ -330,7 +328,7 @@ export function createPrismaExpensesRepository(): ExpensesRepository {
         prisma.expenseCategory.count(),
       ]);
       // Con periodo, "del mes" se mide desde el inicio del rango filtrado.
-      const monthStart = period ? dbWindow({ start: period.from, end: period.to }).start : startOfCurrentMonth(new Date());
+      const monthStart = period ? period.from : startOfCurrentMonth(new Date());
       return summarizeExpenseMetrics(expenses, categoryCount, monthStart);
     },
 

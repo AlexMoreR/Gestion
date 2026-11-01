@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ImagePlus, Paperclip, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { todayInColombia } from "@/lib/colombia-time";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
@@ -57,8 +58,7 @@ function isImage(url: string): boolean {
 }
 
 function today(): string {
-  const now = new Date();
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  return todayInColombia();
 }
 
 export function ExpenseFormDialog({

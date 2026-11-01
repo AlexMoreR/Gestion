@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { colombiaDayKey, colombiaMonthRange, todayInColombia } from "@/lib/colombia-time";
 import type {
   ExpenseCategoryWithUsage,
   ExpenseMetrics,
@@ -55,26 +56,11 @@ type ExpensesWorkspaceProps = {
 type TabKey = "gastos" | "categorias";
 
 // Primer y ultimo dia del mes en curso (YYYY-MM-DD), en hora de Colombia
-// (UTC-5) para que la noche del ultimo dia no salte al mes siguiente.
+// para que la noche del ultimo dia no salte al mes siguiente.
 function currentMonthRange(): { from: string; to: string } {
-  const now = new Date();
-  const bogotaNow = new Date(now.getTime() - 5 * 60 * 60 * 1000);
-  const year = bogotaNow.getUTCFullYear();
-  const month = bogotaNow.getUTCMonth();
-  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return {
-    from: `${year}-${pad(month + 1)}-01`,
-    to: `${year}-${pad(month + 1)}-${pad(lastDay)}`,
-  };
-}
-
-// Dia de hoy (YYYY-MM-DD) en hora de Colombia, para el "Gasto del dia".
-function todayBogota(): string {
-  const now = new Date();
-  const bogotaNow = new Date(now.getTime() - 5 * 60 * 60 * 1000);
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${bogotaNow.getUTCFullYear()}-${pad(bogotaNow.getUTCMonth() + 1)}-${pad(bogotaNow.getUTCDate())}`;
+  const month = todayInColombia().slice(0, 7);
+  const { end } = colombiaMonthRange(month);
+  return { from: `${month}-01`, to: colombiaDayKey(new Date(end.getTime() - 60 * 60 * 1000)) };
 }
 
 export function ExpensesWorkspace({
@@ -120,12 +106,11 @@ export function ExpensesWorkspace({
     [categories],
   );
 
-  // Gastos dentro del rango seleccionado (la fecha es un dia UTC) y de la
-  // categoria filtrada.
+  // Gastos dentro del rango seleccionado (dia de Colombia) y de la categoria filtrada.
   const filteredExpenses = React.useMemo(
     () =>
       expenses.filter((expense) => {
-        const day = new Date(expense.expenseDate).toISOString().slice(0, 10);
+        const day = colombiaDayKey(new Date(expense.expenseDate));
         if (fromDate && day < fromDate) return false;
         if (toDate && day > toDate) return false;
         if (categoryFilter !== "all" && expense.categoryId !== categoryFilter) return false;
@@ -156,9 +141,9 @@ export function ExpensesWorkspace({
     [filteredExpenses],
   );
   const todayTotal = React.useMemo(() => {
-    const today = todayBogota();
+    const today = todayInColombia();
     return expenses
-      .filter((expense) => new Date(expense.expenseDate).toISOString().slice(0, 10) === today)
+      .filter((expense) => colombiaDayKey(new Date(expense.expenseDate)) === today)
       .reduce((sum, expense) => sum + expense.amount, 0);
   }, [expenses]);
 

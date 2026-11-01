@@ -9,10 +9,11 @@ import {
   accountMonthKey,
   accountMonthRange,
   computeAccountBalanceMetrics,
-  currentBogotaMonthKey,
+  inAccountRange,
   toAccountDate,
   type AccountHistoryReview,
 } from "../account-balance-metrics";
+import { todayInColombia } from "@/lib/colombia-time";
 import { AccountTransactionsTable } from "./account-transactions-table";
 
 type AccountBalanceViewProps = {
@@ -125,7 +126,7 @@ export function AccountBalanceView({ transactions, openingBalance, currency, rev
   // Opciones de mes: meses con transacciones + el mes actual, en orden descendente.
   const monthOptions = React.useMemo<MonthOption[]>(() => {
     const keys = new Set<string>();
-    keys.add(currentBogotaMonthKey());
+    keys.add(todayInColombia().slice(0, 7));
     for (const txn of transactions) {
       keys.add(accountMonthKey(toAccountDate(txn.date)));
     }
@@ -137,7 +138,7 @@ export function AccountBalanceView({ transactions, openingBalance, currency, rev
   }, [transactions]);
 
   // Por defecto: mes actual.
-  const [selectedMonth, setSelectedMonth] = React.useState<string>(() => currentBogotaMonthKey());
+  const [selectedMonth, setSelectedMonth] = React.useState<string>(() => todayInColombia().slice(0, 7));
 
   const range = React.useMemo(
     () => (selectedMonth === ALL_MONTHS ? null : accountMonthRange(selectedMonth)),
@@ -153,10 +154,7 @@ export function AccountBalanceView({ transactions, openingBalance, currency, rev
     if (!range) {
       return transactions;
     }
-    return transactions.filter((txn) => {
-      const date = toAccountDate(txn.date);
-      return date >= range.from && date < range.to;
-    });
+    return transactions.filter((txn) => inAccountRange(toAccountDate(txn.date), range));
   }, [transactions, range]);
 
   return (

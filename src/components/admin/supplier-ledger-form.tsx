@@ -8,6 +8,7 @@ import {
   adminCreateSupplierPaymentsAction,
 } from "@/app/actions/supplier-ledger-actions";
 import { SupplierLedgerTable } from "@/components/admin/supplier-ledger-table";
+import { todayInColombia } from "@/lib/colombia-time";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -83,8 +84,7 @@ type TargetOption = {
 };
 
 function todayInputValue(): string {
-  const now = new Date();
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+  return todayInColombia();
 }
 
 function newLine(): PaymentLine {
