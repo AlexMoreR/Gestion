@@ -4,6 +4,8 @@
 // isWithholding = true, sin cuenta (accountId NULL) y con certificado opcional.
 // Reglas puras: sin Prisma ni Next, para poder probarlas con Vitest.
 
+import { colombiaDayKey, colombiaMonthRange, dbWindow, todayInColombia } from "../../../lib/colombia-time";
+
 export const WITHHOLDING_LABEL = "Retención en la fuente";
 
 // Valor que manda el formulario de abono en el campo "accountId" cuando se escoge la retencion.
@@ -77,30 +79,28 @@ export function parseWithholdingMonth(value: unknown, now: Date = new Date()): s
   if (typeof value === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(value.trim())) {
     return value.trim();
   }
-  return bogotaMonthKey(now);
+  return todayInColombia(now).slice(0, 7);
 }
 
 // Rango [inicio, fin) del año de un mes AAAA-MM, en hora de Colombia (UTC-5, sin horario de verano).
 export function withholdingYearRange(month: string): { from: Date; to: Date } {
   const year = Number(month.slice(0, 4));
-  return {
-    from: new Date(`${year}-01-01T00:00:00.000-05:00`),
-    to: new Date(`${year + 1}-01-01T00:00:00.000-05:00`),
-  };
+  return { from: colombiaMonthRange(`${year}-01`).start, to: colombiaMonthRange(`${year + 1}-01`).start };
 }
 
-// Rango [inicio, fin) del año para la fecha escrita del abono (paymentDate). Esa fecha de calendario
-// se guarda como medianoche UTC (igual que en Balances), asi que el año va de 1-ene a 1-ene en UTC.
+// Ventana para consultar la fecha escrita del abono (paymentDate): arranca 5 h antes para traer el
+// 1-ene escrito a medianoche UTC. Lo que sobra (el 1-ene del año siguiente) lo saca buildWithholdingReport.
 export function withholdingPaymentDateYearRange(month: string): { from: Date; to: Date } {
-  const year = Number(month.slice(0, 4));
-  return { from: new Date(Date.UTC(year, 0, 1)), to: new Date(Date.UTC(year + 1, 0, 1)) };
+  const { from, to } = withholdingYearRange(month);
+  const window = dbWindow({ start: from, end: to });
+  return { from: window.start, to: window.end };
 }
 
 // Dia de la retencion como fecha estable (mediodia en Colombia) para agrupar por mes sin correrse:
 // - con fecha escrita (paymentDate, medianoche UTC): ese mismo dia de calendario;
 // - sin fecha escrita: el dia en Colombia del momento en que se registro (createdAt).
 export function withholdingRowDate(paymentDate: Date | null, createdAt: Date): Date {
-  const day = paymentDate ? paymentDate.toISOString().slice(0, 10) : bogotaDateKey(createdAt);
+  const day = colombiaDayKey(paymentDate ?? createdAt);
   return new Date(`${day}T12:00:00.000-05:00`);
 }
 

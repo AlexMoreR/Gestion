@@ -1,5 +1,6 @@
 // Calculos puros del asesor. Imports relativos (Vitest no resuelve el alias "@/").
 import { calculateMarginPctFromPrice, calculateProfit, roundMoney } from "../../../lib/pricing";
+import { colombiaDayKey, colombiaDayRange, colombiaMonthRange, todayInColombia } from "../../../lib/colombia-time";
 import type { DashboardMetrics } from "../../balances/domain/entities";
 import type {
   CommissionBoardSaleInput,
@@ -17,28 +18,24 @@ const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 export class AsesorInputError extends Error {}
 
-function parseIsoDay(value: string, field: string): { year: number; month: number; day: number } {
+function parseIsoDay(value: string, field: string): string {
   const match = ISO_DAY.exec(value.trim());
   if (!match) {
     throw new AsesorInputError(`"${field}" debe tener el formato AAAA-MM-DD (ej. 2026-09-01).`);
   }
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+  const day = match[0];
+  // Una fecha imposible (2026-02-30) se corre de dia al pasar por Date: se rechaza.
+  if (new Date(`${day}T00:00:00.000Z`).toISOString().slice(0, 10) !== day) {
     throw new AsesorInputError(`"${field}" no es una fecha valida: ${value}.`);
   }
-  return { year, month, day };
+  return day;
 }
 
-// Rango de dias [desde, hasta] inclusivo, como semiabierto [from, to) en UTC
-// (misma convencion que Balances).
+// Rango de dias [desde, hasta] inclusivo, como semiabierto [from, to) desde las 00:00 de
+// Colombia de "desde" hasta la medianoche de Colombia despues de "hasta" (misma convencion que Balances).
 export function buildDayRange(desde: string, hasta: string): DayRange {
-  const start = parseIsoDay(desde, "desde");
-  const end = parseIsoDay(hasta, "hasta");
-  const from = new Date(Date.UTC(start.year, start.month - 1, start.day));
-  const to = new Date(Date.UTC(end.year, end.month - 1, end.day + 1));
+  const from = colombiaDayRange(parseIsoDay(desde, "desde")).start;
+  const to = colombiaDayRange(parseIsoDay(hasta, "hasta")).end;
   if (to <= from) {
     throw new AsesorInputError('"hasta" debe ser igual o posterior a "desde".');
   }
@@ -52,20 +49,19 @@ export function buildMonthRange(mes: number, anio: number): DayRange {
   if (!Number.isInteger(anio) || anio < 2000 || anio > 2100) {
     throw new AsesorInputError('"anio" debe ser un año valido (ej. 2026).');
   }
-  return {
-    from: new Date(Date.UTC(anio, mes - 1, 1)),
-    to: new Date(Date.UTC(anio, mes, 1)),
-  };
+  const { start, end } = colombiaMonthRange(`${anio}-${String(mes).padStart(2, "0")}`);
+  return { from: start, to: end };
 }
 
 // Mes en curso segun la hora de Colombia (UTC-5).
 export function currentMonthInBogota(now: Date = new Date()): { mes: number; anio: number } {
-  const bogota = new Date(now.getTime() - 5 * 60 * 60 * 1000);
-  return { mes: bogota.getUTCMonth() + 1, anio: bogota.getUTCFullYear() };
+  const [anio, mes] = todayInColombia(now).split("-").map(Number);
+  return { mes, anio };
 }
 
+// Dia en Colombia (fecha escrita a medianoche UTC = ese dia).
 export function formatDay(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  return colombiaDayKey(date);
 }
 
 export function describeRange(range: DayRange): { desde: string; hasta: string } {
@@ -218,10 +214,12 @@ export function productMargin(product: ProductRow) {
 export const COMMISSION_FIRST_SALE_RATE = 0.15;
 export const COMMISSION_NEXT_SALES_RATE = 0.15;
 export const COMMISSION_FIRST_SALE_RATE_BEFORE_OCT_2026 = 0.1;
-export const COMMISSION_FLAT_RATE_FROM = new Date(Date.UTC(2026, 9, 1));
+export const COMMISSION_FLAT_RATE_FROM = colombiaMonthRange("2026-10").start;
 
 export function firstSaleRate(recognizedAt: Date): number {
-  return recognizedAt < COMMISSION_FLAT_RATE_FROM ? COMMISSION_FIRST_SALE_RATE_BEFORE_OCT_2026 : COMMISSION_FIRST_SALE_RATE;
+  return colombiaDayKey(recognizedAt) < colombiaDayKey(COMMISSION_FLAT_RATE_FROM)
+    ? COMMISSION_FIRST_SALE_RATE_BEFORE_OCT_2026
+    : COMMISSION_FIRST_SALE_RATE;
 }
 export const UNASSIGNED_SELLER = "sin asignar";
 

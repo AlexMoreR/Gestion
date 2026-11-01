@@ -269,6 +269,11 @@ describe("belongsToPayrollMonth", () => {
     expect(belongsToPayrollMonth("Pago a mano", paidOct3, "2026-10", october)).toBe(true);
     expect(belongsToPayrollMonth(null, new Date("2026-09-30T12:00:00Z"), "2026-10", october)).toBe(false);
   });
+  it("un pago escrito el 1-oct (medianoche UTC) es de octubre con el corte de Colombia", () => {
+    const octoberCo = { from: new Date("2026-10-01T05:00:00Z"), to: new Date("2026-11-01T05:00:00Z") };
+    expect(belongsToPayrollMonth(null, new Date("2026-10-01T00:00:00Z"), "2026-10", octoberCo)).toBe(true);
+    expect(belongsToPayrollMonth(null, new Date("2026-11-01T00:00:00Z"), "2026-10", octoberCo)).toBe(false);
+  });
 });
 
 describe("fixedCommissionRates", () => {

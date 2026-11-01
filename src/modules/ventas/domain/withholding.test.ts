@@ -138,10 +138,19 @@ describe("withholdingRowDate (fecha del abono sin correrse de dia)", () => {
 });
 
 describe("withholdingPaymentDateYearRange", () => {
-  it("va de 1-ene a 1-ene en UTC (fechas de calendario)", () => {
+  it("arranca 5 h antes del año en Colombia para traer el 1-ene escrito a medianoche UTC", () => {
     const range = withholdingPaymentDateYearRange("2026-10");
     expect(range.from.toISOString()).toBe("2026-01-01T00:00:00.000Z");
-    expect(range.to.toISOString()).toBe("2027-01-01T00:00:00.000Z");
+    expect(range.to.toISOString()).toBe("2027-01-01T05:00:00.000Z");
+  });
+
+  it("el 1-ene del año siguiente que entra a la ventana no suma al año", () => {
+    const report = buildWithholdingReport("2026-12", [
+      row({ id: "a", date: withholdingRowDate(new Date("2027-01-01"), new Date()), amount: 100 }),
+      row({ id: "b", date: withholdingRowDate(new Date("2026-12-31"), new Date()), amount: 50 }),
+    ]);
+    expect(report.yearTotal).toBe(50);
+    expect(report.monthTotal).toBe(50);
   });
 });
 

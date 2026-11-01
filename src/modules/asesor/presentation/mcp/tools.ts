@@ -22,6 +22,7 @@ import {
 } from "../../application/use-cases";
 import { AsesorInputError, buildDayRange, currentMonthInBogota } from "../../domain/calculations";
 import { createPrismaAsesorRepository } from "../../infrastructure/prisma-asesor-repository";
+import { colombiaDayKey, todayInColombia } from "@/lib/colombia-time";
 import { getMoneyWithoutAccount } from "@/modules/balances/infrastructure/prisma-money-without-account";
 import { getCashPositionUseCase, getPayrollBoardUseCase } from "@/modules/nomina/application/use-cases";
 import { PAY_PERIOD_LABELS } from "@/modules/nomina/domain/payroll";
@@ -33,7 +34,6 @@ import {
   TEAM_PAY_LABELS,
   TEAM_STATUS_LABELS,
   teamStatus,
-  todayInBogota,
   toPublicMember,
 } from "@/modules/equipo/domain/team-member";
 import { loadTeamMembers } from "@/modules/equipo/infrastructure/prisma-team-repository";
@@ -312,7 +312,7 @@ export const asesorTools: McpToolDefinition[] = [
           pagado: row.paid,
           falta_pagar: row.pending,
           pagos: row.payments.map((payment) => ({
-            fecha: payment.date.toISOString().slice(0, 10),
+            fecha: colombiaDayKey(payment.date),
             valor: Math.round(payment.amount),
             cuenta: payment.accountName,
             detalle: payment.description,
@@ -349,7 +349,7 @@ export const asesorTools: McpToolDefinition[] = [
     }),
     handler: async (args) => {
       const now = new Date();
-      const today = todayInBogota(now);
+      const today = todayInColombia(now);
       const desde = args.fecha ?? args.desde ?? args.hasta ?? today;
       const hasta = args.fecha ?? args.hasta ?? args.desde ?? today;
       // Valida formato y orden (lanza AsesorInputError con un mensaje claro).
@@ -450,7 +450,7 @@ export const asesorTools: McpToolDefinition[] = [
         .describe("activos, retirados o todos. Por defecto: todos."),
     }),
     handler: async (args) => {
-      const today = todayInBogota();
+      const today = todayInColombia();
       const members = filterTeam(await loadTeamMembers(), { estado: args.estado, q: "", pago: "" }, today);
       return {
         hoy: today,
