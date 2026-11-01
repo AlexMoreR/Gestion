@@ -30,7 +30,7 @@ type QuoteRow = {
 type AccountOption = {
   id: string;
   name: string;
-  type: "CASH" | "BANK" | "WALLET" | "OTHER";
+  type: "CASH" | "BANK" | "WALLET" | "OTHER" | "OWNER";
 };
 
 type QuotesWorkspaceProps = {

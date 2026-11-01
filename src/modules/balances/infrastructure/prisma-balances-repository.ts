@@ -678,6 +678,8 @@ export function createPrismaBalancesRepository(): BalancesRepository {
       const periodFilter = period ? { gte: writtenFrom, lt: writtenTo } : undefined;
       const [accounts, incomeByAccount, expenseByAccount, shippingByAccount, operatingExpenseByAccount, movementsByAccount] = await Promise.all([
         prisma.account.findMany({
+          // La cuenta del dueno (OWNER) no se muestra en Cuentas ni en Balances.
+          where: { type: { not: "OWNER" } },
           orderBy: [{ isActive: "desc" }, { name: "asc" }],
           select: {
             id: true,

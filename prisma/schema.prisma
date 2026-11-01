@@ -784,6 +784,7 @@ enum AccountType {
   BANK
   WALLET
   OTHER
+  OWNER
 }
 
 enum AccountMovementType {

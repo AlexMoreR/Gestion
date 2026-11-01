@@ -74,7 +74,7 @@ type QuoteRow = {
   originDetail?: unknown;
 };
 
-type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER";
+type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER" | "OWNER";
 
 type AccountOption = {
   id: string;

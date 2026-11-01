@@ -42,4 +42,17 @@ describe("summarizeCashPosition", () => {
     expect(position.total).toBe(1065000);
     expect(position.withoutAccount.count).toBe(3);
   });
+
+  it("la cuenta del dueno (OWNER) no entra en la lista ni cambia el total", () => {
+    const position = summarizeCashPosition(
+      [
+        account({ id: "caja", name: "Caja", type: "CASH", periodOpening: 100000, balance: 0 }),
+        account({ id: "dueno", name: "Aportes del dueno", type: "OWNER", periodOpening: 0, balance: -500000 }),
+      ],
+      { salePayments: none, supplierPayments: none, shippingCosts: none },
+    );
+    expect(position.accounts.map((line) => line.id)).toEqual(["caja"]);
+    expect(position.byType.map((group) => group.type)).toEqual(["CASH", "BANK"]);
+    expect(position.total).toBe(100000);
+  });
 });
