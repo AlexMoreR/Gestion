@@ -1,7 +1,7 @@
 // Reglas puras de la foto del soporte de un gasto dicho por voz/chat. La foto es opcional y no se
 // revisa: solo se comprueba que sea un archivo permitido (JPG, PNG, WEBP o PDF) y que no pese de mas.
 
-export type ReceiptAccountType = "CASH" | "BANK" | "WALLET" | "OTHER";
+export type ReceiptAccountType = "CASH" | "BANK" | "WALLET" | "OTHER" | "OWNER";
 
 export function formatCop(value: number): string {
   return `$${Math.round(value).toLocaleString("es-CO")}`;

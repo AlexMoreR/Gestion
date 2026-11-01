@@ -42,4 +42,17 @@ describe("summarizeCashPosition", () => {
     expect(position.total).toBe(1065000);
     expect(position.withoutAccount.count).toBe(3);
   });
+
+  it("la cuenta Aportes del dueño (OWNER) con saldo negativo no cambia el total ni sale en la lista", () => {
+    const position = summarizeCashPosition(
+      [
+        account({ id: "banco", name: "Bancolombia", type: "BANK", balance: 500000 }),
+        account({ id: "dueno", name: "Aportes del dueño", type: "OWNER", balance: -300000 }),
+      ],
+      { salePayments: none, supplierPayments: none, shippingCosts: none },
+    );
+    expect(position.accounts.map((line) => line.id)).toEqual(["banco"]);
+    expect(position.byType.map((group) => group.type)).toEqual(["CASH", "BANK"]);
+    expect(position.total).toBe(500000);
+  });
 });

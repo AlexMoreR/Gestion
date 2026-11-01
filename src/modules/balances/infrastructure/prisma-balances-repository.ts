@@ -678,6 +678,8 @@ export function createPrismaBalancesRepository(): BalancesRepository {
       const periodFilter = period ? { gte: writtenFrom, lt: writtenTo } : undefined;
       const [accounts, incomeByAccount, expenseByAccount, shippingByAccount, operatingExpenseByAccount, movementsByAccount] = await Promise.all([
         prisma.account.findMany({
+          // La cuenta "Aportes del dueño" no se lista: su saldo negativo no es plata del negocio.
+          where: { type: { not: "OWNER" } },
           orderBy: [{ isActive: "desc" }, { name: "asc" }],
           select: {
             id: true,
