@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { dbWindow, inColombiaPeriod } from "@/lib/colombia-time";
 import { prisma } from "@/lib/prisma";
 import type {
   CreateExpenseCategoryInput,
@@ -208,8 +209,12 @@ export function createPrismaExpensesRepository(): ExpensesRepository {
     },
 
     async listExpenses(period?: DateRange): Promise<ExpenseRow[]> {
+      // El periodo va de 00:00 a 00:00 en Colombia; la ventana de la base arranca 5 h antes
+      // para traer las fechas escritas a medianoche UTC y luego se filtra por dia de Colombia.
+      const range = period ? { start: period.from, end: period.to } : undefined;
+      const window = range ? dbWindow(range) : undefined;
       const rows = (await prisma.expense.findMany({
-        where: period ? { expenseDate: { gte: period.from, lt: period.to } } : undefined,
+        where: window ? { expenseDate: { gte: window.start, lt: window.end } } : undefined,
         orderBy: [{ expenseDate: "desc" }, { createdAt: "desc" }],
         select: {
           ...expenseSelect,
@@ -225,7 +230,7 @@ export function createPrismaExpensesRepository(): ExpensesRepository {
         }
       >;
 
-      return rows.map((row) => ({
+      return rows.filter((row) => !range || inColombiaPeriod(row.expenseDate, range)).map((row) => ({
         ...mapExpense(row),
         categoryName: row.category.name,
         accountName: row.account.name,
@@ -325,7 +330,7 @@ export function createPrismaExpensesRepository(): ExpensesRepository {
         prisma.expenseCategory.count(),
       ]);
       // Con periodo, "del mes" se mide desde el inicio del rango filtrado.
-      const monthStart = period?.from ?? startOfCurrentMonth(new Date());
+      const monthStart = period ? dbWindow({ start: period.from, end: period.to }).start : startOfCurrentMonth(new Date());
       return summarizeExpenseMetrics(expenses, categoryCount, monthStart);
     },
 
