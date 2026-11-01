@@ -1,8 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requestPasswordResetAction } from "@/app/actions/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+
+// Pantalla de cuenta y acceso: que Google no la indexe ni herede el canonical "/".
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+  alternates: { canonical: null },
+};
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
