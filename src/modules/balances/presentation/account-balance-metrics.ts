@@ -95,3 +95,130 @@ export function attachAccountTransactionBalances(
     runningBalance: balancesByIndex.get(index) ?? openingBalance + transaction.amount,
   }));
 }
+
+export type AccountReviewMove = {
+  id: string;
+  date: Date;
+  concept: string;
+  amount: number;
+  // Saldo de la cuenta justo después de este movimiento.
+  balance: number;
+};
+
+export type SuspiciousAccountExit = {
+  id: string;
+  date: Date;
+  concept: string;
+  amount: number;
+  signal: string;
+};
+
+export type AccountHistoryReview = {
+  lowestBalance: number;
+  lowestDate: Date | null;
+  neededOpening: number;
+  firstNegative: AccountReviewMove | null;
+  suspicious: SuspiciousAccountExit[];
+  neededOpeningWithoutSuspicious: number;
+};
+
+const BANK_WORDS = /\b(transferencia|bancolombia|nequi|bre-?b|pse)\b/;
+
+function normalizeNote(value: string): string {
+  return value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+// Señal de que una salida se pagó por banco y no en efectivo (pista, no certeza).
+function bankSignal(txn: AccountTransaction): string | null {
+  if (txn.transactionReference?.trim()) {
+    return `Tiene número de transacción (${txn.transactionReference.trim()})`;
+  }
+  if (txn.receiptUrl) {
+    return "Tiene foto del comprobante";
+  }
+  const word = txn.note ? normalizeNote(txn.note).match(BANK_WORDS)?.[1] : undefined;
+  return word ? `La nota dice "${word}"` : null;
+}
+
+// Orden cronológico; dentro del mismo día (fecha contable UTC) las entradas van antes que las salidas.
+function sortForReview(transactions: AccountTransaction[]): AccountTransaction[] {
+  const dayKey = (txn: AccountTransaction) => toAccountDate(txn.date).toISOString().slice(0, 10);
+  return [...transactions].sort((a, b) => {
+    const dayA = dayKey(a);
+    const dayB = dayKey(b);
+    if (dayA !== dayB) return dayA < dayB ? -1 : 1;
+    const inA = a.amount >= 0 ? 0 : 1;
+    const inB = b.amount >= 0 ? 0 : 1;
+    if (inA !== inB) return inA - inB;
+    return toAccountDate(a.date).getTime() - toAccountDate(b.date).getTime();
+  });
+}
+
+// Punto más bajo de los flujos sin saldo inicial (0 si nunca bajan de cero).
+function lowestFlowPoint(sorted: AccountTransaction[]): number {
+  let running = 0;
+  let lowest = 0;
+  for (const txn of sorted) {
+    running += txn.amount;
+    lowest = Math.min(lowest, running);
+  }
+  return lowest;
+}
+
+function neededOpeningFor(sorted: AccountTransaction[], openingBalance: number): number {
+  return Math.max(0, -lowestFlowPoint(sorted) - openingBalance);
+}
+
+// Revisión de todo el historial de una cuenta: dónde tocó fondo, desde cuándo está en negativo
+// y qué salidas de una caja en efectivo parecen pagadas por banco. No cambia ningún saldo.
+export function reviewAccountHistory(
+  transactions: AccountTransaction[],
+  opts: { openingBalance: number; accountType: string },
+): AccountHistoryReview {
+  const sorted = sortForReview(transactions);
+  let running = opts.openingBalance;
+  let lowestBalance = opts.openingBalance;
+  let lowestDate: Date | null = null;
+  let firstNegative: AccountReviewMove | null = null;
+
+  for (const txn of sorted) {
+    running += txn.amount;
+    if (running < lowestBalance) {
+      lowestBalance = running;
+      lowestDate = toAccountDate(txn.date);
+    }
+    if (!firstNegative && running < 0) {
+      firstNegative = {
+        id: txn.id,
+        date: toAccountDate(txn.date),
+        concept: txn.concept,
+        amount: txn.amount,
+        balance: running,
+      };
+    }
+  }
+
+  const suspicious: SuspiciousAccountExit[] = [];
+  if (opts.accountType === "CASH") {
+    for (const txn of sorted) {
+      if (txn.amount >= 0) continue;
+      const signal = bankSignal(txn);
+      if (signal) {
+        suspicious.push({ id: txn.id, date: toAccountDate(txn.date), concept: txn.concept, amount: txn.amount, signal });
+      }
+    }
+  }
+  const suspiciousIds = new Set(suspicious.map((row) => row.id));
+
+  return {
+    lowestBalance,
+    lowestDate,
+    neededOpening: neededOpeningFor(sorted, opts.openingBalance),
+    firstNegative,
+    suspicious,
+    neededOpeningWithoutSuspicious: neededOpeningFor(
+      sorted.filter((txn) => !suspiciousIds.has(txn.id)),
+      opts.openingBalance,
+    ),
+  };
+}
