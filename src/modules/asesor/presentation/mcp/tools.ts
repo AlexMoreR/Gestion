@@ -600,7 +600,7 @@ export const asesorTools: McpToolDefinition[] = [
     name: "registrar_pago_proveedora",
     title: "Registrar un pago a la proveedora",
     description:
-      "Registra un pago a la proveedora en su orden de fabricacion (OF, ej. OF-00035): queda como abono en la cuenta de la proveedora y descuenta el saldo de la cuenta de dinero. SIEMPRE en dos pasos: (1) llama con confirmado=false (por defecto): NO guarda nada y devuelve el resumen (OF, proveedora, venta, costo, pagado, falta, cuenta, fecha y avisos); repitele el resumen al dueno y pregunta '¿Lo guardo?'. (2) SOLO si el dueno dice 'si', llama UNA SOLA VEZ con los MISMOS datos y confirmado=true. NO uses registrar_gasto para pagos a proveedoras: el pago ya es costo de la venta y como gasto se contaria dos veces. Regla del negocio: con venta 50%/50% a la proveedora se le paga de una vez; en contraentrega, cuando el producto le llega al cliente (la herramienta solo avisa, no bloquea). Si el pago es mayor que lo que falta exige 'motivo_sobrepago'; si la fecha es anterior a hoy exige 'motivo_fecha_anterior'. Un pago igual (misma OF, monto y dia) a los pocos minutos se rechaza. Sin foto del comprobante. Tope: $20.000.000. Moneda: COP.",
+      "Registra un pago a la proveedora en su orden de fabricacion (OF, ej. OF-00035): queda como abono en la cuenta de la proveedora y descuenta el saldo de la cuenta de dinero. SIEMPRE en dos pasos: (1) llama con confirmado=false (por defecto): NO guarda nada y devuelve el resumen (OF, proveedora, venta, costo, pagado, falta, cuenta, fecha y avisos); repitele el resumen al dueno y pregunta '¿Lo guardo?'. (2) SOLO si el dueno dice 'si', llama UNA SOLA VEZ con los MISMOS datos y confirmado=true. NO uses registrar_gasto para pagos a proveedoras: el pago ya es costo de la venta y como gasto se contaria dos veces. Regla del negocio: con venta 50%/50% a la proveedora se le paga de una vez; en contraentrega, cuando el producto le llega al cliente (la herramienta solo avisa, no bloquea). Si el pago es mayor que lo que falta exige 'motivo_sobrepago'; si la fecha es anterior a hoy exige 'motivo_fecha_anterior'. Un pago igual (misma OF, monto y dia) a los pocos minutos se rechaza. Al confirmar, la respuesta trae un enlace secreto (24 horas, un solo uso) para que el dueno suba la foto del comprobante desde el celular (opcional; Claude no puede subirla, solo dar el enlace). Tope: $20.000.000. Moneda: COP.",
     schema: z.object({
       of: z.string().min(1).max(20).describe("Codigo de la orden de fabricacion, ej. OF-00035."),
       monto: z.number().positive().describe("Monto pagado a la proveedora en pesos colombianos, ej. 300000."),
@@ -666,7 +666,10 @@ export const asesorTools: McpToolDefinition[] = [
           resumen: confirmed.summary,
           pagado: confirmed.balance.pagado,
           falta: confirmed.balance.falta,
-          siguiente_paso: "El pago YA quedo guardado (no lo vuelvas a registrar). Dile al dueno cuanto se ha pagado y cuanto falta.",
+          enlace_para_subir_la_foto: confirmed.uploadUrl,
+          vence: confirmed.expiresAt.toISOString(),
+          siguiente_paso:
+            "El pago YA quedo guardado (no lo vuelvas a registrar). Dile al dueno cuanto se ha pagado y cuanto falta. Si quiere, puede subir la foto del comprobante desde el celular con el enlace (opcional, no se revisa, un solo uso, 24 horas).",
         };
       } catch (error) {
         if (error instanceof SupplierPaymentInputError) {

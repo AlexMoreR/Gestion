@@ -5,7 +5,8 @@
 
 import { diaBogota, fechaPuestaParaGuardar } from "../../retroactivos/domain/retroactivo";
 import { resolveAccount, type AccountOption } from "../../expenses/domain/expense-draft";
-import { formatCop } from "../../expenses/domain/receipt-check";
+import { RECEIPT_MAX_BYTES, formatCop, sniffReceiptMime } from "../../expenses/domain/receipt-check";
+import { buildDraftToken, hashDraftToken, verifyDraftToken } from "../../../lib/expense-draft-token";
 import {
   isLikelyDuplicate,
   validateSupplierPayment,
@@ -38,6 +39,20 @@ export type NewSupplierPayment = {
   paymentDate: Date;
   note: string | null;
   createdById: string;
+  // Enlace para la foto del comprobante: se guarda en la misma transaccion del pago.
+  receiptDraft: { tokenHash: string; expiraEn: Date };
+};
+
+// Lo que muestra la pagina publica del enlace de la foto.
+export type PaymentDraftView = {
+  id: string;
+  ledgerEntryId: string;
+  expiraEn: Date;
+  usadoEn: Date | null;
+  ofCode: string | null;
+  supplierName: string;
+  amount: number;
+  paymentDate: Date | null;
 };
 
 export type SupplierPaymentDeps = {
@@ -53,8 +68,24 @@ export type SupplierPaymentDeps = {
   markItemsPaidIfSettled(of: OfInfo): Promise<OfBalance>;
   resolveActor(): Promise<SupplierPaymentActor | null>;
   logActivity(actor: SupplierPaymentActor, entry: { entryId: string; summary: string }): Promise<void>;
+  siteUrl(path: string): string;
+  findDraftByTokenHash(hash: string): Promise<PaymentDraftView | null>;
+  // Pega la foto al pago con candado sobre el borrador; lanza SupplierPaymentDraftUsedError si ya se uso o vencio.
+  attachReceipt(draftId: string, receipt: { ledgerEntryId: string; url: string; name: string }): Promise<void>;
+  receiptStore: { save(file: File): Promise<{ url: string; name: string }>; remove(url: string): Promise<void> };
   now?: () => Date;
+  // Para pruebas; en produccion se arma con AUTH_SECRET.
+  newToken?: () => { token: string; hash: string } | null;
+  tokenKey?: string;
 };
+
+export const PAYMENT_DRAFT_TTL_MS = 24 * 60 * 60_000;
+
+export class SupplierPaymentDraftUsedError extends Error {
+  constructor() {
+    super("Este enlace ya se usó o venció: la foto no se pegó otra vez.");
+  }
+}
 
 export class SupplierPaymentDuplicateError extends SupplierPaymentInputError {
   constructor() {
@@ -180,7 +211,13 @@ export function describeSupplierPayment(prepared: PreparedSupplierPayment): stri
     .join(" · ");
 }
 
-export type ConfirmedSupplierPayment = { paymentId: string; balance: OfBalance; summary: string };
+export type ConfirmedSupplierPayment = {
+  paymentId: string;
+  balance: OfBalance;
+  summary: string;
+  uploadUrl: string;
+  expiresAt: Date;
+};
 
 // El dueno dijo "si": vuelve a validar y guarda UN abono a la proveedora.
 export async function confirmSupplierPayment(
@@ -195,7 +232,12 @@ export async function confirmSupplierPayment(
   if (!actor) {
     throw new SupplierPaymentInputError("No hay un usuario administrador al cual asignar el pago.");
   }
+  const generated = deps.newToken ? deps.newToken() : buildDraftToken(deps.tokenKey);
+  if (!generated) {
+    throw new SupplierPaymentInputError("El servidor no tiene configurado AUTH_SECRET: no se puede crear el enlace de la foto.");
+  }
   const now = deps.now ? deps.now() : new Date();
+  const expiresAt = new Date(now.getTime() + PAYMENT_DRAFT_TTL_MS);
   const paymentDate = fechaPuestaParaGuardar(prepared.day);
   const { of } = prepared;
   const created = await deps.createPayment(
@@ -209,6 +251,7 @@ export async function confirmSupplierPayment(
       paymentDate,
       note: prepared.note,
       createdById: actor.id,
+      receiptDraft: { tokenHash: generated.hash, expiraEn: expiresAt },
     },
     { ofId: of.id, monto: prepared.monto, fecha: paymentDate, creadoEn: now },
   );
@@ -227,5 +270,77 @@ export async function confirmSupplierPayment(
     })
     .catch((error) => console.error("[pago-proveedora-voz] No se pudo anotar en la bitácora:", error));
 
-  return { paymentId: created.id, balance, summary: describeSupplierPayment(prepared) };
+  return {
+    paymentId: created.id,
+    balance,
+    summary: describeSupplierPayment(prepared),
+    uploadUrl: deps.siteUrl(`/proveedores-pago/soporte/${generated.token}`),
+    expiresAt,
+  };
+}
+
+// --- Pagina publica de la foto del comprobante -------------------------------------------
+
+export type PaymentDraftLookup = { ok: true; draft: PaymentDraftView } | { ok: false; reason: string };
+
+const INVALID_LINK = "Este enlace no es válido.";
+
+export async function lookupPaymentDraft(deps: SupplierPaymentDeps, rawToken: string): Promise<PaymentDraftLookup> {
+  const token = verifyDraftToken(rawToken, deps.tokenKey);
+  const draft = token ? await deps.findDraftByTokenHash(hashDraftToken(token)) : null;
+  if (!draft) {
+    return { ok: false, reason: INVALID_LINK };
+  }
+  if (draft.usadoEn) {
+    return { ok: false, reason: "Este enlace ya se usó: la foto del comprobante ya quedó guardada." };
+  }
+  const now = deps.now ? deps.now() : new Date();
+  if (draft.expiraEn.getTime() <= now.getTime()) {
+    return {
+      ok: false,
+      reason: "Este enlace venció (dura 24 horas). El pago sigue guardado; la foto se puede agregar desde la cuenta de la proveedora.",
+    };
+  }
+  return { ok: true, draft };
+}
+
+export type PaymentReceiptSubmission =
+  | { ok: true; summary: string }
+  | { ok: false; reason: string; canRetry: boolean };
+
+// Recibe la foto (no se revisa su contenido) y la pega al pago ya guardado, una sola vez.
+export async function receiveSupplierPaymentReceipt(
+  deps: SupplierPaymentDeps,
+  rawToken: string,
+  file: File,
+): Promise<PaymentReceiptSubmission> {
+  const lookup = await lookupPaymentDraft(deps, rawToken);
+  if (!lookup.ok) {
+    return { ok: false, reason: lookup.reason, canRetry: false };
+  }
+  if (file.size === 0) {
+    return { ok: false, reason: "Elige o toma una foto primero.", canRetry: true };
+  }
+  if (file.size > RECEIPT_MAX_BYTES) {
+    return { ok: false, reason: "La foto supera el límite de 12 MB.", canRetry: true };
+  }
+  // El tipo se mira en los primeros bytes: no se confia en el nombre ni en el navegador.
+  if (!sniffReceiptMime(new Uint8Array(await file.slice(0, 16).arrayBuffer()))) {
+    return { ok: false, reason: "El archivo no es compatible. Solo JPG, PNG, WEBP o PDF.", canRetry: true };
+  }
+  const { draft } = lookup;
+  const stored = await deps.receiptStore.save(file);
+  try {
+    await deps.attachReceipt(draft.id, { ledgerEntryId: draft.ledgerEntryId, url: stored.url, name: stored.name });
+  } catch (error) {
+    await deps.receiptStore.remove(stored.url).catch(() => undefined);
+    if (error instanceof SupplierPaymentDraftUsedError) {
+      return { ok: false, reason: error.message, canRetry: false };
+    }
+    throw error;
+  }
+  return {
+    ok: true,
+    summary: `${draft.ofCode ?? "Pago"} · ${draft.supplierName} · ${formatCop(draft.amount)}`,
+  };
 }

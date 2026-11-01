@@ -272,6 +272,8 @@ model SupplierLedgerEntry {
   inventoryMovement    InventoryMovement?    @relation(fields: [inventoryMovementId], references: [id], onDelete: Cascade)
   account              Account?              @relation(fields: [accountId], references: [id], onDelete: SetNull)
   createdBy            User                  @relation("SupplierLedgerCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  // Enlace secreto (24 h, un solo uso) para subir la foto de un pago registrado por Claude.
+  pagoBorrador         PagoProveedoraBorrador?
   shippingCosts        ShippingCost[]        @relation("ShippingCostSupplierPayment")
   shippingLegs         DispatchShippingLeg[] @relation("DispatchShippingLegSupplierPayment")
   settlesEntry         SupplierLedgerEntry?  @relation("ChargeSettlement", fields: [settlesEntryId], references: [id], onDelete: Cascade)
@@ -1289,4 +1291,16 @@ model AccesoDudas {
   respuestas RespuestaDuda[]
 
   @@index([activo])
+}
+
+// Pago a proveedora por MCP (oct-2026): enlace secreto para subir despues la foto del comprobante de
+// un pago ya guardado. Solo se guarda el hash del token. Un solo uso (usadoEn) y 24 horas (expiraEn).
+model PagoProveedoraBorrador {
+  id            String              @id @default(cuid())
+  tokenHash     String              @unique
+  ledgerEntryId String              @unique
+  expiraEn      DateTime
+  usadoEn       DateTime?
+  creadoEn      DateTime            @default(now())
+  ledgerEntry   SupplierLedgerEntry @relation(fields: [ledgerEntryId], references: [id], onDelete: Cascade)
 }

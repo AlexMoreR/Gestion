@@ -311,6 +311,7 @@ Route handlers reales (`route.ts`):
 | `/api/mcp/[key]` | POST | Lo mismo, con la llave dentro de la ruta (clientes sin headers, ej. claude.ai). | Llave en la URL |
 | `/api/catalogo/productos` | GET | **Catálogo para otras apps** (el CRM se sincroniza desde acá): código, nombre, descripción, categoría, precio, precio mayorista, imágenes (URL absoluta) y si está oculto. **Nunca costo ni margen.** Módulo `src/modules/catalogo-externo`. | Llave `CATALOGO_API_KEY` (o `MCP_API_KEY` si no existe) |
 | `/api/dudas/respuestas` | GET | **Respuestas de Dudas del catálogo** para Claude: `?estado=todas|pendientes|respondidas` (def. todas), `?grupo=`, `?historial=1` → `{ total, pendientes, respondidas, dudas: [{ id, codigo, grupo, titulo, duda, datos, opciones, respondida, respuesta: { opcion_id, opcion, texto, nota, por, fecha }, historial? }] }`. Solo lectura. | Llave `DUDAS_API_KEY` (si no, `CATALOGO_API_KEY`, si no `MCP_API_KEY`) |
+| `/proveedores-pago/soporte/[token]` | GET (página) | **Foto del comprobante de un pago a proveedora** registrado por Claude (`registrar_pago_proveedora`): muestra OF, proveedora, monto y fecha y pega la foto al pago (acción pública `submitSupplierPaymentReceiptAction`). 24 h, un solo uso. | Enlace secreto (token firmado con `AUTH_SECRET`) |
 | `/api/alertas/dinero` | GET | **Aviso diario de dinero** para el script de aizen1 (`scripts/alertas`, cron 7:00 a. m. → WhatsApp a Alexander por WAHA, línea Admin): `{ avisar, mensaje }`; avisa cuentas en negativo (saldo de `getCashPositionUseCase`) y abonos/fletes/pagos a proveedoras sin cuenta de las últimas 24 h (sin retención). `mensaje` vacío si todo bien. Solo lectura; regla en `src/modules/balances/domain/money-alert.ts`. | Llave `ALERTAS_API_KEY` (si no, `MCP_API_KEY`) |
 | `/api/ventas/origen` | POST | **Origen de la venta desde el CRM.** `{ quoteCode, origin, originDetail?, linea?, contactPhone? }` → 200 `{ ok, quoteCode, origin, saleUpdated }` / 404 `{ error: "cotizacion_no_existe" }` / 400 `{ error: "datos_invalidos" }`. `contactPhone` solo decide recurrencia; no se guarda. Contrato acordado con AgenteLite: **no cambiarlo**. | Misma llave del catálogo o de transporte |
 | `/api/transporte/ubicaciones` | GET/POST | **Envíos para el CRM.** GET `?q=&producto=&limit=` (q normalizado ≥ 2, limit 1..50, def. 20) → `{ resultados: [{ tipo, id, cityId, nombre, ciudad, departamento, envio, pendienteRevision, exacta, cotizacion }], producto }`; `cotizacion` (`{tipo, envio, total}`) solo si vino `producto` y existe. POST `{ cityId, nombre (2..80), origen? }` → 201 `{creado:true,id,nombre}` / 200 `{creado:false,...}` si ya existía / 404 ciudad no encontrada; lo nuevo queda "pendiente de revisar". El CRM ya está programado contra este contrato: **no cambiarlo**. | Llave `TRANSPORTE_API_KEY` (si no, `CATALOGO_API_KEY`, si no `MCP_API_KEY`) |
@@ -327,7 +328,7 @@ Route handlers reales (`route.ts`):
   herramienta que escribe es `registrar_gasto` (anotada sin `readOnlyHint`; ver "Gastos por voz").
 - Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_abonos`, `ver_venta`, `listar_cotizaciones`,
   `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `equipo`, `asistencia`, `saldos_de_cuentas`,
-  `listar_gastos`, `deuda_con_proveedoras`, `registrar_gasto` y `que_es_esta_aplicacion`.
+  `listar_gastos`, `deuda_con_proveedoras`, `registrar_gasto`, `registrar_pago_proveedora` y `que_es_esta_aplicacion`.
 - `deuda_con_proveedoras` (oct-2026, solo lectura): `proveedora` (nombre, sin tildes) y `desde`/`hasta` (fecha de
   la OF) opcionales → por orden: OF, orden, venta, cliente, productos con color, `costo_acordado`, `pagos[]`
   (fecha, cuenta, monto) y `falta`; por proveedora `debemos_total` = cargos − abonos (el saldo de la lista
@@ -353,6 +354,15 @@ Route handlers reales (`route.ts`):
   (= Marketing), nómina (exige `persona`), servicios, herramientas, otros (= Varios); las que faltan se crean
   al usarse. Fecha anterior a hoy exige `motivo_fecha_anterior` (retroactivo). Tope $20.000.000. Creador:
   `MCP_GASTOS_USUARIO_EMAIL` o el ADMIN más antiguo.
+- **Pagos a proveedoras por voz** (`registrar_pago_proveedora`, oct-2026, módulo `src/modules/proveedores`, migración
+  `20261029120000_pago_proveedora_mcp`, solo aditiva): dos pasos como `registrar_gasto` (`confirmado=false` solo
+  resume; `confirmado=true` una sola vez). Escribe un `SupplierLedgerEntry` PAYMENT ligado a la OF (orden, venta y
+  cuenta): **no es gasto**, baja el saldo de la cuenta y la ganancia no cambia (el costo ya está en la orden).
+  Rechaza duplicado (misma OF, monto y día en minutos, con candado por OF), sobrepago sin motivo y fecha anterior sin
+  motivo; al saldar marca PAID los ítems de esa proveedora. Al confirmar devuelve un enlace
+  `/proveedores-pago/soporte/<token>` (**24 h, un solo uso**, en la BD solo el hash, tabla `PagoProveedoraBorrador`;
+  tokens de `src/lib/expense-draft-token.ts`) para pegar la foto del comprobante; `submitSupplierPaymentReceiptAction`
+  valida tipo (JPG/PNG/WEBP/PDF por sus bytes) y 12 MB y la pega con `FOR UPDATE` sobre el borrador.
 - `asistencia` (oct-2026): `fecha` o `desde`/`hasta` (máx. 62 días; por defecto hoy) y `persona` opcional (por
   nombre) → quién está trabajando ahora, quién no ha llegado, y por día entrada, salida, horas, marcas y
   correcciones; días trabajados del rango.

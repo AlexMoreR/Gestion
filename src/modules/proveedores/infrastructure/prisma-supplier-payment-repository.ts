@@ -1,9 +1,12 @@
 import { logActivityAs } from "@/lib/activity-log";
 import { getManufacturingPayments, isManufacturingItem } from "@/lib/manufacturing-orders";
 import { prisma } from "@/lib/prisma";
+import { getSiteUrl } from "@/lib/site";
+import { removeSupplierPaymentReceipt, saveSupplierPaymentReceipt } from "@/lib/supplier-payment-receipt";
 import type { AccountOption } from "@/modules/expenses/domain/expense-draft";
 import { isLikelyDuplicate, type OfBalance } from "../domain/supplier-payment";
 import {
+  SupplierPaymentDraftUsedError,
   SupplierPaymentDuplicateError,
   type OfInfo,
   type SupplierPaymentDeps,
@@ -105,7 +108,7 @@ export function createPrismaSupplierPaymentDeps(): SupplierPaymentDeps {
         if (isLikelyDuplicate(nuevo, recientes)) {
           throw new SupplierPaymentDuplicateError();
         }
-        return tx.supplierLedgerEntry.create({
+        const entry = await tx.supplierLedgerEntry.create({
           data: {
             supplierId: input.supplierId,
             type: "PAYMENT",
@@ -120,6 +123,10 @@ export function createPrismaSupplierPaymentDeps(): SupplierPaymentDeps {
           },
           select: { id: true },
         });
+        await tx.pagoProveedoraBorrador.create({
+          data: { tokenHash: input.receiptDraft.tokenHash, ledgerEntryId: entry.id, expiraEn: input.receiptDraft.expiraEn },
+        });
+        return entry;
       });
     },
 
@@ -144,6 +151,60 @@ export function createPrismaSupplierPaymentDeps(): SupplierPaymentDeps {
       }
       return prisma.user.findFirst({ where: { role: "ADMIN" }, orderBy: { createdAt: "asc" }, select });
     },
+
+    siteUrl: (path) => getSiteUrl(path),
+
+    async findDraftByTokenHash(hash) {
+      const draft = await prisma.pagoProveedoraBorrador.findUnique({
+        where: { tokenHash: hash },
+        select: {
+          id: true,
+          ledgerEntryId: true,
+          expiraEn: true,
+          usadoEn: true,
+          ledgerEntry: {
+            select: { amount: true, paymentDate: true, orderId: true, supplierId: true, supplier: { select: { name: true } } },
+          },
+        },
+      });
+      if (!draft) return null;
+      const { ledgerEntry } = draft;
+      const of = ledgerEntry.orderId
+        ? await prisma.manufacturingOrder.findUnique({
+            where: { orderId_supplierId: { orderId: ledgerEntry.orderId, supplierId: ledgerEntry.supplierId } },
+            select: { code: true },
+          })
+        : null;
+      return {
+        id: draft.id,
+        ledgerEntryId: draft.ledgerEntryId,
+        expiraEn: draft.expiraEn,
+        usadoEn: draft.usadoEn,
+        ofCode: of?.code ?? null,
+        supplierName: ledgerEntry.supplier.name,
+        amount: Number(ledgerEntry.amount),
+        paymentDate: ledgerEntry.paymentDate,
+      };
+    },
+
+    async attachReceipt(draftId, receipt) {
+      await prisma.$transaction(async (tx) => {
+        // Candado de la fila: un doble envio espera aqui y luego lo ve usado.
+        const locked = await tx.$queryRaw<Array<{ usadoEn: Date | null; expiraEn: Date }>>`
+          SELECT "usadoEn", "expiraEn" FROM "PagoProveedoraBorrador" WHERE "id" = ${draftId} FOR UPDATE`;
+        const row = locked[0];
+        if (!row || row.usadoEn || row.expiraEn.getTime() <= Date.now()) {
+          throw new SupplierPaymentDraftUsedError();
+        }
+        await tx.supplierLedgerEntry.update({
+          where: { id: receipt.ledgerEntryId },
+          data: { receiptUrl: receipt.url, receiptName: receipt.name },
+        });
+        await tx.pagoProveedoraBorrador.update({ where: { id: draftId }, data: { usadoEn: new Date() } });
+      });
+    },
+
+    receiptStore: { save: saveSupplierPaymentReceipt, remove: removeSupplierPaymentReceipt },
 
     logActivity: (actor, entry) =>
       logActivityAs(actor, { action: "CREATE", entityType: "SUPPLIER", entityId: entry.entryId, summary: entry.summary }),
