@@ -70,6 +70,11 @@ type DraftLine = {
   unitPrice: number;
   description: string;
   isCamillaCombo: boolean;
+  // Piezas de un mismo combo: comparten comboKey (igual que en la cotizacion).
+  comboKey?: string;
+  comboName?: string;
+  comboCode?: string;
+  comboQuantity?: number;
 };
 
 const inputClass =
@@ -253,9 +258,14 @@ export function DirectSaleSheet({
     if (draftProduct.isBundle && draftProduct.components && draftProduct.components.length > 0) {
       // Venta de mostrador: cada pieza sale de la que hay (principal o alterna).
       const expanded = expandComboLines(pickComboPieces(draftProduct.components, quantity), quantity, unitPrice);
+      const comboKey = crypto.randomUUID();
       setLines((prev) => [
         ...prev,
         ...expanded.map((line) => ({
+          comboKey,
+          comboName: draftProduct.name,
+          comboCode: draftProduct.code ?? "",
+          comboQuantity: quantity,
           uid: crypto.randomUUID(),
           productId: line.productId,
           name: line.name,
@@ -543,6 +553,10 @@ export function DirectSaleSheet({
                         <input type="hidden" name="itemQuantities" value={line.quantity} />
                         <input type="hidden" name="itemUnitPrices" value={line.unitPrice} />
                         <input type="hidden" name="itemDescriptions" value={line.description} />
+                        <input type="hidden" name="itemComboKeys" value={line.comboKey ?? ""} />
+                        <input type="hidden" name="itemComboNames" value={line.comboName ?? ""} />
+                        <input type="hidden" name="itemComboCodes" value={line.comboCode ?? ""} />
+                        <input type="hidden" name="itemComboQuantities" value={line.comboQuantity ?? 0} />
                       </td>
                       <td className="px-3 py-2 text-right text-foreground">{line.quantity}</td>
                       <td className="px-3 py-2 text-right text-foreground">{formatMoney(line.unitPrice, currency)}</td>

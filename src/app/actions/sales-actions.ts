@@ -12,6 +12,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
+import { autoCreateComboOrder } from "@/modules/ventas/application/auto-create-combo-order";
 import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 import { PAYMENT_METHOD_SHORT_LABEL, parsePaymentMethodInput } from "@/modules/ventas/domain/payment-method";
@@ -194,6 +195,22 @@ async function getNextSaleCode(tx: Prisma.TransactionClient): Promise<string> {
   }
 
   throw new Error("Unable to allocate sale code");
+}
+
+// Combo Camillas: crea sola la orden de Laura. Nunca tumba la venta ya guardada:
+// si falla se registra y la alerta de la venta queda visible.
+async function okMessageWithComboOrder(saleId: string | null, actorId: string): Promise<string> {
+  if (!saleId) return "Venta creada";
+  try {
+    const combo = await autoCreateComboOrder(saleId, actorId);
+    if (combo.creada) {
+      revalidatePath("/admin/ordenes");
+      return "Venta creada · orden de Laura creada";
+    }
+  } catch (error) {
+    console.error("Failed to auto-create combo order:", error);
+  }
+  return "Venta creada";
 }
 
 export async function adminCreateSaleFromQuoteAction(formData: FormData): Promise<void> {
@@ -489,12 +506,13 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
       : `Creó una venta desde la cotización ${quote.code}`,
   });
 
+  const okMessage = await okMessageWithComboOrder(createdSaleId, createdById);
   revalidatePath("/admin/cotizaciones");
   revalidatePath("/admin/ventas");
   if (invoiceToken) {
     revalidatePath(`/sales/${invoiceToken}`);
   }
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Venta creada" }).toString()}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: okMessage }).toString()}`);
 }
 
 const addSalePaymentSchema = z.object({
@@ -874,6 +892,11 @@ const directSaleItemSchema = z.object({
   quantity: z.coerce.number().int().min(1, "Cantidad invalida").max(10000),
   unitPrice: z.coerce.number().positive("Precio invalido"),
   description: z.string().trim().max(4000).optional().default(""),
+  // Piezas de un combo (mismo comboKey); vacio = producto suelto.
+  comboKey: z.string().trim().max(120).optional().default(""),
+  comboName: z.string().trim().max(300).optional().default(""),
+  comboCode: z.string().trim().max(120).optional().default(""),
+  comboQuantity: z.coerce.number().int().min(0).max(10000).optional().default(0),
 });
 
 export async function adminCreateDirectSaleAction(formData: FormData): Promise<void> {
@@ -925,6 +948,10 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
   const quantitiesRaw = formData.getAll("itemQuantities");
   const unitPricesRaw = formData.getAll("itemUnitPrices");
   const descriptionsRaw = formData.getAll("itemDescriptions");
+  const comboKeysRaw = formData.getAll("itemComboKeys");
+  const comboNamesRaw = formData.getAll("itemComboNames");
+  const comboCodesRaw = formData.getAll("itemComboCodes");
+  const comboQuantitiesRaw = formData.getAll("itemComboQuantities");
 
   if (productIdsRaw.length === 0) {
     redirectWithError(returnTo, "Debes agregar al menos un producto");
@@ -943,6 +970,10 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
       quantity: quantitiesRaw[index],
       unitPrice: unitPricesRaw[index],
       description: descriptionsRaw[index] ?? "",
+      comboKey: comboKeysRaw[index] ?? "",
+      comboName: comboNamesRaw[index] ?? "",
+      comboCode: comboCodesRaw[index] ?? "",
+      comboQuantity: comboQuantitiesRaw[index] ?? 0,
     });
     if (!parsed.success) {
       redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Producto invalido");
@@ -966,6 +997,10 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
       description: item.description ?? "",
       additionalCost: 0,
       discount: 0,
+      comboKey: item.comboKey,
+      comboName: item.comboName,
+      comboCode: item.comboCode,
+      comboQuantity: item.comboQuantity,
     });
     return {
       productId: item.productId,
@@ -1253,11 +1288,12 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
       : `Creó una venta directa por $${Number(total).toLocaleString("es-CO")}`,
   });
 
+  const okMessage = await okMessageWithComboOrder(createdSaleId, createdById);
   revalidatePath("/admin/ventas");
   if (invoiceToken) {
     revalidatePath(`/sales/${invoiceToken}`);
   }
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Venta creada" }).toString()}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: okMessage }).toString()}`);
 }
 
 // Edita la fecha de una venta (sale.createdAt, usada en Balances). Opcionalmente

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { computeItemUnitCost } from "../../../lib/order-item-cost";
+import { calculateSaleProfitSummary } from "../../balances/domain/calculations";
 import { esComboCamillas, necesitaAlertaCombo, planComboOrder, repartirCostoCombo } from "./combo-camillas";
 
 const laura = { id: "sup-laura", name: "Laura" };
@@ -73,5 +75,21 @@ describe("repartirCostoCombo", () => {
 
   it("sin componentes (el combo es una sola linea) va entero", () => {
     expect(repartirCostoCombo(600000, [{ cantidadPorCombo: 1 }])).toEqual([600000]);
+  });
+});
+
+describe("costo del combo confirmado con Laura", () => {
+  it("con purchaseCost 600.000 la ganancia de Balances deja de ser 100 %", () => {
+    // Sin costo cargado (combo sin costo base), Balances mostraba toda la venta como ganancia.
+    const sinCosto = { quantity: 1, purchaseCost: null, fulfillmentMode: "MANUFACTURE", baseCost: 0, additionalCost: 0 };
+    const venta = { saleId: "s", saleCode: "SAL-1", saleAmount: 989000, createdAt: new Date(), clientName: null, shippingCosts: [] };
+    expect(calculateSaleProfitSummary({ ...venta, orderItems: [sinCosto] }).marginPercentage).toBe(100);
+
+    const conLaura = { ...sinCosto, purchaseCost: 600000 };
+    expect(computeItemUnitCost(conLaura)).toBe(600000);
+    const resumen = calculateSaleProfitSummary({ ...venta, orderItems: [conLaura, { ...sinCosto, purchaseCost: 0 }] });
+    expect(resumen.supplierCosts).toBe(600000);
+    expect(resumen.netProfit).toBe(389000);
+    expect(resumen.marginPercentage).toBeLessThan(100);
   });
 });

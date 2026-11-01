@@ -29,7 +29,7 @@ function nombreSinTildes(name: string): string {
 }
 
 // "Laura" como palabra completa (ej. "Laura", "Fabrica Laura"), no "Laurita".
-function esLaura(proveedora: Proveedora): boolean {
+export function esLaura(proveedora: Proveedora): boolean {
   return /\blaura\b/.test(nombreSinTildes(proveedora.name));
 }
 
