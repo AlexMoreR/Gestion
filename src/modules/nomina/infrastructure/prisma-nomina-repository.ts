@@ -1,3 +1,4 @@
+import { dbWindow } from "@/lib/colombia-time";
 import { prisma } from "@/lib/prisma";
 import type { DateRange } from "@/modules/balances/domain/entities";
 import {
@@ -57,7 +58,8 @@ export function createPrismaNominaRepository(): NominaRepository {
           categoryId: { in: payrollIds },
           employeeId: { not: null },
           OR: [
-            { expenseDate: { gte: period.from, lt: period.to } },
+            // Ventana amplia (fechas escritas a medianoche UTC); belongsToPayrollMonth filtra el dia.
+            { expenseDate: { gte: dbWindow({ start: period.from, end: period.to }).start, lt: period.to } },
             { description: { contains: payrollMonthTag(month) } },
           ],
         },

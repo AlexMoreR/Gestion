@@ -9,21 +9,24 @@ import {
   currentMonthInBogota,
   describeRange,
   filterExpensesByCategory,
+  firstSaleRate,
+  formatDay,
   productMargin,
   summarizeExpensesByCategory,
   summarizeMonth,
   summarizeQuotes,
 } from "./calculations";
+import { colombiaDayKey } from "../../../lib/colombia-time";
 import type { CommissionBoardSaleInput, ExpenseLine, QuoteRow } from "./entities";
 
 const ana = { id: "u-ana", name: "Ana" };
 const bea = { id: "u-bea", name: "Bea" };
 
 describe("fechas", () => {
-  it("convierte un rango inclusivo en semiabierto UTC", () => {
+  it("convierte un rango inclusivo en semiabierto con el corte de Colombia", () => {
     const range = buildDayRange("2026-09-01", "2026-09-30");
-    expect(range.from.toISOString()).toBe("2026-09-01T00:00:00.000Z");
-    expect(range.to.toISOString()).toBe("2026-10-01T00:00:00.000Z");
+    expect(range.from.toISOString()).toBe("2026-09-01T05:00:00.000Z");
+    expect(range.to.toISOString()).toBe("2026-10-01T05:00:00.000Z");
     expect(describeRange(range)).toEqual({ desde: "2026-09-01", hasta: "2026-09-30" });
   });
 
@@ -35,14 +38,28 @@ describe("fechas", () => {
 
   it("arma el mes con la convencion de Balances", () => {
     const range = buildMonthRange(12, 2026);
-    expect(range.from.toISOString()).toBe("2026-12-01T00:00:00.000Z");
-    expect(range.to.toISOString()).toBe("2027-01-01T00:00:00.000Z");
+    expect(range.from.toISOString()).toBe("2026-12-01T05:00:00.000Z");
+    expect(range.to.toISOString()).toBe("2027-01-01T05:00:00.000Z");
     expect(() => buildMonthRange(13, 2026)).toThrow(AsesorInputError);
   });
 
   it("toma el mes en curso en hora de Colombia", () => {
     // 1 oct 2026 02:00 UTC = 30 sep 2026 21:00 en Bogota.
     expect(currentMonthInBogota(new Date("2026-10-01T02:00:00Z"))).toEqual({ mes: 9, anio: 2026 });
+  });
+
+  it("un abono escrito '2026-11-01' (medianoche UTC) es del 1-nov, no del 31-oct", () => {
+    const written = new Date("2026-11-01T00:00:00.000Z");
+    expect(formatDay(written)).toBe("2026-11-01");
+    const nov = buildMonthRange(11, 2026);
+    expect(colombiaDayKey(written) >= formatDay(nov.from)).toBe(true);
+    // Una venta de las 8 p. m. del 31-oct en Colombia sigue siendo de octubre.
+    expect(formatDay(new Date("2026-11-01T01:00:00.000Z"))).toBe("2026-10-31");
+  });
+
+  it("la comision fija arranca el 1-oct en Colombia, tambien con fecha escrita", () => {
+    expect(firstSaleRate(new Date("2026-10-01T00:00:00.000Z"))).toBe(0.15);
+    expect(firstSaleRate(new Date("2026-10-01T03:00:00.000Z"))).toBe(0.1);
   });
 });
 

@@ -37,6 +37,8 @@ describe("bogotaDay", () => {
     // 1-oct 03:00 UTC = 30-sep 22:00 en Colombia.
     expect(bogotaDay(at("2026-10-01T03:00:00.000Z"))).toBe("2026-09-30");
     expect(bogotaDay(writtenDay("2026-10-02"))).toBe("2026-10-02");
+    // Escrita a medianoche UTC: es ese dia, no el anterior.
+    expect(bogotaDay(at("2026-11-01T00:00:00.000Z"))).toBe("2026-11-01");
   });
 });
 

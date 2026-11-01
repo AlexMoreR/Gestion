@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import type { DateRange } from "@/modules/balances/domain/entities";
+import { colombiaMonthKey, colombiaMonthRange, todayInColombia } from "@/lib/colombia-time";
 
 // Token del link del informe. Si hay MONTHLY_REPORT_TOKEN se usa tal cual; si no,
 // se deriva de AUTH_SECRET (ya existe en produccion) para no depender de Portainer.
@@ -38,7 +39,7 @@ export type MonthlyReport = {
   quotes: { made: number; closed: number; closeRatePct: number };
 };
 
-// Rango [from, to) en UTC para un mes "YYYY-MM" (misma convencion que Balances).
+// Rango [from, to) del mes "YYYY-MM" en hora de Colombia (misma convencion que Balances).
 export function monthRange(monthKey: string): DateRange | null {
   const match = /^(\d{4})-(\d{2})$/.exec(monthKey);
   if (!match) {
@@ -49,15 +50,15 @@ export function monthRange(monthKey: string): DateRange | null {
   if (month < 1 || month > 12) {
     return null;
   }
-  return { from: new Date(Date.UTC(year, month - 1, 1)), to: new Date(Date.UTC(year, month, 1)) };
+  const { start, end } = colombiaMonthRange(monthKey);
+  return { from: start, to: end };
 }
 
 // Mes anterior al actual (por defecto del informe: "el mes pasado").
 export function previousMonthKey(now: Date = new Date()): string {
-  const year = now.getUTCFullYear();
-  const month = now.getUTCMonth(); // 0-based; el mes anterior es este indice
-  const date = new Date(Date.UTC(year, month - 1, 1));
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  // Un dia antes del inicio del mes actual en Colombia cae en el mes anterior.
+  const { start } = colombiaMonthRange(todayInColombia(now).slice(0, 7));
+  return colombiaMonthKey(new Date(start.getTime() - 24 * 60 * 60 * 1000));
 }
 
 export async function computeMonthlyReport(monthKey: string): Promise<MonthlyReport | null> {
