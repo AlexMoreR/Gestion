@@ -1,4 +1,4 @@
-import { inColombiaPeriod } from "../../../lib/colombia-time";
+import { colombiaMonthKey } from "../../../lib/colombia-time";
 import { roundMoney } from "../../../lib/pricing";
 import { TEAM_PAY_LABELS, type PayrollTeamEntry, type TeamPayType, type TeamStatus } from "../../equipo/domain/team-member";
 
@@ -351,12 +351,11 @@ export function belongsToPayrollMonth(
   description: string | null,
   date: Date,
   month: string,
-  period: { from: Date; to: Date },
 ): boolean {
   const tagged = description?.match(PAYROLL_MONTH_TAG)?.[1];
   if (tagged) return tagged === month;
   // Fecha escrita a medianoche UTC = ese dia; lo demas, dia de Colombia.
-  return inColombiaPeriod(date, { start: period.from, end: period.to });
+  return colombiaMonthKey(date) === month;
 }
 
 export function isPayrollCategoryName(name: string): boolean {

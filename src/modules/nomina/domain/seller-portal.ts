@@ -1,3 +1,4 @@
+import { colombiaDayKey } from "../../../lib/colombia-time";
 import { roundMoney } from "../../../lib/pricing";
 import { COMMISSION_FIRST_SALE_RATE, COMMISSION_NEXT_SALES_RATE } from "../../asesor/domain/calculations";
 
@@ -76,7 +77,7 @@ export function ruleText(fixedRatePct: number | null): string {
 export function buildPortalQuotes(quotes: PortalQuoteInput[], rate: number): PortalQuoteLine[] {
   return quotes.map((quote) => ({
     quoteCode: quote.quoteCode,
-    day: quote.createdAt.toISOString().slice(0, 10),
+    day: colombiaDayKey(quote.createdAt),
     clientName: quote.clientName,
     statusLabel: STATUS_LABELS[quote.status] ?? quote.status,
     total: roundMoney(quote.total),

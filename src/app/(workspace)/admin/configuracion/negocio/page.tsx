@@ -23,6 +23,7 @@ import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { getPublicAssetUrl } from "@/lib/site";
 import { prisma } from "@/lib/prisma";
+import { colombiaMonthRange, todayInColombia } from "@/lib/colombia-time";
 import {
   getSystemBrandName,
   getSystemCurrency,
@@ -43,12 +44,11 @@ type PageProps = {
 // Año en curso en hora de Colombia (UTC-5) y su rango [from, to) para el
 // acumulado anual de ventas que alimenta el control DIAN del negocio.
 function resolveCurrentYear() {
-  const bogotaNow = new Date(Date.now() - 5 * 60 * 60 * 1000);
-  const year = bogotaNow.getUTCFullYear();
+  const year = Number(todayInColombia().slice(0, 4));
   return {
     year,
-    from: new Date(Date.UTC(year, 0, 1)),
-    to: new Date(Date.UTC(year + 1, 0, 1)),
+    from: colombiaMonthRange(`${year}-01`).start,
+    to: colombiaMonthRange(`${year + 1}-01`).start,
   };
 }
 

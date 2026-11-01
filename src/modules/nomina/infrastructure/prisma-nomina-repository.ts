@@ -74,7 +74,7 @@ export function createPrismaNominaRepository(): NominaRepository {
         },
       });
       return rows
-        .filter((row) => belongsToPayrollMonth(row.description, row.expenseDate, month, period))
+        .filter((row) => belongsToPayrollMonth(row.description, row.expenseDate, month))
         .map((row) => ({
         id: row.id,
         employeeId: row.employeeId as string,

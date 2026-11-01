@@ -259,20 +259,21 @@ describe("parsePayrollConfig", () => {
 });
 
 describe("belongsToPayrollMonth", () => {
-  const october = { from: new Date("2026-10-01T00:00:00Z"), to: new Date("2026-11-01T00:00:00Z") };
   const paidOct3 = new Date("2026-10-03T12:00:00Z");
   it("un pago marcado con su mes cuenta en ese mes aunque se pague despues", () => {
-    expect(belongsToPayrollMonth("Nómina Ingrid: Comisiones · 2026-09", paidOct3, "2026-09", { from: new Date("2026-09-01T00:00:00Z"), to: october.from })).toBe(true);
-    expect(belongsToPayrollMonth("Nómina Ingrid: Comisiones · 2026-09", paidOct3, "2026-10", october)).toBe(false);
+    expect(belongsToPayrollMonth("Nómina Ingrid: Comisiones · 2026-09", paidOct3, "2026-09")).toBe(true);
+    expect(belongsToPayrollMonth("Nómina Ingrid: Comisiones · 2026-09", paidOct3, "2026-10")).toBe(false);
   });
   it("sin marca cuenta por su fecha", () => {
-    expect(belongsToPayrollMonth("Pago a mano", paidOct3, "2026-10", october)).toBe(true);
-    expect(belongsToPayrollMonth(null, new Date("2026-09-30T12:00:00Z"), "2026-10", october)).toBe(false);
+    expect(belongsToPayrollMonth("Pago a mano", paidOct3, "2026-10")).toBe(true);
+    expect(belongsToPayrollMonth(null, new Date("2026-09-30T12:00:00Z"), "2026-10")).toBe(false);
   });
-  it("un pago escrito el 1-oct (medianoche UTC) es de octubre con el corte de Colombia", () => {
-    const octoberCo = { from: new Date("2026-10-01T05:00:00Z"), to: new Date("2026-11-01T05:00:00Z") };
-    expect(belongsToPayrollMonth(null, new Date("2026-10-01T00:00:00Z"), "2026-10", octoberCo)).toBe(true);
-    expect(belongsToPayrollMonth(null, new Date("2026-11-01T00:00:00Z"), "2026-10", octoberCo)).toBe(false);
+  it("una fecha escrita a medianoche UTC es de ese dia; un momento real, del dia en Colombia", () => {
+    expect(belongsToPayrollMonth(null, new Date("2026-10-01T00:00:00Z"), "2026-10")).toBe(true);
+    expect(belongsToPayrollMonth(null, new Date("2026-11-01T00:00:00Z"), "2026-10")).toBe(false);
+    expect(belongsToPayrollMonth(null, new Date("2026-11-01T00:00:00Z"), "2026-11")).toBe(true);
+    // 31-oct 8 p. m. en Colombia (01:00Z del 1-nov) sigue siendo octubre.
+    expect(belongsToPayrollMonth(null, new Date("2026-11-01T01:00:00Z"), "2026-10")).toBe(true);
   });
 });
 

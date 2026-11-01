@@ -14,6 +14,7 @@ import {
   savePayrollTrmAction,
 } from "@/app/actions/nomina-actions";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
+import { colombiaDayKey, todayInColombia } from "@/lib/colombia-time";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { currentMonthInBogota } from "@/modules/asesor/domain/calculations";
@@ -59,10 +60,6 @@ function monthLabel(mes: number, anio: number): string {
   return new Date(Date.UTC(anio, mes - 1, 1)).toLocaleDateString("es", { month: "long", year: "numeric", timeZone: "UTC" });
 }
 
-function todayInBogota(): string {
-  return new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
-
 function baseDescription(row: PayrollRow, money: (value: number) => string): string {
   if (!row.period) return "Sin configurar";
   if (row.period === "SIN_BASE") return "Sin básico";
@@ -105,7 +102,7 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
   ]);
   const money = (value: number) => formatMoney(value, currency as SupportedCurrencyCode);
   const activeAccounts = cash.accounts.filter((account) => account.isActive);
-  const today = todayInBogota();
+  const today = todayInColombia();
   const retired = retiredUserIds(team, today);
   const unconfiguredStaff = staff.filter(
     (member) => !retired.has(member.id) && !config.people.some((person) => person.userId === member.id),
@@ -284,7 +281,7 @@ export default async function AdminNominaPage({ searchParams }: PageProps) {
                   <tbody>
                     {row.payments.map((payment) => (
                       <tr key={payment.id} className="border-b border-border/60">
-                        <td className="py-1.5 pr-3 tabular-nums">{payment.date.toISOString().slice(0, 10)}</td>
+                        <td className="py-1.5 pr-3 tabular-nums">{colombiaDayKey(payment.date)}</td>
                         <td className="py-1.5 pr-3">{payment.description ?? "—"}</td>
                         <td className="py-1.5 pr-3">{payment.accountName}</td>
                         <td className="py-1.5 text-right tabular-nums">{money(payment.amount)}</td>

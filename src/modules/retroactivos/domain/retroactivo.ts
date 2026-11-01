@@ -1,6 +1,8 @@
 // Registro retroactivo: un registro (venta, abono o gasto) cuya fecha puesta por el usuario
 // es un dia calendario de Colombia ANTERIOR al dia de hoy en Colombia. Funciones puras.
 
+import { colombiaMonthRange, todayInColombia } from "../../../lib/colombia-time";
+
 export type TipoRetroactivo = "VENTA" | "ABONO" | "GASTO";
 
 export const TIPO_RETROACTIVO_LABEL: Record<TipoRetroactivo, string> = {
@@ -13,12 +15,11 @@ export const MOTIVO_MIN = 5;
 export const MOTIVO_MAX = 500;
 export const MOTIVO_FIELD = "motivoRetroactivo";
 
-const BOGOTA_OFFSET_MS = 5 * 60 * 60 * 1000;
 const DIA_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Dia calendario en Colombia (UTC-5, sin horario de verano), formato AAAA-MM-DD.
 export function diaBogota(fecha: Date): string {
-  return new Date(fecha.getTime() - BOGOTA_OFFSET_MS).toISOString().slice(0, 10);
+  return todayInColombia(fecha);
 }
 
 // Dia que puso el usuario. Si llega como texto AAAA-MM-DD (lo que manda el formulario) se toma
@@ -100,8 +101,6 @@ export function rangoMesBogota(mes: string | undefined, ahora: Date = new Date()
   if (typeof mes === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) {
     valor = mes;
   }
-  const [year, month] = valor.split("-").map(Number);
-  const desde = new Date(Date.UTC(year, month - 1, 1) + BOGOTA_OFFSET_MS);
-  const hasta = new Date(Date.UTC(year, month, 1) + BOGOTA_OFFSET_MS);
+  const { start: desde, end: hasta } = colombiaMonthRange(valor);
   return { valor, desde, hasta };
 }

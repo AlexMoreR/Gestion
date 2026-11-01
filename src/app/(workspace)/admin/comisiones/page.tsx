@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Info } from "lucide-react";
 
 import { auth } from "@/auth";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
+import { todayInColombia } from "@/lib/colombia-time";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { getCommissionsBoardUseCase } from "@/modules/asesor/application/use-cases";
@@ -12,7 +13,6 @@ import { createPrismaAsesorRepository } from "@/modules/asesor/infrastructure/pr
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import { loadFixedCommissionRates } from "@/modules/nomina/infrastructure/prisma-nomina-repository";
 import { retiredUserIds } from "@/modules/equipo/application/use-cases";
-import { todayInBogota } from "@/modules/equipo/domain/team-member";
 import { loadTeamMembers } from "@/modules/equipo/infrastructure/prisma-team-repository";
 
 // Comisiones de las asesoras del mes (solo dueno/admin).
@@ -113,7 +113,7 @@ export default async function AdminComisionesPage({ searchParams }: PageProps) {
     loadTeamMembers(),
   ]);
   // Solo etiqueta: el calculo de comisiones no cambia para quien ya salio.
-  const retired = retiredUserIds(team, todayInBogota());
+  const retired = retiredUserIds(team, todayInColombia());
   const money = (value: number) => formatMoney(value, currency as SupportedCurrencyCode);
   const adminSellers = board.sellers.filter((seller) => seller.isAdmin);
 

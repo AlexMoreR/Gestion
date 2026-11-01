@@ -1,3 +1,4 @@
+import { colombiaTimeOfDay } from "../../../lib/colombia-time";
 import { isIsoDay, todayInBogota } from "../../equipo/domain/team-member";
 
 // Asistencia (registro de entrada y salida). Reglas puras.
@@ -69,7 +70,7 @@ export function bogotaDay(date: Date): string {
 
 // Hora "HH:MM" en Colombia (UTC-5, sin horario de verano).
 export function bogotaTime(date: Date): string {
-  return new Date(date.getTime() - 5 * 60 * 60 * 1000).toISOString().slice(11, 16);
+  return colombiaTimeOfDay(date);
 }
 
 // Instante de un dia "AAAA-MM-DD" y una hora "HH:MM" escritos en hora Colombia.

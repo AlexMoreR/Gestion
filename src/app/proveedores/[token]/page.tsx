@@ -7,6 +7,7 @@ import { SupplierBalanceItems, type SupplierBalanceRow } from "@/components/admi
 import { formatMoney } from "@/lib/currency";
 import { distributeAmount } from "@/lib/dispatch-shipping-legs";
 import { prisma } from "@/lib/prisma";
+import { colombiaMonthKey, todayInColombia } from "@/lib/colombia-time";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 
@@ -24,9 +25,8 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-function monthKeyOf(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
+// Mes en Colombia sin depender de la zona del servidor (fecha escrita a medianoche UTC = ese dia).
+const monthKeyOf = colombiaMonthKey;
 
 function monthLabelOf(key: string): string {
   const [year, month] = key.split("-").map(Number);
@@ -147,7 +147,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
   }
 
   const now = new Date();
-  const currentMonthKey = monthKeyOf(now);
+  const currentMonthKey = todayInColombia(now).slice(0, 7);
   const selectedMonth = typeof query.month === "string" && /^\d{4}-\d{2}$/.test(query.month)
     ? query.month
     : currentMonthKey;

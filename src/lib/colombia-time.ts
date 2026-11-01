@@ -31,6 +31,11 @@ export function todayInColombia(now: Date = new Date()): string {
   return utcDayKey(new Date(now.getTime() - OFFSET_MS));
 }
 
+// Hora "HH:MM" en Colombia de un momento real.
+export function colombiaTimeOfDay(date: Date): string {
+  return new Date(date.getTime() - OFFSET_MS).toISOString().slice(11, 16);
+}
+
 // [00:00 Colombia (05:00Z), medianoche siguiente), con el fin excluido.
 export function colombiaDayRange(dayKey: string): ColombiaRange {
   const start = new Date(`${dayKey}T05:00:00.000Z`);

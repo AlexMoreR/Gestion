@@ -1,3 +1,5 @@
+import { todayInColombia } from "../../../lib/colombia-time";
+
 // Ficha de trabajadores (Equipo). Reglas puras: estado, edad, "¿trabajaba en tal fecha?"
 // y quien entra a la nomina de un mes. Las fechas van como texto "AAAA-MM-DD" (dia de
 // calendario en Colombia), asi no se corren de dia por la zona horaria.
@@ -66,7 +68,7 @@ export function isIsoDay(value: string | null | undefined): value is string {
 
 // Dia de hoy en Colombia (UTC-5, sin horario de verano).
 export function todayInBogota(now: Date = new Date()): string {
-  return new Date(now.getTime() - 5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return todayInColombia(now);
 }
 
 // Nombre sin tildes, en minusculas y con un solo espacio: para buscar y para unir con usuarios.

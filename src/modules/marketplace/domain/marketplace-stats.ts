@@ -4,11 +4,11 @@
 // cuenta de Facebook y por producto. Aqui se validan esas respuestas (nunca se confia en la forma),
 // se cruzan con las ventas de Gestion cuyo origen es MARKETPLACE (linea Ventas 2) y se arma el CSV.
 
+import { colombiaDayKey, colombiaDayRange, colombiaTimeOfDay, todayInColombia } from "../../../lib/colombia-time";
 import { effectiveOrigin } from "../../ventas/domain/sale-origin";
 
 export const RANGE_OPTIONS = [7, 30, 90] as const;
 export type RangeDays = (typeof RANGE_OPTIONS)[number];
-const BOGOTA_OFFSET_MS = 5 * 60 * 60 * 1000; // UTC-5 todo el ano
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function resolveRangeDays(raw: unknown): RangeDays {
@@ -21,20 +21,14 @@ export type BogotaRange = { desde: string; hasta: string; days: number; from: Da
 // Ultimos N dias de Bogota hasta hoy (incluido). from/to en UTC: [00:00 de desde, 00:00 del dia
 // siguiente a hasta), el mismo criterio de NETMAGI.
 export function bogotaRange(days: number, now: Date = new Date()): BogotaRange {
-  const hasta = new Date(now.getTime() - BOGOTA_OFFSET_MS).toISOString().slice(0, 10);
-  const hastaUtc = Date.parse(`${hasta}T00:00:00Z`);
-  const desde = new Date(hastaUtc - (days - 1) * DAY_MS).toISOString().slice(0, 10);
-  return {
-    desde,
-    hasta,
-    days,
-    from: new Date(Date.parse(`${desde}T00:00:00Z`) + BOGOTA_OFFSET_MS),
-    to: new Date(hastaUtc + DAY_MS + BOGOTA_OFFSET_MS),
-  };
+  const hasta = todayInColombia(now);
+  const desde = new Date(Date.parse(`${hasta}T00:00:00Z`) - (days - 1) * DAY_MS).toISOString().slice(0, 10);
+  return { desde, hasta, days, from: colombiaDayRange(desde).start, to: colombiaDayRange(hasta).end };
 }
 
+// Fecha escrita a medianoche UTC = ese dia; lo demas, dia de Colombia.
 export function bogotaDay(date: Date): string {
-  return new Date(date.getTime() - BOGOTA_OFFSET_MS).toISOString().slice(0, 10);
+  return colombiaDayKey(date);
 }
 
 // ── Lectura defensiva de las respuestas de NETMAGI ───────────────────────────
@@ -520,8 +514,9 @@ export function formatBogotaDateTime(iso: string | null): string {
   if (!iso) return "—";
   const time = Date.parse(iso);
   if (!Number.isFinite(time)) return "—";
-  const local = new Date(time - BOGOTA_OFFSET_MS).toISOString();
-  return `${local.slice(8, 10)}/${local.slice(5, 7)} ${local.slice(11, 16)}`;
+  const date = new Date(time);
+  const day = todayInColombia(date);
+  return `${day.slice(8, 10)}/${day.slice(5, 7)} ${colombiaTimeOfDay(date)}`;
 }
 
 // Lo que la pagina recibe de NETMAGI (cada seccion puede faltar si su ruta fallo).

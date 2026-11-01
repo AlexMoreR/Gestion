@@ -494,7 +494,14 @@ con producción. Instalación y cómo restaurar: `README.md`. Fotos y comprobant
   producción). No existe archivo `prisma/seed.ts`: los datos de referencia se siembran de forma perezosa
   en código (p. ej. categorías de gasto o los datos DANE de transporte).
 - **Zona horaria:** el servidor corre en `America/Bogota`; las fechas "de calendario" (fecha de gasto,
-  entrega, etc.) se manejan con cuidado para no correrse de día/mes.
+  entrega, etc.) se manejan con cuidado para no correrse de día/mes. **Todo corte de día o mes pasa por
+  `src/lib/colombia-time.ts`** (`colombiaDayKey`, `colombiaMonthKey`, `todayInColombia`,
+  `colombiaMonthRange`, `colombiaDayRange`, `inColombiaPeriod`, `dbWindow`, `colombiaTimeOfDay`): nunca
+  `toISOString().slice(...)`, `getMonth()` ni una cuenta "−5 horas" propia. Regla: una fecha a
+  **medianoche UTC exacta** es una fecha escrita por una persona (formularios, `@db.Date`) y vale ese día
+  tal cual; cualquier otra hora es un momento real y se lee en hora de Colombia. El mes corta a
+  medianoche de Colombia (05:00Z). Para consultar la base por mes: `dbWindow(rango)` en el `where` y
+  luego filtrar con `inColombiaPeriod`.
 - **Fechas de negocio:** los ingresos/ganancias se reconocen cuando la venta queda **pagada por
   completo** (fecha de ese pago), aunque falte entregarla; la **contraentrega**, por fecha de entrega
   (orden `COMPLETED`). Nunca por fecha de creación de la venta.
