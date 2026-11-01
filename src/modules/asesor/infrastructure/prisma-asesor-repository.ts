@@ -1,6 +1,5 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { groupQuoteDisplayItems } from "@/lib/quote-display-items";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import type {
   DayRange,
@@ -14,6 +13,7 @@ import type {
 } from "../domain/entities";
 import type { SaleLedgerInput } from "../domain/payments";
 import { describeProductSource } from "../domain/product-source";
+import { buildSaleProducts, type SaleProductItemInput } from "../domain/sale-products";
 import type { AsesorReadRepository, SaleLedgerFilter } from "../domain/repository";
 
 // Adaptador Prisma de SOLO LECTURA: unicamente findMany (ningun create/update/delete).
@@ -32,6 +32,42 @@ function toSeller(
 
 const userSelect = { id: true, name: true, email: true, role: true } as const;
 
+// Producto con lo necesario para el costo (computeItemUnitCost): base, flete y proveedor preferido.
+const costProductSelect = {
+  name: true,
+  code: true,
+  thumbnailUrl: true,
+  description: true,
+  baseCost: true,
+  additionalCost: true,
+  suppliers: { where: { isPreferred: true }, take: 1, select: { supplierCost: true } },
+} as const;
+
+function toSaleProductItem(item: {
+  id: string;
+  quantity: number;
+  unitPrice: Prisma.Decimal;
+  lineTotal: Prisma.Decimal;
+  notes: string | null;
+  fulfillmentMode: string;
+  purchaseCost?: Prisma.Decimal | null;
+  product: {
+    name: string;
+    code: string | null;
+    thumbnailUrl: string | null;
+    description: string | null;
+    baseCost: Prisma.Decimal;
+    additionalCost: Prisma.Decimal;
+    suppliers: { supplierCost: Prisma.Decimal | null }[];
+  };
+}): SaleProductItemInput {
+  const { suppliers, ...product } = item.product;
+  return {
+    ...item,
+    product: { ...product, preferredSupplierCost: suppliers[0]?.supplierCost ?? null },
+  };
+}
+
 export function createPrismaAsesorRepository(): AsesorReadRepository {
   return {
     async getSaleDetails(saleIds: string[]): Promise<SaleDetail[]> {
@@ -47,7 +83,24 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
           originDetail: true,
           client: { select: { name: true } },
           createdBy: { select: userSelect },
-          quote: { select: { code: true, createdBy: { select: userSelect } } },
+          quote: {
+            select: {
+              code: true,
+              createdBy: { select: userSelect },
+              items: {
+                orderBy: { createdAt: "asc" },
+                select: {
+                  id: true,
+                  quantity: true,
+                  unitPrice: true,
+                  lineTotal: true,
+                  notes: true,
+                  fulfillmentMode: true,
+                  product: { select: costProductSelect },
+                },
+              },
+            },
+          },
           order: {
             select: {
               code: true,
@@ -61,9 +114,10 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
                   lineTotal: true,
                   notes: true,
                   fulfillmentMode: true,
+                  purchaseCost: true,
                   confirmedSupplierId: true,
                   confirmedSupplier: { select: { name: true } },
-                  product: { select: { name: true, code: true, thumbnailUrl: true, description: true } },
+                  product: { select: costProductSelect },
                 },
               },
             },
@@ -71,41 +125,39 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
         },
       });
 
-      return sales.map((sale) => ({
-        saleId: sale.id,
-        saleCode: sale.code,
-        quoteCode: sale.quote?.code ?? null,
-        orderCode: sale.order?.code ?? null,
-        saleDate: sale.createdAt,
-        clientName: sale.client?.name ?? null,
-        seller: toSeller(sale.quote?.createdBy),
-        registeredBy: toSeller(sale.createdBy),
-        origin: sale.origin ?? null,
-        originDetail: sale.originDetail ?? null,
-        productSource: describeProductSource({
-          lines: sale.order
-            ? sale.order.items.map((item) => ({
-                productName: item.product.name,
-                quantity: item.quantity,
-                fulfillmentMode: item.fulfillmentMode,
-                supplierId: item.confirmedSupplierId,
-                supplierName: item.confirmedSupplier?.name ?? null,
-              }))
-            : null,
-          manufacturingOrders: sale.order?.manufacturingOrders ?? [],
-        }),
-        // Los combos se muestran como un solo producto (igual que en la factura).
-        products: groupQuoteDisplayItems(
-          (sale.order?.items ?? []).map((item) => ({
-            id: item.id,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            lineTotal: item.lineTotal,
-            product: item.product,
-            meta: parseQuoteItemMeta(item.notes),
-          })),
-        ).map((line) => ({ nombre: line.productName, codigo: line.productCode, cantidad: line.quantity })),
-      }));
+      return sales.map((sale) => {
+        const { fuente, productos } = buildSaleProducts({
+          orderItems: sale.order?.items.map(toSaleProductItem),
+          quoteItems: sale.quote?.items.map(toSaleProductItem),
+        });
+        return {
+          saleId: sale.id,
+          saleCode: sale.code,
+          quoteCode: sale.quote?.code ?? null,
+          orderCode: sale.order?.code ?? null,
+          saleDate: sale.createdAt,
+          clientName: sale.client?.name ?? null,
+          seller: toSeller(sale.quote?.createdBy),
+          registeredBy: toSeller(sale.createdBy),
+          origin: sale.origin ?? null,
+          originDetail: sale.originDetail ?? null,
+          productSource: describeProductSource({
+            lines: sale.order
+              ? sale.order.items.map((item) => ({
+                  productName: item.product.name,
+                  quantity: item.quantity,
+                  fulfillmentMode: item.fulfillmentMode,
+                  supplierId: item.confirmedSupplierId,
+                  supplierName: item.confirmedSupplier?.name ?? null,
+                }))
+              : null,
+            manufacturingOrders: sale.order?.manufacturingOrders ?? [],
+          }),
+          // Productos de la orden o, si no tiene items, de la cotizacion (combos agrupados).
+          products: productos,
+          productsSource: fuente,
+        };
+      });
     },
 
     async listQuotes(range: DayRange, statuses: readonly QuoteStatusCode[] | null): Promise<QuoteRow[]> {
