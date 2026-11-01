@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
-import { colombiaDayKey, inColombiaPeriod } from "@/lib/colombia-time";
+import { inColombiaPeriod } from "@/lib/colombia-time";
 import { prisma } from "@/lib/prisma";
 import type {
   BalancesRepository,
@@ -31,6 +31,7 @@ import type {
 import {
   calculateSaleProfitSummary,
   summarizeAccountBalance,
+  accountFlowBucket,
   summarizeDashboardMetrics,
   summarizeSupplierBalance,
 } from "../domain/calculations";
@@ -672,8 +673,6 @@ export function createPrismaBalancesRepository(): BalancesRepository {
       // Con periodo se traen las filas hasta su fin y se reparten en la app por dia de Colombia:
       // fecha escrita (medianoche UTC) = ese dia; cualquier otra hora se lee en Colombia.
       const dateFilter = period ? { lt: period.to } : undefined;
-      const range = period ? { start: period.from, end: period.to } : null;
-      const startKey = period ? colombiaDayKey(period.from) : "";
       const [accounts, salePayments, supplierPayments, shippingCosts, expenses, movements] = await Promise.all([
         prisma.account.findMany({
           orderBy: [{ isActive: "desc" }, { name: "asc" }],
@@ -719,14 +718,14 @@ export function createPrismaBalancesRepository(): BalancesRepository {
         openingById.set(account.id, toNumber(account.openingBalance));
       }
       const add = (accountId: string | null, date: Date | null, amount: Prisma.Decimal, field: keyof Totals) => {
-        if (!accountId || !date) return;
+        const bucket = accountFlowBucket(date, period);
+        if (!accountId || !bucket) return;
         const value = toNumber(amount);
-        if (range && colombiaDayKey(date) < startKey) {
+        if (bucket === "prior") {
           const sign = field === "ingreso" || field === "movimientosIn" ? 1 : -1;
           openingById.set(accountId, (openingById.get(accountId) ?? 0) + sign * value);
           return;
         }
-        if (range && !inColombiaPeriod(date, range)) return;
         const totals = totalsById.get(accountId) ?? { ingreso: 0, gasto: 0, movimientosIn: 0, movimientosOut: 0 };
         totals[field] += value;
         totalsById.set(accountId, totals);

@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { colombiaDayKey, todayInColombia } from "@/lib/colombia-time";
 import { toast } from "react-toastify";
 import { useFormStatus } from "react-dom";
 
@@ -99,19 +100,16 @@ type SaleAttachmentDraft = {
 };
 
 function todayInputValue(): string {
-  const now = new Date();
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 10);
+  return todayInColombia();
 }
 
 function firstDayOfMonthInput(): string {
   return `${todayInputValue().slice(0, 8)}01`;
 }
 
-// Convierte un instante ISO (UTC) al día en la zona horaria local del navegador.
+// Convierte un instante ISO (UTC) al día en Colombia.
 function isoToLocalDay(iso: string): string {
-  const date = new Date(iso);
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  return colombiaDayKey(new Date(iso));
 }
 
 const STATUS_FILTER_OPTIONS: QuoteStatus[] = ["DRAFT", "SENT", "ACCEPTED", "REJECTED", "EXPIRED"];
