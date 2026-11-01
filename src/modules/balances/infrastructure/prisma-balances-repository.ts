@@ -896,6 +896,8 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           amount: -toNumber(row.amount),
           receiptUrl: row.receiptUrl ?? null,
           receiptName: row.receiptName ?? null,
+          transactionReference: row.transactionReference ?? null,
+          note: row.note ?? null,
         })),
         ...shippingCosts.map((row) => ({
           id: `shipping:${row.id}`,
@@ -916,6 +918,8 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           amount: -toNumber(row.amount),
           receiptUrl: null,
           receiptName: null,
+          transactionReference: row.reference ?? null,
+          note: row.description ?? null,
         })),
         ...movements.map((row) => ({
           id: `movement:${row.id}`,
@@ -928,6 +932,8 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           amount: row.type === "IN" ? toNumber(row.amount) : -toNumber(row.amount),
           receiptUrl: null,
           receiptName: null,
+          // Un traslado entre cuentas sí sale de aquí: no se revisa su nota.
+          note: row.transferId ? null : (row.note ?? null),
         })),
       ];
 

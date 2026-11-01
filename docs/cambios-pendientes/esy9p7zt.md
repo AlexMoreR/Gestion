@@ -1,0 +1,3 @@
+## Pantallas
+
+- `revision_del_saldo`: en `/admin/balances/cuentas/[accountId]`, recuadro "Revisión del saldo" (solo lectura) con todo el historial de la cuenta: punto más bajo y su fecha, saldo inicial que haría falta para no bajar de cero, primer día en negativo y el registro que la llevó ahí. En cuentas de efectivo lista "Salidas que quizá no salieron de aquí" (número de transacción, foto del comprobante o nota con transferencia/bancolombia/nequi/bre-b/pse) y el saldo inicial que haría falta sin ellas. Es una pista, no cambia ningún saldo. Regla pura `reviewAccountHistory` en `src/modules/balances/presentation/account-balance-metrics.ts`.
