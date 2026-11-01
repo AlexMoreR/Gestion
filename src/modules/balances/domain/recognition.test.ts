@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { inColombiaPeriod } from "../../../lib/colombia-time";
 import { computeFullyPaidAt, resolveProfitRecognition } from "./recognition";
 
 const created = new Date("2026-09-01T15:00:00Z");
@@ -64,6 +65,20 @@ describe("resolveProfitRecognition", () => {
         saleCreatedAt: created,
       }),
     ).toEqual({ recognizedAt: delivered, pendingDelivery: false });
+  });
+
+  it("contraentrega de Julieth entregada a las 9 p. m. del 31-oct: cuenta en octubre", () => {
+    const entregada = new Date("2026-11-01T02:00:00Z");
+    const recognition = resolveProfitRecognition({
+      paymentMethod: "CONTRAENTREGA",
+      orderStatus: "COMPLETED",
+      deliveredAt: entregada,
+      fullyPaidAt: entregada,
+      saleCreatedAt: new Date("2026-10-20T15:00:00Z"),
+    });
+    expect(recognition?.recognizedAt).toEqual(entregada);
+    expect(inColombiaPeriod(recognition!.recognizedAt, "2026-10")).toBe(true);
+    expect(inColombiaPeriod(recognition!.recognizedAt, "2026-11")).toBe(false);
   });
 
   it("orden cancelada: no cuenta", () => {

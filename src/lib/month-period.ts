@@ -1,4 +1,5 @@
 import type { DateRange } from "@/modules/balances/domain/entities";
+import { colombiaMonthRange, todayInColombia } from "@/lib/colombia-time";
 
 export type ResolvedMonth = {
   period: DateRange;
@@ -8,29 +9,18 @@ export type ResolvedMonth = {
   month: number; // 1-12
 };
 
-// Resuelve un mes solicitado (YYYY-MM) o el mes en curso por defecto, y devuelve
-// el rango semiabierto [from, to) en UTC junto con el valor y la etiqueta.
-//
-// Limites en UTC: las fechas de gasto/pago se guardan como medianoche UTC, asi
-// que un movimiento del dia 1 cae dentro de su mes y no del anterior. Es la misma
-// convencion que usa la pagina de Balances.
+// Resuelve un mes solicitado (YYYY-MM) o el mes en curso en Colombia por defecto, y
+// devuelve el rango semiabierto [from, to) de 00:00 Colombia (05:00Z) del dia 1 a la
+// medianoche del mes siguiente, junto con el valor y la etiqueta.
 export function resolveMonthPeriod(monthParam?: string): ResolvedMonth {
-  const now = new Date();
-  let year = now.getUTCFullYear();
-  let monthIndex = now.getUTCMonth();
-
-  if (typeof monthParam === "string" && /^\d{4}-\d{2}$/.test(monthParam)) {
-    const [parsedYear, parsedMonth] = monthParam.split("-").map(Number);
-    if (parsedMonth >= 1 && parsedMonth <= 12) {
-      year = parsedYear;
-      monthIndex = parsedMonth - 1;
-    }
+  let value = todayInColombia().slice(0, 7);
+  if (typeof monthParam === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam)) {
+    value = monthParam;
   }
 
-  const from = new Date(Date.UTC(year, monthIndex, 1));
-  const to = new Date(Date.UTC(year, monthIndex + 1, 1));
-  const value = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
-  const label = from.toLocaleDateString("es", { month: "long", year: "numeric", timeZone: "UTC" });
+  const [year, month] = value.split("-").map(Number);
+  const { start: from, end: to } = colombiaMonthRange(value);
+  const label = from.toLocaleDateString("es", { month: "long", year: "numeric", timeZone: "America/Bogota" });
 
-  return { period: { from, to }, value, label, year, month: monthIndex + 1 };
+  return { period: { from, to }, value, label, year, month };
 }

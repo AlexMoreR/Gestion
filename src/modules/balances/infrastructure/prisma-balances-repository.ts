@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
+import { inColombiaPeriod } from "@/lib/colombia-time";
 import { prisma } from "@/lib/prisma";
 import type {
   BalancesRepository,
@@ -225,11 +226,13 @@ function buildProfitWhere(search?: string): Prisma.SaleWhereInput {
 // Mes en que cuenta la venta: SaleProfit.createdAt ya viene con la fecha de
 // reconocimiento (pago completo; en contraentrega, la ultima entrega). Se filtra
 // en JS para no depender de campos que "deshacer / re-entregar" pueden desajustar.
+// El corte es a medianoche de Colombia (una entrega a las 9 p. m. del 31 cuenta en ese mes).
 function filterByRecognitionPeriod(rows: SaleProfit[], period?: DateRange): SaleProfit[] {
   if (!period) {
     return rows;
   }
-  return rows.filter((row) => row.createdAt >= period.from && row.createdAt < period.to);
+  const range = { start: period.from, end: period.to };
+  return rows.filter((row) => inColombiaPeriod(row.createdAt, range));
 }
 
 // onlyRecognized: solo las ventas que cuentan en Balances (resolveProfitRecognition).
@@ -666,8 +669,13 @@ export function createPrismaBalancesRepository(): BalancesRepository {
     },
 
     async listAccountBalances(period?: DateRange): Promise<AccountBalance[]> {
-      // Cada flujo se filtra por su propia fecha contable cuando hay periodo.
-      const periodFilter = period ? { gte: period.from, lt: period.to } : undefined;
+      // Cada flujo se filtra por su propia fecha contable cuando hay periodo. El periodo
+      // empieza a las 00:00 de Colombia (05:00Z); estas fechas se escriben a medianoche UTC,
+      // asi que el mismo mes en la base va de inicio - 5 h a fin - 5 h.
+      // shortcut: un momento real en esas columnas sigue con corte UTC, upgrade en las partes 2 a 4 del corte de mes
+      const writtenFrom = period ? new Date(period.from.getTime() - 5 * 60 * 60 * 1000) : undefined;
+      const writtenTo = period ? new Date(period.to.getTime() - 5 * 60 * 60 * 1000) : undefined;
+      const periodFilter = period ? { gte: writtenFrom, lt: writtenTo } : undefined;
       const [accounts, incomeByAccount, expenseByAccount, shippingByAccount, operatingExpenseByAccount, movementsByAccount] = await Promise.all([
         prisma.account.findMany({
           orderBy: [{ isActive: "desc" }, { name: "asc" }],
@@ -746,7 +754,7 @@ export function createPrismaBalancesRepository(): BalancesRepository {
         openingById.set(account.id, toNumber(account.openingBalance));
       }
       if (period) {
-        const priorFilter = { lt: period.from };
+        const priorFilter = { lt: writtenFrom };
         const [pIncome, pSupplierPay, pShipping, pExpense, pMovements] = await Promise.all([
           prisma.salePayment.groupBy({
             by: ["accountId"],
