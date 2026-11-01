@@ -13,7 +13,6 @@ import {
   Building2,
   User,
   CreditCard,
-  CheckCircle2,
 } from "lucide-react";
 import { DownloadQuotePdfButton } from "@/components/quotes/download-quote-pdf-button";
 import { formatMoney } from "@/lib/currency";
@@ -30,6 +29,13 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { imageVariantUrl } from "@/lib/image-variants";
+import { BUSINESS_DAYS_BY_TIER } from "@/modules/guias/domain/eta";
+import {
+  COMBO_CHECK_PRODUCT_SELECT,
+  isCamillaComboProduct,
+  quotePaymentTermsText,
+  toComboCheckProduct,
+} from "@/modules/ventas/domain/payment-method";
 import {
   Table,
   TableBody,
@@ -112,7 +118,13 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
         client: true,
         items: {
           include: {
-            product: true,
+            // Todo el producto + lo que pide la regla del Combo Camillas (categoria y combos padre).
+            product: {
+              include: {
+                category: COMBO_CHECK_PRODUCT_SELECT.category,
+                partOfBundles: COMBO_CHECK_PRODUCT_SELECT.partOfBundles,
+              },
+            },
             supplier: true,
           },
         },
@@ -123,6 +135,8 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
   ]);
 
   if (!quote) notFound();
+
+  const hasCamillaCombo = quote.items.some((item) => isCamillaComboProduct(toComboCheckProduct(item.product)));
 
   const itemsWithMeta = quote.items.map((item) => ({
     ...item,
@@ -557,27 +571,17 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
 
       {/* ─── FEATURE GRID (web only) ─────────────────────────────────── */}
       {!isPdf && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2">
           {[
-            {
-              icon: <LifeBuoy className="h-5 w-5 text-sky-600" />,
-              title: "Soporte incluido",
-              desc: "Acompañamiento de principio a fin en implementación y dudas.",
-            },
-            {
-              icon: <CheckCircle2 className="h-5 w-5 text-emerald-600" />,
-              title: "Garantía del servicio",
-              desc: "Cobertura de calidad y respaldo sobre entregables acordados.",
-            },
             {
               icon: <Clock3 className="h-5 w-5 text-indigo-600" />,
               title: "Tiempo de entrega",
-              desc: "Cronograma proyectado y seguimiento transparente por etapa.",
+              desc: `Fabricación: tu asesora te confirma los días según el producto. Despacho: Bogotá ${BUSINESS_DAYS_BY_TIER.BOGOTA}, capitales ${BUSINESS_DAYS_BY_TIER.CAPITAL} y municipios ${BUSINESS_DAYS_BY_TIER.MUNICIPIO} días hábiles después de terminar la fabricación.`,
             },
             {
               icon: <CreditCard className="h-5 w-5 text-amber-600" />,
               title: "Forma de pago",
-              desc: "Pago flexible según avance y condiciones comerciales.",
+              desc: quotePaymentTermsText(hasCamillaCombo),
             },
           ].map(({ icon, title, desc }) => (
             <Card
