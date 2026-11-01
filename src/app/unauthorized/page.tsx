@@ -1,6 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+
+// Pantalla de cuenta y acceso: que Google no la indexe ni herede el canonical "/".
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+  alternates: { canonical: null },
+};
 
 export default function UnauthorizedPage() {
   return (
