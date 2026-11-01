@@ -76,6 +76,7 @@ import {
 } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/data-table";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { todayInColombia } from "@/lib/colombia-time";
 import { MoneyInput } from "@/components/ui/money-input";
 import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-field";
 
@@ -602,10 +603,7 @@ function AddSalePaymentSheet({
 }) {
   const inputClass =
     "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
-  const today = new Date();
-  const todayValue = new Date(today.getTime() - today.getTimezoneOffset() * 60_000)
-    .toISOString()
-    .slice(0, 10);
+  const todayValue = todayInColombia();
   const [amount, setAmount] = React.useState("");
   const [paymentDate, setPaymentDate] = React.useState(todayValue);
   // Sin cuentas activas arranca vacio: la retencion se escoge a proposito, nunca por defecto.

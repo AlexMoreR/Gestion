@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  accountFlowBucket,
   calculateSaleProfitSummary,
   summarizeAccountBalance,
   summarizeDashboardMetrics,
@@ -112,5 +113,20 @@ describe("balances calculations", () => {
     expect(result.salesTotal).toBe(1500);
     expect(result.netProfit).toBe(1125);
     expect(result.bestSale?.saleCode).toBe("SAL-001");
+  });
+});
+
+describe("accountFlowBucket", () => {
+  const october = { from: new Date("2026-10-01T05:00:00.000Z"), to: new Date("2026-11-01T05:00:00.000Z") };
+  it("reparte por dia de Colombia y respeta las fechas escritas", () => {
+    expect(accountFlowBucket(new Date("2026-10-01T00:00:00.000Z"), october)).toBe("current");
+    expect(accountFlowBucket(new Date("2026-11-01T03:00:00.000Z"), october)).toBe("current");
+    expect(accountFlowBucket(new Date("2026-11-01T00:00:00.000Z"), october)).toBeNull();
+    expect(accountFlowBucket(new Date("2026-10-01T03:00:00.000Z"), october)).toBe("prior");
+    expect(accountFlowBucket(new Date("2026-09-30T00:00:00.000Z"), october)).toBe("prior");
+  });
+  it("sin periodo cuenta todo, incluso sin fecha; con periodo, sin fecha no cuenta", () => {
+    expect(accountFlowBucket(null)).toBe("current");
+    expect(accountFlowBucket(null, october)).toBeNull();
   });
 });

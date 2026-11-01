@@ -1,5 +1,6 @@
 import { computeItemUnitCost } from "../../../lib/order-item-cost";
-import type { Account, AccountBalance, DashboardMetrics, SaleProfit, SupplierBalance } from "./entities";
+import { colombiaDayKey, inColombiaPeriod } from "../../../lib/colombia-time";
+import type { Account, AccountBalance, DashboardMetrics, DateRange, SaleProfit, SupplierBalance } from "./entities";
 
 export type SaleProfitInput = {
   saleId: string;
@@ -68,6 +69,15 @@ export function summarizeSupplierBalance(
     lastPaymentAt: lastEntry?.createdAt ?? null,
     lastSaleCode: lastEntry?.saleCode ?? null,
   };
+}
+
+// Donde cae un flujo de cuenta: antes del periodo (suma al saldo inicial), dentro, o fuera.
+// Fecha escrita (medianoche UTC) = ese dia; otra hora se lee en Colombia. Sin periodo todo cuenta.
+export function accountFlowBucket(date: Date | null, period?: DateRange): "prior" | "current" | null {
+  if (!period) return "current";
+  if (!date) return null;
+  if (colombiaDayKey(date) < colombiaDayKey(period.from)) return "prior";
+  return inColombiaPeriod(date, { start: period.from, end: period.to }) ? "current" : null;
 }
 
 export function summarizeAccountBalance(
