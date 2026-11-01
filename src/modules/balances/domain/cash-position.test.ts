@@ -42,4 +42,16 @@ describe("summarizeCashPosition", () => {
     expect(position.total).toBe(1065000);
     expect(position.withoutAccount.count).toBe(3);
   });
+
+  it("la cuenta del dueño (OWNER) con saldo negativo no cambia la lista ni el total", () => {
+    const caja = account({ id: "caja", name: "Caja", type: "CASH", periodOpening: 100000, balance: 50000 });
+    const sin = summarizeCashPosition([caja], { salePayments: none, supplierPayments: none, shippingCosts: none });
+    const con = summarizeCashPosition(
+      [caja, account({ id: "dueno", name: "Aportes del dueño", type: "OWNER", periodOpening: 0, balance: -300000 })],
+      { salePayments: none, supplierPayments: none, shippingCosts: none },
+    );
+    expect(con.accounts.map((line) => line.id)).toEqual(["caja"]);
+    expect(con.byType).toEqual(sin.byType);
+    expect(con.total).toBe(150000);
+  });
 });

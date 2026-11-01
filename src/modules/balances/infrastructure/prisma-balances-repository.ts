@@ -675,6 +675,8 @@ export function createPrismaBalancesRepository(): BalancesRepository {
       const dateFilter = period ? { lt: period.to } : undefined;
       const [accounts, salePayments, supplierPayments, shippingCosts, expenses, movements] = await Promise.all([
         prisma.account.findMany({
+          // La cuenta del dueño (OWNER) no se muestra con saldo en Cuentas ni en Balances.
+          where: { type: { not: "OWNER" } },
           orderBy: [{ isActive: "desc" }, { name: "asc" }],
           select: {
             id: true,
