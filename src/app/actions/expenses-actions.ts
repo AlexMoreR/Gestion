@@ -6,7 +6,8 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
+import { getActivityActor, logActivity } from "@/lib/activity-log";
+import { MOTIVO_ANULACION_ERROR, MOTIVO_ANULACION_MIN, anularConMotivo } from "@/lib/anulaciones";
 import { snapshotForLog } from "@/lib/activity-log-snapshot";
 import { getReceiptFile, saveExpenseReceipt } from "@/lib/expense-receipt";
 import { prisma } from "@/lib/prisma";
@@ -406,16 +407,25 @@ export async function adminUpdateExpenseAction(formData: FormData): Promise<void
   redirect(`${returnTo}?${new URLSearchParams({ ok: await okMessage("Gasto actualizado", parsed.data.accountId) }).toString()}`);
 }
 
-export async function adminDeleteExpenseAction(formData: FormData): Promise<void> {
+// Anular gasto: lo que tiene plata no se borra sin motivo; la copia queda en RegistroAnulado.
+// Si un GastoBorrador (gasto por Claude) apuntaba a este gasto, queda con expenseId en NULL.
+export async function adminVoidExpenseAction(formData: FormData): Promise<void> {
   await requireAdminSession();
   const returnTo = getReturnTo(formData);
   const expenseId = getStringField(formData, "expenseId");
+  const motivo = getStringField(formData, "motivo");
 
   if (!expenseId) {
     redirectWithError(returnTo, "Gasto invalido");
   }
+  if (motivo.length < MOTIVO_ANULACION_MIN) {
+    redirectWithError(returnTo, MOTIVO_ANULACION_ERROR);
+  }
+  if (motivo.length > 300) {
+    redirectWithError(returnTo, "El motivo puede tener máximo 300 caracteres");
+  }
 
-  const expenseToDelete = await prisma.expense.findUnique({
+  const expenseToVoid = await prisma.expense.findUnique({
     where: { id: expenseId },
     include: {
       category: { select: { name: true } },
@@ -423,33 +433,34 @@ export async function adminDeleteExpenseAction(formData: FormData): Promise<void
       employee: { select: { name: true } },
     },
   });
-  if (!expenseToDelete) {
+  if (!expenseToVoid) {
     redirectWithError(returnTo, "Gasto no encontrado");
   }
 
   const actor = await getActivityActor();
-  // Copia completa en la bitácora y borrado en la misma operación: si no se puede anotar, no se borra.
-  await prisma.$transaction(async (tx) => {
-    await logActivityTx(tx, actor, {
-      action: "DELETE",
-      entityType: "EXPENSE",
-      entityId: expenseId,
-      summary: `Eliminó un gasto de $${Number(expenseToDelete.amount).toLocaleString("es-CO")} (${expenseToDelete.category.name})`,
-      before: snapshotForLog(
-        {
-          ...expenseToDelete,
-          categoryName: expenseToDelete.category.name,
-          accountName: expenseToDelete.account.name,
-          employeeName: expenseToDelete.employee?.name ?? null,
-          createdById: expenseToDelete.createdById,
+  const { category, account, employee, ...expenseRow } = expenseToVoid;
+  try {
+    await prisma.$transaction(async (tx) => {
+      await anularConMotivo(tx, {
+        tabla: "Expense",
+        registro: {
+          ...expenseRow,
+          categoryName: category.name,
+          accountName: account.name,
+          employeeName: employee?.name ?? null,
         },
-        [...EXPENSE_LOG_FIELDS, "categoryName", "accountName", "employeeName", "createdById"],
-      ),
+        monto: expenseToVoid.amount,
+        motivo,
+        usuarioId: actor.id,
+        usuarioNombre: actor.name || actor.email,
+      });
     });
-    await tx.expense.delete({ where: { id: expenseId } });
-  });
+  } catch (error) {
+    console.error("Failed to void expense:", error);
+    redirectWithError(returnTo, "No se pudo anular el gasto");
+  }
 
   revalidatePath("/admin/gastos");
   revalidatePath("/admin/balances");
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Gasto eliminado" }).toString()}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Gasto anulado" }).toString()}`);
 }

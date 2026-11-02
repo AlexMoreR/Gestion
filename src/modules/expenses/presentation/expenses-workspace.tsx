@@ -5,6 +5,7 @@ import { CalendarDays, Plus, ReceiptText, Tags } from "lucide-react";
 import { StatList } from "@/components/ui/stat-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { colombiaDayKey, colombiaMonthRange, todayInColombia } from "@/lib/colombia-time";
@@ -16,7 +17,7 @@ import type {
 import {
   adminCreateExpenseAction,
   adminCreateExpenseCategoryAction,
-  adminDeleteExpenseAction,
+  adminVoidExpenseAction,
   adminDeleteExpenseCategoryAction,
   adminUpdateExpenseAction,
   adminUpdateExpenseCategoryAction,
@@ -336,31 +337,46 @@ export function ExpensesWorkspace({
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
           role="dialog"
           aria-modal="true"
-          aria-label="Eliminar gasto"
+          aria-label="Anular gasto"
           onClick={() => setPendingExpenseDelete(null)}
         >
           <Card className="w-full max-w-md rounded-2xl p-0" onClick={(event) => event.stopPropagation()}>
-            <CardContent className="space-y-4 p-4">
-              <div>
-                <h3 className="text-base font-semibold text-foreground">Eliminar gasto</h3>
-                <p className="text-sm text-muted-foreground">
-                  Se eliminara el gasto de{" "}
-                  <span className="font-medium text-foreground">{pendingExpenseDelete.categoryName}</span> por{" "}
-                  {formatMoney(pendingExpenseDelete.amount, currency)}. El balance de la cuenta volvera a subir.
-                </p>
-              </div>
-              <div className="flex items-center justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setPendingExpenseDelete(null)}>
-                  Cancelar
-                </Button>
-                <form action={adminDeleteExpenseAction}>
-                  <input type="hidden" name="expenseId" value={pendingExpenseDelete.id} />
-                  <input type="hidden" name="returnTo" value={actionsReturnTo} />
-                  <Button type="submit" variant="destructive">
-                    Eliminar
+            <CardContent className="p-4">
+              <form action={adminVoidExpenseAction} className="space-y-4">
+                <input type="hidden" name="expenseId" value={pendingExpenseDelete.id} />
+                <input type="hidden" name="returnTo" value={actionsReturnTo} />
+                <div>
+                  <h3 className="text-base font-semibold text-foreground">Anular gasto</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Se anulará el gasto de{" "}
+                    <span className="font-medium text-foreground">{pendingExpenseDelete.categoryName}</span> por{" "}
+                    {formatMoney(pendingExpenseDelete.amount, currency)}. El balance de la cuenta vuelve a subir y
+                    queda una copia con el motivo.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="expense-void-motivo" className="text-sm font-medium text-foreground">
+                    Motivo
+                  </label>
+                  <Textarea
+                    key={pendingExpenseDelete.id}
+                    id="expense-void-motivo"
+                    name="motivo"
+                    required
+                    minLength={3}
+                    maxLength={300}
+                    placeholder="Ej.: el gasto quedó repetido"
+                  />
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setPendingExpenseDelete(null)}>
+                    Volver
                   </Button>
-                </form>
-              </div>
+                  <Button type="submit" variant="destructive">
+                    Anular gasto
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
         </div>

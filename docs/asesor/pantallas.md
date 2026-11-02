@@ -83,10 +83,10 @@ Lista de ventas (código `SAL-...`): cobrar abonos, ver recibo, crear la orden y
   - **Ver orden** (si ya tiene orden) o **Crear orden** (crea la orden de venta).
   - **Editar fecha**: diálogo "Editar fecha de la venta" (Fecha de la venta, casilla "Alinear también la orden, cobros y cargos a proveedores"); **Cancelar** / **Guardar**. Si la fecha es anterior a hoy pide el motivo (retroactivo).
   - **Cambiar forma de pago**: diálogo "Forma de pago" con el selector (sin "Sin definir"; aviso "Escoge la forma de pago") (50 % anticipo + 50 % al terminar… / Contraentrega (solo combo de camilla…)); **Cancelar** / **Guardar**.
-  - **Ver comprobantes** (o **Sin comprobantes**): hoja "Comprobantes de pago" con cada "Abono #n"; botón de papelera "Eliminar abono".
+  - **Ver comprobantes** (o **Sin comprobantes**): hoja "Comprobantes de pago" con cada "Abono #n"; botón **Anular** en cada abono: abre "Anular abono" con el campo **Motivo** (obligatorio, mínimo 3 letras) → **Anular abono** / **Volver**.
   - **Anular venta**: ventanita "Anular venta" con el campo **Motivo** (obligatorio) y botones **Volver** / **Anular venta**. La venta queda "Anulada" y su orden "Cancelada" con el motivo; no borra abonos, fletes, despachos ni pagos a proveedores.
   - **Borrar definitivamente** (solo lo ve el dueño): ventanita "Borrar venta definitivamente" con **Motivo** y botones **Volver** / **Borrar definitivamente**; borra la venta con su orden, despachos, abonos y pagos/cargos a proveedores y deja una copia en Actividad.
-- Hoja **Registrar abono**: fecha del abono arriba (si es anterior a hoy pide motivo), muestra Total venta y Saldo pendiente; campos **Monto del abono** (máximo = saldo), **Cuenta de balance** (cuentas activas + opción "Retención en la fuente", que pide "N.º de certificado de retención" opcional y no pide comprobante), Comprobante (botón "Archivo"), **Nota**. Botón **Guardar abono**. Abajo, "Abonos registrados" con papelera para eliminar cada uno.
+- Hoja **Registrar abono**: fecha del abono arriba (si es anterior a hoy pide motivo), muestra Total venta y Saldo pendiente; campos **Monto del abono** (máximo = saldo), **Cuenta de balance** (cuentas activas + opción "Retención en la fuente", que pide "N.º de certificado de retención" opcional y no pide comprobante), Comprobante (botón "Archivo"), **Nota**. Botón **Guardar abono**. Abajo, "Abonos registrados" con el botón **Anular** en cada uno (pide motivo, igual que en Ver comprobantes).
 
 ## /admin/cotizaciones
 Lista de cotizaciones (código `COT-...`): crear, editar, abrir el enlace público y pasarlas a venta.
@@ -297,7 +297,7 @@ Gastos operativos (nómina, marketing, arriendo, etc.) por cuenta y categoría.
 **Qué se ve:** pestañas **Gastos** y **Categorias**. Tarjetas Gasto del mes, Gasto del dia, Categoria principal, Categorias. Pestaña Gastos: tabla (Fecha, Categoria, Detalle, Monto) con buscador "Buscar gasto", filtro de categoría ("Todas las categorias"), "Rango de fechas" (por defecto el mes en curso) y panel "Gasto por categoria". Pestaña Categorias: tabla "Categorias de gasto" (Categoria, Gastos, Total acumulado).
 **Botones y acciones:**
 - **Nuevo gasto** (pestaña Gastos): modal **Nuevo gasto**: **Foto** del comprobante (obligatoria salvo que la cuenta sea efectivo), Monto, Fecha (si es anterior a hoy pide motivo), **Categoria**, **Cuenta**, **Empleado** (solo si la categoría es Nómina), Descripcion (opcional) → **Registrar gasto** / **Cancelar**. Si faltan categorías o cuentas sale un aviso con **Entendido**.
-- Clic en una fila → diálogo **Acciones del gasto**: **Ver comprobante**, **Editar** (modal **Editar gasto** → **Guardar cambios**; en la foto: **Ver** / **Quitar**), **Eliminar** (confirma "Eliminar gasto" → **Eliminar**).
+- Clic en una fila → diálogo **Acciones del gasto**: **Ver comprobante**, **Editar** (modal **Editar gasto** → **Guardar cambios**; en la foto: **Ver** / **Quitar**), **Anular** (abre "Anular gasto" con el campo **Motivo**, obligatorio → **Anular gasto** / **Volver**).
 - **Nueva categoria** (pestaña Categorias): Nombre, Descripcion (opcional), casilla **Categoria activa** al editar → **Crear categoria** / **Guardar cambios**. Por fila: lápiz "Editar categoria", papelera "Eliminar categoria" (solo si no tiene gastos).
 
 ## /admin/comisiones

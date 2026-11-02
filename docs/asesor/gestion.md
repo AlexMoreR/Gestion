@@ -82,6 +82,7 @@ en las Server Actions y en `src/lib/`.
 - `AccountMovement`: entrada, salida o transferencia manual de dinero en una cuenta.
 - `ExpenseCategory`: categoría de gasto operativo.
 - `Expense`: gasto operativo pagado desde una cuenta.
+- `RegistroAnulado`: copia de un abono o gasto que se anuló: de qué tabla, qué registro (sin llave foránea, queda aunque el original ya no exista), código, monto, la fila completa, motivo, desde dónde, quién y cuándo.
 - `RegistroRetroactivo`: una venta, abono o gasto registrado con fecha anterior a hoy: tipo, a qué registro apunta (queda aunque el registro se borre), fecha puesta, momento real del registro, quién, motivo y monto copiado.
 - `InventoryMovement`: entrada, salida o ajuste de stock de un producto.
 - `MonthClosure`: cierre de mes congelado (ventas, costos, envíos, gastos, utilidad y margen) que se comparte por correo.
@@ -163,6 +164,7 @@ en las Server Actions y en `src/lib/`.
 ## Reglas de negocio
 
 - `historial_de_registro`: herramienta de Claude, solo lectura. Por código (ORD, OF, COM, SAL, COT con o sin ceros, o el id de un pago o abono) o por día (hora Colombia) devuelve la bitácora de lo más viejo a lo más nuevo, una línea por entrada: hora, persona, origen (sin dato = "pantalla"), qué hizo, antes y después (solo los campos que cambiaron, cortado a unos 300 caracteres) y la tarjeta y commit si los tiene. Busca también las entradas viejas por el texto del resumen. Una orden o una compra (COM, por su orden) trae además sus cambios de estado. Máximo 500 líneas. Regla en `formatActivityLine`.
+- `anular_con_motivo`: lo que tiene plata no se borra: se anula con motivo. "Anular" un abono (en `/admin/ventas`) o un gasto (en `/admin/gastos`) pide un motivo de al menos 3 letras, guarda la fila completa en `RegistroAnulado`, la quita y lo anota en la bitácora como "Anuló … (motivo)", todo junto: si algo falla no se borra nada. Si al anular un abono la venta queda debiendo, vuelve a Activa. Regla en `anularConMotivo` y `saleStatusForPaid`.
 - `anular_venta`: "Anular venta" en `/admin/ventas` ya no borra: deja la venta y su orden en Cancelada con el motivo, devuelve el stock y lo anota en la bitácora con antes y después. Una venta anulada no cuenta en Balances.
 - `borrado_definitivo_solo_dueno`: borrar de verdad una venta ("Borrar definitivamente") exige el permiso `hard_delete`, que solo tiene el ADMIN con su ficha de Equipo marcada como "Dueño". No sale en Control de módulos ni se le puede dar a otro rol o persona. Antes de borrar se guarda la copia completa en la bitácora.
 - `scripts_firman`: todo script o migración que cambie datos firma con su tarjeta y su commit. Los scripts con `--aplicar` exigen `--tarjeta T-xxx` (si falta, se niegan antes de conectarse a la base) y dejan una fila en la bitácora con origen "SCRIPT", la tarjeta y el commit (`GIT_COMMIT` o `git rev-parse HEAD`). Una migración de datos inserta su propia fila con origen "MIGRACION". Regla en `exigirTarjeta` (`scripts/firma.mjs`).

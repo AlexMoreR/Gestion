@@ -48,10 +48,6 @@ export async function updateExpenseUseCase(
   return repository.updateExpense(expenseId, input);
 }
 
-export async function deleteExpenseUseCase(repository: ExpensesRepository, expenseId: string) {
-  return repository.deleteExpense(expenseId);
-}
-
 export async function getMetricsUseCase(repository: ExpensesRepository) {
   return repository.getMetrics();
 }

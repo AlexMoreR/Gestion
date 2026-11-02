@@ -318,10 +318,6 @@ export function createPrismaExpensesRepository(): ExpensesRepository {
       return mapExpense(row);
     },
 
-    async deleteExpense(expenseId: string): Promise<void> {
-      await prisma.expense.delete({ where: { id: expenseId } });
-    },
-
     async getMetrics(period?: DateRange): Promise<ExpenseMetrics> {
       const [expenses, categoryCount] = await Promise.all([
         this.listExpenses(period),

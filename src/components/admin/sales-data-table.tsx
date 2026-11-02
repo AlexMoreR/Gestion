@@ -28,7 +28,7 @@ import {
 import { useFormStatus } from "react-dom";
 import {
   adminAddSalePaymentAction,
-  adminDeleteSalePaymentAction,
+  adminVoidSalePaymentAction,
   adminCancelSaleAction,
   adminHardDeleteSaleAction,
   adminUpdateSaleDateAction,
@@ -457,11 +457,10 @@ function SaleReceiptsSheet({
                             <span className="text-xs text-muted-foreground">Sin archivo</span>
                           )}
                           {receipt.id ? (
-                            <form action={adminDeleteSalePaymentAction}>
-                              <input type="hidden" name="returnTo" value="/admin/ventas" />
-                              <input type="hidden" name="paymentId" value={receipt.id} />
-                              <DeletePaymentButton />
-                            </form>
+                            <VoidPaymentButton
+                              paymentId={receipt.id}
+                              amountLabel={formatMoney(receipt.amount, currency)}
+                            />
                           ) : null}
                         </div>
                       </div>
@@ -503,18 +502,65 @@ function RemoveSaleButton({ hard }: { hard: boolean }) {
   );
 }
 
-function DeletePaymentButton() {
+// Anular abono: pide el motivo; la copia queda en RegistroAnulado.
+function VoidPaymentButton({ paymentId, amountLabel }: { paymentId: string; amountLabel: string }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+        aria-label={`Anular abono de ${amountLabel}`}
+      >
+        <Ban className="h-3.5 w-3.5" />
+        Anular
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Anular abono</DialogTitle>
+          </DialogHeader>
+          <form action={adminVoidSalePaymentAction} className="space-y-3">
+            <input type="hidden" name="returnTo" value="/admin/ventas" />
+            <input type="hidden" name="paymentId" value={paymentId} />
+            <p className="text-sm text-muted-foreground">
+              El abono de <span className="font-medium text-foreground">{amountLabel}</span> deja de contar en lo
+              pagado. Si la venta queda debiendo, vuelve a activa. Queda una copia con el motivo.
+            </p>
+            <div className="space-y-1.5">
+              <label htmlFor={`void-payment-motivo-${paymentId}`} className="text-sm font-medium text-foreground">
+                Motivo
+              </label>
+              <Textarea
+                id={`void-payment-motivo-${paymentId}`}
+                name="motivo"
+                required
+                minLength={3}
+                maxLength={300}
+                placeholder="Ej.: el abono quedó repetido"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Volver
+              </Button>
+              <VoidPaymentSubmit />
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function VoidPaymentSubmit() {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
-      aria-label="Eliminar abono"
-      title="Eliminar abono"
-    >
-      <Trash2 className="h-4 w-4" />
-    </button>
+    <Button type="submit" variant="destructive" disabled={pending}>
+      <Ban className="h-4 w-4" />
+      {pending ? "Guardando..." : "Anular abono"}
+    </Button>
   );
 }
 
@@ -810,11 +856,7 @@ function AddSalePaymentSheet({
                     </p>
                   </div>
                   {payment.id ? (
-                    <form action={adminDeleteSalePaymentAction}>
-                      <input type="hidden" name="returnTo" value="/admin/ventas" />
-                      <input type="hidden" name="paymentId" value={payment.id} />
-                      <DeletePaymentButton />
-                    </form>
+                    <VoidPaymentButton paymentId={payment.id} amountLabel={formatMoney(payment.amount, currency)} />
                   ) : null}
                 </div>
               ))}

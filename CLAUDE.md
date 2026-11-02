@@ -179,6 +179,13 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   `GASTO`), `registroId` (sin llave foránea: queda aunque se borre el registro), `fechaPuesta` (mediodía UTC),
   `registradoEn` (momento real), `usuarioId`, `motivo` y `monto` (copia). Reglas puras en
   `src/modules/retroactivos/domain/` (`esRetroactivo`, `diasDeAtraso`, `rangoMesBogota`, `resumirPorPersona`).
+- **RegistroAnulado** — **lo que tiene plata no se borra: se anula con motivo** (nov-2026, migración
+  `20261101120000_registro_anulados`, solo aditiva, sin llaves foráneas como `RegistroRetroactivo`): `tabla`
+  (`SalePayment`/`Expense`), `registroId`, `codigo`, `monto`, `datos` (la fila completa), `motivo`, `origen`,
+  `anuladoPorId`, `anuladoEn`. "Anular" un abono o un gasto pide motivo (≥ 3 letras) y pasa por `anularConMotivo`
+  (`src/lib/anulaciones.ts`, el ÚNICO lugar que borra abonos y gastos): copia, borra y anota "Anuló … (motivo)" en
+  `ActivityLog` en la misma transacción. El estado de la venta según lo pagado sale de `saleStatusForPaid`
+  (`src/modules/ventas/domain/sale-paid-status.ts`). El borrador de un gasto por Claude queda (su `expenseId` pasa a NULL).
 - **MonthClosure** — cierre de mes: foto congelada del resumen (ventas, costos, envíos, gastos,
   utilidad, margen) que se comparte por correo.
 

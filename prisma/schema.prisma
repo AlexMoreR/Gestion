@@ -485,6 +485,27 @@ enum TipoRetroactivo {
   GASTO
 }
 
+// Copia de una fila con plata (abono o gasto) que se anuló con motivo. Sin llaves foráneas
+// a propósito, igual que RegistroRetroactivo: la copia queda aunque se borre el usuario.
+model RegistroAnulado {
+  id           String   @id @default(cuid())
+  // "SalePayment" o "Expense"
+  tabla        String
+  registroId   String
+  // Código legible (SAL-..., número de gasto); puede faltar.
+  codigo       String?
+  monto        Decimal  @db.Decimal(14, 2)
+  // La fila completa antes de borrarla.
+  datos        Json
+  motivo       String
+  origen       String   @default("PANTALLA")
+  anuladoPorId String
+  anuladoEn    DateTime @default(now())
+
+  @@index([tabla, registroId])
+  @@index([anuladoEn])
+}
+
 model RegistroRetroactivo {
   id           String          @id @default(cuid())
   tipo         TipoRetroactivo
