@@ -6,8 +6,9 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
+import { getActivityActor, logActivity } from "@/lib/activity-log";
 import { snapshotForLog } from "@/lib/activity-log-snapshot";
+import { AnulacionError, anularConMotivo, validarMotivoAnulacion } from "@/lib/anulaciones";
 import { getReceiptFile, saveExpenseReceipt } from "@/lib/expense-receipt";
 import { prisma } from "@/lib/prisma";
 import {
@@ -406,6 +407,7 @@ export async function adminUpdateExpenseAction(formData: FormData): Promise<void
   redirect(`${returnTo}?${new URLSearchParams({ ok: await okMessage("Gasto actualizado", parsed.data.accountId) }).toString()}`);
 }
 
+// Anular un gasto: se pide motivo y queda la copia en RegistroAnulado (el borrador ligado, si lo hay, se deja).
 export async function adminDeleteExpenseAction(formData: FormData): Promise<void> {
   await requireAdminSession();
   const returnTo = getReturnTo(formData);
@@ -413,6 +415,13 @@ export async function adminDeleteExpenseAction(formData: FormData): Promise<void
 
   if (!expenseId) {
     redirectWithError(returnTo, "Gasto invalido");
+  }
+
+  const motivo = getStringField(formData, "motivo");
+  try {
+    validarMotivoAnulacion(motivo);
+  } catch (error) {
+    redirectWithError(returnTo, error instanceof AnulacionError ? error.message : "Escribe el motivo");
   }
 
   const expenseToDelete = await prisma.expense.findUnique({
@@ -428,28 +437,25 @@ export async function adminDeleteExpenseAction(formData: FormData): Promise<void
   }
 
   const actor = await getActivityActor();
-  // Copia completa en la bitácora y borrado en la misma operación: si no se puede anotar, no se borra.
+  const { category, account, employee, ...fila } = expenseToDelete;
+  // Copia en RegistroAnulado, bitácora y borrado en la misma operación: si no se puede anotar, no se borra.
   await prisma.$transaction(async (tx) => {
-    await logActivityTx(tx, actor, {
-      action: "DELETE",
-      entityType: "EXPENSE",
-      entityId: expenseId,
-      summary: `Eliminó un gasto de $${Number(expenseToDelete.amount).toLocaleString("es-CO")} (${expenseToDelete.category.name})`,
-      before: snapshotForLog(
-        {
-          ...expenseToDelete,
-          categoryName: expenseToDelete.category.name,
-          accountName: expenseToDelete.account.name,
-          employeeName: expenseToDelete.employee?.name ?? null,
-          createdById: expenseToDelete.createdById,
-        },
-        [...EXPENSE_LOG_FIELDS, "categoryName", "accountName", "employeeName", "createdById"],
-      ),
+    await anularConMotivo(tx, {
+      tabla: "Expense",
+      registro: { ...fila, categoryName: category.name, accountName: account.name, employeeName: employee?.name ?? null },
+      monto: Number(expenseToDelete.amount),
+      motivo,
+      usuarioId: actor.id,
+      usuarioNombre: actor.name || actor.email,
+      bitacora: {
+        entityType: "EXPENSE",
+        entityId: expenseId,
+        descripcion: `un gasto de $${Number(expenseToDelete.amount).toLocaleString("es-CO")} (${category.name})`,
+      },
     });
-    await tx.expense.delete({ where: { id: expenseId } });
   });
 
   revalidatePath("/admin/gastos");
   revalidatePath("/admin/balances");
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Gasto eliminado" }).toString()}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Gasto anulado" }).toString()}`);
 }

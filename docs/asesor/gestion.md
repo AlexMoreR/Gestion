@@ -83,6 +83,7 @@ en las Server Actions y en `src/lib/`.
 - `ExpenseCategory`: categoría de gasto operativo.
 - `Expense`: gasto operativo pagado desde una cuenta.
 - `RegistroRetroactivo`: una venta, abono o gasto registrado con fecha anterior a hoy: tipo, a qué registro apunta (queda aunque el registro se borre), fecha puesta, momento real del registro, quién, motivo y monto copiado.
+- `RegistroAnulado`: copia de un abono o gasto anulado: tabla y registro original, código (la venta del abono), monto, la fila completa como estaba, motivo, origen, quién y cuándo. Sin llaves foráneas: queda aunque se borre todo lo demás.
 - `InventoryMovement`: entrada, salida o ajuste de stock de un producto.
 - `MonthClosure`: cierre de mes congelado (ventas, costos, envíos, gastos, utilidad y margen) que se comparte por correo.
 - `ManufacturingOrder`: orden de fabricación (OF-) de una proveedora dentro de una orden de venta, con enlace para enviársela, fecha y dirección de entrega.
@@ -162,6 +163,7 @@ en las Server Actions y en `src/lib/`.
 
 ## Reglas de negocio
 
+- `anular_con_motivo`: lo que tiene plata no se borra: se anula con motivo (mínimo 3 letras). "Anular" un abono (Ventas) o un gasto (Gastos) guarda la fila completa en `RegistroAnulado`, la quita y lo anota en la bitácora "Anuló … (motivo)", todo junto: si algo falla, no se borra nada. Al anular un abono la venta recalcula su estado (`saleStatusForPaid`: pagado ≥ total → pagada; si queda debiendo → activa; nunca toca anuladas ni completadas). Es el único lugar que borra abonos y gastos (`anularConMotivo`, `src/lib/anulaciones.ts`); el borrado definitivo de una venta del dueño va aparte.
 - `historial_de_registro`: herramienta de Claude, solo lectura. Por código (ORD, OF, COM, SAL, COT con o sin ceros, o el id de un pago o abono) o por día (hora Colombia) devuelve la bitácora de lo más viejo a lo más nuevo, una línea por entrada: hora, persona, origen (sin dato = "pantalla"), qué hizo, antes y después (solo los campos que cambiaron, cortado a unos 300 caracteres) y la tarjeta y commit si los tiene. Busca también las entradas viejas por el texto del resumen. Una orden o una compra (COM, por su orden) trae además sus cambios de estado. Máximo 500 líneas. Regla en `formatActivityLine`.
 - `anular_venta`: "Anular venta" en `/admin/ventas` ya no borra: deja la venta y su orden en Cancelada con el motivo, devuelve el stock y lo anota en la bitácora con antes y después. Una venta anulada no cuenta en Balances.
 - `borrado_definitivo_solo_dueno`: borrar de verdad una venta ("Borrar definitivamente") exige el permiso `hard_delete`, que solo tiene el ADMIN con su ficha de Equipo marcada como "Dueño". No sale en Control de módulos ni se le puede dar a otro rol o persona. Antes de borrar se guarda la copia completa en la bitácora.

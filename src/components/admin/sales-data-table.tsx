@@ -457,11 +457,7 @@ function SaleReceiptsSheet({
                             <span className="text-xs text-muted-foreground">Sin archivo</span>
                           )}
                           {receipt.id ? (
-                            <form action={adminDeleteSalePaymentAction}>
-                              <input type="hidden" name="returnTo" value="/admin/ventas" />
-                              <input type="hidden" name="paymentId" value={receipt.id} />
-                              <DeletePaymentButton />
-                            </form>
+                            <VoidPaymentButton paymentId={receipt.id} />
                           ) : null}
                         </div>
                       </div>
@@ -503,18 +499,65 @@ function RemoveSaleButton({ hard }: { hard: boolean }) {
   );
 }
 
-function DeletePaymentButton() {
+function VoidPaymentSubmit() {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
-      aria-label="Eliminar abono"
-      title="Eliminar abono"
-    >
-      <Trash2 className="h-4 w-4" />
-    </button>
+    <Button type="submit" variant="destructive" disabled={pending}>
+      <Ban className="h-4 w-4" />
+      {pending ? "Guardando..." : "Anular abono"}
+    </Button>
+  );
+}
+
+// Anular un abono: pide el motivo (obligatorio) antes de quitarlo de lo pagado.
+function VoidPaymentButton({ paymentId }: { paymentId: string }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+        title="Anular abono"
+      >
+        <Ban className="h-3.5 w-3.5" />
+        Anular
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Anular abono</DialogTitle>
+          </DialogHeader>
+          <form action={adminDeleteSalePaymentAction} className="space-y-3">
+            <input type="hidden" name="returnTo" value="/admin/ventas" />
+            <input type="hidden" name="paymentId" value={paymentId} />
+            <p className="text-sm text-muted-foreground">
+              El abono sale de lo pagado y queda una copia con el motivo. Si la venta queda debiendo, vuelve a
+              activa.
+            </p>
+            <div className="space-y-1.5">
+              <label htmlFor={`void-payment-motivo-${paymentId}`} className="text-sm font-medium text-foreground">
+                Motivo
+              </label>
+              <Textarea
+                id={`void-payment-motivo-${paymentId}`}
+                name="motivo"
+                required
+                minLength={3}
+                maxLength={300}
+                placeholder="Ej.: abono registrado dos veces"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Volver
+              </Button>
+              <VoidPaymentSubmit />
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -810,11 +853,7 @@ function AddSalePaymentSheet({
                     </p>
                   </div>
                   {payment.id ? (
-                    <form action={adminDeleteSalePaymentAction}>
-                      <input type="hidden" name="returnTo" value="/admin/ventas" />
-                      <input type="hidden" name="paymentId" value={payment.id} />
-                      <DeletePaymentButton />
-                    </form>
+                    <VoidPaymentButton paymentId={payment.id} />
                   ) : null}
                 </div>
               ))}

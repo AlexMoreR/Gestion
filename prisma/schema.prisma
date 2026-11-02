@@ -506,6 +506,27 @@ model RegistroRetroactivo {
   @@index([registroId])
 }
 
+// Copia de lo anulado (abonos, gastos): lo que tiene plata no se borra, se anula con motivo.
+// Sin llaves foraneas a proposito (igual que RegistroRetroactivo): la copia queda aunque se borre el resto.
+model RegistroAnulado {
+  id           String   @id @default(cuid())
+  // Tabla del original ("SalePayment", "Expense").
+  tabla        String
+  registroId   String
+  // Codigo legible (p. ej. la venta SAL-00123 del abono).
+  codigo       String?
+  monto        Decimal  @db.Decimal(14, 2)
+  // Fila completa tal como estaba antes de borrarla.
+  datos        Json
+  motivo       String
+  origen       String   @default("PANTALLA")
+  anuladoPorId String
+  anuladoEn    DateTime @default(now())
+
+  @@index([tabla, registroId])
+  @@index([anuladoEn])
+}
+
 model QuoteItem {
   id              String                 @id @default(cuid())
   quoteId         String

@@ -64,7 +64,6 @@ export interface ExpensesRepository {
   getExpense(expenseId: string): Promise<Expense | null>;
   createExpense(input: CreateExpenseInput): Promise<Expense>;
   updateExpense(expenseId: string, input: UpdateExpenseInput): Promise<Expense>;
-  deleteExpense(expenseId: string): Promise<void>;
 
   getMetrics(period?: DateRange): Promise<ExpenseMetrics>;
   listCategoryTotals(period?: DateRange): Promise<ExpenseCategoryTotal[]>;

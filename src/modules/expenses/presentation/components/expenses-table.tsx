@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Paperclip, Pencil, Trash2, X } from "lucide-react";
+import { Ban, Paperclip, Pencil, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -229,8 +229,8 @@ export function ExpensesTable({
                   onDelete(id);
                 }}
               >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar
+                <Ban className="mr-2 h-4 w-4" />
+                Anular
               </Button>
             </div>
           ) : null}

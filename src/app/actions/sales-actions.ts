@@ -12,8 +12,9 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
-import { fullCopyForLog, snapshotForLog } from "@/lib/activity-log-snapshot";
+import { fullCopyForLog } from "@/lib/activity-log-snapshot";
 import { stockToRestore } from "@/lib/order-stock-restore";
+import { AnulacionError, anularConMotivo, validarMotivoAnulacion } from "@/lib/anulaciones";
 import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 import {
@@ -24,6 +25,7 @@ import {
   saleFromQuoteMissing,
 } from "@/modules/ventas/domain/payment-method";
 import { CONSUMIDOR_FINAL_EMAIL } from "@/modules/ventas/domain/sale-origin";
+import { saleStatusForPaid } from "@/modules/ventas/domain/sale-paid-status";
 import { saleItemsErrorMessage } from "@/modules/ventas/domain/sale-items-check";
 import { autoCreateComboOrder } from "@/modules/ventas/application/auto-create-combo-order";
 import {
@@ -448,7 +450,7 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
           createdById,
           // Si la venta nace ya pagada por completo, se factura de una vez
           // (misma regla que la ruta de abonos posteriores).
-          status: totalDownPayment >= netTotal ? "INVOICED" : "ACTIVE",
+          status: saleStatusForPaid(totalDownPayment, netTotal, "ACTIVE"),
           paymentMethod,
           // Origen: se copia el que el CRM aviso para la cotizacion (al marcar GANADO). Si
           // el aviso llega despues, /api/ventas/origen actualiza tambien la venta.
@@ -709,7 +711,7 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
         where: { id: sale.id },
         data: {
           downPaymentAmount: newTotalPaid,
-          status: newTotalPaid >= capital && sale.status === "ACTIVE" ? "INVOICED" : sale.status,
+          status: saleStatusForPaid(newTotalPaid, capital, sale.status),
         },
       });
     });
@@ -728,6 +730,7 @@ const deleteSalePaymentSchema = z.object({
   paymentId: z.string().trim().min(1, "Abono invalido"),
 });
 
+// Anular un abono: se pide motivo, queda la copia en RegistroAnulado y la venta recalcula su estado.
 export async function adminDeleteSalePaymentAction(formData: FormData): Promise<void> {
   await requireAdminSession();
   const returnTo = getReturnTo(formData);
@@ -738,6 +741,13 @@ export async function adminDeleteSalePaymentAction(formData: FormData): Promise<
 
   if (!parsed.success) {
     redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Abono invalido");
+  }
+
+  const motivoRaw = String(formData.get("motivo") ?? "");
+  try {
+    validarMotivoAnulacion(motivoRaw);
+  } catch (error) {
+    redirectWithError(returnTo, error instanceof AnulacionError ? error.message : "Escribe el motivo");
   }
 
   const payment = await prisma.salePayment.findUnique({
@@ -758,49 +768,41 @@ export async function adminDeleteSalePaymentAction(formData: FormData): Promise<
 
   try {
     await prisma.$transaction(async (tx) => {
-      // Copia completa en la bitácora antes de borrar: si no se puede anotar, no se borra.
-      await logActivityTx(tx, actor, {
-        action: "DELETE",
-        entityType: "SALE",
-        entityId: sale.id,
-        entityCode: sale.code,
-        summary: `Eliminó un abono de $${Number(payment.amount).toLocaleString("es-CO")} de ${sale.code}`,
-        before: snapshotForLog({ ...payment, accountName: payment.account?.name ?? null }, [
-          "id",
-          "amount",
-          "paymentDate",
-          "accountId",
-          "accountName",
-          "paymentMethod",
-          "isWithholding",
-          "withholdingCertificate",
-          "note",
-          "receiptName",
-          "createdById",
-          "createdAt",
-        ]),
+      // Copia completa en RegistroAnulado + bitácora antes de borrar: si no se puede anotar, no se borra.
+      await anularConMotivo(tx, {
+        tabla: "SalePayment",
+        // La venta no va en la copia (undefined no entra al JSON).
+        registro: { ...payment, sale: undefined, account: undefined, accountName: payment.account?.name ?? null },
+        codigo: sale.code,
+        monto: Number(payment.amount),
+        motivo: motivoRaw,
+        usuarioId: actor.id,
+        usuarioNombre: actor.name || actor.email,
+        bitacora: {
+          entityType: "SALE",
+          entityId: sale.id,
+          descripcion: `un abono de $${Number(payment.amount).toLocaleString("es-CO")} de ${sale.code}`,
+        },
       });
-      await tx.salePayment.delete({ where: { id: payment.id } });
 
       await tx.sale.update({
         where: { id: sale.id },
         data: {
           downPaymentAmount: newTotalPaid,
-          // Si la venta estaba marcada como facturada por estar pagada y ahora
-          // queda saldo pendiente, se regresa a activa.
-          status: sale.status === "INVOICED" && newTotalPaid < capital ? "ACTIVE" : sale.status,
+          // Si queda saldo pendiente, una venta pagada vuelve a activa.
+          status: saleStatusForPaid(newTotalPaid, capital, sale.status),
         },
       });
     });
   } catch (error) {
-    console.error("Failed to delete sale payment:", error);
-    redirectWithError(returnTo, "No se pudo eliminar el abono");
+    console.error("Failed to void sale payment:", error);
+    redirectWithError(returnTo, "No se pudo anular el abono");
   }
 
   revalidatePath("/admin/ventas");
   revalidatePath("/admin/ventas/retenciones");
   revalidatePath(`/sales/${sale.invoiceToken}`);
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Abono eliminado" }).toString()}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Abono anulado" }).toString()}`);
 }
 
 const cancelSaleSchema = z.object({
@@ -1386,7 +1388,7 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
           createdById,
           // Si la venta nace ya pagada por completo, se factura de una vez
           // (misma regla que la ruta de abonos posteriores).
-          status: downPaymentAmount >= total ? "INVOICED" : "ACTIVE",
+          status: saleStatusForPaid(downPaymentAmount, total, "ACTIVE"),
           paymentMethod,
           origin: "MOSTRADOR",
           ...(saleDate ? { createdAt: saleDate } : {}),
