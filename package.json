@@ -15,7 +15,8 @@
     "dudas:importar": "vite-node scripts/importar-dudas.ts --",
     "fichas:importar": "vite-node scripts/importar-fichas.ts --",
     "compras:reparar-92": "node scripts/reparar-ord-00092.mjs",
-    "stock:costo-95": "node scripts/costo-real-ord-00095.mjs"
+    "stock:costo-95": "node scripts/costo-real-ord-00095.mjs",
+    "ventas:revisar-costos": "vite-node scripts/revisar-ventas-sin-costo.ts --"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",

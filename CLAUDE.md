@@ -275,6 +275,9 @@ Vive en `src/modules/balances/domain/calculations.ts` con el helper de costo uni
 
 Si la venta no tiene orden (o la orden no tiene ítems), el costo sale de los productos de la cotización
 (costo base + flete del catálogo, como STOCK): `pickCostItems` en `calculations.ts`.
+Revisión de **solo lectura** (no escribe, sin `--aplicar`): `npm run ventas:revisar-costos` (`--mes=AAAA-MM`,
+por defecto 2026-10) lista las ventas creadas o que cuentan en ese mes sin productos o con costo 0 y el motivo
+(`saleCostIssues` en `src/modules/balances/domain/sale-cost-review.ts`).
 
 Con eso:
 
