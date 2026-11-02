@@ -1442,6 +1442,7 @@ export async function adminSplitOrderItemAction(formData: FormData): Promise<voi
           notes: item.notes,
           confirmedSupplierId: item.confirmedSupplierId,
           purchaseCost: item.purchaseCost,
+          stockCostSource: item.stockCostSource,
           confirmedAt: item.confirmedAt,
           supplierPaymentStatus: item.supplierPaymentStatus,
         },
