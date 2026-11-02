@@ -320,6 +320,7 @@ Route handlers reales (`route.ts`):
 | `/api/catalogo/productos` | GET | **Catálogo para otras apps** (el CRM se sincroniza desde acá): código, nombre, descripción, categoría, precio, precio mayorista, imágenes (URL absoluta) y si está oculto. **Nunca costo ni margen.** Módulo `src/modules/catalogo-externo`. | Llave `CATALOGO_API_KEY` (o `MCP_API_KEY` si no existe) |
 | `/api/dudas/respuestas` | GET | **Respuestas de Dudas del catálogo** para Claude: `?estado=todas|pendientes|respondidas` (def. todas), `?grupo=`, `?historial=1` → `{ total, pendientes, respondidas, dudas: [{ id, codigo, grupo, titulo, duda, datos, opciones, respondida, respuesta: { opcion_id, opcion, texto, nota, por, fecha }, historial? }] }`. Solo lectura. | Llave `DUDAS_API_KEY` (si no, `CATALOGO_API_KEY`, si no `MCP_API_KEY`) |
 | `/proveedores-pago/soporte/[token]` | GET (página) | **Foto del comprobante de un pago a proveedora** registrado por Claude (`registrar_pago_proveedora`): muestra OF, proveedora, monto y fecha y pega la foto al pago (acción pública `submitSupplierPaymentReceiptAction`). 24 h, un solo uso. | Enlace secreto (token firmado con `AUTH_SECRET`) |
+| `/api/cierre-mes/pendiente` | GET | **Aviso de cierre de mes** para el CRM (WhatsApp a Alexander por la línea Admin; el envío y el reloj son del CRM): `{ avisar, mes, ultimo_dia_del_mes, cerrado, cuentas: [{ cuenta, cerrada }], mensaje }`. `avisar` solo el último día del mes en Colombia con cuentas sin cerrar. Solo lectura. | Llave `ALERTAS_API_KEY` (si no, `MCP_API_KEY`) |
 | `/api/alertas/dinero` | GET | **Aviso diario de dinero** para el script de aizen1 (`scripts/alertas`, cron 7:00 a. m. → WhatsApp a Alexander por WAHA, línea Admin): `{ avisar, mensaje }`; avisa cuentas en negativo (saldo de `getCashPositionUseCase`) y abonos/fletes/pagos a proveedoras sin cuenta de las últimas 24 h (sin retención). `mensaje` vacío si todo bien. Solo lectura; regla en `src/modules/balances/domain/money-alert.ts`. | Llave `ALERTAS_API_KEY` (si no, `MCP_API_KEY`) |
 | `/api/ventas/origen` | POST | **Origen de la venta desde el CRM.** `{ quoteCode, origin, originDetail?, linea?, contactPhone? }` → 200 `{ ok, quoteCode, origin, saleUpdated }` / 404 `{ error: "cotizacion_no_existe" }` / 400 `{ error: "datos_invalidos" }`. `contactPhone` solo decide recurrencia; no se guarda. Contrato acordado con AgenteLite: **no cambiarlo**. | Misma llave del catálogo o de transporte |
 | `/api/transporte/ubicaciones` | GET/POST | **Envíos para el CRM.** GET `?q=&producto=&limit=` (q normalizado ≥ 2, limit 1..50, def. 20) → `{ resultados: [{ tipo, id, cityId, nombre, ciudad, departamento, envio, pendienteRevision, exacta, cotizacion }], producto }`; `cotizacion` (`{tipo, envio, total}`) solo si vino `producto` y existe. POST `{ cityId, nombre (2..80), origen? }` → 201 `{creado:true,id,nombre}` / 200 `{creado:false,...}` si ya existía / 404 ciudad no encontrada; lo nuevo queda "pendiente de revisar". El CRM ya está programado contra este contrato: **no cambiarlo**. | Llave `TRANSPORTE_API_KEY` (si no, `CATALOGO_API_KEY`, si no `MCP_API_KEY`) |
@@ -332,11 +333,18 @@ Route handlers reales (`route.ts`):
   no está configurada, nadie entra. La variante en la ruta deja la llave en logs del proxy: si se
   filtra, se cambia `MCP_API_KEY`. Las dos rutas comparten `presentation/mcp/http.ts`.
 - **Consulta + registrar gastos**: módulo `src/modules/asesor` (hexagonal). Sus puertos solo tienen métodos de
-  consulta; la ganancia por venta y el resumen del mes **reutilizan los casos de uso de Balances**. La única
-  herramienta que escribe es `registrar_gasto` (anotada sin `readOnlyHint`; ver "Gastos por voz").
+  consulta; la ganancia por venta y el resumen del mes **reutilizan los casos de uso de Balances**. Escriben solo
+  `registrar_gasto`, `registrar_pago_proveedora` y `cerrar_mes` (anotadas sin `readOnlyHint`).
 - Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_abonos`, `ver_venta`, `listar_cotizaciones`,
   `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `equipo`, `asistencia`, `saldos_de_cuentas`,
-  `listar_gastos`, `listar_retroactivos`, `deuda_con_proveedoras`, `registrar_gasto`, `registrar_pago_proveedora` y `que_es_esta_aplicacion`.
+  `listar_gastos`, `listar_retroactivos`, `deuda_con_proveedoras`, `registrar_gasto`, `registrar_pago_proveedora`, `cerrar_mes` y `que_es_esta_aplicacion`.
+- **Cierre de mes** (`cerrar_mes`, nov-2026, sin migración): Alexander dicta el saldo real de cada cuenta activa; dos pasos como
+  `registrar_gasto`. Compara con el saldo de hoy (`getCashPositionUseCase`) y por cuenta con diferencia crea UN
+  `AccountMovement` (`IN` si faltaba, `OUT` si sobraba) con nota "Cierre de mes AAAA-MM: cuadre con el banco", fechado el
+  último día del mes, + `ActivityLog` por cuenta (también si cuadró). Cuenta ya cerrada ese mes no se toca (candado
+  `pg_advisory_xact_lock` por mes); diferencia > $5.000.000 exige `confirmar_diferencia_grande`; solo el mes actual (su
+  último día) o el anterior. Responde una línea: "Cuadró" / "En X faltaban N pesos, ya quedó ajustado". Reglas puras en
+  `src/modules/balances/application/close-month.ts`; base en `infrastructure/prisma-month-close.ts`.
 - `deuda_con_proveedoras` (oct-2026, solo lectura): `proveedora` (nombre, sin tildes) y `desde`/`hasta` (fecha de
   la OF) opcionales → por orden: OF, orden, venta, cliente, productos con color, `costo_acordado`, `pagos[]`
   (fecha, cuenta, monto) y `falta`; por proveedora `debemos_total` = cargos − abonos (el saldo de la lista

@@ -65,11 +65,19 @@ import {
   prepareSupplierPayment,
 } from "@/modules/proveedores/application/register-supplier-payment-by-voice";
 import { createPrismaSupplierPaymentDeps } from "@/modules/proveedores/infrastructure/prisma-supplier-payment-repository";
+import {
+  CLOSE_BIG_DIFFERENCE,
+  MonthCloseInputError,
+  confirmMonthClose,
+  describeMonthClose,
+  prepareMonthClose,
+} from "@/modules/balances/application/close-month";
+import { createPrismaMonthCloseDeps } from "@/modules/balances/infrastructure/prisma-month-close";
 import type { McpServerDefinition, McpToolDefinition, McpToolResult } from "./protocol";
 
 // Casi todas las herramientas son de SOLO LECTURA: solo llaman casos de uso de consulta.
-// Solo escriben registrar_gasto y registrar_pago_proveedora: guardan despues de que el dueno
-// diga "si" (en gastos la foto del soporte es opcional y no se revisa).
+// Solo escriben registrar_gasto, registrar_pago_proveedora y cerrar_mes: guardan despues de que
+// el dueno diga "si" (en gastos la foto del soporte es opcional y no se revisa).
 const READ_ONLY_ANNOTATIONS = {
   readOnlyHint: true,
   destructiveHint: false,
@@ -702,6 +710,65 @@ export const asesorTools: McpToolDefinition[] = [
     },
   }),
   defineTool({
+    name: "cerrar_mes",
+    title: "Cerrar el mes (cuadre con el banco)",
+    description:
+      "Cierre de mes: el dueno dicta el saldo REAL de cada cuenta activa (lo que ve hoy en el banco, la billetera o la caja) y Gestion lo compara con su saldo de hoy. Si hay diferencia crea UN movimiento manual de ajuste por cuenta (entra si en Gestion faltaba plata, sale si sobraba) con la nota 'Cierre de mes AAAA-MM: cuadre con el banco', fechado el ultimo dia del mes. SIEMPRE en dos pasos: (1) confirmado=false (por defecto): NO guarda nada, devuelve la linea de resumen; repitela al dueno y pregunta '¿Lo ajusto?'. (2) SOLO si dice 'si', llama UNA SOLA VEZ con los MISMOS datos y confirmado=true; la respuesta trae una linea para decirle tal cual ('Cuadró' o 'En X faltaban N pesos, ya quedó ajustado'). Una cuenta ya cerrada ese mes no se vuelve a tocar (un error se corrige con un movimiento contrario en Balances; nada se borra). Si una diferencia pasa de $5.000.000 exige confirmar_diferencia_grande=true (suele ser un error al dictar). Mes: por defecto el actual si hoy es su ultimo dia, si no el anterior. Moneda: COP.",
+    schema: z.object({
+      saldos: z
+        .array(
+          z.object({
+            cuenta: z.string().min(1).max(80).describe("Nombre de la cuenta (como sale en saldos_de_cuentas)."),
+            saldo: z.number().finite().min(-1_000_000_000).max(10_000_000_000).describe("Saldo real en pesos, ej. 2350000."),
+          }),
+        )
+        .min(1)
+        .max(30)
+        .describe("Saldo real de cada cuenta que dicto el dueno."),
+      mes: z.string().optional().describe("Mes que se cierra, AAAA-MM. Si se omite: el actual si hoy es su ultimo dia, si no el anterior."),
+      confirmar_diferencia_grande: z
+        .boolean()
+        .default(false)
+        .describe(`true solo si el dueno confirmo una diferencia mayor a $${CLOSE_BIG_DIFFERENCE.toLocaleString("es-CO")}.`),
+      confirmado: z
+        .boolean()
+        .default(false)
+        .describe("false = solo mostrar el resumen. true = el dueno ya dijo 'si': guardar los ajustes (una sola vez)."),
+    }),
+    writes: true,
+    handler: async (args) => {
+      const deps = createPrismaMonthCloseDeps();
+      const input = { mes: args.mes, saldos: args.saldos, confirmarDiferenciaGrande: args.confirmar_diferencia_grande };
+      try {
+        const plan = args.confirmado ? await confirmMonthClose(deps, input) : await prepareMonthClose(deps, input);
+        return {
+          guardado: args.confirmado,
+          mes: plan.monthKey,
+          resumen: describeMonthClose(plan, args.confirmado),
+          cuentas: plan.lines.map((line) => ({
+            cuenta: line.name,
+            saldo_en_gestion: line.gestion,
+            saldo_real: line.banco,
+            diferencia: line.diferencia,
+            estado: line.estado,
+          })),
+          faltan: plan.faltan,
+          diferencias_grandes: plan.grandes,
+          siguiente_paso: args.confirmado
+            ? "YA quedo guardado (no lo repitas). Dile al dueno el resumen en una linea, tal cual."
+            : plan.grandes.length > 0
+              ? "Hay una diferencia muy grande: pidele al dueno que revise ese saldo. Si lo confirma, llama con confirmado=true y confirmar_diferencia_grande=true."
+              : "Repite el resumen al dueno y pregunta '¿Lo ajusto?'. Si dice si, llama UNA SOLA VEZ mas con los mismos datos y confirmado=true.",
+        };
+      } catch (error) {
+        if (error instanceof MonthCloseInputError) {
+          throw new AsesorInputError(error.message);
+        }
+        throw error;
+      }
+    },
+  }),
+  defineTool({
     name: "que_es_esta_aplicacion",
     title: "Qué es esta aplicación",
     description:
@@ -733,6 +800,6 @@ export const asesorMcpServer: McpServerDefinition = {
   name: "gestion-magilus",
   version: "1.2.0",
   instructions:
-    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos y pagos a proveedoras: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), asistencia (quien esta trabajando hoy, entradas y salidas, dias trabajados), saldos de cuentas, gastos del mes con la ganancia real (listar_gastos) y cuanto se le debe a cada proveedora orden por orden (deuda_con_proveedoras). Para entender el sistema completo usa primero que_es_esta_aplicacion. Todas las herramientas son de lectura salvo registrar_gasto y registrar_pago_proveedora, las unicas que escriben: antes de guardar SIEMPRE repite el resumen al dueno y espera su 'si' (primero con confirmado=false, luego confirmado=true, UNA sola vez: dos llamadas de registrar_gasto crean dos gastos). Un pago a una proveedora por su orden de fabricacion (OF) va con registrar_pago_proveedora, nunca como gasto (contaria el costo dos veces). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
+    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos, pagos a proveedoras y el cierre de mes (cuadre con el banco): ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), asistencia (quien esta trabajando hoy, entradas y salidas, dias trabajados), saldos de cuentas, gastos del mes con la ganancia real (listar_gastos) y cuanto se le debe a cada proveedora orden por orden (deuda_con_proveedoras). Para entender el sistema completo usa primero que_es_esta_aplicacion. Todas las herramientas son de lectura salvo registrar_gasto, registrar_pago_proveedora y cerrar_mes, las unicas que escriben: antes de guardar SIEMPRE repite el resumen al dueno y espera su 'si' (primero con confirmado=false, luego confirmado=true, UNA sola vez: dos llamadas de registrar_gasto crean dos gastos). Un pago a una proveedora por su orden de fabricacion (OF) va con registrar_pago_proveedora, nunca como gasto (contaria el costo dos veces). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
   tools: asesorTools,
 };
