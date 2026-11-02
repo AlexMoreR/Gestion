@@ -1,0 +1,3 @@
+BEGIN;
+ALTER TABLE "OrderItem" ADD COLUMN IF NOT EXISTS "stockCostSource" TEXT;
+COMMIT;
