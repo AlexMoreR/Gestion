@@ -77,9 +77,16 @@ model ActivityLog {
   entityId   String?
   summary    String
   createdAt  DateTime       @default(now())
+  entityCode String?
+  before     Json?
+  after      Json?
+  origin     String?
+  ticket     String?
+  commitSha  String?
   actor      User?          @relation("ActivityLogActor", fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([actorId, createdAt])
+  @@index([entityCode, createdAt])
   @@index([entityType, createdAt])
   @@index([createdAt])
 }

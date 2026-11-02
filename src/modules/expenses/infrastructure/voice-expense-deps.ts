@@ -59,6 +59,6 @@ export function createVoiceExpenseDeps(): VoiceExpenseDeps {
     },
     siteUrl: (path) => getSiteUrl(path),
     logActivity: (actor, entry) =>
-      logActivityAs(actor, { action: "CREATE", entityType: "EXPENSE", entityId: entry.expenseId, summary: entry.summary }),
+      logActivityAs(actor, { action: "CREATE", entityType: "EXPENSE", entityId: entry.expenseId, summary: entry.summary, origin: "MCP" }),
   };
 }

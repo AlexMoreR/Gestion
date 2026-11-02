@@ -138,6 +138,7 @@ export function createPrismaCrmQuoteRepository(db: PrismaClient): CrmQuoteReposi
         entityType: "QUOTE",
         entityId: quote.id,
         summary: `Creó la cotización ${quote.code} desde el CRM`,
+        origin: "CRM",
       });
     },
   };
