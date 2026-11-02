@@ -341,7 +341,7 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
           receiptUrl: true,
           category: { select: { name: true } },
           account: { select: { name: true } },
-          employee: { select: { name: true, email: true } },
+          employee: { select: { name: true, email: true, teamMember: { select: { isOwner: true } } } },
         },
       });
       const rows = found.filter((row) => inColombiaPeriod(row.expenseDate, period));
@@ -354,6 +354,7 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
         note: row.description,
         person: row.employee ? row.employee.name?.trim() || row.employee.email : null,
         hasReceipt: Boolean(row.receiptUrl),
+        ownerWithdrawal: row.employee?.teamMember?.isOwner === true,
       }));
     },
 

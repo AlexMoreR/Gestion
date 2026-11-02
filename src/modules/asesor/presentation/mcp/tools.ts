@@ -500,7 +500,7 @@ export const asesorTools: McpToolDefinition[] = [
     name: "listar_gastos",
     title: "Listar gastos",
     description:
-      "Gastos operativos de un mes (por fecha de gasto), con total por categoria y la GANANCIA REAL del mes: ventas - producto - flete - comisiones - sueldos basicos - gastos. Cada gasto trae fecha, categoria, cuenta, monto, nota, persona (nomina) y si tiene foto del soporte. Filtro opcional por categoria (ej. publicidad = Marketing, arriendo, servicios, herramientas, varios, nomina). Los pagos de Nomina no se restan como gasto (la nomina ya entra como comisiones + basicos). Sirve para confirmar que un gasto quedo guardado. Valores en COP.",
+      "Gastos operativos de un mes (por fecha de gasto), con total por categoria y la GANANCIA REAL del mes: ventas - producto - flete - pagos de Nomina a empleados del mes (por fecha del pago) - gastos sin nomina. Cada gasto trae fecha, categoria, cuenta, monto, nota, persona (nomina) y si tiene foto del soporte. Filtro opcional por categoria (ej. publicidad = Marketing, arriendo, servicios, herramientas, varios, nomina). Los pagos de Nomina al dueno salen aparte como retiros_del_dueno y no se restan; 'linea' resume 'Nómina pagada: $X · Retiros del dueño: $Y'. Sirve para confirmar que un gasto quedo guardado. Valores en COP.",
     schema: monthArgs.extend({
       categoria: z
         .string()
@@ -513,14 +513,7 @@ export const asesorTools: McpToolDefinition[] = [
       const categoria = args.categoria?.trim()
         ? (resolveCategoryName(args.categoria) ?? args.categoria)
         : undefined;
-      return listExpensesUseCase(deps, mes, anio, categoria, async () => {
-        const board = await loadPayrollBoard(deps, mes, anio);
-        return {
-          base: board.totals.base,
-          commission: board.totals.commission,
-          incomplete: board.totals.incomplete,
-        };
-      });
+      return listExpensesUseCase(deps, mes, anio, categoria);
     },
   }),
   defineTool({
