@@ -49,6 +49,7 @@ en las Server Actions y en `src/lib/`.
 - `nomina`: nómina del mes (salario básico de cada persona + comisiones − lo ya pagado) y el dinero de hoy por cuenta. La configuración (básicos, TRM, días trabajados) vive en `AppSetting` (`payrollConfig`); los pagos son gastos de la categoría Nómina.
 - `equipo`: ficha de cada trabajador (ingreso, salida, contacto, forma de pago) y las reglas de estado Activo/Retirado, edad y "¿trabajaba en tal fecha?". La nómina, las comisiones y las asignaciones la usan para incluir a los activos y sacar a los retirados.
 - `asistencia`: registro de entrada y salida (hora del servidor), correcciones con motivo hechas por un admin, asistencia de hoy y por mes, y los días trabajados del mes que usa la nómina por día desde nov-2026.
+- `revisor`: revisor diario de solo lectura (`GET /api/revisor`, cron de las 7:00 a. m. en aizen1): busca ventas, pagos, stock, compras, borrados, numeración y saldos que no cuadran y devuelve la lista de hallazgos; el script `scripts/revisor` decide si avisa por correo a Sistemas o también al dueño.
 - `asesor`: consultas para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones, nómina, equipo, asistencia, saldos de cuentas, gastos del mes con la ganancia real (`listar_gastos`), cuánto se le debe a cada proveedora orden por orden (`deuda_con_proveedoras`), pedidos por clienta o ciudad con su estado (`buscar_pedido`, `pedidos_abiertos`), la bitácora de quién creó, cambió o borró algo (`historial_de_registro`) y esta radiografía. Es de solo lectura salvo `registrar_gasto`, `registrar_pago_proveedora` y `cerrar_mes` (ver reglas). También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
 
 ## Entidades
@@ -398,6 +399,16 @@ las últimas 24 h, con la venta o la proveedora y el monto (máximo 2 líneas, 3
 retención en la fuente no cuenta; los gastos no pueden quedar sin cuenta. Si todo está bien no llega
 nada. Regla en `src/modules/balances/domain/money-alert.ts`.
 
+**Revisor diario (nov-2026).** Cada mañana (7:00 a. m., cron en aizen1, `scripts/revisor`) se le
+pregunta a Gestión `GET /api/revisor` (**solo lectura**, llave `REVISOR_API_KEY` o `MCP_API_KEY`) qué
+datos no cuadran: ventas "Pagada" con saldo o pagadas sin marcar, pagos o cargos a proveedora sin su
+orden, stock negativo, ítems por stock confirmados o entregados sin su salida, compras sin su entrada,
+con otra cantidad o recibidas sin "Completada", borrados de ventas, órdenes o abonos sin copia en
+anulados (desde el 1-nov-2026), huecos en la numeración ORD/SAL/COM, cuentas en negativo y saldos que
+cambiaron sin movimientos que lo expliquen. El script guarda el JSON del día y avisa por **correo**
+(no WhatsApp): lo nuevo a Sistemas; lo de plata que sigue desde ayer, también al dueño. No corrige
+nada. Reglas en `src/modules/revisor/domain/checks.ts`; a quién avisar, `scripts/revisor/decidir-avisos.mjs`.
+
 **Revisión del saldo y aviso de cuenta en negativo (nov-2026).** En la página de cada cuenta
 (`/admin/balances/cuentas/[accountId]`) el recuadro **"Revisión del saldo"** mira todo el historial de la cuenta (no
 solo el mes elegido) y dice: el punto más bajo y su fecha, el saldo inicial que haría falta (además
@@ -437,6 +448,7 @@ quedó en negativo). Regla en `src/modules/balances/domain/negative-balance.ts`.
 - `/api/transporte/ubicaciones` (POST) crea corregimientos desde el CRM: si la llave se filtra, alguien podría llenar la lista de pendientes. Se cambia `TRANSPORTE_API_KEY` (o la llave que esté en uso).
 - La **base de datos** tiene respaldo nocturno (2:30 a. m.) en aizen1 y en Google Drive ("Respaldos/Gestion", 30 días; ver `scripts/respaldo` y el README), pero las **fotos y comprobantes** (`/public/uploads`) **todavía no tienen respaldo**. Si falla el respaldo llega un correo; si el servidor está apagado no llega nada: la señal es que no haya archivo nuevo en Drive esa mañana. Los respaldos traen datos personales: la carpeta de Drive no se comparte.
 - El **aviso diario de dinero** (`scripts/alertas`) corre fuera de la imagen: si el cron, Gestión o WAHA fallan ese día no llega nada (el error queda en `/var/log/magilus-alertas.log`) y no se reintenta. Lo que quedó sin cuenta hace más de 24 h no se vuelve a avisar; se ve en Balances. Quien tenga `ALERTAS_API_KEY` ve los saldos de las cuentas.
+- El **revisor diario** (`scripts/revisor`) corre fuera de la imagen: si el cron o Gestión fallan, avisa a Sistemas; si el servidor está apagado no llega nada. Si falta el JSON de ayer, ese día no compara saldos. Quien tenga `REVISOR_API_KEY` ve códigos, montos y saldos de las cuentas.
 - Los **cierres de mes guardados** (`MonthClosure`) son fotos congeladas: los que se hicieron antes del corte a medianoche de Colombia (nov-2026) no se recalculan solos y pueden diferir de lo que hoy muestra Balances para ese mes (ventas pagadas entre las 7 p. m. y la medianoche del último día).
 - El **manual de pantallas** (`docs/asesor/pantallas.md`, `seccion='pantallas'`) se escribe a mano. Regla para el Coordinador y los agentes: toda tarjeta que cambie una pantalla de Gestión (un botón, una pestaña o una ruta) actualiza también `docs/asesor/pantallas.md`. Si no se cumple, Claude dará indicaciones viejas.
 - Los riesgos que se deducen de la configuración (arranque, pipeline, réplicas, volúmenes) los detecta la herramienta sola desde el Dockerfile, el workflow y el docker-compose; aquí van solo los que no se pueden deducir.

@@ -2,6 +2,7 @@
 # Aviso por correo cuando falla el respaldo de Gestion.
 # Uso: aviso-fallo.sh "<paso que fallo>" [archivo con el registro de esta corrida]
 # Otro script (precios-vigentes) cambia el asunto y la explicacion con AVISO_ASUNTO y AVISO_TEXTO.
+# El revisor diario manda avisos que no son fallas: paso "-" = sin "paso que fallo"; remitente con AVISO_REMITENTE.
 # Usa el mismo SMTP de Gestion (SMTP_HOST/PORT/SECURE/USER/PASS/FROM) y manda a AVISO_CORREO
 # (por defecto gestionmagilus@gmail.com). La clave SMTP nunca va en la linea de comandos:
 # se le pasa a curl por stdin (-K -), asi no aparece en `ps`.
@@ -37,9 +38,10 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 chmod 700 "$TMP"
 
-ASUNTO="${AVISO_ASUNTO:-Falló el respaldo de Gestión} (paso: $PASO)"
+ASUNTO="${AVISO_ASUNTO:-Falló el respaldo de Gestión}"
+if [ "$PASO" != "-" ]; then ASUNTO="$ASUNTO (paso: $PASO)"; fi
 {
-  echo "From: Respaldo Gestion <$DE>"
+  echo "From: ${AVISO_REMITENTE:-Respaldo Gestion} <$DE>"
   echo "To: $PARA"
   echo "Subject: =?UTF-8?B?$(printf '%s' "$ASUNTO" | base64 | tr -d '\n')?="
   echo "Date: $(LC_ALL=C date -R)"
@@ -49,7 +51,7 @@ ASUNTO="${AVISO_ASUNTO:-Falló el respaldo de Gestión} (paso: $PASO)"
   echo
   if [ -n "${AVISO_TEXTO:-}" ]; then
     printf '%s\n\n' "$AVISO_TEXTO"
-    echo "Paso que falló: $PASO"
+    if [ "$PASO" != "-" ]; then echo "Paso que falló: $PASO"; fi
     echo "Servidor: $(hostname)"
     echo "Hora (Colombia): $(TZ=America/Bogota date '+%Y-%m-%d %H:%M')"
   else
