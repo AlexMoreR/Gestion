@@ -51,7 +51,7 @@ export default async function AdminExpensesPage({ searchParams }: PageProps) {
     expensesRepository.getMetrics(),
     expensesRepository.listExpenses(),
     expensesRepository.listCategories(),
-    balancesRepository.listAccounts({ activeOnly: true }),
+    balancesRepository.listAccounts({ activeOnly: true, includeOwner: true }),
     prisma.user.findMany({
       where: { role: { in: ["ADMIN", "EMPLEADO"] } },
       orderBy: { name: "asc" },
