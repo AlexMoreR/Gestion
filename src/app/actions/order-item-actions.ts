@@ -15,6 +15,7 @@ import { splitOrderItemQuantities } from "@/lib/order-partial-delivery";
 import { logActivity } from "@/lib/activity-log";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { syncOrderStatusAfterProduction } from "@/app/actions/orders-actions";
+import { computeStockExitCost } from "@/lib/stock-exit-cost";
 import { confirmOrderItemSupplier, type ConfirmOrderItemSupplierResult } from "@/lib/order-item-confirm";
 import {
   MOTIVO_FIELD,
@@ -526,7 +527,7 @@ export async function adminConfirmStockOrderItemAction(formData: FormData): Prom
     where: { id: parsed.data.orderItemId },
     include: {
       order: { select: { id: true, code: true, status: true } },
-      product: { select: { name: true, baseCost: true, additionalCost: true } },
+      product: { select: { name: true } },
     },
   });
 
@@ -560,8 +561,12 @@ export async function adminConfirmStockOrderItemAction(formData: FormData): Prom
     );
   }
 
-  // Costo real de compra del inventario = costo proveedor + flete.
-  const inventoryCost = Number(orderItem.product.baseCost) + Number(orderItem.product.additionalCost);
+  // Costo de la compra que entró estas unidades (o el de catálogo si no hay compra).
+  const exitCost = await computeStockExitCost({
+    productId: orderItem.productId,
+    quantity: orderItem.quantity,
+    stockOnHand: available,
+  });
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -579,7 +584,8 @@ export async function adminConfirmStockOrderItemAction(formData: FormData): Prom
         where: { id: orderItem.id },
         data: {
           confirmedAt: new Date(),
-          purchaseCost: inventoryCost,
+          purchaseCost: exitCost.unitCost,
+          stockCostSource: exitCost.source,
         },
       });
     });
@@ -821,7 +827,6 @@ export async function adminBulkConfirmOrderItemsAction(formData: FormData): Prom
         select: {
           name: true,
           baseCost: true,
-          additionalCost: true,
           suppliers: {
             select: { supplierId: true, supplierCost: true },
             orderBy: { isPreferred: "desc" },
@@ -857,6 +862,7 @@ export async function adminBulkConfirmOrderItemsAction(formData: FormData): Prom
     for (const id of stockProductIds) stockAvailable.set(id, 0);
     for (const sum of sums) stockAvailable.set(sum.productId, sum._sum.change ?? 0);
   }
+  const stockBeforeBatch = new Map(stockAvailable);
 
   let confirmed = 0;
   let skipped = 0;
@@ -882,8 +888,16 @@ export async function adminBulkConfirmOrderItemsAction(formData: FormData): Prom
             skipped += 1;
             continue;
           }
-          const inventoryCost =
-            Number(item.product.baseCost) + Number(item.product.additionalCost);
+          // Lote: el stock de antes del lote y lo que ya tomaron otras líneas de la misma pieza.
+          const exitCost = await computeStockExitCost(
+            {
+              productId: item.productId,
+              quantity: item.quantity,
+              stockOnHand: stockBeforeBatch.get(item.productId) ?? 0,
+              alreadyTaken: (stockBeforeBatch.get(item.productId) ?? 0) - available,
+            },
+            tx,
+          );
           await tx.inventoryMovement.create({
             data: {
               productId: item.productId,
@@ -895,7 +909,7 @@ export async function adminBulkConfirmOrderItemsAction(formData: FormData): Prom
           });
           await tx.orderItem.update({
             where: { id: item.id },
-            data: { confirmedAt: new Date(), purchaseCost: inventoryCost },
+            data: { confirmedAt: new Date(), purchaseCost: exitCost.unitCost, stockCostSource: exitCost.source },
           });
           stockAvailable.set(item.productId, available - item.quantity);
           confirmed += 1;
@@ -1125,7 +1139,7 @@ export async function adminUndoConfirmOrderItemAction(formData: FormData): Promi
         });
         await tx.orderItem.update({
           where: { id: orderItem.id },
-          data: { confirmedAt: null, purchaseCost: null },
+          data: { confirmedAt: null, purchaseCost: null, stockCostSource: null },
         });
       });
     } catch (error) {
@@ -1165,6 +1179,7 @@ export async function adminUndoConfirmOrderItemAction(formData: FormData): Promi
         data: {
           confirmedSupplierId: null,
           purchaseCost: null,
+          stockCostSource: null,
           confirmedAt: null,
           supplierPaymentStatus: null,
         },
@@ -1265,7 +1280,7 @@ export async function adminUndoPickupOrderItemAction(formData: FormData): Promis
         });
         await tx.orderItem.update({
           where: { id: orderItem.id },
-          data: { confirmedAt: null, purchaseCost: null },
+          data: { confirmedAt: null, purchaseCost: null, stockCostSource: null },
         });
       });
     } catch (error) {

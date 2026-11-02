@@ -12,6 +12,7 @@ import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { formatMoney } from "@/lib/currency";
 import { resolveDispatchLegs, sumShippingLegs } from "@/lib/dispatch-shipping-legs";
+import { computeStockExitCost } from "@/lib/stock-exit-cost";
 import { computeItemUnitCost } from "@/lib/order-item-cost";
 import { prisma } from "@/lib/prisma";
 import {
@@ -292,6 +293,15 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           ? `Pendiente despachar ${pluralProductos(pendingDespachar)}`
           : "Despachado";
 
+  // Pieza por stock sin confirmar: el costo que se va a usar (compra que la entró o catálogo).
+  const stockExitCostById = new Map(
+    await Promise.all(
+      order.items
+        .filter((item) => !isPurchase && item.fulfillmentMode === "STOCK" && item.confirmedAt === null)
+        .map(async (item) => [item.id, await computeStockExitCost({ productId: item.productId, quantity: item.quantity })] as const),
+    ),
+  );
+
   const orderItemsData = order.items.map((item) => {
     // Proveedores efectivos: los del producto o, si es un combo (sin proveedor
     // propio), la union de los proveedores de sus componentes (sin repetir).
@@ -326,10 +336,10 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       dispatchCode: dispatchByItemId.get(item.id)?.code ?? null,
       dispatchCarrierName: dispatchByItemId.get(item.id)?.carrierName ?? null,
       requiresManufacturing: item.fulfillmentMode !== "STOCK",
-      // Para el modal de stock: precio de fabrica (costo proveedor) y costo real
-      // de compra del inventario (proveedor + flete).
+      // Para el modal de stock: precio de fabrica (costo proveedor) y el costo que se va a usar.
       factoryPrice: Number(item.product.baseCost),
-      inventoryCost: Number(item.product.baseCost) + Number(item.product.additionalCost),
+      stockExitCost: stockExitCostById.get(item.id) ?? null,
+      stockCostSource: item.stockCostSource,
       hasProductionJob: item.productionJobs.length > 0,
       suppliers: effectiveSuppliers.map((entry) => ({
         id: entry.supplierId,

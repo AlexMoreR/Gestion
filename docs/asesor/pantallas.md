@@ -136,7 +136,7 @@ Detalle de una orden. Aquí se fabrica, se recoge, se despacha y se entrega cada
   - **Cancelar**: modal "Cancelar orden". Pide el Motivo y se confirma con **Cancelar orden** (o **Volver**).
 - Botón de cada producto (el texto cambia según la etapa):
   - **Fabricar**: para productos de fabricación. Abre "Confirmacion de compra": Proveedor (lista de los proveedores del producto) y Costo de compra, con el "Total a pagar". **Confirmar compra** fija la proveedora y el costo, pasa el ítem a producción y crea el saldo a favor de la proveedora. Si el producto no tiene proveedores, sale el aviso "El producto no tiene proveedores. Agregalos en el catalogo para confirmar."
-  - **Confirmar**: para productos de stock. Abre "Confirmar salida de stock" y se confirma con **Confirmar y descontar de stock**, que descuenta las unidades del inventario.
+  - **Confirmar**: para productos de stock. Abre "Confirmar salida de stock" y se confirma con **Confirmar y descontar de stock**, que descuenta las unidades del inventario. El recuadro **Costo que se va a usar** muestra el costo y su compra (ORD-...) o "costo de catálogo" si no hay compra; no se edita. En la línea confirmada se ve "Costo $X c/u (ORD-...)".
   - **Recoger**: aparece cuando el producto ya está confirmado. Pide "Foto del producto terminado" (es obligatoria) y se guarda con **Marcar como recogido**. Si ya estaba recogido, el lápiz "Editar despacho" deja editarlo y se guarda con **Guardar cambios**. Aquí no se paga a la proveedora: el formulario deja el pago como pendiente ("Pago pendiente" o "Pagado al proveedor.").
   - **Despachar**: aparece cuando el producto está recogido. Abre el modal de despacho con estos campos:
     - "Modalidad de entrega": Transportadora o Recoge en Bodega.

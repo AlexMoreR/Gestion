@@ -73,7 +73,10 @@ export type OrderItemManagerData = {
   isDespachado: boolean;
   requiresManufacturing: boolean;
   factoryPrice: number;
-  inventoryCost: number;
+  /** Pieza por stock sin confirmar: costo que se va a usar y de dónde sale. */
+  stockExitCost: { unitCost: number; source: string } | null;
+  /** Pieza por stock confirmada: de dónde salió el costo (ORD- de la compra o "catálogo"). */
+  stockCostSource: string | null;
   hasProductionJob: boolean;
   suppliers: SupplierOption[];
   defaultSupplierId: string;
@@ -234,6 +237,9 @@ export function OrderItemManager({
         <p className="text-sm font-medium text-foreground">{item.productName}</p>
         <p className="text-xs text-muted-foreground">
           {item.productCode ? `${item.productCode} · ` : ""}x{item.quantity}
+          {item.stockCostSource && item.purchaseCost !== null ? (
+            <> · Costo {formatMoney(item.purchaseCost, currency)} c/u ({item.stockCostSource})</>
+          ) : null}
           {item.quantity > 1 && !item.isDespachado && !item.hasProductionJob && (
             <button
               type="button"
@@ -386,9 +392,19 @@ export function OrderItemManager({
                       </p>
                     </div>
                     <div className="space-y-1.5">
-                      <span className="text-sm font-medium text-foreground">Costo de compra (inventario)</span>
+                      <span className="text-sm font-medium text-foreground">Costo que se va a usar</span>
                       <p className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground">
-                        {formatMoney(item.inventoryCost, currency)}
+                        {item.stockExitCost ? (
+                          <>
+                            {formatMoney(item.stockExitCost.unitCost, currency)}
+                            <span className="text-muted-foreground">
+                              {" · "}
+                              {item.stockExitCost.source === "catálogo" ? "costo de catálogo" : item.stockExitCost.source}
+                            </span>
+                          </>
+                        ) : (
+                          "—"
+                        )}
                       </p>
                     </div>
                   </div>
