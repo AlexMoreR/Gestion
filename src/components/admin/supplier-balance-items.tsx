@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatMoney } from "@/lib/currency";
+import { displayCode } from "@/lib/code-display";
 
 export type SupplierBalanceRow = {
   id: string;
@@ -110,7 +111,7 @@ export function SupplierBalanceItems({ rows, currency, emptyLabel, header }: Sup
                   className="cursor-pointer"
                 >
                   <TableCell className="w-px whitespace-nowrap text-xs text-muted-foreground">{row.date}</TableCell>
-                  <TableCell className="w-px whitespace-nowrap text-sm font-semibold text-foreground">{row.orderCode}</TableCell>
+                  <TableCell className="w-px whitespace-nowrap text-sm font-semibold text-foreground">{displayCode(row.orderCode)}</TableCell>
                   <TableCell className="text-sm text-foreground">
                     <div className="flex items-stretch gap-2">
                       <div className="-my-1.5 flex w-10 shrink-0 items-center justify-center self-stretch overflow-hidden border-r border-border bg-muted/40">
@@ -170,7 +171,7 @@ export function SupplierBalanceItems({ rows, currency, emptyLabel, header }: Sup
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs text-muted-foreground">
-                  {row.orderCode} · {row.date}
+                  {displayCode(row.orderCode)} · {row.date}
                 </span>
                 <div className="flex items-center gap-1.5">
                   <StateBadge isFinished={row.isFinished} />
@@ -196,7 +197,7 @@ export function SupplierBalanceItems({ rows, currency, emptyLabel, header }: Sup
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-muted-foreground">{header.orden}</dt>
-                  <dd className="font-medium text-foreground">{selected.orderCode}</dd>
+                  <dd className="font-medium text-foreground">{displayCode(selected.orderCode)}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <dt className="text-muted-foreground">{header.producto}</dt>

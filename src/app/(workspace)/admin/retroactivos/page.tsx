@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { formatMoney } from "@/lib/currency";
+import { displayCode } from "@/lib/code-display";
 import { prisma } from "@/lib/prisma";
 import { getSystemCurrency } from "@/lib/system-settings";
 import {
@@ -222,7 +223,7 @@ export default async function AdminRetroactivosPage({ searchParams }: PageProps)
                       <td className="py-2 whitespace-nowrap">
                         {href ? (
                           <Link href={href} className="text-primary hover:underline">
-                            {codigo ?? "Ver gastos"}
+                            {displayCode(codigo) ?? "Ver gastos"}
                           </Link>
                         ) : (
                           <span className="text-muted-foreground">Borrado</span>

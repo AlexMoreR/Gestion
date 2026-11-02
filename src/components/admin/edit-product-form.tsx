@@ -32,6 +32,7 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { displayCode, stripCodeZeros } from "@/lib/code-display";
 import type { ProductPromoFormFields } from "@/lib/product-promo";
 import type { ProductPurchaseRow } from "@/lib/product-purchase-history";
 import { calculateProfit, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
@@ -100,7 +101,7 @@ function stripQuotes(value: string): string {
 
 // Muestra el detalle de actividad con etiquetas "Antes → Después" y valores en negrita.
 function ActivitySummary({ summary }: { summary: string }) {
-  const raw = summary.replace(/^(Actualizó|Creó|Eliminó|Importó)\s+/, "");
+  const raw = stripCodeZeros(summary).replace(/^(Actualizó|Creó|Eliminó|Importó)\s+/, "");
   const dashIdx = raw.indexOf("—");
 
   if (dashIdx >= 0) {
@@ -693,10 +694,10 @@ export function EditProductForm({
                   <p className="mt-2 border-t border-[var(--line)] pt-2 text-xs text-slate-500">
                     Origen:{" "}
                     <span className="font-medium text-slate-700">
-                      {purchaseHistory[0].orderCode ?? purchaseHistory[0].purchaseCode ?? "—"}
+                      {displayCode(purchaseHistory[0].orderCode ?? purchaseHistory[0].purchaseCode) ?? "—"}
                     </span>
                     {purchaseHistory[0].purchaseCode && purchaseHistory[0].orderCode
-                      ? ` · ${purchaseHistory[0].purchaseCode}`
+                      ? ` · ${displayCode(purchaseHistory[0].purchaseCode)}`
                       : ""}
                   </p>
                 ) : null}

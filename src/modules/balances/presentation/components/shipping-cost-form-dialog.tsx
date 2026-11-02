@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { MoneyInput } from "@/components/ui/money-input";
 import { cn } from "@/lib/utils";
+import { displayCode } from "@/lib/code-display";
 import {
   shippingCostCreateSchema,
 } from "@/modules/balances/application/schemas";
@@ -170,7 +171,7 @@ export function ShippingCostFormDialog({
                 <option value="">Selecciona una venta</option>
                 {sales.map((sale) => (
                   <option key={sale.id} value={sale.id}>
-                    {sale.code} - {sale.clientName ?? "Sin cliente"}
+                    {displayCode(sale.code)} - {sale.clientName ?? "Sin cliente"}
                   </option>
                 ))}
               </select>

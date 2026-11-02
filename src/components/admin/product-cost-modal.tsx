@@ -6,6 +6,7 @@ import { getProductPurchaseHistoryAction } from "@/app/actions/inventory-actions
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { displayCode } from "@/lib/code-display";
 import type { ProductPurchaseRow } from "@/lib/product-purchase-history";
 import type { ProductStock } from "@/modules/inventory/domain/entities";
 
@@ -97,9 +98,9 @@ export function ProductCostModal({ product, currency, onClose, onEdit }: Product
               <div className="flex items-center justify-between gap-3 rounded-xl border border-border p-3">
                 <span className="text-sm text-muted-foreground">Orden de origen</span>
                 <span className="inline-flex items-center gap-1 text-sm font-medium text-foreground">
-                  {origin?.orderCode ?? origin?.purchaseCode ?? "—"}
+                  {displayCode(origin?.orderCode ?? origin?.purchaseCode) ?? "—"}
                   {origin?.purchaseCode && origin?.orderCode ? (
-                    <span className="text-xs text-muted-foreground">· {origin.purchaseCode}</span>
+                    <span className="text-xs text-muted-foreground">· {displayCode(origin.purchaseCode)}</span>
                   ) : null}
                 </span>
               </div>

@@ -13,6 +13,7 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { Textarea } from "@/components/ui/textarea";
 import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { cn } from "@/lib/utils";
+import { displayCode } from "@/lib/code-display";
 import { adminSupplierSalePendingAction } from "@/app/actions/balances-actions";
 import {
   supplierPaymentCreateSchema,
@@ -234,7 +235,7 @@ export function SupplierPaymentFormDialog({
                 <option value="">Selecciona una venta</option>
                 {sales.map((sale) => (
                   <option key={sale.id} value={sale.id}>
-                    {sale.code} - {sale.clientName ?? "Sin cliente"}
+                    {displayCode(sale.code)} - {sale.clientName ?? "Sin cliente"}
                   </option>
                 ))}
               </select>

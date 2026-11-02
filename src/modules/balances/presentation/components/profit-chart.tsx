@@ -9,6 +9,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { displayCode } from "@/lib/code-display";
 import type { SaleProfit } from "@/modules/balances/domain/entities";
 
 type ProfitChartProps = {
@@ -26,7 +27,7 @@ export function ProfitChart({ data, currency }: ProfitChartProps) {
   // Datos vienen ordenados por fecha desc; mostramos todas las ventas del
   // periodo de izquierda (mas antigua) a derecha (mas reciente).
   const chartData = [...data].reverse().map((item) => ({
-    saleCode: item.saleCode,
+    saleCode: displayCode(item.saleCode),
     netProfit: item.netProfit,
   }));
 

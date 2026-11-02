@@ -4,6 +4,7 @@ import { Paperclip, PencilLine, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { displayCode } from "@/lib/code-display";
 import type { PaymentHistoryRow } from "@/modules/balances/domain/entities";
 import { BalancesDataGrid } from "./balances-data-grid";
 
@@ -36,7 +37,7 @@ export function PaymentHistoryTable({ data, currency, onEdit, onDelete }: Paymen
       cell: ({ row }) => (
         <div>
           <p className="text-sm font-medium text-foreground">{row.original.supplierName}</p>
-          <p className="text-xs text-muted-foreground">Venta {row.original.saleCode ?? "sin venta"}</p>
+          <p className="text-xs text-muted-foreground">Venta {displayCode(row.original.saleCode) ?? "sin venta"}</p>
         </div>
       ),
     },

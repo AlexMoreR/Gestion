@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { formatMoney } from "@/lib/currency";
+import { displayCode, stripCodeZeros } from "@/lib/code-display";
 import { prisma } from "@/lib/prisma";
 import { colombiaMonthKey, todayInColombia } from "@/lib/colombia-time";
 import { getPublicAssetUrl } from "@/lib/site";
@@ -194,7 +195,7 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
       id: charge.id,
       orderId: null,
       orderCode: "Inventario",
-      productName: product?.name ?? charge.note ?? "Cargo",
+      productName: product?.name ?? (charge.note ? stripCodeZeros(charge.note) : "Cargo"),
       productCode: product?.code ?? null,
       productImage: product?.thumbnailUrl ? getPublicAssetUrl(product.thumbnailUrl) : null,
       quantity: charge.inventoryMovement ? Math.abs(charge.inventoryMovement.change) : null,
@@ -322,10 +323,10 @@ export default async function AdminSupplierBalancePage({ params, searchParams }:
                   <TableCell className="w-px whitespace-nowrap">
                     {row.orderId ? (
                       <Link href={`/admin/ordenes/${row.orderId}`} className="text-sm font-semibold text-foreground hover:underline">
-                        {row.orderCode}
+                        {displayCode(row.orderCode)}
                       </Link>
                     ) : (
-                      <span className="text-sm font-medium text-muted-foreground">{row.orderCode}</span>
+                      <span className="text-sm font-medium text-muted-foreground">{displayCode(row.orderCode)}</span>
                     )}
                   </TableCell>
                   <TableCell className="text-sm text-foreground">

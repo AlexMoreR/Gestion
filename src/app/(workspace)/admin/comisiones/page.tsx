@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { todayInColombia } from "@/lib/colombia-time";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { displayCode } from "@/lib/code-display";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { getCommissionsBoardUseCase } from "@/modules/asesor/application/use-cases";
 import { currentMonthInBogota } from "@/modules/asesor/domain/calculations";
@@ -298,7 +299,7 @@ export default async function AdminComisionesPage({ searchParams }: PageProps) {
                   <tr key={line.saleCode} className="border-b border-border/60 align-top">
                     <td className="py-2 pr-3 tabular-nums text-muted-foreground">{line.numberInMonth}</td>
                     <td className="py-2 pr-3">
-                      <span className="font-medium text-foreground">{line.saleCode}</span>
+                      <span className="font-medium text-foreground">{displayCode(line.saleCode)}</span>
                       {line.pendingDelivery ? (
                         <div className="mt-1">
                           <PendingDeliveryBadge />
@@ -343,7 +344,7 @@ export default async function AdminComisionesPage({ searchParams }: PageProps) {
                 {board.unassigned.lines.map((line) => (
                   <tr key={line.saleCode} className="border-b border-border/60 align-top">
                     <td className="py-2 pr-3">
-                      <span className="font-medium text-foreground">{line.saleCode}</span>
+                      <span className="font-medium text-foreground">{displayCode(line.saleCode)}</span>
                       {line.pendingDelivery ? (
                         <div className="mt-1">
                           <PendingDeliveryBadge />
