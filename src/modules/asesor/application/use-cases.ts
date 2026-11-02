@@ -126,30 +126,22 @@ export async function getMonthSummaryUseCase(deps: AsesorDependencies, mes: numb
   };
 }
 
-export type PayrollTotals = { base: number; commission: number; incomplete: boolean };
-
 // Gastos del mes (por fecha de gasto) con total por categoria y la ganancia real del mes:
-// ventas - producto - flete - comisiones - sueldos basicos - gastos (sin pagos de Nomina).
+// ventas - producto - flete - pagos de Nomina a empleados - gastos sin nomina.
+// Los pagos de Nomina al dueno van aparte como retiros del dueno (no se restan).
 export async function listExpensesUseCase(
   deps: AsesorDependencies,
   mes: number,
   anio: number,
   categoria: string | undefined,
-  loadPayrollTotals: () => Promise<PayrollTotals>,
 ) {
   const period = buildMonthRange(mes, anio);
-  const [metrics, allExpenses, payroll] = await Promise.all([
+  const [metrics, allExpenses] = await Promise.all([
     getDashboardMetricsUseCase(deps.balances, period),
     deps.asesor.listExpenses(period),
-    loadPayrollTotals(),
   ]);
   const expenses = filterExpensesByCategory(allExpenses, categoria);
-  const realProfit = computeRealProfit({
-    contribution: metrics.netProfit,
-    commissions: payroll.commission,
-    baseSalaries: payroll.base,
-    expenses: allExpenses,
-  });
+  const realProfit = computeRealProfit({ contribution: metrics.netProfit, expenses: allExpenses });
   return withShortCodes({
     mes,
     anio,
@@ -171,15 +163,13 @@ export async function listExpensesUseCase(
     ganancia_real: {
       ...summarizeMonth(metrics),
       ...realProfit,
-      nomina_incompleta: payroll.incomplete,
       formula:
-        "ganancia_real = contribucion (ventas - producto - flete) - comisiones del mes - sueldos basicos del mes - gastos sin nomina.",
+        "ganancia_real = contribucion (ventas - producto - flete) - pagos de Nomina a empleados del mes - gastos sin nomina. Los pagos de Nomina al dueno son retiros del dueno y no se restan.",
     },
     notas: [
       "La ganancia real usa todos los gastos del mes, aunque se filtre por categoria; el filtro solo cambia la lista y el total_gastos.",
-      "Los pagos de Nomina no se restan como gasto: la nomina ya entra como comisiones + sueldos basicos del tablero de Nomina (restarlos de nuevo contaria dos veces). Se muestran aparte en pagos_de_nomina_registrados.",
-      "nomina_incompleta = true si a alguien le falta el basico por calcular (dias trabajados o TRM): la ganancia real queda sobreestimada.",
-      "Las comisiones del mes en curso siguen subiendo mientras haya ventas.",
+      "La nomina cuenta en el mes de la fecha del pago (gasto de categoria Nomina), no en el mes del trabajo: nomina_pagada es lo pagado a empleados ese mes.",
+      "retiros_del_dueno = pagos de Nomina a quien tiene la ficha de dueno en Equipo; se muestran aparte y no bajan la ganancia real. Sin ficha de dueno, todo pago de Nomina cuenta como nomina_pagada.",
     ],
   });
 }

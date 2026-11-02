@@ -238,9 +238,9 @@ pide confirmación aparte; no se cierra un mes que no ha terminado. Nada se borr
 movimiento contrario desde Balances.
 
 **Ganancia real del mes (`listar_gastos`).** Ganancia real = ventas − producto − flete (contribución)
-− comisiones del mes − sueldos básicos del mes − gastos. Los pagos de Nómina no se restan como gasto:
-la nómina ya entra como comisiones + básicos del tablero de Nómina, y restarlos de nuevo la contaría
-dos veces.
+− pagos de Nómina a empleados del mes (por fecha del pago) − gastos sin nómina. Los pagos de Nómina al
+dueño (ficha de dueño en Equipo) son retiros del dueño: se muestran aparte y no se restan. Ya no se
+restan comisiones calculadas ni sueldos básicos configurados.
 
 **Pedidos (`buscar_pedido`, `pedidos_abiertos`).** Solo lectura. Pedido = venta (SAL) no cancelada con
 su orden de venta. `buscar_pedido` encuentra por nombre de la clienta, teléfono, ciudad, departamento,

@@ -13,6 +13,8 @@ export type ExpenseLine = {
   note: string | null;
   person: string | null;
   hasReceipt: boolean;
+  // Pago de Nomina a quien tiene la ficha de dueno en Equipo (retiro del dueno). Sin ficha: false.
+  ownerWithdrawal: boolean;
 };
 
 export type DayRange = {

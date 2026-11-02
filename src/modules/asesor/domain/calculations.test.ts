@@ -280,7 +280,7 @@ describe("pantalla de comisiones", () => {
 });
 
 describe("gastos y ganancia real", () => {
-  const line = (category: string, amount: number, id = `${category}-${amount}`): ExpenseLine => ({
+  const line = (category: string, amount: number, id = `${category}-${amount}`, ownerWithdrawal = false): ExpenseLine => ({
     id,
     date: new Date("2026-10-10T12:00:00Z"),
     category,
@@ -289,26 +289,67 @@ describe("gastos y ganancia real", () => {
     note: null,
     person: null,
     hasReceipt: false,
+    ownerWithdrawal,
   });
 
-  it("computeRealProfit no resta dos veces la nomina", () => {
+  it("computeRealProfit resta la nomina a empleados y deja aparte los retiros del dueno", () => {
     const result = computeRealProfit({
       contribution: 5_000_000,
-      commissions: 500_000,
-      baseSalaries: 1_000_000,
-      expenses: [line("Marketing", 200_000), line("Nomina", 700_000), line("Nómina", 300_000), line("Arriendo", 100_000)],
+      expenses: [
+        line("Marketing", 200_000),
+        line("Nomina", 700_000),
+        line("Nómina", 300_000),
+        line("Nómina", 400_000, "dueno", true),
+        line("Arriendo", 100_000),
+      ],
     });
     expect(result.gastos_sin_nomina).toBe(300_000);
-    expect(result.pagos_de_nomina_registrados).toBe(1_000_000);
-    expect(result.ganancia_real).toBe(5_000_000 - 500_000 - 1_000_000 - 300_000);
+    expect(result.nomina_pagada).toBe(1_000_000);
+    expect(result.retiros_del_dueno).toBe(400_000);
+    expect(result.ganancia_real).toBe(5_000_000 - 1_000_000 - 300_000);
   });
 
   it("computeRealProfit sin gastos", () => {
-    expect(computeRealProfit({ contribution: 100, commissions: 10, baseSalaries: 0, expenses: [] })).toMatchObject({
+    expect(computeRealProfit({ contribution: 100, expenses: [] })).toMatchObject({
       gastos_sin_nomina: 0,
-      pagos_de_nomina_registrados: 0,
-      ganancia_real: 90,
+      nomina_pagada: 0,
+      retiros_del_dueno: 0,
+      ganancia_real: 100,
+      linea: "Nómina pagada: $0 · Retiros del dueño: $0",
     });
+  });
+
+  it("computeRealProfit octubre 2026: nomina pagada, retiros del dueno y ganancia real", () => {
+    const result = computeRealProfit({
+      contribution: 5_556_400,
+      expenses: [
+        line("Arriendo", 2_000_000),
+        line("Marketing", 1_823_263),
+        line("Servicios", 500_000),
+        line("Nómina", 1_000_000, "n1"),
+        line("Nómina", 993_010, "n2"),
+        line("Nómina", 200_000, "d1", true),
+        line("Nómina", 500_000, "d2", true),
+      ],
+    });
+    expect(result).toEqual({
+      contribucion: 5_556_400,
+      gastos_sin_nomina: 4_323_263,
+      nomina_pagada: 1_993_010,
+      retiros_del_dueno: 700_000,
+      ganancia_real: -759_873,
+      linea: "Nómina pagada: $1.993.010 · Retiros del dueño: $700.000",
+    });
+  });
+
+  it("computeRealProfit sin ficha de dueno: todo pago de Nomina cuenta como nomina", () => {
+    const result = computeRealProfit({
+      contribution: 1_000_000,
+      expenses: [line("Nómina", 200_000, "a"), line("Nómina", 500_000, "b"), line("Varios", 50_000)],
+    });
+    expect(result.nomina_pagada).toBe(700_000);
+    expect(result.retiros_del_dueno).toBe(0);
+    expect(result.ganancia_real).toBe(250_000);
   });
 
   it("filterExpensesByCategory ignora tildes y mayusculas, y sin filtro devuelve todo", () => {

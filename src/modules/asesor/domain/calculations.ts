@@ -122,28 +122,25 @@ export function summarizeExpensesByCategory(lines: ExpenseLine[]) {
     .sort((left, right) => right.total - left.total || left.categoria.localeCompare(right.categoria));
 }
 
-// Ganancia real = ventas - producto - flete (contribucion) - comisiones - sueldos basicos - gastos.
-// Los pagos de Nomina NO se restan como gasto: la nomina ya entra como comisiones + basicos del mes
-// (restarlos tambien contaria dos veces lo mismo).
-export function computeRealProfit(input: {
-  contribution: number;
-  commissions: number;
-  baseSalaries: number;
-  expenses: ExpenseLine[];
-}) {
-  const operatingExpenses = input.expenses
-    .filter((line) => !isPayrollCategory(line.category))
-    .reduce((sum, line) => sum + line.amount, 0);
-  const payrollPaid = input.expenses
-    .filter((line) => isPayrollCategory(line.category))
-    .reduce((sum, line) => sum + line.amount, 0);
+// Ganancia real = ventas - producto - flete (contribucion) - pagos de Nomina a empleados - gastos sin nomina.
+// Los pagos de Nomina al dueno (ficha con isOwner) son retiros del dueno: se muestran aparte y no se restan.
+export function computeRealProfit(input: { contribution: number; expenses: ExpenseLine[] }) {
+  let operatingExpenses = 0;
+  let payrollPaid = 0;
+  let ownerWithdrawals = 0;
+  for (const line of input.expenses) {
+    if (!isPayrollCategory(line.category)) operatingExpenses += line.amount;
+    else if (line.ownerWithdrawal) ownerWithdrawals += line.amount;
+    else payrollPaid += line.amount;
+  }
+  const peso = (value: number) => `$${roundMoney(value).toLocaleString("es-CO")}`;
   return {
     contribucion: roundMoney(input.contribution),
-    comisiones: roundMoney(input.commissions),
-    sueldos_basicos: roundMoney(input.baseSalaries),
     gastos_sin_nomina: roundMoney(operatingExpenses),
-    pagos_de_nomina_registrados: roundMoney(payrollPaid),
-    ganancia_real: roundMoney(input.contribution - input.commissions - input.baseSalaries - operatingExpenses),
+    nomina_pagada: roundMoney(payrollPaid),
+    retiros_del_dueno: roundMoney(ownerWithdrawals),
+    ganancia_real: roundMoney(input.contribution - payrollPaid - operatingExpenses),
+    linea: `Nómina pagada: ${peso(payrollPaid)} · Retiros del dueño: ${peso(ownerWithdrawals)}`,
   };
 }
 

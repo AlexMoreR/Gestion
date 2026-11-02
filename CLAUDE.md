@@ -364,9 +364,10 @@ Route handlers reales (`route.ts`):
   pago, proveedora y OF, despachos (transportador, guía, dirección) y estado en palabras con fecha. Reglas puras en
   `src/modules/asesor/domain/orders.ts`.
 - `listar_gastos` (oct-2026): `mes`/`anio` y `categoria` opcionales → gastos con fecha, categoría, cuenta, monto,
-  nota, persona y `con_foto`; total por categoría y **ganancia real** = ventas − producto − flete − comisiones −
-  sueldos básicos − gastos (`computeRealProfit`). Los pagos de Nómina no se restan como gasto (la nómina ya entra
-  como comisiones + básicos del tablero de Nómina); usa todos los gastos del mes aunque se filtre por categoría.
+  nota, persona y `con_foto`; total por categoría y **ganancia real** = ventas − producto − flete − pagos de Nómina
+  a empleados del mes (fecha del pago) − gastos sin nómina (`computeRealProfit`). Los pagos de Nómina al dueño
+  (`TeamMember.isOwner`) salen aparte como `retiros_del_dueno` y no se restan; usa todos los gastos del mes aunque
+  se filtre por categoría.
 - **Gastos por voz** (`registrar_gasto`, oct-2026, módulo `src/modules/expenses`, migración
   `20261023120000_gastos_por_mcp`, solo aditiva): 1) `confirmado=false` valida y devuelve el resumen (no guarda);
   Claude lo repite y espera el "sí"; 2) `confirmado=true` (una sola vez) **guarda el gasto de una vez** con
