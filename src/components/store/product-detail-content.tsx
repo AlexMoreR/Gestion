@@ -578,7 +578,7 @@ export async function ProductDetailContent({
           <div>
             <h2 className="text-[22px] font-extrabold tracking-tight lg:text-[26px]">¿Te gusta este modelo?</h2>
             <p className="mt-1 text-white/80">
-              Escríbenos por {landing.displayName}
+              Escríbenos por WhatsApp sobre {landing.displayName}
               {product.code ? ` (${product.code})` : ""} y una asesora te ayuda con el color y el envío a tu ciudad.
             </p>
           </div>
