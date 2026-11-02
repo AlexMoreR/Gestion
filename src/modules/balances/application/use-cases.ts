@@ -67,7 +67,7 @@ export async function getProfitReportUseCase(repository: BalancesRepository, que
   return repository.listProfitReport(query);
 }
 
-export async function listAccountsUseCase(repository: BalancesRepository, options?: { activeOnly?: boolean }) {
+export async function listAccountsUseCase(repository: BalancesRepository, options?: { activeOnly?: boolean; includeOwner?: boolean }) {
   return repository.listAccounts(options);
 }
 

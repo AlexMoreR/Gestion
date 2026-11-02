@@ -93,6 +93,14 @@ const RECEIPT_MAX_BYTES = 12 * 1024 * 1024;
 const ALLOWED_RECEIPT_MIME = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
 const ALLOWED_RECEIPT_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".pdf"]);
 
+// La cuenta del dueño (OWNER) solo se usa en Gastos: un formulario viejo no debe colarla aquí.
+async function rejectOwnerAccounts(returnTo: string, ...ids: (string | null | undefined)[]): Promise<void> {
+  const wanted = [...new Set(ids.filter((id): id is string => Boolean(id)))];
+  if (wanted.length === 0) return;
+  const owner = await prisma.account.count({ where: { id: { in: wanted }, type: "OWNER" } });
+  if (owner > 0) redirectWithError(returnTo, "Selecciona una cuenta valida");
+}
+
 function getReceiptExtension(file: File): string {
   const fromName = path.extname(file.name).toLowerCase();
   if (fromName) return fromName;
@@ -170,6 +178,7 @@ export async function adminCreateSupplierPaymentAction(formData: FormData): Prom
   if (!parsed.success) {
     redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos invalidos");
   }
+  await rejectOwnerAccounts(returnTo, parsed.data.accountId);
 
   // Control: no permitir pagar mas de lo que se le debe al proveedor en esta venta.
   const balance = await getSupplierSalePending(parsed.data.saleId, parsed.data.supplierId);
@@ -235,6 +244,7 @@ export async function adminUpdateSupplierPaymentAction(formData: FormData): Prom
   if (!parsed.success) {
     redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos invalidos");
   }
+  await rejectOwnerAccounts(returnTo, parsed.data.accountId);
 
   const receiptFile = formData.get("receipt");
   let receipt: { url: string; name: string } | null = null;
@@ -294,6 +304,7 @@ export async function adminCreateShippingCostAction(formData: FormData): Promise
   if (!parsed.success) {
     redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos invalidos");
   }
+  await rejectOwnerAccounts(returnTo, parsed.data.accountId);
 
   await createShippingCostUseCase(repository, {
     ...parsed.data,
@@ -321,6 +332,7 @@ export async function adminUpdateShippingCostAction(formData: FormData): Promise
   if (!parsed.success) {
     redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos invalidos");
   }
+  await rejectOwnerAccounts(returnTo, parsed.data.accountId);
 
   // Un flete pagado al despachar resta del saldo por su pago: darle cuenta propia lo restaria dos veces.
   if (parsed.data.accountId) {
@@ -573,6 +585,7 @@ export async function adminCreateAccountMovementAction(formData: FormData): Prom
   if (!parsed.success) {
     redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Datos invalidos");
   }
+  await rejectOwnerAccounts(returnTo, parsed.data.accountId, parsed.data.toAccountId);
 
   await createAccountMovementUseCase(repository, {
     accountId: parsed.data.accountId,
@@ -626,7 +639,7 @@ export async function adminAssignFreightAccountAction(formData: FormData): Promi
   }
   const accountId = getStringField(formData, "accountId").trim();
   const account = accountId
-    ? await prisma.account.findUnique({ where: { id: accountId }, select: { id: true, name: true, isActive: true } })
+    ? await prisma.account.findFirst({ where: { id: accountId, type: { not: "OWNER" } }, select: { id: true, name: true, isActive: true } })
     : null;
   if (!account || !account.isActive) {
     redirectWithError(FREIGHT_PATH, "Elige la cuenta de donde salio la plata");

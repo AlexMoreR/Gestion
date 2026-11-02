@@ -54,7 +54,7 @@ export default async function AdminSupplierLedgerPage({ params, searchParams }: 
     }),
     getSystemCurrency(),
     prisma.account.findMany({
-      where: { isActive: true },
+      where: { isActive: true, type: { not: "OWNER" } },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),

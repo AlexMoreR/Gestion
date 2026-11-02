@@ -44,7 +44,7 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
     }),
     getSystemCurrency(),
     prisma.account.findMany({
-      where: { isActive: true },
+      where: { isActive: true, type: { not: "OWNER" } },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),

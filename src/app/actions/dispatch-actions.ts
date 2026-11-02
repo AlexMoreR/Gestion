@@ -440,7 +440,7 @@ async function assertLegPayments(
 ): Promise<void> {
   const ids = [...new Set(payments.map((payment) => payment.accountId).filter((id): id is string => Boolean(id)))];
   const accounts = ids.length
-    ? await prisma.account.findMany({ where: { id: { in: ids } }, select: { id: true, isActive: true, type: true } })
+    ? await prisma.account.findMany({ where: { id: { in: ids }, type: { not: "OWNER" } }, select: { id: true, isActive: true, type: true } })
     : [];
   const accountById = new Map(accounts.map((account) => [account.id, account]));
   for (const [index, leg] of legs.entries()) {

@@ -78,7 +78,7 @@ export async function adminCreateSupplierPaymentAction(formData: FormData): Prom
   let accountId: string | null = null;
   if (parsed.data.accountId) {
     const account = await prisma.account.findFirst({
-      where: { id: parsed.data.accountId, isActive: true },
+      where: { id: parsed.data.accountId, isActive: true, type: { not: "OWNER" } },
       select: { id: true },
     });
     if (!account) {
@@ -355,7 +355,7 @@ export async function adminCreateSupplierPaymentsAction(formData: FormData): Pro
   const rawAccountId = formData.get("accountId");
   if (typeof rawAccountId === "string" && rawAccountId.trim()) {
     const account = await prisma.account.findFirst({
-      where: { id: rawAccountId.trim(), isActive: true },
+      where: { id: rawAccountId.trim(), isActive: true, type: { not: "OWNER" } },
       select: { id: true },
     });
     if (!account) {

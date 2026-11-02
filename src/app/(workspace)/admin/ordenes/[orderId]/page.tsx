@@ -185,7 +185,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       orderBy: { name: "asc" },
     }),
     prisma.account.findMany({
-      where: { isActive: true },
+      where: { isActive: true, type: { not: "OWNER" } },
       select: { id: true, name: true, type: true },
       orderBy: { name: "asc" },
     }),

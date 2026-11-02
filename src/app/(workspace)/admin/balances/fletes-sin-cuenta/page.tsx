@@ -40,7 +40,7 @@ export default async function FreightWithoutAccountPage({ searchParams }: PagePr
 
   const [currency, accounts, freights] = await Promise.all([
     getSystemCurrency(),
-    prisma.account.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.account.findMany({ where: { isActive: true, type: { not: "OWNER" } }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.shippingCost.findMany({
       where: { accountId: null, supplierPaymentId: null },
       orderBy: { paymentDate: "asc" },

@@ -192,7 +192,7 @@ export async function payPayrollAction(formData: FormData): Promise<void> {
 
   const [employee, account] = await Promise.all([
     prisma.user.findUnique({ where: { id: employeeId }, select: { name: true, email: true } }),
-    prisma.account.findUnique({ where: { id: accountId }, select: { name: true, type: true, isActive: true } }),
+    prisma.account.findFirst({ where: { id: accountId, type: { not: "OWNER" } }, select: { name: true, type: true, isActive: true } }),
   ]);
   if (!employee) back(formData, "error", "La persona no existe.");
   if (!account || !account.isActive) back(formData, "error", "La cuenta no existe o está inactiva.");

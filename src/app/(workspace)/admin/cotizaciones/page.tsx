@@ -84,7 +84,7 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
     }),
     getSystemCurrency(),
     prisma.account.findMany({
-      where: { isActive: true },
+      where: { isActive: true, type: { not: "OWNER" } },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true },
     }),
