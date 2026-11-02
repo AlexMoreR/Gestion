@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   accountFlowBucket,
   calculateSaleProfitSummary,
+  pickCostItems,
   summarizeAccountBalance,
   summarizeDashboardMetrics,
   summarizeSupplierBalance,
@@ -128,5 +129,30 @@ describe("accountFlowBucket", () => {
   it("sin periodo cuenta todo, incluso sin fecha; con periodo, sin fecha no cuenta", () => {
     expect(accountFlowBucket(null)).toBe("current");
     expect(accountFlowBucket(null, october)).toBeNull();
+  });
+});
+
+describe("pickCostItems (venta sin orden)", () => {
+  const base = { saleId: "s", saleCode: "SAL-083", saleAmount: 749000, createdAt: new Date("2026-10-20T15:00:00Z"), clientName: null, shippingCosts: [] };
+  const quoteItems = [{ quantity: 2, baseCost: 200000, additionalCost: 30000 }];
+
+  it("sin orden: costo = (base + flete) × cantidad de los productos de la cotizacion", () => {
+    const result = calculateSaleProfitSummary({ ...base, orderItems: pickCostItems(undefined, quoteItems) });
+    expect(result.supplierCosts).toBe(460000);
+    expect(result.netProfit).toBe(289000);
+  });
+
+  it("orden sin items tambien usa la cotizacion", () => {
+    expect(pickCostItems([], quoteItems)).toEqual([{ quantity: 2, baseCost: 200000, additionalCost: 30000, purchaseCost: null, fulfillmentMode: "STOCK" }]);
+  });
+
+  it("con orden: se usan los items de la orden, igual que antes", () => {
+    const orderItems = [{ quantity: 1, purchaseCost: 500000, fulfillmentMode: "MANUFACTURE", baseCost: 0, additionalCost: 0 }];
+    expect(pickCostItems(orderItems, quoteItems)).toBe(orderItems);
+    expect(calculateSaleProfitSummary({ ...base, orderItems: pickCostItems(orderItems, quoteItems) }).supplierCosts).toBe(500000);
+  });
+
+  it("sin orden y sin items: costo 0, como hoy", () => {
+    expect(calculateSaleProfitSummary({ ...base, orderItems: pickCostItems(null, []) }).supplierCosts).toBe(0);
   });
 });

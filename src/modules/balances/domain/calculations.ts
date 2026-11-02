@@ -20,6 +20,18 @@ export type SaleProfitInput = {
   shippingCosts: number[];
 };
 
+type CostItem = SaleProfitInput["orderItems"][number];
+
+// Venta sin orden (o con la orden vacia): el costo sale de los productos de la
+// cotizacion como stock (costo base + flete del catalogo). Con orden, no cambia.
+export function pickCostItems(
+  orderItems: CostItem[] | null | undefined,
+  quoteItems: Array<{ quantity: number; baseCost: number; additionalCost: number }>,
+): CostItem[] {
+  if (orderItems && orderItems.length > 0) return orderItems;
+  return quoteItems.map((item) => ({ ...item, purchaseCost: null, fulfillmentMode: "STOCK" }));
+}
+
 export function calculateSaleProfitSummary(input: SaleProfitInput): SaleProfit {
   const supplierCosts = input.orderItems.reduce((sum, item) => {
     const unitCost = computeItemUnitCost({

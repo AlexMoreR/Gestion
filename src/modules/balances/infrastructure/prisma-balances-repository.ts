@@ -30,6 +30,7 @@ import type {
 } from "../domain/entities";
 import {
   calculateSaleProfitSummary,
+  pickCostItems,
   summarizeAccountBalance,
   accountFlowBucket,
   summarizeDashboardMetrics,
@@ -282,6 +283,12 @@ async function getSaleProfitRows(
           amount: true,
         },
       },
+      // Respaldo del costo cuando la venta no tiene orden (pickCostItems).
+      quote: {
+        select: {
+          items: { select: { quantity: true, product: { select: { baseCost: true, additionalCost: true } } } },
+        },
+      },
     } satisfies Prisma.SaleSelect,
   });
 
@@ -319,13 +326,20 @@ async function getSaleProfitRows(
       createdAt: recognition?.recognizedAt ?? deliveredAt ?? sale.createdAt,
       pendingDelivery: recognition?.pendingDelivery ?? sale.order?.status !== "COMPLETED",
       clientName: sale.client.name,
-      orderItems: sale.order?.items.map((item) => ({
-        quantity: item.quantity,
-        purchaseCost: item.purchaseCost === null ? null : toNumber(item.purchaseCost),
-        fulfillmentMode: item.fulfillmentMode,
-        baseCost: toNumber(item.product.baseCost),
-        additionalCost: toNumber(item.product.additionalCost),
-      })) ?? [],
+      orderItems: pickCostItems(
+        sale.order?.items.map((item) => ({
+          quantity: item.quantity,
+          purchaseCost: item.purchaseCost === null ? null : toNumber(item.purchaseCost),
+          fulfillmentMode: item.fulfillmentMode,
+          baseCost: toNumber(item.product.baseCost),
+          additionalCost: toNumber(item.product.additionalCost),
+        })),
+        sale.quote.items.map((item) => ({
+          quantity: item.quantity,
+          baseCost: toNumber(item.product.baseCost),
+          additionalCost: toNumber(item.product.additionalCost),
+        })),
+      ),
       shippingCosts: sale.shippingCosts.map((entry) => toNumber(entry.amount)),
     }));
   }

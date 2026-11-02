@@ -163,7 +163,8 @@ en las Server Actions y en `src/lib/`.
 **Ganancia de una venta.** Ganancia = valor de la venta − costo de los productos − fletes de envío
 de esa venta. El costo de cada producto vendido es, en este orden: el costo confirmado con la
 proveedora en la orden; si no hay y el producto sale de stock, costo de catálogo + flete por unidad;
-si no, el costo de la proveedora preferida o el costo de catálogo. No resta gastos operativos.
+si no, el costo de la proveedora preferida o el costo de catálogo. Si la venta no tiene orden, el costo
+sale de los productos de la cotización (costo base + flete del catálogo). No resta gastos operativos.
 
 **Productos, links y ganancia en el asesor (`ver_venta`, `listar_ventas`, `listar_cotizaciones`).** Solo
 lectura. Los productos de una venta salen de su orden o, si no tiene, de la cotización (`productos_fuente`),

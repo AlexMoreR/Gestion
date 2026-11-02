@@ -267,6 +267,9 @@ Vive en `src/modules/balances/domain/calculations.ts` con el helper de costo uni
 2. Si no, y el ítem es **STOCK** → `baseCost + additionalCost` (costo de inventario + flete del producto).
 3. Si no → costo del proveedor preferido, o `baseCost` como último recurso.
 
+Si la venta no tiene orden (o la orden no tiene ítems), el costo sale de los productos de la cotización
+(costo base + flete del catálogo, como STOCK): `pickCostItems` en `calculations.ts`.
+
 Con eso:
 
 ```
