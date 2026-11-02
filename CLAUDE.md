@@ -531,6 +531,14 @@ gestionmagilus@gmail.com. Claves solo en `/etc/magilus/respaldo.env` (ejemplo: `
 `restaurar-prueba.sh` carga el último respaldo en un Postgres desechable sin red y compara cantidades
 con producción. Instalación y cómo restaurar: `README.md`. Fotos y comprobantes aún sin respaldo.
 
+**Hoja "Precios vigentes" al cerebro (nov-2026):** `scripts/precios-vigentes/subir-precios-vigentes.sh`
+corre en aizen1 por **cron cada 30 minutos**, fuera de la imagen. Baja `GET /api/asesor/precios-vigentes`
+(llave `MCP_API_KEY`) y la sube con `rclone copyto` a `PRECIOS_RCLONE_DESTINO` (carpeta Magilus del
+cerebro) **solo si cambió** frente a `ultima.md` (sin contar la línea `Generado:`); si falla, avisa con
+`aviso-fallo.sh`. Variables en `/etc/magilus/respaldo.env`; el remoto `cerebro` usa permiso `drive` (no
+`drive.file`), autorizado por Alexander. **La hoja lleva costos**: no la lee el bot de ventas ni las
+asesoras. Instalación: `scripts/precios-vigentes/README.md`.
+
 ---
 
 ## 10. Convenciones y notas para trabajar en el repo
