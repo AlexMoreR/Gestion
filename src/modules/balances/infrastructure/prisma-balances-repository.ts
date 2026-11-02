@@ -998,3 +998,20 @@ export function createPrismaBalancesRepository(): BalancesRepository {
     },
   };
 }
+
+const OWNER_ACCOUNT_LOCK = 7300212027;
+const OWNER_ACCOUNT_NAME = "Aportes del dueño";
+
+// Crea una sola vez la cuenta "Aportes del dueño" (OWNER). El candado evita que dos pedidos a la vez creen dos.
+// Si ya hay otra cuenta con ese nombre (el nombre es único) no crea nada: mejor sin cuenta que romper la pantalla.
+export async function ensureOwnerAccount(createdById: string): Promise<void> {
+  const where = { OR: [{ type: "OWNER" as const }, { name: OWNER_ACCOUNT_NAME }] };
+  if (await prisma.account.findFirst({ where, select: { id: true } })) return;
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(${OWNER_ACCOUNT_LOCK})`);
+    if (await tx.account.findFirst({ where, select: { id: true } })) return;
+    await tx.account.create({
+      data: { name: OWNER_ACCOUNT_NAME, type: "OWNER", openingBalance: 0, isActive: true, createdById },
+    });
+  });
+}

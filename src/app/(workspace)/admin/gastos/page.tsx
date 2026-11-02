@@ -3,7 +3,7 @@ import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { prisma } from "@/lib/prisma";
-import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
+import { createPrismaBalancesRepository, ensureOwnerAccount } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import { createPrismaExpensesRepository } from "@/modules/expenses/infrastructure/prisma-expenses-repository";
 import { ExpensesWorkspace } from "@/modules/expenses/presentation/expenses-workspace";
 import { retiredUserIds } from "@/modules/equipo/application/use-cases";
@@ -40,6 +40,8 @@ export default async function AdminExpensesPage({ searchParams }: PageProps) {
   // Crea Nomina / Marketing / Varios la primera vez que se abre el modulo.
   if (sessionUser) {
     await expensesRepository.ensureDefaultCategories(sessionUser.id);
+    // Crea "Aportes del dueño" la primera vez, para elegirla como cuenta del gasto.
+    await ensureOwnerAccount(sessionUser.id);
   }
 
   const params = await searchParams;

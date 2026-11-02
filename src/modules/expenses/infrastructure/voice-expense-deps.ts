@@ -1,6 +1,7 @@
 import { logActivityAs } from "@/lib/activity-log";
 import { removeExpenseReceipt, saveExpenseReceiptBytes } from "@/lib/expense-receipt";
 import { prisma } from "@/lib/prisma";
+import { ensureOwnerAccount } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import { getSiteUrl } from "@/lib/site";
 import { normalizeWord } from "../domain/expense-draft";
 import type { VoiceExpenseDeps } from "../application/register-expense-by-voice";
@@ -9,11 +10,28 @@ import { createPrismaExpensesRepository } from "./prisma-expenses-repository";
 
 // Une los puertos de "registrar gasto por voz/chat" con Prisma, y el disco (la foto no se revisa).
 export function createVoiceExpenseDeps(): VoiceExpenseDeps {
+  const resolveActor = async () => {
+    const email = process.env.MCP_GASTOS_USUARIO_EMAIL?.trim().toLowerCase();
+    const select = { id: true, name: true, email: true } as const;
+    if (email) {
+      const configured = await prisma.user.findFirst({ where: { email }, select });
+      if (configured) {
+        return configured;
+      }
+    }
+    return prisma.user.findFirst({ where: { role: "ADMIN" }, orderBy: { createdAt: "asc" }, select });
+  };
+
   return {
     expenses: createPrismaExpensesRepository(),
     drafts: createPrismaExpenseDraftRepository(),
 
+    // Incluye "Aportes del dueño" (OWNER); se crea aquí si aún no existe.
     async listAccounts() {
+      const actor = await resolveActor();
+      if (actor) {
+        await ensureOwnerAccount(actor.id);
+      }
       const accounts = await prisma.account.findMany({
         where: { isActive: true },
         orderBy: { name: "asc" },
@@ -33,17 +51,7 @@ export function createVoiceExpenseDeps(): VoiceExpenseDeps {
     },
 
     // La conexion del MCP no sabe quien habla: el gasto queda a nombre del dueno.
-    async resolveActor() {
-      const email = process.env.MCP_GASTOS_USUARIO_EMAIL?.trim().toLowerCase();
-      const select = { id: true, name: true, email: true } as const;
-      if (email) {
-        const configured = await prisma.user.findFirst({ where: { email }, select });
-        if (configured) {
-          return configured;
-        }
-      }
-      return prisma.user.findFirst({ where: { role: "ADMIN" }, orderBy: { createdAt: "asc" }, select });
-    },
+    resolveActor,
 
     receiptStore: {
       save: (file) => saveExpenseReceiptBytes(file.bytes, file.name, file.ext),
