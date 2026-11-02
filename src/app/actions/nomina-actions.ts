@@ -10,6 +10,8 @@ import { getReceiptFile, saveExpenseReceipt } from "@/lib/expense-receipt";
 import { prisma } from "@/lib/prisma";
 import { createExpenseUseCase } from "@/modules/expenses/application/use-cases";
 import { createPrismaExpensesRepository } from "@/modules/expenses/infrastructure/prisma-expenses-repository";
+import { withNegativeBalanceNotice } from "@/modules/balances/application/use-cases";
+import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import { PAY_CURRENCIES, PAY_PERIODS, payrollMonthTag, type PayrollPersonConfig } from "@/modules/nomina/domain/payroll";
 import { createPrismaNominaRepository } from "@/modules/nomina/infrastructure/prisma-nomina-repository";
 import { regenerateSellerLink } from "@/modules/nomina/infrastructure/prisma-seller-portal";
@@ -19,6 +21,7 @@ import { MOTIVO_FIELD, esRetroactivo, exigirMotivoSiRetroactivo } from "@/module
 const BASE_PATH = "/admin/comisiones/nomina";
 const nomina = createPrismaNominaRepository();
 const expenses = createPrismaExpensesRepository();
+const balances = createPrismaBalancesRepository();
 
 function field(formData: FormData, key: string): string {
   const value = formData.get(key);
@@ -243,7 +246,7 @@ export async function payPayrollAction(formData: FormData): Promise<void> {
   revalidatePath(BASE_PATH);
   revalidatePath("/admin/gastos");
   revalidatePath("/admin/balances");
-  back(formData, "ok", `Pago registrado desde ${account.name}`);
+  back(formData, "ok", await withNegativeBalanceNotice(balances, `Pago registrado desde ${account.name}`, accountId));
 }
 
 // Crea (o cambia) el link privado de comisiones de una persona. Cambiarlo invalida el anterior.

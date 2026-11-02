@@ -21,6 +21,7 @@ import {
   updateAccountUseCase,
   updateShippingCostUseCase,
   updateSupplierPaymentUseCase,
+  withNegativeBalanceNotice,
 } from "@/modules/balances/application/use-cases";
 import {
   accountCreateSchema,
@@ -213,7 +214,7 @@ export async function adminCreateSupplierPaymentAction(formData: FormData): Prom
 
   revalidatePath("/admin/balances");
   revalidatePath("/admin/proveedores");
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Pago registrado" }).toString()}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: await withNegativeBalanceNotice(repository, "Pago registrado", parsed.data.accountId) }).toString()}`);
 }
 
 export async function adminUpdateSupplierPaymentAction(formData: FormData): Promise<void> {
@@ -259,7 +260,7 @@ export async function adminUpdateSupplierPaymentAction(formData: FormData): Prom
 
   revalidatePath("/admin/balances");
   revalidatePath("/admin/proveedores");
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Pago actualizado" }).toString()}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: await withNegativeBalanceNotice(repository, "Pago actualizado", parsed.data.accountId) }).toString()}`);
 }
 
 export async function adminDeleteSupplierPaymentAction(formData: FormData): Promise<void> {
@@ -300,7 +301,7 @@ export async function adminCreateShippingCostAction(formData: FormData): Promise
   });
 
   revalidatePath("/admin/balances");
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Costo de envio registrado" }).toString()}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: await withNegativeBalanceNotice(repository, "Costo de envio registrado", parsed.data.accountId) }).toString()}`);
 }
 
 export async function adminUpdateShippingCostAction(formData: FormData): Promise<void> {
@@ -342,7 +343,7 @@ export async function adminUpdateShippingCostAction(formData: FormData): Promise
   });
 
   revalidatePath("/admin/balances");
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Costo de envio actualizado" }).toString()}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: await withNegativeBalanceNotice(repository, "Costo de envio actualizado", parsed.data.accountId) }).toString()}`);
 }
 
 export async function adminDeleteShippingCostAction(formData: FormData): Promise<void> {
@@ -584,7 +585,13 @@ export async function adminCreateAccountMovementAction(formData: FormData): Prom
   });
 
   revalidatePath("/admin/balances");
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Movimiento registrado" }).toString()}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: await withNegativeBalanceNotice(
+      repository,
+      "Movimiento registrado",
+      // Solo las salidas (OUT y la cuenta de origen de un TRANSFER) pueden dejarla bajo cero.
+      parsed.data.type === "IN" ? null : parsed.data.accountId,
+    ),
+  }).toString()}`);
 }
 
 // --- Fletes viejos sin cuenta (/admin/balances/fletes-sin-cuenta) ---
@@ -647,7 +654,7 @@ export async function adminAssignFreightAccountAction(formData: FormData): Promi
   }
 
   revalidateFreight();
-  redirect(`${FREIGHT_PATH}?ok=${encodeURIComponent(`${updated.count} flete(s) con cuenta ${account.name}`)}`);
+  redirect(`${FREIGHT_PATH}?ok=${encodeURIComponent(await withNegativeBalanceNotice(repository, `${updated.count} flete(s) con cuenta ${account.name}`, account.id))}`);
 }
 
 // "Ya esta pagado en Proveedores": enlaza el flete con ese pago. No cambia ningun saldo (el pago

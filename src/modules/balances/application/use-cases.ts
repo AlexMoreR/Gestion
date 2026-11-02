@@ -10,6 +10,8 @@ import type {
   UpdateSupplierPaymentInput,
 } from "../domain/repository";
 import type { DateRange } from "../domain/entities";
+import { currentAccountBalance } from "../domain/cash-position";
+import { negativeBalanceNotice } from "../domain/negative-balance";
 
 export async function createSupplierPaymentUseCase(
   repository: BalancesRepository,
@@ -71,6 +73,23 @@ export async function listAccountsUseCase(repository: BalancesRepository, option
 
 export async function listAccountBalancesUseCase(repository: BalancesRepository) {
   return repository.listAccountBalances();
+}
+
+// Llamar DESPUES de guardar: suma "Ojo: <cuenta> quedó en −$X" al mensaje si la cuenta quedó bajo cero.
+export async function withNegativeBalanceNotice(
+  repository: BalancesRepository,
+  message: string,
+  accountId: string | null | undefined,
+): Promise<string> {
+  if (!accountId) return message;
+  try {
+    const account = await repository.getAccountBalance(accountId);
+    const notice = account ? negativeBalanceNotice(account.name, currentAccountBalance(account)) : "";
+    return notice ? `${message}. ${notice}` : message;
+  } catch {
+    // El registro ya se guardó: si falla el saldo, se muestra el mensaje de siempre (sin error que invite a repetir).
+    return message;
+  }
 }
 
 export async function listAccountTransactionsUseCase(repository: BalancesRepository, accountId: string) {
