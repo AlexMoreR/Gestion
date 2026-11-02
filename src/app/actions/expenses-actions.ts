@@ -24,6 +24,8 @@ import {
   expenseUpdateSchema,
 } from "@/modules/expenses/application/schemas";
 import { createPrismaExpensesRepository } from "@/modules/expenses/infrastructure/prisma-expenses-repository";
+import { withNegativeBalanceNotice } from "@/modules/balances/application/use-cases";
+import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import {
   MOTIVO_FIELD,
   esEdicionRetroactiva,
@@ -32,6 +34,7 @@ import {
 } from "@/modules/retroactivos/domain/retroactivo";
 
 const repository = createPrismaExpensesRepository();
+const balances = createPrismaBalancesRepository();
 
 function redirectWithError(returnTo: string, message: string): never {
   const query = new URLSearchParams({ error: message }).toString();
@@ -296,7 +299,7 @@ export async function adminCreateExpenseAction(formData: FormData): Promise<void
 
   revalidatePath("/admin/gastos");
   revalidatePath("/admin/balances");
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Gasto registrado" }).toString()}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: await withNegativeBalanceNotice(balances, "Gasto registrado", parsed.data.accountId) }).toString()}`);
 }
 
 export async function adminUpdateExpenseAction(formData: FormData): Promise<void> {
@@ -377,7 +380,7 @@ export async function adminUpdateExpenseAction(formData: FormData): Promise<void
 
   revalidatePath("/admin/gastos");
   revalidatePath("/admin/balances");
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Gasto actualizado" }).toString()}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: await withNegativeBalanceNotice(balances, "Gasto actualizado", parsed.data.accountId) }).toString()}`);
 }
 
 export async function adminDeleteExpenseAction(formData: FormData): Promise<void> {

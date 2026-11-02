@@ -764,6 +764,10 @@ export function createPrismaBalancesRepository(): BalancesRepository {
       );
     },
 
+    async getAccountBalance(accountId: string): Promise<AccountBalance | null> {
+      return (await this.listAccountBalances()).find((account) => account.id === accountId) ?? null;
+    },
+
     async listAccountTransactions(accountId: string): Promise<AccountTransaction[]> {
       const [salePayments, supplierPayments, shippingCosts, expenses, movements] = await Promise.all([
         prisma.salePayment.findMany({

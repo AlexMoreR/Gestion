@@ -99,6 +99,8 @@ export interface BalancesRepository {
   // Sin `period` calcula el saldo real acumulado; con `period` limita ingresos,
   // gastos y movimientos al rango indicado (manteniendo el saldo inicial).
   listAccountBalances(period?: DateRange): Promise<AccountBalance[]>;
+  // Saldo acumulado de una cuenta (sin periodo), o null si no existe.
+  getAccountBalance(accountId: string): Promise<AccountBalance | null>;
   listAccountTransactions(accountId: string): Promise<AccountTransaction[]>;
   createAccount(input: CreateAccountInput): Promise<Account>;
   updateAccount(accountId: string, input: UpdateAccountInput): Promise<Account>;
