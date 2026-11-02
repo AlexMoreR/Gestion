@@ -5,6 +5,7 @@ import { hasAnyModuleAccess } from "@/lib/admin-module-access";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { COTIZACION_CON_VENTA_LINEAS, mismasLineas } from "@/lib/quote-lines";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -605,10 +606,28 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
   const subtotal = Number(normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2));
   const total = subtotal;
 
+  // Con venta, las líneas quedan fijas (las notas y el estado sí cambian).
+  const quoteWithSale = await prisma.quote.findUnique({
+    where: { id: parsed.data.quoteId },
+    select: { sale: { select: { id: true } }, items: true },
+  });
+  const linesLocked = Boolean(quoteWithSale?.sale);
+  if (linesLocked && !mismasLineas(quoteWithSale!.items, normalizedItems)) {
+    redirect(`${returnTo}?${new URLSearchParams({ error: COTIZACION_CON_VENTA_LINEAS }).toString()}`);
+  }
+
   const beforeQuote = await quoteForLog(prisma, parsed.data.quoteId);
   const updatedQuote = await prisma.quote.update({
     where: { id: parsed.data.quoteId },
-    data: {
+    data: linesLocked
+      ? {
+          clientId: resolvedClientId,
+          status: parsed.data.status,
+          notes: parsed.data.notes || null,
+          validUntil: validUntilDate,
+          ...(createdAtDate ? { createdAt: createdAtDate } : {}),
+        }
+      : {
       clientId: resolvedClientId,
       status: parsed.data.status,
       notes: parsed.data.notes || null,

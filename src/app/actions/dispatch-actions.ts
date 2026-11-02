@@ -13,6 +13,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getActivityActor, logActivityTx } from "@/lib/activity-log";
 import { SHIPPING_COST_LOG_FIELDS, SUPPLIER_LEDGER_LOG_FIELDS, snapshotForLog } from "@/lib/activity-log-snapshot";
+import { anularConMotivo, anularVarias, pagosPrimero } from "@/lib/anulaciones";
 import { buildDispatchCode, parseDispatchCodeNumber } from "@/lib/orders";
 import { isOrderFullyDelivered } from "@/lib/order-partial-delivery";
 import { parseWeightKg } from "@/modules/guias/domain/weight";
@@ -1153,8 +1154,15 @@ export async function adminUndoDispatchItemAction(formData: FormData): Promise<v
             ],
           }
         : null;
-      const ledgerWhere = { dispatchId: dispatch.id };
       const shippingCostRows = shippingCostWhere ? await tx.shippingCost.findMany({ where: shippingCostWhere }) : [];
+      const dispatchLedger = await tx.supplierLedgerEntry.findMany({ where: { dispatchId: dispatch.id }, select: { id: true } });
+      // También los abonos que saldan un cargo del despacho: antes se iban en cascada sin dejar copia.
+      const ledgerWhere = {
+        OR: [
+          { dispatchId: dispatch.id },
+          { type: "PAYMENT" as const, settlesEntryId: { in: dispatchLedger.map((row) => row.id) } },
+        ],
+      };
       const ledgerRows = await tx.supplierLedgerEntry.findMany({ where: ledgerWhere });
       const backToReady = order.status === "DISPATCHED" || order.status === "COMPLETED";
 
@@ -1210,12 +1218,15 @@ export async function adminUndoDispatchItemAction(formData: FormData): Promise<v
 
       // 1) Revertir el costo de envio registrado como gasto de la venta (por referencia o por
       //    estar enlazado a un pago de este despacho). Va antes de borrar los pagos.
-      if (shippingCostWhere) {
-        await tx.shippingCost.deleteMany({ where: shippingCostWhere });
-      }
+      //    Todo se anula (copia en RegistroAnulado + bitácora), no se borra a secas.
+      const anulacion = { motivo: `Deshizo el despacho ${dispatch.code}`, usuarioId: actor.id, usuarioNombre: actor.name };
+      await anularVarias(tx, "ShippingCost", shippingCostRows, { ...anulacion, codigo: () => dispatch.code });
 
-      // 2) Revertir movimientos de la cuenta corriente de la transportadora (cargos y pagos).
-      await tx.supplierLedgerEntry.deleteMany({ where: ledgerWhere });
+      // 2) Revertir movimientos de la cuenta corriente de la transportadora (abonos antes que cargos).
+      await anularVarias(tx, "SupplierLedgerEntry", pagosPrimero(ledgerRows), {
+        ...anulacion,
+        codigo: (row) => (row.code as string | null) ?? dispatch.code,
+      });
 
       // 3) En compras, el flete se sumo al total: se descuenta.
       if (order.type === "PURCHASE" && shippingCost > 0) {
@@ -1225,8 +1236,18 @@ export async function adminUndoDispatchItemAction(formData: FormData): Promise<v
         });
       }
 
-      // 4) Eliminar el despacho (cascade borra sus DispatchItem).
-      await tx.dispatch.delete({ where: { id: dispatch.id } });
+      // 4) Anular el despacho (cascade borra sus DispatchItem y tramos; la copia los guarda).
+      const dispatchRow = await tx.dispatch.findUniqueOrThrow({
+        where: { id: dispatch.id },
+        include: { items: true, shippingLegs: true },
+      });
+      await anularConMotivo(tx, {
+        ...anulacion,
+        tabla: "Dispatch",
+        registro: dispatchRow,
+        codigo: dispatch.code,
+        monto: dispatchRow.shippingCost ?? 0,
+      });
 
       // 5) Si la orden estaba despachada o entregada, vuelve a "Lista para
       //    despacho" (y se limpia la fecha de completado si estaba cerrada).

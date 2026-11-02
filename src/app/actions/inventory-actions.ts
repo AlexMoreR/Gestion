@@ -10,6 +10,7 @@ import {
   MOTIVO_ANULACION_ERROR,
   MOTIVO_ANULACION_MIN,
   anularConMotivo,
+  anularVarias,
   bloqueoPorAbonos,
 } from "@/lib/anulaciones";
 import { fullCopyForLog } from "@/lib/activity-log-snapshot";
@@ -899,15 +900,18 @@ async function runPurchaseEdit(input: PurchaseEditInput): Promise<void> {
   // Sin cambio de fecha se conserva la de la compra (no se corre de dia).
   const effectiveDate = dateChanged ? movementDate : (order.releasedAt ?? order.createdAt);
   let invSeq = await getNextInventoryChargeSeq();
+  const actor = await getActivityActor();
+  const anulacion = { motivo: `Editó la compra ${purchaseCode}`, usuarioId: createdById, usuarioNombre: actor.name || actor.email };
 
   try {
     await prisma.$transaction(async (tx) => {
-      // Nunca se borra un cargo que ya tiene abonos: el abono se iria en cascada.
+      // Nunca se anula un cargo que ya tiene abonos: el abono se iria en cascada.
       const deleteCharges = async (ids: string[]) => {
         if (ids.length === 0) return;
         const settled = await tx.supplierLedgerEntry.count({ where: { type: "PAYMENT", settlesEntryId: { in: ids } } });
         if (settled > 0) throw new PurchaseEditError("Un cargo de esta compra tiene pagos: no se puede cambiar.");
-        await tx.supplierLedgerEntry.deleteMany({ where: { id: { in: ids } } });
+        const rows = await tx.supplierLedgerEntry.findMany({ where: { id: { in: ids } } });
+        await anularVarias(tx, "SupplierLedgerEntry", rows, { ...anulacion, codigo: (row) => (row.code as string | null) ?? purchaseCode });
       };
       const createCharge = (data: { supplierId: string; amount: number; note: string; orderItemId: string }) =>
         tx.supplierLedgerEntry.create({
@@ -1069,7 +1073,8 @@ async function runPurchaseEdit(input: PurchaseEditInput): Promise<void> {
         // cargos (el borrado del movimiento los borraria en cascada, y con ellos sus abonos).
         const oldIds = movements.filter((movement) => movement.productId === productId).map((movement) => movement.id);
         await tx.supplierLedgerEntry.updateMany({ where: { inventoryMovementId: { in: oldIds } }, data: { inventoryMovementId: null } });
-        await tx.inventoryMovement.deleteMany({ where: { id: { in: oldIds } } });
+        const oldRows = await tx.inventoryMovement.findMany({ where: { id: { in: oldIds } } });
+        await anularVarias(tx, "InventoryMovement", oldRows, { ...anulacion, codigo: () => purchaseCode });
         const units = newUnits.get(productId) ?? 0;
         if (units > 0) {
           const movement = await tx.inventoryMovement.create({

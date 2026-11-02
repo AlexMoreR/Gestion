@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "test:db": "vitest run --config vitest.db.config.ts",
     "origen:rellenar": "vite-node scripts/rellenar-origen-ventas.ts --",
     "combo:rellenar": "vite-node --config scripts/vite-node.config.mjs scripts/combo-camillas-rellenar.mjs --",
     "dudas:importar": "vite-node scripts/importar-dudas.ts --",

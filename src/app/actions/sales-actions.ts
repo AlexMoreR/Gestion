@@ -12,7 +12,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
-import { MOTIVO_ANULACION_ERROR, anularConMotivo } from "@/lib/anulaciones";
+import { MOTIVO_ANULACION_ERROR, anularConMotivo, anularVarias, pagosPrimero } from "@/lib/anulaciones";
 import { fullCopyForLog } from "@/lib/activity-log-snapshot";
 import { stockToRestore } from "@/lib/order-stock-restore";
 import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
@@ -961,9 +961,20 @@ export async function adminHardDeleteSaleAction(formData: FormData): Promise<voi
       });
       if (!sale) return null;
       const orderId = sale.order?.id ?? null;
-      const supplierEntries = await tx.supplierLedgerEntry.findMany({
+      const linked = await tx.supplierLedgerEntry.findMany({
         where: { OR: [{ saleId: sale.id }, ...(orderId ? [{ orderId }] : [])] },
+        select: { id: true },
       });
+      // También los abonos que saldan esos cargos: si no, se irían en cascada sin dejar copia.
+      const supplierEntries = await tx.supplierLedgerEntry.findMany({
+        where: {
+          OR: [
+            { id: { in: linked.map((row) => row.id) } },
+            { type: "PAYMENT", settlesEntryId: { in: linked.map((row) => row.id) } },
+          ],
+        },
+      });
+      const anulacion = { motivo, usuarioId: deletedById, usuarioNombre: actor.name || actor.email };
 
       // 0. Copia completa en la bitácora: si no se puede anotar, no se borra nada.
       await logActivityTx(tx, actor, {
@@ -976,10 +987,11 @@ export async function adminHardDeleteSaleAction(formData: FormData): Promise<voi
         after: { motivo },
       });
 
-      // 1. Borra los cargos y pagos a proveedores ligados a la venta o su orden.
+      // 1. Anula (copia + borrado) los cargos y pagos a proveedores ligados a la venta o su orden.
       //    Al desaparecer, los saldos de proveedores y cuentas se recalculan solos.
-      await tx.supplierLedgerEntry.deleteMany({
-        where: { OR: [{ saleId: sale.id }, ...(orderId ? [{ orderId }] : [])] },
+      await anularVarias(tx, "SupplierLedgerEntry", pagosPrimero(supplierEntries), {
+        ...anulacion,
+        codigo: (row) => (row.code as string | null) ?? sale.code,
       });
 
       if (sale.order) {
@@ -998,16 +1010,25 @@ export async function adminHardDeleteSaleAction(formData: FormData): Promise<voi
           });
         }
 
-        // 3. Borra los despachos (cascade -> items de despacho). Esto libera el
+        // 3. Anula los despachos (cascade -> items de despacho). Esto libera el
         //    Restrict que impide borrar los items de la orden si tienen despacho.
-        await tx.dispatch.deleteMany({ where: { orderId: sale.order.id } });
+        await anularVarias(
+          tx,
+          "Dispatch",
+          sale.order.dispatches.map((row) => ({ ...row, amount: row.shippingCost })),
+          anulacion,
+        );
 
-        // 4. Borra la orden: cascade elimina items, fotos, producción e historial.
-        await tx.order.delete({ where: { id: sale.order.id } });
+        // 4. Anula la orden: cascade elimina items, fotos, producción e historial (van en la copia).
+        const productionJobs = await tx.productionJob.findMany({ where: { orderId: sale.order.id } });
+        await anularVarias(tx, "Order", [{ ...sale.order, productionJobs }], anulacion);
       }
 
-      // 5. Borra la venta: cascade elimina abonos y fletes. La cotización origen se conserva.
-      await tx.sale.delete({ where: { id: sale.id } });
+      // 5. Anula los abonos y fletes (uno por uno, con su copia) y luego la venta.
+      //    La cotización origen se conserva.
+      await anularVarias(tx, "SalePayment", sale.salePayments, { ...anulacion, codigo: () => sale.code });
+      await anularVarias(tx, "ShippingCost", sale.shippingCosts, { ...anulacion, codigo: () => sale.code });
+      await anularVarias(tx, "Sale", [sale], anulacion);
       return sale.code;
     });
   } catch (error) {

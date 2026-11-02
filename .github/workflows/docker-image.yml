@@ -19,6 +19,22 @@ jobs:
       # Las pruebas no usan Chromium; evita descargarlo en cada run.
       PUPPETEER_SKIP_DOWNLOAD: "true"
 
+    # Postgres desechable solo para `npm run test:db` (se borra al terminar el job).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: gestion_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,6 +56,12 @@ jobs:
 
       - name: Correr pruebas
         run: npm test
+
+      - name: Pruebas con base real (caminos con plata)
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/gestion_test
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/gestion_test
+        run: npm run test:db
 
   build-and-push:
     needs: pruebas

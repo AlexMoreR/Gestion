@@ -14,6 +14,7 @@ import { buildProductionJobCode, parseProductionJobCodeNumber } from "@/lib/orde
 import { splitOrderItemQuantities } from "@/lib/order-partial-delivery";
 import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
 import { SUPPLIER_LEDGER_LOG_FIELDS, snapshotForLog } from "@/lib/activity-log-snapshot";
+import { anularVarias, bloqueoPorAbonos } from "@/lib/anulaciones";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { syncOrderStatusAfterProduction } from "@/app/actions/orders-actions";
 import { computeStockExitCost } from "@/lib/stock-exit-cost";
@@ -1112,6 +1113,9 @@ const ORDER_ITEM_LOG_FIELDS = [
   "supplierReceiptName",
 ] as const;
 
+// Un "deshacer" que no se puede hacer: su mensaje va tal cual a la pantalla.
+class UndoBlockedError extends Error {}
+
 const PRODUCTION_JOB_LOG_FIELDS = ["id", "code", "status", "quantity", "assignedToId", "startedAt", "completedAt"] as const;
 
 // Deshace el "Fabricar" (confirmacion) de un producto: borra su orden de
@@ -1225,11 +1229,23 @@ export async function adminUndoConfirmOrderItemAction(formData: FormData): Promi
         },
       });
 
-      // 1) Borrar las ordenes de produccion del producto.
-      await tx.productionJob.deleteMany({ where: jobsWhere });
+      // Un cargo con abonos no se anula (el abono se iría en cascada).
+      const settled = await tx.supplierLedgerEntry.count({
+        where: { type: "PAYMENT", settlesEntryId: { in: charges.map((row) => row.id) } },
+      });
+      const blocked = bloqueoPorAbonos(settled);
+      if (blocked) throw new UndoBlockedError(blocked);
+      const anulacion = {
+        motivo: `Deshizo la fabricación de un producto de ${orderItem.order.code}`,
+        usuarioId: actor.id,
+        usuarioNombre: actor.name,
+      };
 
-      // 2) Revertir el cargo (saldo) al proveedor generado al confirmar.
-      await tx.supplierLedgerEntry.deleteMany({ where: chargesWhere });
+      // 1) Anular (copia + borrado) las ordenes de produccion del producto.
+      await anularVarias(tx, "ProductionJob", jobs, anulacion);
+
+      // 2) Anular el cargo (saldo) al proveedor generado al confirmar.
+      await anularVarias(tx, "SupplierLedgerEntry", charges, { ...anulacion, codigo: (row) => (row.code as string | null) ?? orderItem.order.code });
 
       // 3) Limpiar el proveedor/costo confirmado y el estado de pago.
       await tx.orderItem.update({
@@ -1266,6 +1282,9 @@ export async function adminUndoConfirmOrderItemAction(formData: FormData): Promi
       }
     });
   } catch (error) {
+    if (error instanceof UndoBlockedError) {
+      redirect(`${returnTo}?${new URLSearchParams({ error: error.message }).toString()}`);
+    }
     console.error("Failed to undo confirm order item:", error);
     redirect(`${returnTo}?error=No+se+pudo+deshacer+la+fabricacion`);
   }
@@ -1392,7 +1411,12 @@ export async function adminUndoPickupOrderItemAction(formData: FormData): Promis
         after: { supplierPaymentStatus: "PENDING", supplierReceiptName: null },
       });
 
-      await tx.supplierLedgerEntry.deleteMany({ where: paymentsWhere });
+      await anularVarias(tx, "SupplierLedgerEntry", payments, {
+        motivo: `Deshizo el recogido de un producto de ${orderItem.order.code}`,
+        usuarioId: actor.id,
+        usuarioNombre: actor.name,
+        codigo: (row) => (row.code as string | null) ?? orderItem.order.code,
+      });
 
       // 2) Borrar las fotos del producto terminado.
       await tx.orderItemPhoto.deleteMany({ where: { orderItemId: orderItem.id } });

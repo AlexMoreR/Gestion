@@ -113,6 +113,7 @@ Edita una cotización existente; es el mismo asistente de 3 pasos abierto en mod
 **Botones y acciones:**
 - **Agregar producto**, **Siguiente**, **Atras**, **Agregar cliente**/**Editar cliente**: igual que al crear.
 - **Guardar cambios**: guarda la cotización. Cerrar (X, aria-label "Cerrar") vuelve a `/admin/cotizaciones`.
+- Si la cotización ya tiene venta, sus productos (cantidades, precios, color y descripción de cada línea) no se pueden cambiar: al guardar sale el error "Esta cotización ya tiene venta: sus productos no se pueden cambiar. Puedes editar las notas y el estado." Las notas, el estado, la validez y el cliente sí se guardan.
 - Para pasarla a venta no hay botón aquí: se hace desde el menú "⋯" de la lista (**Enviar a ventas**).
 
 ## /admin/ordenes
@@ -146,7 +147,7 @@ Detalle de una orden. Aquí se fabrica, se recoge, se despacha y se entrega cada
     - También: "Foto de la guia", el check "Crear guía Magilus (MG) para el cliente" (con Ciudad destino y Peso) y Notas.
     - **Despachar producto** guarda el despacho.
   - **Separar unidades** (enlace bajo el producto, si hay más de 1 unidad): divide la línea en dos. Se confirma con **Separar**.
-  - Para deshacer se pulsa el estado y se confirma con **Si, deshacer despacho**, **Si, deshacer recogido** / **Si, devolver a stock** o **Si, deshacer fabricacion**.
+  - Para deshacer se pulsa el estado y se confirma con **Si, deshacer despacho**, **Si, deshacer recogido** / **Si, devolver a stock** o **Si, deshacer fabricacion**. Se ve igual que antes, pero nada se pierde: los fletes, los pagos a la transportadora y el despacho quedan guardados en los anulados con el motivo "Deshizo el despacho DSP-…"; el pago a la proveedora del recogido, con "Deshizo el recogido de un producto de ORD-…"; y el cargo a la proveedora y el trabajo de producción, con "Deshizo la fabricación de un producto de ORD-…". Si el cargo de la fabricación ya tiene abonos, no deja y dice "Primero anula los abonos".
 - Despacho en lote: se marcan las casillas de productos que estén en la misma etapa. Aparece un botón "Confirmar N", "Recoger N" o "Despachar N" (con **Limpiar** para quitar la selección).
   - **Confirmar productos**: usa la proveedora sugerida.
   - **Marcar como recogidos**: una foto para todos.
@@ -272,7 +273,7 @@ Lista de proveedores (fábricas y transportadoras) con su saldo (lo que se les d
   - **Transacciones**: abre la cuenta del proveedor (`/admin/proveedores/<id>/cuenta`), donde se paga.
   - **Balance**: abre en otra pestaña el enlace público `/proveedores/<token>` (solo si tiene token).
   - **Editar**: modal **Editar proveedor** → **Guardar cambios**.
-  - **Eliminar**: confirma en "Eliminar proveedor" → **Eliminar** / **Cancelar**.
+  - **Eliminar**: confirma en "Eliminar proveedor" → **Eliminar** / **Cancelar**. Si la proveedora tiene cuenta corriente (cargos o abonos) u órdenes de fabricación (OF), no deja y dice "Esta proveedora tiene cuenta corriente u órdenes de fabricación: no se puede eliminar. Desactívala."
 
 ## /admin/proveedores/[supplierId]
 Resumen por mes de lo que se le ha encargado a un proveedor (solo lectura).
@@ -328,7 +329,7 @@ Catálogo: buscar, filtrar, crear, editar y borrar productos; importar/exportar 
 **Botones y acciones:**
 - Menú de importar/exportar (aria-label "Opciones de importacion y exportacion"): **Importar CSV** (diálogo con columnas esperadas y botón **Importar por CSV**) y **Exportar CSV** (diálogo con **Exportar CSV**; **Cerrar**).
 - **Nuevo producto**: abre el diálogo "Nuevo producto" con el mismo formulario de `/admin/productos/new`.
-- Menú "⋯" de cada fila: **Editar** (abre el producto en un diálogo con el formulario de edición; el enlace es `/admin/productos/<id>`) y **Eliminar** (confirmación con **Cancelar** / **Eliminar**).
+- Menú "⋯" de cada fila: **Editar** (abre el producto en un diálogo con el formulario de edición; el enlace es `/admin/productos/<id>`) y **Eliminar** (confirmación con **Cancelar** / **Eliminar**). Si el producto tiene movimientos de inventario, no deja y dice "Este producto tiene movimientos de inventario: no se puede eliminar. Ocúltalo de la tienda."
 
 ## /admin/productos/new
 Crea un producto ("Define costo, porcentaje y precio final comercial antes de guardar el producto.").

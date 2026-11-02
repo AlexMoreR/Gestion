@@ -13,6 +13,7 @@ import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
 import { COMBO_SIN_PIEZAS_MENSAJE, faltanPiezasCombo, pareceCombo } from "@/lib/combo";
 import { prisma } from "@/lib/prisma";
+import { PRODUCTO_CON_MOVIMIENTOS } from "@/lib/anulaciones";
 import { parseProductPromoInput, toBogotaDateOnly } from "@/lib/product-promo";
 import { slugifyProductSegment } from "@/lib/product-slugs";
 import { productCodeSchema, validateProductCode } from "@/lib/product-code";
@@ -805,6 +806,12 @@ export async function adminDeleteProductAction(formData: FormData): Promise<void
     where: { id: parsed.data.productId },
     select: { name: true },
   });
+
+  // Borrarlo se llevaría en cascada sus movimientos de inventario.
+  const movements = await prisma.inventoryMovement.count({ where: { productId: parsed.data.productId } });
+  if (movements > 0) {
+    buildErrorRedirect("/admin/productos", PRODUCTO_CON_MOVIMIENTOS);
+  }
 
   try {
     await prisma.product.delete({

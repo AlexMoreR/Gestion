@@ -11,6 +11,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
 import { prisma } from "@/lib/prisma";
+import { PROVEEDORA_CON_MOVIMIENTOS } from "@/lib/anulaciones";
 import { createImageVariants, deleteImageVariants } from "@/lib/image-variants.server";
 import { parseShippingExtraInput } from "@/modules/transporte/domain/shipping";
 import { MAX_DISPATCH_WARNING_LENGTH } from "@/modules/guias/domain/carrier-warning";
@@ -481,6 +482,15 @@ export async function adminDeleteSupplierAction(formData: FormData): Promise<voi
 
   if (!supplier) {
     redirect("/admin/proveedores?error=Proveedor+invalido");
+  }
+
+  // Borrarla se llevaría en cascada su cuenta corriente y sus OF.
+  const [ledgerEntries, manufacturingOrders] = await Promise.all([
+    prisma.supplierLedgerEntry.count({ where: { supplierId: supplier.id } }),
+    prisma.manufacturingOrder.count({ where: { supplierId: supplier.id } }),
+  ]);
+  if (ledgerEntries + manufacturingOrders > 0) {
+    redirect(`/admin/proveedores?${new URLSearchParams({ error: PROVEEDORA_CON_MOVIMIENTOS }).toString()}`);
   }
 
   try {

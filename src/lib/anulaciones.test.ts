@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Prisma } from "@prisma/client";
-import { anularConMotivo, bloqueoPorAbonos } from "./anulaciones";
+import { anularConMotivo, anularVarias, bloqueoPorAbonos, pagosPrimero } from "./anulaciones";
 
 function txFalso() {
   const pasos: string[] = [];
@@ -10,6 +10,8 @@ function txFalso() {
     expense: { delete: vi.fn(async () => pasos.push("borra")) },
     inventoryMovement: { delete: vi.fn(async () => pasos.push("borra")) },
     supplierLedgerEntry: { delete: vi.fn(async () => pasos.push("borra")) },
+    shippingCost: { delete: vi.fn(async () => pasos.push("borra flete")) },
+    dispatch: { delete: vi.fn(async () => pasos.push("borra despacho")) },
     activityLog: { create: vi.fn(async () => pasos.push("bitacora")) },
   };
   return { tx, pasos, cliente: tx as unknown as Prisma.TransactionClient };
@@ -87,5 +89,25 @@ describe("bloqueoPorAbonos", () => {
   it("un cargo con abonos no se anula; sin abonos sí", () => {
     expect(bloqueoPorAbonos(2)).toBe("Primero anula los abonos");
     expect(bloqueoPorAbonos(0)).toBeNull();
+  });
+});
+
+describe("anularVarias y pagosPrimero", () => {
+  it("anula cada fila con su copia y su monto (amount)", async () => {
+    const { tx, pasos, cliente } = txFalso();
+    await anularVarias(cliente, "ShippingCost", [{ id: "f1", amount: "20000" }, { id: "f2", amount: 5000 }], {
+      motivo: "Deshizo el despacho DSP-00001",
+      usuarioId: "u1",
+      codigo: () => "DSP-00001",
+    });
+    expect(pasos).toEqual(["copia", "borra flete", "bitacora", "copia", "borra flete", "bitacora"]);
+    expect(tx.registroAnulado.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ tabla: "ShippingCost", monto: 20000, codigo: "DSP-00001" }) }),
+    );
+  });
+
+  it("pone los abonos antes que los cargos (el cargo se llevaría al abono en cascada)", () => {
+    const filas = [{ id: "c", type: "CHARGE" }, { id: "p", type: "PAYMENT" }];
+    expect(pagosPrimero(filas).map((f) => f.id)).toEqual(["p", "c"]);
   });
 });
