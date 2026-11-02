@@ -14,6 +14,9 @@ export type ConfirmOrderItemSupplierInput = {
   // Costo de compra POR UNIDAD del item; el cargo es unitCost x cantidad.
   unitCost: number;
   actorId: string;
+  // Combo Camillas: la proveedora ya se verifico contra el combo (ProductSupplier del
+  // combo), pero la orden trae las piezas, que pueden no tenerla como proveedora.
+  omitirChequeoProveedor?: boolean;
 };
 
 export type ConfirmOrderItemSupplierResult =
@@ -42,7 +45,9 @@ export async function confirmOrderItemSupplier(
     return { ok: false, motivo: "orden_cerrada" };
   }
 
-  const supplierAllowed = orderItem.product.suppliers.some((entry) => entry.supplierId === input.supplierId);
+  const supplierAllowed =
+    input.omitirChequeoProveedor === true ||
+    orderItem.product.suppliers.some((entry) => entry.supplierId === input.supplierId);
   if (!supplierAllowed) {
     return { ok: false, motivo: "proveedor_no_pertenece" };
   }
