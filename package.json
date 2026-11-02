@@ -13,6 +13,7 @@
     "origen:rellenar": "vite-node scripts/rellenar-origen-ventas.ts --",
     "dudas:importar": "vite-node scripts/importar-dudas.ts --",
     "fichas:importar": "vite-node scripts/importar-fichas.ts --",
+    "ventas:revisar-costos": "vite-node scripts/revisar-ventas-sin-costo.ts",
     "compras:reparar-92": "node scripts/reparar-ord-00092.mjs"
   },
   "dependencies": {

@@ -333,6 +333,7 @@ nada. Regla en `src/modules/balances/domain/money-alert.ts`.
 ## Qué NO tiene el sistema
 
 - El **origen** de las ventas anteriores a oct-2026 casi siempre es "Sin dato" (se puede rellenar con `npm run origen:rellenar`, que cruza el teléfono del cliente con el CRM).
+- Las ventas creadas antes de la regla de oct-2026 pueden haber quedado **sin productos o con costo 0** (ganancia inflada). No se corrigen solas: `npm run ventas:revisar-costos` las lista (**solo lectura**, no cambia nada) para que Alexander decida.
 - No tiene un campo **vendedora**: se usa a quien creó la cotización.
 - Las comisiones se pagan desde **Nómina** (gasto de Nómina por persona y mes); la pantalla de Comisiones solo calcula. La nómina no calcula prestaciones, seguridad social ni retenciones.
 - No es **multi-empresa**: no hay workspaces; todos los datos son de Magilus.

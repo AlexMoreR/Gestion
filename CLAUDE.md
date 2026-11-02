@@ -295,6 +295,9 @@ Una venta pasa a `INVOICED` cuando **lo pagado (inicial + abonos) ≥ `sale.tota
 (`src/modules/balances/infrastructure/prisma-balances-repository.ts`). Ojo: en una venta pagada sin
 entregar el costo puede subir después (flete al despachar, costo confirmado de la proveedora).
 
+`npm run ventas:revisar-costos` (**solo lectura**, no escribe nada) lista las ventas de oct-2026 sin productos o con
+costo 0 (motivo en `src/modules/ventas/domain/sale-cost-review.ts`) para que Alexander decida qué corregir.
+
 El **informe mensual** (`src/lib/monthly-report.ts`) reutiliza esta lógica y agrega: total y # de
 ventas pagadas, utilidad y margen, top 5 productos por ventas y por margen, y cotizaciones
 hechas/cerradas.
