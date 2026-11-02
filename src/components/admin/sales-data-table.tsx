@@ -1014,7 +1014,7 @@ export function SalesDataTable({
           <SelectItem value="ACTIVE">Cobrar</SelectItem>
           <SelectItem value="INVOICED">Facturada</SelectItem>
           <SelectItem value="COMPLETED">Finalizada</SelectItem>
-          <SelectItem value="CANCELLED">Cancelada</SelectItem>
+          <SelectItem value="CANCELLED">Anulada</SelectItem>
         </SelectContent>
       </Select>
       <div className="flex items-center gap-1.5">

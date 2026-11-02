@@ -390,8 +390,18 @@ export async function canHardDelete(userId: string | undefined, role: Role | und
   }
 }
 
-/** true si ya hay un dueño con usuario (para el candado de la marca "Dueño" en Equipo). */
-export async function hasLinkedOwner(): Promise<boolean> {
-  const count = await prisma.teamMember.count({ where: { isOwner: true, userId: { not: null } } });
-  return count > 0;
+/**
+ * ¿Puede marcar o quitar "Dueño" en Equipo? El dueño, sí. Si aún no hay dueño con usuario,
+ * solo el ADMIN más antiguo (así otro ADMIN no se da el Borrado definitivo).
+ */
+export async function canSetOwnerMark(userId: string, role: Role): Promise<boolean> {
+  if (role !== "ADMIN") return false;
+  const linkedOwners = await prisma.teamMember.count({ where: { isOwner: true, userId: { not: null } } });
+  if (linkedOwners > 0) return canHardDelete(userId, role);
+  const oldestAdmin = await prisma.user.findFirst({
+    where: { role: "ADMIN" },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  return oldestAdmin?.id === userId;
 }

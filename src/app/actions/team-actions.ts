@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
-import { canHardDelete, hasAdminModuleAccess, hasLinkedOwner } from "@/lib/admin-module-access";
+import { canSetOwnerMark, hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { saveTeamMemberUseCase, setTeamExitUseCase, TeamInputError } from "@/modules/equipo/application/use-cases";
 import { isIsoDay, TEAM_EMPLOYMENT_TYPES, TEAM_PAY_TYPES, todayInBogota, touchesOwnerMark } from "@/modules/equipo/domain/team-member";
 import { createPrismaTeamRepository } from "@/modules/equipo/infrastructure/prisma-team-repository";
@@ -103,9 +103,9 @@ export async function saveTeamMemberAction(formData: FormData) {
   }
   const input = { ...parsed.data, exitReason: parsed.data.endDate ? parsed.data.exitReason : null };
 
-  // La marca "Dueño" da el Borrado definitivo: solo el dueño la toca (si aún no hay dueño con usuario, el primer ADMIN).
+  // La marca "Dueño" da el Borrado definitivo: solo el dueño la toca (si aún no hay dueño con usuario, el ADMIN más antiguo).
   const current = memberId ? await team.findById(memberId) : null;
-  if (touchesOwnerMark(current, input) && (await hasLinkedOwner()) && !(await canHardDelete(actor.id, actor.role))) {
+  if (touchesOwnerMark(current, input) && !(await canSetOwnerMark(actor.id, actor.role))) {
     back(formData, "error", "Solo el dueño puede marcar o quitar «Dueño» en una ficha.");
   }
 
