@@ -6,14 +6,14 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { logActivity } from "@/lib/activity-log";
+import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
+import { snapshotForLog } from "@/lib/activity-log-snapshot";
 import { getReceiptFile, saveExpenseReceipt } from "@/lib/expense-receipt";
 import { prisma } from "@/lib/prisma";
 import {
   createCategoryUseCase,
   createExpenseUseCase,
   deleteCategoryUseCase,
-  deleteExpenseUseCase,
   updateCategoryUseCase,
   updateExpenseUseCase,
 } from "@/modules/expenses/application/use-cases";
@@ -34,6 +34,20 @@ import {
 } from "@/modules/retroactivos/domain/retroactivo";
 
 const repository = createPrismaExpensesRepository();
+
+// Campos del gasto que se copian a la bitácora (del comprobante solo el nombre del archivo).
+const EXPENSE_LOG_FIELDS = [
+  "id",
+  "categoryId",
+  "accountId",
+  "amount",
+  "description",
+  "reference",
+  "employeeId",
+  "expenseDate",
+  "receiptName",
+  "createdAt",
+] as const;
 const balances = createPrismaBalancesRepository();
 
 function redirectWithError(returnTo: string, message: string): never {
@@ -364,7 +378,7 @@ export async function adminUpdateExpenseAction(formData: FormData): Promise<void
     redirectWithError(returnTo, "El comprobante es obligatorio salvo en cuentas de efectivo.");
   }
 
-  await updateExpenseUseCase(repository, parsed.data.expenseId, {
+  const updatedExpense = await updateExpenseUseCase(repository, parsed.data.expenseId, {
     categoryId: parsed.data.categoryId,
     accountId: parsed.data.accountId,
     amount: parsed.data.amount,
@@ -383,6 +397,8 @@ export async function adminUpdateExpenseAction(formData: FormData): Promise<void
     entityType: "EXPENSE",
     entityId: parsed.data.expenseId,
     summary: `Actualizó un gasto de $${Number(parsed.data.amount).toLocaleString("es-CO")}${retroactivoEnBitacora(motivoCheck.motivo)}`,
+    before: existing ? snapshotForLog(existing, EXPENSE_LOG_FIELDS) : null,
+    after: snapshotForLog(updatedExpense, EXPENSE_LOG_FIELDS),
   });
 
   revalidatePath("/admin/gastos");
@@ -401,18 +417,36 @@ export async function adminDeleteExpenseAction(formData: FormData): Promise<void
 
   const expenseToDelete = await prisma.expense.findUnique({
     where: { id: expenseId },
-    select: { amount: true },
+    include: {
+      category: { select: { name: true } },
+      account: { select: { name: true } },
+      employee: { select: { name: true } },
+    },
   });
+  if (!expenseToDelete) {
+    redirectWithError(returnTo, "Gasto no encontrado");
+  }
 
-  await deleteExpenseUseCase(repository, expenseId);
-
-  await logActivity({
-    action: "DELETE",
-    entityType: "EXPENSE",
-    entityId: expenseId,
-    summary: expenseToDelete
-      ? `Eliminó un gasto de $${Number(expenseToDelete.amount).toLocaleString("es-CO")}`
-      : `Eliminó el gasto ${expenseId}`,
+  const actor = await getActivityActor();
+  // Copia completa en la bitácora y borrado en la misma operación: si no se puede anotar, no se borra.
+  await prisma.$transaction(async (tx) => {
+    await logActivityTx(tx, actor, {
+      action: "DELETE",
+      entityType: "EXPENSE",
+      entityId: expenseId,
+      summary: `Eliminó un gasto de $${Number(expenseToDelete.amount).toLocaleString("es-CO")} (${expenseToDelete.category.name})`,
+      before: snapshotForLog(
+        {
+          ...expenseToDelete,
+          categoryName: expenseToDelete.category.name,
+          accountName: expenseToDelete.account.name,
+          employeeName: expenseToDelete.employee?.name ?? null,
+          createdById: expenseToDelete.createdById,
+        },
+        [...EXPENSE_LOG_FIELDS, "categoryName", "accountName", "employeeName", "createdById"],
+      ),
+    });
+    await tx.expense.delete({ where: { id: expenseId } });
   });
 
   revalidatePath("/admin/gastos");

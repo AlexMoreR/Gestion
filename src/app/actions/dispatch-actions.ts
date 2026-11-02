@@ -11,6 +11,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { getActivityActor, logActivityTx } from "@/lib/activity-log";
+import { SHIPPING_COST_LOG_FIELDS, SUPPLIER_LEDGER_LOG_FIELDS, snapshotForLog } from "@/lib/activity-log-snapshot";
 import { buildDispatchCode, parseDispatchCodeNumber } from "@/lib/orders";
 import { isOrderFullyDelivered } from "@/lib/order-partial-delivery";
 import { parseWeightKg } from "@/modules/guias/domain/weight";
@@ -1106,8 +1108,9 @@ export async function adminUndoDispatchItemAction(formData: FormData): Promise<v
     include: {
       dispatch: {
         include: {
-          order: { select: { id: true, saleId: true, type: true, status: true } },
-          shippingLegs: { select: { position: true } },
+          order: { select: { id: true, code: true, saleId: true, type: true, status: true } },
+          shippingLegs: true,
+          items: true,
         },
       },
     },
@@ -1116,6 +1119,7 @@ export async function adminUndoDispatchItemAction(formData: FormData): Promise<v
   if (!dispatchItem) {
     redirect(`${returnTo}?error=El+producto+no+tiene+un+despacho+activo`);
   }
+  const actor = await getActivityActor();
 
   const dispatch = dispatchItem.dispatch;
   const order = dispatch.order;
@@ -1139,22 +1143,79 @@ export async function adminUndoDispatchItemAction(formData: FormData): Promise<v
 
   try {
     await prisma.$transaction(async (tx) => {
-      // 1) Revertir el costo de envio registrado como gasto de la venta (por referencia o por
-      //    estar enlazado a un pago de este despacho). Va antes de borrar los pagos.
-      if (order.saleId) {
-        await tx.shippingCost.deleteMany({
-          where: {
+      // Mismos filtros para leer (copia en la bitácora) y para borrar: así la copia cuadra con lo borrado.
+      const shippingCostWhere = order.saleId
+        ? {
             saleId: order.saleId,
             OR: [
               { transactionReference: { in: shippingRefs } },
               { supplierPayment: { dispatchId: dispatch.id } },
             ],
-          },
-        });
+          }
+        : null;
+      const ledgerWhere = { dispatchId: dispatch.id };
+      const shippingCostRows = shippingCostWhere ? await tx.shippingCost.findMany({ where: shippingCostWhere }) : [];
+      const ledgerRows = await tx.supplierLedgerEntry.findMany({ where: ledgerWhere });
+      const backToReady = order.status === "DISPATCHED" || order.status === "COMPLETED";
+
+      // Si no se puede anotar, no se deshace nada.
+      await logActivityTx(tx, actor, {
+        action: "DELETE",
+        entityType: "SHIPMENT",
+        entityId: dispatch.id,
+        entityCode: order.code,
+        summary: `Deshizo el despacho ${dispatch.code} de ${order.code}`,
+        before: {
+          despacho: snapshotForLog(dispatch, [
+            "id",
+            "code",
+            "status",
+            "deliveryType",
+            "carrierName",
+            "carrierSupplierId",
+            "shippingCost",
+            "trackingNumber",
+            "shippingReceiptName",
+            "trackingPhotoName",
+            "deliveryPhotoName",
+            "shippingAddress",
+            "notes",
+            "packedAt",
+            "shippedAt",
+            "deliveredAt",
+            "createdById",
+            "createdAt",
+          ]),
+          productos: dispatch.items.map((item) =>
+            snapshotForLog(item, ["orderItemId", "quantity", "shippingCost"]),
+          ),
+          tramos: dispatch.shippingLegs.map((leg) =>
+            snapshotForLog(leg, [
+              "position",
+              "carrierSupplierId",
+              "carrierName",
+              "amount",
+              "trackingNumber",
+              "note",
+              "legDate",
+              "supplierPaymentId",
+            ]),
+          ),
+          fletes: shippingCostRows.map((row) => snapshotForLog(row, SHIPPING_COST_LOG_FIELDS)),
+          movimientosProveedora: ledgerRows.map((row) => snapshotForLog(row, SUPPLIER_LEDGER_LOG_FIELDS)),
+          estadoOrden: order.status,
+        },
+        after: backToReady ? { estadoOrden: "READY_FOR_DISPATCH" } : null,
+      });
+
+      // 1) Revertir el costo de envio registrado como gasto de la venta (por referencia o por
+      //    estar enlazado a un pago de este despacho). Va antes de borrar los pagos.
+      if (shippingCostWhere) {
+        await tx.shippingCost.deleteMany({ where: shippingCostWhere });
       }
 
       // 2) Revertir movimientos de la cuenta corriente de la transportadora (cargos y pagos).
-      await tx.supplierLedgerEntry.deleteMany({ where: { dispatchId: dispatch.id } });
+      await tx.supplierLedgerEntry.deleteMany({ where: ledgerWhere });
 
       // 3) En compras, el flete se sumo al total: se descuenta.
       if (order.type === "PURCHASE" && shippingCost > 0) {
@@ -1169,7 +1230,7 @@ export async function adminUndoDispatchItemAction(formData: FormData): Promise<v
 
       // 5) Si la orden estaba despachada o entregada, vuelve a "Lista para
       //    despacho" (y se limpia la fecha de completado si estaba cerrada).
-      if (order.status === "DISPATCHED" || order.status === "COMPLETED") {
+      if (backToReady) {
         await tx.order.update({
           where: { id: order.id },
           data: {

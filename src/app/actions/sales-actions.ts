@@ -11,7 +11,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
-import { logActivity } from "@/lib/activity-log";
+import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
+import { snapshotForLog } from "@/lib/activity-log-snapshot";
 import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 import {
@@ -740,12 +741,13 @@ export async function adminDeleteSalePaymentAction(formData: FormData): Promise<
 
   const payment = await prisma.salePayment.findUnique({
     where: { id: parsed.data.paymentId },
-    include: { sale: { include: { salePayments: true } } },
+    include: { sale: { include: { salePayments: true } }, account: { select: { name: true } } },
   });
 
   if (!payment) {
     redirectWithError(returnTo, "No se encontro el abono");
   }
+  const actor = await getActivityActor();
 
   const sale = payment.sale;
   const capital = Number(sale.total);
@@ -755,6 +757,28 @@ export async function adminDeleteSalePaymentAction(formData: FormData): Promise<
 
   try {
     await prisma.$transaction(async (tx) => {
+      // Copia completa en la bitácora antes de borrar: si no se puede anotar, no se borra.
+      await logActivityTx(tx, actor, {
+        action: "DELETE",
+        entityType: "SALE",
+        entityId: sale.id,
+        entityCode: sale.code,
+        summary: `Eliminó un abono de $${Number(payment.amount).toLocaleString("es-CO")} de ${sale.code}`,
+        before: snapshotForLog({ ...payment, accountName: payment.account?.name ?? null }, [
+          "id",
+          "amount",
+          "paymentDate",
+          "accountId",
+          "accountName",
+          "paymentMethod",
+          "isWithholding",
+          "withholdingCertificate",
+          "note",
+          "receiptName",
+          "createdById",
+          "createdAt",
+        ]),
+      });
       await tx.salePayment.delete({ where: { id: payment.id } });
 
       await tx.sale.update({
