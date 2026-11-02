@@ -703,7 +703,12 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
   const supplierId = orderItem.confirmedSupplierId;
   const accountIdRaw = formData.get("accountId");
   const accountId = typeof accountIdRaw === "string" && accountIdRaw.trim() ? accountIdRaw.trim() : null;
-  if (paymentMode === "PAY_NOW" && !accountId) {
+  // La cuenta del dueño (OWNER) solo se usa en Gastos.
+  const account =
+    paymentMode === "PAY_NOW" && accountId
+      ? await prisma.account.findFirst({ where: { id: accountId, type: { not: "OWNER" } }, select: { id: true } })
+      : null;
+  if (paymentMode === "PAY_NOW" && !account) {
     redirect(`${returnTo}?error=Selecciona+la+cuenta+de+salida+del+pago`);
   }
   const alreadyPaid = orderItem.supplierPaymentStatus === "PAID";

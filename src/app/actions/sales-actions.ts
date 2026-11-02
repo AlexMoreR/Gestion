@@ -294,7 +294,7 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
   }
 
   const activeAccounts = await prisma.account.findMany({
-    where: { isActive: true },
+    where: { isActive: true, type: { not: "OWNER" } },
     select: { id: true, name: true, type: true },
   });
   const accountById = new Map(activeAccounts.map((account) => [account.id, account]));
@@ -589,7 +589,7 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
     isWithholding
       ? Promise.resolve(null)
       : prisma.account.findFirst({
-          where: { id: accountId, isActive: true },
+          where: { id: accountId, isActive: true, type: { not: "OWNER" } },
           select: { id: true, name: true, type: true },
         }),
     prisma.sale.findUnique({
@@ -1077,7 +1077,7 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
     }
 
     const account = await prisma.account.findFirst({
-      where: { id: accountId, isActive: true },
+      where: { id: accountId, isActive: true, type: { not: "OWNER" } },
       select: { id: true, name: true, type: true },
     });
     if (!account) {

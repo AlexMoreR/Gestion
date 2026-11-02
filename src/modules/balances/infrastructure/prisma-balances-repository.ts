@@ -665,9 +665,13 @@ export function createPrismaBalancesRepository(): BalancesRepository {
       return summarizeDashboardMetrics(sales);
     },
 
-    async listAccounts(options?: { activeOnly?: boolean }): Promise<Account[]> {
+    async listAccounts(options?: { activeOnly?: boolean; includeOwner?: boolean }): Promise<Account[]> {
       const rows = (await prisma.account.findMany({
-        where: options?.activeOnly ? { isActive: true } : undefined,
+        // La cuenta del dueño (OWNER) solo se ofrece en Gastos (includeOwner).
+        where: {
+          ...(options?.activeOnly ? { isActive: true } : {}),
+          ...(options?.includeOwner ? {} : { type: { not: "OWNER" } }),
+        },
         orderBy: [{ isActive: "desc" }, { name: "asc" }],
         select: {
           id: true,

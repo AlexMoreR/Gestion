@@ -95,7 +95,7 @@ export interface BalancesRepository {
   listSupplierBalances(): Promise<SupplierBalance[]>;
   getDashboardMetrics(period?: DateRange): Promise<DashboardMetrics>;
 
-  listAccounts(options?: { activeOnly?: boolean }): Promise<Account[]>;
+  listAccounts(options?: { activeOnly?: boolean; includeOwner?: boolean }): Promise<Account[]>;
   // Sin `period` calcula el saldo real acumulado; con `period` limita ingresos,
   // gastos y movimientos al rango indicado (manteniendo el saldo inicial).
   listAccountBalances(period?: DateRange): Promise<AccountBalance[]>;

@@ -192,7 +192,7 @@ export async function payPayrollAction(formData: FormData): Promise<void> {
     prisma.account.findUnique({ where: { id: accountId }, select: { name: true, type: true, isActive: true } }),
   ]);
   if (!employee) back(formData, "error", "La persona no existe.");
-  if (!account || !account.isActive) back(formData, "error", "La cuenta no existe o está inactiva.");
+  if (!account || !account.isActive || account.type === "OWNER") back(formData, "error", "La cuenta no existe o está inactiva.");
 
   // Misma regla de Gastos: comprobante obligatorio salvo en efectivo.
   let receipt: { url: string; name: string } | null = null;
