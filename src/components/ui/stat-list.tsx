@@ -8,7 +8,7 @@ export type StatItem = {
   value: string;
   icon: LucideIcon;
   tone?: StatTone;
-  // Texto secundario opcional (ej. "12% de margen"); se muestra pequeno bajo la etiqueta.
+  // Texto secundario opcional (ej. "12% de margen"); se muestra pequeno bajo la etiqueta y baja de linea si no cabe.
   helper?: string;
 };
 
@@ -48,7 +48,7 @@ export function StatList({ items, className }: { items: StatItem[]; className?: 
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-foreground">{item.label}</p>
                 {item.helper ? (
-                  <p className="truncate text-[11px] text-muted-foreground">{item.helper}</p>
+                  <p className="text-[11px] text-muted-foreground">{item.helper}</p>
                 ) : null}
               </div>
             </div>

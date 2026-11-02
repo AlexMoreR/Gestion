@@ -11,6 +11,7 @@ import { CashPositionStrip } from "@/modules/balances/presentation/components/ca
 import { getMoneyWithoutAccount } from "@/modules/balances/infrastructure/prisma-money-without-account";
 import { getOwnerContributionsUseCase } from "@/modules/balances/application/use-cases";
 import { getCashPositionUseCase } from "@/modules/nomina/application/use-cases";
+import { isPayrollCategoryName } from "@/modules/nomina/domain/payroll";
 import { retiredUserIds } from "@/modules/equipo/application/use-cases";
 import { todayInBogota } from "@/modules/equipo/domain/team-member";
 import { loadTeamMembers } from "@/modules/equipo/infrastructure/prisma-team-repository";
@@ -104,6 +105,16 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
     getOwnerContributionsUseCase(repository),
   ]);
   const retired = retiredUserIds(team, todayInBogota());
+  // Pagos de Nomina al dueno = retiros del dueno: van aparte y no bajan la ganancia (igual que el MCP).
+  // Sin ficha de dueno con usuario, todo pago de Nomina cuenta como nomina pagada.
+  const ownerUserIds = new Set(team.filter((member) => member.isOwner && member.userId).map((member) => member.userId));
+  let nominaPagada = 0;
+  let retirosDelDueno = 0;
+  for (const expense of expenses) {
+    if (!isPayrollCategoryName(expense.categoryName)) continue;
+    if (expense.employeeId && ownerUserIds.has(expense.employeeId)) retirosDelDueno += expense.amount;
+    else nominaPagada += expense.amount;
+  }
 
   return (
     <section className="w-full space-y-5">
@@ -149,6 +160,8 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
             name: employee.name ?? employee.email,
             retired: retired.has(employee.id),
           })),
+          nominaPagada,
+          retirosDelDueno,
         }}
       />
     </section>

@@ -51,7 +51,8 @@ type BalancesWorkspaceProps = {
   monthValue: string;
   monthLabel: string;
   // Datos del modulo de Gastos, reusados en la pestaña "Gastos".
-  expensesData: React.ComponentProps<typeof ExpensesWorkspace>;
+  // nominaPagada y retirosDelDueno: pagos de Nomina del mes a empleados y al dueno.
+  expensesData: React.ComponentProps<typeof ExpensesWorkspace> & { nominaPagada: number; retirosDelDueno: number };
   // Aportes del dueño por mes (suma de gastos pagados con su cuenta, no un saldo).
   ownerContributions: OwnerContributionMonth[];
 };
@@ -65,7 +66,7 @@ export function BalancesWorkspace({
   accounts,
   monthValue,
   monthLabel,
-  expensesData,
+  expensesData: { nominaPagada, retirosDelDueno, ...expensesWorkspaceProps },
   ownerContributions,
 }: BalancesWorkspaceProps) {
   const [tab, setTab] = React.useState<TabKey>("overview");
@@ -79,9 +80,10 @@ export function BalancesWorkspace({
   const bottomSales = [...profitReport].sort((a, b) => a.netProfit - b.netProfit).slice(0, 5);
 
   // metrics.netProfit solo descuenta costos de venta (proveedores + envios). La
-  // ganancia real del mes resta ademas los gastos operativos (nomina, etc.).
+  // ganancia real del mes resta ademas los gastos operativos (nomina, etc.), sin los
+  // retiros del dueno (pagos de Nomina al dueno), que van aparte.
   const directCosts = metrics.supplierCosts + metrics.shippingCosts;
-  const operatingExpenses = expensesData.metrics.totalAmount;
+  const operatingExpenses = expensesWorkspaceProps.metrics.totalAmount - retirosDelDueno;
   const realNetProfit = metrics.salesTotal - directCosts - operatingExpenses;
   const realMargin = metrics.salesTotal > 0 ? (realNetProfit / metrics.salesTotal) * 100 : 0;
 
@@ -135,7 +137,7 @@ export function BalancesWorkspace({
               {
                 label: "Gastos",
                 value: formatMoney(operatingExpenses, currency),
-                helper: "Nomina, marketing y varios",
+                helper: `Nómina pagada: ${formatMoney(nominaPagada, currency)} · Retiros del dueño: ${formatMoney(retirosDelDueno, currency)}`,
                 icon: ReceiptText,
                 tone: "danger",
               },
@@ -213,7 +215,7 @@ export function BalancesWorkspace({
           </div>
         ) : null}
 
-        {tab === "gastos" ? <ExpensesWorkspace {...expensesData} embedded /> : null}
+        {tab === "gastos" ? <ExpensesWorkspace {...expensesWorkspaceProps} embedded /> : null}
 
         {tab === "cuentas" ? (
           <div className="space-y-4">
