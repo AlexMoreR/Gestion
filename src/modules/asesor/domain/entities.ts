@@ -1,5 +1,6 @@
 // Modulo "asesor": consultas de SOLO LECTURA para el asesor de IA (servidor MCP).
 // Tipos planos, sin Prisma.
+import type { SaleLedgerInput } from "./payments";
 import type { ProductSource } from "./product-source";
 
 // Un gasto operativo para el asesor (listar_gastos).
@@ -150,4 +151,28 @@ export type SupplierLedger = {
   name: string;
   entries: SupplierLedgerLine[];
   orders: SupplierOrderInfo[];
+};
+
+// Un pedido (venta no cancelada con su orden) para buscar_pedido y pedidos_abiertos.
+// La plata sale de "ledger" con buildSaleLedger, igual que listar_ventas y ver_venta.
+export type OrderTracking = {
+  ledger: SaleLedgerInput;
+  orderCode: string | null;
+  orderCreatedAt: Date | null;
+  // Ficha de la clienta; null = no esta guardado.
+  clientPhone: string | null;
+  city: string | null;
+  department: string | null;
+  products: QuoteProductSummary[];
+  manufacturingOrders: { code: string; supplierName: string }[];
+  // Historial de estados de la orden.
+  statusChanges: { toStatus: string; at: Date }[];
+  dispatches: {
+    code: string;
+    carrierName: string | null;
+    trackingNumber: string | null;
+    shippingAddress: string | null;
+    shippedAt: Date | null;
+    deliveredAt: Date | null;
+  }[];
 };

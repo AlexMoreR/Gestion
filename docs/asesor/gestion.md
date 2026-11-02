@@ -49,7 +49,7 @@ en las Server Actions y en `src/lib/`.
 - `nomina`: nómina del mes (salario básico de cada persona + comisiones − lo ya pagado) y el dinero de hoy por cuenta. La configuración (básicos, TRM, días trabajados) vive en `AppSetting` (`payrollConfig`); los pagos son gastos de la categoría Nómina.
 - `equipo`: ficha de cada trabajador (ingreso, salida, contacto, forma de pago) y las reglas de estado Activo/Retirado, edad y "¿trabajaba en tal fecha?". La nómina, las comisiones y las asignaciones la usan para incluir a los activos y sacar a los retirados.
 - `asistencia`: registro de entrada y salida (hora del servidor), correcciones con motivo hechas por un admin, asistencia de hoy y por mes, y los días trabajados del mes que usa la nómina por día desde nov-2026.
-- `asesor`: consultas para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones, nómina, equipo, asistencia, saldos de cuentas, gastos del mes con la ganancia real (`listar_gastos`), cuánto se le debe a cada proveedora orden por orden (`deuda_con_proveedoras`) y esta radiografía. Es de solo lectura salvo `registrar_gasto` y `registrar_pago_proveedora` (ver reglas). También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
+- `asesor`: consultas para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones, nómina, equipo, asistencia, saldos de cuentas, gastos del mes con la ganancia real (`listar_gastos`), cuánto se le debe a cada proveedora orden por orden (`deuda_con_proveedoras`), pedidos por clienta o ciudad con su estado (`buscar_pedido`, `pedidos_abiertos`) y esta radiografía. Es de solo lectura salvo `registrar_gasto` y `registrar_pago_proveedora` (ver reglas). También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
 
 ## Entidades
 
@@ -214,6 +214,16 @@ el producto le llega al cliente. Queda a nombre de `MCP_GASTOS_USUARIO_EMAIL` o 
 − comisiones del mes − sueldos básicos del mes − gastos. Los pagos de Nómina no se restan como gasto:
 la nómina ya entra como comisiones + básicos del tablero de Nómina, y restarlos de nuevo la contaría
 dos veces.
+
+**Pedidos (`buscar_pedido`, `pedidos_abiertos`).** Solo lectura. Pedido = venta (SAL) no cancelada con
+su orden de venta. `buscar_pedido` encuentra por nombre de la clienta, teléfono, ciudad, departamento,
+producto o código (SAL, ORD, OF, COT, con o sin ceros) y devuelve máximo 10, el más reciente primero;
+`pedidos_abiertos` trae todos los no entregados. Cada pedido: códigos, clienta, ciudad y departamento
+(de la ficha de la clienta; "sin dato" si no están y se cuentan en `sin_ciudad`), productos con color,
+vendedora, total, pagado y saldo (mismo cálculo de `ver_venta`), forma de pago, proveedora con su OF y
+estado en palabras con fecha: por fabricar (Borrador o Liberada), en fabricación, listo para despacho,
+despachado (transportador y guía) o entregado (fecha de entrega de Balances). Reglas en
+`src/modules/asesor/domain/orders.ts`.
 
 **Deuda con proveedoras (`deuda_con_proveedoras`).** Solo lectura. Lo que se le debe a una proveedora
 = todo lo cargado en su cuenta − todo lo abonado (el saldo de su tarjeta en Proveedores; regla en

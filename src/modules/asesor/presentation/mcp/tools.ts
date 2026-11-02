@@ -14,6 +14,8 @@ import {
   getMonthSummaryUseCase,
   getSaleUseCase,
   getSupplierDebtsUseCase,
+  findOrdersUseCase,
+  listOpenOrdersUseCase,
   listPaymentsUseCase,
   listProductsUseCase,
   listExpensesUseCase,
@@ -546,6 +548,24 @@ export const asesorTools: McpToolDefinition[] = [
     handler: (args, deps) => getSupplierDebtsUseCase(deps, args),
   }),
   defineTool({
+    name: "buscar_pedido",
+    title: "Buscar un pedido",
+    description:
+      "Encuentra un pedido sin pedir el código: por nombre de la clienta, teléfono, ciudad, departamento, producto o código (SAL, ORD, OF o COT, con o sin ceros: 'SAL-00078', 'sal-78' u '78'). Si dicen 'el pedido de Adriana' manda texto='Adriana'; 'el de Bogotá' → texto='Bogotá' (solo las palabras que identifican, cada una debe aparecer). SOLO LECTURA. Por pedido: venta, orden, cotización, clienta, teléfono, ciudad y departamento ('sin dato' si no están guardados), productos con color, vendedora, total, pagado, saldo, forma de pago (contraentrega o no), proveedoras con su OF, estado en palabras con fecha (por fabricar, en fabricación, listo para despacho, despachado con transportador y guía, entregado) y despachos con dirección. Máximo 10, el más reciente primero; 'coincidencias' da el total. No trae canceladas. Valores en COP.",
+    schema: z.object({
+      texto: z.string().max(80).describe("Nombre de la clienta, teléfono, ciudad, departamento, producto o código."),
+    }),
+    handler: (args, deps) => findOrdersUseCase(deps, args.texto),
+  }),
+  defineTool({
+    name: "pedidos_abiertos",
+    title: "Pedidos abiertos",
+    description:
+      "Todos los pedidos que aún no se entregan (ni cancelados), el más reciente primero, con los mismos datos de buscar_pedido: clienta, ciudad, productos, vendedora, total, pagado, saldo, forma de pago, proveedora y OF, y estado en palabras con fecha. Úsala al empezar una conversación sobre pedidos para tenerlos a la mano. 'sin_ciudad' dice cuántos no tienen ciudad guardada. SOLO LECTURA. Valores en COP.",
+    schema: z.object({}),
+    handler: (_args, deps) => listOpenOrdersUseCase(deps),
+  }),
+  defineTool({
     name: "registrar_gasto",
     title: "Registrar un gasto",
     description:
@@ -733,6 +753,6 @@ export const asesorMcpServer: McpServerDefinition = {
   name: "gestion-magilus",
   version: "1.2.0",
   instructions:
-    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos y pagos a proveedoras: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), asistencia (quien esta trabajando hoy, entradas y salidas, dias trabajados), saldos de cuentas, gastos del mes con la ganancia real (listar_gastos) y cuanto se le debe a cada proveedora orden por orden (deuda_con_proveedoras). Para entender el sistema completo usa primero que_es_esta_aplicacion. Todas las herramientas son de lectura salvo registrar_gasto y registrar_pago_proveedora, las unicas que escriben: antes de guardar SIEMPRE repite el resumen al dueno y espera su 'si' (primero con confirmado=false, luego confirmado=true, UNA sola vez: dos llamadas de registrar_gasto crean dos gastos). Un pago a una proveedora por su orden de fabricacion (OF) va con registrar_pago_proveedora, nunca como gasto (contaria el costo dos veces). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
+    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos y pagos a proveedoras: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), asistencia (quien esta trabajando hoy, entradas y salidas, dias trabajados), saldos de cuentas, gastos del mes con la ganancia real (listar_gastos) cuanto se le debe a cada proveedora orden por orden (deuda_con_proveedoras) y pedidos por clienta o ciudad con su estado (buscar_pedido, pedidos_abiertos). Para entender el sistema completo usa primero que_es_esta_aplicacion. Todas las herramientas son de lectura salvo registrar_gasto y registrar_pago_proveedora, las unicas que escriben: antes de guardar SIEMPRE repite el resumen al dueno y espera su 'si' (primero con confirmado=false, luego confirmado=true, UNA sola vez: dos llamadas de registrar_gasto crean dos gastos). Un pago a una proveedora por su orden de fabricacion (OF) va con registrar_pago_proveedora, nunca como gasto (contaria el costo dos veces). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
   tools: asesorTools,
 };

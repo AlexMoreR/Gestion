@@ -5,6 +5,7 @@ import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import type {
   DayRange,
   ExpenseLine,
+  OrderTracking,
   ProductRow,
   QuoteRow,
   QuoteStatusCode,
@@ -66,6 +67,86 @@ function toSaleProductItem(item: {
   return {
     ...item,
     product: { ...product, preferredSupplierCost: suppliers[0]?.supplierCost ?? null },
+  };
+}
+
+// Item de orden o cotizacion para la lista corta de productos (buildQuoteProductSummary).
+const quoteSummaryItemSelect = {
+  id: true,
+  quantity: true,
+  unitPrice: true,
+  lineTotal: true,
+  notes: true,
+  product: { select: { name: true, code: true, thumbnailUrl: true, description: true } },
+} as const;
+
+// Venta con sus abonos y la entrega: la base de pagado y saldo (buildSaleLedger).
+const ledgerSelect = {
+  id: true,
+  code: true,
+  status: true,
+  paymentMethod: true,
+  total: true,
+  downPaymentAmount: true,
+  createdAt: true,
+  client: { select: { name: true } },
+  quote: { select: { code: true, createdAt: true, createdBy: { select: userSelect } } },
+  salePayments: {
+    orderBy: { sortOrder: "asc" },
+    select: {
+      amount: true,
+      paymentDate: true,
+      createdAt: true,
+      paymentMethod: true,
+      note: true,
+      isWithholding: true,
+      withholdingCertificate: true,
+      account: { select: { name: true } },
+    },
+  },
+  order: {
+    select: {
+      status: true,
+      completedAt: true,
+      // Misma fecha de entrega que Balances: ultima linea "Cerrada" del historial.
+      history: {
+        where: { toStatus: "COMPLETED" },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { createdAt: true },
+      },
+    },
+  },
+} satisfies Prisma.SaleSelect;
+
+function toLedgerInput(sale: Prisma.SaleGetPayload<{ select: typeof ledgerSelect }>): SaleLedgerInput {
+  return {
+    saleId: sale.id,
+    saleCode: sale.code,
+    quoteCode: sale.quote?.code ?? null,
+    quoteCreatedAt: sale.quote?.createdAt ?? null,
+    saleCreatedAt: sale.createdAt,
+    clientName: sale.client?.name ?? null,
+    sellerName: toSeller(sale.quote?.createdBy)?.name ?? null,
+    saleStatus: sale.status,
+    orderStatus: sale.order?.status ?? null,
+    paymentMethod: sale.paymentMethod ?? null,
+    total: toNumber(sale.total),
+    recordedPaid: toNumber(sale.downPaymentAmount),
+    deliveredAt:
+      sale.order?.status === "COMPLETED"
+        ? (sale.order.history[0]?.createdAt ?? sale.order.completedAt ?? null)
+        : null,
+    payments: sale.salePayments.map((payment) => ({
+      amount: toNumber(payment.amount),
+      paymentDate: payment.paymentDate,
+      registeredAt: payment.createdAt,
+      accountName: payment.account?.name ?? null,
+      method: payment.paymentMethod || null,
+      note: payment.note,
+      isWithholding: payment.isWithholding,
+      withholdingCertificate: payment.withholdingCertificate,
+    })),
   };
 }
 
@@ -397,6 +478,86 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
         hiddenFromStore: product.hiddenFromStore,
       }));
     },
+    async listOrderTrackings(filter): Promise<OrderTracking[]> {
+      // Solo lectura: un findMany. Abiertos = sin orden o con la orden sin entregar ni cancelar.
+      const sales = await prisma.sale.findMany({
+        where: {
+          status: { not: "CANCELLED" },
+          ...(filter?.soloAbiertos
+            ? { OR: [{ order: { is: null } }, { order: { is: { status: { notIn: ["COMPLETED", "CANCELLED"] } } } }] }
+            : {}),
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          ...ledgerSelect,
+          client: { select: { name: true, phone: true, city: true, department: true } },
+          quote: {
+            select: {
+              ...ledgerSelect.quote.select,
+              items: {
+                orderBy: { createdAt: "asc" },
+                select: quoteSummaryItemSelect,
+              },
+            },
+          },
+          order: {
+            select: {
+              code: true,
+              status: true,
+              createdAt: true,
+              completedAt: true,
+              history: { orderBy: { createdAt: "desc" }, select: { toStatus: true, createdAt: true } },
+              items: { orderBy: { createdAt: "asc" }, select: quoteSummaryItemSelect },
+              manufacturingOrders: {
+                orderBy: { createdAt: "asc" },
+                select: { code: true, supplier: { select: { name: true } } },
+              },
+              dispatches: {
+                orderBy: { createdAt: "asc" },
+                select: {
+                  code: true,
+                  carrierName: true,
+                  carrierSupplier: { select: { name: true } },
+                  trackingNumber: true,
+                  shippingAddress: true,
+                  shippedAt: true,
+                  deliveredAt: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return sales.map((sale) => {
+        const order = sale.order;
+        const orderItems = order?.items ?? [];
+        return {
+          // El ledger solo necesita la ultima entrada "Cerrada" (fecha de entrega de Balances).
+          ledger: toLedgerInput({
+            ...sale,
+            order: order && { ...order, history: order.history.filter((h) => h.toStatus === "COMPLETED") },
+          }),
+          orderCode: order?.code ?? null,
+          orderCreatedAt: order?.createdAt ?? null,
+          clientPhone: sale.client.phone?.trim() || null,
+          city: sale.client.city?.trim() || null,
+          department: sale.client.department?.trim() || null,
+          // Productos de la orden o, si no tiene items, de la cotizacion (combos agrupados, con color).
+          products: buildQuoteProductSummary(orderItems.length > 0 ? orderItems : (sale.quote?.items ?? [])),
+          manufacturingOrders: (order?.manufacturingOrders ?? []).map((of) => ({ code: of.code, supplierName: of.supplier.name })),
+          statusChanges: (order?.history ?? []).map((h) => ({ toStatus: h.toStatus, at: h.createdAt })),
+          dispatches: (order?.dispatches ?? []).map((dispatch) => ({
+            code: dispatch.code,
+            carrierName: dispatch.carrierName?.trim() || dispatch.carrierSupplier?.name || null,
+            trackingNumber: dispatch.trackingNumber,
+            shippingAddress: dispatch.shippingAddress,
+            shippedAt: dispatch.shippedAt,
+            deliveredAt: dispatch.deliveredAt,
+          })),
+        };
+      });
+    },
     async listSaleLedgers(filter?: SaleLedgerFilter): Promise<SaleLedgerInput[]> {
       const where: Prisma.SaleWhereInput = {};
       if (filter?.saleIds) where.id = { in: filter.saleIds };
@@ -405,76 +566,8 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
         return [];
       }
 
-      const sales = await prisma.sale.findMany({
-        where,
-        orderBy: { createdAt: "asc" },
-        select: {
-          id: true,
-          code: true,
-          status: true,
-          paymentMethod: true,
-          total: true,
-          downPaymentAmount: true,
-          createdAt: true,
-          client: { select: { name: true } },
-          quote: { select: { code: true, createdAt: true, createdBy: { select: userSelect } } },
-          salePayments: {
-            orderBy: { sortOrder: "asc" },
-            select: {
-              amount: true,
-              paymentDate: true,
-              createdAt: true,
-              paymentMethod: true,
-              note: true,
-              isWithholding: true,
-              withholdingCertificate: true,
-              account: { select: { name: true } },
-            },
-          },
-          order: {
-            select: {
-              status: true,
-              completedAt: true,
-              // Misma fecha de entrega que Balances: ultima linea "Cerrada" del historial.
-              history: {
-                where: { toStatus: "COMPLETED" },
-                orderBy: { createdAt: "desc" },
-                take: 1,
-                select: { createdAt: true },
-              },
-            },
-          },
-        },
-      });
-
-      return sales.map((sale) => ({
-        saleId: sale.id,
-        saleCode: sale.code,
-        quoteCode: sale.quote?.code ?? null,
-        quoteCreatedAt: sale.quote?.createdAt ?? null,
-        saleCreatedAt: sale.createdAt,
-        clientName: sale.client?.name ?? null,
-        sellerName: toSeller(sale.quote?.createdBy)?.name ?? null,
-        saleStatus: sale.status,
-        orderStatus: sale.order?.status ?? null,
-        paymentMethod: sale.paymentMethod ?? null,
-        total: toNumber(sale.total),
-        recordedPaid: toNumber(sale.downPaymentAmount),
-        deliveredAt:
-          sale.order?.status === "COMPLETED"
-            ? (sale.order.history[0]?.createdAt ?? sale.order.completedAt ?? null)
-            : null,
-        payments: sale.salePayments.map((payment) => ({
-          amount: toNumber(payment.amount),
-          paymentDate: payment.paymentDate,
-          registeredAt: payment.createdAt,
-          accountName: payment.account?.name ?? null,
-          method: payment.paymentMethod || null,
-          note: payment.note,
-          isWithholding: payment.isWithholding,
-          withholdingCertificate: payment.withholdingCertificate,
-        })),
-      }));
+      const sales = await prisma.sale.findMany({ where, orderBy: { createdAt: "asc" }, select: ledgerSelect });
+      return sales.map(toLedgerInput);
     },
   };
 }
