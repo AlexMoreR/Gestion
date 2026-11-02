@@ -31,7 +31,7 @@ import { todayInColombia } from "@/lib/colombia-time";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ProductThumb } from "@/components/admin/product-thumb";
-import { expandComboLines, pickComboPieces, type ComboComponent } from "@/lib/combo";
+import { expandComboLines, faltanPiezasCombo, pickComboPieces, type ComboComponent } from "@/lib/combo";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { calculateQuoteLineTotal } from "@/lib/quote-item-meta";
 import { imageVariantUrl } from "@/lib/image-variants";
@@ -1627,6 +1627,19 @@ export function QuoteWizardModal({
                 (Number(draftQuantity) || 0) < draftProduct.minWholesaleQty ? (
                   <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-600 dark:text-amber-400">
                     Cantidad menor al minimo mayorista ({draftProduct.minWholesaleQty}) para este producto.
+                  </p>
+                ) : null}
+
+                {/* Aviso (no bloquea): combo o kit sin sus piezas cargadas en el catalogo. */}
+                {draftProduct &&
+                faltanPiezasCombo({
+                  code: draftProduct.code,
+                  name: draftProduct.name,
+                  isBundle: Boolean(draftProduct.isBundle),
+                  components: draftProduct.components ?? [],
+                }) ? (
+                  <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+                    Este combo no tiene sus piezas cargadas: avisa a quien carga el catálogo.
                   </p>
                 ) : null}
 

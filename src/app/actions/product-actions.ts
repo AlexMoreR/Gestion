@@ -11,6 +11,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
+import { COMBO_SIN_PIEZAS_MENSAJE, faltanPiezasCombo, pareceCombo } from "@/lib/combo";
 import { prisma } from "@/lib/prisma";
 import { parseProductPromoInput, toBogotaDateOnly } from "@/lib/product-promo";
 import { slugifyProductSegment } from "@/lib/product-slugs";
@@ -423,6 +424,9 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
     if (isBundle && productComponents.length === 0) {
       throw new Error("Un combo debe tener al menos un componente.");
     }
+    if (faltanPiezasCombo({ code: parsed.data.code, name: parsed.data.name, isBundle, components: productComponents })) {
+      throw new Error(COMBO_SIN_PIEZAS_MENSAJE);
+    }
     if (isBundle) {
       await assertComponentsAreNotBundles(productComponents);
     }
@@ -588,6 +592,9 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
     productSuppliers = isBundle ? [] : parseProductSuppliers(formData);
     if (isBundle && productComponents.length === 0) {
       throw new Error("Un combo debe tener al menos un componente.");
+    }
+    if (faltanPiezasCombo({ code: parsed.data.code, name: parsed.data.name, isBundle, components: productComponents })) {
+      throw new Error(COMBO_SIN_PIEZAS_MENSAJE);
     }
     if (
       isBundle &&
@@ -902,6 +909,11 @@ export async function adminImportProductsCsvAction(formData: FormData): Promise<
       continue;
     }
     const code = codeCheck.code;
+    if (pareceCombo(code, name)) {
+      codeErrors.push(`Fila ${i + 1}: es un combo, créalo a mano con sus piezas`);
+      skipped += 1;
+      continue;
+    }
     if (existingCodes.has(code)) {
       codeErrors.push(`Fila ${i + 1}: el codigo ${code} ya existe`);
       skipped += 1;

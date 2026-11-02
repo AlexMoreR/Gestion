@@ -94,7 +94,7 @@ Lista de cotizaciones (código `COT-...`): crear, editar, abrir el enlace públi
 
 **Botones y acciones:**
 - **Nueva cotizacion**: abre el asistente de 3 pasos:
-  - Paso 1 **Productos**: casilla **Precios al por mayor**; **Agregar producto** abre buscador ("Buscar codigo o producto") con Color, **Tipo de venta** ("Por stock (de existencias)" solo si hay stock / "Por orden (se fabrica)"), Descuento, Costo adicional, foto opcional y Descripcion; **Cancelar** / **Agregar producto**. Luego **Siguiente**.
+  - Paso 1 **Productos**: casilla **Precios al por mayor**; **Agregar producto** abre buscador ("Buscar codigo o producto") con Color, **Tipo de venta** ("Por stock (de existencias)" solo si hay stock / "Por orden (se fabrica)"), Descuento, Costo adicional, foto opcional y Descripcion; **Cancelar** / **Agregar producto**. Si el producto parece combo y no tiene sus piezas, aviso ámbar "Este combo no tiene sus piezas cargadas: avisa a quien carga el catálogo." (no bloquea). Luego **Siguiente**.
   - Paso 2 **Cliente**: **Agregar cliente** (o **Editar cliente**) muestra Nombre y apellido (sugiere clientes existentes al escribir), documento, correo, teléfono, dirección, barrio, departamento, ciudad. **Atras** / **Siguiente** (guarda el cliente).
   - Paso 3 **Generar**: Notas y resumen. **Atras** / **Generar cotizacion**.
 - Menú "⋯" de cada fila:
@@ -322,7 +322,7 @@ Nómina del mes por persona: básico + comisiones − lo pagado; y registrar pag
 ## /admin/productos
 Catálogo: buscar, filtrar, crear, editar y borrar productos; importar/exportar CSV y traer fotos de Drive.
 
-**Qué se ve:** desplegable **Traer fotos de Drive (varios productos)** (códigos separados por coma, máx. 10; botón **Traer de Drive**). Barra con buscador "Buscar por nombre, codigo, categoria o proveedor", botón rojo con el número de productos bajo el margen mínimo (title "Productos por debajo del margen minimo"), selector de precio (Detal / Por mayor), filtro de categoría ("Categorias"), limpiar filtros y vista Cuadricula / Tabla. En tabla: columnas Producto, Categoria, Costo, Precio (o Precio mayor), Margen y menú "⋯". Paginación **Anterior** / **Siguiente**.
+**Qué se ve:** si hay combos sin piezas (código CMB o nombre con "combo"/"kit" y sin marcar como combo o con menos de 2 piezas), recuadro ámbar **Combos sin piezas (N)** con código, nombre y enlace **Completar** (abre `/admin/productos/<id>`). Desplegable **Traer fotos de Drive (varios productos)** (códigos separados por coma, máx. 10; botón **Traer de Drive**). Barra con buscador "Buscar por nombre, codigo, categoria o proveedor", botón rojo con el número de productos bajo el margen mínimo (title "Productos por debajo del margen minimo"), selector de precio (Detal / Por mayor), filtro de categoría ("Categorias"), limpiar filtros y vista Cuadricula / Tabla. En tabla: columnas Producto, Categoria, Costo, Precio (o Precio mayor), Margen y menú "⋯". Paginación **Anterior** / **Siguiente**.
 
 **Botones y acciones:**
 - Menú de importar/exportar (aria-label "Opciones de importacion y exportacion"): **Importar CSV** (diálogo con columnas esperadas y botón **Importar por CSV**) y **Exportar CSV** (diálogo con **Exportar CSV**; **Cerrar**).
@@ -340,7 +340,7 @@ Crea un producto ("Define costo, porcentaje y precio final comercial antes de gu
 **Botones y acciones:**
 - Casilla **Habilitar combo (se arma con otros productos)** (paso Producto): marca el producto como combo (`isBundle`). Muestra "Componentes" con **Agregar componente**; cada fila tiene Producto (buscador), Cantidad, papelera "Quitar componente" y "Alternas (si no hay esta pieza, sale otra)" con el buscador "Agregar alterna". Sin filas: "Sin componentes. Agrega al menos un producto."
 - **Siguiente** / **← Atras** / **Cancelar**.
-- **Guardar producto** (aparece desde el paso 2): crea el producto.
+- **Guardar producto** (aparece desde el paso 2): crea el producto. Si el código empieza por CMB o el nombre tiene "combo" o "kit" y no está marcado como combo con al menos 2 piezas, no guarda y dice "Este producto es un combo: agrega sus piezas antes de guardar." (también al editar).
 
 ## /admin/productos/[productId]
 Ficha de edición de un producto.

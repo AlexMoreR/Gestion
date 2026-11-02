@@ -270,6 +270,11 @@ tiene proveedora propia: se toma la de sus componentes.
 Una pieza del combo puede tener alternas: el stock de esa pieza es la principal más sus alternas
 (así se cuenta cuántos combos se pueden armar), y al cotizar o vender por stock la línea sale con la
 primera pieza que alcanza para toda la cantidad (principal, luego alternas); no mezcla piezas.
+Combo sin piezas (31-oct-2026): si el código empieza por CMB o el nombre tiene la palabra "combo" o
+"kit", Productos no deja guardarlo (crear ni editar) sin marcarlo como combo y sumar al menos 2 unidades
+entre sus piezas ("Este producto es un combo: agrega sus piezas antes de guardar."); la carga por CSV salta
+esas filas. `/admin/productos` muestra "Combos sin piezas (N)" y al cotizar sale un aviso que no bloquea
+(`faltanPiezasCombo` en `src/lib/combo.ts`).
 
 **Combo Camillas (orden sola con Laura).** Al registrar una venta que trae el Combo Camillas (CMB005 o
 CAV-16), Gestión crea sola la orden de venta y confirma el combo con la proveedora Laura a su costo del

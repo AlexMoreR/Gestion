@@ -35,6 +35,7 @@ import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import type { ProductPromoFormFields } from "@/lib/product-promo";
 import type { ProductPurchaseRow } from "@/lib/product-purchase-history";
 import { calculateProfit, calculateRetailPrice, calculateWholesalePrice } from "@/lib/pricing";
+import { COMBO_SIN_PIEZAS_MENSAJE, faltanPiezasCombo } from "@/lib/combo";
 import { Button, buttonVariants } from "../ui/button";
 
 type CategoryOption = {
@@ -245,6 +246,16 @@ export function EditProductForm({
   const [dragActive, setDragActive] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Un combo o kit no se guarda sin sus piezas: se avisa aca para no perder lo escrito (el servidor revisa lo mismo).
+  const alEnviar = (evento: React.FormEvent<HTMLFormElement>) => {
+    setAvisoInvalido(null);
+    const components = componentRows.filter((row) => row.childId).map((row) => ({ quantity: Number(row.quantity) || 0 }));
+    if (faltanPiezasCombo({ code, name, isBundle, components })) {
+      evento.preventDefault();
+      setCurrentStep(1);
+      setAvisoInvalido(COMBO_SIN_PIEZAS_MENSAJE);
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -433,7 +444,7 @@ export function EditProductForm({
             ))}
           </TabsList>
         </Tabs>
-        <form action={adminUpdateProductAction} className="flex min-h-0 flex-1 flex-col" onInvalidCapture={alCampoInvalido} onSubmitCapture={() => setAvisoInvalido(null)}>
+        <form action={adminUpdateProductAction} className="flex min-h-0 flex-1 flex-col" onInvalidCapture={alCampoInvalido} onSubmitCapture={alEnviar}>
             <input type="hidden" name="productId" value={initialData.id} />
             <input type="hidden" name="existingImages" value={existingImageUrls.join("\n")} />
             <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-6 py-5">

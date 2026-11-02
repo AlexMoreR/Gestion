@@ -114,3 +114,26 @@ export function expandComboLines(
     };
   });
 }
+
+// --- Combos sin piezas (31-oct-2026): que el sistema no deje equivocar a quien carga el catalogo ---
+
+export const COMBO_SIN_PIEZAS_MENSAJE = "Este producto es un combo: agrega sus piezas antes de guardar.";
+
+/** Parece combo si el codigo empieza por "CMB" o el nombre tiene la palabra "combo" o "kit". */
+export function pareceCombo(code: string | null | undefined, name: string | null | undefined): boolean {
+  if ((code ?? "").trim().toUpperCase().startsWith("CMB")) return true;
+  // \p{L} en vez de \b: asi "KITCHEN" no cuenta y las letras con tilde se respetan.
+  return /(?<!\p{L})(combo|kit)(?!\p{L})/iu.test(name ?? "");
+}
+
+/** Un producto que parece combo debe estar marcado como combo y sumar al menos 2 unidades entre sus piezas. */
+export function faltanPiezasCombo(product: {
+  code: string | null | undefined;
+  name: string | null | undefined;
+  isBundle: boolean;
+  components: { quantity: number }[];
+}): boolean {
+  if (!pareceCombo(product.code, product.name)) return false;
+  const unidades = product.components.reduce((sum, component) => sum + Math.max(0, component.quantity), 0);
+  return !product.isBundle || unidades < 2;
+}

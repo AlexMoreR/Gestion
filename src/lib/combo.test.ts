@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { comboStock, pickComboPieces, type ComboComponent } from "./combo";
+import { comboStock, faltanPiezasCombo, pareceCombo, pickComboPieces, type ComboComponent } from "./combo";
 
 // CMB005: divan, escalera, carrito y butaco (BMV016, alterna BMV003).
 const stock: Record<string, number> = { CAV002: 2, ACV002: 2, ACV009: 2, BMV016: 0, BMV003: 2 };
@@ -45,5 +45,26 @@ describe("pickComboPieces", () => {
 
   it("deja la principal cuando ninguna alcanza", () => {
     expect(pickComboPieces([butaco(1, 1)], 2)[0].productId).toBe("BMV016");
+  });
+});
+
+describe("pareceCombo / faltanPiezasCombo", () => {
+  const sinPiezas = { isBundle: false, components: [] };
+  it("detecta combos por codigo CMB o la palabra combo/kit", () => {
+    expect(faltanPiezasCombo({ code: "CMB099", name: "KIT PRUEBA", ...sinPiezas })).toBe(true);
+    expect(faltanPiezasCombo({ code: "BMV013", name: "COMBO MESA", ...sinPiezas })).toBe(true);
+    expect(pareceCombo("cmb014", "CAMILLA TRES CUERPOS")).toBe(true);
+    expect(pareceCombo("MYS001", "Kit-estética")).toBe(true);
+  });
+  it("no atrapa palabras que solo contienen kit/combo", () => {
+    expect(pareceCombo("ACV001", "KITCHEN")).toBe(false);
+    expect(pareceCombo("SIL001", "SILLA FLOR")).toBe(false);
+    expect(faltanPiezasCombo({ code: "SIL001", name: "SILLA FLOR", ...sinPiezas })).toBe(false);
+  });
+  it("exige marcarlo combo y 2 unidades entre sus piezas", () => {
+    expect(faltanPiezasCombo({ code: "CMB099", name: "KIT PRUEBA", isBundle: true, components: [{ quantity: 1 }] })).toBe(true);
+    expect(faltanPiezasCombo({ code: "CMB099", name: "KIT PRUEBA", isBundle: true, components: [{ quantity: 2 }] })).toBe(false);
+    expect(faltanPiezasCombo({ code: "CMB099", name: "KIT PRUEBA", isBundle: true, components: [{ quantity: 1 }, { quantity: 1 }] })).toBe(false);
+    expect(faltanPiezasCombo({ code: "CMB099", name: "KIT PRUEBA", isBundle: false, components: [{ quantity: 2 }] })).toBe(true);
   });
 });
