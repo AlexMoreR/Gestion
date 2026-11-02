@@ -17,6 +17,7 @@ import { prisma } from "@/lib/prisma";
 import { PAYMENT_METHOD_SHORT_LABEL, parsePaymentMethodInput } from "@/modules/ventas/domain/payment-method";
 import { CONSUMIDOR_FINAL_EMAIL } from "@/modules/ventas/domain/sale-origin";
 import { saleItemsErrorMessage } from "@/modules/ventas/domain/sale-items-check";
+import { autoCreateComboOrder } from "@/modules/ventas/application/auto-create-combo-order";
 import {
   WITHHOLDING_LABEL,
   isWithholdingAccountValue,
@@ -195,6 +196,22 @@ async function getNextSaleCode(tx: Prisma.TransactionClient): Promise<string> {
   }
 
   throw new Error("Unable to allocate sale code");
+}
+
+// Combo Camillas: crea sola la orden de Laura. Si falla, la venta ya quedo guardada y
+// la alerta del combo la muestra; aqui solo se registra el error.
+async function comboOrderOkSuffix(saleId: string | null, actorId: string): Promise<string> {
+  if (!saleId) return "";
+  try {
+    const result = await autoCreateComboOrder(saleId, actorId);
+    if (!result.creada) return "";
+    revalidatePath("/admin/ordenes");
+    revalidatePath("/admin/produccion");
+    return " · orden de Laura creada";
+  } catch (error) {
+    console.error("Combo Camillas: no se pudo crear la orden sola:", error);
+    return "";
+  }
 }
 
 export async function adminCreateSaleFromQuoteAction(formData: FormData): Promise<void> {
@@ -502,12 +519,14 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
       : `Creó una venta desde la cotización ${quote.code}`,
   });
 
+  const comboOk = await comboOrderOkSuffix(createdSaleId, createdById);
+
   revalidatePath("/admin/cotizaciones");
   revalidatePath("/admin/ventas");
   if (invoiceToken) {
     revalidatePath(`/sales/${invoiceToken}`);
   }
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Venta creada" }).toString()}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: `Venta creada${comboOk}` }).toString()}`);
 }
 
 const addSalePaymentSchema = z.object({
@@ -1282,11 +1301,13 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
       : `Creó una venta directa por $${Number(total).toLocaleString("es-CO")}`,
   });
 
+  const comboOk = await comboOrderOkSuffix(createdSaleId, createdById);
+
   revalidatePath("/admin/ventas");
   if (invoiceToken) {
     revalidatePath(`/sales/${invoiceToken}`);
   }
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Venta creada" }).toString()}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: `Venta creada${comboOk}` }).toString()}`);
 }
 
 // Edita la fecha de una venta (sale.createdAt, usada en Balances). Opcionalmente

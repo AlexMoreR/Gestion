@@ -402,3 +402,16 @@ export async function setSystemMinMargins(retailPct: number, wholesalePct: numbe
     setAppSettingValue(MIN_WHOLESALE_MARGIN_SETTING_KEY, String(Math.min(wholesalePct, 100000))),
   ]);
 }
+
+// Combo Camillas: id de la proveedora (Laura) guardado a mano en AppSetting
+// "comboCamillasConfig" = { "supplierId": "..." }. Null si no esta o no se entiende.
+export async function getComboCamillasSupplierId(): Promise<string | null> {
+  const raw = await getAppSettingValue("comboCamillasConfig");
+  if (!raw) return null;
+  try {
+    const supplierId = (JSON.parse(raw) as { supplierId?: unknown }).supplierId;
+    return typeof supplierId === "string" && supplierId.trim() ? supplierId.trim() : null;
+  } catch {
+    return null;
+  }
+}

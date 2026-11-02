@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { esComboCamillas, necesitaAlertaCombo, planComboOrder, repartirCostoCombo } from "./combo-camillas";
+import { computeItemUnitCost } from "../../../lib/order-item-cost";
+import { stringifyQuoteItemMeta } from "../../../lib/quote-item-meta";
+import { calculateSaleProfitSummary } from "../../balances/domain/calculations";
+import {
+  codigosComboDeVenta,
+  costosItemsCombo,
+  esComboCamillas,
+  itemsParaPlan,
+  necesitaAlertaCombo,
+  planComboOrder,
+  repartirCostoCombo,
+  type ItemOrden,
+  type LineaVenta,
+} from "./combo-camillas";
 
 const laura = { id: "sup-laura", name: "Laura" };
 const otra = { id: "sup-otra", name: "Tapiceria Gomez" };
@@ -73,5 +86,89 @@ describe("repartirCostoCombo", () => {
 
   it("sin componentes (el combo es una sola linea) va entero", () => {
     expect(repartirCostoCombo(600000, [{ cantidadPorCombo: 1 }])).toEqual([600000]);
+  });
+});
+
+// Combo armado en piezas por el asistente de cotizaciones (forma A).
+const piezaA = (id: string, productId: string, quantity: number, comboKey = "k1"): LineaVenta => ({
+  id,
+  productId,
+  quantity,
+  notes: stringifyQuoteItemMeta({ comboKey, comboName: "Combo Camillas", comboCode: "CMB005", comboQuantity: 1, color: "Negro" }),
+  product: { code: "CAM001", name: "Camilla", piezas: [] },
+});
+const ordenDe = (lineas: LineaVenta[], mode = "MANUFACTURE"): ItemOrden[] =>
+  lineas.map((l) => ({ id: `oi-${l.id}`, quoteItemId: l.id, productId: l.productId, quantity: l.quantity, notes: l.notes, fulfillmentMode: mode }));
+
+describe("combo en piezas (cotizacion del asistente o del CRM)", () => {
+  const lineas = [piezaA("q1", "p-camilla", 2), piezaA("q2", "p-butaco", 1), { ...piezaA("q3", "p-otro", 1), notes: null, product: { code: "CAM009", name: "Otra", piezas: [] } }];
+
+  it("cuenta el combo una vez y lo reconoce por su codigo", () => {
+    expect(itemsParaPlan(lineas)).toEqual([{ codigo: "CMB005", cantidad: 1 }, { codigo: "CAM009", cantidad: 1 }]);
+    expect(codigosComboDeVenta(lineas)).toEqual(["CMB005"]);
+  });
+
+  it("pone los 600.000 una sola vez y confirma las demas piezas en 0; no toca lo que no es combo", () => {
+    const costos = costosItemsCombo(600000, lineas, ordenDe(lineas));
+    expect(costos).toEqual([
+      { orderItemId: "oi-q1", unitCost: 300000 },
+      { orderItemId: "oi-q2", unitCost: 0 },
+    ]);
+  });
+
+  it("no confirma piezas por stock", () => {
+    expect(costosItemsCombo(600000, lineas, ordenDe(lineas, "STOCK"))).toEqual([]);
+  });
+
+  it("con el costo confirmado, Balances usa purchaseCost y la ganancia deja de ser 100 %", () => {
+    const orden = ordenDe(lineas);
+    const costos = new Map(costosItemsCombo(600000, lineas, orden).map((c) => [c.orderItemId, c.unitCost]));
+    const items = orden.map((item) => ({
+      quantity: item.quantity,
+      purchaseCost: costos.get(item.id) ?? null,
+      fulfillmentMode: "MANUFACTURE",
+      baseCost: 0, // el combo sin costo en catalogo era lo que dejaba la venta al 100 %
+      additionalCost: 0,
+    }));
+    expect(computeItemUnitCost({ purchaseCost: 300000, fulfillmentMode: "MANUFACTURE", baseCost: 0, additionalCost: 0 })).toBe(300000);
+
+    const antes = calculateSaleProfitSummary({
+      saleId: "s", saleCode: "SAL-1", saleAmount: 989000, createdAt: new Date(), clientName: null,
+      orderItems: items.map((i) => ({ ...i, purchaseCost: null })), shippingCosts: [],
+    });
+    const despues = calculateSaleProfitSummary({
+      saleId: "s", saleCode: "SAL-1", saleAmount: 989000, createdAt: new Date(), clientName: null, orderItems: items, shippingCosts: [],
+    });
+    expect(antes.marginPercentage).toBe(100);
+    expect(despues.supplierCosts).toBe(600000);
+    expect(despues.netProfit).toBe(389000);
+    expect(despues.marginPercentage).toBeLessThan(100);
+  });
+
+  it("una segunda llamada no crea otra orden", () => {
+    const plan = planComboOrder({ items: itemsParaPlan(lineas), proveedoras: [laura], costo: 600000, yaTieneOrden: true });
+    expect(plan).toEqual({ accion: "nada" });
+  });
+});
+
+describe("combo como producto (venta directa)", () => {
+  it("sin componentes: una linea con el costo entero", () => {
+    const lineas: LineaVenta[] = [{ id: "q1", productId: "p-combo", quantity: 2, notes: null, product: { code: "CMB005", name: "Combo", piezas: [] } }];
+    expect(costosItemsCombo(600000, lineas, ordenDe(lineas))).toEqual([{ orderItemId: "oi-q1", unitCost: 600000 }]);
+  });
+
+  it("con componentes: la orden lo parte y el costo va en la primera pieza", () => {
+    const lineas: LineaVenta[] = [
+      { id: "q1", productId: "p-combo", quantity: 1, notes: null, product: { code: "CAV-16", name: "Combo Camillas", piezas: [{ productId: "p-camilla", cantidadPorCombo: 2 }, { productId: "p-butaco", cantidadPorCombo: 1 }] } },
+    ];
+    const notes = stringifyQuoteItemMeta({ description: "Combo: Combo Camillas" });
+    const orden: ItemOrden[] = [
+      { id: "a", quoteItemId: null, productId: "p-camilla", quantity: 2, notes, fulfillmentMode: "MANUFACTURE" },
+      { id: "b", quoteItemId: null, productId: "p-butaco", quantity: 1, notes, fulfillmentMode: "MANUFACTURE" },
+    ];
+    expect(costosItemsCombo(600000, lineas, orden)).toEqual([
+      { orderItemId: "a", unitCost: 300000 },
+      { orderItemId: "b", unitCost: 0 },
+    ]);
   });
 });
