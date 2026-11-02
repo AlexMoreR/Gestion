@@ -3,7 +3,9 @@
 `subir-precios-vigentes.sh` baja la hoja de Gestión (`GET /api/asesor/precios-vigentes`, llave
 `MCP_API_KEY`) y la sube con rclone a la carpeta Magilus del cerebro en Drive, **solo si cambió**
 (se compara con la última subida, `ultima.md`, sin contar la línea `Generado:`). Si no cambió, deja
-`sin cambios` en el registro. Si algo falla, manda el correo de `../respaldo/aviso-fallo.sh`.
+`sin cambios` en el registro. Si algo falla, manda el correo de `../respaldo/aviso-fallo.sh` (con su
+propio asunto), **uno solo por racha de fallas**: la marca `.avisado` del directorio de estado se
+borra cuando una corrida vuelve a salir bien.
 Corre en aizen1 por cron, **fuera de la imagen** de Gestión.
 
 > **Ojo: la hoja lleva COSTOS.** La carpeta Magilus del cerebro no la debe leer el bot de ventas
