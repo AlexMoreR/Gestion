@@ -9,7 +9,7 @@ import { OrderStepper } from "@/components/admin/order-stepper";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
-import { hasAdminModuleAccess } from "@/lib/admin-module-access";
+import { hasAdminModuleAccess, hasAnyModuleAccess } from "@/lib/admin-module-access";
 import { formatMoney } from "@/lib/currency";
 import { resolveDispatchLegs, sumShippingLegs } from "@/lib/dispatch-shipping-legs";
 import { computeStockExitCost } from "@/lib/stock-exit-cost";
@@ -38,12 +38,14 @@ import { computeCollectSuggestion, resolveCityFromClient } from "@/modules/guias
 import {
   COMBO_CHECK_PRODUCT_SELECT,
   contraentregaComboWarning,
+  isCamillaComboProduct,
   toComboCheckProduct,
   PAYMENT_METHOD_BADGE,
   PAYMENT_METHOD_LABEL,
   PAYMENT_METHOD_SHORT_LABEL,
 } from "@/modules/ventas/domain/payment-method";
 import { SaleOriginBadge } from "@/modules/ventas/presentation/sale-origin-badge";
+import { ChangePaymentMethodButton } from "@/modules/ventas/presentation/change-payment-method-button";
 import {
   esComboCamillas,
   esLaura,
@@ -389,10 +391,11 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     };
   }
   const salePaymentMethod = order.sale?.paymentMethod ?? null;
-  const comboWarning = contraentregaComboWarning(
-    salePaymentMethod,
-    order.items.map((item) => toComboCheckProduct(item.product)),
-  );
+  const comboCheckProducts = order.items.map((item) => toComboCheckProduct(item.product));
+  const comboWarning = contraentregaComboWarning(salePaymentMethod, comboCheckProducts);
+  // El cambio de forma de pago usa la accion de ventas: solo se ofrece a quien tiene ese permiso.
+  const canChangePaymentMethod =
+    !isPurchase && Boolean(order.sale) && (await hasAnyModuleAccess(session.user.id, session.user.role, ["sales", "quotes"]));
   const shippingDispatches = order.dispatches.filter(
     (dispatch) => dispatch.deliveryType === "SHIPPING" && dispatch.status !== "CANCELLED",
   );
@@ -548,6 +551,15 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                   Forma de pago sin definir
                 </Badge>
               )}
+              {canChangePaymentMethod && order.sale ? (
+                <ChangePaymentMethodButton
+                  saleId={order.sale.id}
+                  saleCode={order.sale.code}
+                  returnTo={`/admin/ordenes/${order.id}`}
+                  defaultValue={salePaymentMethod}
+                  hasCamillaCombo={comboCheckProducts.some(isCamillaComboProduct)}
+                />
+              ) : null}
               <SaleOriginBadge prefix="Origen: " origin={order.sale?.origin} detail={order.sale?.originDetail} />
               {comboWarning ? <span className="text-xs text-amber-700 dark:text-amber-400">{comboWarning}</span> : null}
             </div>

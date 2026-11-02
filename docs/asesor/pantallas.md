@@ -46,7 +46,7 @@ Este manual no cambia nada de la app: si una pantalla cambia, hay que actualizar
 2. Paso 1: **Agregar producto** (buscar y elegir **Tipo de venta**) → **Agregar producto** → **Siguiente**.
 3. Paso 2: **Agregar cliente** → **Siguiente**.
 4. Paso 3: **Generar cotizacion**.
-5. En la lista, menú "⋯" de esa cotización → **Enviar a ventas** → forma de pago y descuento opcional → **Agregar abono** (monto, cuenta y comprobante → **Listo**) → **Enviar a ventas**. Exige al menos un abono.
+5. En la lista, menú "⋯" de esa cotización → **Enviar a ventas** → forma de pago (obligatoria: 50/50 o Contraentrega) y descuento opcional → **Agregar abono** (monto, cuenta y comprobante → **Listo**) → **Enviar a ventas**. Exige al menos un abono y el comprobante (foto o PDF) de cada abono, también en efectivo; si falta algo el botón queda apagado y dice qué falta.
 6. Luego la fila muestra **Ver venta**. "Enviar a ventas" no está dentro de la pantalla de edición de la cotización.
 
 ### 7. Crear una orden de fabricación (OF)
@@ -82,7 +82,7 @@ Lista de ventas (código `SAL-...`): cobrar abonos, ver recibo, crear la orden y
   - **Ver recibo**: abre `/sales/<token>` (recibo público).
   - **Ver orden** (si ya tiene orden) o **Crear orden** (crea la orden de venta).
   - **Editar fecha**: diálogo "Editar fecha de la venta" (Fecha de la venta, casilla "Alinear también la orden, cobros y cargos a proveedores"); **Cancelar** / **Guardar**. Si la fecha es anterior a hoy pide el motivo (retroactivo).
-  - **Forma de pago**: diálogo "Forma de pago" con el selector (50 % anticipo + 50 % al terminar… / Contraentrega (solo combo de camilla…)); **Cancelar** / **Guardar**.
+  - **Cambiar forma de pago**: diálogo "Forma de pago" con el selector (sin "Sin definir"; aviso "Escoge la forma de pago") (50 % anticipo + 50 % al terminar… / Contraentrega (solo combo de camilla…)); **Cancelar** / **Guardar**.
   - **Ver comprobantes** (o **Sin comprobantes**): hoja "Comprobantes de pago" con cada "Abono #n"; botón de papelera "Eliminar abono".
   - **Eliminar venta**: pide confirmar; borra también orden, despachos, producción, abonos y pagos/cargos a proveedores.
 - Hoja **Registrar abono**: fecha del abono arriba (si es anterior a hoy pide motivo), muestra Total venta y Saldo pendiente; campos **Monto del abono** (máximo = saldo), **Cuenta de balance** (cuentas activas + opción "Retención en la fuente", que pide "N.º de certificado de retención" opcional y no pide comprobante), Comprobante (botón "Archivo"), **Nota**. Botón **Guardar abono**. Abajo, "Abonos registrados" con papelera para eliminar cada uno.
@@ -102,7 +102,7 @@ Lista de cotizaciones (código `COT-...`): crear, editar, abrir el enlace públi
   - **Editar**: va a `/admin/cotizaciones/<id>`.
   - **Enviar a ventas** (si aún no tiene venta) o **Ver venta** (va a `/admin/ventas?q=<código>`).
   - **Eliminar**: diálogo "Eliminar cotizacion" con **Cancelar** / **Eliminar**.
-- Panel **Enviar a ventas**: muestra Total, campo Descuento, Abonos y Restante; selector "Forma de pago". Exige **al menos un abono** ("Agrega al menos un abono."): botón **Agregar abono** (luego **Agregar otro**). Cada abono abre "Detalle del abono": fecha, Monto, Metodo (la cuenta; "Seleccionar metodo"), comprobante (obligatorio si la cuenta no es de efectivo), Nota ("Ej: Abono 1 de 3"); **Listo**. Si un abono tiene fecha anterior a hoy pide motivo. Botones **Cancelar** / **Enviar a ventas** (crea la venta `SAL-...`).
+- Panel **Enviar a ventas**: muestra Total, campo Descuento, Abonos y Restante; selector "Forma de pago" obligatorio ("Escoge la forma de pago"; solo 50/50 o Contraentrega, ya no "Sin definir"). Exige **al menos un abono** ("Agrega al menos un abono."): botón **Agregar abono** (luego **Agregar otro**). Cada abono abre "Detalle del abono": fecha, Monto, Metodo (la cuenta; "Seleccionar metodo"), comprobante (obligatorio siempre, también en efectivo: "Requerido: foto o PDF del pago (también en efectivo)."), Nota ("Ej: Abono 1 de 3"); **Listo**. Si falta algo, el recuadro rojo dice "Falta escoger la forma de pago (50/50 o Contraentrega)." o "Falta subir el comprobante del primer pago (foto o PDF)." y **Enviar a ventas** queda apagado. Si un abono tiene fecha anterior a hoy pide motivo. Botones **Cancelar** / **Enviar a ventas** (crea la venta `SAL-...`).
 
 ## /admin/cotizaciones/[quoteId]
 Edita una cotización existente; es el mismo asistente de 3 pasos abierto en modo edición.
@@ -128,7 +128,7 @@ Lista de órdenes de venta y de compra a proveedor.
 
 ## /admin/ordenes/[orderId]
 Detalle de una orden. Aquí se fabrica, se recoge, se despacha y se entrega cada producto.
-**Qué se ve:** el código de la orden y la venta y el cliente. Insignias "Pago: …" (o "Forma de pago sin definir") y "Origen: …". Tarjetas Total, **Valor ganado** (con "Ver desglose →", que lleva a `/ganancia`), Produccion y Despachos. Una insignia de avance: "Pendiente fabricar/recoger/despachar …" o "Despachado". Tabla de productos con columnas Producto, Detalle y Estado. El estado puede ser Sin confirmar, Fabricando, Recogido o Despachado, y si se pulsa el estado se puede deshacer. A la derecha está el avance en 4 pasos (Fabricar → Recoger → Despachar → Entregar) y los recuadros "Envío" y "Guías Magilus". Abajo, las pestañas **Historial**, **Abonos** (con "Total abonado") y **Fabricación** (esta última solo en órdenes de venta).
+**Qué se ve:** el código de la orden y la venta y el cliente. Insignias "Pago: …" (o "Forma de pago sin definir") y "Origen: …". En órdenes de venta, botón **Cambiar forma de pago** (quien tiene acceso a Ventas o Cotizaciones): diálogo "Forma de pago" (50/50 o Contraentrega, sin "Sin definir") → **Cancelar** / **Guardar**; queda en la bitácora. Tarjetas Total, **Valor ganado** (con "Ver desglose →", que lleva a `/ganancia`), Produccion y Despachos. Una insignia de avance: "Pendiente fabricar/recoger/despachar …" o "Despachado". Tabla de productos con columnas Producto, Detalle y Estado. El estado puede ser Sin confirmar, Fabricando, Recogido o Despachado, y si se pulsa el estado se puede deshacer. A la derecha está el avance en 4 pasos (Fabricar → Recoger → Despachar → Entregar) y los recuadros "Envío" y "Guías Magilus". Abajo, las pestañas **Historial**, **Abonos** (con "Total abonado") y **Fabricación** (esta última solo en órdenes de venta).
 **Botones y acciones:**
 - Menú de la orden (arriba a la derecha):
   - **Editar orden**: modal "Editar orden" con "Fecha de la orden" y el modo de cada producto (Stock / Fabricación). Se guarda con **Guardar cambios**.

@@ -24,6 +24,7 @@ import {
 import { adminDeleteQuoteAction } from "@/app/actions/quote-actions";
 import { adminCreateSaleFromQuoteAction } from "@/app/actions/sales-actions";
 import { PaymentMethodField } from "@/modules/ventas/presentation/payment-method-field";
+import { saleFromQuoteMissing, type SalePaymentMethod } from "@/modules/ventas/domain/payment-method";
 import { SaleOriginBadge } from "@/modules/ventas/presentation/sale-origin-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -194,11 +195,13 @@ function validateSaleInstallments({
   discountAmount,
   installments,
   accounts,
+  paymentMethod,
 }: {
   quoteTotal: number;
   discountAmount: string;
   installments: SaleAttachmentDraft[];
   accounts: AccountOption[];
+  paymentMethod: SalePaymentMethod | null;
 }): SaleInstallmentValidation {
   const accountById = new Map(accounts.map((account) => [account.id, account]));
   const parsedDiscount = parseMoneyInput(discountAmount);
@@ -214,6 +217,14 @@ function validateSaleInstallments({
     summaryErrors.push("Agrega al menos un abono.");
   }
 
+  // Forma de pago y comprobante de cada abono (tambien efectivo): misma regla que el servidor.
+  summaryErrors.push(
+    ...saleFromQuoteMissing({
+      paymentMethod,
+      installmentsHaveReceipt: installments.map((installment) => Boolean(installment.file)),
+    }),
+  );
+
   if (!Number.isFinite(parsedDiscount) || parsedDiscount < 0) {
     summaryErrors.push("El descuento debe ser un número válido y no puede ser negativo.");
   } else if (parsedDiscount >= quoteTotal) {
@@ -226,7 +237,6 @@ function validateSaleInstallments({
     const hasValidAmount = Number.isFinite(amount) && amount > 0;
     const selectedAccount = installment.accountId ? accountById.get(installment.accountId) : undefined;
     const hasAccount = Boolean(selectedAccount);
-    const requiresReceipt = hasAccount && selectedAccount?.type !== "CASH";
 
     if (!hasValidAmount) {
       errors.push("Ingresa un monto válido mayor a cero.");
@@ -238,7 +248,7 @@ function validateSaleInstallments({
       errors.push("Selecciona un método de pago.");
     }
 
-    if (requiresReceipt && !installment.file) {
+    if (!installment.file) {
       errors.push("Adjunta el comprobante de pago.");
     }
 
@@ -455,11 +465,7 @@ function SaleInstallmentEditor({
   const noteId = `payment-note-${installment.id}`;
   const dateId = `payment-date-${installment.id}`;
   const selectedAccount = accounts.find((account) => account.id === installment.accountId);
-  const requiresReceipt = Boolean(selectedAccount) && selectedAccount?.type !== "CASH";
-  const receiptHelperText =
-    selectedAccount && selectedAccount.type === "CASH"
-      ? "Opcional para cuentas de efectivo."
-      : "Requerido para cuentas que no son de efectivo.";
+  const receiptHelperText = "Requerido: foto o PDF del pago (también en efectivo).";
 
   const isImageReceipt = Boolean(installment.previewUrl) && (installment.file?.type.startsWith("image/") ?? false);
 
@@ -485,7 +491,7 @@ function SaleInstallmentEditor({
               type="file"
               accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
               aria-describedby={receiptHelpId}
-              aria-required={requiresReceipt}
+              aria-required
               className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
               onChange={(event) => onReceiptChange(event.currentTarget.files?.[0] ?? null)}
             />
@@ -645,6 +651,7 @@ function SaleInstallmentsModal({
   discountAmount,
   attachmentError,
   validation,
+  onPaymentMethodChange,
   onClose,
   onAddInstallment,
   onRemoveInstallment,
@@ -666,6 +673,7 @@ function SaleInstallmentsModal({
   discountAmount: string;
   attachmentError: string;
   validation: SaleInstallmentValidation;
+  onPaymentMethodChange: (value: SalePaymentMethod | null) => void;
   onClose: () => void;
   onAddInstallment: () => void;
   onRemoveInstallment: (id: string) => void;
@@ -779,6 +787,8 @@ function SaleInstallmentsModal({
                     <PaymentMethodField
                       id={`sale-payment-method-${quote.id}`}
                       hasCamillaCombo={quote.hasCamillaCombo}
+                      required
+                      onValueChange={onPaymentMethodChange}
                     />
                   </div>
                 </div>
@@ -941,6 +951,7 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
   const [pendingDelete, setPendingDelete] = React.useState<{ id: string; code: string } | null>(null);
   const [pendingSale, setPendingSale] = React.useState<QuoteRow | null>(null);
   const [discountAmount, setDiscountAmount] = React.useState("0");
+  const [salePaymentMethod, setSalePaymentMethod] = React.useState<SalePaymentMethod | null>(null);
   const [saleAttachments, setSaleAttachments] = React.useState<SaleAttachmentDraft[]>([]);
   const [attachmentError, setAttachmentError] = React.useState("");
   const [selectedAttachmentId, setSelectedAttachmentId] = React.useState<string | null>(null);
@@ -1015,8 +1026,9 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
       discountAmount,
       installments: saleAttachments,
       accounts,
+      paymentMethod: salePaymentMethod,
     });
-  }, [accounts, discountAmount, pendingSale?.total, saleAttachments]);
+  }, [accounts, discountAmount, pendingSale?.total, saleAttachments, salePaymentMethod]);
 
   React.useEffect(() => {
     if (!attachmentError) return;
@@ -1034,6 +1046,7 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
     saleLoadingToastRef.current = null;
     setPendingSale(null);
     setDiscountAmount("0");
+    setSalePaymentMethod(null);
     setSaleAttachments([]);
     setAttachmentError("");
     setSelectedAttachmentId(null);
@@ -1044,6 +1057,7 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
       closeSaleModal();
       setPendingSale(quote);
       setDiscountAmount("0");
+      setSalePaymentMethod(null);
       setAttachmentError("");
       // Arranca sin abonos: se muestra el botón "Agregar abono" centrado.
       setSaleAttachments([]);
@@ -1376,6 +1390,7 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
         discountAmount={discountAmount}
         attachmentError={attachmentError}
         validation={saleValidation}
+        onPaymentMethodChange={setSalePaymentMethod}
         onClose={closeSaleModal}
         onAddInstallment={addSaleAttachment}
         onRemoveInstallment={removeAttachment}

@@ -167,3 +167,24 @@ export function suggestAmountToCollect(params: {
     shippingPending: fee == null,
   };
 }
+
+// --- Pasar una cotizacion a venta (caso SAL-00081, 26-oct-2026) ---
+
+export const MISSING_PAYMENT_METHOD_MESSAGE = "Falta escoger la forma de pago (50/50 o Contraentrega).";
+export const MISSING_RECEIPT_MESSAGE = "Falta subir el comprobante del primer pago (foto o PDF).";
+
+// Lo que falta para crear la venta desde la cotizacion: forma de pago definida y un comprobante
+// en cada abono (tambien en efectivo). Lista vacia = puede pasar.
+export function saleFromQuoteMissing(params: {
+  paymentMethod: SalePaymentMethod | null | undefined;
+  installmentsHaveReceipt: boolean[];
+}): string[] {
+  const missing: string[] = [];
+  if (!isSalePaymentMethod(params.paymentMethod)) {
+    missing.push(MISSING_PAYMENT_METHOD_MESSAGE);
+  }
+  if (params.installmentsHaveReceipt.length === 0 || params.installmentsHaveReceipt.some((has) => !has)) {
+    missing.push(MISSING_RECEIPT_MESSAGE);
+  }
+  return missing;
+}

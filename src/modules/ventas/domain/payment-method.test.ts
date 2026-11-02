@@ -7,7 +7,10 @@ import {
   contraentregaShippingFee,
   isCamillaComboProduct,
   parsePaymentMethodInput,
+  MISSING_PAYMENT_METHOD_MESSAGE,
+  MISSING_RECEIPT_MESSAGE,
   quotePaymentTermsText,
+  saleFromQuoteMissing,
   suggestAmountToCollect,
   toComboCheckProduct,
 } from "./payment-method";
@@ -109,5 +112,32 @@ describe("quotePaymentTermsText", () => {
   });
   it("con Combo Camillas: agrega contraentrega", () => {
     expect(quotePaymentTermsText(true)).toContain("contraentrega");
+  });
+});
+
+describe("saleFromQuoteMissing", () => {
+  it("sin forma de pago no pasa", () => {
+    expect(saleFromQuoteMissing({ paymentMethod: null, installmentsHaveReceipt: [true] })).toEqual([
+      MISSING_PAYMENT_METHOD_MESSAGE,
+    ]);
+  });
+  it("con forma de pago pero sin comprobante no pasa", () => {
+    expect(saleFromQuoteMissing({ paymentMethod: "ANTICIPO_50_50", installmentsHaveReceipt: [false] })).toEqual([
+      MISSING_RECEIPT_MESSAGE,
+    ]);
+  });
+  it("un abono sin archivo entre varios (p. ej. efectivo) tampoco pasa", () => {
+    expect(saleFromQuoteMissing({ paymentMethod: "CONTRAENTREGA", installmentsHaveReceipt: [true, false] })).toEqual([
+      MISSING_RECEIPT_MESSAGE,
+    ]);
+  });
+  it("sin abonos falta el comprobante; sin nada faltan las dos cosas", () => {
+    expect(saleFromQuoteMissing({ paymentMethod: undefined, installmentsHaveReceipt: [] })).toEqual([
+      MISSING_PAYMENT_METHOD_MESSAGE,
+      MISSING_RECEIPT_MESSAGE,
+    ]);
+  });
+  it("con forma de pago y comprobante si pasa", () => {
+    expect(saleFromQuoteMissing({ paymentMethod: "ANTICIPO_50_50", installmentsHaveReceipt: [true, true] })).toEqual([]);
   });
 });

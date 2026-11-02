@@ -328,7 +328,7 @@ function RowActions({
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onEditPaymentMethod}>
           <Wallet className="mr-2 h-4 w-4" />
-          Forma de pago
+          Cambiar forma de pago
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onViewReceipts} disabled={!hasReceipts}>
           <Eye className="mr-2 h-4 w-4" />
@@ -1084,6 +1084,7 @@ export function SalesDataTable({
                 id="sale-edit-payment-method"
                 defaultValue={paymentMethodSale.salePaymentMethod}
                 hasCamillaCombo={paymentMethodSale.hasCamillaCombo}
+                required
               />
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setPaymentMethodSale(null)}>
