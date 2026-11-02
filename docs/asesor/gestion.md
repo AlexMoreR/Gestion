@@ -351,6 +351,11 @@ queda pagada y entra a Balances y comisiones), pero no entra a ninguna cuenta ni
 "plata sin cuenta". No se resta de la ganancia (es un anticipo de impuesto, no un costo). Reporte por
 mes y total del año en `/admin/ventas/retenciones`, con descarga CSV para el contador.
 
+**Revisión de ventas sin costo (nov-2026).** `npm run ventas:revisar-costos` (por defecto octubre 2026,
+`--mes=AAAA-MM` para otro) es **solo lectura**: lista las ventas del mes sin productos o con costo 0
+(como la SAL-00083) con cotización, cliente, vendedora, total, estado, forma de pago, si tiene orden y
+el motivo. No corrige nada: Alexander decide.
+
 **Aviso diario de dinero por WhatsApp (oct-2026).** Para que no se acumule otro hueco sin que nadie
 lo note: cada mañana (7:00 a. m., cron en aizen1, `scripts/alertas`) se le pregunta a Gestión
 (`GET /api/alertas/dinero`, solo lectura, llave `ALERTAS_API_KEY` o `MCP_API_KEY`) y, solo si hay
