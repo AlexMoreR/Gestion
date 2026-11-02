@@ -4,6 +4,7 @@ import { Building2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { SupplierBalanceMonthSelect } from "@/components/admin/supplier-balance-month-select";
 import { SupplierBalanceItems, type SupplierBalanceRow } from "@/components/admin/supplier-balance-items";
+import { displayCode, stripCodeZeros } from "@/lib/code-display";
 import { formatMoney } from "@/lib/currency";
 import { distributeAmount } from "@/lib/dispatch-shipping-legs";
 import { prisma } from "@/lib/prisma";
@@ -256,7 +257,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
     return {
       id: charge.id,
       orderCode: charge.code ?? fallbackCode,
-      productName: product?.name ?? cleanNote ?? "Cargo",
+      productName: product?.name ?? (cleanNote ? stripCodeZeros(cleanNote) : "Cargo"),
       // Debajo del nombre: código + cantidad, ej. "BMV15 · x1". Los cargos manuales
       // no tienen producto asociado, así que se muestran como "VARIOS · x1".
       productCode: product?.code ? `${product.code} · x${qty}` : `VARIOS · x${qty}`,
@@ -334,7 +335,7 @@ export default async function SupplierBalancePublicPage({ params, searchParams }
           id: charge.id,
           orderCode,
           productName: "Envío",
-          productCode: charge.dispatch?.code ?? null,
+          productCode: displayCode(charge.dispatch?.code) ?? null,
           productImage: null,
           quantity: 1,
           amount,

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { toast } from "react-toastify";
+import { stripCodeZeros } from "@/lib/code-display";
 
 type QueryFeedbackToastProps = {
   okMessage?: string;
@@ -32,7 +33,7 @@ export function QueryFeedbackToast({
       toast.success(
         <div>
           <p className="text-sm font-semibold">{okTitle}</p>
-          <p className="text-xs opacity-90">{okMessage}</p>
+          <p className="text-xs opacity-90">{stripCodeZeros(okMessage)}</p>
         </div>,
       );
     }
@@ -41,7 +42,7 @@ export function QueryFeedbackToast({
       toast.error(
         <div>
           <p className="text-sm font-semibold">{errorTitle}</p>
-          <p className="text-xs opacity-90">{errorMessage}</p>
+          <p className="text-xs opacity-90">{stripCodeZeros(errorMessage)}</p>
         </div>,
       );
     }

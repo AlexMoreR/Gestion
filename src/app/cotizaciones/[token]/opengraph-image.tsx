@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { displayCode } from "@/lib/code-display";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { getSystemBrandName, getSystemCurrency } from "@/lib/system-settings";
@@ -32,7 +33,7 @@ export default async function QuoteOpenGraphImage({ params }: ImageProps) {
     getSystemCurrency(),
   ]);
 
-  const code = quote?.code ?? "Cotizacion";
+  const code = displayCode(quote?.code) ?? "Cotizacion";
   const clientName = quote?.client?.name ?? null;
   const total = quote ? Number(quote.total) : 0;
   const itemCount = quote?._count.items ?? 0;

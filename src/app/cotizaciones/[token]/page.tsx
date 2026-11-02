@@ -15,6 +15,7 @@ import {
   CreditCard,
 } from "lucide-react";
 import { DownloadQuotePdfButton } from "@/components/quotes/download-quote-pdf-button";
+import { displayCode } from "@/lib/code-display";
 import { formatMoney } from "@/lib/currency";
 import { groupQuoteDisplayItems } from "@/lib/quote-display-items";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
@@ -75,11 +76,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const clientName = quote.client?.name?.trim();
   const total = formatMoney(Number(quote.total), currency);
-  const title = `Cotizacion ${quote.code}`;
+  const title = `Cotizacion ${displayCode(quote.code)}`;
   const ogTitle = `${title} | ${brandName}`;
   const description = clientName
-    ? `Cotizacion ${quote.code} de ${brandName} para ${clientName}. Total ${total}.`
-    : `Cotizacion ${quote.code} de ${brandName}. Total ${total}.`;
+    ? `Cotizacion ${displayCode(quote.code)} de ${brandName} para ${clientName}. Total ${total}.`
+    : `Cotizacion ${displayCode(quote.code)} de ${brandName}. Total ${total}.`;
   const ogImageUrl = getSiteUrl(`/cotizaciones/${token}/opengraph-image`);
   const pageUrl = getSiteUrl(`/cotizaciones/${token}`);
 
@@ -172,13 +173,13 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
   const total = Math.max(0, subtotal - discount + additionalCost);
 
   const dynamicSupportHref = await buildSystemWhatsAppHref(
-    `Hola, necesito ayuda con la cotización ${quote.code}.`
+    `Hola, necesito ayuda con la cotización ${displayCode(quote.code)}.`
   );
   const dynamicApproveHref = await buildSystemWhatsAppHref(
-    `Hola, deseo aprobar la cotización ${quote.code}.`
+    `Hola, deseo aprobar la cotización ${displayCode(quote.code)}.`
   );
   const dynamicChangesHref = await buildSystemWhatsAppHref(
-    `Hola, solicito cambios para la cotización ${quote.code}.`
+    `Hola, solicito cambios para la cotización ${displayCode(quote.code)}.`
   );
 
   const companyInfo = {
@@ -268,7 +269,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                     : "whitespace-nowrap text-lg font-extrabold tracking-tight text-slate-400 sm:text-2xl"
                 }
               >
-                {quote.code}
+                {displayCode(quote.code)}
               </h1>
             </div>
             {isPdf ? (
