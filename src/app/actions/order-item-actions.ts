@@ -801,7 +801,8 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
   const okMessage = await withNegativeBalanceNotice(
     balances,
     "Item listo para despacho",
-    paymentMode === "PAY_NOW" ? accountId : null,
+    // Solo si de verdad salio plata de esa cuenta (mismo criterio que crea el PAYMENT).
+    paymentMode === "PAY_NOW" && !alreadyPaid && amount > 0 && supplierId ? accountId : null,
   );
   redirect(`${returnTo}?${new URLSearchParams({ ok: okMessage }).toString()}`);
 }
