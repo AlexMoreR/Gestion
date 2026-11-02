@@ -1,6 +1,6 @@
 "use server";
 
-import { hasAnyModuleAccess } from "@/lib/admin-module-access";
+import { hasAdminModuleAccess, hasAnyModuleAccess } from "@/lib/admin-module-access";
 
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -66,6 +66,13 @@ async function requireAdminSession(): Promise<string> {
   }
 
   redirect("/login");
+}
+
+// El aviso muestra el saldo de la cuenta: solo para quien ya ve saldos en Balances.
+async function okMessage(message: string, accountId: string): Promise<string> {
+  const session = await auth();
+  if (!(await hasAdminModuleAccess(session?.user?.id, session?.user?.role, "balances"))) return message;
+  return withNegativeBalanceNotice(balances, message, accountId);
 }
 
 function getReturnTo(formData: FormData, fallback = "/admin/gastos"): string {
@@ -299,7 +306,7 @@ export async function adminCreateExpenseAction(formData: FormData): Promise<void
 
   revalidatePath("/admin/gastos");
   revalidatePath("/admin/balances");
-  redirect(`${returnTo}?${new URLSearchParams({ ok: await withNegativeBalanceNotice(balances, "Gasto registrado", parsed.data.accountId) }).toString()}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: await okMessage("Gasto registrado", parsed.data.accountId) }).toString()}`);
 }
 
 export async function adminUpdateExpenseAction(formData: FormData): Promise<void> {
@@ -380,7 +387,7 @@ export async function adminUpdateExpenseAction(formData: FormData): Promise<void
 
   revalidatePath("/admin/gastos");
   revalidatePath("/admin/balances");
-  redirect(`${returnTo}?${new URLSearchParams({ ok: await withNegativeBalanceNotice(balances, "Gasto actualizado", parsed.data.accountId) }).toString()}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: await okMessage("Gasto actualizado", parsed.data.accountId) }).toString()}`);
 }
 
 export async function adminDeleteExpenseAction(formData: FormData): Promise<void> {
