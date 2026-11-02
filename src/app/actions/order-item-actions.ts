@@ -17,6 +17,8 @@ import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { syncOrderStatusAfterProduction } from "@/app/actions/orders-actions";
 import { computeStockExitCost } from "@/lib/stock-exit-cost";
 import { confirmOrderItemSupplier, type ConfirmOrderItemSupplierResult } from "@/lib/order-item-confirm";
+import { withNegativeBalanceNotice } from "@/modules/balances/application/use-cases";
+import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import {
   MOTIVO_FIELD,
   esEdicionRetroactiva,
@@ -27,6 +29,8 @@ import {
   datosRegistroRetroactivo,
   usuarioExiste,
 } from "@/modules/retroactivos/infrastructure/registrar-retroactivo";
+
+const balances = createPrismaBalancesRepository();
 
 const PHOTO_MAX_BYTES = 12 * 1024 * 1024;
 const ALLOWED_PHOTO_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -794,7 +798,12 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
   revalidatePath(`/admin/ordenes/${orderItem.order.id}`);
   revalidatePath("/admin/produccion");
   revalidatePath("/admin/proveedores");
-  redirect(`${returnTo}?ok=Item+listo+para+despacho`);
+  const okMessage = await withNegativeBalanceNotice(
+    balances,
+    "Item listo para despacho",
+    paymentMode === "PAY_NOW" ? accountId : null,
+  );
+  redirect(`${returnTo}?${new URLSearchParams({ ok: okMessage }).toString()}`);
 }
 
 function parseOrderItemIds(value: FormDataEntryValue | null): string[] {

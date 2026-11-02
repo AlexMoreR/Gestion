@@ -31,6 +31,10 @@ import {
   ShipmentError,
   syncShipmentFromDispatch,
 } from "@/modules/guias/infrastructure/shipments-repository";
+import { withNegativeBalanceNotice } from "@/modules/balances/application/use-cases";
+import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
+
+const balances = createPrismaBalancesRepository();
 
 // Check "Crear guia Magilus" del modal de despacho (solo envios con transportadora). Si la
 // guia falla, el despacho ya quedo creado: se avisa en el mensaje y se crea luego desde la orden.
@@ -456,6 +460,24 @@ async function assertLegPayments(
   }
 }
 
+// Despues de guardar: un aviso por cada cuenta distinta que pago un tramo y quedo en negativo (no bloquea).
+async function withLegNegativeNotices(
+  message: string,
+  legs: { amount: number; carrierSupplierId: string | null }[],
+  payments: LegPaymentInput[],
+): Promise<string> {
+  const ids = new Set(
+    legs.flatMap((leg, index) => {
+      const accountId = payments[index]?.accountId;
+      return leg.amount > 0 && leg.carrierSupplierId && accountId ? [accountId] : [];
+    }),
+  );
+  for (const accountId of ids) {
+    message = await withNegativeBalanceNotice(balances, message, accountId);
+  }
+  return message;
+}
+
 // Guarda el comprobante de cada tramo con valor y arma los tramos listos para registrar.
 async function saveLegPayments(
   legs: ShippingLeg[],
@@ -787,7 +809,7 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
   revalidatePath(`/admin/ordenes/${order.id}`);
   revalidatePath("/admin/proveedores");
   const shipmentNote = await createShipmentIfRequested(formData, createdDispatchCode, createdById, isShipping);
-  redirect(`${returnTo}?ok=${encodeURIComponent(`Producto despachado${shipmentNote}`)}`);
+  redirect(`${returnTo}?ok=${encodeURIComponent(await withLegNegativeNotices(`Producto despachado${shipmentNote}`, legs, legPayments))}`);
 }
 
 function parseOrderItemIds(value: FormDataEntryValue | null): string[] {
@@ -1050,7 +1072,9 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
   revalidatePath(`/admin/ordenes/${order.id}`);
   revalidatePath("/admin/proveedores");
   const shipmentNote = await createShipmentIfRequested(formData, createdDispatchCode, createdById, isShipping);
-  redirect(`${returnTo}?ok=${encodeURIComponent(`Despachados ${selectedItems.length} productos${shipmentNote}`)}`);
+  redirect(
+    `${returnTo}?ok=${encodeURIComponent(await withLegNegativeNotices(`Despachados ${selectedItems.length} productos${shipmentNote}`, legs, legPayments))}`,
+  );
 }
 
 const undoDispatchItemSchema = z.object({
@@ -1478,7 +1502,7 @@ export async function adminAddDispatchShippingLegAction(formData: FormData): Pro
   revalidatePath(`/admin/ordenes/${dispatch.order.id}`);
   revalidatePath("/admin/proveedores");
   revalidatePath("/admin/balances");
-  redirect(`${returnTo}?ok=${encodeURIComponent(`Tramo agregado al despacho ${dispatch.code}`)}`);
+  redirect(`${returnTo}?ok=${encodeURIComponent(await withLegNegativeNotices(`Tramo agregado al despacho ${dispatch.code}`, [leg], payments))}`);
 }
 
 // --- Seguimiento con la transportadora (/admin/despachos/transportadora) ---

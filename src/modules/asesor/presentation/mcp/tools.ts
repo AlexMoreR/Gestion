@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { adminModuleDefinitions } from "@/lib/admin-module-access";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
+import { accountNegativeBalanceNotice } from "@/modules/balances/application/use-cases";
 import { APP_OVERVIEW_SECTIONS, describeApplicationUseCase } from "../../application/describe-application";
 import {
   COMMISSION_FIRST_SALE_RATE,
@@ -569,7 +570,7 @@ export const asesorTools: McpToolDefinition[] = [
     name: "registrar_gasto",
     title: "Registrar un gasto",
     description:
-      "Registra un gasto del negocio. SIEMPRE en dos pasos: (1) llama con confirmado=false (por defecto): NO guarda nada, valida y devuelve el resumen del gasto; repitele el resumen al dueno y pregunta '¿Lo guardo?'. (2) SOLO si el dueno dice 'si', llama UNA SOLA VEZ con los MISMOS datos y confirmado=true: el gasto queda guardado de una vez y la respuesta trae su numero (gasto_id). NO la repitas: si se llama dos veces quedan dos gastos iguales. La foto del soporte es OPCIONAL y NO se revisa: la respuesta trae un enlace secreto (24 horas, un solo uso) por si el dueno quiere subirla despues desde el celular; Claude no puede subir la foto, solo dar el enlace. Si no la sube, el gasto sigue guardado igual. Descuenta el saldo de la cuenta y aparece en Balances del mes; se puede verificar con listar_gastos. Un gasto repetido se borra desde la pantalla de Gastos. Tope: $20.000.000 por gasto. Nomina exige 'persona'. Si la fecha es anterior a hoy exige 'motivo_fecha_anterior'. Moneda: COP.",
+      "Registra un gasto del negocio. SIEMPRE en dos pasos: (1) llama con confirmado=false (por defecto): NO guarda nada, valida y devuelve el resumen del gasto; repitele el resumen al dueno y pregunta '¿Lo guardo?'. (2) SOLO si el dueno dice 'si', llama UNA SOLA VEZ con los MISMOS datos y confirmado=true: el gasto queda guardado de una vez y la respuesta trae su numero (gasto_id). NO la repitas: si se llama dos veces quedan dos gastos iguales. La foto del soporte es OPCIONAL y NO se revisa: la respuesta trae un enlace secreto (24 horas, un solo uso) por si el dueno quiere subirla despues desde el celular; Claude no puede subir la foto, solo dar el enlace. Si no la sube, el gasto sigue guardado igual. Descuenta el saldo de la cuenta y aparece en Balances del mes; si la cuenta quedo en negativo, el campo 'aviso' lo dice (vacio si no): repiteselo al dueno, el gasto igual queda guardado; se puede verificar con listar_gastos. Un gasto repetido se borra desde la pantalla de Gastos. Tope: $20.000.000 por gasto. Nomina exige 'persona'. Si la fecha es anterior a hoy exige 'motivo_fecha_anterior'. Moneda: COP.",
     schema: z.object({
       monto: z.number().positive().describe("Monto del gasto en pesos colombianos, ej. 350000."),
       categoria: z
@@ -620,10 +621,13 @@ export const asesorTools: McpToolDefinition[] = [
           };
         }
         const confirmed = await confirmVoiceExpense(deps, input);
+        // Ya guardado: si la cuenta quedó bajo cero se avisa ("" si no). No bloquea.
+        const aviso = await accountNegativeBalanceNotice(createPrismaBalancesRepository(), confirmed.accountId);
         return {
           guardado: true,
           gasto_id: confirmed.expenseId,
           resumen: confirmed.summary,
+          aviso,
           enlace_para_subir_la_foto: confirmed.uploadUrl,
           vence: confirmed.uploadUrl ? confirmed.expiresAt.toISOString() : null,
           siguiente_paso: confirmed.uploadUrl

@@ -9,6 +9,10 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buildManualChargeCode, parseManualChargeCodeNumber } from "@/lib/orders";
 import { saveSupplierPaymentReceipt } from "@/lib/supplier-payment-receipt";
+import { withNegativeBalanceNotice } from "@/modules/balances/application/use-cases";
+import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
+
+const balances = createPrismaBalancesRepository();
 
 // Siguiente código de cargo manual (MAN-00001...), a partir del mayor existente.
 async function getNextManualChargeCode(): Promise<string> {
@@ -177,7 +181,7 @@ export async function adminCreateSupplierPaymentAction(formData: FormData): Prom
   }
 
   revalidatePath("/admin/proveedores");
-  redirect(`${returnTo}?ok=Abono+registrado`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: await withNegativeBalanceNotice(balances, "Abono registrado", accountId) }).toString()}`);
 }
 
 const createChargeSchema = z.object({
@@ -517,5 +521,5 @@ export async function adminCreateSupplierPaymentsAction(formData: FormData): Pro
   }
 
   revalidatePath("/admin/proveedores");
-  redirect(`${returnTo}?ok=Abono+registrado`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: await withNegativeBalanceNotice(balances, "Abono registrado", accountId) }).toString()}`);
 }

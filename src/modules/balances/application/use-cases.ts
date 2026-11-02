@@ -75,21 +75,29 @@ export async function listAccountBalancesUseCase(repository: BalancesRepository)
   return repository.listAccountBalances();
 }
 
-// Llamar DESPUES de guardar: suma "Ojo: <cuenta> quedó en −$X" al mensaje si la cuenta quedó bajo cero.
+// Llamar DESPUES de guardar: "Ojo: <cuenta> quedó en −$X" si la cuenta quedó bajo cero; si no, "".
+export async function accountNegativeBalanceNotice(
+  repository: BalancesRepository,
+  accountId: string | null | undefined,
+): Promise<string> {
+  if (!accountId) return "";
+  try {
+    const account = await repository.getAccountBalance(accountId);
+    return account ? negativeBalanceNotice(account.name, currentAccountBalance(account)) : "";
+  } catch {
+    // El registro ya se guardó: si falla el saldo, no hay aviso (sin error que invite a repetir).
+    return "";
+  }
+}
+
+// Igual, pero sumado al mensaje de éxito que ya existe.
 export async function withNegativeBalanceNotice(
   repository: BalancesRepository,
   message: string,
   accountId: string | null | undefined,
 ): Promise<string> {
-  if (!accountId) return message;
-  try {
-    const account = await repository.getAccountBalance(accountId);
-    const notice = account ? negativeBalanceNotice(account.name, currentAccountBalance(account)) : "";
-    return notice ? `${message}. ${notice}` : message;
-  } catch {
-    // El registro ya se guardó: si falla el saldo, se muestra el mensaje de siempre (sin error que invite a repetir).
-    return message;
-  }
+  const notice = await accountNegativeBalanceNotice(repository, accountId);
+  return notice ? `${message}. ${notice}` : message;
 }
 
 export async function listAccountTransactionsUseCase(repository: BalancesRepository, accountId: string) {
