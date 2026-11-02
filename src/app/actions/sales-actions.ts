@@ -16,6 +16,7 @@ import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-ite
 import { prisma } from "@/lib/prisma";
 import { PAYMENT_METHOD_SHORT_LABEL, parsePaymentMethodInput } from "@/modules/ventas/domain/payment-method";
 import { CONSUMIDOR_FINAL_EMAIL } from "@/modules/ventas/domain/sale-origin";
+import { saleItemsErrorMessage } from "@/modules/ventas/domain/sale-items-check";
 import {
   WITHHOLDING_LABEL,
   isWithholdingAccountValue,
@@ -219,7 +220,7 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
     where: { id: parsed.data.quoteId },
     include: {
       client: true,
-      items: true,
+      items: { include: { product: { select: { name: true, baseCost: true, additionalCost: true } } } },
       sale: true,
     },
   });
@@ -236,6 +237,18 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
 
   if (quote.sale) {
     redirectWithError(returnTo, "Esta cotizacion ya fue enviada a ventas");
+  }
+
+  const itemsError = saleItemsErrorMessage(
+    quote.items.map((item) => ({
+      quantity: item.quantity,
+      baseCost: Number(item.product.baseCost),
+      additionalCost: Number(item.product.additionalCost),
+      productName: item.product.name,
+    })),
+  );
+  if (itemsError) {
+    redirectWithError(returnTo, itemsError);
   }
 
   const grossTotal = Number(quote.total);
@@ -953,10 +966,26 @@ export async function adminCreateDirectSaleAction(formData: FormData): Promise<v
   const productIds = Array.from(new Set(parsedItems.map((item) => item.productId)));
   const products = await prisma.product.findMany({
     where: { id: { in: productIds } },
-    select: { id: true },
+    select: { id: true, name: true, baseCost: true, additionalCost: true },
   });
   if (products.length !== productIds.length) {
     redirectWithError(returnTo, "Uno o mas productos no existen");
+  }
+
+  const productById = new Map(products.map((product) => [product.id, product]));
+  const directItemsError = saleItemsErrorMessage(
+    parsedItems.map((item) => {
+      const product = productById.get(item.productId)!;
+      return {
+        quantity: item.quantity,
+        baseCost: Number(product.baseCost),
+        additionalCost: Number(product.additionalCost),
+        productName: product.name,
+      };
+    }),
+  );
+  if (directItemsError) {
+    redirectWithError(returnTo, directItemsError);
   }
 
   const normalizedItems = parsedItems.map((item) => {
