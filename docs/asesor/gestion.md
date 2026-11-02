@@ -72,7 +72,7 @@ en las Server Actions y en `src/lib/`.
 - `SalePayment`: anticipo o abono de un cliente a una venta, con método, fecha, comprobante y cuenta que recibe. Si es retención en la fuente (`isWithholding`), no tiene cuenta y puede llevar el número de certificado (`withholdingCertificate`).
 - `QuoteItem`: línea de una cotización: producto, cantidad, precio y si sale de stock o se fabrica.
 - `Order`: orden (ORD-) de venta (cumplir una venta) o de compra (comprar a una proveedora). Su historial define la fecha de entrega.
-- `OrderItem`: producto dentro de una orden, con la proveedora confirmada y el costo real que se le paga.
+- `OrderItem`: producto dentro de una orden, con la proveedora confirmada y el costo real que se le paga; si sale por stock, `stockCostSource` dice de qué compra salió ese costo (p. ej. "ORD-00092" o "catálogo").
 - `OrderItemPhoto`: foto de evidencia de un producto de una orden (fabricación o estado).
 - `ProductionJob`: trabajo de fabricación de un producto de una orden.
 - `Dispatch`: despacho o entrega de una orden: tipo de entrega, transportadora, guía, costo de envío y fotos.
@@ -162,9 +162,17 @@ en las Server Actions y en `src/lib/`.
 
 **Ganancia de una venta.** Ganancia = valor de la venta − costo de los productos − fletes de envío
 de esa venta. El costo de cada producto vendido es, en este orden: el costo confirmado con la
-proveedora en la orden; si no hay y el producto sale de stock, costo de catálogo + flete por unidad;
+proveedora en la orden (para stock, el de la compra: regla `costo_stock_fifo`); si no hay y el producto sale de stock, costo de catálogo + flete por unidad;
 si no, el costo de la proveedora preferida o el costo de catálogo. Si la venta no tiene orden, el costo
 sale de los productos de la cotización (costo base + flete del catálogo). No resta gastos operativos.
+
+**Costo de una pieza que sale por stock (`costo_stock_fifo`).** Al confirmar una pieza por stock, su
+costo (`OrderItem.purchaseCost`) es lo que cobró la proveedora en la **compra más antigua que aún tiene
+existencias** de esa pieza, sin el flete del producto (lo que queda en bodega son las unidades más nuevas).
+La compra se lee de la orden de compra (ORD-) o, si se entró sin orden, del cargo INV- de la entrada. Si no
+hay compra, va el costo de catálogo (costo base + flete) y queda marcado como "catálogo". De dónde salió
+queda en `OrderItem.stockCostSource`. Lógica en `src/lib/stock-exit-cost.ts` +
+`src/modules/inventory/domain/fifo-cost.ts`.
 
 **Productos, links y ganancia en el asesor (`ver_venta`, `listar_ventas`, `listar_cotizaciones`).** Solo
 lectura. Los productos de una venta salen de su orden o, si no tiene, de la cotización (`productos_fuente`),

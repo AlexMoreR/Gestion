@@ -263,7 +263,13 @@ Aquí el "costo" es el costo del producto en el catálogo; sirve para sugerir pr
 Vive en `src/modules/balances/domain/calculations.ts` con el helper de costo unitario
 `src/lib/order-item-cost.ts` (`computeItemUnitCost`). Por cada **ítem de la orden** el costo unitario es:
 
-1. Si el ítem tiene `purchaseCost` (costo de compra confirmado en la orden) → **ese** valor.
+1. Si el ítem tiene `purchaseCost` (costo de compra confirmado en la orden) → **ese** valor. Para
+   **STOCK**, desde nov-2026 ese `purchaseCost` sale de la **compra por FIFO** al confirmar la pieza: lo que
+   cobró la proveedora (sin flete) en la compra más antigua que aún tiene existencias; sin compra, catálogo
+   (`src/lib/stock-exit-cost.ts` + `src/modules/inventory/domain/fifo-cost.ts`). La línea guarda de dónde
+   salió en `OrderItem.stockCostSource` ("ORD-00092", "catálogo"...; migración
+   `20261101120000_costo_stock_origen`, solo aditiva). Corrección puntual de la ORD-00095 con la compra
+   ORD-00092: `npm run stock:costo-95` (simula; `--aplicar` escribe, en producción solo con el sí del dueño).
 2. Si no, y el ítem es **STOCK** → `baseCost + additionalCost` (costo de inventario + flete del producto).
 3. Si no → costo del proveedor preferido, o `baseCost` como último recurso.
 
