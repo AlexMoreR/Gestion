@@ -3,6 +3,7 @@
 // tiempos, condiciones, etc.). Se muestran en /legal/[slug].
 
 import { siteConfig } from "@/lib/site";
+import { WARRANTY_BASE_TEXT, WARRANTY_HYDRAULIC_TEXT } from "./product-landing";
 
 export type LegalSection = {
   heading: string;
@@ -18,6 +19,8 @@ export type LegalDoc = {
 };
 
 export const LEGAL_UPDATED = "Septiembre de 2026";
+// La garantía cambió en nov-2026: ahora dice los plazos de la tienda.
+const WARRANTY_UPDATED = "Noviembre de 2026";
 
 // Enlaces del footer (orden y etiquetas visibles).
 export const LEGAL_LINKS: Array<{ slug: string; label: string }> = [
@@ -152,12 +155,12 @@ export function getLegalDoc(slug: string, brandName: string): LegalDoc | null {
     garantia: {
       title: "Garantía y devoluciones",
       description: `Condiciones de garantía y devoluciones de ${brandName}.`,
-      updated: LEGAL_UPDATED,
+      updated: WARRANTY_UPDATED,
       sections: [
         {
           heading: "1. Garantía",
           body: [
-            `Nuestros productos cuentan con garantía frente a defectos de fabricación. La cobertura y el tiempo de garantía se informan según el producto adquirido.`,
+            `Todos nuestros productos tienen ${WARRANTY_BASE_TEXT} contra defectos de fabricación. Los productos con sistema hidráulico tienen ${WARRANTY_HYDRAULIC_TEXT}.`,
           ],
         },
         {
