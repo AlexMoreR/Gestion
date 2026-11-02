@@ -1,4 +1,4 @@
-// Correccion de UNA SOLA VEZ (nov-2026): la ORD-00095 (venta SAL-00087, Julieth Fajardo,
+// Correccion de UNA SOLA VEZ (nov-2026): la ORD-00095 (venta SAL-00087,
 // combo CMB005 por stock) se costeo con el catalogo (605.000) y no con lo que cobro la
 // proveedora en la compra ORD-00092 (Laura Vanessa P-03, 2 combos camilla divan por 1.200.000).
 //
