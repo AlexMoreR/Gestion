@@ -54,6 +54,16 @@ const ENTITY_LABELS: Record<string, string> = {
   DUDAS_ACCESS: "Acceso a dudas",
 };
 
+// Las entradas viejas no tienen origen: se hicieron desde la pantalla.
+const ORIGIN_LABELS: Record<string, string> = {
+  PANTALLA: "Pantalla",
+  MCP: "Claude (MCP)",
+  CRM: "CRM",
+  SCRIPT: "Script",
+  MIGRACION: "Migración",
+  COORDINADOR: "Coordinador",
+};
+
 const ALLOWED_ACTIONS = ["CREATE", "UPDATE", "DELETE"] as const;
 
 function firstParam(value: string | string[] | undefined): string {
@@ -87,6 +97,7 @@ export default async function AdminConfiguracionActividadPage({ searchParams }: 
   const actionParam = firstParam(params.accion);
   const entityParam = firstParam(params.entidad);
   const query = firstParam(params.q).trim();
+  const codeQuery = firstParam(params.codigo).trim();
   const pageParam = Number.parseInt(firstParam(params.page), 10);
   const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
 
@@ -96,16 +107,30 @@ export default async function AdminConfiguracionActividadPage({ searchParams }: 
   const entityType = ENTITY_LABELS[entityParam] ? entityParam : undefined;
 
   const where = {
-    ...(actorId ? { actorId } : {}),
-    ...(action ? { action } : {}),
-    ...(entityType ? { entityType } : {}),
-    ...(query
-      ? {
-          OR: storedCodeCandidates(query).map((candidate) => ({
-            summary: { contains: candidate, mode: "insensitive" as const },
-          })),
-        }
-      : {}),
+    AND: [
+      ...(actorId ? [{ actorId }] : []),
+      ...(action ? [{ action }] : []),
+      ...(entityType ? [{ entityType }] : []),
+      ...(query
+        ? [
+            {
+              OR: storedCodeCandidates(query).map((candidate) => ({
+                summary: { contains: candidate, mode: "insensitive" as const },
+              })),
+            },
+          ]
+        : []),
+      // El código se ve sin ceros: buscar también la forma guardada ("SAL-123" → "SAL-00123").
+      ...(codeQuery
+        ? [
+            {
+              OR: storedCodeCandidates(codeQuery).map((candidate) => ({
+                entityCode: { contains: candidate, mode: "insensitive" as const },
+              })),
+            },
+          ]
+        : []),
+    ],
   };
 
   let total = 0;
@@ -115,6 +140,8 @@ export default async function AdminConfiguracionActividadPage({ searchParams }: 
     action: string;
     entityType: string;
     summary: string;
+    entityCode: string | null;
+    origin: string | null;
     createdAt: Date;
   }> = [];
   let employees: Array<{ id: string; name: string | null; email: string }> = [];
@@ -148,6 +175,7 @@ export default async function AdminConfiguracionActividadPage({ searchParams }: 
     if (action) sp.set("accion", action);
     if (entityType) sp.set("entidad", entityType);
     if (query) sp.set("q", query);
+    if (codeQuery) sp.set("codigo", codeQuery);
     sp.set("page", String(targetPage));
     return `/admin/configuracion/actividad?${sp.toString()}`;
   };
@@ -167,7 +195,7 @@ export default async function AdminConfiguracionActividadPage({ searchParams }: 
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form method="get" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <form method="get" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
             <select name="actor" defaultValue={actorId} className="field-select" aria-label="Empleado">
               <option value="">Todos los empleados</option>
               {employees.map((employee) => (
@@ -197,6 +225,8 @@ export default async function AdminConfiguracionActividadPage({ searchParams }: 
 
             <Input name="q" defaultValue={query} placeholder="Buscar en la descripcion" className="lg:col-span-1" />
 
+            <Input name="codigo" defaultValue={codeQuery} placeholder="Código (ej. SAL-0123)" aria-label="Código" />
+
             <Button type="submit" className="gap-1.5">
               <Filter className="h-4 w-4" />
               Filtrar
@@ -204,20 +234,21 @@ export default async function AdminConfiguracionActividadPage({ searchParams }: 
           </form>
 
           <div className="overflow-hidden rounded-xl border border-[var(--line)]">
-            <Table className="min-w-[760px]">
+            <Table className="min-w-[860px]">
               <TableHeader>
                 <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
                   <TableHead className="normal-case">Fecha</TableHead>
                   <TableHead className="normal-case">Empleado</TableHead>
                   <TableHead className="normal-case">Accion</TableHead>
                   <TableHead className="normal-case">Modulo</TableHead>
+                  <TableHead className="normal-case">Origen</TableHead>
                   <TableHead className="normal-case">Detalle</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {logs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-9 text-center text-slate-500">
+                    <TableCell colSpan={6} className="py-9 text-center text-slate-500">
                       No hay actividad para el filtro actual.
                     </TableCell>
                   </TableRow>
@@ -241,7 +272,17 @@ export default async function AdminConfiguracionActividadPage({ searchParams }: 
                       <TableCell className="text-sm text-slate-600">
                         {ENTITY_LABELS[log.entityType] ?? log.entityType}
                       </TableCell>
-                      <TableCell className="text-sm text-slate-700">{stripCodeZeros(log.summary)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-sm text-slate-600">
+                        {ORIGIN_LABELS[log.origin ?? "PANTALLA"] ?? log.origin}
+                      </TableCell>
+                      <TableCell className="text-sm text-slate-700">
+                        {stripCodeZeros(log.summary)}
+                        {log.entityCode ? (
+                          <span className="mt-0.5 block text-xs text-slate-500">
+                            Código: {stripCodeZeros(log.entityCode)}
+                          </span>
+                        ) : null}
+                      </TableCell>
                     </TableRow>
                   ))
                 )}

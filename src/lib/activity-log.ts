@@ -1,4 +1,5 @@
 import "server-only";
+import type { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -25,35 +26,68 @@ export type ActivityEntityType =
   | "ATTENDANCE"
   | "DUDAS_ACCESS";
 
+/** Desde dónde se hizo el cambio. Sin valor se guarda "PANTALLA". */
+export type ActivityOrigin = "PANTALLA" | "MCP" | "CRM" | "SCRIPT" | "MIGRACION" | "COORDINADOR";
+
+type ActivityActor = { id: string; name?: string | null; email?: string | null };
+
 type LogActivityInput = {
   action: ActivityActionType;
   entityType: ActivityEntityType;
   entityId?: string | null;
+  /** Código legible de la cosa (p. ej. "SAL-0123"). */
+  entityCode?: string | null;
   summary: string;
+  /** Cómo estaba antes (usar snapshotForLog). */
+  before?: Prisma.InputJsonValue | null;
+  /** Cómo quedó después (usar snapshotForLog). */
+  after?: Prisma.InputJsonValue | null;
+  origin?: ActivityOrigin;
+  ticket?: string | null;
+  commitSha?: string | null;
 };
+
+function buildData(actor: ActivityActor, input: LogActivityInput): Prisma.ActivityLogUncheckedCreateInput {
+  return {
+    actorId: actor.id,
+    actorName: actor.name?.trim() || actor.email?.trim() || "Desconocido",
+    action: input.action,
+    entityType: input.entityType,
+    entityId: input.entityId ?? null,
+    entityCode: input.entityCode ?? null,
+    summary: input.summary.slice(0, 500),
+    // undefined deja la columna en NULL (Prisma no acepta null directo en Json).
+    before: input.before ?? undefined,
+    after: input.after ?? undefined,
+    origin: input.origin ?? "PANTALLA",
+    ticket: input.ticket ?? null,
+    commitSha: input.commitSha ?? null,
+  };
+}
 
 /**
  * Registra una actividad a nombre de un usuario dado (APIs sin sesion, p. ej. el CRM).
  * Nunca lanza.
  */
-export async function logActivityAs(
-  actor: { id: string; name?: string | null; email?: string | null },
-  input: LogActivityInput,
-): Promise<void> {
+export async function logActivityAs(actor: ActivityActor, input: LogActivityInput): Promise<void> {
   try {
-    await prisma.activityLog.create({
-      data: {
-        actorId: actor.id,
-        actorName: actor.name?.trim() || actor.email?.trim() || "Desconocido",
-        action: input.action,
-        entityType: input.entityType,
-        entityId: input.entityId ?? null,
-        summary: input.summary.slice(0, 500),
-      },
-    });
+    await prisma.activityLog.create({ data: buildData(actor, input) });
   } catch {
     // Auditoria no critica.
   }
+}
+
+/**
+ * Registra una actividad dentro de una transacción de Prisma.
+ *
+ * SÍ lanza: si no se puede anotar, la transacción se deshace (p. ej. un borrado sin nota no se hace).
+ */
+export async function logActivityTx(
+  tx: Prisma.TransactionClient,
+  actor: ActivityActor,
+  input: LogActivityInput,
+): Promise<void> {
+  await tx.activityLog.create({ data: buildData(actor, input) });
 }
 
 /**
@@ -69,16 +103,7 @@ export async function logActivity(input: LogActivityInput): Promise<void> {
       return;
     }
 
-    await prisma.activityLog.create({
-      data: {
-        actorId: user.id,
-        actorName: user.name?.trim() || user.email?.trim() || "Desconocido",
-        action: input.action,
-        entityType: input.entityType,
-        entityId: input.entityId ?? null,
-        summary: input.summary.slice(0, 500),
-      },
-    });
+    await prisma.activityLog.create({ data: buildData(user, input) });
   } catch {
     // Auditoria no critica: ignorar errores para no bloquear la operacion.
   }
