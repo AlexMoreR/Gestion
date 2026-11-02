@@ -11,6 +11,7 @@ import { formatMoney } from "@/lib/currency";
 import { FACTORY_POINTS, factoryPointPostalAddress } from "@/lib/factory-points";
 import { imageVariantUrl } from "@/lib/image-variants";
 import { prisma } from "@/lib/prisma";
+import { isCamillasCombo } from "@/lib/product-landing";
 import { buildProductPath } from "@/lib/product-slugs";
 import {
   buildCategorySeoDescription,
@@ -646,9 +647,10 @@ export async function StorefrontCatalog({
                           ) : null}
                         </div>
                         <p className="text-right text-[9px] font-semibold leading-3 text-muted-foreground">
-                          Cualquier
+                          Pago
                           <br />
-                          medio
+                          {/* Mismo texto que el cuadro "Pago" de la ficha; espacios duros para que "50 % y 50 %" no se parta */}
+                          {isCamillasCombo(product) ? "50/50 o contraentrega" : "50\u00a0%\u00a0y\u00a050\u00a0%"}
                         </p>
                       </div>
                     </div>
