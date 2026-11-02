@@ -29,7 +29,7 @@ export type ActivityEntityType =
 /** Desde dónde se hizo el cambio. Sin valor se guarda "PANTALLA". */
 export type ActivityOrigin = "PANTALLA" | "MCP" | "CRM" | "SCRIPT" | "MIGRACION" | "COORDINADOR";
 
-type ActivityActor = { id: string; name?: string | null; email?: string | null };
+export type ActivityActor = { id: string; name?: string | null; email?: string | null };
 
 type LogActivityInput = {
   action: ActivityActionType;
@@ -75,6 +75,15 @@ export async function logActivityAs(actor: ActivityActor, input: LogActivityInpu
   } catch {
     // Auditoria no critica.
   }
+}
+
+/** Quién hace la acción (para logActivityTx). Lanza si no hay sesión. */
+export async function getActivityActor(): Promise<ActivityActor> {
+  const user = (await auth())?.user;
+  if (!user?.id) {
+    throw new Error("Sin sesión para anotar en la bitácora");
+  }
+  return { id: user.id, name: user.name, email: user.email };
 }
 
 /**

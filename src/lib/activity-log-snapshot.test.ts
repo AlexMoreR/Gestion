@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Prisma } from "@prisma/client";
-import { snapshotForLog } from "./activity-log-snapshot";
+import { SHIPPING_COST_LOG_FIELDS, SUPPLIER_LEDGER_LOG_FIELDS, snapshotForLog } from "./activity-log-snapshot";
 
 describe("snapshotForLog", () => {
   it("deja un abono con monto, fecha, cuenta y venta, sin el comprobante", () => {
@@ -26,5 +26,11 @@ describe("snapshotForLog", () => {
 
   it("guarda null cuando el campo viene vacío", () => {
     expect(snapshotForLog({ accountId: null as string | null }, ["accountId"])).toEqual({ accountId: null });
+  });
+
+  it("las copias de pagos a proveedora y fletes nunca llevan la URL del comprobante", () => {
+    expect(SUPPLIER_LEDGER_LOG_FIELDS).not.toContain("receiptUrl");
+    expect(SHIPPING_COST_LOG_FIELDS).not.toContain("receiptUrl");
+    expect(SUPPLIER_LEDGER_LOG_FIELDS).toEqual(expect.arrayContaining(["amount", "paymentDate", "accountId", "receiptName"]));
   });
 });

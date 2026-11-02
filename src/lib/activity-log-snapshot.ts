@@ -26,3 +26,38 @@ export function snapshotForLog<T extends object, K extends keyof T & string>(
   }
   return out;
 }
+
+/** Campos de un movimiento de proveedora (cargo/abono) que se copian a la bitácora. */
+export const SUPPLIER_LEDGER_LOG_FIELDS = [
+  "id",
+  "code",
+  "supplierId",
+  "type",
+  "amount",
+  "saleId",
+  "orderId",
+  "orderItemId",
+  "dispatchId",
+  "transactionReference",
+  "paymentDate",
+  "accountId",
+  "settlesEntryId",
+  "note",
+  "receiptName",
+  "createdById",
+  "createdAt",
+] as const;
+
+/** Campos de un flete (ShippingCost) que se copian a la bitácora. */
+export const SHIPPING_COST_LOG_FIELDS = [
+  "id",
+  "saleId",
+  "shippingProvider",
+  "amount",
+  "transactionReference",
+  "paymentDate",
+  "accountId",
+  "supplierPaymentId",
+  "createdById",
+  "createdAt",
+] as const;

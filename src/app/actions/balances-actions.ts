@@ -10,14 +10,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { logActivity } from "@/lib/activity-log";
+import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
+import { SHIPPING_COST_LOG_FIELDS, SUPPLIER_LEDGER_LOG_FIELDS, snapshotForLog } from "@/lib/activity-log-snapshot";
 import {
   createAccountMovementUseCase,
   createAccountUseCase,
   createShippingCostUseCase,
   createSupplierPaymentUseCase,
-  deleteShippingCostUseCase,
-  deleteSupplierPaymentUseCase,
   updateAccountUseCase,
   updateShippingCostUseCase,
   updateSupplierPaymentUseCase,
@@ -256,6 +255,11 @@ export async function adminUpdateSupplierPaymentAction(formData: FormData): Prom
     }
   }
 
+  const beforePayment = await prisma.supplierLedgerEntry.findUnique({
+    where: { id: parsed.data.paymentId },
+    include: { supplier: { select: { name: true } }, order: { select: { code: true } }, sale: { select: { code: true } } },
+  });
+
   await updateSupplierPaymentUseCase(repository, parsed.data.paymentId, {
     saleId: parsed.data.saleId,
     supplierId: parsed.data.supplierId,
@@ -266,6 +270,17 @@ export async function adminUpdateSupplierPaymentAction(formData: FormData): Prom
     accountId: parsed.data.accountId,
     // Solo reemplaza el comprobante si se subio uno nuevo.
     ...(receipt ? { receiptUrl: receipt.url, receiptName: receipt.name } : {}),
+  });
+
+  const afterPayment = await prisma.supplierLedgerEntry.findUnique({ where: { id: parsed.data.paymentId } });
+  await logActivity({
+    action: "UPDATE",
+    entityType: "SUPPLIER",
+    entityId: parsed.data.supplierId,
+    entityCode: beforePayment?.order?.code ?? beforePayment?.sale?.code ?? beforePayment?.code ?? null,
+    summary: `Editó un pago de $${Number(parsed.data.amount).toLocaleString("es-CO")} a ${beforePayment?.supplier.name ?? "una proveedora"}`,
+    before: beforePayment ? snapshotForLog(beforePayment, SUPPLIER_LEDGER_LOG_FIELDS) : null,
+    after: afterPayment ? snapshotForLog(afterPayment, SUPPLIER_LEDGER_LOG_FIELDS) : null,
   });
 
   revalidatePath("/admin/balances");
@@ -282,7 +297,26 @@ export async function adminDeleteSupplierPaymentAction(formData: FormData): Prom
     redirectWithError(returnTo, "Pago invalido");
   }
 
-  await deleteSupplierPaymentUseCase(repository, paymentId);
+  const entry = await prisma.supplierLedgerEntry.findUnique({
+    where: { id: paymentId },
+    include: { supplier: { select: { name: true } }, order: { select: { code: true } }, sale: { select: { code: true } } },
+  });
+  if (!entry) {
+    redirectWithError(returnTo, "Pago no encontrado");
+  }
+  const actor = await getActivityActor();
+  // Copia completa en la bitácora y borrado en la misma operación: si no se puede anotar, no se borra.
+  await prisma.$transaction(async (tx) => {
+    await logActivityTx(tx, actor, {
+      action: "DELETE",
+      entityType: "SUPPLIER",
+      entityId: entry.supplierId,
+      entityCode: entry.order?.code ?? entry.sale?.code ?? entry.code,
+      summary: `Eliminó un pago de $${Number(entry.amount).toLocaleString("es-CO")} a ${entry.supplier.name}`,
+      before: snapshotForLog(entry, SUPPLIER_LEDGER_LOG_FIELDS),
+    });
+    await tx.supplierLedgerEntry.delete({ where: { id: entry.id } });
+  });
   revalidatePath("/admin/balances");
   revalidatePath("/admin/proveedores");
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Pago eliminado" }).toString()}`);
@@ -345,6 +379,11 @@ export async function adminUpdateShippingCostAction(formData: FormData): Promise
     }
   }
 
+  const beforeCost = await prisma.shippingCost.findUnique({
+    where: { id: parsed.data.shippingCostId },
+    include: { sale: { select: { code: true } } },
+  });
+
   await updateShippingCostUseCase(repository, parsed.data.shippingCostId, {
     saleId: parsed.data.saleId,
     shippingProvider: parsed.data.shippingProvider,
@@ -352,6 +391,20 @@ export async function adminUpdateShippingCostAction(formData: FormData): Promise
     transactionReference: parsed.data.transactionReference,
     paymentDate: parsed.data.paymentDate,
     accountId: parsed.data.accountId,
+  });
+
+  const afterCost = await prisma.shippingCost.findUnique({
+    where: { id: parsed.data.shippingCostId },
+    include: { sale: { select: { code: true } } },
+  });
+  await logActivity({
+    action: "UPDATE",
+    entityType: "SALE",
+    entityId: parsed.data.saleId,
+    entityCode: afterCost?.sale.code ?? beforeCost?.sale.code ?? null,
+    summary: `Editó un flete de $${Number(parsed.data.amount).toLocaleString("es-CO")} de ${afterCost?.sale.code ?? "una venta"}`,
+    before: beforeCost ? snapshotForLog(beforeCost, SHIPPING_COST_LOG_FIELDS) : null,
+    after: afterCost ? snapshotForLog(afterCost, SHIPPING_COST_LOG_FIELDS) : null,
   });
 
   revalidatePath("/admin/balances");
@@ -367,7 +420,26 @@ export async function adminDeleteShippingCostAction(formData: FormData): Promise
     redirectWithError(returnTo, "Costo invalido");
   }
 
-  await deleteShippingCostUseCase(repository, shippingCostId);
+  const cost = await prisma.shippingCost.findUnique({
+    where: { id: shippingCostId },
+    include: { sale: { select: { code: true } } },
+  });
+  if (!cost) {
+    redirectWithError(returnTo, "Costo no encontrado");
+  }
+  const actor = await getActivityActor();
+  // Copia completa en la bitácora y borrado en la misma operación: si no se puede anotar, no se borra.
+  await prisma.$transaction(async (tx) => {
+    await logActivityTx(tx, actor, {
+      action: "DELETE",
+      entityType: "SALE",
+      entityId: cost.saleId,
+      entityCode: cost.sale.code,
+      summary: `Eliminó un flete de $${Number(cost.amount).toLocaleString("es-CO")} (${cost.shippingProvider}) de ${cost.sale.code}`,
+      before: snapshotForLog(cost, SHIPPING_COST_LOG_FIELDS),
+    });
+    await tx.shippingCost.delete({ where: { id: cost.id } });
+  });
   revalidatePath("/admin/balances");
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Costo eliminado" }).toString()}`);
 }

@@ -12,7 +12,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buildProductionJobCode, parseProductionJobCodeNumber } from "@/lib/orders";
 import { splitOrderItemQuantities } from "@/lib/order-partial-delivery";
-import { logActivity } from "@/lib/activity-log";
+import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
+import { SUPPLIER_LEDGER_LOG_FIELDS, snapshotForLog } from "@/lib/activity-log-snapshot";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { syncOrderStatusAfterProduction } from "@/app/actions/orders-actions";
 import { computeStockExitCost } from "@/lib/stock-exit-cost";
@@ -1097,6 +1098,22 @@ const undoConfirmSchema = z.object({
   orderItemId: z.string().trim().min(1, "Producto invalido"),
 });
 
+// Foto del producto de la orden para la bitácora (sin imágenes: solo nombres de archivo).
+const ORDER_ITEM_LOG_FIELDS = [
+  "id",
+  "productId",
+  "quantity",
+  "fulfillmentMode",
+  "confirmedSupplierId",
+  "purchaseCost",
+  "stockCostSource",
+  "confirmedAt",
+  "supplierPaymentStatus",
+  "supplierReceiptName",
+] as const;
+
+const PRODUCTION_JOB_LOG_FIELDS = ["id", "code", "status", "quantity", "assignedToId", "startedAt", "completedAt"] as const;
+
 // Deshace el "Fabricar" (confirmacion) de un producto: borra su orden de
 // produccion, limpia el proveedor/costo confirmado y, si la orden ya no tiene
 // produccion, la regresa a "Liberada". El producto vuelve a "Sin confirmar".
@@ -1116,7 +1133,7 @@ export async function adminUndoConfirmOrderItemAction(formData: FormData): Promi
     where: { id: parsed.data.orderItemId },
     include: {
       order: { select: { id: true, code: true, status: true } },
-      photos: { select: { id: true } },
+      photos: { select: { id: true, name: true } },
       dispatchItems: {
         where: { dispatch: { status: { notIn: ["CANCELLED", "RETURNED"] } } },
         select: { id: true },
@@ -1136,12 +1153,22 @@ export async function adminUndoConfirmOrderItemAction(formData: FormData): Promi
   if (orderItem.dispatchItems.length > 0) {
     redirect(`${returnTo}?error=Deshaz+primero+el+despacho+del+producto`);
   }
+  const actor = await getActivityActor();
 
   // Stock: la confirmacion solo descuenta inventario. Se revierte con un
   // movimiento compensatorio IN y se limpia la confirmacion del item.
   if (orderItem.fulfillmentMode === "STOCK") {
     try {
       await prisma.$transaction(async (tx) => {
+        await logActivityTx(tx, actor, {
+          action: "UPDATE",
+          entityType: "ORDER",
+          entityId: orderItem.order.id,
+          entityCode: orderItem.order.code,
+          summary: `Deshizo la confirmación de un producto de stock de ${orderItem.order.code} (${orderItem.quantity} u. vuelven al inventario)`,
+          before: { producto: snapshotForLog(orderItem, ORDER_ITEM_LOG_FIELDS) },
+          after: { unidadesDevueltasAlInventario: orderItem.quantity },
+        });
         await tx.inventoryMovement.create({
           data: {
             productId: orderItem.productId,
@@ -1174,18 +1201,35 @@ export async function adminUndoConfirmOrderItemAction(formData: FormData): Promi
 
   try {
     await prisma.$transaction(async (tx) => {
-      // 1) Borrar las ordenes de produccion del producto.
-      await tx.productionJob.deleteMany({ where: { orderItemId: orderItem.id } });
-
-      // 2) Revertir el cargo (saldo) al proveedor generado al confirmar.
-      await tx.supplierLedgerEntry.deleteMany({
-        where: {
-          orderItemId: orderItem.id,
-          type: "CHARGE",
-          dispatchId: null,
-          inventoryMovementId: null,
+      // Mismos filtros para leer (copia en la bitácora) y para borrar.
+      const jobsWhere = { orderItemId: orderItem.id };
+      const chargesWhere = {
+        orderItemId: orderItem.id,
+        type: "CHARGE" as const,
+        dispatchId: null,
+        inventoryMovementId: null,
+      };
+      const jobs = await tx.productionJob.findMany({ where: jobsWhere });
+      const charges = await tx.supplierLedgerEntry.findMany({ where: chargesWhere });
+      // Si no se puede anotar, no se deshace nada.
+      await logActivityTx(tx, actor, {
+        action: "DELETE",
+        entityType: "ORDER",
+        entityId: orderItem.order.id,
+        entityCode: orderItem.order.code,
+        summary: `Deshizo la fabricación de un producto de ${orderItem.order.code}`,
+        before: {
+          producto: snapshotForLog(orderItem, ORDER_ITEM_LOG_FIELDS),
+          produccionesBorradas: jobs.map((job) => snapshotForLog(job, PRODUCTION_JOB_LOG_FIELDS)),
+          cargosProveedoraBorrados: charges.map((row) => snapshotForLog(row, SUPPLIER_LEDGER_LOG_FIELDS)),
         },
       });
+
+      // 1) Borrar las ordenes de produccion del producto.
+      await tx.productionJob.deleteMany({ where: jobsWhere });
+
+      // 2) Revertir el cargo (saldo) al proveedor generado al confirmar.
+      await tx.supplierLedgerEntry.deleteMany({ where: chargesWhere });
 
       // 3) Limpiar el proveedor/costo confirmado y el estado de pago.
       await tx.orderItem.update({
@@ -1256,7 +1300,7 @@ export async function adminUndoPickupOrderItemAction(formData: FormData): Promis
     where: { id: parsed.data.orderItemId },
     include: {
       order: { select: { id: true, code: true, status: true } },
-      photos: { select: { id: true } },
+      photos: { select: { id: true, name: true } },
       dispatchItems: {
         where: { dispatch: { status: { notIn: ["CANCELLED", "RETURNED"] } } },
         select: { id: true },
@@ -1276,6 +1320,7 @@ export async function adminUndoPickupOrderItemAction(formData: FormData): Promis
   if (orderItem.dispatchItems.length > 0) {
     redirect(`${returnTo}?error=Deshaz+primero+el+despacho+del+producto`);
   }
+  const actor = await getActivityActor();
 
   // Stock: el producto nunca pasa por proveedor ni recogido real; su salida de
   // inventario se hizo al confirmar. Deshacerlo devuelve las unidades al stock
@@ -1283,6 +1328,15 @@ export async function adminUndoPickupOrderItemAction(formData: FormData): Promis
   if (orderItem.fulfillmentMode === "STOCK") {
     try {
       await prisma.$transaction(async (tx) => {
+        await logActivityTx(tx, actor, {
+          action: "UPDATE",
+          entityType: "ORDER",
+          entityId: orderItem.order.id,
+          entityCode: orderItem.order.code,
+          summary: `Devolvió a stock un producto de ${orderItem.order.code} (${orderItem.quantity} u. vuelven al inventario)`,
+          before: { producto: snapshotForLog(orderItem, ORDER_ITEM_LOG_FIELDS) },
+          after: { unidadesDevueltasAlInventario: orderItem.quantity },
+        });
         await tx.inventoryMovement.create({
           data: {
             productId: orderItem.productId,
@@ -1313,14 +1367,32 @@ export async function adminUndoPickupOrderItemAction(formData: FormData): Promis
       // 1) Revertir solo el pago al proveedor hecho al recoger. El cargo (saldo)
       // se genero al confirmar (Fabricar), asi que se conserva y el item vuelve
       // a quedar con el saldo pendiente.
-      await tx.supplierLedgerEntry.deleteMany({
-        where: {
-          orderItemId: orderItem.id,
-          type: "PAYMENT",
-          dispatchId: null,
-          inventoryMovementId: null,
+      const paymentsWhere = {
+        orderItemId: orderItem.id,
+        type: "PAYMENT" as const,
+        dispatchId: null,
+        inventoryMovementId: null,
+      };
+      const payments = await tx.supplierLedgerEntry.findMany({ where: paymentsWhere });
+      const doneJobs = await tx.productionJob.findMany({ where: { orderItemId: orderItem.id, status: "DONE" } });
+      // Si no se puede anotar, no se deshace nada.
+      await logActivityTx(tx, actor, {
+        action: "DELETE",
+        entityType: "ORDER",
+        entityId: orderItem.order.id,
+        entityCode: orderItem.order.code,
+        summary: `Deshizo el recogido de un producto de ${orderItem.order.code}`,
+        before: {
+          producto: snapshotForLog(orderItem, ORDER_ITEM_LOG_FIELDS),
+          pagosProveedoraBorrados: payments.map((row) => snapshotForLog(row, SUPPLIER_LEDGER_LOG_FIELDS)),
+          fotosBorradas: orderItem.photos.map((photo) => photo.name ?? photo.id),
+          cantidadFotosBorradas: orderItem.photos.length,
+          produccionesDevueltasAEnProgreso: doneJobs.map((job) => snapshotForLog(job, PRODUCTION_JOB_LOG_FIELDS)),
         },
+        after: { supplierPaymentStatus: "PENDING", supplierReceiptName: null },
       });
+
+      await tx.supplierLedgerEntry.deleteMany({ where: paymentsWhere });
 
       // 2) Borrar las fotos del producto terminado.
       await tx.orderItemPhoto.deleteMany({ where: { orderItemId: orderItem.id } });
@@ -1369,7 +1441,12 @@ export async function adminDeleteOrderItemPhotoAction(formData: FormData): Promi
 
   const photo = await prisma.orderItemPhoto.findUnique({
     where: { id: parsed.data.photoId },
-    select: { id: true, orderItem: { select: { orderId: true, order: { select: { status: true } } } } },
+    select: {
+      id: true,
+      name: true,
+      orderItemId: true,
+      orderItem: { select: { orderId: true, order: { select: { code: true, status: true } } } },
+    },
   });
 
   if (!photo) {
@@ -1381,6 +1458,14 @@ export async function adminDeleteOrderItemPhotoAction(formData: FormData): Promi
   }
 
   await prisma.orderItemPhoto.delete({ where: { id: photo.id } });
+  await logActivity({
+    action: "DELETE",
+    entityType: "ORDER",
+    entityId: photo.orderItem.orderId,
+    entityCode: photo.orderItem.order.code,
+    summary: `Eliminó una foto de un producto de ${photo.orderItem.order.code}`,
+    before: { fotoId: photo.id, nombre: photo.name ?? null, orderItemId: photo.orderItemId },
+  });
 
   revalidatePath("/admin/ordenes");
   revalidatePath(`/admin/ordenes/${photo.orderItem.orderId}`);

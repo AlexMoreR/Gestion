@@ -7,6 +7,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { getActivityActor, logActivityTx } from "@/lib/activity-log";
+import { SUPPLIER_LEDGER_LOG_FIELDS, snapshotForLog } from "@/lib/activity-log-snapshot";
 import { buildManualChargeCode, parseManualChargeCodeNumber } from "@/lib/orders";
 import { saveSupplierPaymentReceipt } from "@/lib/supplier-payment-receipt";
 import { withNegativeBalanceNotice } from "@/modules/balances/application/use-cases";
@@ -261,7 +263,11 @@ export async function adminDeleteSupplierPaymentAction(formData: FormData): Prom
 
   const entry = await prisma.supplierLedgerEntry.findUnique({
     where: { id: (paymentId as string).trim() },
-    select: { id: true, type: true, supplierId: true, orderId: true },
+    include: {
+      supplier: { select: { name: true } },
+      order: { select: { code: true } },
+      sale: { select: { code: true } },
+    },
   });
   if (!entry) {
     redirect(`${returnTo}?error=Movimiento+no+encontrado`);
@@ -272,7 +278,19 @@ export async function adminDeleteSupplierPaymentAction(formData: FormData): Prom
     redirect(`${returnTo}?error=${encodeURIComponent("No se puede eliminar un cargo ligado a una orden")}`);
   }
 
-  await prisma.supplierLedgerEntry.delete({ where: { id: entry.id } });
+  const actor = await getActivityActor();
+  // Copia completa en la bitácora y borrado en la misma operación: si no se puede anotar, no se borra.
+  await prisma.$transaction(async (tx) => {
+    await logActivityTx(tx, actor, {
+      action: "DELETE",
+      entityType: "SUPPLIER",
+      entityId: entry.supplierId,
+      entityCode: entry.order?.code ?? entry.sale?.code ?? entry.code,
+      summary: `Eliminó un ${entry.type === "PAYMENT" ? "pago" : "cargo"} de $${Number(entry.amount).toLocaleString("es-CO")} a ${entry.supplier.name}`,
+      before: snapshotForLog(entry, SUPPLIER_LEDGER_LOG_FIELDS),
+    });
+    await tx.supplierLedgerEntry.delete({ where: { id: entry.id } });
+  });
 
   // Si el abono estaba ligado a una orden y al eliminarlo queda saldo pendiente,
   // revertimos a "pendiente" los productos que se habían marcado pagados por este abono
