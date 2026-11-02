@@ -183,7 +183,7 @@ export const asesorTools: McpToolDefinition[] = [
     name: "resumen_del_mes",
     title: "Resumen del mes",
     description:
-      "Resumen financiero de un mes: pedidos, ingresos, costo de producto, fletes, contribucion (ventas - producto - flete) y su %, y ticket promedio. Cuenta las ventas pagadas por completo en ese mes, aunque falte entregarlas (contraentrega: solo entregadas, en el mes de entrega). Mismo criterio que Balances. Valores en COP.",
+      "Resumen financiero de un mes: pedidos, ingresos, costo de producto, fletes, contribucion (ventas - producto - flete) y su %, y ticket promedio, y el bloque ganancia_real (contribucion - pagos de Nomina a empleados del mes - gastos sin nomina) con la linea 'Nómina pagada: X · Retiros del dueño: Y' (los retiros del dueno no se restan; igual que listar_gastos). Cuenta las ventas pagadas por completo en ese mes, aunque falte entregarlas (contraentrega: solo entregadas, en el mes de entrega). Mismo criterio que Balances. Valores en COP.",
     schema: monthArgs,
     handler: (args, deps) => {
       const { mes, anio } = resolveMonth(args);

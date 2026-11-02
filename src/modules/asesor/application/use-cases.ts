@@ -109,9 +109,16 @@ async function listRecognizedSales(balances: BalancesRepository, period: DateRan
   );
 }
 
+// Misma formula en resumen_del_mes y listar_gastos.
+const REAL_PROFIT_FORMULA =
+  "ganancia_real = contribucion (ventas - producto - flete) - pagos de Nomina a empleados del mes - gastos sin nomina. Los pagos de Nomina al dueno son retiros del dueno y no se restan.";
+
 export async function getMonthSummaryUseCase(deps: AsesorDependencies, mes: number, anio: number) {
   const period = buildMonthRange(mes, anio);
-  const metrics = await getDashboardMetricsUseCase(deps.balances, period);
+  const [metrics, expenses] = await Promise.all([
+    getDashboardMetricsUseCase(deps.balances, period),
+    deps.asesor.listExpenses(period),
+  ]);
   return {
     mes,
     anio,
@@ -119,9 +126,13 @@ export async function getMonthSummaryUseCase(deps: AsesorDependencies, mes: numb
     moneda: CURRENCY,
     criterio: SALES_CRITERIA,
     ...summarizeMonth(metrics),
+    ganancia_real: {
+      ...computeRealProfit({ contribution: metrics.netProfit, expenses }),
+      formula: REAL_PROFIT_FORMULA,
+    },
     notas: [
       "contribucion = ingresos - costo_producto - fletes; contribucion_pct = contribucion / ingresos.",
-      "No incluye gastos operativos (nomina, arriendo, marketing).",
+      "ganancia_real ya resta los gastos sin nomina y los pagos de Nomina a empleados del mes (por fecha del pago); los retiros del dueno van aparte y no se restan. Igual que listar_gastos.",
     ],
   };
 }
@@ -163,8 +174,7 @@ export async function listExpensesUseCase(
     ganancia_real: {
       ...summarizeMonth(metrics),
       ...realProfit,
-      formula:
-        "ganancia_real = contribucion (ventas - producto - flete) - pagos de Nomina a empleados del mes - gastos sin nomina. Los pagos de Nomina al dueno son retiros del dueno y no se restan.",
+      formula: REAL_PROFIT_FORMULA,
     },
     notas: [
       "La ganancia real usa todos los gastos del mes, aunque se filtre por categoria; el filtro solo cambia la lista y el total_gastos.",

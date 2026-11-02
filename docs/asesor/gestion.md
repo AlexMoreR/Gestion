@@ -237,10 +237,12 @@ quedó ajustado". Una cuenta ya ajustada ese mes no se vuelve a ajustar; una dif
 pide confirmación aparte; no se cierra un mes que no ha terminado. Nada se borra: un error se corrige con un
 movimiento contrario desde Balances.
 
-**Ganancia real del mes (`listar_gastos`).** Ganancia real = ventas − producto − flete (contribución)
-− pagos de Nómina a empleados del mes (por fecha del pago) − gastos sin nómina. Los pagos de Nómina al
-dueño (ficha de dueño en Equipo) son retiros del dueño: se muestran aparte y no se restan. Ya no se
-restan comisiones calculadas ni sueldos básicos configurados.
+**Ganancia real del mes (`resumen_del_mes` y `listar_gastos`).** Ganancia real = contribución (ventas −
+producto − flete) − pagos de Nómina a empleados del mes − gastos sin nómina. La nómina cuenta en el mes
+de la fecha del pago, no en el mes del trabajo. Los pagos de Nómina al usuario de la ficha marcada como
+dueño en Equipo (`isOwner`) son retiros del dueño: se muestran aparte ("Nómina pagada: X · Retiros del
+dueño: Y") y no se restan. No hacen falta fichas ni salarios configurados: se resta lo que de verdad se
+pagó. Las dos herramientas traen el mismo bloque `ganancia_real`.
 
 **Pedidos (`buscar_pedido`, `pedidos_abiertos`).** Solo lectura. Pedido = venta (SAL) no cancelada con
 su orden de venta. `buscar_pedido` encuentra por nombre de la clienta, teléfono, ciudad, departamento,
@@ -411,7 +413,7 @@ quedó en negativo). Regla en `src/modules/balances/domain/negative-balance.ts`.
 - No es **multi-empresa**: no hay workspaces; todos los datos son de Magilus.
 - Las órdenes de fabricación (OF-) **no tienen estado** (enviada, en fabricación, recibida).
 - Los reportes de ganancia **no incluyen ventas con saldo pendiente** ni contraentregas sin entregar. Una venta pagada sin entregar sí cuenta; su costo puede subir después si al despachar se registra un flete o se confirma otro costo de proveedora.
-- La contribución (`resumen_del_mes`) **no descuenta gastos operativos**; esos están en el módulo Gastos. La ganancia real con gastos sale de `listar_gastos`.
+- La contribución (`resumen_del_mes`) **no descuenta gastos operativos**; la ganancia real con gastos y nómina pagada sale en el bloque `ganancia_real` de `resumen_del_mes` y de `listar_gastos`.
 - Por `registrar_gasto` la foto del soporte es **opcional y no se revisa**, así que puede haber gastos sin comprobante o con una foto que no corresponde (la pantalla de Gastos muestra cuáles no tienen foto). Confirmar dos veces crea dos gastos. No hay forma de borrar ni editar un gasto por Claude: se hace desde la pantalla de Gastos.
 - Un usuario con historial (ventas, cotizaciones, gastos) **no se puede borrar** y no existe "desactivar usuario": hay que quitarle módulos o cambiarle el rol. Dar de baja en Equipo no le quita el acceso a Gestión.
 - La **asistencia** solo la marcan los usuarios Empleado o Admin: una ficha de Equipo sin usuario no puede marcar ni aparece en Asistencia (hay que crearle un usuario, aunque nunca entre, y un admin marca por esa persona). No hay geolocalización ni foto al marcar. La nómina no prorratea el básico del mes de ingreso o salida: se avisa para revisarlo.
