@@ -456,6 +456,7 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
           : undefined,
         orderBy: { name: "asc" },
         select: {
+          id: true,
           code: true,
           name: true,
           price: true,
@@ -468,6 +469,7 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
       });
 
       return products.map((product) => ({
+        id: product.id,
         code: product.code,
         name: product.name,
         categoryName: product.category?.name ?? null,
@@ -477,6 +479,14 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
         isBundle: product.isBundle,
         hiddenFromStore: product.hiddenFromStore,
       }));
+    },
+    async unitsSoldByProduct(desde: Date): Promise<Map<string, number>> {
+      const groups = await prisma.orderItem.groupBy({
+        by: ["productId"],
+        where: { createdAt: { gte: desde }, order: { type: "SALE", status: { not: "CANCELLED" } } },
+        _sum: { quantity: true },
+      });
+      return new Map(groups.map((group) => [group.productId, group._sum.quantity ?? 0]));
     },
     async listOrderTrackings(filter): Promise<OrderTracking[]> {
       // Solo lectura: un findMany. Abiertos = sin orden o con la orden sin entregar ni cancelar.

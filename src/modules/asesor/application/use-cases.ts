@@ -46,6 +46,7 @@ import { assessProfit, buildSaleLinks, isProfitReliable } from "../domain/sale-p
 import type { SaleDetail } from "../domain/entities";
 import { buildRetroactivosReport } from "../domain/retroactivos";
 import { findOrders, listOpenOrders, MAX_ORDER_RESULTS } from "../domain/orders";
+import { buildPreciosVigentes } from "../domain/precios-vigentes";
 import { rangoMesBogota, type TipoRetroactivo } from "../../retroactivos/domain/retroactivo";
 import { getSiteUrl } from "../../../lib/site";
 import { effectiveOrigin, originDetailSummary, saleOriginLabel } from "../../ventas/domain/sale-origin";
@@ -722,4 +723,13 @@ export async function findOrdersUseCase(deps: AsesorDependencies, texto: string)
 export async function listOpenOrdersUseCase(deps: AsesorDependencies) {
   const result = listOpenOrders(await deps.asesor.listOrderTrackings({ soloAbiertos: true }));
   return { moneda: CURRENCY, ...result, notas: ORDER_NOTES };
+}
+
+const PRECIOS_VIGENTES_DIAS = 90;
+
+// Hoja "Precios vigentes" (Markdown, con COSTO): productos visibles ordenados por unidades vendidas en 90 dias.
+export async function preciosVigentesUseCase(repo: AsesorReadRepository, now: Date = new Date()): Promise<string> {
+  const desde = new Date(now.getTime() - PRECIOS_VIGENTES_DIAS * 24 * 60 * 60 * 1000);
+  const [products, unitsSold] = await Promise.all([repo.listProducts(), repo.unitsSoldByProduct(desde)]);
+  return buildPreciosVigentes(products, unitsSold, now);
 }

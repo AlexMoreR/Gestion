@@ -97,6 +97,7 @@ export type QuoteRow = {
 };
 
 export type ProductRow = {
+  id: string;
   code: string | null;
   name: string;
   categoryName: string | null;
