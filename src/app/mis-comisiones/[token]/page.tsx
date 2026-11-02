@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { displayCode } from "@/lib/code-display";
 import { formatMoney } from "@/lib/currency";
 import { currentMonthInBogota } from "@/modules/asesor/domain/calculations";
 import { createPrismaAsesorRepository } from "@/modules/asesor/infrastructure/prisma-asesor-repository";
@@ -129,7 +130,7 @@ export default async function MisComisionesPage({ params, searchParams }: PagePr
                   <div>
                     <p className="text-sm font-semibold">{sale.clientName ?? "Cliente"}</p>
                     <p className="text-xs text-slate-500">
-                      {dayLabel(sale.day)} · {sale.saleCode} · venta de {money(sale.saleAmount)}
+                      {dayLabel(sale.day)} · {displayCode(sale.saleCode)} · venta de {money(sale.saleAmount)}
                     </p>
                   </div>
                   <p className="text-base font-bold tabular-nums text-violet-800">{money(sale.commission)}</p>
@@ -163,7 +164,7 @@ export default async function MisComisionesPage({ params, searchParams }: PagePr
                   <div className="min-w-0">
                     <p className="text-sm font-semibold">{quote.clientName ?? "Cliente"}</p>
                     <p className="text-xs text-slate-500">
-                      {dayLabel(quote.day)} · {quote.quoteCode} · {quote.statusLabel} · {money(quote.total)}
+                      {dayLabel(quote.day)} · {displayCode(quote.quoteCode)} · {quote.statusLabel} · {money(quote.total)}
                     </p>
                     {quote.products.length > 0 ? <p className="truncate text-xs text-slate-500">{quote.products.join(", ")}</p> : null}
                   </div>

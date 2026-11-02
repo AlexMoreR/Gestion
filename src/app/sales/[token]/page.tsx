@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { displayCode } from "@/lib/code-display";
 import { formatMoney } from "@/lib/currency";
 import { formatInvoiceNumber } from "@/lib/document-names";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
@@ -315,7 +316,7 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
               <p className="text-xs text-slate-500">Ciudad: {clientCity || "Por confirmar"}</p>
               <p className="text-xs text-slate-500">Dirección: {deliveryAddress || "Por confirmar"}</p>
               <p className="text-xs text-slate-500">Referencia: {sale.client.neighborhood || "Por confirmar"}</p>
-              <p className="text-xs text-slate-500">Cotización ref: {sale.quote.code}</p>
+              <p className="text-xs text-slate-500">Cotización ref: {displayCode(sale.quote.code)}</p>
             </div>
           </div>
 
@@ -495,7 +496,7 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
               <p className="text-xs text-slate-500">Ciudad: {clientCity || "Por confirmar"}</p>
               <p className="text-xs text-slate-500">Dirección: {deliveryAddress || "Por confirmar"}</p>
               <p className="text-xs text-slate-500">Referencia: {sale.client.neighborhood || "Por confirmar"}</p>
-              <p className="text-xs text-slate-500">Cotización ref: {sale.quote.code}</p>
+              <p className="text-xs text-slate-500">Cotización ref: {displayCode(sale.quote.code)}</p>
             </div>
           </section>
 

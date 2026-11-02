@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { CalendarDays, MapPin } from "lucide-react";
+import { displayCode } from "@/lib/code-display";
 import { formatMoney } from "@/lib/currency";
 import { destinationCityLabel, supplierPaymentLabel, toManufacturingLine } from "@/lib/manufacturing-orders";
 import { prisma } from "@/lib/prisma";
@@ -112,10 +113,10 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
       <main className="mx-auto w-full max-w-4xl space-y-5 px-4 py-6 md:px-6 md:py-8">
         <section className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{manufacturingOrder.code}</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{displayCode(manufacturingOrder.code)}</h1>
             <p className="text-sm text-slate-600">
               Para <span className="font-semibold text-slate-900">{supplierName}</span> · Pedido{" "}
-              {manufacturingOrder.order.code}
+              {displayCode(manufacturingOrder.order.code)}
             </p>
           </div>
           <p className="text-xs text-slate-500">

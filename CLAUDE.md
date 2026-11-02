@@ -579,6 +579,12 @@ asesoras. Instalación: `scripts/precios-vigentes/README.md`.
   Gestión (un botón, una pestaña o una ruta) actualiza también `docs/asesor/pantallas.md` con la ruta y el texto
   exacto del botón. Si no, Claude dará indicaciones viejas. Cada carpeta con `page.tsx` bajo
   `src/app/(workspace)/admin` debe tener su título `## /admin/...` en ese archivo.
+- **Códigos:** se guardan y generan con ceros (`padStart(5)`, COT-00150) y se muestran sin ceros con
+  `displayCode`/`stripCodeZeros` de `src/lib/code-display.ts`. Para buscar en la base usar
+  `storedCodeCandidates` (acepta OF-35 y OF-00035). Nunca formatear el valor que sirve para ordenar. El
+  link corto (tarjeta cmvpwjrns012c2hpubhgbog61) usará `storedCodeCandidates` para que
+  magilus.com/of/OF-35 acepte también OF-00035. Pendiente en otra tarjeta: revisar si el CRM (repo
+  aizencrm) muestra códigos con ceros.
 - **Pruebas:** `npm run test` (Vitest). Nota: dentro de `src/modules/*/domain` se usan imports relativos
   a `src/lib` porque el alias `@/` no lo resuelve Vitest.
 
