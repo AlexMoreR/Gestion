@@ -400,7 +400,7 @@ export async function canSetOwnerMark(userId: string, role: Role): Promise<boole
   if (linkedOwners > 0) return canHardDelete(userId, role);
   const oldestAdmin = await prisma.user.findFirst({
     where: { role: "ADMIN" },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     select: { id: true },
   });
   return oldestAdmin?.id === userId;
