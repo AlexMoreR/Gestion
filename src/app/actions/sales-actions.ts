@@ -14,7 +14,11 @@ import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
 import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
-import { PAYMENT_METHOD_SHORT_LABEL, parsePaymentMethodInput } from "@/modules/ventas/domain/payment-method";
+import {
+  missingToCreateSale,
+  PAYMENT_METHOD_SHORT_LABEL,
+  parsePaymentMethodInput,
+} from "@/modules/ventas/domain/payment-method";
 import { CONSUMIDOR_FINAL_EMAIL } from "@/modules/ventas/domain/sale-origin";
 import {
   WITHHOLDING_LABEL,
@@ -215,6 +219,17 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
     redirectWithError(returnTo, "Forma de pago invalida");
   }
 
+  // La venta no nace sin forma de pago ni sin comprobante de cada abono (aunque se salte la pantalla).
+  const receiptFiles = formData.getAll("paymentReceipts");
+  const installmentHasFile = formData.getAll("paymentReceiptAmounts").map((_, index) => {
+    const entry = receiptFiles[index];
+    return entry instanceof File && entry.size > 0;
+  });
+  const missing = missingToCreateSale({ paymentMethod, installmentHasFile });
+  if (missing.length > 0) {
+    redirectWithError(returnTo, missing.join(" "));
+  }
+
   const quote = await prisma.quote.findUnique({
     where: { id: parsed.data.quoteId },
     include: {
@@ -299,8 +314,8 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
     const fileEntry = receiptEntries[index];
     const file = fileEntry instanceof File && fileEntry.size > 0 ? fileEntry : null;
 
-    if (account.type !== "CASH" && !file) {
-      redirectWithError(returnTo, "Los abonos que no sean en efectivo deben incluir comprobante");
+    if (!file) {
+      redirectWithError(returnTo, "Cada abono debe incluir su comprobante (foto o PDF)");
     }
 
     if (file) {
@@ -1405,6 +1420,10 @@ export async function adminUpdateSalePaymentMethodAction(formData: FormData): Pr
   if (paymentMethod === undefined) {
     redirectWithError(returnTo, "Forma de pago invalida");
   }
+  // Al corregir no se puede dejar sin definir (caso SAL-00081).
+  if (paymentMethod === null) {
+    redirectWithError(returnTo, "Escoge la forma de pago (50/50 o Contraentrega)");
+  }
 
   const sale = await prisma.sale.findUnique({
     where: { id: saleId },
@@ -1420,9 +1439,7 @@ export async function adminUpdateSalePaymentMethodAction(formData: FormData): Pr
     action: "UPDATE",
     entityType: "SALE",
     entityId: sale.id,
-    summary: `Cambió la forma de pago de la venta ${sale.code} a ${
-      paymentMethod ? PAYMENT_METHOD_SHORT_LABEL[paymentMethod] : "sin definir"
-    }`,
+    summary: `Cambió la forma de pago de la venta ${sale.code} a ${PAYMENT_METHOD_SHORT_LABEL[paymentMethod]}`,
   });
 
   revalidatePath("/admin/ventas");

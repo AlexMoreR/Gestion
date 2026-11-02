@@ -12,16 +12,21 @@ import {
 
 // Selector "Forma de pago" de crear/editar venta. hasCamillaCombo = undefined si no se sabe
 // (no se muestra el aviso). El aviso de contraentrega sin combo es suave: no bloquea.
+// required: no ofrece "Sin definir" (crear la venta o corregirla exige 50/50 o Contraentrega).
 export function PaymentMethodField({
   id = "sale-payment-method",
   defaultValue = null,
   hasCamillaCombo,
   className,
+  required = false,
+  onValueChange,
 }: {
   id?: string;
   defaultValue?: SalePaymentMethod | null;
   hasCamillaCombo?: boolean;
   className?: string;
+  required?: boolean;
+  onValueChange?: (value: SalePaymentMethod | null) => void;
 }) {
   const [value, setValue] = useState<SalePaymentMethod | null>(defaultValue);
   const warning =
@@ -38,13 +43,20 @@ export function PaymentMethodField({
         id={id}
         name="paymentMethod"
         value={value ?? ""}
-        onChange={(event) => setValue(parsePaymentMethodInput(event.target.value) ?? null)}
+        required={required}
+        onChange={(event) => {
+          const next = parsePaymentMethodInput(event.target.value) ?? null;
+          setValue(next);
+          onValueChange?.(next);
+        }}
         className={
           className ??
           "h-9 w-full min-w-0 rounded-lg border border-input bg-background px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         }
       >
-        <option value="">Sin definir</option>
+        <option value="" disabled={required}>
+          {required ? "Escoge la forma de pago" : "Sin definir"}
+        </option>
         {SALE_PAYMENT_METHODS.map((method) => (
           <option key={method} value={method}>
             {PAYMENT_METHOD_LABEL[method]}

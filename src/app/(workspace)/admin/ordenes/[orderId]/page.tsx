@@ -37,12 +37,15 @@ import { computeCollectSuggestion, resolveCityFromClient } from "@/modules/guias
 import {
   COMBO_CHECK_PRODUCT_SELECT,
   contraentregaComboWarning,
+  isCamillaComboProduct,
   toComboCheckProduct,
   PAYMENT_METHOD_BADGE,
   PAYMENT_METHOD_LABEL,
   PAYMENT_METHOD_SHORT_LABEL,
 } from "@/modules/ventas/domain/payment-method";
 import { SaleOriginBadge } from "@/modules/ventas/presentation/sale-origin-badge";
+import { PaymentMethodField } from "@/modules/ventas/presentation/payment-method-field";
+import { adminUpdateSalePaymentMethodAction } from "@/app/actions/sales-actions";
 import { paymentMethodLabel } from "@/modules/ventas/domain/withholding";
 import type { ShipmentDefaults } from "@/modules/guias/presentation/shipment-dispatch-fields";
 
@@ -373,10 +376,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     };
   }
   const salePaymentMethod = order.sale?.paymentMethod ?? null;
-  const comboWarning = contraentregaComboWarning(
-    salePaymentMethod,
-    order.items.map((item) => toComboCheckProduct(item.product)),
-  );
+  const comboProducts = order.items.map((item) => toComboCheckProduct(item.product));
+  const comboWarning = contraentregaComboWarning(salePaymentMethod, comboProducts);
   const shippingDispatches = order.dispatches.filter(
     (dispatch) => dispatch.deliveryType === "SHIPPING" && dispatch.status !== "CANCELLED",
   );
@@ -517,6 +518,24 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               <SaleOriginBadge prefix="Origen: " origin={order.sale?.origin} detail={order.sale?.originDetail} />
               {comboWarning ? <span className="text-xs text-amber-700 dark:text-amber-400">{comboWarning}</span> : null}
             </div>
+          ) : null}
+          {!isPurchase && order.saleId ? (
+            <details className="w-full max-w-md rounded-lg border border-border p-3 open:bg-muted/20">
+              <summary className="cursor-pointer text-sm font-medium text-primary">Cambiar forma de pago</summary>
+              <form action={adminUpdateSalePaymentMethodAction} className="mt-3 space-y-3">
+                <input type="hidden" name="returnTo" value={`/admin/ordenes/${order.id}`} />
+                <input type="hidden" name="saleId" value={order.saleId} />
+                <PaymentMethodField
+                  id="order-sale-payment-method"
+                  defaultValue={salePaymentMethod}
+                  hasCamillaCombo={comboProducts.some(isCamillaComboProduct)}
+                  required
+                />
+                <Button type="submit" size="sm">
+                  Guardar forma de pago
+                </Button>
+              </form>
+            </details>
           ) : null}
         </div>
 

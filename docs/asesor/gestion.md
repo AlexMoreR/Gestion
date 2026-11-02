@@ -160,6 +160,14 @@ en las Server Actions y en `src/lib/`.
 
 ## Reglas de negocio
 
+**Pasar una cotización a venta exige forma de pago y comprobante (nov-2026, caso SAL-00081).** El
+botón "Enviar a ventas" queda apagado hasta escoger la forma de pago (50/50 o Contraentrega; "Sin
+definir" ya no se ofrece) y subir el comprobante (foto o PDF, JPG/PNG/WEBP/PDF hasta 12 MB) de cada
+abono inicial, también si es en efectivo; la pantalla dice qué falta. El servidor exige lo mismo
+(`missingToCreateSale` en `src/modules/ventas/domain/payment-method.ts`). Una venta ya creada se corrige
+desde Ventas (menú de la fila → "Forma de pago") o desde el detalle de su orden ("Cambiar forma de
+pago"); al corregir tampoco se puede dejar sin definir. Las ventas directas de mostrador no cambian.
+
 **Ganancia de una venta.** Ganancia = valor de la venta − costo de los productos − fletes de envío
 de esa venta. El costo de cada producto vendido es, en este orden: el costo confirmado con la
 proveedora en la orden; si no hay y el producto sale de stock, costo de catálogo + flete por unidad;
