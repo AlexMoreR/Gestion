@@ -1075,6 +1075,7 @@ export function SalesDataTable({
                 id="sale-edit-payment-method"
                 defaultValue={paymentMethodSale.salePaymentMethod}
                 hasCamillaCombo={paymentMethodSale.hasCamillaCombo}
+                required
               />
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setPaymentMethodSale(null)}>

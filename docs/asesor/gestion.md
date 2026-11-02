@@ -166,6 +166,14 @@ proveedora en la orden; si no hay y el producto sale de stock, costo de catálog
 si no, el costo de la proveedora preferida o el costo de catálogo. Si la venta no tiene orden, el costo
 sale de los productos de la cotización (costo base + flete del catálogo). No resta gastos operativos.
 
+**Pasar una cotización a venta (nov-2026, caso SAL-00081).** La venta no se crea sin **forma de pago**
+(50/50 o Contraentrega; "Sin definir" ya no se ofrece) ni sin el **comprobante (foto o PDF) de cada abono
+inicial**, también si fue en efectivo. El botón "Enviar a ventas" queda apagado y la pantalla dice qué falta;
+el servidor lo vuelve a revisar (`quoteToSaleMissing` en `src/modules/ventas/domain/payment-method.ts`). Una
+venta ya creada cambia su forma de pago desde la lista de ventas o con "Cambiar forma de pago" en el detalle de
+la orden, sin poder dejarla en "Sin definir"; queda en la bitácora. Las ventas viejas sin forma de pago siguen
+igual hasta que se corrijan a mano. Las ventas directas de mostrador no cambian.
+
 **Productos, links y ganancia en el asesor (`ver_venta`, `listar_ventas`, `listar_cotizaciones`).** Solo
 lectura. Los productos de una venta salen de su orden o, si no tiene, de la cotización (`productos_fuente`),
 con nombre, código, color, cantidad, precio, `costo_unitario` y `costo_origen`: `confirmado` (costo de la

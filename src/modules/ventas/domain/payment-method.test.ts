@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  MISSING_FIRST_RECEIPT_MESSAGE,
+  MISSING_PAYMENT_METHOD_MESSAGE,
+  quoteToSaleMissing,
   CONTRAENTREGA_FEE_BOGOTA,
   CONTRAENTREGA_FEE_MAIN_CITY,
   contraentregaComboWarning,
@@ -109,5 +112,40 @@ describe("quotePaymentTermsText", () => {
   });
   it("con Combo Camillas: agrega contraentrega", () => {
     expect(quotePaymentTermsText(true)).toContain("contraentrega");
+  });
+});
+
+describe("quoteToSaleMissing", () => {
+  it("sin forma de pago no pasa", () => {
+    expect(quoteToSaleMissing({ paymentMethod: null, receiptsAttached: [true] })).toEqual([
+      MISSING_PAYMENT_METHOD_MESSAGE,
+    ]);
+  });
+
+  it("con forma de pago pero sin comprobante no pasa (tambien un abono en efectivo)", () => {
+    expect(quoteToSaleMissing({ paymentMethod: "ANTICIPO_50_50", receiptsAttached: [false] })).toEqual([
+      MISSING_FIRST_RECEIPT_MESSAGE,
+    ]);
+    expect(quoteToSaleMissing({ paymentMethod: "CONTRAENTREGA", receiptsAttached: [true, false] })).toEqual([
+      MISSING_FIRST_RECEIPT_MESSAGE,
+    ]);
+  });
+
+  it("sin abonos falta el comprobante", () => {
+    expect(quoteToSaleMissing({ paymentMethod: "ANTICIPO_50_50", receiptsAttached: [] })).toEqual([
+      MISSING_FIRST_RECEIPT_MESSAGE,
+    ]);
+  });
+
+  it("si faltan los dos, dice los dos", () => {
+    expect(quoteToSaleMissing({ paymentMethod: undefined, receiptsAttached: [false] })).toEqual([
+      MISSING_PAYMENT_METHOD_MESSAGE,
+      MISSING_FIRST_RECEIPT_MESSAGE,
+    ]);
+  });
+
+  it("con forma de pago y comprobante pasa", () => {
+    expect(quoteToSaleMissing({ paymentMethod: "ANTICIPO_50_50", receiptsAttached: [true] })).toEqual([]);
+    expect(quoteToSaleMissing({ paymentMethod: "CONTRAENTREGA", receiptsAttached: [true, true] })).toEqual([]);
   });
 });
