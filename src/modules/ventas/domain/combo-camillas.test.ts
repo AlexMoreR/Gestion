@@ -74,6 +74,16 @@ describe("necesitaAlertaCombo", () => {
     expect(necesitaAlertaCombo({ items: [combo], tieneOrden: true, cancelada: false })).toBe(false);
     expect(necesitaAlertaCombo({ items: [combo], tieneOrden: false, cancelada: true })).toBe(false);
   });
+
+  it("en /admin/ventas detecta el combo armado en piezas de la cotizacion (solo cantidad, notas y codigo)", () => {
+    const notes = stringifyQuoteItemMeta({ comboKey: "k1", comboName: "Combo Camillas", comboCode: "CMB005", comboQuantity: 1 });
+    const filas = [
+      { quantity: 1, notes, product: { code: "CAM009" } },
+      { quantity: 1, notes, product: { code: "BMV016" } },
+    ];
+    expect(necesitaAlertaCombo({ items: itemsParaPlan(filas), tieneOrden: false, cancelada: false })).toBe(true);
+    expect(necesitaAlertaCombo({ items: itemsParaPlan([{ quantity: 1, notes: null, product: { code: "CAM009" } }]), tieneOrden: false, cancelada: false })).toBe(false);
+  });
 });
 
 describe("repartirCostoCombo", () => {

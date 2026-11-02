@@ -4,6 +4,7 @@ import Link from "next/link";
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
+  AlertTriangle,
   ArrowUpRight,
   Calendar,
   CheckCircle2,
@@ -124,6 +125,8 @@ type SaleRow = {
   saleOrigin: SaleOriginCode | null;
   saleOriginDetail: unknown;
   hasCamillaCombo: boolean;
+  // Combo Camillas (o sin productos) sin orden: no se pudo crear la orden sola.
+  alertaCombo?: boolean;
 };
 
 type SalesDataTableProps = {
@@ -200,7 +203,7 @@ function StatusBadge({ status }: { status: SaleStatus }) {
 
 // Recaudo completo y entrega pendiente: la venta ya cuenta en Balances (salvo
 // contraentrega) y solo falta entregarla.
-function SaleStatusCell({ sale }: { sale: Pick<SaleRow, "status" | "pendingDelivery"> }) {
+function SaleStatusCell({ sale }: { sale: Pick<SaleRow, "status" | "pendingDelivery" | "alertaCombo"> }) {
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
       <StatusBadge status={sale.status} />
@@ -208,6 +211,12 @@ function SaleStatusCell({ sale }: { sale: Pick<SaleRow, "status" | "pendingDeliv
         <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
           <Truck className="h-3.5 w-3.5" />
           Falta entregar
+        </span>
+      ) : null}
+      {sale.alertaCombo ? (
+        <span className="inline-flex items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:text-red-400">
+          <AlertTriangle className="h-3.5 w-3.5" />
+          Falta el producto: no se pudo crear la orden
         </span>
       ) : null}
     </span>

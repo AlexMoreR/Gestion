@@ -25,6 +25,8 @@ export type ManufacturingCard = {
   lines: Array<{ id: string; name: string; code: string | null; quantity: number }>;
   // Lo pagado a la proveedora en esta orden (cuenta de Proveedores). null = sin datos.
   pago: ManufacturingPaymentSummary | null;
+  // Combo Camillas: la orden se creo sola con Laura; falta que la asesora le mande el link.
+  creadaSolaParaLaura?: boolean;
 };
 
 type OrderManufacturingTabProps = {
@@ -190,6 +192,11 @@ export function OrderManufacturingTab({ cards, currency, returnTo, brandName }: 
             </form>
 
             <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+              {card.creadaSolaParaLaura ? (
+                <p className="w-full text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                  Orden creada sola para Laura. Envíale el link
+                </p>
+              ) : null}
               <a
                 href={card.url}
                 target="_blank"

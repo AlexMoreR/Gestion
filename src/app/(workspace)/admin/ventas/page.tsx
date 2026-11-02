@@ -13,6 +13,7 @@ import {
   isCamillaComboProduct,
   toComboCheckProduct,
 } from "@/modules/ventas/domain/payment-method";
+import { itemsParaPlan, necesitaAlertaCombo } from "@/modules/ventas/domain/combo-camillas";
 import { parseOriginFilter } from "@/modules/ventas/domain/sale-origin";
 import { SaleOriginFilterBar } from "@/modules/ventas/presentation/sale-origin-filter-bar";
 import { paymentMethodLabel } from "@/modules/ventas/domain/withholding";
@@ -83,7 +84,9 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
       include: {
         client: true,
         quote: {
-          include: { items: { select: { product: { select: COMBO_CHECK_PRODUCT_SELECT } } } },
+          include: {
+            items: { select: { quantity: true, notes: true, product: { select: COMBO_CHECK_PRODUCT_SELECT } } },
+          },
         },
         order: true,
         salePayments: {
@@ -244,6 +247,12 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
           saleOrigin: sale.origin ?? null,
           saleOriginDetail: sale.originDetail ?? null,
           hasCamillaCombo: sale.quote.items.some((item) => isCamillaComboProduct(toComboCheckProduct(item.product))),
+          // Calculada al vuelo, no se guarda: desaparece sola cuando la venta ya tiene orden.
+          alertaCombo: necesitaAlertaCombo({
+            items: itemsParaPlan(sale.quote.items),
+            tieneOrden: Boolean(sale.order),
+            cancelada: sale.status === "CANCELLED",
+          }),
         }))}
       />
     </section>
