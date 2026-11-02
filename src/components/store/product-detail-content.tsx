@@ -299,7 +299,7 @@ export async function ProductDetailContent({
             {[
               { title: "Fábrica", text: FACTORY_LOCATIONS },
               { title: "Garantía", text: "1 año" },
-              { title: "Pago", text: "50 % y 50 %" },
+              { title: "Pago", text: landing.cashOnDelivery ? "50/50 o contraentrega" : "50 % y 50 %" },
             ].map((item) => (
               <div
                 key={item.title}
@@ -379,14 +379,20 @@ export async function ProductDetailContent({
             { icon: ShieldCheck, title: "Garantía", body: <>{landing.warrantyText}.</> },
             {
               icon: CreditCard,
-              title: "Pagas en dos partes",
-              body: <>50 % para empezar la fabricación y 50 % antes del despacho.</>,
+              title: landing.cashOnDelivery ? "Formas de pago" : "Pagas en dos partes",
+              body: (
+                <>
+                  50 % para fabricar y 50 % antes de despachar, con envío gratis a ciudades principales.
+                  {landing.cashOnDelivery ? " O contraentrega, pagando tú el envío." : null}
+                </>
+              ),
             },
             {
               icon: Truck,
               title: "Envío a tu ciudad",
               body: (
                 <>
+                  Gratis a ciudades principales.{" "}
                   <Link href={SHIPPING_COVERAGE_PATH} className="font-bold text-foreground underline underline-offset-[3px]">
                     {SHIPPING_CHECK_LABEL}
                   </Link>{" "}
@@ -420,7 +426,12 @@ export async function ProductDetailContent({
           {[
             { title: "Escríbenos por WhatsApp", text: "El botón ya lleva el código y el precio de este producto." },
             { title: "Confirma color y envío", text: "La asesora te dice el color, el envío a tu ciudad y la fecha." },
-            { title: "Paga el 50 % y fabricamos", text: "El otro 50 % lo pagas antes del despacho." },
+            {
+              title: "Paga el 50 % y fabricamos",
+              text: landing.cashOnDelivery
+                ? "El otro 50 % lo pagas antes del despacho, o paga contraentrega pagando el envío."
+                : "El otro 50 % lo pagas antes del despacho.",
+            },
           ].map((step, index) => (
             <li
               key={step.title}
