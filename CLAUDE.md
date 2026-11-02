@@ -336,12 +336,18 @@ Route handlers reales (`route.ts`):
   herramienta que escribe es `registrar_gasto` (anotada sin `readOnlyHint`; ver "Gastos por voz").
 - Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_abonos`, `ver_venta`, `listar_cotizaciones`,
   `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `equipo`, `asistencia`, `saldos_de_cuentas`,
-  `listar_gastos`, `listar_retroactivos`, `deuda_con_proveedoras`, `registrar_gasto`, `registrar_pago_proveedora` y `que_es_esta_aplicacion`.
+  `listar_gastos`, `listar_retroactivos`, `deuda_con_proveedoras`, `buscar_pedido`, `pedidos_abiertos`, `registrar_gasto`, `registrar_pago_proveedora` y `que_es_esta_aplicacion`.
 - `deuda_con_proveedoras` (oct-2026, solo lectura): `proveedora` (nombre, sin tildes) y `desde`/`hasta` (fecha de
   la OF) opcionales → por orden: OF, orden, venta, cliente, productos con color, `costo_acordado`, `pagos[]`
   (fecha, cuenta, monto) y `falta`; por proveedora `debemos_total` = cargos − abonos (el saldo de la lista
   `/admin/proveedores`, nunca filtrado por fechas) y `otros` (lo que no va a ninguna orden); `pagos_sin_cuenta`
   de todas las proveedoras (= Balances). Regla compartida con la pantalla: `src/lib/supplier-debt.ts`.
+- `buscar_pedido` y `pedidos_abiertos` (nov-2026, solo lectura): encontrar un pedido (venta no cancelada) por
+  clienta, teléfono, ciudad, departamento, producto o código (SAL/ORD/OF/COT, con o sin ceros; máx. 10, el más
+  reciente primero) o traer todos los no entregados. Cada uno con ciudad ("sin dato" si la ficha de la clienta no la
+  tiene, contados en `sin_ciudad`), productos con color, vendedora, total/pagado/saldo (`buildSaleLedger`), forma de
+  pago, proveedora y OF, despachos (transportador, guía, dirección) y estado en palabras con fecha. Reglas puras en
+  `src/modules/asesor/domain/orders.ts`.
 - `listar_gastos` (oct-2026): `mes`/`anio` y `categoria` opcionales → gastos con fecha, categoría, cuenta, monto,
   nota, persona y `con_foto`; total por categoría y **ganancia real** = ventas − producto − flete − comisiones −
   sueldos básicos − gastos (`computeRealProfit`). Los pagos de Nómina no se restan como gasto (la nómina ya entra

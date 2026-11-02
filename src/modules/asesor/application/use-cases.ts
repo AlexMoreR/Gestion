@@ -45,6 +45,7 @@ import type { AsesorReadRepository } from "../domain/repository";
 import { assessProfit, buildSaleLinks, isProfitReliable } from "../domain/sale-products";
 import type { SaleDetail } from "../domain/entities";
 import { buildRetroactivosReport } from "../domain/retroactivos";
+import { findOrders, listOpenOrders, MAX_ORDER_RESULTS } from "../domain/orders";
 import { rangoMesBogota, type TipoRetroactivo } from "../../retroactivos/domain/retroactivo";
 import { getSiteUrl } from "../../../lib/site";
 import { effectiveOrigin, originDetailSummary, saleOriginLabel } from "../../ventas/domain/sale-origin";
@@ -693,4 +694,32 @@ export async function listRetroactivosUseCase(
   const { valor: mes, desde, hasta } = rangoMesBogota(filtros.mes);
   const rows = await deps.asesor.listRetroactivos({ desde, hasta, tipo: filtros.tipo ?? null });
   return buildRetroactivosReport(rows, { mes, persona: filtros.persona });
+}
+
+const ORDER_NOTES = [
+  "Pedido = venta (SAL) no cancelada con su orden. estado: por fabricar (orden en Borrador o Liberada), en fabricación, listo para despacho, despachado (ver despachos: transportador y guía) o entregado; fecha_estado = cuando la orden pasó a ese estado (entregado: la misma fecha de entrega de Balances).",
+  "ciudad y departamento salen de la ficha de la clienta; 'sin dato' = no están guardados (no se adivinan de la dirección). sin_ciudad cuenta los pedidos de esta respuesta así.",
+  "pagado y saldo_pendiente son de HOY, con el mismo cálculo de ver_venta. vendedora = quien creó la cotización.",
+];
+
+// buscar_pedido: por clienta, telefono, ciudad, departamento, producto o codigo. Solo lectura.
+export async function findOrdersUseCase(deps: AsesorDependencies, texto: string) {
+  if (texto.trim().length < 2) {
+    throw new AsesorInputError("Escribe al menos 2 letras: nombre de la clienta, ciudad, teléfono, producto o código (SAL, ORD, OF, COT).");
+  }
+  const result = findOrders(await deps.asesor.listOrderTrackings(), texto);
+  return {
+    moneda: CURRENCY,
+    ...result,
+    notas: [
+      `Máximo ${MAX_ORDER_RESULTS} pedidos, el más reciente primero; 'coincidencias' dice cuántos hubo en total. Si son muchos, pide más detalle (apellido, ciudad o producto).`,
+      ...ORDER_NOTES,
+    ],
+  };
+}
+
+// pedidos_abiertos: todos los no entregados ni cancelados. Solo lectura.
+export async function listOpenOrdersUseCase(deps: AsesorDependencies) {
+  const result = listOpenOrders(await deps.asesor.listOrderTrackings({ soloAbiertos: true }));
+  return { moneda: CURRENCY, ...result, notas: ORDER_NOTES };
 }

@@ -1,5 +1,5 @@
 import type { AppSnapshot } from "./app-overview";
-import type { DayRange, ExpenseLine, ProductRow, QuoteRow, QuoteStatusCode, SaleDetail, SupplierLedger } from "./entities";
+import type { DayRange, ExpenseLine, OrderTracking, ProductRow, QuoteRow, QuoteStatusCode, SaleDetail, SupplierLedger } from "./entities";
 import type { SaleLedgerInput } from "./payments";
 import type { RetroactivoRow } from "./retroactivos";
 import type { TipoRetroactivo } from "../../retroactivos/domain/retroactivo";
@@ -25,6 +25,8 @@ export interface AsesorReadRepository {
   listRetroactivos(filter: { desde: Date; hasta: Date; tipo: TipoRetroactivo | null }): Promise<RetroactivoRow[]>;
   // Cuenta corriente de cada proveedora con movimientos, con las ordenes de esos movimientos.
   listSupplierLedgers(): Promise<SupplierLedger[]>;
+  // Pedidos: ventas no canceladas con orden, despachos y OF. soloAbiertos = sin entregar.
+  listOrderTrackings(filter?: { soloAbiertos?: boolean }): Promise<OrderTracking[]>;
 }
 
 export type PackageManifest = {
