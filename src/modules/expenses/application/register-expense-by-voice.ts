@@ -166,6 +166,7 @@ export function describeVoiceExpense(prepared: PreparedVoiceExpense): string {
 
 export type ConfirmedVoiceExpense = {
   expenseId: string;
+  accountId: string;
   // null si el gasto quedo guardado pero no se pudo crear el enlace de la foto.
   uploadUrl: string | null;
   expiresAt: Date;
@@ -226,7 +227,7 @@ export async function confirmVoiceExpense(deps: VoiceExpenseDeps, input: VoiceEx
   } catch (error) {
     console.error("[gastos-voz] El gasto quedó guardado pero no se pudo crear el enlace de la foto:", error);
   }
-  return { expenseId: expense.id, uploadUrl, expiresAt, summary: describeVoiceExpense(prepared) };
+  return { expenseId: expense.id, accountId: prepared.account.id, uploadUrl, expiresAt, summary: describeVoiceExpense(prepared) };
 }
 
 // --- Pagina publica de la foto ---------------------------------------------------

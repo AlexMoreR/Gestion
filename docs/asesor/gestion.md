@@ -365,6 +365,20 @@ las últimas 24 h, con la venta o la proveedora y el monto (máximo 2 líneas, 3
 retención en la fuente no cuenta; los gastos no pueden quedar sin cuenta. Si todo está bien no llega
 nada. Regla en `src/modules/balances/domain/money-alert.ts`.
 
+**Revisión del saldo y aviso de cuenta en negativo (nov-2026).** En la página de cada cuenta
+(`/admin/balances/cuentas/[accountId]`) el recuadro **"Revisión del saldo"** mira todo el historial de la cuenta (no
+solo el mes elegido) y dice: el punto más bajo y su fecha, el saldo inicial que haría falta (además
+del actual) para que nunca bajara de cero, el primer día en negativo con el registro que lo causó y,
+en efectivo, las "salidas que quizá no salieron de aquí" (señales de pago por banco; es una pista, no
+una certeza) con el saldo inicial que haría falta si se pasaran a su banco. Es solo lectura: no mueve
+nada. Aparte, cuando una salida deja una cuenta bajo cero, el mensaje de "registrado" agrega
+"Ojo: <cuenta> quedó en −$X". **No bloquea**: el registro ya quedó guardado. Aparece al guardar
+gastos, pagos de nómina, pagos a proveedoras y fletes en Balances, abonos a proveedoras (módulo
+Proveedores), el pago a la proveedora al recoger un ítem de la orden ("pagar ya") y el flete pagado al
+despachar (uno, en lote o tramo agregado; un aviso por cada cuenta distinta). Por Claude,
+`registrar_gasto` con `confirmado=true` devuelve el campo `aviso` con ese texto ("" si la cuenta no
+quedó en negativo). Regla en `src/modules/balances/domain/negative-balance.ts`.
+
 ## Qué NO tiene el sistema
 
 - El **origen** de las ventas anteriores a oct-2026 casi siempre es "Sin dato" (se puede rellenar con `npm run origen:rellenar`, que cruza el teléfono del cliente con el CRM).
