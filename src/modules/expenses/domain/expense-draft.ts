@@ -100,6 +100,9 @@ const ACCOUNT_TYPE_WORDS: Record<string, ReceiptAccountType> = {
   billetera: "WALLET",
   nequi: "WALLET",
   daviplata: "WALLET",
+  dueno: "OWNER",
+  "plata del dueno": "OWNER",
+  "aportes del dueno": "OWNER",
 };
 
 export type AccountOption = { id: string; name: string; type: ReceiptAccountType };

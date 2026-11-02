@@ -203,6 +203,15 @@ describe("prepareVoiceExpense", () => {
     ambiguous.listAccounts = async () => [...ACCOUNTS, { id: "acc-b2", name: "Davivienda", type: "BANK" }];
     await expect(prepareVoiceExpense(ambiguous, baseInput)).rejects.toThrow(/Davivienda/);
   });
+
+  it("encuentra la cuenta del dueño por 'aportes del dueño', 'plata del dueño' o 'dueño'", async () => {
+    const withOwner = makeDeps(world, { now: NOW });
+    withOwner.listAccounts = async () => [...ACCOUNTS, { id: "acc-dueno", name: "Aportes del dueño", type: "OWNER" }];
+    for (const account of ["aportes del dueño", "Plata del dueño", "dueño", "aportes"]) {
+      const prepared = await prepareVoiceExpense(withOwner, { ...baseInput, account });
+      expect(prepared.account.id).toBe("acc-dueno");
+    }
+  });
 });
 
 describe("confirmVoiceExpense", () => {
