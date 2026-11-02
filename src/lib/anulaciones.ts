@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 /** Tablas con plata que se pueden anular. */
-export type TablaAnulable = "SalePayment" | "Expense";
+export type TablaAnulable = "SalePayment" | "Expense" | "InventoryMovement" | "SupplierLedgerEntry";
 
 export type AnularInput = {
   tabla: TablaAnulable;
@@ -15,6 +15,8 @@ export type AnularInput = {
   usuarioId: string;
   /** Nombre para la bitácora. */
   usuarioNombre?: string | null;
+  /** Qué se anula, para la bitácora ("un pago a Rosa"); si falta, el nombre de la tabla. */
+  que?: string;
 };
 
 export const MOTIVO_ANULACION_MIN = 3;
@@ -23,10 +25,22 @@ export const MOTIVO_ANULACION_ERROR = "Escribe el motivo de la anulación (míni
 const ENTIDAD: Record<TablaAnulable, { entityType: string; nombre: string }> = {
   SalePayment: { entityType: "SALE", nombre: "un abono" },
   Expense: { entityType: "EXPENSE", nombre: "un gasto" },
+  InventoryMovement: { entityType: "INVENTORY", nombre: "un movimiento de inventario" },
+  SupplierLedgerEntry: { entityType: "SUPPLIER", nombre: "un movimiento de proveedora" },
 };
 
+export const PRIMERO_ANULA_ABONOS = "Primero anula los abonos";
+
 /**
- * El ÚNICO lugar que borra filas con plata (abonos y gastos): exige motivo, guarda la fila
+ * Un cargo a la proveedora con abonos que lo saldan no se anula: borrarlo se llevaría
+ * esos abonos en cascada. Devuelve el mensaje de bloqueo o null si se puede anular.
+ */
+export function bloqueoPorAbonos(abonosQueLoSaldan: number): string | null {
+  return abonosQueLoSaldan > 0 ? PRIMERO_ANULA_ABONOS : null;
+}
+
+/**
+ * El ÚNICO lugar que borra filas con plata (abonos, gastos, movimientos de inventario y de proveedoras): exige motivo, guarda la fila
  * completa en RegistroAnulado, borra el original y anota "Anuló … (motivo)" en ActivityLog.
  * Todo en la misma transacción `tx`: si algo falla, no se borra nada.
  */
@@ -53,13 +67,14 @@ export async function anularConMotivo(tx: Prisma.TransactionClient, input: Anula
     },
   });
 
-  if (input.tabla === "SalePayment") {
-    await tx.salePayment.delete({ where: { id: input.registro.id } });
-  } else {
-    await tx.expense.delete({ where: { id: input.registro.id } });
-  }
+  const where = { where: { id: input.registro.id } };
+  if (input.tabla === "SalePayment") await tx.salePayment.delete(where);
+  else if (input.tabla === "Expense") await tx.expense.delete(where);
+  else if (input.tabla === "InventoryMovement") await tx.inventoryMovement.delete(where);
+  else await tx.supplierLedgerEntry.delete(where);
 
-  const { entityType, nombre } = ENTIDAD[input.tabla];
+  const { entityType } = ENTIDAD[input.tabla];
+  const nombre = input.que ?? ENTIDAD[input.tabla].nombre;
   const deCodigo = input.codigo ? ` de ${input.codigo}` : "";
   await tx.activityLog.create({
     data: {
@@ -69,7 +84,8 @@ export async function anularConMotivo(tx: Prisma.TransactionClient, input: Anula
       entityType,
       entityId: input.registro.id,
       entityCode: input.codigo ?? null,
-      summary: `Anuló ${nombre} de $${monto.toLocaleString("es-CO")}${deCodigo} (${motivo})`.slice(0, 500),
+      // Un movimiento de inventario no tiene plata: sin "de $0".
+      summary: `Anuló ${nombre}${monto ? ` de $${monto.toLocaleString("es-CO")}` : ""}${deCodigo} (${motivo})`.slice(0, 500),
       before: datos,
       origin: origen,
     },

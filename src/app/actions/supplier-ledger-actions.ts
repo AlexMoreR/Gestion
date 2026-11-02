@@ -7,8 +7,14 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getActivityActor, logActivityTx } from "@/lib/activity-log";
-import { SUPPLIER_LEDGER_LOG_FIELDS, snapshotForLog } from "@/lib/activity-log-snapshot";
+import { getActivityActor } from "@/lib/activity-log";
+import {
+  MOTIVO_ANULACION_ERROR,
+  MOTIVO_ANULACION_MIN,
+  PRIMERO_ANULA_ABONOS,
+  anularConMotivo,
+  bloqueoPorAbonos,
+} from "@/lib/anulaciones";
 import { buildManualChargeCode, parseManualChargeCodeNumber } from "@/lib/orders";
 import { saveSupplierPaymentReceipt } from "@/lib/supplier-payment-receipt";
 import { withNegativeBalanceNotice } from "@/modules/balances/application/use-cases";
@@ -261,6 +267,11 @@ export async function adminDeleteSupplierPaymentAction(formData: FormData): Prom
     redirect(`${returnTo}?error=${encodeURIComponent("Movimiento inválido")}`);
   }
 
+  const motivo = String(formData.get("motivo") ?? "").trim();
+  if (motivo.length < MOTIVO_ANULACION_MIN) {
+    redirect(`${returnTo}?error=${encodeURIComponent(MOTIVO_ANULACION_ERROR)}`);
+  }
+
   const entry = await prisma.supplierLedgerEntry.findUnique({
     where: { id: (paymentId as string).trim() },
     include: {
@@ -272,27 +283,42 @@ export async function adminDeleteSupplierPaymentAction(formData: FormData): Prom
   if (!entry) {
     redirect(`${returnTo}?error=Movimiento+no+encontrado`);
   }
-  // Se pueden eliminar abonos (pagos) y cargos manuales (sin orden ligada).
-  // Los cargos generados por una orden no se pueden borrar aquí.
+  // Se pueden anular abonos (pagos) y cargos manuales (sin orden ligada).
+  // Los cargos generados por una orden no se pueden anular aquí.
   if (entry.type === "CHARGE" && entry.orderId) {
-    redirect(`${returnTo}?error=${encodeURIComponent("No se puede eliminar un cargo ligado a una orden")}`);
+    redirect(`${returnTo}?error=${encodeURIComponent("No se puede anular un cargo ligado a una orden")}`);
+  }
+  const actor = await getActivityActor();
+  const { supplier, order, sale, ...row } = entry;
+  // Copia en RegistroAnulado, borrado y bitácora en la misma transacción.
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Borrar un cargo se llevaría en cascada los abonos que lo saldan: primero se anulan ellos.
+      // El candado frena un abono nuevo a este cargo mientras se anula.
+      if (entry.type === "CHARGE") {
+        await tx.$queryRaw`SELECT id FROM "SupplierLedgerEntry" WHERE id = ${entry.id} FOR UPDATE`;
+        const abonos = await tx.supplierLedgerEntry.count({ where: { settlesEntryId: entry.id } });
+        const bloqueo = bloqueoPorAbonos(abonos);
+        if (bloqueo) throw new Error(bloqueo);
+      }
+      await anularConMotivo(tx, {
+        tabla: "SupplierLedgerEntry",
+        registro: { ...row, supplierName: supplier.name },
+        codigo: order?.code ?? sale?.code ?? entry.code,
+        monto: entry.amount,
+        motivo,
+        usuarioId: actor.id,
+        usuarioNombre: actor.name || actor.email,
+        que: `un ${entry.type === "PAYMENT" ? "pago" : "cargo"} de ${supplier.name}`,
+      });
+    });
+  } catch (error) {
+    console.error("Failed to void supplier ledger entry:", error);
+    const mensaje = error instanceof Error && error.message === PRIMERO_ANULA_ABONOS ? PRIMERO_ANULA_ABONOS : "No se pudo anular el movimiento";
+    redirect(`${returnTo}?error=${encodeURIComponent(mensaje)}`);
   }
 
-  const actor = await getActivityActor();
-  // Copia completa en la bitácora y borrado en la misma operación: si no se puede anotar, no se borra.
-  await prisma.$transaction(async (tx) => {
-    await logActivityTx(tx, actor, {
-      action: "DELETE",
-      entityType: "SUPPLIER",
-      entityId: entry.supplierId,
-      entityCode: entry.order?.code ?? entry.sale?.code ?? entry.code,
-      summary: `Eliminó un ${entry.type === "PAYMENT" ? "pago" : "cargo"} de $${Number(entry.amount).toLocaleString("es-CO")} a ${entry.supplier.name}`,
-      before: snapshotForLog(entry, SUPPLIER_LEDGER_LOG_FIELDS),
-    });
-    await tx.supplierLedgerEntry.delete({ where: { id: entry.id } });
-  });
-
-  // Si el abono estaba ligado a una orden y al eliminarlo queda saldo pendiente,
+  // Si el abono estaba ligado a una orden y al anularlo queda saldo pendiente,
   // revertimos a "pendiente" los productos que se habían marcado pagados por este abono
   // (no los que tienen un pago propio a nivel de ítem).
   if (entry.orderId) {
@@ -331,7 +357,7 @@ export async function adminDeleteSupplierPaymentAction(formData: FormData): Prom
   }
 
   revalidatePath("/admin/proveedores");
-  redirect(`${returnTo}?ok=Abono+eliminado`);
+  redirect(`${returnTo}?ok=${encodeURIComponent(entry.type === "PAYMENT" ? "Pago anulado" : "Cargo anulado")}`);
 }
 
 // Registra un pago grande repartido en varias órdenes (o abono general).

@@ -5,7 +5,13 @@ import { hasAnyModuleAccess } from "@/lib/admin-module-access";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { logActivity } from "@/lib/activity-log";
+import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
+import {
+  MOTIVO_ANULACION_ERROR,
+  MOTIVO_ANULACION_MIN,
+  anularConMotivo,
+  bloqueoPorAbonos,
+} from "@/lib/anulaciones";
 import { fullCopyForLog } from "@/lib/activity-log-snapshot";
 import { prisma } from "@/lib/prisma";
 import {
@@ -17,6 +23,7 @@ import {
   inventoryMovementCreateSchema,
   minStockUpdateSchema,
 } from "@/modules/inventory/application/schemas";
+import type { Prisma } from "@prisma/client";
 import { createPrismaInventoryRepository } from "@/modules/inventory/infrastructure/prisma-inventory-repository";
 import {
   buildInventoryChargeCode,
@@ -1174,83 +1181,129 @@ export async function adminUpdateDirectPurchaseAction(formData: FormData): Promi
   await runDirectPurchase(formData, orderId);
 }
 
-// Elimina una orden de compra: revierte el stock (borra sus movimientos de
-// inventario) y elimina los cobros a proveedores ligados a ella.
+// Anula una orden de compra: queda CANCELLED con su número, el stock se devuelve con una
+// salida (OUT) nueva sin borrar la entrada, y sus cargos a la proveedora se anulan con el
+// motivo (copia en RegistroAnulado). Una compra con pagos se bloquea: primero se anulan los pagos.
 export async function adminDeletePurchaseOrderAction(
   orderId: string,
-  keepInventoryMovements = false,
+  motivoInput: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  await requireAdminSession();
-
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    select: { id: true, type: true, purchaseCode: true },
-  });
-  if (!order || order.type !== "PURCHASE") {
-    return { ok: false, error: "Solo se pueden eliminar ordenes de compra." };
+  const userId = await requireAdminSession();
+  const motivo = String(motivoInput ?? "").trim();
+  if (motivo.length < MOTIVO_ANULACION_MIN) {
+    return { ok: false, error: MOTIVO_ANULACION_ERROR };
   }
+  const actor = await getActivityActor();
 
-  // Una compra con pagos no se borra (los abonos se irian con ella): solo se anula.
-  const paymentCount = await prisma.supplierLedgerEntry.count({
-    where: {
-      type: "PAYMENT",
-      OR: [
+  let error: string | null = null;
+  try {
+    error = await prisma.$transaction(async (tx) => {
+      // Candado sobre la orden: dos clics no la anulan dos veces.
+      await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${orderId} FOR UPDATE`;
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        select: { id: true, code: true, type: true, status: true, purchaseCode: true },
+      });
+      if (!order || order.type !== "PURCHASE") return "Solo se pueden anular órdenes de compra.";
+      if (order.status === "CANCELLED") return "Esta compra ya está anulada.";
+      const purchaseCode = order.purchaseCode;
+      const deLaCompra: Prisma.SupplierLedgerEntryWhereInput[] = [
         { orderId },
         { orderItem: { orderId } },
-        { settlesEntry: { orderId } },
-        ...(order.purchaseCode ? [{ settlesEntry: { inventoryMovement: { purchaseCode: order.purchaseCode } } }] : []),
-      ],
-    },
-  });
-  if (paymentCount > 0) {
-    return { ok: false, error: "Esta compra tiene pagos: anúlala con un motivo." };
-  }
+        ...(purchaseCode ? [{ inventoryMovement: { purchaseCode } }] : []),
+      ];
 
-  await prisma.$transaction(async (tx) => {
-    // 1) Borra los movimientos de inventario de la compra → el stock se revierte
-    //    (deja de sumar) y sus cargos a proveedores se borran en cascada.
-    //    Si keepInventoryMovements es true, se conservan: el stock ingresado y
-    //    sus cargos a proveedores permanecen aunque se borre la orden. Se
-    //    desliga purchaseCode/orderId para que no queden referencias rotas.
-    if (order.purchaseCode) {
-      if (keepInventoryMovements) {
-        await tx.inventoryMovement.updateMany({
-          where: { purchaseCode: order.purchaseCode },
-          data: { purchaseCode: null },
+      const paymentCount = await tx.supplierLedgerEntry.count({
+        where: {
+          type: "PAYMENT",
+          OR: [
+            ...deLaCompra,
+            { settlesEntry: { orderId } },
+            ...(purchaseCode ? [{ settlesEntry: { inventoryMovement: { purchaseCode } } }] : []),
+          ],
+        },
+      });
+      if (paymentCount > 0) return "Esta compra tiene pagos a la proveedora: primero anula los pagos.";
+
+      await tx.order.update({ where: { id: orderId }, data: { status: "CANCELLED" } });
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId,
+          fromStatus: order.status,
+          toStatus: "CANCELLED",
+          note: `Compra anulada. Motivo: ${motivo}`,
+          changedById: userId,
+        },
+      });
+
+      // Devuelve el stock con una salida por producto (lo que la compra dejó sumado).
+      if (purchaseCode) {
+        const entradas = await tx.inventoryMovement.groupBy({
+          by: ["productId"],
+          where: { purchaseCode },
+          _sum: { change: true },
         });
-      } else {
-        await tx.inventoryMovement.deleteMany({ where: { purchaseCode: order.purchaseCode } });
+        const salidas = entradas
+          .map((row) => ({ productId: row.productId, quantity: row._sum.change ?? 0 }))
+          .filter((row) => row.quantity > 0);
+        if (salidas.length > 0) {
+          await tx.inventoryMovement.createMany({
+            data: salidas.map((row) => ({
+              productId: row.productId,
+              type: "OUT" as const,
+              change: -row.quantity,
+              note: `Reversa por anulación de compra ${purchaseCode}`,
+              createdById: userId,
+            })),
+          });
+        }
       }
-    }
-    // 2) Limpia cualquier cargo restante ligado a la orden (ej. envio/transportadora).
-    //    Si se conservan los movimientos, se mantienen sus cargos de compra a
-    //    proveedores (los ligados a un inventoryMovement); su orderId queda en
-    //    null al borrar la orden (FK SetNull).
-    await tx.supplierLedgerEntry.deleteMany({
-      where: keepInventoryMovements ? { orderId, inventoryMovementId: null } : { orderId },
-    });
-    // 3) Borra despachos (sus DispatchItem se van en cascada). Necesario antes de
-    //    borrar la orden: DispatchItem -> OrderItem es Restrict y bloquearia.
-    await tx.dispatch.deleteMany({ where: { orderId } });
-    // 4) Borra la orden (en cascada: items, fotos, produccion e historial).
-    await tx.order.delete({ where: { id: orderId } });
-  });
 
-  await logActivity({
-    action: "DELETE",
-    entityType: "PURCHASE",
-    entityId: orderId,
-    summary: order.purchaseCode
-      ? `Eliminó la compra ${order.purchaseCode}`
-      : `Eliminó la compra ${orderId}`,
-  });
+      // Sus cargos a la proveedora se anulan (no se le debe una compra anulada).
+      const cargos = await tx.supplierLedgerEntry.findMany({
+        where: { type: "CHARGE", OR: deLaCompra },
+        include: { supplier: { select: { name: true } } },
+      });
+      for (const { supplier, ...cargo } of cargos) {
+        await anularConMotivo(tx, {
+          tabla: "SupplierLedgerEntry",
+          registro: { ...cargo, supplierName: supplier.name },
+          codigo: cargo.code ?? purchaseCode ?? order.code,
+          monto: cargo.amount,
+          motivo,
+          usuarioId: actor.id,
+          usuarioNombre: actor.name || actor.email,
+          que: `un cargo de ${supplier.name}`,
+        });
+      }
+
+      const codigo = purchaseCode ?? order.code;
+      await logActivityTx(tx, actor, {
+        action: "UPDATE",
+        entityType: "PURCHASE",
+        entityId: orderId,
+        entityCode: codigo,
+        summary: `Anuló la compra ${codigo}. Motivo: ${motivo}`,
+        before: { status: order.status, orderCode: order.code },
+        after: { status: "CANCELLED", motivo, cargosAnulados: cargos.length },
+      });
+      return null;
+    });
+  } catch (err) {
+    console.error("Failed to void purchase:", err);
+    return { ok: false, error: "No se pudo anular la compra." };
+  }
+  if (error) return { ok: false, error };
 
   revalidatePath("/admin/inventario");
   revalidatePath("/admin/proveedores");
   revalidatePath("/admin/ordenes");
+  revalidatePath("/admin/configuracion/actividad");
   return { ok: true };
 }
 
+// Anula un movimiento de inventario: copia con motivo en RegistroAnulado y lo quita (el stock
+// se recalcula). Sus cargos a la proveedora se anulan con él; si tienen abonos, se bloquea.
 export async function adminDeleteInventoryMovementAction(formData: FormData): Promise<void> {
   await requireAdminSession();
   const returnTo = getReturnTo(formData);
@@ -1258,31 +1311,70 @@ export async function adminDeleteInventoryMovementAction(formData: FormData): Pr
   if (!id) {
     redirectWithError(returnTo, "Movimiento invalido");
   }
-
-  const movementToDelete = await prisma.inventoryMovement.findUnique({
-    where: { id },
-    select: { product: { select: { name: true } } },
-  });
-
-  try {
-    // Los cargos al proveedor ligados a este movimiento se borran en cascada (FK).
-    await prisma.inventoryMovement.delete({ where: { id } });
-  } catch {
-    redirectWithError(returnTo, "No se pudo eliminar el movimiento");
+  const motivo = getStringField(formData, "motivo").trim();
+  if (motivo.length < MOTIVO_ANULACION_MIN) {
+    redirectWithError(returnTo, MOTIVO_ANULACION_ERROR);
   }
+  const actor = await getActivityActor();
 
-  await logActivity({
-    action: "DELETE",
-    entityType: "INVENTORY",
-    entityId: id,
-    summary: movementToDelete?.product
-      ? `Eliminó un movimiento de inventario de "${movementToDelete.product.name}"`
-      : `Eliminó el movimiento de inventario ${id}`,
-  });
+  let error: string | null = null;
+  try {
+    error = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "InventoryMovement" WHERE id = ${id} FOR UPDATE`;
+      const movement = await tx.inventoryMovement.findUnique({
+        where: { id },
+        include: {
+          product: { select: { name: true } },
+          ledgerEntries: { include: { supplier: { select: { name: true } } } },
+        },
+      });
+      if (!movement) return "Movimiento no encontrado";
+
+      // Borrar el movimiento se llevaría en cascada sus cargos y los abonos que los saldan.
+      const cargoIds = movement.ledgerEntries.filter((e) => e.type === "CHARGE").map((e) => e.id);
+      const abonos =
+        movement.ledgerEntries.filter((e) => e.type === "PAYMENT").length +
+        (cargoIds.length > 0 ? await tx.supplierLedgerEntry.count({ where: { settlesEntryId: { in: cargoIds } } }) : 0);
+      const bloqueo = bloqueoPorAbonos(abonos);
+      if (bloqueo) return bloqueo;
+
+      for (const { supplier, ...cargo } of movement.ledgerEntries) {
+        await anularConMotivo(tx, {
+          tabla: "SupplierLedgerEntry",
+          registro: { ...cargo, supplierName: supplier.name },
+          codigo: cargo.code ?? movement.purchaseCode,
+          monto: cargo.amount,
+          motivo,
+          usuarioId: actor.id,
+          usuarioNombre: actor.name || actor.email,
+          que: `un cargo de ${supplier.name}`,
+        });
+      }
+
+      const { product, ledgerEntries, ...row } = movement;
+      await anularConMotivo(tx, {
+        tabla: "InventoryMovement",
+        registro: { ...row, productName: product.name, cargosAnulados: ledgerEntries.length },
+        codigo: movement.purchaseCode,
+        monto: 0,
+        motivo,
+        usuarioId: actor.id,
+        usuarioNombre: actor.name || actor.email,
+        que: `un movimiento de inventario (${movement.change > 0 ? "+" : ""}${movement.change}) de "${product.name}"`,
+      });
+      return null;
+    });
+  } catch (err) {
+    console.error("Failed to void inventory movement:", err);
+    redirectWithError(returnTo, "No se pudo anular el movimiento");
+  }
+  if (error) {
+    redirectWithError(returnTo, error);
+  }
 
   revalidatePath("/admin/inventario");
   revalidatePath("/admin/proveedores");
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Movimiento eliminado" }).toString()}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Movimiento anulado" }).toString()}`);
 }
 
 export async function adminUpdateInventoryMovementAction(formData: FormData): Promise<void> {

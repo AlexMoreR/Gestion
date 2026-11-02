@@ -5,6 +5,7 @@ import { Boxes, History, Layers, PackageX, Plus, Wallet } from "lucide-react";
 import { StatList } from "@/components/ui/stat-list";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type {
   InventoryMetrics,
@@ -250,27 +251,43 @@ export function InventoryWorkspace({
           className="fixed inset-0 z-[55] flex items-center justify-center bg-black/50 p-4"
           role="dialog"
           aria-modal="true"
-          aria-label="Eliminar movimiento"
+          aria-label="Anular movimiento"
           onClick={() => setPendingDelete(null)}
         >
           <Card className="w-full max-w-md rounded-2xl p-5" onClick={(event) => event.stopPropagation()}>
             <div className="space-y-1">
-              <h3 className="text-base font-semibold text-foreground">Eliminar movimiento</h3>
+              <h3 className="text-base font-semibold text-foreground">Anular movimiento</h3>
               <p className="text-sm text-muted-foreground">
-                Se eliminara el movimiento de{" "}
+                Se anulará el movimiento de{" "}
                 <span className="font-medium text-foreground">{pendingDelete.productName}</span>. El stock se
-                recalcula. Esta accion no se puede deshacer.
+                recalcula y queda una copia con el motivo.
               </p>
             </div>
-            <form action={adminDeleteInventoryMovementAction} className="mt-5 flex items-center justify-end gap-2">
+            <form action={adminDeleteInventoryMovementAction} className="mt-5 space-y-4">
               <input type="hidden" name="returnTo" value={actionsReturnTo} />
               <input type="hidden" name="movementId" value={pendingDelete.id} />
-              <Button type="button" variant="outline" size="sm" onClick={() => setPendingDelete(null)}>
-                Cancelar
-              </Button>
-              <Button type="submit" size="sm" className="bg-destructive text-white hover:bg-destructive/90">
-                Eliminar
-              </Button>
+              <div className="space-y-1.5">
+                <label htmlFor="movement-void-motivo" className="text-sm font-medium text-foreground">
+                  Motivo
+                </label>
+                <Textarea
+                  key={pendingDelete.id}
+                  id="movement-void-motivo"
+                  name="motivo"
+                  required
+                  minLength={3}
+                  maxLength={300}
+                  placeholder="Ej.: el movimiento quedó repetido"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setPendingDelete(null)}>
+                  Volver
+                </Button>
+                <Button type="submit" size="sm" variant="destructive">
+                  Anular movimiento
+                </Button>
+              </div>
             </form>
           </Card>
         </div>

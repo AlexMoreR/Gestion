@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
+import { Ban } from "lucide-react";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -31,8 +32,8 @@ export function PurchaseDeleteMenuItem({ onSelect }: PurchaseDeleteMenuItemProps
       onSelect={() => onSelect()}
       className="text-destructive focus:text-destructive"
     >
-      <Trash2 className="mr-2 h-4 w-4" />
-      Eliminar compra
+      <Ban className="mr-2 h-4 w-4" />
+      Anular compra
     </DropdownMenuItem>
   );
 }
@@ -46,14 +47,14 @@ type PurchaseDeleteDialogProps = {
 
 export function PurchaseDeleteDialog({ orderId, code, open, onOpenChange }: PurchaseDeleteDialogProps) {
   const router = useRouter();
-  const [keepInventoryMovements, setKeepInventoryMovements] = React.useState(false);
+  const [motivo, setMotivo] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [pending, startTransition] = React.useTransition();
 
   // Resetea el estado cada vez que se abre el diálogo.
   React.useEffect(() => {
     if (open) {
-      setKeepInventoryMovements(false);
+      setMotivo("");
       setError(null);
     }
   }, [open]);
@@ -62,28 +63,26 @@ export function PurchaseDeleteDialog({ orderId, code, open, onOpenChange }: Purc
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Eliminar la compra {displayCode(code)}</DialogTitle>
+          <DialogTitle>Anular la compra {displayCode(code)}</DialogTitle>
           <DialogDescription>
-            {keepInventoryMovements
-              ? "Se eliminará la orden, pero se conservarán los movimientos de inventario (el stock ingresado y sus cobros a proveedores)."
-              : "Se revertirá el stock ingresado y se eliminarán los cobros a proveedores de esta compra."}
+            La compra queda Cancelada con su número. El stock que entró sale con una salida nueva y los
+            cobros de la proveedora se anulan. Si ya tiene pagos, primero anula los pagos.
           </DialogDescription>
         </DialogHeader>
 
-        <label className="flex items-start gap-2 rounded-md border p-3 text-sm">
-          <input
-            type="checkbox"
-            className="mt-0.5"
-            checked={keepInventoryMovements}
-            onChange={(event) => setKeepInventoryMovements(event.target.checked)}
+        <div className="space-y-1.5">
+          <label htmlFor="purchase-void-motivo" className="text-sm font-medium text-foreground">
+            Motivo
+          </label>
+          <Textarea
+            id="purchase-void-motivo"
+            value={motivo}
+            onChange={(event) => setMotivo(event.target.value)}
+            minLength={3}
+            maxLength={300}
+            placeholder="Ej.: la compra quedó repetida"
           />
-          <span>
-            No eliminar los movimientos de inventario de esta orden
-            <span className="block text-xs text-muted-foreground">
-              Conserva el stock ingresado y los cobros a proveedores ligados a la compra.
-            </span>
-          </span>
-        </label>
+        </div>
 
         {error ? (
           <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -93,30 +92,30 @@ export function PurchaseDeleteDialog({ orderId, code, open, onOpenChange }: Purc
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
-            Cancelar
+            Volver
           </Button>
           <Button
             type="button"
             variant="destructive"
-            disabled={pending}
+            disabled={pending || motivo.trim().length < 3}
             onClick={() => {
               setError(null);
               startTransition(async () => {
                 try {
-                  const result = await adminDeletePurchaseOrderAction(orderId, keepInventoryMovements);
+                  const result = await adminDeletePurchaseOrderAction(orderId, motivo);
                   if (result?.ok) {
                     onOpenChange(false);
                     router.refresh();
                   } else {
-                    setError(result?.error ?? "No se pudo eliminar la compra.");
+                    setError(result?.error ?? "No se pudo anular la compra.");
                   }
                 } catch (err) {
-                  setError(err instanceof Error ? err.message : "No se pudo eliminar la compra.");
+                  setError(err instanceof Error ? err.message : "No se pudo anular la compra.");
                 }
               });
             }}
           >
-            {pending ? "Eliminando..." : "Eliminar compra"}
+            {pending ? "Anulando..." : "Anular compra"}
           </Button>
         </DialogFooter>
       </DialogContent>

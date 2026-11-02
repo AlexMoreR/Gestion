@@ -124,7 +124,7 @@ Lista de órdenes de venta y de compra a proveedor.
   - **Abrir**: abre el detalle de la orden.
   - **Ver ventas**: solo en órdenes de venta. Lleva a `/admin/ventas`.
   - **Editar compra**: solo en compras. Abre `/admin/ordenes/<id>/editar-compra`.
-  - **Eliminar compra**: solo en compras. Pide confirmar en el modal "Eliminar la compra <código>".
+  - **Anular compra**: solo en compras que no están canceladas. Abre "Anular la compra <código>", pide **Motivo** (mínimo 3 letras) y se confirma con **Anular compra**. La compra queda Cancelada con su número, el stock sale con una salida nueva ("Reversa por anulación de compra COM-…") y sus cargos a la proveedora se anulan. Si la compra tiene pagos a la proveedora, no deja: primero se anulan esos pagos en la cuenta de la proveedora.
 - La orden de venta **no** se crea aquí. Se crea en `/admin/ventas`, con el menú de fila de la venta → **Crear orden**. Si la venta ya tiene orden, el menú muestra **Ver orden**.
 
 ## /admin/ordenes/[orderId]
@@ -289,7 +289,7 @@ Cuenta corriente del proveedor: cargos (lo que le debemos) y abonos (pagos). Aqu
   - **Balance**: abre el enlace público del proveedor.
   - **Registrar movimiento**: abre el diálogo de pago. Pide: **Foto** del comprobante (obligatoria), Fecha del pago, **Cuenta** de donde sale, Referencia (nota). En "Órdenes y cargos a pagar" se pulsa **Agregar línea** → diálogo **Agregar línea**: **Orden o cargo** (opción `Abono general`, o una orden/cargo con su saldo pendiente) y el monto (se precarga lo pendiente) → **Guardar línea** / **Cancelar**. Se pueden poner varias líneas (clic en una para **Editar línea**; papelera "Quitar línea N"). Abajo: Debe seleccionado, Total a pagar, Queda pendiente → **Registrar pago** (activo solo con foto, cuenta y monto > 0, sin pasarse del saldo).
   - **Registro manual**: diálogo para anotar una deuda que no viene de una orden (comprobante opcional, Fecha del cargo, Monto, Nota "Detalle del cargo") → **Registrar cargo**.
-- Papelera de la fila (aria-label "Eliminar abono" / "Eliminar cargo"): borra el abono o cargo manual tras confirmar ("¿Eliminar este abono?"). Los cargos de orden no se borran aquí.
+- Papelera de la fila (aria-label "Anular abono" / "Anular cargo"): abre "Anular abono" / "Anular cargo", pide **Motivo** y se confirma con **Anular abono** / **Anular cargo**. Queda una copia con el motivo. Un cargo con abonos no se anula ("Primero anula los abonos"). Los cargos de orden no se anulan aquí.
 - Lápiz junto al nombre: modal **Editar proveedor**.
 
 ## /admin/gastos
@@ -451,9 +451,9 @@ Ficha de cada trabajador (solo dueño/admin, permiso de Equipo).
 Stock por producto y movimientos de inventario.
 **Qué se ve:** tarjetas Productos en stock, Unidades totales, Valor inventario y Agotados. Pestañas **Stock** y **Movimientos**. Stock: buscador "Buscar producto", **Mostrar agotados** / **Ocultar agotados**, vista Cuadricula o Tabla (Producto, Stock, Minimo, Estado: Disponible / Bajo stock / Agotado, Ultimo movimiento). Movimientos: tabla Fecha, Producto, Tipo (Entrada / Salida / Ajuste), Cambio, Orden (código `COM-...` de la compra o de la orden) y Nota, con buscador "Buscar movimiento".
 **Botones y acciones:**
-- **Nuevo movimiento** y **Mover** (en cada producto): abren "Nuevo Inventario" con "Genera el inventario con Orden de Comprar" y el botón **Ir a Ordenes**. La **compra directa** a proveedor se hace en `/admin/ordenes` → **Nuevo** → **Registrar compra** (ver esa pantalla); se edita o elimina desde el menú de la orden (**Editar compra** / **Eliminar compra**).
+- **Nuevo movimiento** y **Mover** (en cada producto): abren "Nuevo Inventario" con "Genera el inventario con Orden de Comprar" y el botón **Ir a Ordenes**. La **compra directa** a proveedor se hace en `/admin/ordenes` → **Nuevo** → **Registrar compra** (ver esa pantalla); se edita o anula desde el menú de la orden (**Editar compra** / **Anular compra**).
 - Lápiz "Editar stock minimo" → Cantidad minima → **Guardar**.
-- Menú "Acciones" de cada movimiento: **Editar** (Tipo: Entrada (sumar) / Salida (restar) / Ajuste (conteo), Cant, Fecha, Nota → **Guardar cambios**) y **Eliminar** (confirma con **Eliminar**).
+- Menú "Acciones" de cada movimiento: **Editar** (Tipo: Entrada (sumar) / Salida (restar) / Ajuste (conteo), Cant, Fecha, Nota → **Guardar cambios**) y **Anular** (abre "Anular movimiento", pide **Motivo** y se confirma con **Anular movimiento**; el stock se recalcula, sus cargos a la proveedora se anulan con él y queda una copia con el motivo. Si esos cargos tienen abonos, no deja: "Primero anula los abonos").
 
 ## /admin/marketplace
 Monitoreo del canal Facebook Marketplace (NETMAGI). Solo lectura.

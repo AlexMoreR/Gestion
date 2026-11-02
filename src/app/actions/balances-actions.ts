@@ -288,40 +288,6 @@ export async function adminUpdateSupplierPaymentAction(formData: FormData): Prom
   redirect(`${returnTo}?${new URLSearchParams({ ok: await withNegativeBalanceNotice(repository, "Pago actualizado", parsed.data.accountId) }).toString()}`);
 }
 
-export async function adminDeleteSupplierPaymentAction(formData: FormData): Promise<void> {
-  await requireAdminSession();
-  const returnTo = getReturnTo(formData);
-  const paymentId = getStringField(formData, "paymentId");
-
-  if (!paymentId) {
-    redirectWithError(returnTo, "Pago invalido");
-  }
-
-  const entry = await prisma.supplierLedgerEntry.findUnique({
-    where: { id: paymentId },
-    include: { supplier: { select: { name: true } }, order: { select: { code: true } }, sale: { select: { code: true } } },
-  });
-  if (!entry) {
-    redirectWithError(returnTo, "Pago no encontrado");
-  }
-  const actor = await getActivityActor();
-  // Copia completa en la bitácora y borrado en la misma operación: si no se puede anotar, no se borra.
-  await prisma.$transaction(async (tx) => {
-    await logActivityTx(tx, actor, {
-      action: "DELETE",
-      entityType: "SUPPLIER",
-      entityId: entry.supplierId,
-      entityCode: entry.order?.code ?? entry.sale?.code ?? entry.code,
-      summary: `Eliminó un pago de $${Number(entry.amount).toLocaleString("es-CO")} a ${entry.supplier.name}`,
-      before: snapshotForLog(entry, SUPPLIER_LEDGER_LOG_FIELDS),
-    });
-    await tx.supplierLedgerEntry.delete({ where: { id: entry.id } });
-  });
-  revalidatePath("/admin/balances");
-  revalidatePath("/admin/proveedores");
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Pago eliminado" }).toString()}`);
-}
-
 export async function adminCreateShippingCostAction(formData: FormData): Promise<void> {
   const createdById = await requireAdminSession();
   const returnTo = getReturnTo(formData);
@@ -409,39 +375,6 @@ export async function adminUpdateShippingCostAction(formData: FormData): Promise
 
   revalidatePath("/admin/balances");
   redirect(`${returnTo}?${new URLSearchParams({ ok: await withNegativeBalanceNotice(repository, "Costo de envio actualizado", parsed.data.accountId) }).toString()}`);
-}
-
-export async function adminDeleteShippingCostAction(formData: FormData): Promise<void> {
-  await requireAdminSession();
-  const returnTo = getReturnTo(formData);
-  const shippingCostId = getStringField(formData, "shippingCostId");
-
-  if (!shippingCostId) {
-    redirectWithError(returnTo, "Costo invalido");
-  }
-
-  const cost = await prisma.shippingCost.findUnique({
-    where: { id: shippingCostId },
-    include: { sale: { select: { code: true } } },
-  });
-  if (!cost) {
-    redirectWithError(returnTo, "Costo no encontrado");
-  }
-  const actor = await getActivityActor();
-  // Copia completa en la bitácora y borrado en la misma operación: si no se puede anotar, no se borra.
-  await prisma.$transaction(async (tx) => {
-    await logActivityTx(tx, actor, {
-      action: "DELETE",
-      entityType: "SALE",
-      entityId: cost.saleId,
-      entityCode: cost.sale.code,
-      summary: `Eliminó un flete de $${Number(cost.amount).toLocaleString("es-CO")} (${cost.shippingProvider}) de ${cost.sale.code}`,
-      before: snapshotForLog(cost, SHIPPING_COST_LOG_FIELDS),
-    });
-    await tx.shippingCost.delete({ where: { id: cost.id } });
-  });
-  revalidatePath("/admin/balances");
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Costo eliminado" }).toString()}`);
 }
 
 export async function adminCreateAccountAction(formData: FormData): Promise<void> {

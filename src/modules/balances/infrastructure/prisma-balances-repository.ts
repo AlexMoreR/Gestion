@@ -496,10 +496,6 @@ export function createPrismaBalancesRepository(): BalancesRepository {
       return mapPaymentEntity(row);
     },
 
-    async deleteSupplierPayment(paymentId: string): Promise<void> {
-      await prisma.supplierLedgerEntry.delete({ where: { id: paymentId } });
-    },
-
     async listShippingCosts(query: ListBalancesQuery): Promise<PagedResult<ShippingCostRow>> {
       const page = Math.max(1, query.page || 1);
       const pageSize = Math.max(1, Math.min(query.pageSize || 10, 500));
@@ -611,10 +607,6 @@ export function createPrismaBalancesRepository(): BalancesRepository {
       });
 
       return mapShippingEntity(row as ShippingSelection);
-    },
-
-    async deleteShippingCost(costId: string): Promise<void> {
-      await prisma.shippingCost.delete({ where: { id: costId } });
     },
 
     async calculateSaleProfit(saleId: string): Promise<SaleProfit | null> {

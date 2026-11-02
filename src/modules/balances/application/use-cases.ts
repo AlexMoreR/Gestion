@@ -29,10 +29,6 @@ export async function updateSupplierPaymentUseCase(
   return repository.updateSupplierPayment(paymentId, input);
 }
 
-export async function deleteSupplierPaymentUseCase(repository: BalancesRepository, paymentId: string) {
-  return repository.deleteSupplierPayment(paymentId);
-}
-
 export async function createShippingCostUseCase(
   repository: BalancesRepository,
   input: CreateShippingCostInput,
@@ -46,10 +42,6 @@ export async function updateShippingCostUseCase(
   input: UpdateShippingCostInput,
 ) {
   return repository.updateShippingCost(costId, input);
-}
-
-export async function deleteShippingCostUseCase(repository: BalancesRepository, costId: string) {
-  return repository.deleteShippingCost(costId);
 }
 
 export async function calculateSaleProfitUseCase(repository: BalancesRepository, saleId: string) {

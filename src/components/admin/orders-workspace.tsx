@@ -130,8 +130,12 @@ function RowActions({ order }: { order: OrderRow }) {
                   Editar compra
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <PurchaseDeleteMenuItem onSelect={() => setDeleteOpen(true)} />
+              {order.status !== "CANCELLED" ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <PurchaseDeleteMenuItem onSelect={() => setDeleteOpen(true)} />
+                </>
+              ) : null}
             </>
           ) : null}
         </DropdownMenuContent>

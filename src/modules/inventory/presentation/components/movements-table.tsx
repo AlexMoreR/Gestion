@@ -129,7 +129,7 @@ export function MovementsTable({ data, onEdit, onDelete }: MovementsTableProps) 
                 onSelect={() => onDelete(row.original)}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar
+                Anular
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

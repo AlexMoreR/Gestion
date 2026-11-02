@@ -83,13 +83,11 @@ export interface BalancesRepository {
   getSupplierPayment(paymentId: string): Promise<PaymentHistoryRow | null>;
   createSupplierPayment(input: CreateSupplierPaymentInput): Promise<SupplierPayment>;
   updateSupplierPayment(paymentId: string, input: UpdateSupplierPaymentInput): Promise<SupplierPayment>;
-  deleteSupplierPayment(paymentId: string): Promise<void>;
 
   listShippingCosts(query: ListBalancesQuery): Promise<PagedResult<ShippingCostRow>>;
   getShippingCost(costId: string): Promise<ShippingCost | null>;
   createShippingCost(input: CreateShippingCostInput): Promise<ShippingCost>;
   updateShippingCost(costId: string, input: UpdateShippingCostInput): Promise<ShippingCost>;
-  deleteShippingCost(costId: string): Promise<void>;
 
   calculateSaleProfit(saleId: string): Promise<SaleProfit | null>;
   listProfitReport(query: ListBalancesQuery): Promise<PagedResult<SaleProfit>>;

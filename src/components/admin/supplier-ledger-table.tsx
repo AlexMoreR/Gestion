@@ -13,7 +13,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { Textarea } from "@/components/ui/textarea";
 import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { displayCode, stripCodeZeros } from "@/lib/code-display";
@@ -80,6 +89,8 @@ export function SupplierLedgerTable({
   const [viewerUrl, setViewerUrl] = React.useState<string | null>(null);
   // Orden seleccionada para ver todos sus movimientos en un modal.
   const [detailOrder, setDetailOrder] = React.useState<string | null>(null);
+  // Movimiento que se va a anular (pide motivo).
+  const [pendingVoid, setPendingVoid] = React.useState<SupplierLedgerRow | null>(null);
 
   // Todos los movimientos de la orden seleccionada (sin filtro de fecha).
   const detailEntries = React.useMemo(
@@ -291,33 +302,28 @@ export function SupplierLedgerTable({
       header: "",
       cell: ({ row }) => {
         const entry = row.original;
-        // Los cargos atados a una orden no se eliminan desde aqui.
+        // Los cargos atados a una orden no se anulan desde aqui.
         if (!(entry.type === "PAYMENT" || !entry.orderCode)) {
           return null;
         }
+        const label = entry.type === "CHARGE" ? "Anular cargo" : "Anular abono";
         return (
-          <form
-            action={adminDeleteSupplierPaymentAction}
-            onClick={(event) => event.stopPropagation()}
-            onSubmit={(event) => {
-              if (!window.confirm(entry.type === "CHARGE" ? "¿Eliminar este cargo?" : "¿Eliminar este abono?")) {
-                event.preventDefault();
-              }
-            }}
-            className="flex justify-end"
-          >
-            <input type="hidden" name="paymentId" value={entry.id} />
-            <input type="hidden" name="returnTo" value={returnTo} />
+          <div className="flex justify-end">
             <Button
-              type="submit"
+              type="button"
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-destructive"
-              aria-label={entry.type === "CHARGE" ? "Eliminar cargo" : "Eliminar abono"}
+              aria-label={label}
+              title={label}
+              onClick={(event) => {
+                event.stopPropagation();
+                setPendingVoid(entry);
+              }}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
-          </form>
+          </div>
         );
       },
     },
@@ -350,6 +356,47 @@ export function SupplierLedgerTable({
         onClose={() => setDetailOrder(null)}
         onViewReceipt={(url) => setViewerUrl(url)}
       />
+      <Dialog open={pendingVoid !== null} onOpenChange={(open) => !open && setPendingVoid(null)}>
+        <DialogContent>
+          {pendingVoid ? (
+            <form action={adminDeleteSupplierPaymentAction} className="space-y-4">
+              <input type="hidden" name="paymentId" value={pendingVoid.id} />
+              <input type="hidden" name="returnTo" value={returnTo} />
+              <DialogHeader>
+                <DialogTitle>{pendingVoid.type === "CHARGE" ? "Anular cargo" : "Anular abono"}</DialogTitle>
+                <DialogDescription>
+                  Se anulará {pendingVoid.type === "CHARGE" ? "el cargo" : "el abono"} de{" "}
+                  {formatMoney(pendingVoid.amount, currency)}. El saldo con la proveedora se recalcula y queda una
+                  copia con el motivo.
+                  {pendingVoid.type === "CHARGE" ? " Si el cargo tiene abonos, primero anula los abonos." : ""}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-1.5">
+                <label htmlFor="ledger-void-motivo" className="text-sm font-medium text-foreground">
+                  Motivo
+                </label>
+                <Textarea
+                  key={pendingVoid.id}
+                  id="ledger-void-motivo"
+                  name="motivo"
+                  required
+                  minLength={3}
+                  maxLength={300}
+                  placeholder="Ej.: el pago quedó repetido"
+                />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setPendingVoid(null)}>
+                  Volver
+                </Button>
+                <Button type="submit" variant="destructive">
+                  {pendingVoid.type === "CHARGE" ? "Anular cargo" : "Anular abono"}
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Prisma } from "@prisma/client";
-import { anularConMotivo } from "./anulaciones";
+import { anularConMotivo, bloqueoPorAbonos } from "./anulaciones";
 
 function txFalso() {
   const pasos: string[] = [];
@@ -8,6 +8,8 @@ function txFalso() {
     registroAnulado: { create: vi.fn(async () => pasos.push("copia")) },
     salePayment: { delete: vi.fn(async () => pasos.push("borra")) },
     expense: { delete: vi.fn(async () => pasos.push("borra")) },
+    inventoryMovement: { delete: vi.fn(async () => pasos.push("borra")) },
+    supplierLedgerEntry: { delete: vi.fn(async () => pasos.push("borra")) },
     activityLog: { create: vi.fn(async () => pasos.push("bitacora")) },
   };
   return { tx, pasos, cliente: tx as unknown as Prisma.TransactionClient };
@@ -61,5 +63,29 @@ describe("anularConMotivo", () => {
     await anularConMotivo(cliente, { tabla: "Expense", registro: { id: "g1" }, monto: 5000, motivo: "repetido", usuarioId: "u1" });
     expect(tx.expense.delete).toHaveBeenCalledWith({ where: { id: "g1" } });
     expect(tx.salePayment.delete).not.toHaveBeenCalled();
+  });
+
+  it("un movimiento de inventario y uno de proveedora se borran de su tabla, con su descripción", async () => {
+    const { tx, cliente } = txFalso();
+    await anularConMotivo(cliente, { tabla: "InventoryMovement", registro: { id: "m1" }, monto: 0, motivo: "mal cargado", usuarioId: "u1" });
+    expect(tx.inventoryMovement.delete).toHaveBeenCalledWith({ where: { id: "m1" } });
+    await anularConMotivo(cliente, {
+      tabla: "SupplierLedgerEntry",
+      registro: { id: "l1" },
+      monto: 80000,
+      motivo: "pago repetido",
+      usuarioId: "u1",
+      que: "un pago a Rosa",
+    });
+    expect(tx.supplierLedgerEntry.delete).toHaveBeenCalledWith({ where: { id: "l1" } });
+    const log = (tx.activityLog.create.mock.calls[1] as unknown as [{ data: { summary: string } }])[0];
+    expect(log.data.summary).toContain("Anuló un pago a Rosa de $80.000");
+  });
+});
+
+describe("bloqueoPorAbonos", () => {
+  it("un cargo con abonos no se anula; sin abonos sí", () => {
+    expect(bloqueoPorAbonos(2)).toBe("Primero anula los abonos");
+    expect(bloqueoPorAbonos(0)).toBeNull();
   });
 });
