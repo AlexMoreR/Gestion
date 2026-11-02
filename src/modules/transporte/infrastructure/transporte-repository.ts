@@ -531,23 +531,19 @@ export async function resolveFreeShipping(params: {
       select: { name: true, freeShipping: true, shippingType: true },
     });
     if (locality) {
-      const envio = resolveShippingType({
-        shippingType: locality.shippingType,
-        freeShipping: locality.freeShipping,
-        parent: { shippingType: city.shippingType, freeShipping: city.freeShipping },
-      });
       return {
-        envio,
-        freeShipping: envio === "GRATIS",
+        envio: resolveShippingType({
+          shippingType: locality.shippingType,
+          freeShipping: locality.freeShipping,
+          parent: { shippingType: city.shippingType, freeShipping: city.freeShipping },
+        }),
         placeLabel: `${locality.name}, ${city.name} (${city.department.name})`,
       };
     }
   }
 
-  const envio = resolveShippingType({ shippingType: city.shippingType, freeShipping: city.freeShipping });
   return {
-    envio,
-    freeShipping: envio === "GRATIS",
+    envio: resolveShippingType({ shippingType: city.shippingType, freeShipping: city.freeShipping }),
     placeLabel: `${city.name}, ${city.department.name}`,
   };
 }

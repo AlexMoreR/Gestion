@@ -69,7 +69,6 @@ export type TransportOption = {
 // Respuesta de la consulta publica de envio gratis.
 export type TransportLookupResult = {
   envio: ShippingTypeName; // tipo de envio efectivo (misma regla del CRM)
-  freeShipping: boolean; // = envio === "GRATIS" (lo usa service-lookup.tsx)
   placeLabel: string;
 };
 

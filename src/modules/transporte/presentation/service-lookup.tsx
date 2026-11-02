@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2, Loader2, MapPin, PackageCheck, Truck } from "lucide-react";
+import { CheckCircle2, CircleAlert, Loader2, MapPin, MessageCircle, PackageCheck, Truck } from "lucide-react";
 import type { TransportLookupResult, TransportOption } from "@/modules/transporte/domain/entities";
 import {
   publicCheckFreeShippingAction,
@@ -151,7 +151,7 @@ export function ServiceLookup({ departments, brandName, whatsAppHref }: ServiceL
           <Loader2 className="h-4 w-4 animate-spin" /> Consultando…
         </div>
       ) : result ? (
-        result.freeShipping ? (
+        result.envio === "GRATIS" ? (
           <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4">
             <div className="flex items-start gap-3">
               <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-600" />
@@ -169,6 +169,27 @@ export function ServiceLookup({ departments, brandName, whatsAppHref }: ServiceL
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
             >
               <PackageCheck className="h-4 w-4" /> Quiero envío gratis con pago 50/50 · WhatsApp
+            </a>
+          </div>
+        ) : result.envio === "NO_LLEGA" ? (
+          <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
+            <div className="flex items-start gap-3">
+              <CircleAlert className="mt-0.5 h-6 w-6 shrink-0 text-amber-600" />
+              <div>
+                <p className="text-base font-semibold text-amber-900">Por ahora no llegamos a esta zona</p>
+                <p className="text-sm text-amber-800">
+                  Por ahora no hacemos envíos a <span className="font-medium">{result.placeLabel}</span>. Escríbenos
+                  por WhatsApp y te contamos qué opciones hay.
+                </p>
+              </div>
+            </div>
+            <a
+              href={waQuoteLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+            >
+              <MessageCircle className="h-4 w-4" /> Preguntar por WhatsApp
             </a>
           </div>
         ) : (
