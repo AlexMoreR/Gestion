@@ -511,15 +511,15 @@ export async function listLocalityOptions(cityId: string): Promise<TransportOpti
   });
 }
 
-// Resuelve si aplica envio gratis para la ubicacion elegida. Si se eligio un
-// corregimiento, manda su marca; si no, la de la ciudad.
+// Resuelve el tipo de envio efectivo de la ubicacion elegida, con la misma
+// regla del CRM (resolveShippingType): el corregimiento hereda de su ciudad.
 export async function resolveFreeShipping(params: {
   cityId: string;
   localityId?: string | null;
 }): Promise<TransportLookupResult | null> {
   const city = await prisma.transportCity.findUnique({
     where: { id: params.cityId },
-    select: { name: true, freeShipping: true, department: { select: { name: true } } },
+    select: { name: true, freeShipping: true, shippingType: true, department: { select: { name: true } } },
   });
   if (!city) {
     return null;
@@ -528,18 +528,26 @@ export async function resolveFreeShipping(params: {
   if (params.localityId) {
     const locality = await prisma.transportLocality.findFirst({
       where: { id: params.localityId, cityId: params.cityId },
-      select: { name: true, freeShipping: true },
+      select: { name: true, freeShipping: true, shippingType: true },
     });
     if (locality) {
-      return {
+      const envio = resolveShippingType({
+        shippingType: locality.shippingType,
         freeShipping: locality.freeShipping,
+        parent: { shippingType: city.shippingType, freeShipping: city.freeShipping },
+      });
+      return {
+        envio,
+        freeShipping: envio === "GRATIS",
         placeLabel: `${locality.name}, ${city.name} (${city.department.name})`,
       };
     }
   }
 
+  const envio = resolveShippingType({ shippingType: city.shippingType, freeShipping: city.freeShipping });
   return {
-    freeShipping: city.freeShipping,
+    envio,
+    freeShipping: envio === "GRATIS",
     placeLabel: `${city.name}, ${city.department.name}`,
   };
 }

@@ -39,6 +39,23 @@ describe("resolveShippingType", () => {
   });
 });
 
+describe("resolveShippingType en /cobertura (misma regla del CRM)", () => {
+  it("corregimiento automatico de ciudad con envio gratis: GRATIS", () => {
+    expect(
+      resolveShippingType({ shippingType: null, freeShipping: false, parent: { shippingType: null, freeShipping: true } }),
+    ).toBe("GRATIS");
+  });
+  it("no llegamos: propio o heredado de la ciudad", () => {
+    expect(resolveShippingType({ shippingType: "NO_LLEGA", freeShipping: false })).toBe("NO_LLEGA");
+    expect(
+      resolveShippingType({ shippingType: null, freeShipping: true, parent: { shippingType: "NO_LLEGA", freeShipping: false } }),
+    ).toBe("NO_LLEGA");
+  });
+  it("ciudad automatica sin envio gratis: COTIZAR", () => {
+    expect(resolveShippingType({ shippingType: null, freeShipping: false })).toBe("COTIZAR");
+  });
+});
+
 describe("resolveProductShippingExtra", () => {
   it("el producto pisa a la categoria", () => {
     expect(resolveProductShippingExtra({ shippingExtra: 70000, categoryShippingExtra: 100000 })).toBe(70000);
