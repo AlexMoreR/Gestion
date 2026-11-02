@@ -353,3 +353,146 @@ Ficha de edición de un producto.
 - **Habilitar combo (se arma con otros productos)** + **Agregar componente**: igual que al crear.
 - **Siguiente** / **← Atras** / **Cancelar** (vuelve a `/admin/productos`).
 - **Guardar cambios** (pasos 2 y 3): guarda el producto.
+
+## /admin
+Inicio del panel ("Panel de Administración"). Solo para usuarios Admin.
+**Qué se ve:** "Bienvenido, <nombre>. Gestiona los módulos de tu sistema desde aquí." y tarjetas de acceso rápido (solo las que el rol puede ver): Configuración, Productos, Cotizaciones, Ventas, Balances, Ordenes, Produccion y Despachos. El resto de módulos está en el menú lateral.
+**Botones y acciones:**
+- Clic en una tarjeta: abre ese módulo (por ejemplo `/admin/ventas`).
+- Botón de la barra superior **Marcar entrada** / **Marcar salida** (en el celular dice **Entrada** / **Salida**): está en todas las pantallas del panel, solo para usuarios Empleado y Admin. Marca con la hora del servidor (mientras guarda dice **Marcando...**). Al pasar el mouse dice "Trabajando desde <hora>" si hay una entrada abierta. Para marcar por otra persona o corregir: `/admin/asistencia`.
+
+## /admin/asistencia
+Registro de entrada y salida del equipo (solo dueño/admin, permiso de Asistencia).
+**Qué se ve:** pestañas **Hoy** y **Por mes**, y enlace a **Nómina**. Hoy: "<día> · N trabajando de M" y una fila por persona con su estado (trabajando / salió / no ha llegado), entrada, salida y horas. Por mes: filtro de mes, **Todas las personas** y **Filtrar**; tabla Día, Estado, "Entrada → salida · horas" y Notas. "Salió sin marcar salida: las horas de esa entrada no se cuentan."
+**Botones y acciones:**
+- **Marcar entrada por esta persona** / **Marcar salida por esta persona** (pestaña Hoy): marca por alguien que no puede hacerlo, con la hora del servidor.
+- **Ver marcas y corregir** (Por mes, por persona) → "Marcas del mes": en cada marca **Corregir o anular**: cambiar Tipo, Día de trabajo, Hora (Colombia), "Salida después de medianoche" y Motivo (obligatorio) → **Guardar corrección**; o "Motivo para anular (obligatorio)" → **Anular marca**. Las marcas nunca se borran.
+- **Agregar marca olvidada**: Tipo, día, hora y motivo → **Agregar**. Queda como corregida.
+
+## /admin/categorias
+Categorías del catálogo de la tienda.
+**Qué se ve:** tabla Categoria, Productos y Acciones, con buscador "Buscar categoria".
+**Botones y acciones:**
+- **Nueva categoria**: Nombre, Envio adicional (COP) ("vacio = se cotiza"), Logo (opcional), Descripcion de categoria, SEO title y SEO description → **Guardar categoria**.
+- Lápiz "Editar <categoría>": los mismos campos → **Guardar cambios**.
+- Papelera "Eliminar <categoría>": borra la categoría.
+
+## /admin/clientes
+Directorio de clientes ("Se crean automaticamente al cotizar o manualmente aqui.").
+**Qué se ve:** tabla Cliente, Documento, Telefono, Ciudad, Cotizaciones y Alta, con buscador "Buscar por nombre, correo, documento o telefono". Las filas no tienen menú de acciones.
+**Botones y acciones:**
+- **Crear cliente**: Nombre, Documento ("Cedula / NIT (opcional)"), Correo (opcional), Telefono, Direccion, Barrio, Departamento y Ciudad → **Guardar cliente**.
+
+## /admin/configuracion
+Menú de configuración ("Elige el apartado que quieres administrar.").
+**Qué se ve:** tarjetas **Usuarios** (`/admin/configuracion/usuarios`), **Configuracion negocio** (`/admin/configuracion/negocio`), **Control de modulos** (`/admin/configuracion/permisos`) y **Cierre de mes** (`/admin/configuracion/cierre-mes`), según los permisos. Dentro de cada apartado hay pestañas: **Negocio**, **Empleados**, **Cuentas** (`/admin/configuracion/cuentas`), **Regla inicial** y **Actividad**.
+
+## /admin/configuracion/actividad
+"Actividad de empleados": registro de creaciones, actualizaciones y eliminaciones de cada usuario (la bitácora).
+**Qué se ve:** filtros **Todos los empleados**, **Todas las acciones** (Creó / Actualizó / Eliminó), **Todos los modulos** (Producto, Cotizacion, Orden, Venta, Gasto, Inventario, Compra, Categoria, Proveedor, Cuenta, Equipo, Asistencia, Acceso a dudas…) → **Filtrar**. Tabla de movimientos con **Anterior** / **Siguiente**.
+
+## /admin/configuracion/cierre-mes
+Cierre de mes: "Genera el informe de ventas y ganancia de un mes y envialo por correo."
+**Qué se ve:** formulario con **Mes a cerrar** y **Destinatarios** (correos separados por coma o salto de línea). Lista "Cierres generados" (cada uno abre su detalle).
+**Botones y acciones:**
+- **Generar y enviar** (mientras trabaja: **Generando y enviando...**): congela las cifras del mes y manda el correo.
+
+## /admin/configuracion/cierre-mes/[closureId]
+Detalle de un cierre guardado ("Cierre de <mes>").
+**Qué se ve:** tarjetas Ventas del mes, Costos directos ("Proveedores y envio"), Gastos operativos ("Nomina, marketing y varios") y Ganancia neta. "Desglose": Ventas totales, Costo de proveedores, Costo de envios, Gastos operativos y Ganancia neta; "Enviado a: …".
+**Botones y acciones:**
+- **Volver a cierres**. No se edita: es una foto congelada.
+
+## /admin/configuracion/negocio
+Datos del negocio y de la tienda.
+**Qué se ve y botones:**
+- "Identidad": Nombre de la marca, Moneda activa, Número de WhatsApp y Color primario; cada campo se guarda con su botón de ícono (**Guardar marca**, **Guardar moneda**, **Guardar WhatsApp**, **Guardar color**).
+- "Topes tributarios (DIAN)": Valor de la UVT → **Guardar UVT**; medidores de los topes de IVA y renta sobre las ventas del año.
+- "Portada del sitio": logo → **Guardar logo**; Título principal del home y Descripción principal del home → **Guardar portada**.
+- "Franja promocional": mensajes de la tienda; **Agregar texto**, papelera "Eliminar mensaje N" y el botón **Guardar franja promocional**.
+
+## /admin/configuracion/permisos
+"Control de modulos por rol": qué módulos ve cada rol (Admin, Empleado, Cliente).
+**Qué se ve:** una tarjeta por rol con sus módulos activos.
+**Botones y acciones:**
+- **Configurar rol**: abre la lista de módulos con casillas → **Guardar permisos** / **Cancelar**. A un Admin no se le puede quitar el Control de módulos.
+
+## /admin/configuracion/reglas
+"Regla inicial": margen mínimo permitido.
+**Qué se ve:** Margen minimo al Detal (%) y Margen minimo al por mayor (%). Si un producto queda por debajo, se resalta en rojo en `/admin/productos`.
+**Botones y acciones:**
+- **Guardar reglas**.
+
+## /admin/configuracion/usuarios
+Usuarios del equipo (Admin y Empleado).
+**Qué se ve:** tabla Usuario, Alta, Rol actual, Rol y Accion; buscador "Buscar por nombre o correo"; **Anterior** / **Siguiente**.
+**Botones y acciones:**
+- **Crear usuario**: nombre, correo y rol (ADMIN / EMPLEADO) → **Enviar invitacion** (llega un correo para que la persona cree su contraseña).
+- Columna Rol: elegir ADMIN / EMPLEADO / CLIENTE → **Aplicar**.
+- Menú "Mas acciones" de la fila: **Editar modulos** (solo Empleado: casillas de módulos → **Guardar acceso**) y **Eliminar usuario** (confirma con **Eliminar** / **Cancelar**).
+
+## /admin/dudas
+Dudas del catálogo: preguntas sobre productos que responden las asesoras en `magilus.com/dudas` con su nombre y un código.
+**Qué se ve:** "Crear acceso"; tabla "Accesos" (Nombre, Creado, Último uso, Estado); "Resumen: N respondidas, N pendientes" por grupo ("Faltan N" o "Completo"); tabla "Respuestas" (Pregunta, Respuesta, Quién, Cuándo; las viejas en gris, la última es la vigente).
+**Botones y acciones:**
+- **Crear código** (Nombre de la persona): muestra el código **solo esta vez**, con **Copiar código** y **Copiar mensaje para WhatsApp**.
+- **Desactivar** (por acceso): esa persona ya no puede entrar.
+- **Exportar CSV** (`/admin/dudas/export`): todas las respuestas.
+
+## /admin/equipo
+Ficha de cada trabajador (solo dueño/admin, permiso de Equipo).
+**Qué se ve:** filtros **Activos**, **Retirados** y **Todos** (con su número), buscador "Buscar por nombre", **Toda forma de pago** y **Filtrar**; una tarjeta por persona (cargo, vinculación, forma de pago, ingreso, salida). Enlace a **Nómina**.
+**Botones y acciones:**
+- **Agregar trabajador** (abajo): Datos personales (Nombre completo, Cédula, Fecha de nacimiento, Celular, Correo, Dirección, contacto de emergencia), Trabajo (Cargo, Tipo de vinculación, Forma de pago, Usuario en Gestión, Es el dueño), Fechas (Fecha de ingreso, Fecha de salida, Motivo de salida) y Notas → **Crear ficha**.
+- En cada tarjeta: **Editar ficha** → **Guardar ficha**; **Dar de baja** (Último día trabajado y Motivo → **Dar de baja**); si ya tiene salida: **Reactivar (volvió)** o **Quitar fecha de salida**.
+
+## /admin/inventario
+Stock por producto y movimientos de inventario.
+**Qué se ve:** tarjetas Productos en stock, Unidades totales, Valor inventario y Agotados. Pestañas **Stock** y **Movimientos**. Stock: buscador "Buscar producto", **Mostrar agotados** / **Ocultar agotados**, vista Cuadricula o Tabla (Producto, Stock, Minimo, Estado: Disponible / Bajo stock / Agotado, Ultimo movimiento). Movimientos: tabla Fecha, Producto, Tipo (Entrada / Salida / Ajuste), Cambio, Orden (código `COM-...` de la compra o de la orden) y Nota, con buscador "Buscar movimiento".
+**Botones y acciones:**
+- **Nuevo movimiento** y **Mover** (en cada producto): abren "Nuevo Inventario" con "Genera el inventario con Orden de Comprar" y el botón **Ir a Ordenes**. La **compra directa** a proveedor se hace en `/admin/ordenes` → **Nuevo** → **Registrar compra** (ver esa pantalla); se edita o elimina desde el menú de la orden (**Editar compra** / **Eliminar compra**).
+- Lápiz "Editar stock minimo" → Cantidad minima → **Guardar**.
+- Menú "Acciones" de cada movimiento: **Editar** (Tipo: Entrada (sumar) / Salida (restar) / Ajuste (conteo), Cant, Fecha, Nota → **Guardar cambios**) y **Eliminar** (confirma con **Eliminar**).
+
+## /admin/marketplace
+Monitoreo del canal Facebook Marketplace (NETMAGI). Solo lectura.
+**Qué se ve:** arriba "¿Está publicando bien hoy?" con tarjetas de hoy contra ayer y el promedio de 7 días; "Cuentas" (Publica / En pausa); "Anuncios" (Fecha, Cuenta, Ciudad, Producto, Precio, Estado, Clientes y Facebook); "Por ciudad"; gráfico "Clientes nuevos y anuncios publicados por día (últimos 30 días)"; "Qué funciona" (fórmulas de título, Mejores categorías, Mejores productos). Plegado: "Más detalle: ventas del canal, cuentas, productos y publicador".
+**Botones y acciones:**
+- **Actualizar** (se actualiza solo cada 2 minutos) y periodo **7 días** / **30 días** / **90 días**.
+- Anuncios: filtros Desde, Hasta, Cuenta, Ciudad, Estado y "Buscar código o nombre"; **Quitar filtros**; **Exportar CSV**; **Ver en Facebook** en cada anuncio.
+- "Qué funciona" (etiqueta "Fórmula de venta") es solo lectura; dentro de "Más detalle" hay otro **Exportar CSV**.
+
+## /admin/productos/fichas
+"Fichas técnicas en lote": sube un CSV y las imágenes (cada una llamada como su driveFileId).
+**Botones y acciones:**
+- Elegir el CSV y las imágenes ("N imagen(es) reconocidas").
+- **Revisar (simulación)**: muestra qué se crea, qué ya estaba, sin producto o sin imagen, y "Códigos que no existen".
+- **Cargar N ficha(s)** (pide confirmar; mientras carga: "Cargando x/y..."). Se puede repetir sin duplicar.
+
+## /admin/retroactivos
+"Registros retroactivos": ventas, abonos y gastos cargados con una fecha anterior al día en que se registraron (hora Colombia).
+**Qué se ve:** filtros Mes, Persona (Todas) y Tipo (Todos) → **Filtrar**; resumen por persona (cantidad y monto por tipo); tabla Registrado, Persona, Tipo, Fecha puesta, Días de atraso, Monto, Motivo y Registro.
+**Botones y acciones:**
+- En Registro: el código de la venta abre `/admin/ventas?q=<código>`; en gastos, **Ver gastos** abre `/admin/gastos`. "Borrado" si el registro ya no existe. Solo lectura.
+
+## /admin/transporte
+Tipo de envío por ciudad y corregimiento (DANE).
+**Qué se ve:** tarjetas Ciudades con envio gratis, Corregimientos con envio gratis, Pendientes de revisar y Departamentos. Recuadro "Pendientes de revisar (N)" con lo nuevo que manda el CRM (marca **Por revisar**). Buscador "Buscar ciudad o corregimiento..." y lista de departamentos → ciudades → corregimientos (clic para desplegar).
+**Botones y acciones:**
+- Selector "Tipo de envio" en cada fila: **Automatico (como antes)**, **Gratis**, **Adicional**, **Se cotiza** o **No llegamos**. Se guarda al elegir y quita la marca de pendiente. El valor del envío adicional se pone en la categoría (`/admin/categorias`) o en el producto.
+
+## /admin/ventas/origen
+"Ventas por origen · <año>" (Meta Ads, Marketplace, Referido, Recurrente, Mostrador, Sin dato).
+**Qué se ve:** "Total del año" (Origen, # Ventas, Facturación, % fact., Ganancia, Ticket promedio) y "Ventas con origen: N% (meta ≥ 80 %)"; "Por campaña / anuncio" (Anuncio, # Ventas, Facturación, Ganancia, Ticket promedio); una tabla por mes.
+**Botones y acciones:**
+- **Ventas** (volver), flechas "Año anterior" / "Año siguiente".
+
+## /admin/ventas/retenciones
+"Retenciones en la fuente": lo que las empresas clientes retuvieron y pagaron a la DIAN a nombre de Magilus.
+**Qué se ve:** Total del mes y Total del año; tabla Fecha, Venta, Cliente, NIT/Cédula, Valor retenido y Certificado.
+**Botones y acciones:**
+- **Ventas** (volver), flechas "Mes anterior" / "Mes siguiente", **Descargar Excel (CSV)** (`/admin/ventas/retenciones/export?mes=AAAA-MM`).
+- La retención se registra como abono en `/admin/ventas` → **Registrar abono** → cuenta "Retención en la fuente".
+
+## Enlaces públicos que usa el equipo
+`/dudas` (asesoras: nombre + código para responder dudas del catálogo) · `/mis-comisiones/[token]` (enlace privado de cada asesora con sus ventas y comisión) · `/gastos/soporte/[token]` (subir la foto de un gasto registrado por Claude, 24 h) · `/proveedores-pago/soporte/[token]` (subir la foto del comprobante de un pago a proveedora registrado por Claude, 24 h).
