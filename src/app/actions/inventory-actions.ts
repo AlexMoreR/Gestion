@@ -1219,6 +1219,7 @@ export async function adminDeletePurchaseOrderAction(
           OR: [
             ...deLaCompra,
             { settlesEntry: { orderId } },
+            { settlesEntry: { orderItem: { orderId } } },
             ...(purchaseCode ? [{ settlesEntry: { inventoryMovement: { purchaseCode } } }] : []),
           ],
         },
