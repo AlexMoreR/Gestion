@@ -229,6 +229,16 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
     redirectWithError(returnTo, "No se encontro la cotizacion");
   }
 
+  // Un empleado solo puede convertir en venta las cotizaciones que él creó.
+  const sessionForOwnership = await auth();
+  if (sessionForOwnership?.user?.role !== "ADMIN" && quote.createdById !== createdById) {
+    redirectWithError(returnTo, "Solo puedes convertir tus propias cotizaciones");
+  }
+
+  if (quote.sale) {
+    redirectWithError(returnTo, "Esta cotizacion ya fue enviada a ventas");
+  }
+
   const itemsError = saleItemsErrorMessage(
     quote.items.map((item) => ({
       quantity: item.quantity,
@@ -239,16 +249,6 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
   );
   if (itemsError) {
     redirectWithError(returnTo, itemsError);
-  }
-
-  // Un empleado solo puede convertir en venta las cotizaciones que él creó.
-  const sessionForOwnership = await auth();
-  if (sessionForOwnership?.user?.role !== "ADMIN" && quote.createdById !== createdById) {
-    redirectWithError(returnTo, "Solo puedes convertir tus propias cotizaciones");
-  }
-
-  if (quote.sale) {
-    redirectWithError(returnTo, "Esta cotizacion ya fue enviada a ventas");
   }
 
   const grossTotal = Number(quote.total);
