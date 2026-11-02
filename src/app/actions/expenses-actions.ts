@@ -413,7 +413,7 @@ export async function adminVoidExpenseAction(formData: FormData): Promise<void> 
   await requireAdminSession();
   const returnTo = getReturnTo(formData);
   const expenseId = getStringField(formData, "expenseId");
-  const motivo = getStringField(formData, "motivo");
+  const motivo = getStringField(formData, "motivo").trim();
 
   if (!expenseId) {
     redirectWithError(returnTo, "Gasto invalido");
