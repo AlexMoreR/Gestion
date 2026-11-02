@@ -7,6 +7,7 @@ import { diaBogota, fechaPuestaParaGuardar } from "../../retroactivos/domain/ret
 import { resolveAccount, type AccountOption } from "../../expenses/domain/expense-draft";
 import { RECEIPT_MAX_BYTES, RECEIPT_MIME_EXTENSION, formatCop, sniffReceiptMime } from "../../expenses/domain/receipt-check";
 import { buildDraftToken, hashDraftToken, verifyDraftToken } from "../../../lib/expense-draft-token";
+import { storedCodeCandidates } from "../../../lib/code-display";
 import {
   isLikelyDuplicate,
   validateSupplierPayment,
@@ -141,9 +142,10 @@ export async function prepareSupplierPayment(
   input: SupplierPaymentInput,
 ): Promise<PreparedSupplierPayment> {
   const now = deps.now ? deps.now() : new Date();
-  const code = input.of.trim().toUpperCase();
+  // El MCP muestra "OF-35"; en la base esta "OF-00035". Se aceptan las dos formas.
+  const code = storedCodeCandidates(input.of.trim().toUpperCase())[0];
   if (!OF_RE.test(code)) {
-    throw new SupplierPaymentInputError(`"${input.of}" no es un código de orden de fabricación (ej. OF-00035).`);
+    throw new SupplierPaymentInputError(`"${input.of}" no es un código de orden de fabricación (ej. OF-35).`);
   }
   const of = await deps.findOfByCode(code);
   if (!of) {

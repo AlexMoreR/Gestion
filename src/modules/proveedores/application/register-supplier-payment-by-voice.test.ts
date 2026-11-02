@@ -122,6 +122,11 @@ describe("registrar pago a la proveedora por voz", () => {
     deps = makeDeps(world);
   });
 
+  it("acepta la OF sin ceros adelante (como la muestra el MCP)", async () => {
+    const prepared = await prepareSupplierPayment(deps, { ...base, of: "of-35" });
+    expect(prepared.of.code).toBe("OF-00035");
+  });
+
   it("con confirmado=false no guarda y arma el resumen", async () => {
     const prepared = await prepareSupplierPayment(deps, base);
     expect(world.payments).toHaveLength(0);

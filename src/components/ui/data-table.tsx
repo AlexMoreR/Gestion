@@ -13,6 +13,7 @@ import {
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { stripCodeZeros } from "@/lib/code-display";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Input } from "@/components/ui/input";
 import {
@@ -138,14 +139,19 @@ export function DataTable<TData>({
     onGlobalFilterChange: setGlobalFilter,
     onPaginationChange: setPagination,
     globalFilterFn: (row, _columnId, filterValue) => {
-      const query = String(filterValue ?? "").trim().toLowerCase();
-      if (!query) {
+      const raw = String(filterValue ?? "").trim();
+      if (!raw) {
         return true;
       }
+      const query = raw.toLowerCase();
+      // "SAL-81" encuentra "SAL-00081" y al revés (solo para buscar; el orden no cambia).
+      const shortQuery = stripCodeZeros(raw).toLowerCase();
 
-      return row
-        .getAllCells()
-        .some((cell) => String(cell.getValue() ?? "").toLowerCase().includes(query));
+      return row.getAllCells().some((cell) => {
+        const value = String(cell.getValue() ?? "");
+        const lower = value.toLowerCase();
+        return lower.includes(query) || stripCodeZeros(value).toLowerCase().includes(shortQuery);
+      });
     },
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),

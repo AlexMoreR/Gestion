@@ -213,7 +213,7 @@ export const asesorTools: McpToolDefinition[] = [
       ...rangeArgs,
       vendedora: z.string().optional().describe("Parte del nombre de la vendedora (sin importar tildes)."),
       cliente: z.string().optional().describe("Parte del nombre del cliente (sin importar tildes)."),
-      venta: z.string().optional().describe("Codigo de la venta, ej. SAL-00069 o 69."),
+      venta: z.string().optional().describe("Codigo de la venta, ej. SAL-81 o 81."),
     }),
     handler: (args, deps) =>
       listPaymentsUseCase(deps, args.desde, args.hasta, {
@@ -228,7 +228,7 @@ export const asesorTools: McpToolDefinition[] = [
     description:
       "Detalle completo de una venta por su codigo: cotizacion, orden, cliente, vendedora, origen, origen_producto (si salio de stock o por fabricacion: tipo stock, fabricacion, mixto o sin_orden segun lo marcado en la orden, y ordenes_fabricacion con codigo OF, proveedora y productos), productos, forma de pago, cada abono con su fecha, cuenta, si es retencion en la fuente (con su certificado) y si fue retroactivo, fechas (cotizacion, creacion, primer abono, pago completo, entrega), total, pagado, saldo pendiente, si ya cuenta en Balances y su ganancia. Productos: los de la orden o, si no hay orden, los de la cotizacion (productos_fuente), cada uno con nombre, codigo, color, cantidad, precio_unitario, total_linea, costo_unitario y costo_origen ('confirmado' con la proveedora, 'inventario' = stock, 'estimado de catálogo' o 'sin dato'). Trae link_cotizacion, link_venta y link_proveedora (orden de fabricacion; una o una lista): abren sin contraseña, compartelos solo con quien corresponde (cliente o su proveedora). Sin orden: orden = null y aviso_orden 'Falta crear la orden'; aviso_proveedora si hay orden sin OF. Ganancia: ganancia_confiable = true solo con orden y todos los costos 'confirmado' o 'inventario'; entonces 'ganancia' es la real de Balances. Si es false, 'ganancia' trae confiable: false (no darla como real), aviso_ganancia ('Costo aún no confirmado: la ganancia real no se puede dar') y ganancia_estimada (costo_producto, flete, ganancia, margen_pct, estimada: true) con los costos de los productos. Valores en COP.",
     schema: z.object({
-      venta: z.string().min(1).describe("Codigo de la venta, ej. SAL-00069 o 69."),
+      venta: z.string().min(1).describe("Codigo de la venta, ej. SAL-81 o 81."),
     }),
     handler: (args, deps) => getSaleUseCase(deps, args.venta),
   }),
@@ -654,9 +654,9 @@ export const asesorTools: McpToolDefinition[] = [
     name: "registrar_pago_proveedora",
     title: "Registrar un pago a la proveedora",
     description:
-      "Registra un pago a la proveedora en su orden de fabricacion (OF, ej. OF-00035): queda como abono en la cuenta de la proveedora y descuenta el saldo de la cuenta de dinero. SIEMPRE en dos pasos: (1) llama con confirmado=false (por defecto): NO guarda nada y devuelve el resumen (OF, proveedora, venta, costo, pagado, falta, cuenta, fecha y avisos); repitele el resumen al dueno y pregunta '¿Lo guardo?'. (2) SOLO si el dueno dice 'si', llama UNA SOLA VEZ con los MISMOS datos y confirmado=true. NO uses registrar_gasto para pagos a proveedoras: el pago ya es costo de la venta y como gasto se contaria dos veces. Regla del negocio: con venta 50%/50% a la proveedora se le paga de una vez; en contraentrega, cuando el producto le llega al cliente (la herramienta solo avisa, no bloquea). Si el pago es mayor que lo que falta exige 'motivo_sobrepago'; si la fecha es anterior a hoy exige 'motivo_fecha_anterior'. Un pago igual (misma OF, monto y dia) a los pocos minutos se rechaza. Al confirmar, la respuesta trae un enlace secreto (24 horas, un solo uso) para que el dueno suba la foto del comprobante desde el celular (opcional; Claude no puede subirla, solo dar el enlace). Tope: $20.000.000. Moneda: COP.",
+      "Registra un pago a la proveedora en su orden de fabricacion (OF, ej. OF-35): queda como abono en la cuenta de la proveedora y descuenta el saldo de la cuenta de dinero. SIEMPRE en dos pasos: (1) llama con confirmado=false (por defecto): NO guarda nada y devuelve el resumen (OF, proveedora, venta, costo, pagado, falta, cuenta, fecha y avisos); repitele el resumen al dueno y pregunta '¿Lo guardo?'. (2) SOLO si el dueno dice 'si', llama UNA SOLA VEZ con los MISMOS datos y confirmado=true. NO uses registrar_gasto para pagos a proveedoras: el pago ya es costo de la venta y como gasto se contaria dos veces. Regla del negocio: con venta 50%/50% a la proveedora se le paga de una vez; en contraentrega, cuando el producto le llega al cliente (la herramienta solo avisa, no bloquea). Si el pago es mayor que lo que falta exige 'motivo_sobrepago'; si la fecha es anterior a hoy exige 'motivo_fecha_anterior'. Un pago igual (misma OF, monto y dia) a los pocos minutos se rechaza. Al confirmar, la respuesta trae un enlace secreto (24 horas, un solo uso) para que el dueno suba la foto del comprobante desde el celular (opcional; Claude no puede subirla, solo dar el enlace). Tope: $20.000.000. Moneda: COP.",
     schema: z.object({
-      of: z.string().min(1).max(20).describe("Codigo de la orden de fabricacion, ej. OF-00035."),
+      of: z.string().min(1).max(20).describe("Codigo de la orden de fabricacion, ej. OF-35 u OF-00035."),
       monto: z.number().positive().describe("Monto pagado a la proveedora en pesos colombianos, ej. 300000."),
       cuenta: z
         .string()

@@ -49,6 +49,7 @@ import { findOrders, listOpenOrders, MAX_ORDER_RESULTS } from "../domain/orders"
 import { buildPreciosVigentes } from "../domain/precios-vigentes";
 import { rangoMesBogota, type TipoRetroactivo } from "../../retroactivos/domain/retroactivo";
 import { getSiteUrl } from "../../../lib/site";
+import { displayCode, stripCodeZeros } from "../../../lib/code-display";
 import { effectiveOrigin, originDetailSummary, saleOriginLabel } from "../../ventas/domain/sale-origin";
 
 export type AsesorDependencies = {
@@ -57,6 +58,17 @@ export type AsesorDependencies = {
   // Comisiones fijas pactadas por persona (Nomina). Sin esto, todas usan la regla general.
   loadFixedCommissionRates?: (mes: number, anio: number) => Promise<CommissionFixedRates>;
 };
+
+// Lo que entrega el MCP lleva los codigos sin ceros adelante (SAL-00081 -> SAL-81) en codigos,
+// notas y textos libres; lo guardado no cambia. Las fechas y los numeros pasan tal cual.
+function withShortCodes<T>(value: T): T {
+  if (typeof value === "string") return stripCodeZeros(value) as T;
+  if (Array.isArray(value)) return value.map(withShortCodes) as T;
+  if (value && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, withShortCodes(item)])) as T;
+  }
+  return value;
+}
 
 // Enlaces publicos de la venta (cotizacion, venta, proveedora) y avisos si falta la orden o la OF.
 function saleLinks(detail: SaleDetail | undefined) {
@@ -137,7 +149,7 @@ export async function listExpensesUseCase(
     baseSalaries: payroll.base,
     expenses: allExpenses,
   });
-  return {
+  return withShortCodes({
     mes,
     anio,
     periodo: describeRange(period),
@@ -168,7 +180,7 @@ export async function listExpensesUseCase(
       "nomina_incompleta = true si a alguien le falta el basico por calcular (dias trabajados o TRM): la ganancia real queda sobreestimada.",
       "Las comisiones del mes en curso siguen subiendo mientras haya ventas.",
     ],
-  };
+  });
 }
 
 const PAYMENT_DATES_NOTE =
@@ -276,7 +288,7 @@ export async function listSalesUseCase(
   const total = rows.reduce((sum, row) => sum + row.saleAmount, 0);
   const profit = rows.reduce((sum, row) => sum + row.netProfit, 0);
 
-  return {
+  return withShortCodes({
     periodo: range,
     estado_pago: estadoPago,
     moneda: CURRENCY,
@@ -309,7 +321,7 @@ export async function listSalesUseCase(
       PAYMENT_DATES_NOTE,
       "No incluye ventas canceladas.",
     ],
-  };
+  });
 }
 
 export async function listQuotesUseCase(
@@ -324,7 +336,7 @@ export async function listQuotesUseCase(
   const ledgers = saleCodes.length > 0 ? await loadLedgers(deps, { saleCodes }) : [];
   const ledgerByCode = new Map(ledgers.map((ledger) => [ledger.input.saleCode, ledger]));
 
-  return {
+  return withShortCodes({
     periodo: describeRange(period),
     estado,
     moneda: CURRENCY,
@@ -349,7 +361,7 @@ export async function listQuotesUseCase(
       "pct_cierre = aprobadas / hechas dentro del filtro aplicado.",
       "Si pasó a venta: fecha_primer_abono, fecha_pago_completo, pagado y saldo_pendiente (de HOY). Sirve para ver, por ejemplo, cotizaciones de un mes que se pagaron en otro.",
     ],
-  };
+  });
 }
 
 export async function listProductsUseCase(deps: AsesorDependencies, busqueda: string | undefined, incluirOcultos: boolean) {
@@ -398,7 +410,7 @@ export async function getMonthlyCommissionsUseCase(deps: AsesorDependencies, mes
     fixedRates,
   );
 
-  return {
+  return withShortCodes({
     mes,
     anio,
     periodo: describeRange(period),
@@ -410,7 +422,7 @@ export async function getMonthlyCommissionsUseCase(deps: AsesorDependencies, mes
       SELLER_NOTE,
       "Una venta con ganancia cero o negativa cuenta como venta del mes pero no genera comision.",
     ],
-  };
+  });
 }
 
 // Pantalla /admin/comisiones: mismas ventas y misma regla que comisiones_del_mes,
@@ -501,7 +513,7 @@ export async function listPaymentsUseCase(deps: AsesorDependencies, desde: strin
     bySeller.set(abono.vendedora, current);
   }
 
-  return {
+  return withShortCodes({
     periodo: range,
     filtros: filters,
     moneda: CURRENCY,
@@ -523,14 +535,14 @@ export async function listPaymentsUseCase(deps: AsesorDependencies, desde: strin
       "sin_detalle = pagado guardado en una venta antigua sin abono detallado; se toma en la fecha de creacion de la venta.",
       "pagado_total y saldo_pendiente son de HOY. " + SELLER_NOTE,
     ],
-  };
+  });
 }
 
 export async function getSaleUseCase(deps: AsesorDependencies, codigo: string) {
   const code = normalizeSaleCode(codigo);
   const [ledger] = await loadLedgers(deps, { saleCodes: [code] });
   if (!ledger) {
-    throw new AsesorInputError(`No existe la venta ${code}. Usa el codigo SAL-..., por ejemplo SAL-00069.`);
+    throw new AsesorInputError(`No existe la venta ${displayCode(code)}. Usa el codigo SAL-..., por ejemplo SAL-81.`);
   }
 
   const [details, profit] = await Promise.all([
@@ -539,7 +551,7 @@ export async function getSaleUseCase(deps: AsesorDependencies, codigo: string) {
   ]);
   const detail = details[0];
 
-  return {
+  return withShortCodes({
     venta: ledger.input.saleCode,
     cotizacion: ledger.input.quoteCode,
     orden: detail?.orderCode ?? null,
@@ -570,7 +582,7 @@ export async function getSaleUseCase(deps: AsesorDependencies, codigo: string) {
       "ganancia_confiable = true solo si hay orden y todos los productos tienen costo 'confirmado' o de 'inventario'. Si es false, 'ganancia' (la de Balances) queda con confiable: false y NO se da como real: usa 'ganancia_estimada' (estimada: true, costos de las lineas) y di el 'aviso_ganancia'.",
       PAYMENT_DATES_NOTE,
     ],
-  };
+  });
 }
 
 export type SupplierDebtFilters = {
@@ -665,7 +677,7 @@ export async function getSupplierDebtsUseCase(deps: AsesorDependencies, filters:
       });
   });
 
-  return {
+  return withShortCodes({
     filtros: { proveedora: filters.proveedora ?? null, ...(range ?? {}) },
     moneda: CURRENCY,
     proveedoras,
@@ -683,7 +695,7 @@ export async function getSupplierDebtsUseCase(deps: AsesorDependencies, filters:
       "La pagina de detalle por mes de la proveedora cuenta distinto (marca cada producto pagado o no) y su saldo del mes puede no coincidir.",
       "pagos_sin_cuenta = abonos a proveedoras sin cuenta, de todas las proveedoras (no se filtra). Restan de lo que se debe pero no salen de ningun saldo de cuenta.",
     ],
-  };
+  });
 }
 
 // Registros retroactivos del mes (AAAA-MM, por defecto el actual en Bogota): lo mismo que
@@ -694,7 +706,7 @@ export async function listRetroactivosUseCase(
 ) {
   const { valor: mes, desde, hasta } = rangoMesBogota(filtros.mes);
   const rows = await deps.asesor.listRetroactivos({ desde, hasta, tipo: filtros.tipo ?? null });
-  return buildRetroactivosReport(rows, { mes, persona: filtros.persona });
+  return withShortCodes(buildRetroactivosReport(rows, { mes, persona: filtros.persona }));
 }
 
 const ORDER_NOTES = [
@@ -709,20 +721,20 @@ export async function findOrdersUseCase(deps: AsesorDependencies, texto: string)
     throw new AsesorInputError("Escribe al menos 2 letras: nombre de la clienta, ciudad, teléfono, producto o código (SAL, ORD, OF, COT).");
   }
   const result = findOrders(await deps.asesor.listOrderTrackings(), texto);
-  return {
+  return withShortCodes({
     moneda: CURRENCY,
     ...result,
     notas: [
       `Máximo ${MAX_ORDER_RESULTS} pedidos, el más reciente primero; 'coincidencias' dice cuántos hubo en total. Si son muchos, pide más detalle (apellido, ciudad o producto).`,
       ...ORDER_NOTES,
     ],
-  };
+  });
 }
 
 // pedidos_abiertos: todos los no entregados ni cancelados. Solo lectura.
 export async function listOpenOrdersUseCase(deps: AsesorDependencies) {
   const result = listOpenOrders(await deps.asesor.listOrderTrackings({ soloAbiertos: true }));
-  return { moneda: CURRENCY, ...result, notas: ORDER_NOTES };
+  return withShortCodes({ moneda: CURRENCY, ...result, notas: ORDER_NOTES });
 }
 
 const PRECIOS_VIGENTES_DIAS = 90;

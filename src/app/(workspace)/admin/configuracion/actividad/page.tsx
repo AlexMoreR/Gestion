@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
+import { storedCodeCandidates, stripCodeZeros } from "@/lib/code-display";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 
@@ -98,7 +99,13 @@ export default async function AdminConfiguracionActividadPage({ searchParams }: 
     ...(actorId ? { actorId } : {}),
     ...(action ? { action } : {}),
     ...(entityType ? { entityType } : {}),
-    ...(query ? { summary: { contains: query, mode: "insensitive" as const } } : {}),
+    ...(query
+      ? {
+          OR: storedCodeCandidates(query).map((candidate) => ({
+            summary: { contains: candidate, mode: "insensitive" as const },
+          })),
+        }
+      : {}),
   };
 
   let total = 0;
@@ -234,7 +241,7 @@ export default async function AdminConfiguracionActividadPage({ searchParams }: 
                       <TableCell className="text-sm text-slate-600">
                         {ENTITY_LABELS[log.entityType] ?? log.entityType}
                       </TableCell>
-                      <TableCell className="text-sm text-slate-700">{log.summary}</TableCell>
+                      <TableCell className="text-sm text-slate-700">{stripCodeZeros(log.summary)}</TableCell>
                     </TableRow>
                   ))
                 )}
