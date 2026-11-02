@@ -506,8 +506,10 @@ export async function listPaymentsUseCase(deps: AsesorDependencies, desde: strin
     )
     .sort((left, right) => left.fecha_abono.localeCompare(right.fecha_abono) || left.venta.localeCompare(right.venta));
 
+  // Los abonos de una venta anulada se listan (marcados) pero no suman en los totales.
+  const counted = abonos.filter((abono) => !abono.venta_cancelada);
   const bySeller = new Map<string, { abonos: number; valor: number }>();
-  for (const abono of abonos) {
+  for (const abono of counted) {
     const current = bySeller.get(abono.vendedora) ?? { abonos: 0, valor: 0 };
     current.abonos += 1;
     current.valor += abono.valor;
@@ -520,10 +522,11 @@ export async function listPaymentsUseCase(deps: AsesorDependencies, desde: strin
     moneda: CURRENCY,
     abonos,
     totales: {
-      abonos: abonos.length,
-      valor: roundMoney(abonos.reduce((sum, abono) => sum + abono.valor, 0)),
-      primeros_abonos: abonos.filter((abono) => abono.es_primer_abono).length,
-      retroactivos: abonos.filter((abono) => abono.retroactivo).length,
+      abonos: counted.length,
+      valor: roundMoney(counted.reduce((sum, abono) => sum + abono.valor, 0)),
+      primeros_abonos: counted.filter((abono) => abono.es_primer_abono).length,
+      retroactivos: counted.filter((abono) => abono.retroactivo).length,
+      abonos_de_ventas_anuladas: abonos.length - counted.length,
       por_vendedora: [...bySeller.entries()].map(([vendedora, data]) => ({
         vendedora,
         abonos: data.abonos,
@@ -534,6 +537,7 @@ export async function listPaymentsUseCase(deps: AsesorDependencies, desde: strin
       "Se filtran por fecha del abono (la que escribio la persona; si no la escribio, el dia en que se registro), en dia de Colombia.",
       "retroactivo = la fecha del abono es de un dia anterior al dia en que se registro en el sistema. antes_de_la_cotizacion = la fecha del abono es anterior a la cotizacion (casi siempre un error de digitacion).",
       "sin_detalle = pagado guardado en una venta antigua sin abono detallado; se toma en la fecha de creacion de la venta.",
+      "venta_cancelada = la venta esta anulada: su abono se lista pero no suma en totales ni por_vendedora (la plata si entro a la cuenta).",
       "pagado_total y saldo_pendiente son de HOY. " + SELLER_NOTE,
     ],
   });

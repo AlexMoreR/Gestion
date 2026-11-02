@@ -61,3 +61,13 @@ export const SHIPPING_COST_LOG_FIELDS = [
   "createdById",
   "createdAt",
 ] as const;
+
+export type JsonCopy = string | number | boolean | null | JsonCopy[] | { [key: string]: JsonCopy };
+
+/**
+ * Copia completa (con lo anidado) para la bitácora antes de un borrado definitivo:
+ * Decimal → texto, Date → texto ISO. La base no guarda archivos, solo sus rutas.
+ */
+export function fullCopyForLog(value: object): { [key: string]: JsonCopy } {
+  return JSON.parse(JSON.stringify(value));
+}

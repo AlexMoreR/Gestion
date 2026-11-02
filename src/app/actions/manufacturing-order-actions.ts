@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { logActivity } from "@/lib/activity-log";
+import { snapshotForLog } from "@/lib/activity-log-snapshot";
 import { hasAnyModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
 
@@ -41,20 +43,37 @@ export async function adminUpdateManufacturingOrderAction(formData: FormData): P
   const deliveryAddress = String(formData.get("deliveryAddress") ?? "").trim().slice(0, 300) || null;
   const notes = String(formData.get("notes") ?? "").trim().slice(0, 1000) || null;
 
-  let updated = false;
+  const LOG_FIELDS = ["deliveryDate", "deliveryAddress", "notes"] as const;
+  let log: { code: string; orderId: string; before: ReturnType<typeof snapshotForLog> } | null = null;
   try {
-    await prisma.manufacturingOrder.update({
+    const before = await prisma.manufacturingOrder.findUnique({
       where: { id },
-      data: { deliveryDate, deliveryAddress, notes },
+      select: { code: true, orderId: true, deliveryDate: true, deliveryAddress: true, notes: true },
     });
-    updated = true;
+    if (before) {
+      await prisma.manufacturingOrder.update({
+        where: { id },
+        data: { deliveryDate, deliveryAddress, notes },
+      });
+      log = { code: before.code, orderId: before.orderId, before: snapshotForLog(before, LOG_FIELDS) };
+    }
   } catch {
-    updated = false;
+    log = null;
   }
 
-  if (!updated) {
+  if (!log) {
     redirectWith(returnTo, "error", "No se pudo guardar la orden de fabricación");
   }
+
+  await logActivity({
+    action: "UPDATE",
+    entityType: "ORDER",
+    entityId: log.orderId,
+    entityCode: log.code,
+    summary: `Editó la orden de fabricación ${log.code}`,
+    before: log.before,
+    after: snapshotForLog({ deliveryDate, deliveryAddress, notes }, LOG_FIELDS),
+  });
 
   revalidatePath(returnTo);
   redirectWith(returnTo, "ok", "Orden de fabricación actualizada");

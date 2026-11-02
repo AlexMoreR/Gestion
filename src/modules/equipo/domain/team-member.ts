@@ -190,3 +190,16 @@ export function filterTeam<T extends TeamMember>(members: T[], filter: TeamFilte
       return a.fullName.localeCompare(b.fullName, "es");
     });
 }
+
+/**
+ * ¿Este guardado toca la marca "Dueño"? (marcarla, quitarla o cambiar el usuario de la ficha del dueño).
+ * Esa marca da el "Borrado definitivo", así que solo el dueño la puede tocar.
+ */
+export function touchesOwnerMark(
+  current: Pick<TeamMember, "isOwner" | "userId"> | null,
+  next: Pick<TeamMember, "isOwner" | "userId">,
+): boolean {
+  const wasOwner = current?.isOwner ?? false;
+  if (wasOwner !== next.isOwner) return true;
+  return wasOwner && (current?.userId ?? null) !== (next.userId ?? null);
+}

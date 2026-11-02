@@ -6,6 +6,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import {
   AlertTriangle,
   ArrowUpRight,
+  Ban,
   Calendar,
   CheckCircle2,
   CircleDollarSign,
@@ -28,7 +29,8 @@ import { useFormStatus } from "react-dom";
 import {
   adminAddSalePaymentAction,
   adminDeleteSalePaymentAction,
-  adminDeleteSaleAction,
+  adminCancelSaleAction,
+  adminHardDeleteSaleAction,
   adminUpdateSaleDateAction,
   adminUpdateSalePaymentMethodAction,
 } from "@/app/actions/sales-actions";
@@ -45,6 +47,7 @@ import {
 import { adminCreateOrderFromSaleAction } from "@/app/actions/orders-actions";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -142,6 +145,7 @@ type SalesDataTableProps = {
   onFromDateChange: (value: string) => void;
   onToDateChange: (value: string) => void;
   onStatusFilterChange: (value: SaleStatus | "ALL") => void;
+  canHardDelete?: boolean;
 };
 
 function statusLabel(status: SaleStatus): string {
@@ -155,7 +159,7 @@ function statusLabel(status: SaleStatus): string {
     case "COMPLETED":
       return "Finalizada";
     case "CANCELLED":
-      return "Cancelada";
+      return "Anulada";
     default:
       return status;
   }
@@ -272,13 +276,19 @@ function RowActions({
   onAddPayment,
   onEditDate,
   onEditPaymentMethod,
+  onCancel,
+  onHardDelete,
 }: {
   sale: SaleRow;
   onViewReceipts: () => void;
   onAddPayment: () => void;
   onEditDate: () => void;
   onEditPaymentMethod: () => void;
+  onCancel: () => void;
+  /** Solo llega si quien mira tiene el permiso "Borrado definitivo". */
+  onHardDelete?: () => void;
 }) {
+  const isCancelled = sale.status === "CANCELLED";
   const hasReceipts =
     sale.salePayments.length > 0 ||
     Boolean(sale.paymentReceiptUrl);
@@ -310,7 +320,7 @@ function RowActions({
               Ver orden
             </Link>
           </DropdownMenuItem>
-        ) : (
+        ) : isCancelled ? null : (
           <DropdownMenuItem
             onClick={() => {
               const form = document.querySelector<HTMLFormElement>(`form[data-create-order-sale-id="${sale.id}"]`);
@@ -335,23 +345,25 @@ function RowActions({
           <Eye className="mr-2 h-4 w-4" />
           {hasReceipts ? "Ver comprobantes" : "Sin comprobantes"}
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive"
-          onClick={() => {
-            const confirmed = window.confirm(
-              `¿Eliminar la venta ${displayCode(sale.code)}?\n\nSe borrarán también la orden, despachos, producción, abonos y los pagos/cargos a proveedores ligados. Esta acción no se puede deshacer.`,
-            );
-            if (!confirmed) return;
-            const form = document.querySelector<HTMLFormElement>(
-              `form[data-delete-sale-id="${sale.id}"]`,
-            );
-            form?.requestSubmit();
-          }}
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          Eliminar venta
-        </DropdownMenuItem>
+        {!isCancelled || onHardDelete ? <DropdownMenuSeparator /> : null}
+        {!isCancelled ? (
+          <DropdownMenuItem
+            className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive"
+            onClick={onCancel}
+          >
+            <Ban className="mr-2 h-4 w-4" />
+            Anular venta
+          </DropdownMenuItem>
+        ) : null}
+        {onHardDelete ? (
+          <DropdownMenuItem
+            className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive"
+            onClick={onHardDelete}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Borrar definitivamente
+          </DropdownMenuItem>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -477,6 +489,16 @@ function SavePaymentButton({ disabled }: { disabled?: boolean }) {
     <Button type="submit" className="w-full" disabled={pending || disabled}>
       <PlusCircle className="h-4 w-4" />
       {pending ? "Guardando..." : "Guardar abono"}
+    </Button>
+  );
+}
+
+function RemoveSaleButton({ hard }: { hard: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="destructive" disabled={pending}>
+      {hard ? <Trash2 className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+      {pending ? "Guardando..." : hard ? "Borrar definitivamente" : "Anular venta"}
     </Button>
   );
 }
@@ -820,10 +842,6 @@ function SaleRowForms({ sale }: { sale: SaleRow }) {
         <input type="hidden" name="returnTo" value="/admin/ventas" />
         <input type="hidden" name="saleId" value={sale.id} />
       </form>
-      <form data-delete-sale-id={sale.id} action={adminDeleteSaleAction}>
-        <input type="hidden" name="returnTo" value="/admin/ventas" />
-        <input type="hidden" name="saleId" value={sale.id} />
-      </form>
     </>
   );
 }
@@ -835,6 +853,8 @@ function SaleMobileCard({
   onAddPayment,
   onEditDate,
   onEditPaymentMethod,
+  onCancel,
+  onHardDelete,
 }: {
   sale: SaleRow;
   currency: SupportedCurrencyCode;
@@ -842,6 +862,8 @@ function SaleMobileCard({
   onAddPayment: () => void;
   onEditDate: () => void;
   onEditPaymentMethod: () => void;
+  onCancel: () => void;
+  onHardDelete?: () => void;
 }) {
   return (
     <article className="space-y-2.5 rounded-xl border border-border bg-card p-3">
@@ -868,6 +890,8 @@ function SaleMobileCard({
           onAddPayment={onAddPayment}
           onEditDate={onEditDate}
           onEditPaymentMethod={onEditPaymentMethod}
+          onCancel={onCancel}
+          onHardDelete={onHardDelete}
         />
       </div>
     </article>
@@ -886,11 +910,14 @@ export function SalesDataTable({
   onFromDateChange,
   onToDateChange,
   onStatusFilterChange,
+  canHardDelete = false,
 }: SalesDataTableProps) {
   const [selectedSale, setSelectedSale] = React.useState<SaleRow | null>(null);
   const [paymentSale, setPaymentSale] = React.useState<SaleRow | null>(null);
   const [dateSale, setDateSale] = React.useState<SaleRow | null>(null);
   const [paymentMethodSale, setPaymentMethodSale] = React.useState<SaleRow | null>(null);
+  // Anular (hard=false) o borrar definitivamente (hard=true): ambos piden motivo.
+  const [removeSale, setRemoveSale] = React.useState<{ sale: SaleRow; hard: boolean } | null>(null);
 
   // El padre (SalesWorkspace) ya aplica el filtro de fecha/estado; aqui solo
   // mostramos los controles y dejamos que DataTable busque, ordene y pagine.
@@ -957,12 +984,14 @@ export function SalesDataTable({
               onAddPayment={() => setPaymentSale(row.original)}
               onEditDate={() => setDateSale(row.original)}
               onEditPaymentMethod={() => setPaymentMethodSale(row.original)}
+              onCancel={() => setRemoveSale({ sale: row.original, hard: false })}
+              onHardDelete={canHardDelete ? () => setRemoveSale({ sale: row.original, hard: true }) : undefined}
             />
           </div>
         ),
       },
     ],
-    [currency],
+    [currency, canHardDelete],
   );
 
   const dateToolbar = (
@@ -1063,9 +1092,57 @@ export function SalesDataTable({
             onAddPayment={() => setPaymentSale(sale)}
             onEditDate={() => setDateSale(sale)}
             onEditPaymentMethod={() => setPaymentMethodSale(sale)}
+            onCancel={() => setRemoveSale({ sale, hard: false })}
+            onHardDelete={canHardDelete ? () => setRemoveSale({ sale, hard: true }) : undefined}
           />
         )}
       />
+
+      <Dialog open={Boolean(removeSale)} onOpenChange={(open) => (open ? null : setRemoveSale(null))}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{removeSale?.hard ? "Borrar venta definitivamente" : "Anular venta"}</DialogTitle>
+          </DialogHeader>
+          {removeSale ? (
+            <form
+              action={removeSale.hard ? adminHardDeleteSaleAction : adminCancelSaleAction}
+              className="space-y-3"
+            >
+              <input type="hidden" name="returnTo" value="/admin/ventas" />
+              <input type="hidden" name="saleId" value={removeSale.sale.id} />
+              <p className="text-sm text-muted-foreground">
+                Venta <span className="font-medium text-foreground">{displayCode(removeSale.sale.code)}</span> —{" "}
+                {removeSale.sale.clientName}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {removeSale.hard
+                  ? "Se borran la venta, la orden, los despachos, la producción, los abonos y los pagos/cargos a proveedores. Queda una copia en Actividad. No se puede deshacer."
+                  : "La venta y su orden quedan anuladas. Los abonos, fletes, despachos y pagos a proveedores no se borran. Deja de contar en ventas, Balances y comisiones."}
+              </p>
+              <div className="space-y-1.5">
+                <label htmlFor="sale-remove-motivo" className="text-sm font-medium text-foreground">
+                  Motivo
+                </label>
+                <Textarea
+                  key={`${removeSale.sale.id}-${removeSale.hard}`}
+                  id="sale-remove-motivo"
+                  name="motivo"
+                  required
+                  minLength={3}
+                  maxLength={300}
+                  placeholder="Ej.: la clienta devolvió el producto"
+                />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setRemoveSale(null)}>
+                  Volver
+                </Button>
+                <RemoveSaleButton hard={removeSale.hard} />
+              </DialogFooter>
+            </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={Boolean(paymentMethodSale)} onOpenChange={(open) => (open ? null : setPaymentMethodSale(null))}>
         <DialogContent className="max-w-md">

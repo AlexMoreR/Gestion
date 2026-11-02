@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { SalesWorkspace } from "@/components/admin/sales-workspace";
-import { hasAdminModuleAccess } from "@/lib/admin-module-access";
+import { canHardDelete, hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { comboStock } from "@/lib/combo";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
@@ -156,6 +156,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
 
       <SalesWorkspace
         currency={currency}
+        canHardDelete={await canHardDelete(session.user.id, session.user.role)}
         accounts={accounts}
         initialSearch={initialSearch}
         clients={clients.map((client) => ({

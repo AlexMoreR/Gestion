@@ -371,3 +371,27 @@ export async function hasAnyModuleAccess(
 export function getVisibleAdminModuleDefinitions(access: Record<AdminModuleKey, boolean>) {
   return adminModuleDefinitions.filter((item) => access[item.key]);
 }
+
+// --- Borrado definitivo (reservado) ---
+// Permiso "Borrado definitivo": SOLO el dueno (decision de Alexander, 31-oct-2026). No esta en
+// adminModuleDefinitions a proposito: no sale en Control de modulos ni se le puede dar a otro rol o persona.
+export const HARD_DELETE_PERMISSION = "hard_delete" as const;
+
+/** true solo si es un ADMIN con su ficha de Equipo marcada como "Dueño". */
+export async function canHardDelete(userId: string | undefined, role: Role | undefined): Promise<boolean> {
+  if (!userId || role !== "ADMIN") {
+    return false;
+  }
+  try {
+    const owner = await prisma.teamMember.findFirst({ where: { userId, isOwner: true }, select: { id: true } });
+    return Boolean(owner);
+  } catch {
+    return false;
+  }
+}
+
+/** true si ya hay un dueño con usuario (para el candado de la marca "Dueño" en Equipo). */
+export async function hasLinkedOwner(): Promise<boolean> {
+  const count = await prisma.teamMember.count({ where: { isOwner: true, userId: { not: null } } });
+  return count > 0;
+}

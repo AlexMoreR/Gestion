@@ -10,10 +10,43 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
-import { logActivity } from "@/lib/activity-log";
+import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
+import { fullCopyForLog } from "@/lib/activity-log-snapshot";
 import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 import { createQuoteWithNextCode, upsertQuoteClient } from "@/lib/quote-creation";
+
+// Foto de la cotización para la bitácora (antes/después). Sin la imagen de los ítems.
+async function quoteForLog(db: Prisma.TransactionClient, quoteId: string) {
+  const quote = await db.quote.findUnique({
+    where: { id: quoteId },
+    select: {
+      id: true,
+      code: true,
+      status: true,
+      clientId: true,
+      notes: true,
+      validUntil: true,
+      subtotal: true,
+      total: true,
+      origin: true,
+      createdById: true,
+      createdAt: true,
+      items: {
+        select: {
+          productId: true,
+          supplierId: true,
+          quantity: true,
+          unitPrice: true,
+          fulfillmentMode: true,
+          lineTotal: true,
+          notes: true,
+        },
+      },
+    },
+  });
+  return quote ? fullCopyForLog(quote) : null;
+}
 
 const emptyToUndefined = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? undefined : value;
@@ -380,7 +413,9 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
     action: "CREATE",
     entityType: "QUOTE",
     entityId: createdQuoteId,
+    entityCode: createdQuoteCode,
     summary: createdQuoteCode ? `Creó la cotización ${createdQuoteCode}` : "Creó una cotización",
+    after: createdQuoteId ? await quoteForLog(prisma, createdQuoteId).catch(() => null) : null,
   });
 
   revalidatePath(returnTo);
@@ -411,6 +446,7 @@ export async function adminUpdateQuoteMetaAction(formData: FormData): Promise<vo
     redirect(`${returnTo}?error=Fecha+de+validez+invalida`);
   }
 
+  const beforeQuote = await quoteForLog(prisma, parsed.data.quoteId);
   const updatedQuote = await prisma.quote.update({
     where: { id: parsed.data.quoteId },
     data: {
@@ -425,7 +461,10 @@ export async function adminUpdateQuoteMetaAction(formData: FormData): Promise<vo
     action: "UPDATE",
     entityType: "QUOTE",
     entityId: parsed.data.quoteId,
+    entityCode: updatedQuote.code,
     summary: `Actualizó la cotización ${updatedQuote.code}`,
+    before: beforeQuote,
+    after: await quoteForLog(prisma, parsed.data.quoteId).catch(() => null),
   });
 
   revalidatePath("/admin/cotizaciones");
@@ -566,6 +605,7 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
   const subtotal = Number(normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2));
   const total = subtotal;
 
+  const beforeQuote = await quoteForLog(prisma, parsed.data.quoteId);
   const updatedQuote = await prisma.quote.update({
     where: { id: parsed.data.quoteId },
     data: {
@@ -596,7 +636,10 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
     action: "UPDATE",
     entityType: "QUOTE",
     entityId: parsed.data.quoteId,
+    entityCode: updatedQuote.code,
     summary: `Actualizó la cotización ${updatedQuote.code}`,
+    before: beforeQuote,
+    after: await quoteForLog(prisma, parsed.data.quoteId).catch(() => null),
   });
 
   revalidatePath("/admin/cotizaciones");
@@ -627,23 +670,32 @@ export async function adminDeleteQuoteAction(formData: FormData): Promise<void> 
     );
   }
 
-  const quoteToDelete = await prisma.quote.findUnique({
-    where: { id: quoteId },
-    select: { code: true },
-  });
+  let actor;
+  try {
+    actor = await getActivityActor();
+  } catch {
+    redirect("/unauthorized");
+  }
 
-  await prisma.quote.delete({
-    where: { id: quoteId },
-  });
-
-  await logActivity({
-    action: "DELETE",
-    entityType: "QUOTE",
-    entityId: quoteId,
-    summary: quoteToDelete
-      ? `Eliminó la cotización ${quoteToDelete.code}`
-      : `Eliminó la cotización ${quoteId}`,
-  });
+  // Copia completa en la bitácora y borrado en la misma transacción: sin copia no se borra.
+  try {
+    await prisma.$transaction(async (tx) => {
+      const quoteToDelete = await tx.quote.findUnique({ where: { id: quoteId }, include: { items: true } });
+      if (!quoteToDelete) return;
+      await logActivityTx(tx, actor, {
+        action: "DELETE",
+        entityType: "QUOTE",
+        entityId: quoteId,
+        entityCode: quoteToDelete.code,
+        summary: `Eliminó la cotización ${quoteToDelete.code}`,
+        before: fullCopyForLog(quoteToDelete),
+      });
+      await tx.quote.delete({ where: { id: quoteId } });
+    });
+  } catch (error) {
+    console.error("Failed to delete quote:", error);
+    redirect(`${returnTo}?error=No+se+pudo+eliminar+la+cotizacion`);
+  }
 
   revalidatePath("/admin/cotizaciones");
   revalidatePath(returnTo);

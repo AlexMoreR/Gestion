@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Prisma } from "@prisma/client";
-import { SHIPPING_COST_LOG_FIELDS, SUPPLIER_LEDGER_LOG_FIELDS, snapshotForLog } from "./activity-log-snapshot";
+import { SHIPPING_COST_LOG_FIELDS, SUPPLIER_LEDGER_LOG_FIELDS, fullCopyForLog, snapshotForLog } from "./activity-log-snapshot";
 
 describe("snapshotForLog", () => {
   it("deja un abono con monto, fecha, cuenta y venta, sin el comprobante", () => {
@@ -32,5 +32,22 @@ describe("snapshotForLog", () => {
     expect(SUPPLIER_LEDGER_LOG_FIELDS).not.toContain("receiptUrl");
     expect(SHIPPING_COST_LOG_FIELDS).not.toContain("receiptUrl");
     expect(SUPPLIER_LEDGER_LOG_FIELDS).toEqual(expect.arrayContaining(["amount", "paymentDate", "accountId", "receiptName"]));
+  });
+});
+
+describe("fullCopyForLog", () => {
+  it("copia todo, también lo anidado, con Decimal y fechas en texto", () => {
+    const copia = fullCopyForLog({
+      id: "sale_1",
+      total: new Prisma.Decimal("200000"),
+      payments: [{ id: "pay_1", paymentDate: new Date("2026-10-30T00:00:00.000Z") }],
+      order: null,
+    });
+    expect(copia).toEqual({
+      id: "sale_1",
+      total: "200000",
+      payments: [{ id: "pay_1", paymentDate: "2026-10-30T00:00:00.000Z" }],
+      order: null,
+    });
   });
 });

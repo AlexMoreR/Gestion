@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
+import { stockToRestore } from "@/lib/order-stock-restore";
 import { prisma } from "@/lib/prisma";
 import { createSaleOrder, type CreateSaleOrderResult } from "@/lib/sale-order";
 import { isRetiredUser } from "@/modules/equipo/infrastructure/prisma-team-repository";
@@ -168,7 +169,9 @@ export async function adminCreateOrderFromSaleAction(formData: FormData): Promis
     action: "CREATE",
     entityType: "ORDER",
     entityId: result.orderId,
+    entityCode: result.orderCode,
     summary: `Creó la orden ${result.orderCode}`,
+    after: { saleId: parsed.data.saleId, assignedToId: parsed.data.assignedToId ?? null },
   });
 
   revalidatePath("/admin/ventas");
@@ -248,7 +251,10 @@ export async function adminUpdateOrderStatusAction(formData: FormData): Promise<
     action: "UPDATE",
     entityType: "ORDER",
     entityId: order.id,
+    entityCode: order.code,
     summary: `Actualizó la orden ${order.code} a estado ${parsed.data.status}`,
+    before: { status: order.status },
+    after: { status: parsed.data.status, note: parsed.data.note || null },
   });
 
   revalidatePath("/admin/ordenes");
@@ -284,6 +290,10 @@ export async function adminAssignOrderAction(formData: FormData): Promise<void> 
     redirect(`${returnTo}?error=Esa+persona+ya+salio+del+equipo`);
   }
 
+  const previous = await prisma.order.findUnique({
+    where: { id: parsed.data.orderId },
+    select: { assignedToId: true },
+  });
   const assignedOrder = await prisma.order.update({
     where: { id: parsed.data.orderId },
     data: { assignedToId: parsed.data.assignedToId },
@@ -294,7 +304,10 @@ export async function adminAssignOrderAction(formData: FormData): Promise<void> 
     action: "UPDATE",
     entityType: "ORDER",
     entityId: parsed.data.orderId,
+    entityCode: assignedOrder.code,
     summary: `Asignó la orden ${assignedOrder.code}`,
+    before: { assignedToId: previous?.assignedToId ?? null },
+    after: { assignedToId: parsed.data.assignedToId },
   });
 
   revalidatePath("/admin/ordenes");
@@ -323,6 +336,7 @@ export async function adminCancelOrderAction(formData: FormData): Promise<void> 
       type: true,
       status: true,
       code: true,
+      purchaseCode: true,
       items: {
         select: { productId: true, quantity: true, fulfillmentMode: true, confirmedAt: true },
       },
@@ -343,12 +357,7 @@ export async function adminCancelOrderAction(formData: FormData): Promise<void> 
   // stock y los de fabricacion tampoco.
   // Una compra no repone nada: sus items son ENTRADAS, no salidas. Anularla no toca
   // stock ni cargos ni pagos (todo queda visible); ajustarlos es a mano.
-  const restoreByProduct = new Map<string, number>();
-  for (const item of order.type === "PURCHASE" ? [] : order.items) {
-    if (item.fulfillmentMode === "STOCK" && item.confirmedAt !== null) {
-      restoreByProduct.set(item.productId, (restoreByProduct.get(item.productId) ?? 0) + item.quantity);
-    }
-  }
+  const restoreByProduct = stockToRestore(order.type === "PURCHASE" ? [] : order.items);
 
   await prisma.$transaction(async (tx) => {
     await tx.order.update({
@@ -381,9 +390,12 @@ export async function adminCancelOrderAction(formData: FormData): Promise<void> 
 
   await logActivity({
     action: "DELETE",
-    entityType: "ORDER",
+    entityType: order.type === "PURCHASE" ? "PURCHASE" : "ORDER",
     entityId: order.id,
-    summary: `Canceló la orden ${order.code}. Motivo: ${note}`,
+    entityCode: order.purchaseCode ?? order.code,
+    summary: `Canceló la orden ${order.code}${order.purchaseCode ? ` (compra ${order.purchaseCode})` : ""}. Motivo: ${note}`,
+    before: { status: order.status, orderCode: order.code },
+    after: { status: "CANCELLED", motivo: note },
   });
 
   revalidatePath("/admin/ordenes");

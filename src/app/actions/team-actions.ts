@@ -5,9 +5,9 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
-import { hasAdminModuleAccess } from "@/lib/admin-module-access";
+import { canHardDelete, hasAdminModuleAccess, hasLinkedOwner } from "@/lib/admin-module-access";
 import { saveTeamMemberUseCase, setTeamExitUseCase, TeamInputError } from "@/modules/equipo/application/use-cases";
-import { isIsoDay, TEAM_EMPLOYMENT_TYPES, TEAM_PAY_TYPES, todayInBogota } from "@/modules/equipo/domain/team-member";
+import { isIsoDay, TEAM_EMPLOYMENT_TYPES, TEAM_PAY_TYPES, todayInBogota, touchesOwnerMark } from "@/modules/equipo/domain/team-member";
 import { createPrismaTeamRepository } from "@/modules/equipo/infrastructure/prisma-team-repository";
 
 // Equipo: solo el dueno/admin crea, edita y da de baja. La bitacora no copia datos personales.
@@ -27,7 +27,7 @@ function back(formData: FormData, kind: "ok" | "error", message: string): never 
   redirect(`${BASE_PATH}?${params.toString()}`);
 }
 
-async function requireOwner(): Promise<void> {
+async function requireOwner(): Promise<{ id: string; role: "ADMIN" }> {
   const session = await auth();
   if (
     !session?.user?.id ||
@@ -36,6 +36,7 @@ async function requireOwner(): Promise<void> {
   ) {
     redirect("/unauthorized");
   }
+  return { id: session.user.id, role: "ADMIN" };
 }
 
 const optionalText = (max: number) =>
@@ -76,7 +77,7 @@ const memberSchema = z.object({
 });
 
 export async function saveTeamMemberAction(formData: FormData) {
-  await requireOwner();
+  const actor = await requireOwner();
   const memberId = field(formData, "memberId") || null;
   const parsed = memberSchema.safeParse({
     fullName: field(formData, "fullName"),
@@ -101,6 +102,12 @@ export async function saveTeamMemberAction(formData: FormData) {
     back(formData, "error", parsed.error.issues[0]?.message ?? "Datos inválidos");
   }
   const input = { ...parsed.data, exitReason: parsed.data.endDate ? parsed.data.exitReason : null };
+
+  // La marca "Dueño" da el Borrado definitivo: solo el dueño la toca (si aún no hay dueño con usuario, el primer ADMIN).
+  const current = memberId ? await team.findById(memberId) : null;
+  if (touchesOwnerMark(current, input) && (await hasLinkedOwner()) && !(await canHardDelete(actor.id, actor.role))) {
+    back(formData, "error", "Solo el dueño puede marcar o quitar «Dueño» en una ficha.");
+  }
 
   let saved;
   try {

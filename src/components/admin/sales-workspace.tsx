@@ -63,6 +63,8 @@ type SalesWorkspaceProps = {
   products: DirectSaleProduct[];
   clients: DirectSaleClient[];
   initialSearch?: string;
+  /** Solo el dueño (permiso "Borrado definitivo"). */
+  canHardDelete?: boolean;
 };
 
 // Dia en Colombia (YYYY-MM-DD) para comparar con el DateRangePicker.
@@ -77,7 +79,15 @@ function currentMonthRange(): { from: string; to: string } {
   return { from: `${month}-01`, to: colombiaDayKey(new Date(end.getTime() - 60 * 60 * 1000)) };
 }
 
-export function SalesWorkspace({ sales, currency, accounts, products, clients, initialSearch = "" }: SalesWorkspaceProps) {
+export function SalesWorkspace({
+  sales,
+  currency,
+  accounts,
+  products,
+  clients,
+  initialSearch = "",
+  canHardDelete = false,
+}: SalesWorkspaceProps) {
   const defaultRange = React.useMemo(() => currentMonthRange(), []);
   const [fromDate, setFromDate] = React.useState(defaultRange.from);
   const [toDate, setToDate] = React.useState(defaultRange.to);
@@ -110,11 +120,13 @@ export function SalesWorkspace({ sales, currency, accounts, products, clients, i
   const tableSales = searchQuery.trim() ? sales : filteredSales;
 
   const stats = React.useMemo(() => {
+    // Una venta anulada se ve en la tabla pero no suma en las tarjetas.
+    const counted = filteredSales.filter((sale) => sale.status !== "CANCELLED");
     return {
-      salesCount: filteredSales.length,
-      toCollectCount: filteredSales.filter((sale) => sale.status === "ACTIVE").length,
-      downPaymentTotal: filteredSales.reduce((sum, sale) => sum + sale.downPaymentAmount, 0),
-      remainingTotal: filteredSales.reduce((sum, sale) => sum + sale.remainingBalance, 0),
+      salesCount: counted.length,
+      toCollectCount: counted.filter((sale) => sale.status === "ACTIVE").length,
+      downPaymentTotal: counted.reduce((sum, sale) => sum + sale.downPaymentAmount, 0),
+      remainingTotal: counted.reduce((sum, sale) => sum + sale.remainingBalance, 0),
     };
   }, [filteredSales]);
 
@@ -145,6 +157,7 @@ export function SalesWorkspace({ sales, currency, accounts, products, clients, i
         onFromDateChange={setFromDate}
         onToDateChange={setToDate}
         onStatusFilterChange={setStatusFilter}
+        canHardDelete={canHardDelete}
       />
     </section>
   );

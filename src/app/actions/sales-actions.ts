@@ -1,6 +1,6 @@
 "use server";
 
-import { hasAnyModuleAccess } from "@/lib/admin-module-access";
+import { canHardDelete, hasAnyModuleAccess } from "@/lib/admin-module-access";
 
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -12,7 +12,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
-import { snapshotForLog } from "@/lib/activity-log-snapshot";
+import { fullCopyForLog, snapshotForLog } from "@/lib/activity-log-snapshot";
+import { stockToRestore } from "@/lib/order-stock-restore";
 import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 import {
@@ -802,64 +803,198 @@ export async function adminDeleteSalePaymentAction(formData: FormData): Promise<
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Abono eliminado" }).toString()}`);
 }
 
-const deleteSaleSchema = z.object({
+const cancelSaleSchema = z.object({
   saleId: z.string().trim().min(1, "Venta invalida"),
+  motivo: z
+    .string()
+    .trim()
+    .min(3, "Escribe el motivo (mínimo 3 letras)")
+    .max(300, "El motivo puede tener máximo 300 caracteres"),
 });
 
-export async function adminDeleteSaleAction(formData: FormData): Promise<void> {
-  const deletedById = await requireAdminSession();
+function revalidateSaleScreens() {
+  revalidatePath("/admin/ventas");
+  revalidatePath("/admin/cotizaciones");
+  revalidatePath("/admin/ordenes");
+  revalidatePath("/admin/produccion");
+  revalidatePath("/admin/despachos");
+  revalidatePath("/admin/proveedores");
+  revalidatePath("/admin/balances");
+  revalidatePath("/admin/inventario");
+  revalidatePath("/admin/configuracion/actividad");
+}
+
+// Anular venta: la venta y su orden quedan CANCELLED con el motivo; no se borra nada
+// (abonos, fletes, cargos/pagos a proveedora y despachos siguen ahí y se ven por su código).
+export async function adminCancelSaleAction(formData: FormData): Promise<void> {
+  const changedById = await requireAdminSession();
   const returnTo = getReturnTo(formData);
 
-  const parsed = deleteSaleSchema.safeParse({
+  const parsed = cancelSaleSchema.safeParse({
     saleId: formData.get("saleId"),
+    motivo: formData.get("motivo") ?? "",
   });
-
   if (!parsed.success) {
     redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Venta invalida");
   }
+  const { motivo } = parsed.data;
 
-  const sale = await prisma.sale.findUnique({
-    where: { id: parsed.data.saleId },
-    include: {
-      order: {
+  let actor;
+  try {
+    actor = await getActivityActor();
+  } catch {
+    redirect("/unauthorized");
+  }
+
+  let error: string | null = null;
+  try {
+    error = await prisma.$transaction(async (tx) => {
+      // Lectura dentro de la transacción con candado: dos clics no anulan dos veces.
+      await tx.$queryRaw`SELECT id FROM "Sale" WHERE id = ${parsed.data.saleId} FOR UPDATE`;
+      const sale = await tx.sale.findUnique({
+        where: { id: parsed.data.saleId },
         select: {
           id: true,
           code: true,
-          items: { select: { productId: true, quantity: true, fulfillmentMode: true, confirmedAt: true } },
+          status: true,
+          order: {
+            select: {
+              id: true,
+              code: true,
+              status: true,
+              items: { select: { productId: true, quantity: true, fulfillmentMode: true, confirmedAt: true } },
+            },
+          },
         },
-      },
-    },
-  });
+      });
+      if (!sale) return "No se encontro la venta";
+      if (sale.status === "CANCELLED") return `La venta ${sale.code} ya está anulada`;
 
-  if (!sale) {
-    redirectWithError(returnTo, "No se encontro la venta");
+      await tx.sale.update({ where: { id: sale.id }, data: { status: "CANCELLED" } });
+
+      const order = sale.order;
+      // Si la orden ya estaba cancelada, su stock ya se repuso: no se toca otra vez.
+      const cancelOrder = order && order.status !== "CANCELLED";
+      if (cancelOrder) {
+        await tx.order.update({ where: { id: order.id }, data: { status: "CANCELLED" } });
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId: order.id,
+            fromStatus: order.status,
+            toStatus: "CANCELLED",
+            note: `Venta ${sale.code} anulada. Motivo: ${motivo}`,
+            changedById,
+          },
+        });
+        const restore = stockToRestore(order.items);
+        if (restore.size > 0) {
+          await tx.inventoryMovement.createMany({
+            data: Array.from(restore.entries()).map(([productId, quantity]) => ({
+              productId,
+              type: "IN" as const,
+              change: quantity,
+              note: `Reversa por anulación de venta ${sale.code}`,
+              createdById: changedById,
+            })),
+          });
+        }
+      }
+
+      await logActivityTx(tx, actor, {
+        action: "UPDATE",
+        entityType: "SALE",
+        entityId: sale.id,
+        entityCode: sale.code,
+        summary: `Anuló la venta ${sale.code}. Motivo: ${motivo}`,
+        before: { saleStatus: sale.status, orderCode: order?.code ?? null, orderStatus: order?.status ?? null },
+        after: {
+          saleStatus: "CANCELLED",
+          orderCode: order?.code ?? null,
+          orderStatus: order ? "CANCELLED" : null,
+          motivo,
+        },
+      });
+      return null;
+    });
+  } catch (err) {
+    console.error("Failed to cancel sale:", err);
+    redirectWithError(returnTo, "No se pudo anular la venta");
+  }
+  if (error) {
+    redirectWithError(returnTo, error);
   }
 
-  const orderId = sale.order?.id ?? null;
+  revalidateSaleScreens();
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Venta anulada" }).toString()}`);
+}
 
+// Borrado definitivo: lo que hacía antes "Eliminar venta". Solo el dueño (permiso hard_delete).
+// Antes de borrar guarda la copia completa en la bitácora, en la misma transacción.
+export async function adminHardDeleteSaleAction(formData: FormData): Promise<void> {
+  const session = await auth();
+  const returnTo = getReturnTo(formData);
+  if (!session?.user?.id || !(await canHardDelete(session.user.id, session.user.role))) {
+    redirectWithError(returnTo, "Solo el dueño puede borrar una venta definitivamente.");
+  }
+  const deletedById = session.user.id;
+
+  const parsed = cancelSaleSchema.safeParse({
+    saleId: formData.get("saleId"),
+    motivo: formData.get("motivo") ?? "",
+  });
+  if (!parsed.success) {
+    redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Venta invalida");
+  }
+  const { motivo } = parsed.data;
+
+  let actor;
   try {
-    await prisma.$transaction(async (tx) => {
+    actor = await getActivityActor();
+  } catch {
+    redirect("/unauthorized");
+  }
+
+  let saleCode: string | null = null;
+  try {
+    saleCode = await prisma.$transaction(async (tx) => {
+      const sale = await tx.sale.findUnique({
+        where: { id: parsed.data.saleId },
+        include: {
+          salePayments: true,
+          shippingCosts: true,
+          order: { include: { items: true, history: true, dispatches: { include: { items: true } } } },
+        },
+      });
+      if (!sale) return null;
+      const orderId = sale.order?.id ?? null;
+      const supplierEntries = await tx.supplierLedgerEntry.findMany({
+        where: { OR: [{ saleId: sale.id }, ...(orderId ? [{ orderId }] : [])] },
+      });
+
+      // 0. Copia completa en la bitácora: si no se puede anotar, no se borra nada.
+      await logActivityTx(tx, actor, {
+        action: "DELETE",
+        entityType: "SALE",
+        entityId: sale.id,
+        entityCode: sale.code,
+        summary: `Borró definitivamente la venta ${sale.code}. Motivo: ${motivo}`,
+        before: fullCopyForLog({ ...sale, supplierLedgerEntries: supplierEntries }),
+        after: { motivo },
+      });
+
       // 1. Borra los cargos y pagos a proveedores ligados a la venta o su orden.
       //    Al desaparecer, los saldos de proveedores y cuentas se recalculan solos.
       await tx.supplierLedgerEntry.deleteMany({
-        where: {
-          OR: [{ saleId: sale.id }, ...(orderId ? [{ orderId }] : [])],
-        },
+        where: { OR: [{ saleId: sale.id }, ...(orderId ? [{ orderId }] : [])] },
       });
 
-      if (orderId) {
-        // 2. Repone al inventario lo que la orden habia descontado: solo los items
-        //    "por stock" que se confirmaron (su salida OUT se registro al confirmar).
-        //    Los no confirmados nunca tocaron stock y los de fabricacion tampoco.
-        const restoreByProduct = new Map<string, number>();
-        for (const item of sale.order?.items ?? []) {
-          if (item.fulfillmentMode === "STOCK" && item.confirmedAt !== null) {
-            restoreByProduct.set(item.productId, (restoreByProduct.get(item.productId) ?? 0) + item.quantity);
-          }
-        }
-        if (restoreByProduct.size > 0) {
+      if (sale.order) {
+        // 2. Repone al inventario lo que la orden habia descontado (si la orden ya estaba
+        //    cancelada, ese stock ya se repuso al anular).
+        const restore = sale.order.status === "CANCELLED" ? new Map<string, number>() : stockToRestore(sale.order.items);
+        if (restore.size > 0) {
           await tx.inventoryMovement.createMany({
-            data: Array.from(restoreByProduct.entries()).map(([productId, quantity]) => ({
+            data: Array.from(restore.entries()).map(([productId, quantity]) => ({
               productId,
               type: "IN" as const,
               change: quantity,
@@ -871,36 +1006,26 @@ export async function adminDeleteSaleAction(formData: FormData): Promise<void> {
 
         // 3. Borra los despachos (cascade -> items de despacho). Esto libera el
         //    Restrict que impide borrar los items de la orden si tienen despacho.
-        await tx.dispatch.deleteMany({ where: { orderId } });
+        await tx.dispatch.deleteMany({ where: { orderId: sale.order.id } });
 
         // 4. Borra la orden: cascade elimina items, fotos, producción e historial.
-        await tx.order.delete({ where: { id: orderId } });
+        await tx.order.delete({ where: { id: sale.order.id } });
       }
 
-      // 4. Borra la venta: cascade elimina abonos y fletes. La cotización origen
-      //    se conserva (queda libre para generar una venta nueva si se requiere).
+      // 5. Borra la venta: cascade elimina abonos y fletes. La cotización origen se conserva.
       await tx.sale.delete({ where: { id: sale.id } });
+      return sale.code;
     });
   } catch (error) {
-    console.error("Failed to delete sale:", error);
-    redirectWithError(returnTo, "No se pudo eliminar la venta");
+    console.error("Failed to hard delete sale:", error);
+    redirectWithError(returnTo, "No se pudo borrar la venta");
+  }
+  if (!saleCode) {
+    redirectWithError(returnTo, "No se encontro la venta");
   }
 
-  await logActivity({
-    action: "DELETE",
-    entityType: "SALE",
-    entityId: sale.id,
-    summary: `Eliminó la venta ${sale.code}`,
-  });
-
-  revalidatePath("/admin/ventas");
-  revalidatePath("/admin/cotizaciones");
-  revalidatePath("/admin/ordenes");
-  revalidatePath("/admin/produccion");
-  revalidatePath("/admin/despachos");
-  revalidatePath("/admin/proveedores");
-  revalidatePath("/admin/balances");
-  redirect(`${returnTo}?${new URLSearchParams({ ok: "Venta eliminada" }).toString()}`);
+  revalidateSaleScreens();
+  redirect(`${returnTo}?${new URLSearchParams({ ok: `Venta ${saleCode} borrada definitivamente` }).toString()}`);
 }
 
 // ─── VENTA DIRECTA (mostrador, sin cotizacion previa) ──────────────────────

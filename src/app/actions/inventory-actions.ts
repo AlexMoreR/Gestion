@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
+import { fullCopyForLog } from "@/lib/activity-log-snapshot";
 import { prisma } from "@/lib/prisma";
 import {
   InventoryError,
@@ -767,6 +768,30 @@ type PurchaseEditInput = {
   returnTo: string;
 };
 
+// Foto de una compra para la bitácora (antes/después de editarla).
+async function purchaseForLog(orderId: string) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      purchaseCode: true,
+      status: true,
+      total: true,
+      items: {
+        select: {
+          productId: true,
+          quantity: true,
+          unitPrice: true,
+          purchaseCost: true,
+          lineTotal: true,
+          notes: true,
+          confirmedSupplierId: true,
+        },
+      },
+    },
+  });
+  return order ? fullCopyForLog(order) : null;
+}
+
 // Edita una compra SOBRE LA MISMA ORDEN: conserva su numero ORD, el COM, el estado,
 // el historial, los despachos y los pagos a proveedoras. Las lineas existentes se
 // actualizan, las nuevas se crean y las quitadas se borran (no si tienen despacho o
@@ -813,6 +838,7 @@ async function runPurchaseEdit(input: PurchaseEditInput): Promise<void> {
     redirectWithError(returnTo, "Esta compra no tiene código COM: no se puede editar aquí.");
   }
   const purchaseCode = order.purchaseCode;
+  const beforePurchase = await purchaseForLog(orderId);
 
   const itemIds = order.items.map((item) => item.id);
   const charges = await prisma.supplierLedgerEntry.findMany({
@@ -1123,7 +1149,10 @@ async function runPurchaseEdit(input: PurchaseEditInput): Promise<void> {
     action: "UPDATE",
     entityType: "PURCHASE",
     entityId: orderId,
+    entityCode: purchaseCode,
     summary: `Editó la compra ${purchaseCode} (${items.length} producto${items.length === 1 ? "" : "s"})`,
+    before: beforePurchase,
+    after: await purchaseForLog(orderId).catch(() => null),
   });
 
   revalidatePath("/admin/inventario");

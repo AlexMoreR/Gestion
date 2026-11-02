@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeAge,
+  touchesOwnerMark,
   filterTeam,
   isActiveInMonth,
   isActiveOn,
@@ -131,5 +132,20 @@ describe("filterTeam y datos publicos", () => {
     for (const key of ["document", "birthDate", "phone", "email", "address", "emergencyName", "emergencyPhone", "notes"]) {
       expect(visible).not.toHaveProperty(key);
     }
+  });
+});
+
+describe("touchesOwnerMark", () => {
+  it("marcar o quitar Dueño cuenta como tocar la marca", () => {
+    expect(touchesOwnerMark(null, { isOwner: true, userId: "u1" })).toBe(true);
+    expect(touchesOwnerMark({ isOwner: true, userId: "u1" }, { isOwner: false, userId: "u1" })).toBe(true);
+  });
+  it("cambiar el usuario de la ficha del dueño también", () => {
+    expect(touchesOwnerMark({ isOwner: true, userId: "u1" }, { isOwner: true, userId: "u2" })).toBe(true);
+  });
+  it("editar otra ficha sin tocar la marca no cuenta", () => {
+    expect(touchesOwnerMark(null, { isOwner: false, userId: null })).toBe(false);
+    expect(touchesOwnerMark({ isOwner: false, userId: "u1" }, { isOwner: false, userId: "u2" })).toBe(false);
+    expect(touchesOwnerMark({ isOwner: true, userId: "u1" }, { isOwner: true, userId: "u1" })).toBe(false);
   });
 });
