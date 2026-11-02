@@ -214,8 +214,8 @@ function SaleStatusCell({ sale }: { sale: Pick<SaleRow, "status" | "pendingDeliv
         </span>
       ) : null}
       {sale.alertaCombo ? (
-        <span className="inline-flex items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:text-red-400">
-          <AlertTriangle className="h-3.5 w-3.5" />
+        <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:text-red-400">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
           Falta el producto: no se pudo crear la orden
         </span>
       ) : null}
