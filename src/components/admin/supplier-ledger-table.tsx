@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useSearchParams } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import { BarChart3, ClipboardPlus, Eye, Plus, Trash2, X } from "lucide-react";
 import { adminDeleteSupplierPaymentAction } from "@/app/actions/supplier-ledger-actions";
@@ -92,11 +91,6 @@ export function SupplierLedgerTable({
   const [detailOrder, setDetailOrder] = React.useState<string | null>(null);
   // Movimiento que se va a anular (pide motivo).
   const [pendingVoid, setPendingVoid] = React.useState<SupplierLedgerRow | null>(null);
-  // Al volver de anular (?ok= / ?error=) se cierra el diálogo para que se vea el aviso.
-  const searchParams = useSearchParams();
-  React.useEffect(() => {
-    setPendingVoid(null);
-  }, [searchParams]);
 
   // Todos los movimientos de la orden seleccionada (sin filtro de fecha).
   const detailEntries = React.useMemo(
@@ -365,7 +359,10 @@ export function SupplierLedgerTable({
       <Dialog open={pendingVoid !== null} onOpenChange={(open) => !open && setPendingVoid(null)}>
         <DialogContent>
           {pendingVoid ? (
-            <form action={adminDeleteSupplierPaymentAction} className="space-y-4">
+            <form
+              // Se cierra después de enviar, para que el aviso (?ok= / ?error=) quede a la vista.
+              onSubmit={() => setTimeout(() => setPendingVoid(null))}
+              action={adminDeleteSupplierPaymentAction} className="space-y-4">
               <input type="hidden" name="paymentId" value={pendingVoid.id} />
               <input type="hidden" name="returnTo" value={returnTo} />
               <DialogHeader>

@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useSearchParams } from "next/navigation";
 import { Boxes, History, Layers, PackageX, Plus, Wallet } from "lucide-react";
 import { StatList } from "@/components/ui/stat-list";
 import { Button } from "@/components/ui/button";
@@ -69,11 +68,6 @@ export function InventoryWorkspace({
   const [minStockProduct, setMinStockProduct] = React.useState<ProductStock | null>(null);
   const [editMovement, setEditMovement] = React.useState<InventoryMovementRow | null>(null);
   const [pendingDelete, setPendingDelete] = React.useState<InventoryMovementRow | null>(null);
-  // Al volver de anular (?ok= / ?error=) se cierra el diálogo para que se vea el aviso.
-  const searchParams = useSearchParams();
-  React.useEffect(() => {
-    setPendingDelete(null);
-  }, [searchParams]);
   const [editProductId, setEditProductId] = React.useState<string | null>(null);
   // Modal de costo/rentabilidad que se abre al hacer clic en un producto del stock.
   const [costProductId, setCostProductId] = React.useState<string | null>(null);
@@ -269,7 +263,10 @@ export function InventoryWorkspace({
                 recalcula y queda una copia con el motivo.
               </p>
             </div>
-            <form action={adminDeleteInventoryMovementAction} className="mt-5 space-y-4">
+            <form
+              // Se cierra después de enviar, para que el aviso (?ok= / ?error=) quede a la vista.
+              onSubmit={() => setTimeout(() => setPendingDelete(null))}
+              action={adminDeleteInventoryMovementAction} className="mt-5 space-y-4">
               <input type="hidden" name="returnTo" value={actionsReturnTo} />
               <input type="hidden" name="movementId" value={pendingDelete.id} />
               <div className="space-y-1.5">
