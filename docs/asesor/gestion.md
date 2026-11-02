@@ -49,7 +49,7 @@ en las Server Actions y en `src/lib/`.
 - `nomina`: nómina del mes (salario básico de cada persona + comisiones − lo ya pagado) y el dinero de hoy por cuenta. La configuración (básicos, TRM, días trabajados) vive en `AppSetting` (`payrollConfig`); los pagos son gastos de la categoría Nómina.
 - `equipo`: ficha de cada trabajador (ingreso, salida, contacto, forma de pago) y las reglas de estado Activo/Retirado, edad y "¿trabajaba en tal fecha?". La nómina, las comisiones y las asignaciones la usan para incluir a los activos y sacar a los retirados.
 - `asistencia`: registro de entrada y salida (hora del servidor), correcciones con motivo hechas por un admin, asistencia de hoy y por mes, y los días trabajados del mes que usa la nómina por día desde nov-2026.
-- `asesor`: consultas para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones, nómina, equipo, asistencia, saldos de cuentas, gastos del mes con la ganancia real (`listar_gastos`), cuánto se le debe a cada proveedora orden por orden (`deuda_con_proveedoras`), pedidos por clienta o ciudad con su estado (`buscar_pedido`, `pedidos_abiertos`) y esta radiografía. Es de solo lectura salvo `registrar_gasto` y `registrar_pago_proveedora` (ver reglas). También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
+- `asesor`: consultas para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones, nómina, equipo, asistencia, saldos de cuentas, gastos del mes con la ganancia real (`listar_gastos`), cuánto se le debe a cada proveedora orden por orden (`deuda_con_proveedoras`), pedidos por clienta o ciudad con su estado (`buscar_pedido`, `pedidos_abiertos`) y esta radiografía. Es de solo lectura salvo `registrar_gasto`, `registrar_pago_proveedora` y `cerrar_mes` (ver reglas). También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
 
 ## Entidades
 
@@ -225,6 +225,17 @@ Rechaza un pago igual (misma OF, monto y día) a los pocos minutos, un sobrepago
 anterior sin motivo. Si ya no falta nada, los productos de esa proveedora en la orden quedan "pagados".
 Regla del negocio (solo avisa): con 50%/50% a la proveedora se le paga de una vez; en contraentrega, cuando
 el producto le llega al cliente. Queda a nombre de `MCP_GASTOS_USUARIO_EMAIL` o del administrador más antiguo.
+
+**Cierre de mes: cuadre con el banco (`cerrar_mes`, nov-2026).** Alexander no es contable: el cierre es
+una sola conversación. El último día del mes le llega un WhatsApp (línea Admin) pidiéndole el saldo real de
+cada cuenta activa; el texto y si toca avisar los da `GET /api/cierre-mes/pendiente` (llave `ALERTAS_API_KEY`
+o `MCP_API_KEY`), pero el envío lo hace el lado del CRM o aizen1, no Gestión. Él le dicta los saldos a Claude,
+que primero muestra el resumen y con el "sí" crea **un movimiento manual de ajuste por cuenta** con diferencia
+(entrada si en Gestión faltaba plata, salida si sobraba), con la nota "Cierre de mes AAAA-MM: cuadre con el
+banco" y fecha del último día del mes. Responde en una línea: "Cuadró" o "En X faltaban/sobraban N pesos, ya
+quedó ajustado". Una cuenta ya ajustada ese mes no se vuelve a ajustar; una diferencia de más de $1.000.000
+pide confirmación aparte; no se cierra un mes que no ha terminado. Nada se borra: un error se corrige con un
+movimiento contrario desde Balances.
 
 **Ganancia real del mes (`listar_gastos`).** Ganancia real = ventas − producto − flete (contribución)
 − comisiones del mes − sueldos básicos del mes − gastos. Los pagos de Nómina no se restan como gasto:

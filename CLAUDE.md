@@ -334,6 +334,7 @@ Route handlers reales (`route.ts`):
 | `/api/dudas/respuestas` | GET | **Respuestas de Dudas del catálogo** para Claude: `?estado=todas|pendientes|respondidas` (def. todas), `?grupo=`, `?historial=1` → `{ total, pendientes, respondidas, dudas: [{ id, codigo, grupo, titulo, duda, datos, opciones, respondida, respuesta: { opcion_id, opcion, texto, nota, por, fecha }, historial? }] }`. Solo lectura. | Llave `DUDAS_API_KEY` (si no, `CATALOGO_API_KEY`, si no `MCP_API_KEY`) |
 | `/proveedores-pago/soporte/[token]` | GET (página) | **Foto del comprobante de un pago a proveedora** registrado por Claude (`registrar_pago_proveedora`): muestra OF, proveedora, monto y fecha y pega la foto al pago (acción pública `submitSupplierPaymentReceiptAction`). 24 h, un solo uso. | Enlace secreto (token firmado con `AUTH_SECRET`) |
 | `/api/alertas/dinero` | GET | **Aviso diario de dinero** para el script de aizen1 (`scripts/alertas`, cron 7:00 a. m. → WhatsApp a Alexander por WAHA, línea Admin): `{ avisar, mensaje }`; avisa cuentas en negativo (saldo de `getCashPositionUseCase`) y abonos/fletes/pagos a proveedoras sin cuenta de las últimas 24 h (sin retención). `mensaje` vacío si todo bien. Solo lectura; regla en `src/modules/balances/domain/money-alert.ts`. | Llave `ALERTAS_API_KEY` (si no, `MCP_API_KEY`) |
+| `/api/cierre-mes/pendiente` | GET | **Aviso del cierre de mes** para quien manda el WhatsApp a Alexander (línea Admin; el envío y el reloj están fuera de Gestión): `{ avisar, mes, ultimo_dia, cerrado, cuentas, mensaje }`; `avisar` solo el último día del mes (hora Colombia) si el mes aún no tiene cierre (`cerrar_mes`). Solo lectura. | Llave `ALERTAS_API_KEY` (si no, `MCP_API_KEY`) |
 | `/api/asesor/precios-vigentes` | GET | **Hoja "Precios vigentes"** en Markdown para Claude: una línea por producto visible en la tienda (`código — nombre — qué es — precio — costo`, en COP), los más vendidos de los últimos 90 días primero (unidades de órdenes de venta no canceladas); empates y sin ventas, por nombre. **Lleva COSTO**: por eso nunca con la llave del catálogo. `Cache-Control: no-store`. Solo lectura. Regla en `src/modules/asesor/domain/precios-vigentes.ts`. | Llave `MCP_API_KEY` |
 | `/api/ventas/origen` | POST | **Origen de la venta desde el CRM.** `{ quoteCode, origin, originDetail?, linea?, contactPhone? }` → 200 `{ ok, quoteCode, origin, saleUpdated }` / 404 `{ error: "cotizacion_no_existe" }` / 400 `{ error: "datos_invalidos" }`. `contactPhone` solo decide recurrencia; no se guarda. Contrato acordado con AgenteLite: **no cambiarlo**. | Misma llave del catálogo o de transporte |
 | `/api/transporte/ubicaciones` | GET/POST | **Envíos para el CRM.** GET `?q=&producto=&limit=` (q normalizado ≥ 2, limit 1..50, def. 20) → `{ resultados: [{ tipo, id, cityId, nombre, ciudad, departamento, envio, pendienteRevision, exacta, cotizacion }], producto }`; `cotizacion` (`{tipo, envio, total}`) solo si vino `producto` y existe. POST `{ cityId, nombre (2..80), origen? }` → 201 `{creado:true,id,nombre}` / 200 `{creado:false,...}` si ya existía / 404 ciudad no encontrada; lo nuevo queda "pendiente de revisar". El CRM ya está programado contra este contrato: **no cambiarlo**. | Llave `TRANSPORTE_API_KEY` (si no, `CATALOGO_API_KEY`, si no `MCP_API_KEY`) |
@@ -350,7 +351,7 @@ Route handlers reales (`route.ts`):
   herramienta que escribe es `registrar_gasto` (anotada sin `readOnlyHint`; ver "Gastos por voz").
 - Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_abonos`, `ver_venta`, `listar_cotizaciones`,
   `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `equipo`, `asistencia`, `saldos_de_cuentas`,
-  `listar_gastos`, `listar_retroactivos`, `deuda_con_proveedoras`, `buscar_pedido`, `pedidos_abiertos`, `registrar_gasto`, `registrar_pago_proveedora` y `que_es_esta_aplicacion`.
+  `listar_gastos`, `listar_retroactivos`, `deuda_con_proveedoras`, `buscar_pedido`, `pedidos_abiertos`, `registrar_gasto`, `registrar_pago_proveedora`, `cerrar_mes` y `que_es_esta_aplicacion`.
 - `deuda_con_proveedoras` (oct-2026, solo lectura): `proveedora` (nombre, sin tildes) y `desde`/`hasta` (fecha de
   la OF) opcionales → por orden: OF, orden, venta, cliente, productos con color, `costo_acordado`, `pagos[]`
   (fecha, cuenta, monto) y `falta`; por proveedora `debemos_total` = cargos − abonos (el saldo de la lista
@@ -391,6 +392,14 @@ Route handlers reales (`route.ts`):
   `/proveedores-pago/soporte/<token>` (**24 h, un solo uso**, en la BD solo el hash, tabla `PagoProveedoraBorrador`;
   tokens de `src/lib/expense-draft-token.ts`) para pegar la foto del comprobante; `submitSupplierPaymentReceiptAction`
   valida tipo (JPG/PNG/WEBP/PDF por sus bytes) y 12 MB y la pega con `FOR UPDATE` sobre el borrador.
+- **Cierre de mes** (`cerrar_mes`, nov-2026, sin migración): Alexander dicta el saldo real de cada cuenta activa
+  (sin la OWNER) y Gestión lo compara con su saldo (mes en curso el último día: el de "Dinero hoy"; mes pasado: el
+  saldo al cierre de ese mes). Dos pasos como `registrar_gasto`; al confirmar crea **un** `AccountMovement` por cuenta
+  con diferencia (`IN` si faltaba plata en Gestión, `OUT` si sobraba), nota "Cierre de mes AAAA-MM: cuadre con el
+  banco", fechado el último día del mes, y responde en una línea ("Cuadró" / "En X faltaban/sobraban N pesos, ya
+  quedó ajustado"). Una cuenta que ya tiene esa nota no se vuelve a ajustar (candado por mes); diferencia > $1.000.000
+  exige `acepto_diferencia_grande`; mes sin terminar se rechaza. Bitácora `ActivityLog` con `entityId`
+  `cierre-mes:AAAA-MM`. Reglas en `src/modules/balances/application/close-month.ts`.
 - `listar_retroactivos` (oct-2026, solo lectura): `mes` (AAAA-MM, mes del registro real; por defecto el actual en
   Bogotá), `persona` (nombre) y `tipo` (venta/abono/gasto) opcionales → lo mismo que `/admin/retroactivos`: cada
   registro con tipo, persona, `registrado_el` (hora Colombia), `fecha_puesta`, `dias_de_atraso`, monto y motivo
