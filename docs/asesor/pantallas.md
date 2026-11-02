@@ -154,7 +154,7 @@ Detalle de una orden. Aquí se fabrica, se recoge, se despacha y se entrega cada
   - **Agregar tramo**: abre el modal "Agregar tramo al despacho <código>" con Transportador, Valor, Guía, Nota, cuenta y comprobante. **Guardar tramo pagado** suma ese valor al flete de la venta.
 - Recuadro "Guías Magilus": **Crear guía Magilus** (con "Peso kg" opcional) aparece en despachos que aún no tienen guía. Si la guía ya existe, se pulsa para abrir su detalle.
 - Paso Entregar: **Registrar entrega** abre un modal con "Foto de la cliente que recibió", Instagram y TikTok, y se guarda con **Cerrar entrega**. Cuando todo está hecho aparece **¿No se entregó? Deshacer entrega**, que se confirma con **Sí, deshacer entrega**.
-- Pestaña **Fabricación**: muestra una tarjeta por proveedora (la OF) con sus productos, "Pagado … · Falta …" y la lista de pagos (con **Comprobante**). Campos "Fecha de entrega", "Dirección de despacho" y "Notas para la proveedora", que se guardan con **Guardar datos de entrega**. Botones del enlace de la proveedora (`/fabricacion/<token>`):
+- Pestaña **Fabricación**: muestra una tarjeta por proveedora (la OF) con sus productos, "Pagado … · Falta …" y la lista de pagos (con **Comprobante**). Campos "Fecha de entrega", "Dirección de despacho" y "Notas para la proveedora", que se guardan con **Guardar datos de entrega**. Botones del enlace de la proveedora (link corto `/of/<código>`, ej. `magilus.com/of/OF-00035`; los links viejos `/fabricacion/<token>` siguen sirviendo):
   - **Ver**: abre el enlace.
   - **Copiar enlace**: copia el enlace.
   - **Enviar por WhatsApp**: manda un mensaje con el enlace al WhatsApp de la proveedora.

@@ -483,7 +483,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         code: manufacturingOrder.code,
         supplierName: supplier?.displayName || supplier?.name || "Proveedora",
         supplierWhatsApp,
-        url: getSiteUrl(`/fabricacion/${manufacturingOrder.shareToken}`),
+        url: getSiteUrl(`/of/${manufacturingOrder.code}`),
         deliveryDate: manufacturingOrder.deliveryDate
           ? manufacturingOrder.deliveryDate.toISOString().slice(0, 10)
           : "",
