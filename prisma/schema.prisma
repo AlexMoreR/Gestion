@@ -629,6 +629,7 @@ model OrderItem {
   notes                 String?
   confirmedSupplierId   String?
   purchaseCost          Decimal?               @db.Decimal(12, 2)
+  stockCostSource       String?
   confirmedAt           DateTime?
   supplierPaymentStatus String?
   supplierReceiptUrl    String?
