@@ -19,7 +19,7 @@ import {
   getOrderDisplayState,
   getOrderStatusLabel,
 } from "@/lib/orders";
-import { getSystemBrandName, getSystemCurrency } from "@/lib/system-settings";
+import { getComboCamillasSupplierId, getSystemBrandName, getSystemCurrency } from "@/lib/system-settings";
 import { getPublicAssetUrl, getSiteUrl } from "@/lib/site";
 import {
   ensureManufacturingOrders,
@@ -43,6 +43,12 @@ import {
   PAYMENT_METHOD_SHORT_LABEL,
 } from "@/modules/ventas/domain/payment-method";
 import { SaleOriginBadge } from "@/modules/ventas/presentation/sale-origin-badge";
+import {
+  esComboCamillas,
+  esLaura,
+  itemsParaPlan,
+  ORDEN_COMBO_CREADA_SOLA,
+} from "@/modules/ventas/domain/combo-camillas";
 import { paymentMethodLabel } from "@/modules/ventas/domain/withholding";
 import type { ShipmentDefaults } from "@/modules/guias/presentation/shipment-dispatch-fields";
 
@@ -428,11 +434,25 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       const subtotal = item.purchaseCost == null ? null : Number(item.purchaseCost) * item.quantity;
       lineSubtotalsBySupplier.set(supplierId, [...(lineSubtotalsBySupplier.get(supplierId) ?? []), subtotal]);
     }
-    const [manufacturingOrders, systemBrandName, manufacturingPayments] = await Promise.all([
-      ensureManufacturingOrders(order.id, manufacturingSupplierIds),
-      getSystemBrandName(),
-      getManufacturingPayments(order.id, manufacturingSupplierIds, lineSubtotalsBySupplier),
-    ]);
+    const [manufacturingOrders, systemBrandName, manufacturingPayments, logCreadaSola, quoteItems, comboSupplierId] =
+      await Promise.all([
+        ensureManufacturingOrders(order.id, manufacturingSupplierIds),
+        getSystemBrandName(),
+        getManufacturingPayments(order.id, manufacturingSupplierIds, lineSubtotalsBySupplier),
+        prisma.activityLog.findFirst({
+          where: { entityType: "ORDER", entityId: order.id, summary: { startsWith: ORDEN_COMBO_CREADA_SOLA } },
+          select: { id: true },
+        }),
+        order.saleId
+          ? prisma.quoteItem.findMany({
+              where: { quote: { sale: { id: order.saleId } } },
+              select: { quantity: true, notes: true, product: { select: { code: true } } },
+            })
+          : Promise.resolve([]),
+        getComboCamillasSupplierId(),
+      ]);
+    // Combo Camillas: aviso para mandarle el link a Laura (nunca se le manda solo).
+    const ordenCombo = Boolean(logCreadaSola) || itemsParaPlan(quoteItems).some(esComboCamillas);
     brandName = systemBrandName;
     const suggestedAddress = suggestDeliveryAddress(order.client);
 
@@ -463,6 +483,10 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         hasMissingCost: supplierItems.some((item) => item.purchaseCost == null),
         units: supplierItems.reduce((sum, item) => sum + item.quantity, 0),
         pago: manufacturingPayments.get(manufacturingOrder.supplierId) ?? null,
+        creadaSolaParaLaura:
+          ordenCombo &&
+          supplier !== null &&
+          (supplier.id === comboSupplierId || (!comboSupplierId && esLaura(supplier))),
         lines: supplierItems.map((item) => ({
           id: item.id,
           name: item.product.name,

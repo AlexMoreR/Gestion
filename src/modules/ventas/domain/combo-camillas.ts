@@ -9,6 +9,9 @@ import { parseQuoteItemMeta } from "../../../lib/quote-item-meta";
 
 export const COMBO_CAMILLAS_CODES = ["CMB005", "CAV-16"] as const;
 
+// Inicio del resumen del ActivityLog cuando la orden se crea sola (app y script de relleno).
+export const ORDEN_COMBO_CREADA_SOLA = "Orden creada sola (Combo Camillas)";
+
 export type ComboItem = { codigo: string | null | undefined; cantidad: number };
 export type Proveedora = { id: string; name: string };
 
@@ -30,7 +33,7 @@ function nombreSinTildes(name: string): string {
 }
 
 // "Laura" como palabra completa (ej. "Laura", "Fabrica Laura"), no "Laurita".
-function esLaura(proveedora: Proveedora): boolean {
+export function esLaura(proveedora: Proveedora): boolean {
   return /\blaura\b/.test(nombreSinTildes(proveedora.name));
 }
 
@@ -98,7 +101,10 @@ export type LineaVenta = {
 };
 
 // Items para planComboOrder: un combo en piezas (A) cuenta una vez por comboKey con comboQuantity.
-export function itemsParaPlan(lineas: LineaVenta[]): ComboItem[] {
+// Tambien la usa /admin/ventas para la alerta: solo pide cantidad, notas y codigo.
+export function itemsParaPlan(
+  lineas: Array<Pick<LineaVenta, "quantity" | "notes"> & { product: { code: string | null } }>,
+): ComboItem[] {
   const grupos = new Set<string>();
   const items: ComboItem[] = [];
   for (const linea of lineas) {

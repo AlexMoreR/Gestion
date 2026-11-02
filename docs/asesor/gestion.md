@@ -234,6 +234,18 @@ Una pieza del combo puede tener alternas: el stock de esa pieza es la principal 
 (así se cuenta cuántos combos se pueden armar), y al cotizar o vender por stock la línea sale con la
 primera pieza que alcanza para toda la cantidad (principal, luego alternas); no mezcla piezas.
 
+**Combo Camillas (orden sola con Laura).** Al registrar una venta que trae el Combo Camillas (CMB005 o
+CAV-16), Gestión crea sola la orden de venta y confirma el combo con la proveedora Laura a su costo del
+catálogo (600.000 por combo, una sola vez por combo), con su cargo en la cuenta de Laura. **No le manda
+nada a Laura**: la orden muestra "Orden creada sola para Laura. Envíale el link" junto a los botones del
+link de fabricación y WhatsApp, y la asesora lo envía. Si no se pudo (no trae productos, falta Laura o su
+costo), la venta muestra en /admin/ventas la insignia roja "Falta el producto: no se pudo crear la orden";
+esa alerta se calcula al ver la lista (trae el combo o no trae productos, sin orden y no cancelada), no se
+guarda y desaparece sola cuando la venta tiene orden. Las ventas viejas SAL-00081 y SAL-00082 se rellenan
+con `npm run combo:rellenar` (simula; `--aplicar` crea la orden con la misma lógica, solo si corresponde, y
+nunca inventa productos). Crear la orden carga el costo a la venta: cambia su ganancia en Balances y la
+comisión del mes de quien la vendió.
+
 **Fletes.** Hay dos: el flete de compra por unidad (en la ficha del producto, sube el costo de lo que
 sale de stock) y el flete de envío al cliente (se registra por venta al despachar y resta en su
 ganancia).
