@@ -2,6 +2,7 @@ import type { AppSnapshot } from "./app-overview";
 import type { DayRange, ExpenseLine, OrderTracking, ProductRow, QuoteRow, QuoteStatusCode, SaleDetail, SupplierLedger } from "./entities";
 import type { SaleLedgerInput } from "./payments";
 import type { RetroactivoRow } from "./retroactivos";
+import type { ActivityHistoryRow } from "./activity-history";
 import type { TipoRetroactivo } from "../../retroactivos/domain/retroactivo";
 
 // Filtro opcional de ventas para los abonos; sin filtro = todas las ventas.
@@ -25,6 +26,9 @@ export interface AsesorReadRepository {
   listExpenses(range: DayRange): Promise<ExpenseLine[]>;
   // Registros retroactivos por momento real del registro [desde, hasta) y tipo opcional; del mas reciente al mas viejo.
   listRetroactivos(filter: { desde: Date; hasta: Date; tipo: TipoRetroactivo | null }): Promise<RetroactivoRow[]>;
+  // Bitacora por codigo (ORD, OF, COM, SAL, COT o id de un pago/abono) o por dia de Colombia (AAAA-MM-DD).
+  // Por codigo de orden o compra suma el historial de estados de la orden.
+  activityHistory(filter: { codigo?: string; fecha?: string }): Promise<ActivityHistoryRow[]>;
   // Cuenta corriente de cada proveedora con movimientos, con las ordenes de esos movimientos.
   listSupplierLedgers(): Promise<SupplierLedger[]>;
   // Pedidos: ventas no canceladas con orden, despachos y OF. soloAbiertos = sin entregar.

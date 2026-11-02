@@ -26,6 +26,7 @@ import { readFileSync } from "node:fs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, type Prisma } from "@prisma/client";
 import { Pool } from "pg";
+import { exigirTarjeta, firmar } from "./firma.mjs";
 
 import { resolveOriginForClient } from "../src/modules/ventas/application/register-sale-origin";
 import {
@@ -113,6 +114,8 @@ async function main() {
     console.log(AYUDA);
     return;
   }
+  // Con --aplicar y sin --tarjeta T-xxx se niega antes de tocar la base.
+  const tarjeta = exigirTarjeta();
 
   const databaseUrl = loadEnv("DATABASE_URL");
   const crmUrl = loadEnv("CRM_ORIGEN_URL");
@@ -212,6 +215,14 @@ async function main() {
       console.log(`  ${origin}: ${count}`);
     }
     if (errors) console.log(`  errores del CRM (omitidas): ${errors}`);
+    if (options.apply && tarjeta) {
+      await firmar(db, {
+        script: "rellenar-origen-ventas",
+        tarjeta,
+        resumen: `Rellenó el origen de ${written} venta(s) sin origen`,
+        after: { ventasActualizadas: written, erroresCrm: errors },
+      });
+    }
     console.log(options.apply ? `\nVentas actualizadas: ${written}` : "\n[simulacion] No se aplico ningun cambio. Usa --aplicar para escribir.");
   } finally {
     await db.$disconnect();

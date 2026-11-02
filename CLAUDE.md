@@ -351,12 +351,17 @@ Route handlers reales (`route.ts`):
   herramienta que escribe es `registrar_gasto` (anotada sin `readOnlyHint`; ver "Gastos por voz").
 - Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_abonos`, `ver_venta`, `listar_cotizaciones`,
   `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `equipo`, `asistencia`, `saldos_de_cuentas`,
-  `listar_gastos`, `listar_retroactivos`, `deuda_con_proveedoras`, `buscar_pedido`, `pedidos_abiertos`, `registrar_gasto`, `registrar_pago_proveedora`, `cerrar_mes` y `que_es_esta_aplicacion`.
+  `listar_gastos`, `listar_retroactivos`, `deuda_con_proveedoras`, `buscar_pedido`, `pedidos_abiertos`, `historial_de_registro`, `registrar_gasto`, `registrar_pago_proveedora`, `cerrar_mes` y `que_es_esta_aplicacion`.
 - `deuda_con_proveedoras` (oct-2026, solo lectura): `proveedora` (nombre, sin tildes) y `desde`/`hasta` (fecha de
   la OF) opcionales → por orden: OF, orden, venta, cliente, productos con color, `costo_acordado`, `pagos[]`
   (fecha, cuenta, monto) y `falta`; por proveedora `debemos_total` = cargos − abonos (el saldo de la lista
   `/admin/proveedores`, nunca filtrado por fechas) y `otros` (lo que no va a ninguna orden); `pagos_sin_cuenta`
   de todas las proveedoras (= Balances). Regla compartida con la pantalla: `src/lib/supplier-debt.ts`.
+- `historial_de_registro` (nov-2026, solo lectura): `codigo` (ORD/OF/COM/SAL/COT con o sin ceros, o id de un pago o
+  abono) o `fecha` (AAAA-MM-DD) → la bitácora (`ActivityLog`) de lo más viejo a lo más nuevo, una línea por entrada:
+  hora Colombia, persona, origen (sin dato = "pantalla"), qué hizo, antes/después (solo lo que cambió, ~300
+  caracteres) y tarjeta/commit. Por código busca `entityCode`, `entityId` y el resumen (entradas viejas); una orden o
+  compra suma su `OrderStatusHistory`. Máx. 500. Regla en `src/modules/asesor/domain/activity-history.ts`.
 - `buscar_pedido` y `pedidos_abiertos` (nov-2026, solo lectura): encontrar un pedido (venta no cancelada) por
   clienta, teléfono, ciudad, departamento, producto o código (SAL/ORD/OF/COT, con o sin ceros; máx. 10, el más
   reciente primero) o traer todos los no entregados. Cada uno con ciudad ("sin dato" si la ficha de la clienta no la
@@ -575,6 +580,10 @@ asesoras. Instalación: `scripts/precios-vigentes/README.md`.
 - **Archivos subidos:** viven en `/public/uploads` (volumen persistente) y se sirven por
   `/uploads/[...path]`.
 - **Auditoría:** las acciones importantes registran `ActivityLog`.
+- **Firma de scripts y migraciones:** todo script o migración que cambie datos firma con su tarjeta y su commit; una
+  migración de datos inserta su propia fila en `ActivityLog` con origin 'MIGRACION'. Los scripts usan
+  `scripts/firma.mjs`: `exigirTarjeta()` antes de conectarse (con `--aplicar` y sin `--tarjeta T-xxx` se niega) y
+  `firmar(db, ...)` al escribir (origin "SCRIPT", la tarjeta y el commit de `GIT_COMMIT` o `git rev-parse HEAD`).
 - **Manual de pantallas (regla para el Coordinador y los agentes):** toda tarjeta que cambie una pantalla de
   Gestión (un botón, una pestaña o una ruta) actualiza también `docs/asesor/pantallas.md` con la ruta y el texto
   exacto del botón. Si no, Claude dará indicaciones viejas. Cada carpeta con `page.tsx` bajo

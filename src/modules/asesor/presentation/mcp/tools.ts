@@ -21,6 +21,7 @@ import {
   listProductsUseCase,
   listExpensesUseCase,
   listRetroactivosUseCase,
+  getActivityHistoryUseCase,
   listQuotesUseCase,
   listSalesUseCase,
 } from "../../application/use-cases";
@@ -536,6 +537,26 @@ export const asesorTools: McpToolDefinition[] = [
         persona: args.persona,
         tipo: args.tipo ? (args.tipo.toUpperCase() as "VENTA" | "ABONO" | "GASTO") : null,
       }),
+  }),
+  defineTool({
+    name: "historial_de_registro",
+    title: "Historial de registro (bitácora)",
+    description:
+      "SOLO LECTURA. Quién creó, cambió o borró algo, de lo más viejo a lo más nuevo, en hora de Colombia. Por codigo (ORD, OF, COM, SAL, COT con o sin ceros, o el id de un pago o abono; una orden o compra trae también sus cambios de estado) o por fecha (todo lo del día). Cada línea: hora, persona, desde dónde (pantalla, Claude, CRM, script o migración; sin dato = pantalla), qué hizo, antes y después (solo lo que cambió) y la tarjeta y commit si los tiene. Sirve para: ¿quién tocó la SAL-123?, ¿qué se hizo el 30-oct? Valores en COP.",
+    schema: z.object({
+      codigo: z
+        .string()
+        .max(60)
+        .regex(/^[A-Za-z0-9-]+$/, "Solo letras, números y guiones")
+        .optional()
+        .describe("Código (ej. COM-00010, SAL-123, ORD-92) o id de un pago o abono. Va sin 'fecha'."),
+      fecha: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/, "Usa AAAA-MM-DD")
+        .optional()
+        .describe("Día en hora de Colombia, AAAA-MM-DD. Va sin 'codigo'."),
+    }),
+    handler: (args, deps) => getActivityHistoryUseCase(deps, args),
   }),
   defineTool({
     name: "deuda_con_proveedoras",

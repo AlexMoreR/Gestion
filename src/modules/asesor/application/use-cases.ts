@@ -29,6 +29,7 @@ import {
   summarizeQuotes,
   UNASSIGNED_SELLER,
   AsesorInputError,
+  parseIsoDay,
 } from "../domain/calculations";
 import {
   bogotaDay,
@@ -45,6 +46,7 @@ import type { AsesorReadRepository } from "../domain/repository";
 import { assessProfit, buildSaleLinks, isProfitReliable } from "../domain/sale-products";
 import type { SaleDetail } from "../domain/entities";
 import { buildRetroactivosReport } from "../domain/retroactivos";
+import { buildActivityHistory } from "../domain/activity-history";
 import { findOrders, listOpenOrders, MAX_ORDER_RESULTS } from "../domain/orders";
 import { buildPreciosVigentes } from "../domain/precios-vigentes";
 import { rangoMesBogota, type TipoRetroactivo } from "../../retroactivos/domain/retroactivo";
@@ -712,6 +714,21 @@ export async function listRetroactivosUseCase(
   const { valor: mes, desde, hasta } = rangoMesBogota(filtros.mes);
   const rows = await deps.asesor.listRetroactivos({ desde, hasta, tipo: filtros.tipo ?? null });
   return withShortCodes(buildRetroactivosReport(rows, { mes, persona: filtros.persona }));
+}
+
+// Bitacora de quien creo, cambio o borro algo: por codigo o por dia (AAAA-MM-DD, hora Colombia).
+// Solo lectura.
+export async function getActivityHistoryUseCase(
+  deps: AsesorDependencies,
+  filtros: { codigo?: string; fecha?: string },
+) {
+  const codigo = filtros.codigo?.trim();
+  const fecha = filtros.fecha?.trim();
+  if (!codigo === !fecha) {
+    throw new AsesorInputError("Manda 'codigo' (ej. COM-00010) o 'fecha' (AAAA-MM-DD), uno de los dos.");
+  }
+  const rows = await deps.asesor.activityHistory(codigo ? { codigo } : { fecha: parseIsoDay(fecha!, "fecha") });
+  return withShortCodes(buildActivityHistory(rows, codigo ? codigo.toUpperCase() : `el ${fecha}`));
 }
 
 const ORDER_NOTES = [
