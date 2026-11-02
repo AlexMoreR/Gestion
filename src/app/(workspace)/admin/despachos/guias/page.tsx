@@ -7,6 +7,7 @@ import { OperationsTabs } from "@/components/admin/operations-tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
+import { displayCode } from "@/lib/code-display";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { getSystemCurrency } from "@/lib/system-settings";
@@ -157,7 +158,7 @@ export default async function AdminGuiasPage({ searchParams }: PageProps) {
                     ) : null}
                   </div>
                   <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                    {row.dispatch.order.code} · {row.dispatch.code}
+                    {displayCode(row.dispatch.order.code)} · {displayCode(row.dispatch.code)}
                     <ArrowUpRight className="h-3 w-3" />
                   </span>
                 </div>

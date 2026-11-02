@@ -5,6 +5,7 @@ import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
 import { getPurchaseFormData } from "@/lib/purchase-form-data";
 import { getSystemCurrency } from "@/lib/system-settings";
+import { displayCode } from "@/lib/code-display";
 
 type PageProps = {
   params: Promise<{ orderId: string }>;
@@ -97,7 +98,7 @@ export default async function EditPurchasePage({ params }: PageProps) {
       currency={currency}
       editOrder={{
         orderId: order.id,
-        code: order.purchaseCode ?? order.code,
+        code: displayCode(order.purchaseCode ?? order.code),
         movementDate: toDateInput(order.releasedAt ?? order.createdAt),
         lines,
       }}

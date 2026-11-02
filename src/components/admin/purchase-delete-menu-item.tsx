@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { adminDeletePurchaseOrderAction } from "@/app/actions/inventory-actions";
+import { displayCode } from "@/lib/code-display";
 
 type PurchaseDeleteMenuItemProps = {
   onSelect: () => void;
@@ -61,7 +62,7 @@ export function PurchaseDeleteDialog({ orderId, code, open, onOpenChange }: Purc
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Eliminar la compra {code}</DialogTitle>
+          <DialogTitle>Eliminar la compra {displayCode(code)}</DialogTitle>
           <DialogDescription>
             {keepInventoryMovements
               ? "Se eliminará la orden, pero se conservarán los movimientos de inventario (el stock ingresado y sus cobros a proveedores)."

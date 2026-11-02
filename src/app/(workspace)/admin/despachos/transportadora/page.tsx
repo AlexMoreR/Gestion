@@ -17,6 +17,7 @@ import { prisma } from "@/lib/prisma";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { SHIPMENT_STATUS_BADGE, SHIPMENT_STATUS_LABEL } from "@/modules/guias/domain/statuses";
 import { PaymentMethodBadge } from "@/modules/ventas/presentation/payment-method-badge";
+import { displayCode } from "@/lib/code-display";
 
 /*
   Seguimiento con la transportadora: que envios tiene cada proveedor de envios, cuales siguen
@@ -131,7 +132,7 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
 
   const clientLabel = (row: Row) => {
     const client = row.order.client;
-    const name = client?.name || client?.email || row.order.code;
+    const name = client?.name || client?.email || displayCode(row.order.code);
     return client?.city ? `${name} (${client.city})` : name;
   };
 
@@ -142,12 +143,12 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
     if (pendingGuide.length) {
       lines.push("", "SIN GUÍA:");
       pendingGuide.forEach((row) =>
-        lines.push(`- ${row.code}${quoteOf(row) ? ` (${quoteOf(row)!.code})` : ""} · ${clientLabel(row)} · hace ${row.days} día(s)`),
+        lines.push(`- ${displayCode(row.code)}${quoteOf(row) ? ` (${displayCode(quoteOf(row)!.code)})` : ""} · ${clientLabel(row)} · hace ${row.days} día(s)`),
       );
     }
     if (pendingDelivery.length) {
       lines.push("", "SIN ENTREGAR:");
-      pendingDelivery.forEach((row) => lines.push(`- ${row.code} · guía ${row.trackingNumber} · hace ${row.days} día(s)`));
+      pendingDelivery.forEach((row) => lines.push(`- ${displayCode(row.code)} · guía ${row.trackingNumber} · hace ${row.days} día(s)`));
     }
     lines.push("", "¿Me confirmas las guías y cuándo se entregan? Gracias.");
     return lines.join("\n");
@@ -157,9 +158,9 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
     <div key={row.id} className="flex min-w-0 flex-col gap-2 overflow-hidden rounded-xl border border-border bg-card/95 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold text-foreground">{row.code}</span>
+          <span className="font-semibold text-foreground">{displayCode(row.code)}</span>
           <Link href={`/admin/ordenes/${row.order.id}`} className="inline-flex items-center gap-0.5 text-xs text-primary hover:underline">
-            {row.order.code}
+            {displayCode(row.order.code)}
             <ArrowUpRight className="h-3 w-3" />
           </Link>
           {quoteOf(row) ? (
@@ -167,11 +168,11 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
               href={`/admin/cotizaciones/${quoteOf(row)!.id}`}
               className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary hover:underline"
             >
-              {quoteOf(row)!.code}
+              {displayCode(quoteOf(row)!.code)}
               <ArrowUpRight className="h-3 w-3" />
             </Link>
           ) : null}
-          {row.order.sale?.code ? <span className="text-xs text-muted-foreground">{row.order.sale.code}</span> : null}
+          {row.order.sale?.code ? <span className="text-xs text-muted-foreground">{displayCode(row.order.sale.code)}</span> : null}
           {row.order.sale ? <PaymentMethodBadge method={row.order.sale.paymentMethod} /> : null}
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${getDispatchStatusBadgeClassName(row.status)}`}>
             {getDispatchStatusLabel(row.status)}

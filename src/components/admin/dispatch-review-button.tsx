@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { MoneyInput } from "@/components/ui/money-input";
 import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { displayCode } from "@/lib/code-display";
 import { getDispatchStatusBadgeClassName, getDispatchStatusLabel } from "@/lib/orders";
 
 export type DispatchReviewData = {
@@ -123,7 +124,7 @@ export function DispatchReviewButton({
           <DialogHeader className="shrink-0 border-b px-6 py-4">
             <DialogTitle className="inline-flex items-center gap-2">
               <Truck className="h-4 w-4 text-muted-foreground" />
-              Despacho {dispatch.code}
+              Despacho {displayCode(dispatch.code)}
             </DialogTitle>
           </DialogHeader>
 
@@ -134,7 +135,7 @@ export function DispatchReviewButton({
               >
                 {getDispatchStatusLabel(dispatch.status)}
               </span>
-              <span className="text-xs text-muted-foreground">Orden {dispatch.orderCode}</span>
+              <span className="text-xs text-muted-foreground">Orden {displayCode(dispatch.orderCode)}</span>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

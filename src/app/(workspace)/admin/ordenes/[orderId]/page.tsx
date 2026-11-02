@@ -54,6 +54,7 @@ import {
 } from "@/modules/ventas/domain/combo-camillas";
 import { paymentMethodLabel } from "@/modules/ventas/domain/withholding";
 import type { ShipmentDefaults } from "@/modules/guias/presentation/shipment-dispatch-fields";
+import { displayCode } from "@/lib/code-display";
 
 type PageProps = {
   params: Promise<{ orderId: string }>;
@@ -521,7 +522,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">{order.code}</h1>
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">{displayCode(order.code)}</h1>
           {order.type === "PURCHASE" ? (
             <p className="text-sm text-muted-foreground">
               Compra{order.supplier ? ` a ${order.supplier.name}` : " a proveedor"}
@@ -531,7 +532,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             <p className="text-sm text-muted-foreground">
               Venta{" "}
               <Link href="/admin/ventas" className="font-medium text-foreground hover:underline">
-                {order.sale?.code}
+                {displayCode(order.sale?.code)}
               </Link>{" "}
               - Cliente {order.client?.name || order.client?.email}
             </p>
@@ -554,7 +555,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               {canChangePaymentMethod && order.sale ? (
                 <ChangePaymentMethodButton
                   saleId={order.sale.id}
-                  saleCode={order.sale.code}
+                  saleCode={displayCode(order.sale.code)}
                   returnTo={`/admin/ordenes/${order.id}`}
                   defaultValue={salePaymentMethod}
                   hasCamillaCombo={comboCheckProducts.some(isCamillaComboProduct)}
@@ -680,7 +681,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                 {shippingLegCards.map((card) => (
                   <div key={card.id} className="space-y-1.5">
                     {shippingLegCards.length > 1 ? (
-                      <p className="text-xs font-medium text-muted-foreground">Despacho {card.code}</p>
+                      <p className="text-xs font-medium text-muted-foreground">Despacho {displayCode(card.code)}</p>
                     ) : null}
                     {card.legs.map((leg) => (
                       <div
@@ -729,7 +730,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                     {card.canAddLeg ? (
                       <AddShippingLegDialog
                         dispatchId={card.id}
-                        dispatchCode={card.code}
+                        dispatchCode={displayCode(card.code)}
                         returnTo={returnTo}
                         carriers={carriers}
                         accounts={accounts}
@@ -765,7 +766,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                     >
                       <input type="hidden" name="dispatchId" value={dispatch.id} />
                       <input type="hidden" name="returnTo" value={returnTo} />
-                      <span className="text-muted-foreground">{dispatch.code} sin guía</span>
+                      <span className="text-muted-foreground">{displayCode(dispatch.code)} sin guía</span>
                       <span className="ml-auto flex items-center gap-2">
                         <input
                           type="text"

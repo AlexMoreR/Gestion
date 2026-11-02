@@ -36,6 +36,7 @@ import type { SupportedCurrencyCode } from "@/lib/currency";
 import { calculateQuoteLineTotal } from "@/lib/quote-item-meta";
 import { imageVariantUrl } from "@/lib/image-variants";
 import { Button } from "../ui/button";
+import { displayCode } from "@/lib/code-display";
 
 export type QuoteWizardClient = {
   id: string;
@@ -677,7 +678,7 @@ export function QuoteWizardModal({
   }
 
   const action = isEdit ? adminUpdateQuoteFullAction : adminCreateQuoteAction;
-  const title = isEdit ? `Editar cotizacion ${quoteCode}` : "Nueva cotizacion";
+  const title = isEdit ? `Editar cotizacion ${displayCode(quoteCode)}` : "Nueva cotizacion";
   const submitLabel = isEdit ? "Guardar cambios" : "Generar cotizacion";
 
   return (

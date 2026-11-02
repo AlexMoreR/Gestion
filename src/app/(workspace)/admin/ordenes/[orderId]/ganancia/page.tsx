@@ -18,6 +18,7 @@ import { prisma } from "@/lib/prisma";
 import { getFulfillmentModeLabel } from "@/lib/orders";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { computeItemUnitCost } from "@/lib/order-item-cost";
+import { displayCode } from "@/lib/code-display";
 
 type PageProps = {
   params: Promise<{ orderId: string }>;
@@ -138,10 +139,10 @@ export default async function OrderEarnedValuePage({ params }: PageProps) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
             <h1 className="text-xl font-semibold tracking-tight text-foreground">
-              Valor ganado · {order.code}
+              Valor ganado · {displayCode(order.code)}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Venta {order.sale?.code} - Cliente {order.client?.name || order.client?.email}
+              Venta {displayCode(order.sale?.code)} - Cliente {order.client?.name || order.client?.email}
             </p>
           </div>
         </div>

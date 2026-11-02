@@ -78,6 +78,7 @@ import {
 import { DataTable } from "@/components/ui/data-table";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { todayInColombia } from "@/lib/colombia-time";
+import { displayCode } from "@/lib/code-display";
 import { MoneyInput } from "@/components/ui/money-input";
 import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-field";
 
@@ -286,7 +287,7 @@ function RowActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones ${sale.code}`}>
+        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones ${displayCode(sale.code)}`}>
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
@@ -339,7 +340,7 @@ function RowActions({
           className="text-destructive hover:bg-destructive/10 hover:text-destructive focus:bg-destructive/10 focus:text-destructive"
           onClick={() => {
             const confirmed = window.confirm(
-              `¿Eliminar la venta ${sale.code}?\n\nSe borrarán también la orden, despachos, producción, abonos y los pagos/cargos a proveedores ligados. Esta acción no se puede deshacer.`,
+              `¿Eliminar la venta ${displayCode(sale.code)}?\n\nSe borrarán también la orden, despachos, producción, abonos y los pagos/cargos a proveedores ligados. Esta acción no se puede deshacer.`,
             );
             if (!confirmed) return;
             const form = document.querySelector<HTMLFormElement>(
@@ -394,7 +395,7 @@ function SaleReceiptsSheet({
         <SheetHeader className="border-b border-border pb-4">
           <SheetTitle>Comprobantes de pago</SheetTitle>
           <SheetDescription>
-            {sale ? `Venta ${sale.code} · ${sale.quoteCode}` : "Lista de comprobantes asociados a la venta."}
+            {sale ? `Venta ${displayCode(sale.code)} · ${displayCode(sale.quoteCode)}` : "Lista de comprobantes asociados a la venta."}
           </SheetDescription>
         </SheetHeader>
 
@@ -649,7 +650,7 @@ function AddSalePaymentSheet({
             ) : null}
           </div>
           <SheetDescription>
-            {sale ? `Venta ${sale.code} · ${sale.clientName}` : "Registra un nuevo abono para la venta."}
+            {sale ? `Venta ${displayCode(sale.code)} · ${sale.clientName}` : "Registra un nuevo abono para la venta."}
           </SheetDescription>
         </SheetHeader>
 
@@ -847,7 +848,7 @@ function SaleMobileCard({
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
           <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
-            {sale.code}
+            {displayCode(sale.code)}
             <PaymentMethodBadge method={sale.salePaymentMethod} />
             <SaleOriginBadge origin={sale.saleOrigin} detail={sale.saleOriginDetail} />
           </p>
@@ -906,7 +907,7 @@ export function SalesDataTable({
         header: () => <HeaderWithIcon icon={<Hash className="h-3.5 w-3.5" />}>Venta</HeaderWithIcon>,
         cell: ({ row }) => (
           <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
-            {row.original.code}
+            {displayCode(row.original.code)}
             <PaymentMethodBadge method={row.original.salePaymentMethod} />
             <SaleOriginBadge origin={row.original.saleOrigin} detail={row.original.saleOriginDetail} />
           </p>
@@ -1076,7 +1077,7 @@ export function SalesDataTable({
               <input type="hidden" name="returnTo" value="/admin/ventas" />
               <input type="hidden" name="saleId" value={paymentMethodSale.id} />
               <p className="text-sm text-muted-foreground">
-                Venta <span className="font-medium text-foreground">{paymentMethodSale.code}</span> —{" "}
+                Venta <span className="font-medium text-foreground">{displayCode(paymentMethodSale.code)}</span> —{" "}
                 {paymentMethodSale.clientName}
               </p>
               <PaymentMethodField
@@ -1108,7 +1109,7 @@ export function SalesDataTable({
               <input type="hidden" name="saleId" value={dateSale.id} />
 
               <p className="text-sm text-muted-foreground">
-                Venta <span className="font-medium text-foreground">{dateSale.code}</span> — {dateSale.clientName}
+                Venta <span className="font-medium text-foreground">{displayCode(dateSale.code)}</span> — {dateSale.clientName}
               </p>
 
               <div className="space-y-1.5">

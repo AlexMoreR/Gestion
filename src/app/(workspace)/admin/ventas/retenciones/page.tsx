@@ -8,6 +8,7 @@ import { formatMoney } from "@/lib/currency";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { bogotaDateKey, parseWithholdingMonth } from "@/modules/ventas/domain/withholding";
 import { getWithholdingReport } from "@/modules/ventas/infrastructure/prisma-withholdings";
+import { displayCode } from "@/lib/code-display";
 
 // Retenciones en la fuente por mes (para la declaracion de renta). Una retencion es un abono que
 // la empresa cliente se quedo y pago a la DIAN a nombre de Magilus: cuenta como pagado en la venta,
@@ -122,7 +123,7 @@ export default async function AdminVentasRetencionesPage({ searchParams }: PageP
                 {report.rows.map((row) => (
                   <tr key={row.id} className="border-b border-border/60">
                     <td className="py-2 pr-3 tabular-nums">{bogotaDateKey(row.date)}</td>
-                    <td className="py-2 pr-3 font-medium">{row.saleCode}</td>
+                    <td className="py-2 pr-3 font-medium">{displayCode(row.saleCode)}</td>
                     <td className="py-2 pr-3">{row.clientName}</td>
                     <td className="py-2 pr-3 text-muted-foreground">{row.clientTaxId ?? "—"}</td>
                     <td className="py-2 pr-3 text-right tabular-nums">{formatMoney(row.amount, currency)}</td>

@@ -6,6 +6,7 @@ import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
+import { displayCode } from "@/lib/code-display";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -147,7 +148,7 @@ export default async function AdminDespachosPage({ searchParams }: PageProps) {
           code: dispatch.code,
           orderCode: dispatch.order.code,
           orderId: dispatch.order.id,
-          clientName: dispatch.order.client?.name || dispatch.order.client?.email || dispatch.order.code,
+          clientName: dispatch.order.client?.name || dispatch.order.client?.email || displayCode(dispatch.order.code),
           carrierName: dispatch.carrierName,
           trackingNumber: dispatch.trackingNumber,
           status: dispatch.status,

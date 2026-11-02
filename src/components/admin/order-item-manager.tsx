@@ -32,6 +32,7 @@ import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
+import { displayCode } from "@/lib/code-display";
 import {
   ShipmentDispatchFields,
   type ShipmentDefaults,
@@ -311,7 +312,7 @@ export function OrderItemManager({
             disabled
             title={
               item.dispatchCode
-                ? `Despacho ${item.dispatchCode}${item.dispatchCarrierName ? ` - ${item.dispatchCarrierName}` : ""}`
+                ? `Despacho ${displayCode(item.dispatchCode)}${item.dispatchCarrierName ? ` - ${item.dispatchCarrierName}` : ""}`
                 : "Despachado"
             }
           >
@@ -819,7 +820,7 @@ export function OrderItemManager({
           <DialogHeader>
             <DialogTitle>Deshacer despacho</DialogTitle>
             <DialogDescription>
-              Se eliminara el despacho{item.dispatchCode ? ` ${item.dispatchCode}` : ""} de{" "}
+              Se eliminara el despacho{item.dispatchCode ? ` ${displayCode(item.dispatchCode)}` : ""} de{" "}
               <span className="font-medium text-foreground">{item.productName}</span> y el producto
               volvera al estado &quot;Recogido&quot; para poder despacharlo de nuevo. Se revertiran los costos
               de envio asociados.
