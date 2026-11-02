@@ -62,7 +62,8 @@ export type AsesorDependencies = {
 // Lo que entrega el MCP lleva los codigos sin ceros adelante (SAL-00081 -> SAL-81) en codigos,
 // notas y textos libres; lo guardado no cambia. Las fechas y los numeros pasan tal cual.
 function withShortCodes<T>(value: T): T {
-  if (typeof value === "string") return stripCodeZeros(value) as T;
+  // Los enlaces no se tocan: un token puede traer por azar algo como "-OF-0123".
+  if (typeof value === "string") return (/^https?:\/\//.test(value) ? value : stripCodeZeros(value)) as T;
   if (Array.isArray(value)) return value.map(withShortCodes) as T;
   if (value && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype) {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, withShortCodes(item)])) as T;
