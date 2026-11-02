@@ -18,7 +18,7 @@ const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 export class AsesorInputError extends Error {}
 
-function parseIsoDay(value: string, field: string): string {
+export function parseIsoDay(value: string, field: string): string {
   const match = ISO_DAY.exec(value.trim());
   if (!match) {
     throw new AsesorInputError(`"${field}" debe tener el formato AAAA-MM-DD (ej. 2026-09-01).`);

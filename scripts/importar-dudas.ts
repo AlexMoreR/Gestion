@@ -18,6 +18,7 @@ import { join } from "node:path";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, type Prisma } from "@prisma/client";
 import { Pool } from "pg";
+import { exigirTarjeta, firmar } from "./firma.mjs";
 
 import {
   idDesdeArchivo,
@@ -55,6 +56,8 @@ function leerCarpeta<T>(carpeta: string, leer: (id: string, json: unknown) => T)
 }
 
 async function main() {
+  // Con --aplicar y sin --tarjeta T-xxx se niega antes de tocar la base.
+  const tarjeta = exigirTarjeta();
   if (process.argv.includes("--ayuda") || process.argv.includes("--help")) {
     console.log(AYUDA);
     return;
@@ -122,6 +125,14 @@ async function main() {
       if (existe) continue;
       await prisma.respuestaDuda.create({ data: { ...r, accesoId: null } });
       respuestasNuevas += 1;
+    }
+    if (tarjeta) {
+      await firmar(prisma, {
+        script: "importar-dudas",
+        tarjeta,
+        resumen: `Importó dudas del catálogo: ${nuevas} nuevas, ${actualizadas} actualizadas, ${respuestasNuevas} respuestas`,
+        after: { nuevas, actualizadas, respuestasNuevas },
+      });
     }
     console.log(`\nListo. Preguntas nuevas: ${nuevas}, actualizadas: ${actualizadas}. Respuestas importadas: ${respuestasNuevas} (ya estaban: ${respuestas.items.length - respuestasNuevas}).`);
   } finally {

@@ -46,6 +46,8 @@ const CODE_RULES = [
   { regla: "Gastos por voz: archivo permitido para la foto opcional (JPG, PNG, WEBP o PDF; no se revisa)", archivo: "src/modules/expenses/domain/receipt-check.ts", funcion: "sniffReceiptMime" },
   { regla: "Gastos por voz: vigencia del enlace opcional de la foto (24 h, un uso)", archivo: "src/modules/expenses/domain/expense-draft.ts", funcion: "draftAvailability" },
   { regla: "Ganancia real del mes (ventas - producto - flete - nomina pagada a empleados - gastos; retiros del dueno aparte)", archivo: "src/modules/asesor/domain/calculations.ts", funcion: "computeRealProfit" },
+  { regla: "Bitacora: cada entrada en una linea (hora Colombia, persona, origen, antes y despues)", archivo: "src/modules/asesor/domain/activity-history.ts", funcion: "formatActivityLine" },
+  { regla: "Scripts que cambian datos: con --aplicar exigen --tarjeta T-xxx", archivo: "scripts/firma.mjs", funcion: "exigirTarjeta" },
 ];
 
 const warnings = [];

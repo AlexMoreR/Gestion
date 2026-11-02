@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
-import { dbWindow, inColombiaPeriod } from "@/lib/colombia-time";
+import { colombiaDayRange, dbWindow, inColombiaPeriod } from "@/lib/colombia-time";
+import { storedCodeCandidates } from "@/lib/code-display";
 import { prisma } from "@/lib/prisma";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import type {
@@ -14,6 +15,7 @@ import type {
   SupplierLedger,
 } from "../domain/entities";
 import type { SaleLedgerInput } from "../domain/payments";
+import { MAX_HISTORIAL, type ActivityHistoryRow } from "../domain/activity-history";
 import { describeProductSource } from "../domain/product-source";
 import { buildQuoteProductSummary, buildSaleProducts, type SaleProductItemInput } from "../domain/sale-products";
 import type { AsesorReadRepository, SaleLedgerFilter } from "../domain/repository";
@@ -324,6 +326,79 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
         motivo: row.motivo,
         monto: toNumber(row.monto),
       }));
+    },
+
+    async activityHistory({ codigo, fecha }) {
+      let logWhere: Prisma.ActivityLogWhereInput;
+      let historyWhere: Prisma.OrderStatusHistoryWhereInput | null;
+      if (codigo) {
+        const candidatos = storedCodeCandidates(codigo);
+        // El resumen se busca solo con la forma guardada (con ceros): "COM-10" tambien calzaria "COM-100".
+        logWhere = {
+          OR: [
+            { entityCode: { in: candidatos } },
+            { entityId: codigo.trim() },
+            { summary: { contains: candidatos[0], mode: "insensitive" } },
+          ],
+        };
+        // Orden (ORD) o compra (COM, por su orden): tambien su historial de estados.
+        historyWhere = /^(ORD|COM)-/i.test(candidatos[0])
+          ? { order: { OR: [{ code: { in: candidatos } }, { purchaseCode: { in: candidatos } }] } }
+          : null;
+      } else {
+        // createdAt siempre es un momento real: el dia de Colombia es [05:00Z, 05:00Z del dia siguiente).
+        const { start, end } = colombiaDayRange(fecha!);
+        logWhere = { createdAt: { gte: start, lt: end } };
+        historyWhere = { createdAt: { gte: start, lt: end } };
+      }
+
+      const [logs, history] = await Promise.all([
+        prisma.activityLog.findMany({
+          where: logWhere,
+          orderBy: { createdAt: "asc" },
+          take: MAX_HISTORIAL,
+          select: { createdAt: true, actorName: true, origin: true, summary: true, before: true, after: true, ticket: true, commitSha: true },
+        }),
+        historyWhere
+          ? prisma.orderStatusHistory.findMany({
+              where: historyWhere,
+              orderBy: { createdAt: "asc" },
+              take: MAX_HISTORIAL,
+              select: {
+                createdAt: true,
+                fromStatus: true,
+                toStatus: true,
+                note: true,
+                order: { select: { code: true } },
+                changedBy: { select: { name: true, email: true } },
+              },
+            })
+          : Promise.resolve([]),
+      ]);
+
+      const rows: ActivityHistoryRow[] = [
+        ...logs.map((log) => ({
+          kind: "actividad" as const,
+          at: log.createdAt,
+          persona: log.actorName,
+          origin: log.origin,
+          summary: log.summary,
+          before: log.before,
+          after: log.after,
+          ticket: log.ticket,
+          commitSha: log.commitSha,
+        })),
+        ...history.map((row) => ({
+          kind: "estado" as const,
+          at: row.createdAt,
+          persona: row.changedBy.name ?? row.changedBy.email,
+          orderCode: row.order.code,
+          fromStatus: row.fromStatus,
+          toStatus: row.toStatus,
+          note: row.note,
+        })),
+      ];
+      return rows;
     },
 
     async listExpenses(range: DayRange): Promise<ExpenseLine[]> {

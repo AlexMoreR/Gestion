@@ -23,6 +23,7 @@ import { join } from "node:path";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { Pool } from "pg";
+import { exigirTarjeta, firmar } from "./firma.mjs";
 
 import { carpetaUploadsPorDefecto, guardarImagenFicha } from "../src/lib/fichas-storage";
 import {
@@ -56,6 +57,8 @@ function leerCarpeta(carpeta: string): Map<string, string> {
 }
 
 async function main() {
+  // Con --aplicar y sin --tarjeta T-xxx se niega antes de tocar la base o el disco.
+  const tarjeta = exigirTarjeta();
   if (process.argv.includes("--ayuda") || process.argv.includes("--help")) {
     console.log(AYUDA);
     return;
@@ -136,6 +139,14 @@ async function main() {
         fallidas += 1;
         console.error(`  x ${fila.codigo}: ${error instanceof Error ? error.message : String(error)}`);
       }
+    }
+    if (tarjeta) {
+      await firmar(prisma, {
+        script: "importar-fichas",
+        tarjeta,
+        resumen: `Importó fichas técnicas: ${creadas} creada(s), ${fallidas} con error`,
+        after: { creadas, fallidas },
+      });
     }
     console.log(`\nListo: ${creadas} creada(s), ${fallidas} con error.`);
     if (fallidas) process.exitCode = 1;

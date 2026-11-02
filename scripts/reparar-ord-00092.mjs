@@ -13,10 +13,15 @@
 //
 // Por defecto SOLO SIMULA. Escribe unicamente con --aplicar. Se puede correr dos
 // veces: si ya esta completada y sin faltantes, no hace nada.
+// Con --aplicar exige --tarjeta T-xxx y firma en la bitacora (scripts/firma.mjs).
 import { readFileSync } from "node:fs";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+import { exigirTarjeta, firmar } from "./firma.mjs";
+
+// Antes de tocar la base: con --aplicar y sin tarjeta, se niega.
+const TARJETA = exigirTarjeta();
 
 if (!process.env.DATABASE_URL) {
   try {
@@ -144,6 +149,13 @@ await prisma.$transaction(async (tx) => {
       },
     });
   }
+  await firmar(tx, {
+    script: "reparar-ord-00092",
+    tarjeta: TARJETA,
+    entityCode: ORDEN,
+    resumen: `Reparó la ${ORDEN} (${COMPRA}): ${cambiaEstado ? "pasó a Completada" : "ya estaba completada"}; reposiciones: ${faltantes.length}`,
+    after: { cambiaEstado, reposiciones: faltantes.map((f) => ({ productId: f.productId, unidades: f.falta })) },
+  });
 });
 console.log("Listo: reparación aplicada.");
 await prisma.$disconnect();
