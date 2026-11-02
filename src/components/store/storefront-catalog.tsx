@@ -691,8 +691,7 @@ export async function StorefrontCatalog({
                 {category.seoTitle?.trim() || `${category.name} en ${brandName}: fábrica en Cali y Bogotá`}
               </h2>
               <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
-                {category.description?.trim() ||
-                  `Encuentra ${category.name.toLowerCase()} en ${brandName}, con referencias pensadas para negocios que necesitan proyectar calidad, comodidad y una imagen profesional.`}
+                {category.description?.trim() || autoCategoryDescription}
               </p>
             </div>
           ) : null}
