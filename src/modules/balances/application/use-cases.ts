@@ -12,6 +12,7 @@ import type {
 import type { DateRange } from "../domain/entities";
 import { currentAccountBalance } from "../domain/cash-position";
 import { negativeBalanceNotice } from "../domain/negative-balance";
+import { summarizeOwnerContributions } from "../domain/owner-contributions";
 
 export async function createSupplierPaymentUseCase(
   repository: BalancesRepository,
@@ -69,6 +70,11 @@ export async function getProfitReportUseCase(repository: BalancesRepository, que
 
 export async function listAccountsUseCase(repository: BalancesRepository, options?: { activeOnly?: boolean; includeOwner?: boolean }) {
   return repository.listAccounts(options);
+}
+
+// Aportes del dueño por mes: suma de los gastos pagados con su cuenta, no un saldo.
+export async function getOwnerContributionsUseCase(repository: BalancesRepository, period?: DateRange) {
+  return summarizeOwnerContributions(await repository.listOwnerContributionExpenses(period));
 }
 
 export async function listAccountBalancesUseCase(repository: BalancesRepository) {

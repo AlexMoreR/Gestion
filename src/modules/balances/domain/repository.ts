@@ -13,6 +13,7 @@ import type {
   SupplierBalance,
   SupplierPayment,
 } from "./entities";
+import type { OwnerContributionExpense } from "./owner-contributions";
 
 export type ListBalancesQuery = {
   search?: string;
@@ -105,4 +106,6 @@ export interface BalancesRepository {
   createAccount(input: CreateAccountInput): Promise<Account>;
   updateAccount(accountId: string, input: UpdateAccountInput): Promise<Account>;
   createAccountMovement(input: CreateAccountMovementInput): Promise<void>;
+  // Gastos pagados con la cuenta "Aportes del dueño" (OWNER); sin `period`, todos.
+  listOwnerContributionExpenses(period?: DateRange): Promise<OwnerContributionExpense[]>;
 }

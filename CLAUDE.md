@@ -40,7 +40,7 @@ módulos y para qué sirven:
 | **Órdenes** | `/admin/ordenes` | Órdenes de **venta** (cumplimiento al cliente) y de **compra** (a proveedor). Trazabilidad de estados. |
 | **Producción** | `/admin/produccion` | Trabajos de fabricación (production jobs) por ítem de orden. |
 | **Despachos** | `/admin/despachos` | Salidas, transportadora, guía, costo de envío y entrega. |
-| **Balances** | `/admin/balances` | Rentabilidad por venta, cuentas (caja/banco/wallet), movimientos y costos logístico-financieros. |
+| **Balances** | `/admin/balances` | Rentabilidad por venta, cuentas (caja/banco/wallet), movimientos y costos logístico-financieros. En la pestaña Cuentas, la tarjeta **"Aportes del dueño"**: total por mes y gastos de cada mes pagados con la cuenta OWNER (suma de gastos, no un saldo; `summarizeOwnerContributions` en `src/modules/balances/domain/owner-contributions.ts`). |
 | **Nómina** | `/admin/comisiones/nomina` | Básico + comisiones − pagado por persona y mes; "Dinero hoy" por cuenta; registrar pago (gasto de Nómina desde una cuenta). Config en `AppSetting.payrollConfig`; módulo `src/modules/nomina`. Solo dueño/admin (permiso `commissions`). |
 | **Equipo** | `/admin/equipo` | Ficha de cada trabajador (cédula, nacimiento/edad, celular, correo, dirección, contacto de emergencia, cargo, vinculación, forma de pago, ingreso, salida y motivo). Estado Activo/Retirado calculado por la fecha de salida. Tabla `TeamMember`; módulo `src/modules/equipo`. Solo dueño/admin (permiso `team`, reservado). |
 | **Asistencia** | `/admin/asistencia` | Registro de entrada y salida: botón "Marcar entrada/salida" en la barra (Empleado y Admin; hora del servidor). Pestañas Hoy (trabajando / salió / no ha llegado) y Por mes (filtro persona y mes); el admin marca por otra persona y corrige/agrega/anula marcas con motivo. Tabla `AsistenciaMarca`; módulo `src/modules/asistencia`. Solo dueño/admin (permiso `attendance`, reservado). |
@@ -165,8 +165,12 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   `purchaseCode` (`COM-...`) agrupa los movimientos de una compra directa (permite revertirla).
 
 ### Dinero del negocio: cuentas, gastos, cierres
-- **Account** — cuentas de dinero (`CASH`/`BANK`/`WALLET`/`OTHER`) con `openingBalance`. A ellas entran
-  pagos de ventas y salen pagos a proveedores, envíos y gastos.
+- **Account** — cuentas de dinero (`CASH`/`BANK`/`WALLET`/`OTHER`/`OWNER`) con `openingBalance`. A ellas entran
+  pagos de ventas y salen pagos a proveedores, envíos y gastos. **`OWNER`** = "Aportes del dueño" (una sola,
+  `ensureOwnerAccount`): gastos de Magilus pagados con la plata de Alexander. Solo se elige en Gastos; **no cuenta
+  como plata del negocio** (no sale en "Dinero hoy", saldos, nómina ni Cuentas), pero sus gastos sí restan de la
+  ganancia. Paso del arriendo de octubre (`cmvt1s4es005d2ho4x8jr8kle`) desde 1-Bancolombia:
+  `npm run aportes:arriendo` (simula; `--aplicar` escribe, solo con el sí de Alexander tras comparar el extracto).
 - **AccountMovement** — movimientos manuales de una cuenta (`IN`/`OUT`/`TRANSFER`). `transferId` agrupa
   las dos patas de una transferencia entre cuentas.
 - **ExpenseCategory** — categorías de gasto (nómina, marketing, varios, servicios, etc.).

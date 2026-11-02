@@ -78,7 +78,7 @@ en las Server Actions y en `src/lib/`.
 - `Dispatch`: despacho o entrega de una orden: tipo de entrega, transportadora, guía, costo de envío y fotos.
 - `DispatchItem`: qué productos y cuántas unidades salen en un despacho; reparte el costo del envío.
 - `OrderStatusHistory`: cada cambio de estado de una orden; la última entrada a "entregada" es la fecha de entrega.
-- `Account`: cuenta de dinero del negocio (efectivo, banco, billetera) con saldo inicial.
+- `Account`: cuenta de dinero del negocio (efectivo, banco, billetera) con saldo inicial. El tipo `OWNER` es la cuenta "Aportes del dueño": gastos de Magilus pagados con la plata del dueño; no es dinero del negocio.
 - `AccountMovement`: entrada, salida o transferencia manual de dinero en una cuenta.
 - `ExpenseCategory`: categoría de gasto operativo.
 - `Expense`: gasto operativo pagado desde una cuenta.
@@ -144,6 +144,7 @@ en las Server Actions y en `src/lib/`.
 - `/admin/proveedores/[supplierId]`: ficha de una proveedora.
 - `/admin/proveedores/[supplierId]/cuenta`: cuenta corriente de una proveedora (cargos y abonos).
 - `/admin/balances/cuentas/[accountId]`: movimientos de una cuenta de dinero.
+- `/admin/balances`: rentabilidad del mes y cuentas; en la pestaña Cuentas, la tarjeta "Aportes del dueño" con el total por mes y los gastos de cada mes pagados con la cuenta del dueño.
 - `/admin/retroactivos`: registros retroactivos del mes (por el día real del registro): lista con quién, cuándo, fecha puesta, días de atraso, monto y motivo, y resumen por persona; filtros mes, persona y tipo. Solo el dueño/admin con acceso a Balances.
 - `/admin/productos/export`: descarga el catálogo de productos en CSV.
 - `/api/auth/[...nextauth]`: inicio y cierre de sesión (next-auth).
@@ -191,6 +192,12 @@ Alexander, 11-oct-2026). Se reconoce en la fecha del pago que la completó, y no
 luego se entrega. Mientras no se entrega aparece como "Falta entregar". Excepción: la
 **contraentrega** se cobra al entregar, así que solo cuenta con la orden entregada y en el mes de la
 entrega. Una orden cancelada no cuenta.
+
+**Aportes del dueño.** Cuando el dueño paga un gasto de Magilus con su plata, el gasto se registra con
+la cuenta "Aportes del dueño" (tipo `OWNER`). Cuenta para la ganancia como cualquier gasto, pero no baja
+ningún banco ni aparece en "Dinero hoy", saldos, nómina ni la lista de cuentas. En Balances → Cuentas, la
+tarjeta "Aportes del dueño" suma esos gastos por mes (mes en hora de Colombia) y muestra el detalle: es
+una suma de gastos, no un saldo.
 
 **Editar o anular una compra.** Editar una compra actualiza la misma orden: conserva su número
 ORD, su COM, su estado, sus despachos y sus pagos a la proveedora; el stock solo cambia por la

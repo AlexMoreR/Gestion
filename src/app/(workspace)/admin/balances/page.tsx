@@ -9,6 +9,7 @@ import { createPrismaExpensesRepository } from "@/modules/expenses/infrastructur
 import { BalancesWorkspace } from "@/modules/balances/presentation/balances-workspace";
 import { CashPositionStrip } from "@/modules/balances/presentation/components/cash-position-strip";
 import { getMoneyWithoutAccount } from "@/modules/balances/infrastructure/prisma-money-without-account";
+import { getOwnerContributionsUseCase } from "@/modules/balances/application/use-cases";
 import { getCashPositionUseCase } from "@/modules/nomina/application/use-cases";
 import { retiredUserIds } from "@/modules/equipo/application/use-cases";
 import { todayInBogota } from "@/modules/equipo/domain/team-member";
@@ -66,6 +67,7 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
     employees,
     cashPosition,
     team,
+    ownerContributions,
   ] = await Promise.all([
     getSystemCurrency(),
     repository.getDashboardMetrics(period),
@@ -99,6 +101,7 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
     }),
     getCashPositionUseCase(repository, getMoneyWithoutAccount),
     loadTeamMembers(),
+    getOwnerContributionsUseCase(repository),
   ]);
   const retired = retiredUserIds(team, todayInBogota());
 
@@ -130,6 +133,7 @@ export default async function AdminBalancesPage({ searchParams }: PageProps) {
           clientName: sale.client.name,
         }))}
         suppliers={suppliers}
+        ownerContributions={ownerContributions}
         expensesData={{
           currency,
           metrics: expenseMetrics,

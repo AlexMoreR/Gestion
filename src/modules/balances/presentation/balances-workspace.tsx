@@ -20,6 +20,8 @@ import { ProfitChart } from "./components/profit-chart";
 import { AccountBalancesTable } from "./components/account-balances-table";
 import { AccountFormDialog } from "./components/account-form-dialog";
 import { MonthFilter } from "./components/month-filter";
+import { OwnerContributionsCard } from "./components/owner-contributions-card";
+import type { OwnerContributionMonth } from "../domain/owner-contributions";
 import { ExpensesWorkspace } from "@/modules/expenses/presentation/expenses-workspace";
 
 type SaleOption = {
@@ -49,6 +51,8 @@ type BalancesWorkspaceProps = {
   monthLabel: string;
   // Datos del modulo de Gastos, reusados en la pestaña "Gastos".
   expensesData: React.ComponentProps<typeof ExpensesWorkspace>;
+  // Aportes del dueño por mes (suma de gastos pagados con su cuenta, no un saldo).
+  ownerContributions: OwnerContributionMonth[];
 };
 
 type TabKey = "overview" | "reports" | "cuentas" | "gastos";
@@ -61,6 +65,7 @@ export function BalancesWorkspace({
   monthValue,
   monthLabel,
   expensesData,
+  ownerContributions,
 }: BalancesWorkspaceProps) {
   const [tab, setTab] = React.useState<TabKey>("overview");
   const [accountModal, setAccountModal] = React.useState<
@@ -210,16 +215,19 @@ export function BalancesWorkspace({
         {tab === "gastos" ? <ExpensesWorkspace {...expensesData} embedded /> : null}
 
         {tab === "cuentas" ? (
-          <AccountBalancesTable
-            data={accounts}
-            currency={currency}
-            onEdit={(accountId) => {
-              const account = accounts.find((row) => row.id === accountId);
-              if (account) {
-                setAccountModal({ mode: "edit", initialValue: account });
-              }
-            }}
-          />
+          <div className="space-y-4">
+            <AccountBalancesTable
+              data={accounts}
+              currency={currency}
+              onEdit={(accountId) => {
+                const account = accounts.find((row) => row.id === accountId);
+                if (account) {
+                  setAccountModal({ mode: "edit", initialValue: account });
+                }
+              }}
+            />
+            <OwnerContributionsCard months={ownerContributions} currency={currency} />
+          </div>
         ) : null}
       </section>
 

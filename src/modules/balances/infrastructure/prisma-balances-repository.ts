@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
-import { inColombiaPeriod } from "@/lib/colombia-time";
+import { dbWindow, inColombiaPeriod } from "@/lib/colombia-time";
 import { prisma } from "@/lib/prisma";
 import type {
   BalancesRepository,
@@ -37,6 +37,7 @@ import {
   summarizeSupplierBalance,
 } from "../domain/calculations";
 import { computeFullyPaidAt, resolveProfitRecognition } from "../domain/recognition";
+import type { OwnerContributionExpense } from "../domain/owner-contributions";
 
 type AccountSelection = {
   id: string;
@@ -995,6 +996,28 @@ export function createPrismaBalancesRepository(): BalancesRepository {
           createdById: input.createdById,
         },
       });
+    },
+
+    async listOwnerContributionExpenses(period?: DateRange): Promise<OwnerContributionExpense[]> {
+      const range = period ? { start: period.from, end: period.to } : null;
+      const window = range ? dbWindow(range) : null;
+      const rows = await prisma.expense.findMany({
+        where: {
+          account: { type: "OWNER" },
+          ...(window ? { expenseDate: { gte: window.start, lt: window.end } } : {}),
+        },
+        orderBy: { expenseDate: "desc" },
+        select: { id: true, expenseDate: true, amount: true, description: true, category: { select: { name: true } } },
+      });
+      return rows
+        .filter((row) => !range || inColombiaPeriod(row.expenseDate, range))
+        .map((row) => ({
+          id: row.id,
+          date: row.expenseDate,
+          amount: Number(row.amount),
+          categoryName: row.category.name,
+          note: row.description,
+        }));
     },
   };
 }
