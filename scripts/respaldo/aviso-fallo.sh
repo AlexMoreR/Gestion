@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Aviso por correo cuando falla el respaldo de Gestion.
 # Uso: aviso-fallo.sh "<paso que fallo>" [archivo con el registro de esta corrida]
+# Otro script (precios-vigentes) cambia el asunto y la explicacion con AVISO_ASUNTO y AVISO_TEXTO.
 # Usa el mismo SMTP de Gestion (SMTP_HOST/PORT/SECURE/USER/PASS/FROM) y manda a AVISO_CORREO
 # (por defecto gestionmagilus@gmail.com). La clave SMTP nunca va en la linea de comandos:
 # se le pasa a curl por stdin (-K -), asi no aparece en `ps`.
@@ -36,7 +37,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 chmod 700 "$TMP"
 
-ASUNTO="Falló el respaldo de Gestión (paso: $PASO)"
+ASUNTO="${AVISO_ASUNTO:-Falló el respaldo de Gestión} (paso: $PASO)"
 {
   echo "From: Respaldo Gestion <$DE>"
   echo "To: $PARA"
@@ -46,15 +47,22 @@ ASUNTO="Falló el respaldo de Gestión (paso: $PASO)"
   echo "Content-Type: text/plain; charset=UTF-8"
   echo "Content-Transfer-Encoding: 8bit"
   echo
-  echo "El respaldo nocturno de la base de datos de Gestión NO se completó."
-  echo
-  echo "Paso que falló: $PASO"
-  echo "Servidor: $(hostname)"
-  echo "Hora (Colombia): $(TZ=America/Bogota date '+%Y-%m-%d %H:%M')"
-  echo
-  echo "Si falló \"subir a Drive\", puede que el permiso de Google Drive se haya vencido:"
-  echo "hay que volver a conectarlo (ver README, sección Respaldo)."
-  echo "Mientras tanto no se borra ningún respaldo viejo."
+  if [ -n "${AVISO_TEXTO:-}" ]; then
+    printf '%s\n\n' "$AVISO_TEXTO"
+    echo "Paso que falló: $PASO"
+    echo "Servidor: $(hostname)"
+    echo "Hora (Colombia): $(TZ=America/Bogota date '+%Y-%m-%d %H:%M')"
+  else
+    echo "El respaldo nocturno de la base de datos de Gestión NO se completó."
+    echo
+    echo "Paso que falló: $PASO"
+    echo "Servidor: $(hostname)"
+    echo "Hora (Colombia): $(TZ=America/Bogota date '+%Y-%m-%d %H:%M')"
+    echo
+    echo "Si falló \"subir a Drive\", puede que el permiso de Google Drive se haya vencido:"
+    echo "hay que volver a conectarlo (ver README, sección Respaldo)."
+    echo "Mientras tanto no se borra ningún respaldo viejo."
+  fi
   if [ -n "$REGISTRO" ] && [ -r "$REGISTRO" ]; then
     echo
     echo "--- Últimas líneas del registro ---"
