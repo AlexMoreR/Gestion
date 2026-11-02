@@ -705,7 +705,7 @@ export const asesorTools: McpToolDefinition[] = [
     name: "que_es_esta_aplicacion",
     title: "Qué es esta aplicación",
     description:
-      "Radiografía técnica y funcional de Gestión para entender el sistema sin explicaciones: qué hace y qué problema resuelve, stack y versiones, despliegue, módulos y casos de uso, modelo de datos (cada entidad y sus relaciones), pantallas y rutas, reglas de negocio (con el código que las implementa), lo que el sistema NO tiene y riesgos de operación. Se genera leyendo el esquema y el código; lo no derivable sale de docs/asesor/gestion.md. Usa 'seccion' para pedir solo una parte.",
+      "Radiografía técnica y funcional de Gestión para entender el sistema sin explicaciones: qué hace y qué problema resuelve, stack y versiones, despliegue, módulos y casos de uso, modelo de datos (cada entidad y sus relaciones), pantallas y rutas, reglas de negocio (con el código que las implementa), lo que el sistema NO tiene y riesgos de operación. Se genera leyendo el esquema y el código; lo no derivable sale de docs/asesor/gestion.md. Usa 'seccion' para pedir solo una parte. seccion='pantallas' da el manual de pantallas (docs/asesor/pantallas.md): la ruta y el texto exacto del botón de cada opción del panel; úsala cuando pregunten '¿dónde está…?' o '¿dónde hago…?', en vez de pedir capturas.",
     schema: z.object({
       seccion: z
         .enum(APP_OVERVIEW_SECTIONS)

@@ -431,6 +431,11 @@ Tiene **tres fuentes**, y la respuesta dice de cuál salió cada cosa (`fuentes`
    tiene, riesgos no deducibles). Títulos `##` fijos; listas `- \`nombre\`: descripción`. Lo que falte
    aparece en `pendiente_de_documentar`. **Al agregar una entidad, módulo o pantalla, descríbela ahí.**
 
+Aparte, `seccion='pantallas'` devuelve el **manual de pantallas** `docs/asesor/pantallas.md` (también va en la
+foto del build, `manualPantallas`): las 10 tareas del día a día y, por cada ruta de `/admin`, qué se ve y el
+texto exacto de cada botón. Es para responder "¿dónde está / dónde hago…?" sin pedir capturas. Con
+`seccion='todo'` solo viene la indicación de pedir `pantallas` (el manual pesa decenas de KB).
+
 Los riesgos de configuración (migraciones que bloquean el arranque, pipeline sin pruebas, una réplica,
 etiqueta `latest`, volumen atado al nodo) se **detectan solos** desde el Dockerfile, el workflow y el
 compose (`detectOperationalRisks`).
@@ -531,6 +536,10 @@ con producción. Instalación y cómo restaurar: `README.md`. Fotos y comprobant
 - **Archivos subidos:** viven en `/public/uploads` (volumen persistente) y se sirven por
   `/uploads/[...path]`.
 - **Auditoría:** las acciones importantes registran `ActivityLog`.
+- **Manual de pantallas (regla para el Coordinador y los agentes):** toda tarjeta que cambie una pantalla de
+  Gestión (un botón, una pestaña o una ruta) actualiza también `docs/asesor/pantallas.md` con la ruta y el texto
+  exacto del botón. Si no, Claude dará indicaciones viejas. Cada carpeta con `page.tsx` bajo
+  `src/app/(workspace)/admin` debe tener su título `## /admin/...` en ese archivo.
 - **Pruebas:** `npm run test` (Vitest). Nota: dentro de `src/modules/*/domain` se usan imports relativos
   a `src/lib` porque el alias `@/` no lo resuelve Vitest.
 
