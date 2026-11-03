@@ -152,10 +152,12 @@ const faqText = (faq: { question: string; answer: string }[]) =>
   faq.map((item) => `${item.question} ${item.answer}`).join(" ");
 
 describe("isCamillasCombo", () => {
-  it("solo un combo con 'camilla' en el nombre (sin tildes ni mayusculas)", () => {
-    expect(isCamillasCombo({ isBundle: true, name: "COMBO CAMILLAS DIVÁN" })).toBe(true);
-    expect(isCamillasCombo({ isBundle: false, name: "CAMILLA PORTATIL" })).toBe(false);
-    expect(isCamillasCombo({ isBundle: true, name: "COMBO PREMIUM SPA" })).toBe(false);
+  it("solo los codigos de la lista (sin espacios ni mayusculas), no la marca de combo ni el nombre", () => {
+    expect(isCamillasCombo({ code: "CMB005" })).toBe(true);
+    expect(isCamillasCombo({ code: " cmb005 " })).toBe(true);
+    for (const code of ["CMB006", "CMB007", "CMB011", "CMB015", "CMB018", "CMB021", "", null, undefined]) {
+      expect(isCamillasCombo({ code })).toBe(false);
+    }
   });
 });
 
@@ -182,8 +184,8 @@ describe("buildProductFaq: pago, envio y contraentrega", () => {
 describe("buildProductLandingData: contraentrega solo en el Combo Camillas", () => {
   const base = { code: null, description: null, categoryName: "Combos de Camillas", brandName: "Magilus" };
 
-  it("combo con 'camilla' en el nombre ofrece contraentrega", () => {
-    const data = buildProductLandingData({ ...base, name: "COMBO CAMILLAS DIVAN", isBundle: true });
+  it("CMB005 (Combo Camilla Diván) ofrece contraentrega", () => {
+    const data = buildProductLandingData({ ...base, code: "CMB005", name: "COMBO CAMILLA DIVAN", isBundle: true });
     expect(data.cashOnDelivery).toBe(true);
     const text = faqText(data.faq);
     expect(text).toContain("También puedes pagar contraentrega, pagando tú el envío.");
@@ -191,11 +193,15 @@ describe("buildProductLandingData: contraentrega solo en el Combo Camillas", () 
     expect(text).toContain("1 año de garantía");
   });
 
-  it("combo sin 'camilla', camilla que no es combo, o sin isBundle: sin contraentrega", () => {
+  it("los demas combos de camilla y un producto sin codigo: sin contraentrega", () => {
     for (const product of [
-      { ...base, name: "COMBO PREMIUM SPA", isBundle: true },
-      { ...base, name: "CAMILLA PORTATIL", isBundle: false },
-      { ...base, name: "COMBO CAMILLA DIVAN" },
+      ...["CMB006", "CMB007", "CMB011", "CMB015", "CMB018", "CMB021"].map((code) => ({
+        ...base,
+        code,
+        name: "COMBO CAMILLA PORTATIL",
+        isBundle: true,
+      })),
+      { ...base, name: "COMBO CAMILLA DIVAN", isBundle: true },
     ]) {
       const data = buildProductLandingData(product);
       expect(data.cashOnDelivery).toBe(false);

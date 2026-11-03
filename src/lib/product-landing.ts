@@ -6,9 +6,11 @@
 // - Nada de datos inventados: lo que no esta en Gestion dice "Pregúntale a la asesora".
 // - Pago y envio: 50 % para fabricar + 50 % antes de despachar, con envio gratis a ciudades
 //   principales (la lista no se escribe aca: se manda a consultar en /cobertura).
-// - Contraentrega pagando el envio: SOLO el Combo Camillas (isCamillasCombo).
+// - Contraentrega pagando el envio: SOLO los codigos de CASH_ON_DELIVERY_CODES (isCamillasCombo).
+//   3-nov-2026, decision del dueño: solo el Combo Camilla Diván (CMB005), el de la politica del 22-oct.
 // - No llegamos a San Andrés, Leticia, Inírida, Mitú ni Bahía Solano.
 
+import { normalizeProductCode } from "./product-code";
 import { expandProductNameForSeo, toSentenceCase } from "./seo-metadata";
 
 export const ASK_ADVISOR_LABEL = "Pregúntale a la asesora";
@@ -51,9 +53,12 @@ export function hasHydraulicSystem(product: HydraulicSource): boolean {
   );
 }
 
-/** ¿Es el Combo Camillas? Combo (isBundle) cuyo nombre, sin tildes ni mayusculas, contiene "camilla". */
-export function isCamillasCombo(product: { isBundle: boolean; name: string }): boolean {
-  return product.isBundle && normalizeForMatch(product.name).includes("camilla");
+// Codigos que en la tienda ofrecen contraentrega. Para sumar otro combo, agregarlo aca.
+export const CASH_ON_DELIVERY_CODES: readonly string[] = ["CMB005"];
+
+/** ¿La tienda ofrece contraentrega? Solo si el codigo (sin espacios ni mayusculas) esta en la lista. */
+export function isCamillasCombo(product: { code?: string | null }): boolean {
+  return CASH_ON_DELIVERY_CODES.includes(normalizeProductCode(product.code));
 }
 
 /** Texto de garantia segun el producto (solo menciona el hidraulico si lo tiene). */
@@ -188,7 +193,7 @@ export function buildProductLandingData(product: ProductLandingSource): ProductL
   const measure = extractMeasureFromDescription(product.description);
   const description = readableDescription(product.description);
   const categoryName = product.categoryName?.trim();
-  const cashOnDelivery = isCamillasCombo({ isBundle: product.isBundle ?? false, name: product.name });
+  const cashOnDelivery = isCamillasCombo(product);
 
   const chips = [
     ...(measure ? [`Medida ${measure}`] : []),
