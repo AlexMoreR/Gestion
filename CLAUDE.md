@@ -358,7 +358,7 @@ Route handlers reales (`route.ts`):
   consulta; la ganancia por venta y el resumen del mes **reutilizan los casos de uso de Balances**. La única
   herramienta que escribe es `registrar_gasto` (anotada sin `readOnlyHint`; ver "Gastos por voz").
 - Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_abonos`, `ver_venta`, `listar_cotizaciones`,
-  `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `equipo`, `asistencia`, `saldos_de_cuentas`,
+  `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `equipo`, `saldos_de_cuentas`,
   `listar_gastos`, `listar_retroactivos`, `deuda_con_proveedoras`, `buscar_pedido`, `pedidos_abiertos`, `historial_de_registro`, `registrar_gasto`, `registrar_pago_proveedora`, `cerrar_mes` y `que_es_esta_aplicacion`.
 - `deuda_con_proveedoras` (oct-2026, solo lectura): `proveedora` (nombre, sin tildes) y `desde`/`hasta` (fecha de
   la OF) opcionales → por orden: OF, orden, venta, cliente, productos con color, `costo_acordado`, `pagos[]`
@@ -420,9 +420,6 @@ Route handlers reales (`route.ts`):
   registro con tipo, persona, `registrado_el` (hora Colombia), `fecha_puesta`, `dias_de_atraso`, monto y motivo
   ("sin dato" si falta, nunca se inventa), y `resumen_por_persona` del mes (`resumirPorPersona`; cuenta a todas las
   personas aunque se filtre la lista). Lista cortada en 500 como la página. Regla en `src/modules/asesor/domain/retroactivos.ts`.
-- `asistencia` (oct-2026): `fecha` o `desde`/`hasta` (máx. 62 días; por defecto hoy) y `persona` opcional (por
-  nombre) → quién está trabajando ahora, quién no ha llegado, y por día entrada, salida, horas, marcas y
-  correcciones; días trabajados del rango.
 - `equipo` (oct-2026): trabajadores activos/retirados con cargo, vinculación, forma de pago, ingreso, salida y
   motivo; **nunca** cédula, nacimiento, celular, correo, dirección ni contacto de emergencia
   (`toPublicMember`). `nomina_del_mes` trae `estado`, `fecha_salida` y `tiene_usuario` por persona.
