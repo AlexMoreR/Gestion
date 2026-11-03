@@ -19,6 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ProductThumb } from "@/components/admin/product-thumb";
+import { ReversalReasonFields } from "@/components/admin/reversal-reason-fields";
 import {
   Dialog,
   DialogContent,
@@ -137,17 +138,17 @@ function DispatchItemSubmitButton() {
   );
 }
 
-function UndoDispatchSubmitButton() {
+function UndoDispatchSubmitButton({ ready }: { ready: boolean }) {
   const { pending } = useFormStatus();
   return (
     <Button
       type="submit"
       variant="destructive"
       className="w-full"
-      disabled={pending}
+      disabled={pending || !ready}
     >
       {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-      {pending ? "Deshaciendo..." : "Si, deshacer despacho"}
+      {pending ? "Reversando..." : "Sí, reversar despacho"}
     </Button>
   );
 }
@@ -198,6 +199,7 @@ export function OrderItemManager({
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [dispatchOpen, setDispatchOpen] = useState(false);
   const [undoOpen, setUndoOpen] = useState(false);
+  const [undoReady, setUndoReady] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
   const [undoPickupOpen, setUndoPickupOpen] = useState(false);
   const [undoConfirmOpen, setUndoConfirmOpen] = useState(false);
@@ -816,20 +818,21 @@ export function OrderItemManager({
       </Dialog>
 
       <Dialog open={undoOpen} onOpenChange={(value) => (value ? null : setUndoOpen(false))}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-h-[88vh] max-w-md overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Deshacer despacho</DialogTitle>
+            <DialogTitle>Reversar despacho</DialogTitle>
             <DialogDescription>
-              Se eliminara el despacho{item.dispatchCode ? ` ${displayCode(item.dispatchCode)}` : ""} de{" "}
-              <span className="font-medium text-foreground">{item.productName}</span> y el producto
-              volvera al estado &quot;Recogido&quot; para poder despacharlo de nuevo. Se revertiran los costos
-              de envio asociados.
+              <span className="font-medium text-foreground">{item.productName}</span> sale del despacho
+              {item.dispatchCode ? ` ${displayCode(item.dispatchCode)}` : ""} y vuelve a &quot;Recogido&quot; para
+              despacharlo de nuevo. Si va solo en ese despacho, se anulan el despacho y su flete; si va con otros
+              productos, ellos siguen despachados y el flete no cambia. Queda anotado con el motivo.
             </DialogDescription>
           </DialogHeader>
           <form action={adminUndoDispatchItemAction} className="space-y-3">
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="orderItemId" value={item.id} />
-            <UndoDispatchSubmitButton />
+            <ReversalReasonFields onReadyChange={setUndoReady} />
+            <UndoDispatchSubmitButton ready={undoReady} />
           </form>
         </DialogContent>
       </Dialog>

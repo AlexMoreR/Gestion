@@ -1085,10 +1085,12 @@ const undoDispatchItemSchema = z.object({
   orderItemId: z.string().trim().min(1, "Producto invalido"),
 });
 
-// Deshace el despacho de un producto: elimina el despacho al que pertenece
-// (devolviendo todos sus productos a "Recogido") y revierte sus efectos
-// financieros (cargo a la transportadora, costo de envio de la venta y, en
-// compras, el incremento del total). Util cuando se despacho por error.
+// Reversa el despacho de un producto, con motivo obligatorio (OrderItemReversal).
+// Si el despacho lleva otros productos, solo saca este (anula su DispatchItem): el despacho,
+// sus tramos, fletes y movimientos de la transportadora quedan igual y los demás siguen despachados.
+// Si va solo, anula el despacho entero y revierte sus efectos financieros (cargo a la transportadora,
+// costo de envio de la venta y, en compras, el incremento del total).
+// Lo ya entregado no se reversa aquí: primero se reversa la entrega.
 export async function adminUndoDispatchItemAction(formData: FormData): Promise<void> {
   const changedById = await requireAdminSession();
   const returnTo = getReturnTo(formData, "/admin/ordenes");
@@ -1099,6 +1101,11 @@ export async function adminUndoDispatchItemAction(formData: FormData): Promise<v
 
   if (!parsed.success) {
     redirect(`${returnTo}?error=Producto+invalido`);
+  }
+  // Sin motivo válido no se reversa nada.
+  const reversal = parseReversalInput(formData);
+  if (!reversal.ok) {
+    redirect(`${returnTo}?error=${encodeURIComponent(reversal.error)}`);
   }
 
   // Despacho activo (no cancelado ni devuelto) que contiene este producto.
@@ -1121,13 +1128,19 @@ export async function adminUndoDispatchItemAction(formData: FormData): Promise<v
   if (!dispatchItem) {
     redirect(`${returnTo}?error=El+producto+no+tiene+un+despacho+activo`);
   }
-  const actor = await getActivityActor();
 
   const dispatch = dispatchItem.dispatch;
   const order = dispatch.order;
-
-  // Se permite deshacer aunque la orden ya este entregada/cerrada: se revierte
-  // el despacho y la orden vuelve a "Lista para despacho".
+  const orderItemId = dispatchItem.orderItemId;
+  // Filas de este producto en el despacho (normalmente una).
+  const itemRows = dispatch.items.filter((row) => row.orderItemId === orderItemId);
+  if (dispatch.status === "DELIVERED" && itemRows.some((row) => row.deliveryReversedAt === null)) {
+    redirect(`${returnTo}?error=${encodeURIComponent("Primero reversa la entrega")}`);
+  }
+  const sharedDispatch = dispatch.items.some((row) => row.orderItemId !== orderItemId);
+  const actor = await getActivityActor();
+  const motive = reversalLine({ action: "Despacho reversado", fromState: "DESPACHADO", toState: "POR_DESPACHAR", ...reversal.value });
+  const backToReady = order.status === "DISPATCHED" || order.status === "COMPLETED";
 
   const shippingCost = Math.round(Number(dispatch.shippingCost ?? 0));
 
@@ -1143,112 +1156,159 @@ export async function adminUndoDispatchItemAction(formData: FormData): Promise<v
       .map((leg) => extraLegShippingReference(dispatch.code, leg.position)),
   ].filter((value): value is string => typeof value === "string" && value.length > 0);
 
+  const reversalData = {
+    motivo: reversal.value.reason,
+    motivoTexto: reversal.value.reasonText,
+    comentario: reversal.value.comment,
+  };
+
   try {
     await prisma.$transaction(async (tx) => {
-      // Mismos filtros para leer (copia en la bitácora) y para borrar: así la copia cuadra con lo borrado.
-      const shippingCostWhere = order.saleId
-        ? {
-            saleId: order.saleId,
-            OR: [
-              { transactionReference: { in: shippingRefs } },
-              { supplierPayment: { dispatchId: dispatch.id } },
-            ],
-          }
-        : null;
-      const shippingCostRows = shippingCostWhere ? await tx.shippingCost.findMany({ where: shippingCostWhere }) : [];
-      const dispatchLedger = await tx.supplierLedgerEntry.findMany({ where: { dispatchId: dispatch.id }, select: { id: true } });
-      // También los abonos que saldan un cargo del despacho: antes se iban en cascada sin dejar copia.
-      const ledgerWhere = {
-        OR: [
-          { dispatchId: dispatch.id },
-          { type: "PAYMENT" as const, settlesEntryId: { in: dispatchLedger.map((row) => row.id) } },
-        ],
-      };
-      const ledgerRows = await tx.supplierLedgerEntry.findMany({ where: ledgerWhere });
-      const backToReady = order.status === "DISPATCHED" || order.status === "COMPLETED";
-
-      // Si no se puede anotar, no se deshace nada.
-      await logActivityTx(tx, actor, {
-        action: "DELETE",
-        entityType: "SHIPMENT",
-        entityId: dispatch.id,
-        entityCode: order.code,
-        summary: `Deshizo el despacho ${dispatch.code} de ${order.code}`,
-        before: {
-          despacho: snapshotForLog(dispatch, [
-            "id",
-            "code",
-            "status",
-            "deliveryType",
-            "carrierName",
-            "carrierSupplierId",
-            "shippingCost",
-            "trackingNumber",
-            "shippingReceiptName",
-            "trackingPhotoName",
-            "deliveryPhotoName",
-            "shippingAddress",
-            "notes",
-            "packedAt",
-            "shippedAt",
-            "deliveredAt",
-            "createdById",
-            "createdAt",
-          ]),
-          productos: dispatch.items.map((item) =>
-            snapshotForLog(item, ["orderItemId", "quantity", "shippingCost"]),
-          ),
-          tramos: dispatch.shippingLegs.map((leg) =>
-            snapshotForLog(leg, [
-              "position",
-              "carrierSupplierId",
-              "carrierName",
-              "amount",
-              "trackingNumber",
-              "note",
-              "legDate",
-              "supplierPaymentId",
-            ]),
-          ),
-          fletes: shippingCostRows.map((row) => snapshotForLog(row, SHIPPING_COST_LOG_FIELDS)),
-          movimientosProveedora: ledgerRows.map((row) => snapshotForLog(row, SUPPLIER_LEDGER_LOG_FIELDS)),
-          estadoOrden: order.status,
+      // Antes de anular nada: el despacho puede anularse abajo y su enlace queda en NULL (SetNull).
+      await tx.orderItemReversal.create({
+        data: {
+          orderId: order.id,
+          orderItemId,
+          dispatchId: dispatch.id,
+          fromState: "DESPACHADO",
+          toState: "POR_DESPACHAR",
+          reason: reversal.value.reason,
+          reasonText: reversal.value.reasonText,
+          comment: reversal.value.comment,
+          createdById: changedById,
         },
-        after: backToReady ? { estadoOrden: "READY_FOR_DISPATCH" } : null,
       });
 
-      // 1) Revertir el costo de envio registrado como gasto de la venta (por referencia o por
-      //    estar enlazado a un pago de este despacho). Va antes de borrar los pagos.
-      //    Todo se anula (copia en RegistroAnulado + bitácora), no se borra a secas.
-      const anulacion = { motivo: `Deshizo el despacho ${dispatch.code}`, usuarioId: actor.id, usuarioNombre: actor.name };
-      await anularVarias(tx, "ShippingCost", shippingCostRows, { ...anulacion, codigo: () => dispatch.code });
+      if (sharedDispatch) {
+        // Solo sale este producto: despacho, tramos, fletes y cuenta de la transportadora no se tocan.
+        await logActivityTx(tx, actor, {
+          action: "UPDATE",
+          entityType: "ORDER",
+          entityId: order.id,
+          entityCode: order.code,
+          summary: `${motive} · ${dispatch.code} de ${order.code}`,
+          before: {
+            despacho: dispatch.code,
+            productos: itemRows.map((row) => snapshotForLog(row, ["orderItemId", "quantity", "shippingCost"])),
+            estadoOrden: order.status,
+          },
+          after: { despacho: dispatch.code, estadoOrden: backToReady ? "READY_FOR_DISPATCH" : order.status, ...reversalData },
+        });
+        for (const row of itemRows) {
+          await anularConMotivo(tx, {
+            tabla: "DispatchItem",
+            registro: row,
+            codigo: dispatch.code,
+            monto: row.shippingCost,
+            motivo: motive,
+            usuarioId: actor.id,
+            usuarioNombre: actor.name,
+          });
+        }
+      } else {
+        // Mismos filtros para leer (copia en la bitácora) y para borrar: así la copia cuadra con lo borrado.
+        const shippingCostWhere = order.saleId
+          ? {
+              saleId: order.saleId,
+              OR: [
+                { transactionReference: { in: shippingRefs } },
+                { supplierPayment: { dispatchId: dispatch.id } },
+              ],
+            }
+          : null;
+        const shippingCostRows = shippingCostWhere ? await tx.shippingCost.findMany({ where: shippingCostWhere }) : [];
+        const dispatchLedger = await tx.supplierLedgerEntry.findMany({ where: { dispatchId: dispatch.id }, select: { id: true } });
+        // También los abonos que saldan un cargo del despacho: antes se iban en cascada sin dejar copia.
+        const ledgerWhere = {
+          OR: [
+            { dispatchId: dispatch.id },
+            { type: "PAYMENT" as const, settlesEntryId: { in: dispatchLedger.map((row) => row.id) } },
+          ],
+        };
+        const ledgerRows = await tx.supplierLedgerEntry.findMany({ where: ledgerWhere });
+        // Si no se puede anotar, no se deshace nada.
+        await logActivityTx(tx, actor, {
+          action: "DELETE",
+          entityType: "SHIPMENT",
+          entityId: dispatch.id,
+          entityCode: order.code,
+          summary: `${motive} · Deshizo el despacho ${dispatch.code} de ${order.code}`,
+          before: {
+            despacho: snapshotForLog(dispatch, [
+              "id",
+              "code",
+              "status",
+              "deliveryType",
+              "carrierName",
+              "carrierSupplierId",
+              "shippingCost",
+              "trackingNumber",
+              "shippingReceiptName",
+              "trackingPhotoName",
+              "deliveryPhotoName",
+              "shippingAddress",
+              "notes",
+              "packedAt",
+              "shippedAt",
+              "deliveredAt",
+              "createdById",
+              "createdAt",
+            ]),
+            productos: dispatch.items.map((item) =>
+              snapshotForLog(item, ["orderItemId", "quantity", "shippingCost"]),
+            ),
+            tramos: dispatch.shippingLegs.map((leg) =>
+              snapshotForLog(leg, [
+                "position",
+                "carrierSupplierId",
+                "carrierName",
+                "amount",
+                "trackingNumber",
+                "note",
+                "legDate",
+                "supplierPaymentId",
+              ]),
+            ),
+            fletes: shippingCostRows.map((row) => snapshotForLog(row, SHIPPING_COST_LOG_FIELDS)),
+            movimientosProveedora: ledgerRows.map((row) => snapshotForLog(row, SUPPLIER_LEDGER_LOG_FIELDS)),
+            estadoOrden: order.status,
+          },
+          after: { ...(backToReady ? { estadoOrden: "READY_FOR_DISPATCH" } : {}), ...reversalData },
+        });
 
-      // 2) Revertir movimientos de la cuenta corriente de la transportadora (abonos antes que cargos).
-      await anularVarias(tx, "SupplierLedgerEntry", pagosPrimero(ledgerRows), {
-        ...anulacion,
-        codigo: (row) => (row.code as string | null) ?? dispatch.code,
-      });
+        // 1) Revertir el costo de envio registrado como gasto de la venta (por referencia o por
+        //    estar enlazado a un pago de este despacho). Va antes de borrar los pagos.
+        //    Todo se anula (copia en RegistroAnulado + bitácora), no se borra a secas.
+        const anulacion = { motivo: `${motive} · ${dispatch.code}`, usuarioId: actor.id, usuarioNombre: actor.name };
+        await anularVarias(tx, "ShippingCost", shippingCostRows, { ...anulacion, codigo: () => dispatch.code });
 
-      // 3) En compras, el flete se sumo al total: se descuenta.
-      if (order.type === "PURCHASE" && shippingCost > 0) {
-        await tx.order.update({
-          where: { id: order.id },
-          data: { total: { decrement: shippingCost } },
+        // 2) Revertir movimientos de la cuenta corriente de la transportadora (abonos antes que cargos).
+        await anularVarias(tx, "SupplierLedgerEntry", pagosPrimero(ledgerRows), {
+          ...anulacion,
+          codigo: (row) => (row.code as string | null) ?? dispatch.code,
+        });
+
+        // 3) En compras, el flete se sumo al total: se descuenta.
+        if (order.type === "PURCHASE" && shippingCost > 0) {
+          await tx.order.update({
+            where: { id: order.id },
+            data: { total: { decrement: shippingCost } },
+          });
+        }
+
+        // 4) Anular el despacho (cascade borra sus DispatchItem y tramos; la copia los guarda).
+        const dispatchRow = await tx.dispatch.findUniqueOrThrow({
+          where: { id: dispatch.id },
+          include: { items: true, shippingLegs: true },
+        });
+        await anularConMotivo(tx, {
+          ...anulacion,
+          tabla: "Dispatch",
+          registro: dispatchRow,
+          codigo: dispatch.code,
+          monto: dispatchRow.shippingCost ?? 0,
         });
       }
-
-      // 4) Anular el despacho (cascade borra sus DispatchItem y tramos; la copia los guarda).
-      const dispatchRow = await tx.dispatch.findUniqueOrThrow({
-        where: { id: dispatch.id },
-        include: { items: true, shippingLegs: true },
-      });
-      await anularConMotivo(tx, {
-        ...anulacion,
-        tabla: "Dispatch",
-        registro: dispatchRow,
-        codigo: dispatch.code,
-        monto: dispatchRow.shippingCost ?? 0,
-      });
 
       // 5) Si la orden estaba despachada o entregada, vuelve a "Lista para
       //    despacho" (y se limpia la fecha de completado si estaba cerrada).
@@ -1260,16 +1320,17 @@ export async function adminUndoDispatchItemAction(formData: FormData): Promise<v
             ...(order.status === "COMPLETED" ? { completedAt: null } : {}),
           },
         });
-        await tx.orderStatusHistory.create({
-          data: {
-            orderId: order.id,
-            fromStatus: order.status,
-            toStatus: "READY_FOR_DISPATCH",
-            note: `Despacho ${dispatch.code} deshecho`,
-            changedById,
-          },
-        });
       }
+      // El motivo queda en el historial aunque la orden no cambie de estado.
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          fromStatus: order.status,
+          toStatus: backToReady ? "READY_FOR_DISPATCH" : order.status,
+          note: `${motive} · ${dispatch.code}`,
+          changedById,
+        },
+      });
     });
   } catch (error) {
     console.error("Failed to undo dispatch item:", error);
@@ -1280,7 +1341,7 @@ export async function adminUndoDispatchItemAction(formData: FormData): Promise<v
   revalidatePath("/admin/ordenes");
   revalidatePath(`/admin/ordenes/${order.id}`);
   revalidatePath("/admin/proveedores");
-  redirect(`${returnTo}?ok=Despacho+deshecho`);
+  redirect(`${returnTo}?ok=Despacho+reversado`);
 }
 
 export async function adminUpdateDispatchStatusAction(formData: FormData): Promise<void> {

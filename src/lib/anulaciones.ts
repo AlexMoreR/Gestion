@@ -8,6 +8,7 @@ export type TablaAnulable =
   | "SupplierLedgerEntry"
   | "ShippingCost"
   | "Dispatch"
+  | "DispatchItem"
   | "ProductionJob"
   | "Order"
   | "Sale";
@@ -38,6 +39,7 @@ const ENTIDAD: Record<TablaAnulable, { entityType: string; nombre: string }> = {
   SupplierLedgerEntry: { entityType: "SUPPLIER", nombre: "un movimiento de proveedora" },
   ShippingCost: { entityType: "SALE", nombre: "un flete" },
   Dispatch: { entityType: "SHIPMENT", nombre: "un despacho" },
+  DispatchItem: { entityType: "SHIPMENT", nombre: "un producto de un despacho" },
   ProductionJob: { entityType: "ORDER", nombre: "un trabajo de producción" },
   Order: { entityType: "ORDER", nombre: "una orden" },
   Sale: { entityType: "SALE", nombre: "una venta" },
@@ -102,6 +104,7 @@ export async function anularConMotivo(tx: Prisma.TransactionClient, input: Anula
   else if (input.tabla === "SupplierLedgerEntry") await tx.supplierLedgerEntry.delete(where);
   else if (input.tabla === "ShippingCost") await tx.shippingCost.delete(where);
   else if (input.tabla === "Dispatch") await tx.dispatch.delete(where);
+  else if (input.tabla === "DispatchItem") await tx.dispatchItem.delete(where);
   else if (input.tabla === "ProductionJob") await tx.productionJob.delete(where);
   else if (input.tabla === "Order") await tx.order.delete(where);
   else await tx.sale.delete(where);
