@@ -107,7 +107,7 @@ export function WaybillHeader({
             </>
           ) : null}
           <br />
-          magilus.com · Envíos a toda Colombia
+          magilus.com · Envíos a Colombia
         </p>
       </div>
       <h1 className="ml-auto shrink-0 whitespace-nowrap text-right text-[clamp(16px,5.4vw,22px)] font-extrabold leading-[1.05] tracking-tight text-[#42066E] sm:text-[26px] lg:text-[28px]">

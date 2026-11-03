@@ -24,7 +24,7 @@ const DEFAULT_SYSTEM_WHATSAPP_PHONE = siteConfig.phoneDisplay;
 const DEFAULT_STOREFRONT_LOGO_PATH = siteConfig.logoPath;
 const DEFAULT_STOREFRONT_HERO_TITLE = "Equipa tu peluquería, barbería o salón de belleza";
 const DEFAULT_STOREFRONT_HERO_DESCRIPTION =
-  "Sillas, camillas, tocadores y mobiliario profesional con garantía y envío a toda Colombia.";
+  "Sillas, camillas, tocadores y mobiliario profesional con garantía y envíos a Colombia (consulta tu ciudad).";
 const DEFAULT_STOREFRONT_PROMO_ITEMS = [
   "Combos especiales de temporada",
   "Consulta el envío a tu ciudad",
