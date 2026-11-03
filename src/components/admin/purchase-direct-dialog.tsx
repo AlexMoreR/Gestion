@@ -87,6 +87,8 @@ export type PurchaseLine = {
   uid: string;
   productId: string;
   quantity: number;
+  // Compra por lote: cuántas de la cantidad quedan pendientes por fabricar (no entran al inventario).
+  pending?: number;
   isBundle: boolean;
   // Costo unitario: el costo del producto, o la suma de componentes del combo.
   unitCost: number;
@@ -124,6 +126,7 @@ export function PurchaseDirectDialog({
   const [draftProductId, setDraftProductId] = React.useState("");
   const [draftSupplierId, setDraftSupplierId] = React.useState("");
   const [draftQuantity, setDraftQuantity] = React.useState("1");
+  const [draftPending, setDraftPending] = React.useState("0");
   const [draftCost, setDraftCost] = React.useState("");
   const [draftColor, setDraftColor] = React.useState("");
   const [draftDescription, setDraftDescription] = React.useState("");
@@ -175,6 +178,7 @@ export function PurchaseDirectDialog({
     setDraftProductId("");
     setDraftSupplierId("");
     setDraftQuantity("1");
+    setDraftPending("0");
     setDraftCost("");
     setDraftColor("");
     setDraftDescription("");
@@ -325,6 +329,11 @@ export function PurchaseDirectDialog({
       setProductFormError("La cantidad debe ser mayor a 0.");
       return;
     }
+    const pending = Math.trunc(Number(draftPending) || 0);
+    if (pending < 0 || pending > quantity) {
+      setProductFormError("Las pendientes por fabricar deben estar entre 0 y la cantidad.");
+      return;
+    }
 
     const components: LineComponent[] = isComboDraft
       ? draftComboParts.map((part) => {
@@ -348,6 +357,7 @@ export function PurchaseDirectDialog({
         uid: crypto.randomUUID(),
         productId: draftProductId,
         quantity,
+        pending,
         isBundle: isComboDraft,
         unitCost: draftUnitCost,
         supplierId: isComboDraft ? "" : draftSupplierId,
@@ -376,6 +386,7 @@ export function PurchaseDirectDialog({
         ? {
             productId: line.productId,
             quantity: line.quantity,
+            pending: line.pending || undefined,
             components: line.components.map((component) => ({
               childId: component.childId,
               supplierId: component.supplierId,
@@ -388,6 +399,7 @@ export function PurchaseDirectDialog({
             orderItemId: isEditing ? line.uid : undefined,
             productId: line.productId,
             quantity: line.quantity,
+            pending: line.pending || undefined,
             cost: line.unitCost,
             supplierId: line.supplierId,
             color: line.color,
@@ -492,6 +504,7 @@ export function PurchaseDirectDialog({
                                       </p>
                                       <p className="truncate text-xs text-muted-foreground">
                                         {product?.code || "Sin codigo"}
+                                        {line.pending ? ` · ${line.pending} pendientes por fabricar` : ""}
                                       </p>
                                     </div>
                                   </div>
@@ -556,6 +569,7 @@ export function PurchaseDirectDialog({
                                   <p className="truncate font-medium">{product?.name ?? "Producto"}</p>
                                   <p className="truncate text-xs text-muted-foreground">
                                     {product?.code || "Sin codigo"}
+                                    {line.pending ? ` · ${line.pending} pendientes por fabricar` : ""}
                                   </p>
                                 </div>
                               </div>
@@ -668,7 +682,7 @@ export function PurchaseDirectDialog({
               </div>
             ) : (
               <>
-                <div className="mb-3 flex items-center gap-3 rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/5 p-2.5">
+                <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/5 p-2.5">
                   <ProductThumb
                     src={draftProduct?.thumbnailUrl ?? ""}
                     alt={draftProduct?.name ?? ""}
@@ -691,6 +705,21 @@ export function PurchaseDirectDialog({
                       className="h-9 w-20"
                     />
                   </label>
+                  {/* La edición de una compra por lote se bloquea: el campo solo va al registrar. */}
+                  {!isEditing ? (
+                    <label className="flex shrink-0 flex-col gap-1">
+                      <span className="text-[11px] font-medium text-muted-foreground">Pendientes por fabricar</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={Math.trunc(Number(draftQuantity) || 0) || undefined}
+                        step={1}
+                        value={draftPending}
+                        onChange={(event) => setDraftPending(event.target.value)}
+                        className="h-9 w-20"
+                      />
+                    </label>
+                  ) : null}
                   <Button
                     type="button"
                     variant="outline"

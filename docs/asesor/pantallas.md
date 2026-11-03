@@ -120,7 +120,7 @@ Edita una cotización existente; es el mismo asistente de 3 pasos abierto en mod
 Lista de órdenes de venta y de compra a proveedor.
 **Qué se ve:** tarjetas Ordenes / Activas / Produccion / Cerradas. Tabla: ícono de nota (solo en las órdenes con notas; al pasar el mouse o tocarlo muestra la última nota, quién la escribió y cuándo), Orden, Venta (en compras sale el código `COM-...`), Cliente, Responsable, Estado, Total, Fecha. En celular el ícono sale junto al código de la orden. Buscador "Buscar orden, venta, cliente o nota" (al escribir busca en todas las órdenes, también en el texto de sus notas) y filtro "Rango de fechas", que por defecto es el mes actual. Las órdenes abiertas se ven siempre.
 **Botones y acciones:**
-- **Nuevo**: abre el modal "Comprar" (compra directa a proveedor). Pide la fecha y luego **Agregar producto**: buscador "Buscar codigo o producto", Proveedor, Cantidad, Costo unitario, Color, Descripción y foto. Muestra el "Total compra". **Registrar compra** guarda la compra y **Cancelar** cierra.
+- **Nuevo**: abre el modal "Comprar" (compra directa a proveedor). Pide la fecha y luego **Agregar producto**: buscador "Buscar codigo o producto", Proveedor, Cantidad, **Pendientes por fabricar** (por defecto 0: de la cantidad, cuántas aún no fabrica la proveedora; se cobran completas pero no entran al inventario), Costo unitario, Color, Descripción y foto. Muestra el "Total compra". **Registrar compra** guarda la compra y **Cancelar** cierra.
 - Menú de fila (tres puntos):
   - **Abrir**: abre el detalle de la orden.
   - **Ver ventas**: solo en órdenes de venta. Lleva a `/admin/ventas`.
@@ -166,7 +166,7 @@ Detalle de una orden. Aquí se fabrica, se recoge, se despacha y se entrega cada
 
 ## /admin/ordenes/[orderId]/editar-compra
 Edita una compra directa a proveedor. Si la orden es de venta, la página manda al detalle de la orden.
-**Qué se ve:** el mismo modal de compra, con el título "Editar compra <código>", la fecha y las líneas ya cargadas.
+**Qué se ve:** el mismo modal de compra, con el título "Editar compra <código>", la fecha y las líneas ya cargadas. Una compra por lote (con pendientes por fabricar) no se edita aquí: al guardar sale "Esta compra es por lote: se maneja en Inventario → Lotes".
 **Botones y acciones:**
 - **Agregar producto**: agrega una línea a la compra.
 - **Registrar compra**: guarda los cambios.

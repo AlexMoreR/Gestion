@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { splitPurchaseLine, summarizeLotUnits, validateLotTransition } from "./purchase-lot";
+import { lotUnitsForLine, splitPurchaseLine, summarizeLotUnits, validateLotTransition } from "./purchase-lot";
 
 describe("splitPurchaseLine", () => {
   it("6 unidades con 3 pendientes: entran 3", () => {
@@ -49,5 +49,13 @@ describe("summarizeLotUnits", () => {
       { estado: "PENDIENTE" },
     ];
     expect(summarizeLotUnits(unidades)).toEqual({ cali: 2, taller: 1, fabricando: 0, pendientes: 3, vendidas: 0 });
+  });
+});
+
+describe("lotUnitsForLine", () => {
+  it("6 con 3 pendientes: 3 en Cali y 3 pendientes; sin pendientes no crea filas", () => {
+    expect(summarizeLotUnits(lotUnitsForLine(6, 3))).toEqual({ cali: 3, taller: 0, fabricando: 0, pendientes: 3, vendidas: 0 });
+    expect(lotUnitsForLine(6, 0)).toEqual([]);
+    expect(() => lotUnitsForLine(2, 3)).toThrow();
   });
 });
