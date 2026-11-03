@@ -252,7 +252,17 @@ describe("caminos con plata (base real)", () => {
   });
 
   it("7. entregar", async () => {
-    sinError(await llamar(dispatches.adminCompleteDeliveryAction, { dispatchId: ctx.dispatchId, deliveryPhoto: comprobante("entrega.png") }));
+    // T-504: sin la casilla "el cliente ya recibió" la entrega se niega y no cambia nada.
+    const sinCasilla = await llamar(dispatches.adminCompleteDeliveryAction, { dispatchId: ctx.dispatchId, deliveryPhoto: comprobante("entrega.png") });
+    expect(sinCasilla.error).toBe("Falta confirmar que el cliente recibió");
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: ctx.orderId } })).status).not.toBe("COMPLETED");
+    sinError(
+      await llamar(dispatches.adminCompleteDeliveryAction, {
+        dispatchId: ctx.dispatchId,
+        deliveryPhoto: comprobante("entrega.png"),
+        confirmedReceived: "on",
+      }),
+    );
     const order = await prisma.order.findUniqueOrThrow({ where: { id: ctx.orderId } });
     expect(order.status).toBe("COMPLETED");
     await comprobar("entregar");
@@ -347,11 +357,15 @@ describe("deshacer sin perder rastro (base real)", () => {
     const despacho = await prisma.dispatch.findFirstOrThrow({ where: { orderId: d.orderId } });
     const fletes = await prisma.shippingCost.count({ where: { saleId: d.saleId } });
     expect(fletes).toBeGreaterThan(0);
-    sinError(await llamar(dispatches.adminUndoDispatchItemAction, { orderItemId: d.orderItemId }));
-    const motivo = `Deshizo el despacho ${despacho.code}`;
+    // T-508: sin motivo no se reversa nada.
+    const sinMotivo = await llamar(dispatches.adminUndoDispatchItemAction, { orderItemId: d.orderItemId });
+    expect(sinMotivo.error).toBe("Elige el motivo.");
+    expect(await prisma.dispatch.count({ where: { id: despacho.id } })).toBe(1);
+    sinError(await llamar(dispatches.adminUndoDispatchItemAction, { orderItemId: d.orderItemId, reversalReason: "ERROR" }));
+    const motivo = "Despacho reversado (DESPACHADO → POR_DESPACHAR): Se registró por error";
     expect(await prisma.dispatch.count({ where: { id: despacho.id } })).toBe(0);
     expect(await prisma.shippingCost.count({ where: { saleId: d.saleId } })).toBe(0);
-    const guardados = await prisma.registroAnulado.findMany({ where: { motivo } });
+    const guardados = await prisma.registroAnulado.findMany({ where: { motivo: { startsWith: motivo } } });
     const tablas = guardados.map((g) => g.tabla);
     expect(tablas.filter((t) => t === "ShippingCost")).toHaveLength(fletes);
     expect(tablas).toContain("SupplierLedgerEntry");
