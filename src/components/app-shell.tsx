@@ -31,7 +31,6 @@ type AppShellProps = {
   initialUser: InitialUser | null;
   brandName: string;
   adminModuleAccess: Record<AdminModuleKey, boolean>;
-  // Boton de marcar entrada/salida (Empleado y Admin); null para los demas.
 };
 
 export function AppShell({ children, initialUser, brandName, adminModuleAccess }: AppShellProps) {
