@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { ArrowUpRight, CheckCircle2, PackageCheck, Truck, Wallet, XCircle } from "lucide-react";
+import { ArrowUpRight, PackageCheck, Truck, Wallet, XCircle } from "lucide-react";
 import { adminUpdateDispatchStatusAction } from "@/app/actions/dispatch-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { OperationsTabs } from "@/components/admin/operations-tabs";
 import { DispatchReviewButton, type DispatchReviewData } from "@/components/admin/dispatch-review-button";
+import { DeliveryConfirmDialog, type DeliveryConfirmInfo } from "@/components/admin/delivery-confirm-dialog";
 import {
   getDispatchStatusBadgeClassName,
   getDispatchStatusLabel,
@@ -18,6 +19,7 @@ import type { OrderStatus } from "@prisma/client";
 
 type DispatchRow = DispatchReviewData & {
   orderId: string;
+  deliveryInfo: DeliveryConfirmInfo;
 };
 
 type PaidNotDispatchedRow = {
@@ -74,15 +76,14 @@ function DispatchActions({ dispatch }: { dispatch: DispatchRow }) {
         </form>
       ) : null}
       {canDeliver ? (
-        <form action={adminUpdateDispatchStatusAction}>
-          <input type="hidden" name="returnTo" value="/admin/despachos" />
-          <input type="hidden" name="dispatchId" value={dispatch.id} />
-          <input type="hidden" name="status" value="DELIVERED" />
-          <Button type="submit" size="sm" className="h-7 bg-emerald-600 text-white hover:bg-emerald-600/90">
-            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-            Entregar
-          </Button>
-        </form>
+        <DeliveryConfirmDialog
+          info={dispatch.deliveryInfo}
+          action={adminUpdateDispatchStatusAction}
+          hiddenFields={{ returnTo: "/admin/despachos", dispatchId: dispatch.id, status: "DELIVERED" }}
+          buttonLabel="Entregar"
+          buttonSize="sm"
+          buttonClassName="h-7 bg-emerald-600 text-white hover:bg-emerald-600/90"
+        />
       ) : null}
       {canCancel ? (
         <form action={adminUpdateDispatchStatusAction}>

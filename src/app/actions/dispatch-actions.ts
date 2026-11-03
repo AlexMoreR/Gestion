@@ -17,6 +17,7 @@ import { SHIPPING_COST_LOG_FIELDS, SUPPLIER_LEDGER_LOG_FIELDS, snapshotForLog } 
 import { anularConMotivo, anularVarias, pagosPrimero } from "@/lib/anulaciones";
 import { buildDispatchCode, parseDispatchCodeNumber } from "@/lib/orders";
 import { isOrderFullyDelivered } from "@/lib/order-partial-delivery";
+import { DELIVERY_NOT_CONFIRMED_ERROR, isDeliveryConfirmed } from "@/lib/delivery-confirmation";
 import { parseWeightKg } from "@/modules/guias/domain/weight";
 import {
   buildShippingLegs,
@@ -250,6 +251,9 @@ export async function adminCompleteDeliveryAction(formData: FormData): Promise<v
 
   if (!parsed.success) {
     redirect(`${returnTo}?error=Datos+de+entrega+invalidos`);
+  }
+  if (!isDeliveryConfirmed(formData)) {
+    redirect(`${returnTo}?error=${encodeURIComponent(DELIVERY_NOT_CONFIRMED_ERROR)}`);
   }
 
   const dispatch = await prisma.dispatch.findUnique({
@@ -1356,6 +1360,9 @@ export async function adminUpdateDispatchStatusAction(formData: FormData): Promi
 
   if (!parsed.success) {
     redirect(`${returnTo}?error=Datos+de+despacho+invalidos`);
+  }
+  if (parsed.data.status === "DELIVERED" && !isDeliveryConfirmed(formData)) {
+    redirect(`${returnTo}?error=${encodeURIComponent(DELIVERY_NOT_CONFIRMED_ERROR)}`);
   }
 
   const dispatch = await prisma.dispatch.findUnique({
