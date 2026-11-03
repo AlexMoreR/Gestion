@@ -97,6 +97,7 @@ export async function revisarGestion(saldosAyer: Record<string, number> | null, 
     prisma.order.findMany({
       where: { type: "PURCHASE", purchaseCode: { not: null } },
       select: {
+        id: true,
         code: true,
         status: true,
         purchaseCode: true,
@@ -150,6 +151,32 @@ export async function revisarGestion(saldosAyer: Record<string, number> | null, 
         _sum: { change: true },
       })
     : [];
+
+  // Compra por lote: unidades que aún no deben estar en el inventario (PENDIENTE o FABRICANDO),
+  // repartidas por pieza como las líneas de la compra (un combo entra por sus componentes).
+  const unidadesPendientes = compras.length
+    ? await prisma.compraUnidad.groupBy({
+        by: ["orderId", "productId"],
+        where: { orderId: { in: compras.map((c) => c.id) }, estado: { in: ["PENDIENTE", "FABRICANDO"] } },
+        _count: { _all: true },
+      })
+    : [];
+  const componentesDeCombos = unidadesPendientes.length
+    ? await prisma.productComponent.findMany({
+        where: { parentId: { in: unidadesPendientes.map((u) => u.productId) }, parent: { isBundle: true } },
+        select: { parentId: true, childId: true, quantity: true },
+      })
+    : [];
+  const pendientesPorCompra = new Map<string, Map<string, number>>();
+  for (const fila of unidadesPendientes) {
+    const porProducto = pendientesPorCompra.get(fila.orderId) ?? new Map<string, number>();
+    const componentes = componentesDeCombos.filter((c) => c.parentId === fila.productId);
+    const piezas = componentes.length
+      ? componentes.map((c) => [c.childId, c.quantity * fila._count._all] as const)
+      : [[fila.productId, fila._count._all] as const];
+    for (const [productId, cantidad] of piezas) porProducto.set(productId, (porProducto.get(productId) ?? 0) + cantidad);
+    pendientesPorCompra.set(fila.orderId, porProducto);
+  }
 
   // ¿El registro borrado todavía existe? ¿Tiene copia en anulados?
   const ids = borrados.map((b) => b.entityId).filter((id): id is string => Boolean(id));
@@ -227,6 +254,7 @@ export async function revisarGestion(saldosAyer: Record<string, number> | null, 
         entradas: new Map(
           entradas.filter((row) => row.purchaseCode === compra.purchaseCode).map((row) => [row.productId, row._sum.change ?? 0]),
         ),
+        pendientes: pendientesPorCompra.get(compra.id),
       })),
     ),
     ...revisarBorrados(
