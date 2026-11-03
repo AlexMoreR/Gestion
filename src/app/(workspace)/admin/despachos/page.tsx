@@ -34,7 +34,6 @@ export default async function AdminDespachosPage({ searchParams }: PageProps) {
         order: {
           include: {
             client: true,
-            sale: { select: { code: true, paymentMethod: true } },
           },
         },
         createdBy: true,
@@ -149,15 +148,6 @@ export default async function AdminDespachosPage({ searchParams }: PageProps) {
           code: dispatch.code,
           orderCode: dispatch.order.code,
           orderId: dispatch.order.id,
-          deliveryInfo: {
-            orderCode: displayCode(dispatch.order.code),
-            saleCode: dispatch.order.sale ? displayCode(dispatch.order.sale.code) : null,
-            clientName: dispatch.order.client?.name || dispatch.order.client?.email || null,
-            city: dispatch.order.client?.city ?? null,
-            carrierName: dispatch.carrierName,
-            trackingNumber: dispatch.trackingNumber,
-            isContraentrega: dispatch.order.sale?.paymentMethod === "CONTRAENTREGA",
-          },
           clientName: dispatch.order.client?.name || dispatch.order.client?.email || displayCode(dispatch.order.code),
           carrierName: dispatch.carrierName,
           trackingNumber: dispatch.trackingNumber,

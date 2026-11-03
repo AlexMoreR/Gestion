@@ -155,7 +155,7 @@ Detalle de una orden. Aquí se fabrica, se recoge, se despacha y se entrega cada
 - Recuadro "Envío" (cuando hay un despacho con transportadora): muestra cada tramo con su valor y "Pagado desde …" o "Pago sin cuenta registrada", y el "Total envío".
   - **Agregar tramo**: abre el modal "Agregar tramo al despacho <código>" con Transportador, Valor, Guía, Nota, cuenta y comprobante. **Guardar tramo pagado** suma ese valor al flete de la venta.
 - Recuadro "Guías Magilus": **Crear guía Magilus** (con "Peso kg" opcional) aparece en despachos que aún no tienen guía. Si la guía ya existe, se pulsa para abrir su detalle.
-- Paso Entregar: **Registrar entrega** abre la ventana "¿Confirmas que el cliente YA RECIBIÓ el pedido?" con Orden, Venta, Cliente, Ciudad, Transportador y Guía (si la hay; lo que falte dice "sin dato"). Si la venta es contraentrega sale el aviso "Al registrar la entrega, esta venta cuenta como pagada en Balances". Debajo, "Foto de la cliente que recibió", Instagram y TikTok (opcionales) y la casilla obligatoria "Confirmé con el cliente o con el transportador que se entregó". **Sí, se entregó** (verde) queda apagado hasta marcar la casilla y registra la entrega; **Cancelar** cierra sin cambiar nada. Cuando todo está hecho aparece **¿No se entregó? Deshacer entrega**, que pide elegir el motivo ("No llegó al cliente", "Llegó dañado", "Producto equivocado (modelo, color o medida)", "Faltan piezas", "El cliente lo rechazó o lo devolvió", "Se devolvió a la proveedora (garantía o arreglo)", "Se registró por error" u "Otro", que pide escribir cuál) y un comentario opcional; **Sí, deshacer entrega** queda apagado hasta elegir el motivo.
+- Paso Entregar: **Registrar entrega** abre un modal con "Foto de la cliente que recibió", Instagram y TikTok, y se guarda con **Cerrar entrega**. Cuando todo está hecho aparece **¿No se entregó? Deshacer entrega**, que pide elegir el motivo ("No llegó al cliente", "Llegó dañado", "Producto equivocado (modelo, color o medida)", "Faltan piezas", "El cliente lo rechazó o lo devolvió", "Se devolvió a la proveedora (garantía o arreglo)", "Se registró por error" u "Otro", que pide escribir cuál) y un comentario opcional; **Sí, deshacer entrega** queda apagado hasta elegir el motivo.
 - Pestaña **Fabricación**: muestra una tarjeta por proveedora (la OF) con sus productos, "Pagado … · Falta …" y la lista de pagos (con **Comprobante**). Campos "Fecha de entrega", "Dirección de despacho" y "Notas para la proveedora", que se guardan con **Guardar datos de entrega**. Botones del enlace de la proveedora (link corto `/of/<código>`, ej. `magilus.com/of/OF-00035`; los links viejos `/fabricacion/<token>` siguen sirviendo):
   - **Ver**: abre el enlace.
   - **Copiar enlace**: copia el enlace.
@@ -194,7 +194,7 @@ Lista de despachos y de las ventas pagadas que aún no se han despachado.
 - Botones de estado, según el estado del despacho:
   - **Empacar**: si está pendiente o devuelto.
   - **Despachar**: si se está empacando.
-  - **Entregar**: si va en camino. Abre la misma ventana "¿Confirmas que el cliente YA RECIBIÓ el pedido?" del detalle de la orden (Orden, Venta, Cliente, Ciudad, Transportador, Guía si la hay y el aviso de contraentrega), sin foto ni redes. **Sí, se entregó** queda apagado hasta marcar "Confirmé con el cliente o con el transportador que se entregó"; **Cancelar** deja el despacho En camino.
+  - **Entregar**: si va en camino.
   - **Cancelar**: si no está entregado ni cancelado.
 - Esta pantalla no crea despachos ni registra el flete. Eso se hace en el detalle de la orden.
 

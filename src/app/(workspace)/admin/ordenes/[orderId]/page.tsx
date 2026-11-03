@@ -677,15 +677,6 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               returnTo,
               defaultInstagram: order.client?.instagram ?? "",
               defaultTiktok: order.client?.tiktok ?? "",
-              info: {
-                orderCode: displayCode(order.code),
-                saleCode: order.sale ? displayCode(order.sale.code) : null,
-                clientName: order.client?.name || order.client?.email || null,
-                city: order.client?.city ?? null,
-                carrierName: latestDispatch?.carrierName ?? null,
-                trackingNumber: latestDispatch?.trackingNumber ?? null,
-                isContraentrega: salePaymentMethod === "CONTRAENTREGA",
-              },
             }}
           />
 
