@@ -1,7 +1,6 @@
 import { Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { OrderDeliveryManager } from "@/components/admin/order-delivery-manager";
-import type { DeliveryConfirmInfo } from "@/components/admin/delivery-confirm-dialog";
 import { UndoDeliveryButton } from "@/components/admin/undo-delivery-button";
 import { cn } from "@/lib/utils";
 
@@ -32,7 +31,6 @@ type DeliveryData = {
   returnTo: string;
   defaultInstagram: string;
   defaultTiktok: string;
-  info: DeliveryConfirmInfo;
 };
 
 type OrderStepperProps = {
@@ -130,7 +128,7 @@ export function OrderStepper({
             returnTo={delivery.returnTo}
             defaultInstagram={delivery.defaultInstagram}
             defaultTiktok={delivery.defaultTiktok}
-            info={delivery.info}
+            canDeliver
             buttonLabel="Registrar entrega"
             buttonClassName="w-full bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto"
           />
