@@ -201,7 +201,7 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   `SOLO_COMISION`). Fechas `@db.Date` (`birthDate`, `startDate`, `endDate` = último día trabajado).
 - Reglas puras en `src/modules/equipo/domain/team-member.ts`: `teamStatus` (Retirado = `endDate` < hoy en
   Colombia; el estado no se guarda), `computeAge`, `isActiveOn` ("¿trabajaba en tal fecha?", ingreso y
-  salida inclusive — base del control de asistencia), `isActiveInMonth`, `payrollTeamEntries`.
+  salida inclusive), `isActiveInMonth`, `payrollTeamEntries`.
 - **Nómina** (`buildPayrollBoard`, parámetro `team`): entran todos los activos del mes aunque no tengan
   salario; un retirado aparece hasta su mes de salida y después solo con comisión o pagos de ese mes. Una
   ficha sin usuario sale con clave `team:<id>` y sin formularios de pago. Comisiones: mismo cálculo, solo
@@ -211,19 +211,8 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   (dueño), Ingrid, María Camila, Emanuel Díaz (ingreso 15-oct-2026, por día), Génesis (salida 20-oct-2026).
   Se une al usuario solo si el nombre coincide sin dudas (`matchStaffUser`).
 
-### Asistencia (entrada y salida, oct-2026)
-- **AsistenciaMarca** — migración `20261022150000_asistencia` (solo aditiva: enums `AsistenciaTipo`
-  `ENTRADA`/`SALIDA` y `AsistenciaOrigen` `PROPIA`/`ADMIN`/`CORRECCION`). `userId` (Restrict), `marcadaEn`
-  (hora del servidor), `dia` (`@db.Date`, día en Colombia de la entrada, aunque la salida pase de
-  medianoche), `creadaPorId`, `motivo`, `corrigeAId`, y anulación (`anuladaEn`, `anuladaPorId`,
-  `motivoAnulacion`). Las marcas **nunca se borran**: corregir = anular la original + crear una CORRECCION.
-- Reglas puras en `src/modules/asistencia/domain/attendance.ts`: `nextMark` (entrada de otro día sigue
-  abierta solo si se marcó desde las 18:00 y lleva < 12 h), `summarizeDay` (estado, horas por pares; salida olvidada no suma horas),
-  `workedDays` (un día cuenta si tiene una ENTRADA vigente).
-- El botón marca con un candado por persona (`pg_advisory_xact_lock`) y compara lo que decía el botón:
-  un doble clic no crea dos entradas. Solo marcan usuarios `EMPLEADO`/`ADMIN` (una ficha sin usuario no).
-- **Nómina**: los días de quien cobra por día se escriben a mano (`daysByMonth`) en todos los meses; la
-  asistencia no afecta pagos (decisión de Alexander, 28-oct-2026).
+### Asistencia
+- La asistencia se quitó (28-oct-2026): la tabla `AsistenciaMarca` ya no se usa y sus datos se conservan; los días de quien cobra por día se escriben a mano en Nómina (`daysByMonth`).
 
 ### Transporte (cobertura DANE)
 - **TransportDepartment / TransportCity / TransportLocality** — división político-administrativa oficial
