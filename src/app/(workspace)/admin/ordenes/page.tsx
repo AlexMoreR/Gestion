@@ -6,6 +6,7 @@ import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { comboStock } from "@/lib/combo";
 import { prisma } from "@/lib/prisma";
 import { formatNoteDate } from "@/lib/order-notes";
+import { countReversedItems } from "@/lib/order-item-reversal";
 import { createPrismaInventoryRepository } from "@/modules/inventory/infrastructure/prisma-inventory-repository";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
@@ -88,6 +89,21 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
       select: { id: true, name: true },
     }),
   ]);
+
+  // Productos con la entrega deshecha por orden (etiqueta "Entregado parcial"); solo las líneas reversadas.
+  const reversedLines = await prisma.dispatchItem.findMany({
+    where: {
+      deliveryReversedAt: { not: null },
+      dispatch: { status: "DELIVERED", orderId: { in: orders.map((order) => order.id) } },
+    },
+    select: { orderItemId: true, deliveryReversedAt: true, dispatch: { select: { orderId: true, status: true } } },
+  });
+  const reversedLinesByOrder = new Map<string, Parameters<typeof countReversedItems>[0]>();
+  for (const line of reversedLines) {
+    const list = reversedLinesByOrder.get(line.dispatch.orderId) ?? [];
+    list.push({ orderItemId: line.orderItemId, dispatchStatus: line.dispatch.status, deliveryReversedAt: line.deliveryReversedAt });
+    reversedLinesByOrder.set(line.dispatch.orderId, list);
+  }
 
   // Stock por producto (componentes) para calcular cuantos combos se pueden armar.
   const stockByProduct = new Map(productStocks.map((stock) => [stock.productId, stock.stock]));
@@ -176,6 +192,7 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
             date: formatNoteDate(lastNote.createdAt),
           }
         : null,
+      reversedItems: countReversedItems(reversedLinesByOrder.get(order.id) ?? []),
     };
   });
 

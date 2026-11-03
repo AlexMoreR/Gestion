@@ -155,6 +155,11 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   «Deshacer entrega» la crea y anota el motivo en la nota del despacho, `OrderStatusHistory` y `ActivityLog`. Reglas puras en
   `src/lib/order-item-reversal.ts`; campos en `src/components/admin/reversal-reason-fields.tsx`. `DispatchItem.deliveryReversedAt`:
   un producto está Entregado solo con su despacho DELIVERED y esa columna NULL (la usa la reversa por producto).
+  Una orden COMPLETED con productos así se muestra «Entregado parcial – N sin entregar» (ámbar; `countReversedItems` +
+  `getOrderDisplayState`) y vuelve sola a «Cerrado – Entregado» al reentregar. Tarjeta «Reversas» en el detalle
+  (`src/components/admin/order-reversals-card.tsx`). **Reversar no toca dinero**: `Order.status`, Balances, fletes y
+  comisiones no cambian; en una contraentrega COMPLETED con reversas sale el aviso `reversalMoneyWarning` (detalle de la
+  orden y fila de la venta) y administración decide.
 - **ProductionJob** — trabajo de fabricación (`code`, estado `ProductionJobStatus`, asignado a alguien).
 - **Dispatch** — despacho/entrega: `deliveryType` (`COUNTER`/`PICKUP`/`SHIPPING`), transportadora,
   `shippingCost`, guía, direcciones y fotos de entrega.

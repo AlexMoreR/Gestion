@@ -17,6 +17,7 @@ import { itemsParaPlan, necesitaAlertaCombo } from "@/modules/ventas/domain/comb
 import { parseOriginFilter } from "@/modules/ventas/domain/sale-origin";
 import { SaleOriginFilterBar } from "@/modules/ventas/presentation/sale-origin-filter-bar";
 import { paymentMethodLabel } from "@/modules/ventas/domain/withholding";
+import { countReversedItems, reversalMoneyWarning } from "@/lib/order-item-reversal";
 
 type SaleWithDiscountFields = {
   grossTotal?: unknown;
@@ -143,6 +144,32 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
   const stockFor = (product: (typeof products)[number]): number =>
     product.isBundle ? comboStock(product.bundleComponents, stockOf) : stockOf(product.id);
 
+  // Contraentregas ya entregadas (cuentan en Balances) con productos reversados: solo para el aviso, no recalcula nada.
+  const reversedLines = await prisma.dispatchItem.findMany({
+    where: {
+      deliveryReversedAt: { not: null },
+      dispatch: {
+        status: "DELIVERED",
+        orderId: {
+          in: sales.flatMap((sale) =>
+            sale.paymentMethod === "CONTRAENTREGA" && sale.order?.status === "COMPLETED" ? [sale.order.id] : [],
+          ),
+        },
+      },
+    },
+    select: { orderItemId: true, deliveryReversedAt: true, dispatch: { select: { orderId: true, status: true } } },
+  });
+  const reversedCountOf = (orderId: string) =>
+    countReversedItems(
+      reversedLines
+        .filter((line) => line.dispatch.orderId === orderId)
+        .map((line) => ({
+          orderItemId: line.orderItemId,
+          dispatchStatus: line.dispatch.status,
+          deliveryReversedAt: line.deliveryReversedAt,
+        })),
+    );
+
   return (
     <section className="w-full space-y-4">
       <QueryFeedbackToast
@@ -254,6 +281,13 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
             tieneOrden: Boolean(sale.order),
             cancelada: sale.status === "CANCELLED",
           }),
+          alertaReversa: sale.order
+            ? reversalMoneyWarning({
+                paymentMethod: sale.paymentMethod,
+                orderStatus: sale.order.status,
+                reversedItems: reversedCountOf(sale.order.id),
+              })
+            : null,
         }))}
       />
     </section>

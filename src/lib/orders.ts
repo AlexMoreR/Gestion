@@ -151,12 +151,17 @@ const AMBER_BADGE =
  *   - "Cerrado – En envío": despachada por transportadora, aún no entregada.
  *   - "Cerrado – Entregado": el cliente ya recibió.
  * `delivery` es el despacho más reciente (o null si aún no se despacha).
+ * `reversedItems`: productos con la entrega deshecha (countReversedItems). Solo cambia la etiqueta, nunca el estado.
  */
 export function getOrderDisplayState(
   status: OrderStatus,
   delivery: { deliveryType: DeliveryType; status: DispatchStatus } | null,
+  reversedItems = 0,
 ): { label: string; className: string } {
   if (status === "COMPLETED") {
+    if (reversedItems > 0) {
+      return { label: `Entregado parcial – ${reversedItems} sin entregar`, className: AMBER_BADGE };
+    }
     return { label: "Cerrado – Entregado", className: GREEN_BADGE };
   }
 

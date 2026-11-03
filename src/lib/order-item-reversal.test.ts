@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { itemDeliveryState, parseReversalInput, REVERSAL_REASONS, reversalLine } from "./order-item-reversal";
+import {
+  countReversedItems,
+  itemDeliveryState,
+  parseReversalInput,
+  REVERSAL_REASONS,
+  reversalLine,
+  reversalMoneyWarning,
+} from "./order-item-reversal";
 
 function form(fields: Record<string, string>): FormData {
   const data = new FormData();
@@ -80,5 +87,39 @@ describe("itemDeliveryState", () => {
   });
   it("despacho enviado sin reversa → DESPACHADO", () => {
     expect(itemDeliveryState({ dispatchStatus: "SHIPPED", deliveryReversedAt: null })).toBe("DESPACHADO");
+  });
+});
+
+describe("countReversedItems", () => {
+  const at = new Date("2026-11-03T15:00:00Z");
+  it("cuenta una vez por producto solo las líneas DELIVERED reversadas", () => {
+    expect(
+      countReversedItems([
+        { orderItemId: "a", dispatchStatus: "DELIVERED", deliveryReversedAt: at },
+        { orderItemId: "a", dispatchStatus: "DELIVERED", deliveryReversedAt: at },
+        { orderItemId: "b", dispatchStatus: "DELIVERED", deliveryReversedAt: null },
+        { orderItemId: "c", dispatchStatus: "SHIPPED", deliveryReversedAt: at },
+      ]),
+    ).toBe(1);
+  });
+  it("al volver a entregar (columna NULL) ya no cuenta", () => {
+    expect(countReversedItems([{ orderItemId: "a", dispatchStatus: "DELIVERED", deliveryReversedAt: null }])).toBe(0);
+  });
+});
+
+describe("reversalMoneyWarning", () => {
+  it("contraentrega, COMPLETED y 1 reversado → aviso", () => {
+    expect(reversalMoneyWarning({ paymentMethod: "CONTRAENTREGA", orderStatus: "COMPLETED", reversedItems: 1 })).toBe(
+      "Esta venta ya cuenta en Balances y tiene 1 producto(s) reversado(s). El dinero, los fletes y las comisiones no se recalculan solos: administración decide",
+    );
+  });
+  it("venta 50/50 → sin aviso", () => {
+    expect(reversalMoneyWarning({ paymentMethod: "ANTICIPO_50_50", orderStatus: "COMPLETED", reversedItems: 1 })).toBeNull();
+  });
+  it("orden que no está COMPLETED → sin aviso", () => {
+    expect(reversalMoneyWarning({ paymentMethod: "CONTRAENTREGA", orderStatus: "DISPATCHED", reversedItems: 1 })).toBeNull();
+  });
+  it("0 reversados → sin aviso", () => {
+    expect(reversalMoneyWarning({ paymentMethod: "CONTRAENTREGA", orderStatus: "COMPLETED", reversedItems: 0 })).toBeNull();
   });
 });

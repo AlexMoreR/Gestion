@@ -79,3 +79,28 @@ export function itemDeliveryState(input: {
 }): "ENTREGADO" | "DESPACHADO" {
   return input.dispatchStatus === "DELIVERED" && input.deliveryReversedAt === null ? "ENTREGADO" : "DESPACHADO";
 }
+
+// Productos con la entrega deshecha: línea de despacho DELIVERED con deliveryReversedAt, contada una vez por producto.
+// Al volver a entregar la columna queda NULL y el producto deja de contar solo.
+export function countReversedItems(
+  lines: { orderItemId: string; dispatchStatus: string; deliveryReversedAt: Date | null }[],
+): number {
+  const items = new Set<string>();
+  for (const line of lines) {
+    if (line.dispatchStatus === "DELIVERED" && line.deliveryReversedAt !== null) items.add(line.orderItemId);
+  }
+  return items.size;
+}
+
+// Aviso para administración: contraentrega ya contada en Balances (orden COMPLETED) con productos reversados.
+// Solo informa; reversar no recalcula dinero, fletes ni comisiones.
+export function reversalMoneyWarning(input: {
+  paymentMethod: string | null | undefined;
+  orderStatus: string;
+  reversedItems: number;
+}): string | null {
+  if (input.paymentMethod !== "CONTRAENTREGA" || input.orderStatus !== "COMPLETED" || input.reversedItems <= 0) {
+    return null;
+  }
+  return `Esta venta ya cuenta en Balances y tiene ${input.reversedItems} producto(s) reversado(s). El dinero, los fletes y las comisiones no se recalculan solos: administración decide`;
+}

@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AddShippingLegDialog } from "@/components/admin/add-shipping-leg-dialog";
 import { OrderActionsMenu } from "@/components/admin/order-actions-menu";
 import { OrderHistoryTabs } from "@/components/admin/order-history-tabs";
 import { OrderNotesCard } from "@/components/admin/order-notes-card";
+import { OrderReversalsCard } from "@/components/admin/order-reversals-card";
 import { OrderItemsTable } from "@/components/admin/order-items-table";
 import { OrderStepper } from "@/components/admin/order-stepper";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +19,7 @@ import { computeStockExitCost } from "@/lib/stock-exit-cost";
 import { computeItemUnitCost } from "@/lib/order-item-cost";
 import { prisma } from "@/lib/prisma";
 import { formatNoteDate } from "@/lib/order-notes";
-import { itemDeliveryState } from "@/lib/order-item-reversal";
+import { countReversedItems, itemDeliveryState, reversalMoneyWarning, reversalReasonLabel } from "@/lib/order-item-reversal";
 import {
   getFulfillmentModeLabel,
   getOrderDisplayState,
@@ -186,6 +188,13 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           include: { createdBy: { select: { name: true, email: true } } },
           orderBy: { createdAt: "desc" },
         },
+        reversals: {
+          include: {
+            orderItem: { select: { product: { select: { name: true } } } },
+            createdBy: { select: { name: true, email: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        },
       },
     }),
     getSystemCurrency(),
@@ -277,12 +286,27 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   const step2Done = allItemsPaymentSet && allItemsHavePhotos;
   const step3Done = order.items.length > 0 && order.items.every((item) => isItemDespachado(item));
   const step4Done = order.status === "COMPLETED" || latestDispatch?.status === "DELIVERED";
+  const reversedItems = countReversedItems(
+    order.dispatches.flatMap((dispatch) =>
+      dispatch.items.map((dispatchItem) => ({
+        orderItemId: dispatchItem.orderItemId,
+        dispatchStatus: dispatch.status,
+        deliveryReversedAt: dispatchItem.deliveryReversedAt,
+      })),
+    ),
+  );
   const displayState = getOrderDisplayState(
     order.status,
     latestDispatch
       ? { deliveryType: latestDispatch.deliveryType, status: latestDispatch.status }
       : null,
+    reversedItems,
   );
+  const moneyWarning = reversalMoneyWarning({
+    paymentMethod: order.sale?.paymentMethod,
+    orderStatus: order.status,
+    reversedItems,
+  });
 
   const isItemConfirmed = itemIsConfirmed;
   // Un producto de stock confirmado queda listo para despachar (no pasa por
@@ -604,6 +628,16 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         </div>
       </div>
 
+      {moneyWarning ? (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          {moneyWarning}
+        </div>
+      ) : null}
+
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card className="border-border bg-card/95 py-2">
           <CardContent className="space-y-0.5">
@@ -823,6 +857,22 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               by: note.createdBy.name || note.createdBy.email,
               date: formatNoteDate(note.createdAt),
               mine: note.createdById === session.user.id,
+            }))}
+          />
+
+          <OrderReversalsCard
+            reversals={order.reversals.map((reversal) => ({
+              id: reversal.id,
+              product: reversal.orderItem?.product.name ?? "Toda la orden",
+              fromState: reversal.fromState,
+              toState: reversal.toState,
+              motive:
+                reversal.reason === "OTRO" && reversal.reasonText
+                  ? `Otro: ${reversal.reasonText}`
+                  : reversalReasonLabel(reversal.reason),
+              comment: reversal.comment,
+              by: reversal.createdBy.name || reversal.createdBy.email,
+              date: formatNoteDate(reversal.createdAt),
             }))}
           />
 

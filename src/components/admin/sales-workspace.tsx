@@ -46,6 +46,7 @@ type SaleRow = {
   saleOriginDetail: unknown;
   hasCamillaCombo: boolean;
   alertaCombo?: boolean;
+  alertaReversa?: string | null;
 };
 
 type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER" | "OWNER";

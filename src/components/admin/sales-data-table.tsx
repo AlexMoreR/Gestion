@@ -131,6 +131,8 @@ type SaleRow = {
   hasCamillaCombo: boolean;
   // Combo Camillas (o sin productos) sin orden: no se pudo crear la orden sola.
   alertaCombo?: boolean;
+  // Contraentrega ya contada en Balances con productos reversados (reversalMoneyWarning). Solo informa.
+  alertaReversa?: string | null;
 };
 
 type SalesDataTableProps = {
@@ -208,7 +210,7 @@ function StatusBadge({ status }: { status: SaleStatus }) {
 
 // Recaudo completo y entrega pendiente: la venta ya cuenta en Balances (salvo
 // contraentrega) y solo falta entregarla.
-function SaleStatusCell({ sale }: { sale: Pick<SaleRow, "status" | "pendingDelivery" | "alertaCombo"> }) {
+function SaleStatusCell({ sale }: { sale: Pick<SaleRow, "status" | "pendingDelivery" | "alertaCombo" | "alertaReversa"> }) {
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
       <StatusBadge status={sale.status} />
@@ -222,6 +224,12 @@ function SaleStatusCell({ sale }: { sale: Pick<SaleRow, "status" | "pendingDeliv
         <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:text-red-400">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
           Falta el producto: no se pudo crear la orden
+        </span>
+      ) : null}
+      {sale.alertaReversa ? (
+        <span className="inline-flex max-w-xs items-start gap-1 whitespace-normal rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          {sale.alertaReversa}
         </span>
       ) : null}
     </span>

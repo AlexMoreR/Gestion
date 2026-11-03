@@ -20,7 +20,7 @@ import { OperationsTabs } from "@/components/admin/operations-tabs";
 import { PurchaseDirectDialog } from "@/components/admin/purchase-direct-dialog";
 import { PurchaseDeleteMenuItem, PurchaseDeleteDialog } from "@/components/admin/purchase-delete-menu-item";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
-import { getOrderStatusBadgeClassName, getOrderStatusLabel } from "@/lib/orders";
+import { getOrderDisplayState, getOrderStatusBadgeClassName, getOrderStatusLabel } from "@/lib/orders";
 import { displayCode } from "@/lib/code-display";
 
 type PurchaseProductOption = {
@@ -46,6 +46,8 @@ type OrderRow = {
   orderDateISO: string;
   notesText: string;
   lastNote: { text: string; by: string; date: string } | null;
+  // Productos con la entrega deshecha (solo cambia la etiqueta de una orden completada).
+  reversedItems: number;
 };
 
 // Dia local (YYYY-MM-DD) de la fecha de la orden, para comparar con el rango.
@@ -90,11 +92,15 @@ type OrdersWorkspaceProps = {
 };
 
 function StatusBadge({ order }: { order: OrderRow }) {
+  const partial =
+    order.status === "COMPLETED" && order.reversedItems > 0
+      ? getOrderDisplayState(order.status, null, order.reversedItems)
+      : null;
   return (
     <span
-      className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${getOrderStatusBadgeClassName(order.status)}`}
+      className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${partial?.className ?? getOrderStatusBadgeClassName(order.status)}`}
     >
-      {getOrderStatusLabel(order.status)}
+      {partial?.label ?? getOrderStatusLabel(order.status)}
     </span>
   );
 }
