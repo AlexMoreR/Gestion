@@ -137,7 +137,6 @@ model Product {
   alternateInBundles ProductComponentAlternate[] @relation("BundleAlternate")
   inventoryMovements InventoryMovement[]
   reviews            ProductReview[]
-  lotUnits           CompraUnidad[]
 }
 
 model ProductReview {
@@ -642,8 +641,6 @@ model Order {
   reversals             OrderItemReversal[]
   supplierLedgerEntries SupplierLedgerEntry[]
   manufacturingOrders   ManufacturingOrder[]
-  lotUnits              CompraUnidad[]        @relation("CompraUnidadCompra")
-  soldLotUnits          CompraUnidad[]        @relation("CompraUnidadVenta")
 
   @@index([clientId, createdAt])
   @@index([createdById, createdAt])
@@ -822,30 +819,6 @@ model OrderStatusHistory {
 }
 
 // Notas internas del equipo sobre una orden (qué pasa, qué recordar). Nunca salen al cliente ni a la proveedora.
-// Unidad de una compra por lote a proveedora (nov-2026). Una fila por unidad de la línea
-// comprada (ej. el combo). PENDIENTE y FABRICANDO aún no están en el inventario.
-model CompraUnidad {
-  id          String   @id @default(cuid())
-  orderId     String
-  productId   String
-  // PENDIENTE | FABRICANDO | EN_INVENTARIO | VENDIDA (reglas en src/modules/inventory/domain/purchase-lot.ts)
-  estado      String   @default("PENDIENTE")
-  // CALI | TALLER_PROVEEDORA
-  ubicacion   String?
-  color       String?
-  saleOrderId String?
-  createdById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  order       Order    @relation("CompraUnidadCompra", fields: [orderId], references: [id], onDelete: Cascade)
-  saleOrder   Order?   @relation("CompraUnidadVenta", fields: [saleOrderId], references: [id], onDelete: SetNull)
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
-
-  @@index([orderId])
-  @@index([productId])
-  @@index([estado])
-}
-
 model OrderNote {
   id          String   @id @default(cuid())
   orderId     String

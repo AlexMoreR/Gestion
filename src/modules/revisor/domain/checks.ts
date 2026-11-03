@@ -140,11 +140,6 @@ export type CompraRevisada = {
   items: { productId: string; producto: string; cantidad: number }[];
   /** Unidades netas que entraron al inventario con el código de la compra, por productId. */
   entradas: Map<string, number>;
-  /**
-   * Unidades de la compra por lote (CompraUnidad PENDIENTE o FABRICANDO) que aún no deben estar en
-   * el inventario, por productId de las líneas (un combo ya viene repartido en sus piezas).
-   */
-  pendientes?: Map<string, number>;
 };
 
 export function revisarCompras(compras: CompraRevisada[]): Hallazgo[] {
@@ -152,28 +147,20 @@ export function revisarCompras(compras: CompraRevisada[]): Hallazgo[] {
   for (const compra of compras) {
     if (compra.estado === "CANCELLED") continue;
     const codigo = compra.codigoCompra;
-    // Lo esperado por producto: lo comprado menos lo que sigue pendiente o fabricándose.
-    const comprado = new Map<string, { producto: string; cantidad: number }>();
-    for (const item of compra.items) {
-      const actual = comprado.get(item.productId) ?? { producto: item.producto, cantidad: 0 };
-      actual.cantidad += item.cantidad;
-      comprado.set(item.productId, actual);
-    }
-    for (const [productId, pendientes] of compra.pendientes ?? []) {
-      const actual = comprado.get(productId);
-      if (actual) actual.cantidad -= pendientes;
-    }
-    const todoPendiente = (compra.pendientes?.size ?? 0) > 0 && [...comprado.values()].every((c) => c.cantidad <= 0);
     if (compra.entradas.size === 0 && compra.items.length > 0) {
-      if (!todoPendiente) {
-        hallazgos.push({
-          tipo: "COMPRA_SIN_ENTRADA",
-          codigo,
-          detalle: `La compra (${compra.orden}) no tiene entrada al inventario`,
-          esPlata: false,
-        });
-      }
+      hallazgos.push({
+        tipo: "COMPRA_SIN_ENTRADA",
+        codigo,
+        detalle: `La compra (${compra.orden}) no tiene entrada al inventario`,
+        esPlata: false,
+      });
     } else {
+      const comprado = new Map<string, { producto: string; cantidad: number }>();
+      for (const item of compra.items) {
+        const actual = comprado.get(item.productId) ?? { producto: item.producto, cantidad: 0 };
+        actual.cantidad += item.cantidad;
+        comprado.set(item.productId, actual);
+      }
       const productos = new Set([...comprado.keys(), ...compra.entradas.keys()]);
       for (const productId of productos) {
         const cantidad = comprado.get(productId)?.cantidad ?? 0;
@@ -182,7 +169,7 @@ export function revisarCompras(compras: CompraRevisada[]): Hallazgo[] {
         hallazgos.push({
           tipo: "COMPRA_CANTIDAD_DISTINTA",
           codigo,
-          detalle: `${comprado.get(productId)?.producto ?? "Un producto"}: se ${compra.pendientes?.get(productId) ? "esperaban" : "compraron"} ${cantidad} y entraron ${entro} al inventario`,
+          detalle: `${comprado.get(productId)?.producto ?? "Un producto"}: se compraron ${cantidad} y entraron ${entro} al inventario`,
           esPlata: false,
         });
       }

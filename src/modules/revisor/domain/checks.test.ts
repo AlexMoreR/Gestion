@@ -114,14 +114,6 @@ describe("revisarCompras", () => {
       ["COMPRA_RECIBIDA_SIN_COMPLETAR", "COM-00006"],
     ]);
   });
-  it("compra por lote: 6 con 3 pendientes y 3 entradas no da hallazgos; todo pendiente no es sin entrada", () => {
-    const lote = { ...compra, items: [{ productId: "p1", producto: "Silla", cantidad: 6 }], pendientes: new Map([["p1", 3]]) };
-    expect(revisarCompras([lote])).toEqual([]);
-    expect(revisarCompras([{ ...lote, entradas: new Map(), pendientes: new Map([["p1", 6]]) }])).toEqual([]);
-    expect(revisarCompras([{ ...lote, entradas: new Map([["p1", 2]]) }]).map((h) => h.tipo)).toEqual([
-      "COMPRA_CANTIDAD_DISTINTA",
-    ]);
-  });
 });
 
 describe("revisarBorrados", () => {
