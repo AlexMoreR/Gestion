@@ -11,7 +11,7 @@ import { formatMoney } from "@/lib/currency";
 import { FACTORY_POINTS, factoryPointPostalAddress } from "@/lib/factory-points";
 import { imageVariantUrl } from "@/lib/image-variants";
 import { prisma } from "@/lib/prisma";
-import { isCamillasCombo } from "@/lib/product-landing";
+import { hasHydraulicSystem, isCamillasCombo } from "@/lib/product-landing";
 import { buildProductPath } from "@/lib/product-slugs";
 import {
   buildCategorySeoDescription,
@@ -592,6 +592,11 @@ export async function StorefrontCatalog({
               const comboSavings = comboSavingsFromProduct(product, now);
               const productHref = buildProductPath(product);
               const whatsAppHref = productWhatsAppHrefById.get(product.id) ?? storefrontWhatsAppHref;
+              const hydraulic = hasHydraulicSystem({
+                name: product.name,
+                description: product.description,
+                categoryName: product.category?.name,
+              });
 
               return (
                 <Card
@@ -611,7 +616,17 @@ export async function StorefrontCatalog({
                       <span className="absolute left-2 top-2 rounded-full border border-white/20 bg-slate-900/85 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
                         {product.code?.trim() || "SKU"}
                       </span>
-                      <GuaranteeBadge className="pointer-events-none absolute right-2 top-2 h-11 w-11 text-slate-900 md:h-12 md:w-12" />
+                      <div className="pointer-events-none absolute right-2 top-2 flex flex-col items-end gap-1">
+                        <GuaranteeBadge hydraulic={hydraulic} className="h-11 w-11 text-slate-900 md:h-12 md:w-12" />
+                        {hydraulic ? (
+                          <span
+                            aria-hidden="true"
+                            className="whitespace-nowrap rounded-full bg-slate-900/85 px-2 py-0.5 text-[10px] font-semibold text-white"
+                          >
+                            +5 años hidráulico
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
 
                     <div className="flex flex-1 flex-col space-y-1.5 px-3 pb-1 pt-2.5">
