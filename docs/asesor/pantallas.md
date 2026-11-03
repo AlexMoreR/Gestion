@@ -450,6 +450,18 @@ Stock por producto y movimientos de inventario.
 - **Nuevo movimiento** y **Mover** (en cada producto): abren "Nuevo Inventario" con "Genera el inventario con Orden de Comprar" y el botón **Ir a Ordenes**. La **compra directa** a proveedor se hace en `/admin/ordenes` → **Nuevo** → **Registrar compra** (ver esa pantalla); se edita o anula desde el menú de la orden (**Editar compra** / **Anular compra**).
 - Lápiz "Editar stock minimo" → Cantidad minima → **Guardar**.
 - Menú "Acciones" de cada movimiento: **Editar** (Tipo: Entrada (sumar) / Salida (restar) / Ajuste (conteo), Cant, Fecha, Nota → **Guardar cambios**) y **Anular** (abre "Anular movimiento", pide **Motivo** y se confirma con **Anular movimiento**; el stock se recalcula, sus cargos a la proveedora se anulan con él y queda una copia con el motivo. Si esos cargos tienen abonos, no deja: "Primero anula los abonos").
+- **Lotes**: abre `/admin/inventario/lotes` (compras por lote a proveedora).
+
+## /admin/inventario/lotes
+"Lotes de compra": compras a proveedora registradas con **Pendientes por fabricar** (en Registrar compra), una tarjeta por producto de cada compra.
+**Qué se ve:** arriba la línea "Cali: N · Taller proveedora: N · Fabricando: N · Pendientes: N" (unidades que aún no salieron en venta). Por lote: código de la compra (`COM-...`, abre la orden) y su `ORD-...`, producto · proveedora, "cantidad × costo por unidad = total" y "Pagado X · Saldo Y" (cargos y abonos de esa compra). Por unidad: su estado ("Pendiente", "Fabricando · Negro", "En inventario · Cali", "Vendida" con su orden). Sin lotes: "Todavía no hay compras por lote...". Botón **Inventario** para volver.
+**Botones y acciones** (solo ADMIN; cada unidad muestra solo los que valen para su estado):
+- Pendiente → **Pasar a fabricar**: pide **Color** (obligatorio) → **Pasar a fabricar**.
+- Fabricando → **Llegó**: pide **Ubicación** (Cali / Taller proveedora) → **Guardar llegada**. Suma 1 al stock (un combo, sus piezas) con la nota "Compra COM-... (llegó unidad del lote)"; no crea deuda nueva con la proveedora.
+- Fabricando o En inventario → **Editar color** → **Guardar color**.
+- En inventario → **Cambiar ubicación** → **Guardar ubicación**.
+- En inventario → **Salió en venta**: elige la **Orden de venta** (primero las que traen ese producto) → **Marcar como vendida**. Es solo la marca: el stock baja al confirmar la pieza en la orden, que debe ir en modo Stock para no volver a cargarle a la proveedora.
+- En todos los diálogos, **Cancelar** cierra sin cambiar nada.
 
 ## /admin/marketplace
 Monitoreo del canal Facebook Marketplace (NETMAGI). Solo lectura.

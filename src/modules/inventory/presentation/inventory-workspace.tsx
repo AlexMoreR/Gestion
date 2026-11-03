@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Boxes, History, Layers, PackageX, Plus, Wallet } from "lucide-react";
+import Link from "next/link";
+import { Boxes, PackageOpen, History, Layers, PackageX, Plus, Wallet } from "lucide-react";
 import { StatList } from "@/components/ui/stat-list";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -145,6 +146,10 @@ export function InventoryWorkspace({
       <section className="space-y-4">
         <div className="space-y-3">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
+            <Button variant="outline" render={<Link href="/admin/inventario/lotes" />}>
+              <PackageOpen className="h-4 w-4" />
+              Lotes
+            </Button>
             <Button type="button" onClick={() => setMovementModal({ open: true, productId: null })}>
               <Plus className="h-4 w-4" />
               Nuevo movimiento

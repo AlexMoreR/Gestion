@@ -88,3 +88,52 @@ export function summarizeLotUnits(unidades: LotUnit[]) {
   }
   return resumen;
 }
+
+/** Texto del estado de una unidad: "Pendiente", "Fabricando · Negro", "En inventario · Cali"… */
+export function lotUnitLabel(unidad: LotUnit): string {
+  const color = unidad.color?.trim();
+  const conColor = (texto: string) => (color ? `${texto} · ${color}` : texto);
+  switch (unidad.estado) {
+    case "PENDIENTE":
+      return "Pendiente";
+    case "FABRICANDO":
+      return conColor("Fabricando");
+    case "EN_INVENTARIO": {
+      const lugar = esUbicacion(unidad.ubicacion) ? LOT_LOCATION_LABELS[unidad.ubicacion] : "sin ubicación";
+      return conColor(`En inventario · ${lugar}`);
+    }
+    case "VENDIDA":
+      return conColor("Vendida");
+    default:
+      return unidad.estado;
+  }
+}
+
+/**
+ * Entradas al inventario cuando llega UNA unidad: un producto normal suma 1; un combo no tiene
+ * stock propio y suma sus piezas (igual que la compra).
+ */
+export function lotArrivalEntries(
+  productId: string,
+  componentes: Array<{ childId: string; quantity: number }> | null,
+): Array<{ productId: string; change: number }> {
+  if (!componentes) return [{ productId, change: 1 }];
+  return componentes.filter((c) => c.quantity > 0).map((c) => ({ productId: c.childId, change: c.quantity }));
+}
+
+/**
+ * Total pagable de un producto del lote según las líneas de la compra (OrderItem). Un combo se guarda
+ * como una línea por pieza con nota "Combo <nombre>" (así lo crea la compra).
+ */
+export function lotLineTotal(
+  items: Array<{ productId: string; lineTotal: number; notes: string | null }>,
+  producto: { id: string; name: string; isBundle: boolean },
+): number {
+  return items
+    .filter((item) =>
+      producto.isBundle
+        ? item.notes === `Combo ${producto.name}`
+        : item.productId === producto.id && !item.notes?.startsWith("Combo "),
+    )
+    .reduce((sum, item) => sum + item.lineTotal, 0);
+}

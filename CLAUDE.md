@@ -33,7 +33,7 @@ módulos y para qué sirven:
 | **Productos** | `/admin/productos` | Catálogo: crear/editar productos, precios, costos, combos, imágenes, ocultar de la tienda. **Fichas técnicas**: `ProductImage.tipo` = `"foto"` (galería, portada, Traer de Drive, `/api/catalogo`) o `"ficha"` (sección "Ficha técnica" en el admin y en "Medidas y detalles" de la tienda; nunca como foto). Carga en lote en `/admin/productos/fichas` (CSV + imágenes `<driveFileId>.jpg`); simulación local con `npm run fichas:importar`. Lógica en `src/lib/product-fichas.ts`. |
 | **Categorías** | `/admin/categorias` | Categorías del catálogo (con SEO y logo). |
 | **Proveedores** | `/admin/proveedores` | Fabricantes y transportadoras; cuenta corriente (cargos/abonos) por proveedor. |
-| **Inventario** | `/admin/inventario` | Stock por producto, movimientos (entradas/salidas/ajustes) y **compras directas** a proveedor. |
+| **Inventario** | `/admin/inventario` | Stock por producto, movimientos (entradas/salidas/ajustes) y **compras directas** a proveedor. **Compra por lote** (nov-2026): en Registrar compra, "Pendientes por fabricar" por línea; la deuda con la proveedora se carga completa pero al inventario solo entra lo fabricado. Las unidades se manejan en **`/admin/inventario/lotes`** (enlace "Lotes"): Pasar a fabricar (color), Llegó (ubicación; suma 1 al stock, sin deuda nueva), Cambiar ubicación, Editar color y Salió en venta (manual). Acciones en `src/app/actions/purchase-lot-actions.ts`; reglas en `src/modules/inventory/domain/purchase-lot.ts`. |
 | **Clientes** | `/admin/clientes` | Directorio de clientes (se crean al cotizar). |
 | **Cotizaciones** | `/admin/cotizaciones` | Crear/editar cotizaciones (código `COT-...`), enlace público para compartir. |
 | **Ventas** | `/admin/ventas` | Ventas (código `SAL-...`): abonos/pagos, comprobante/factura, estado de pago. |
@@ -172,6 +172,15 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   `settlesEntryId` indica qué cargo salda un abono. `code` `INV-...` para cargos de inventario.
 - **InventoryMovement** — movimiento de stock (`IN`/`OUT`/`ADJUSTMENT`) con `change` (con signo).
   `purchaseCode` (`COM-...`) agrupa los movimientos de una compra directa (permite revertirla).
+- **CompraUnidad** — una unidad de una **compra por lote** (migración `20261105120000_compra_por_lote`, solo aditiva):
+  `orderId` (la compra), `productId` (un combo queda como combo), `estado` (`PENDIENTE`/`FABRICANDO`/`EN_INVENTARIO`/
+  `VENDIDA`), `ubicacion` (`CALI`/`TALLER_PROVEEDORA`), `color`, `saleOrderId`. Se crean al registrar una compra con
+  "Pendientes por fabricar" > 0 (las que entraron, en Cali; las pendientes, sin color). **La deuda se carga completa**
+  (`SupplierLedgerEntry` y `OrderItem` por la cantidad total, ej. 6 × 580.000); **solo entra al inventario lo fabricado**.
+  "Llegó" crea un `InventoryMovement` IN de 1 (un combo, sus piezas) con el `purchaseCode` y **no crea deuda** ni toca
+  `OrderItem`. "Salió en venta" es **manual** (solo marca la unidad y su orden). **La venta del lote debe ir en modo
+  'Stock'**: así el costo sale de la compra por FIFO y no se le carga otra vez a la proveedora (Laura). Una compra con
+  unidades no se edita con "Editar compra". Reglas en `validateLotTransition`/`summarizeLotUnits`.
 
 ### Dinero del negocio: cuentas, gastos, cierres
 - **Account** — cuentas de dinero (`CASH`/`BANK`/`WALLET`/`OTHER`/`OWNER`) con `openingBalance`. A ellas entran

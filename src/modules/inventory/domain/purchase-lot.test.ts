@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { lotUnitsForLine, splitPurchaseLine, summarizeLotUnits, validateLotTransition } from "./purchase-lot";
+import {
+  lotArrivalEntries,
+  lotLineTotal,
+  lotUnitLabel,
+  lotUnitsForLine,
+  splitPurchaseLine,
+  summarizeLotUnits,
+  validateLotTransition,
+} from "./purchase-lot";
 
 describe("splitPurchaseLine", () => {
   it("6 unidades con 3 pendientes: entran 3", () => {
@@ -57,5 +65,44 @@ describe("lotUnitsForLine", () => {
     expect(summarizeLotUnits(lotUnitsForLine(6, 3))).toEqual({ cali: 3, taller: 0, fabricando: 0, pendientes: 3, vendidas: 0 });
     expect(lotUnitsForLine(6, 0)).toEqual([]);
     expect(() => lotUnitsForLine(2, 3)).toThrow();
+  });
+});
+
+describe("lotUnitLabel", () => {
+  it("dice el estado, la ubicación y el color", () => {
+    expect(lotUnitLabel({ estado: "PENDIENTE" })).toBe("Pendiente");
+    expect(lotUnitLabel({ estado: "FABRICANDO", color: "Negro" })).toBe("Fabricando · Negro");
+    expect(lotUnitLabel({ estado: "EN_INVENTARIO", ubicacion: "CALI" })).toBe("En inventario · Cali");
+    expect(lotUnitLabel({ estado: "EN_INVENTARIO", ubicacion: "TALLER_PROVEEDORA", color: "Blanco" })).toBe(
+      "En inventario · Taller proveedora · Blanco",
+    );
+    expect(lotUnitLabel({ estado: "VENDIDA" })).toBe("Vendida");
+  });
+});
+
+describe("lotArrivalEntries", () => {
+  it("producto normal suma 1; combo suma sus piezas", () => {
+    expect(lotArrivalEntries("p1", null)).toEqual([{ productId: "p1", change: 1 }]);
+    expect(
+      lotArrivalEntries("combo", [
+        { childId: "silla", quantity: 1 },
+        { childId: "espejo", quantity: 2 },
+      ]),
+    ).toEqual([
+      { productId: "silla", change: 1 },
+      { productId: "espejo", change: 2 },
+    ]);
+  });
+});
+
+describe("lotLineTotal", () => {
+  const items = [
+    { productId: "silla", lineTotal: 2_400_000, notes: "Combo Combo Spa" },
+    { productId: "espejo", lineTotal: 1_080_000, notes: "Combo Combo Spa" },
+    { productId: "silla", lineTotal: 500_000, notes: null },
+  ];
+  it("combo: suma sus piezas; producto normal: solo su línea", () => {
+    expect(lotLineTotal(items, { id: "combo", name: "Combo Spa", isBundle: true })).toBe(3_480_000);
+    expect(lotLineTotal(items, { id: "silla", name: "Silla", isBundle: false })).toBe(500_000);
   });
 });

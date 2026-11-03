@@ -87,6 +87,7 @@ en las Server Actions y en `src/lib/`.
 - `RegistroAnulado`: copia de un abono o gasto que se anuló: de qué tabla, qué registro (sin llave foránea, queda aunque el original ya no exista), código, monto, la fila completa, motivo, desde dónde, quién y cuándo.
 - `RegistroRetroactivo`: una venta, abono o gasto registrado con fecha anterior a hoy: tipo, a qué registro apunta (queda aunque el registro se borre), fecha puesta, momento real del registro, quién, motivo y monto copiado.
 - `InventoryMovement`: entrada, salida o ajuste de stock de un producto.
+- `CompraUnidad`: una unidad de una compra por lote a proveedora (migración `20261105120000_compra_por_lote`). Estado Pendiente → Fabricando (con color) → En inventario (Cali o Taller proveedora) → Vendida (con su orden de venta). La deuda con la proveedora se carga completa al registrar la compra; al inventario solo entra lo fabricado ("Llegó" suma 1, sin cargo nuevo). "Salió en venta" es manual.
 - `MonthClosure`: cierre de mes congelado (ventas, costos, envíos, gastos, utilidad y margen) que se comparte por correo.
 - `ManufacturingOrder`: orden de fabricación (OF-) de una proveedora dentro de una orden de venta, con enlace para enviársela, fecha y dirección de entrega.
 - `TeamMember`: ficha de un trabajador (Equipo): datos personales, cargo, vinculación, forma de pago, fecha de ingreso, fecha de salida y motivo. Unida opcionalmente (y una sola vez) a su usuario; si se borra el usuario, la ficha queda. El nombre de la ficha es el nombre visible del usuario unido: al guardarla se copia a `User.name` y todo lo demás sigue ligado al id. La sesión de la persona puede mostrar el nombre viejo hasta que vuelva a entrar, y los PDF ya generados conservan el nombre viejo.
@@ -130,6 +131,7 @@ en las Server Actions y en `src/lib/`.
 - `/admin/configuracion/actividad`: bitácora de actividad.
 - `/admin/configuracion/cierre-mes`: cierres de mes generados.
 - `/admin/configuracion/cierre-mes/[closureId]`: detalle de un cierre de mes.
+- `/admin/inventario/lotes`: compras por lote a proveedora: resumen "Cali · Taller proveedora · Fabricando · Pendientes", cada lote con proveedora, producto, costo por unidad, total, pagado y saldo, y por unidad los botones Pasar a fabricar, Llegó, Cambiar ubicación, Editar color y Salió en venta.
 - `/admin/productos/new`: crear producto.
 - `/admin/productos/[productId]`: editar un producto.
 - `/admin/cotizaciones/[quoteId]`: editar una cotización.
