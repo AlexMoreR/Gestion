@@ -130,7 +130,6 @@ export async function saveTeamMemberAction(formData: FormData) {
   // El nombre del usuario unido se ve en estas pantallas.
   revalidatePath("/admin/ventas");
   revalidatePath("/admin/cotizaciones");
-  revalidatePath("/admin/asistencia");
   revalidatePath("/admin/comisiones");
   back(formData, "ok", memberId ? "Ficha actualizada" : "Ficha creada");
 }

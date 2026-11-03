@@ -3,7 +3,6 @@
 import {
   BadgeDollarSign,
   ClipboardList,
-  Clock,
   Contact,
   FileText,
   HandCoins,
@@ -243,20 +242,6 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
         icon: Users,
         isActive: pathname.startsWith("/admin/equipo"),
         items: [{ title: "Trabajadores", url: "/admin/equipo" }],
-      });
-    }
-
-    // Asistencia de todos (entradas, salidas y correcciones): solo el dueno/admin.
-    if (user.role === "ADMIN" && adminModuleAccess.attendance) {
-      navMain.push({
-        title: "Asistencia",
-        url: "/admin/asistencia",
-        icon: Clock,
-        isActive: pathname.startsWith("/admin/asistencia"),
-        items: [
-          { title: "Hoy", url: "/admin/asistencia" },
-          { title: "Por mes", url: "/admin/asistencia?vista=mes" },
-        ],
       });
     }
 

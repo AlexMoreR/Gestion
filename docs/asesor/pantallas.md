@@ -362,14 +362,6 @@ Inicio del panel ("Panel de Administración"). Solo para usuarios Admin.
 **Botones y acciones:**
 - Clic en una tarjeta: abre ese módulo (por ejemplo `/admin/ventas`).
 
-## /admin/asistencia
-Registro de entrada y salida del equipo (solo dueño/admin, permiso de Asistencia).
-**Qué se ve:** pestañas **Hoy** y **Por mes**, y enlace a **Nómina**. Hoy: "<día> · N trabajando de M" y una fila por persona con su estado (trabajando / salió / no ha llegado), entrada, salida y horas. Por mes: filtro de mes, **Todas las personas** y **Filtrar**; tabla Día, Estado, "Entrada → salida · horas" y Notas. "Salió sin marcar salida: las horas de esa entrada no se cuentan."
-**Botones y acciones:**
-- **Marcar entrada por esta persona** / **Marcar salida por esta persona** (pestaña Hoy): marca por alguien que no puede hacerlo, con la hora del servidor.
-- **Ver marcas y corregir** (Por mes, por persona) → "Marcas del mes": en cada marca **Corregir o anular**: cambiar Tipo, Día de trabajo, Hora (Colombia), "Salida después de medianoche" y Motivo (obligatorio) → **Guardar corrección**; o "Motivo para anular (obligatorio)" → **Anular marca**. Las marcas nunca se borran.
-- **Agregar marca olvidada**: Tipo, día, hora y motivo → **Agregar**. Queda como corregida.
-
 ## /admin/categorias
 Categorías del catálogo de la tienda.
 **Qué se ve:** tabla Categoria, Productos y Acciones, con buscador "Buscar categoria".
