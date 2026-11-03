@@ -4,6 +4,7 @@ import {
   type BogotaRange,
   formulaNoDisponible,
   type NetmagiStats,
+  parseAlertas,
   parseAnuncios,
   parseCuentas,
   parseFormula,
@@ -58,6 +59,7 @@ export async function getNetmagiStats(range: Pick<BogotaRange, "desde" | "hasta"
     error: null,
     resumen: null,
     cuentas: null,
+    alertas: [],
     productos: null,
     publicador: null,
     anuncios: null,
@@ -87,6 +89,8 @@ export async function getNetmagiStats(range: Pick<BogotaRange, "desde" | "hasta"
         result.formulaFaltan = true;
         continue;
       }
+      // Las alertas (T-503) viajan dentro de la respuesta de cuentas; si no vienen, queda la lista vacia.
+      if (name === "cuentas") result.alertas = parseAlertas(body);
       const parsed = parse(body);
       if (parsed == null) errors.push(`${name}: respuesta inválida`);
       // Asignacion por nombre: cada parse devuelve el tipo de su llave.

@@ -53,6 +53,15 @@ export function AccountsSection({ accounts }: { accounts: AccountView[] }) {
                 <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-foreground">
                   <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", TONE_DOT[STATE_TONE[account.estado]])} aria-hidden />
                   <span className="truncate">{account.nombre}</span>
+                  {account.alertas.map((alert) => (
+                    <span
+                      key={alert.tipo}
+                      title={alert.mensaje}
+                      className="rounded-full border border-red-500/50 bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:text-red-400"
+                    >
+                      {alert.etiqueta}
+                    </span>
+                  ))}
                   {account.pausa ? (
                     <span className="rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">En pausa</span>
                   ) : account.publica ? (

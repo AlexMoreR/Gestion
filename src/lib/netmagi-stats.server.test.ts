@@ -63,6 +63,25 @@ describe("getNetmagiStats", () => {
     expect(stats.anuncios?.anuncios[0]).toMatchObject({ url: "https://www.facebook.com/marketplace/item/9/", ciudad: "Cali" });
   });
 
+  it("las alertas de cuentas (T-503) vienen dentro de /cuentas; si no vienen, la lista queda vacia", async () => {
+    mockNetmagi({
+      cuentas: json({
+        ok: true,
+        cuentas: [{ id: "109", nombre: "Lennis", estado: "en_vivo" }],
+        alertas: [{ id: "7", cuenta_id: "109", tipo: "bloqueo", mensaje: "Posible bloqueo de Facebook", abierta_en: "2026-11-03T15:00:00.000Z", cerrada_en: null }],
+      }),
+    });
+    const con = await getNetmagiStats({ desde: "2026-10-01", hasta: "2026-10-02" });
+    expect(con.alertas).toHaveLength(1);
+    expect(con.alertas[0]).toMatchObject({ cuenta_id: "109", tipo: "bloqueo" });
+    expect(con.cuentas?.[0].id).toBe("109");
+    vi.unstubAllGlobals();
+    mockNetmagi();
+    const sin = await getNetmagiStats({ desde: "2026-10-01", hasta: "2026-10-02" });
+    expect(sin.ok).toBe(true);
+    expect(sin.alertas).toEqual([]);
+  });
+
   it("si NETMAGI todavia no tiene /anuncios (404) el resto de la pagina funciona", async () => {
     mockNetmagi({ anuncios: json({ error: "no" }, 404) });
     const stats = await getNetmagiStats({ desde: "2026-10-01", hasta: "2026-10-02" });

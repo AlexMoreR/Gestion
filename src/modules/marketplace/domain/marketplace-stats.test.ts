@@ -6,6 +6,7 @@ import {
   csvCell,
   formatBogotaDateTime,
   marketplaceSales,
+  parseAlertas,
   parseCuentas,
   parseProductos,
   parsePublicador,
@@ -143,5 +144,26 @@ describe("tablas y CSV", () => {
       [{ producto: "Camilla", chats: 3 }],
     );
     expect(csv).toBe("﻿Producto,Chats\r\nCamilla,3\r\n");
+  });
+});
+
+describe("alertas de cuentas (T-503)", () => {
+  it("parseAlertas: solo tipos conocidos y campos acotados; sin alertas o con basura queda vacio", () => {
+    const alertas = parseAlertas({
+      ok: true,
+      alertas: [
+        { id: "7", cuenta_id: "109", tipo: "bloqueo", mensaje: "Posible bloqueo de Facebook (pantalla de Facebook)", abierta_en: "2026-11-03T15:00:00.000Z", cerrada_en: null, secreto: "x" },
+        { id: "6", cuenta_id: "216", tipo: "caida", mensaje: "Caída: sin señal hace 50 min", abierta_en: "2026-11-03T10:00:00.000Z", cerrada_en: "2026-11-03T11:00:00.000Z" },
+        { id: "5", cuenta_id: "1", tipo: "inventada", mensaje: "no", abierta_en: "x", cerrada_en: null },
+        null,
+      ],
+    });
+    expect(alertas).toHaveLength(2);
+    expect(alertas[0]).toEqual({ id: "7", cuenta_id: "109", tipo: "bloqueo", mensaje: "Posible bloqueo de Facebook (pantalla de Facebook)", abierta_en: "2026-11-03T15:00:00.000Z", cerrada_en: null });
+    expect(alertas[1].cerrada_en).toBe("2026-11-03T11:00:00.000Z");
+    expect(JSON.stringify(alertas)).not.toContain("secreto");
+    expect(parseAlertas({ ok: true, cuentas: [] })).toEqual([]);
+    expect(parseAlertas("<html>")).toEqual([]);
+    expect(parseAlertas({ ok: true, alertas: "no" })).toEqual([]);
   });
 });

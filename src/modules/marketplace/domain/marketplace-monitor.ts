@@ -5,6 +5,8 @@
 // ¿hay restricciones?
 
 import {
+  type AlertaRow,
+  type AlertaTipo,
   type AnuncioRow,
   type CuentaRow,
   type DayRow,
@@ -115,22 +117,46 @@ export type VerdictInput = {
   cuentas: CuentaRow[] | null;
   today: DayRow;
   hour: number; // hora de Bogota
+  alertas?: readonly AlertaRow[]; // alertas de cuentas (T-503)
 };
+
+// ── Alertas de cuentas (T-503) ──────────────────────────────────────────────────
+export const ALERT_LABEL: Readonly<Record<AlertaTipo, string>> = {
+  bloqueo: "Posible bloqueo",
+  caida: "Caída",
+  sin_contestar: "Sin contestar",
+  fuera_messenger: "Fuera de Messenger",
+  no_publica: "No publica",
+};
+
+// Bloqueo (R1) y caida (R2) son las que dejan la cuenta sin servir: cuentan como "mal" (rojo).
+export const SEVERE_ALERTS: readonly AlertaTipo[] = ["bloqueo", "caida"];
+
+export const openAlerts = (alertas: readonly AlertaRow[] | undefined): AlertaRow[] => (alertas ?? []).filter((alert) => !alert.cerrada_en);
+
+export function alertsByAccount(alertas: readonly AlertaRow[] | undefined): Map<string, AlertaRow[]> {
+  const map = new Map<string, AlertaRow[]>();
+  for (const alert of openAlerts(alertas)) map.set(alert.cuenta_id, [...(map.get(alert.cuenta_id) ?? []), alert]);
+  return map;
+}
 
 // Cuentas que hoy deberian publicar: habilitadas en el publicador y sin pausa.
 export function publishingAccounts(cuentas: readonly CuentaRow[] | null): CuentaRow[] {
   return (cuentas ?? []).filter((c) => c.habilitada && !c.pausa);
 }
 
+// Tope del dia = suma del tope de cada cuenta que publica (la que tiene tope propio usa el suyo; si no, el general).
 export function dailyCap(publicador: Publicador | null, cuentas: readonly CuentaRow[] | null): number {
   const perDay = publicador?.config.por_dia ?? 0;
-  const accounts = cuentas ? publishingAccounts(cuentas).length : (publicador?.config.cuentas_habilitadas ?? 0);
-  return perDay * accounts;
+  if (!cuentas) return perDay * (publicador?.config.cuentas_habilitadas ?? 0);
+  return publishingAccounts(cuentas).reduce((sum, c) => sum + (c.tope_diario || perDay), 0);
 }
 
 // Respuesta de una linea a "¿esta publicando bien hoy?".
-export function publishingVerdict({ publicador, cuentas, today, hour }: VerdictInput): Verdict {
+export function publishingVerdict({ publicador, cuentas, today, hour, alertas }: VerdictInput): Verdict {
   const reasons: string[] = [];
+  const nameOf = (id: string) => (cuentas ?? []).find((c) => c.id === id)?.nombre ?? `cuenta ${id}`;
+  const blocked = openAlerts(alertas).filter((alert) => alert.tipo === "bloqueo");
   const cap = dailyCap(publicador, cuentas);
   const publishers = publishingAccounts(cuentas);
   const offline = publishers.filter((c) => c.estado === "sin_conexion");
@@ -139,10 +165,13 @@ export function publishingVerdict({ publicador, cuentas, today, hour }: VerdictI
   if (!publicador) {
     return { tone: "neutral", title: "Sin datos del publicador", reasons: ["NETMAGI no mandó la configuración del publicador."] };
   }
-  if (today.restricciones > 0 || (!publicador.config.activo && publicador.config.pausa_motivo)) {
+  const stopped = !publicador.config.activo && !!publicador.config.pausa_motivo;
+  if (today.restricciones > 0 || stopped || blocked.length > 0) {
+    if (blocked.length > 0) reasons.push(`Posible bloqueo de Facebook: ${[...new Set(blocked.map((alert) => nameOf(alert.cuenta_id)))].join(", ")}.`);
     if (today.restricciones > 0) reasons.push(`Facebook puso ${today.restricciones} restricción(es) hoy. Revisa la cuenta antes de seguir.`);
-    if (!publicador.config.activo && publicador.config.pausa_motivo) reasons.push(`Publicador detenido: ${publicador.config.pausa_motivo}`);
-    return { tone: "bad", title: "Hay un problema: el publicador está frenado", reasons };
+    if (stopped) reasons.push(`Publicador detenido: ${publicador.config.pausa_motivo}`);
+    const title = today.restricciones > 0 || stopped ? "Hay un problema: el publicador está frenado" : "Hay un problema: posible bloqueo de una cuenta";
+    return { tone: "bad", title, reasons };
   }
   if (!publicador.config.activo) {
     return { tone: "warn", title: "El publicador está apagado", reasons: ["No se publica hasta que se encienda en la extensión (Publicar > Configuración)."] };
@@ -202,11 +231,12 @@ export type CardsInput = {
   publicador: Publicador | null;
   today: string; // 'YYYY-MM-DD' Bogota
   hour: number;
+  alertas?: readonly AlertaRow[];
 };
 
-export function buildTodayCards({ resumen, cuentas, publicador, today, hour }: CardsInput): { cards: TodayCard[]; verdict: Verdict } {
+export function buildTodayCards({ resumen, cuentas, publicador, today, hour, alertas }: CardsInput): { cards: TodayCard[]; verdict: Verdict } {
   const row = resumen.serie.find((day) => day.dia === today) ?? ZERO_DAY(today);
-  const verdict = publishingVerdict({ publicador, cuentas, today: row, hour });
+  const verdict = publishingVerdict({ publicador, cuentas, today: row, hour, alertas });
   const cap = dailyCap(publicador, cuentas);
   const trend = (key: NumericDayKey) => trendOf(resumen.serie, key, today);
 
@@ -218,7 +248,8 @@ export function buildTodayCards({ resumen, cuentas, publicador, today, hour }: C
   const offlinePublishers = publishers.filter((c) => c.estado === "sin_conexion").length;
   const activeButOffline = (cuentas ?? []).filter((c) => !c.habilitada && c.estado === "sin_conexion" && (c.entrantes_hoy > 0 || c.clientes_7d > 0)).length;
   let accountsTone: Tone = "ok";
-  if (alive === 0 || (publishers.length > 0 && offlinePublishers === publishers.length)) accountsTone = "bad";
+  const severe = openAlerts(alertas).filter((alert) => SEVERE_ALERTS.includes(alert.tipo));
+  if (alive === 0 || (publishers.length > 0 && offlinePublishers === publishers.length) || severe.length > 0) accountsTone = "bad";
   else if (offlinePublishers > 0 || activeButOffline > 0) accountsTone = "warn";
 
   const published = trend("publicados");
@@ -279,9 +310,8 @@ export function buildTodayCards({ resumen, cuentas, publicador, today, hour }: C
       label: "Cuentas vivas",
       value: `${alive} / ${total}`,
       sub:
-        publishers.length > 0
-          ? `${publishers.length - offlinePublishers} de ${publishers.length} que publican`
-          : "Ninguna publica",
+        (publishers.length > 0 ? `${publishers.length - offlinePublishers} de ${publishers.length} que publican` : "Ninguna publica") +
+        (severe.length > 0 ? ` · ${severe.length} con alerta grave` : ""),
       tone: accountsTone,
       compare: null,
       reached: false,
@@ -316,15 +346,18 @@ export type AccountView = {
   pausa: string;
   publicadosHoy: number | null; // null = NETMAGI aun no manda el dato
   tope: number;
+  alertas: { tipo: AlertaTipo; etiqueta: string; mensaje: string }[]; // abiertas
   mensajesHoy: number | null;
   clientes7d: number | null;
   ubicacion: string;
   activa: boolean; // tuvo actividad reciente o publica
 };
 
-export function buildAccountViews(cuentas: readonly CuentaRow[], publicador: Publicador | null, nowIso: string): AccountView[] {
+export function buildAccountViews(cuentas: readonly CuentaRow[], publicador: Publicador | null, nowIso: string, alertas?: readonly AlertaRow[]): AccountView[] {
   const perDay = publicador?.config.por_dia ?? 0;
-  const rank = (c: AccountView) => (c.publica ? 0 : 2) + (c.estado === "sin_conexion" ? 1 : 0);
+  const byAccount = alertsByAccount(alertas);
+  // Las cuentas con alerta grave van primero; luego las que publican; las caidas despues.
+  const rank = (c: AccountView) => (c.alertas.length ? -4 : 0) + (c.publica ? 0 : 2) + (c.estado === "sin_conexion" ? 1 : 0);
   return cuentas
     .map((c): AccountView => {
       const publica = c.habilitada && !c.pausa;
@@ -338,10 +371,11 @@ export function buildAccountViews(cuentas: readonly CuentaRow[], publicador: Pub
         pausa: c.pausa,
         publicadosHoy: c.tieneHoy ? c.publicados_hoy : null,
         tope: publica ? (c.tope_diario || perDay) : 0,
+        alertas: (byAccount.get(c.id) ?? []).map((alert) => ({ tipo: alert.tipo, etiqueta: ALERT_LABEL[alert.tipo], mensaje: alert.mensaje })),
         mensajesHoy: c.tieneHoy ? c.entrantes_hoy : null,
         clientes7d: c.tieneHoy ? c.clientes_7d : null,
         ubicacion: c.ubicacion,
-        activa: publica || c.estado !== "sin_conexion" || c.entrantes_hoy > 0 || c.clientes_7d > 0 || c.publicados_7d > 0,
+        activa: publica || byAccount.has(c.id) || c.estado !== "sin_conexion" || c.entrantes_hoy > 0 || c.clientes_7d > 0 || c.publicados_7d > 0,
       };
     })
     .sort((a, b) => rank(a) - rank(b) || (b.clientes7d ?? 0) - (a.clientes7d ?? 0) || a.nombre.localeCompare(b.nombre, "es"));

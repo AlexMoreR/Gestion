@@ -8,6 +8,7 @@ import {
   buildAccountViews,
   buildChart,
   buildTodayCards,
+  dailyCap,
   filterAnuncios,
   groupByCity,
   publishingVerdict,
@@ -16,6 +17,7 @@ import {
 } from "./marketplace-monitor";
 import {
   AD_STATE_LABEL,
+  type AlertaRow,
   type AnuncioRow,
   type CuentaRow,
   type DayRow,
@@ -352,5 +354,54 @@ describe("grafico de 30 dias", () => {
   it("sin linea si el rango no incluye el 23-oct", () => {
     const { startLabel } = buildChart([day("2026-10-01"), day("2026-10-02")], 30);
     expect(startLabel).toBeNull();
+  });
+});
+
+describe("alertas de cuentas (T-503)", () => {
+  const alerta = (patch: Partial<AlertaRow> = {}): AlertaRow => ({
+    id: "1",
+    cuenta_id: "216",
+    tipo: "bloqueo",
+    mensaje: "Posible bloqueo de Facebook (pantalla de Facebook)",
+    abierta_en: "2026-10-27T16:00:00.000Z",
+    cerrada_en: null,
+    ...patch,
+  });
+  const hoy = day("2026-10-27", { publicados: 4 });
+
+  it("un bloqueo abierto pone el veredicto en rojo con el nombre de la cuenta, aunque no haya restricciones hoy", () => {
+    const v = publishingVerdict({ publicador: publicador(), cuentas: [cuenta()], today: hoy, hour: 12, alertas: [alerta()] });
+    expect(v.tone).toBe("bad");
+    expect(v.title).toContain("posible bloqueo");
+    expect(v.reasons.join(" ")).toContain("Paixley");
+  });
+
+  it("un bloqueo ya cerrado, o una alerta que no es de bloqueo, no cambia el veredicto", () => {
+    expect(publishingVerdict({ publicador: publicador(), cuentas: [cuenta()], today: hoy, hour: 12, alertas: [alerta({ cerrada_en: "2026-10-27T16:30:00.000Z" })] }).tone).toBe("ok");
+    expect(publishingVerdict({ publicador: publicador(), cuentas: [cuenta()], today: hoy, hour: 12, alertas: [alerta({ tipo: "sin_contestar" })] }).tone).toBe("ok");
+  });
+
+  it("bloqueo (R1) y caida (R2) ponen la tarjeta de cuentas en rojo; las demas no", () => {
+    const build = (alertas: AlertaRow[]) => Object.fromEntries(buildTodayCards({ resumen: resumen(serie()), cuentas: [cuenta()], publicador: publicador(), today: "2026-10-27", hour: 12, alertas }).cards.map((c) => [c.key, c]));
+    expect(build([alerta({ tipo: "caida" })]).cuentas.tone).toBe("bad");
+    expect(build([alerta({ tipo: "bloqueo" })]).cuentas.sub).toContain("1 con alerta grave");
+    expect(build([alerta({ tipo: "fuera_messenger" })]).cuentas.tone).toBe("ok");
+    expect(build([]).cuentas.tone).toBe("ok");
+  });
+
+  it("cada cuenta muestra sus alertas abiertas y va primero; sin alertas todo queda como antes", () => {
+    const cuentas = [cuenta({ id: "2", nombre: "Ana", habilitada: false, estado: "en_vivo", clientes_7d: 20 }), cuenta({ id: "3", nombre: "Paixley" })];
+    const sin = buildAccountViews(cuentas, publicador(), NOW);
+    expect(sin.map((v) => v.id)).toEqual(["3", "2"]);
+    expect(sin[0].alertas).toEqual([]);
+    const con = buildAccountViews(cuentas, publicador(), NOW, [alerta({ cuenta_id: "2", tipo: "sin_contestar", mensaje: "Sin contestar: 2 mensaje(s)" }), alerta({ cuenta_id: "3", cerrada_en: "2026-10-27T16:30:00.000Z" })]);
+    expect(con.map((v) => v.id)).toEqual(["2", "3"]);
+    expect(con[0].alertas).toEqual([{ tipo: "sin_contestar", etiqueta: "Sin contestar", mensaje: "Sin contestar: 2 mensaje(s)" }]);
+    expect(con[1].alertas).toEqual([]);
+  });
+
+  it("el tope del dia suma el tope propio de cada cuenta (si lo tiene) y el general en las demas", () => {
+    expect(dailyCap(publicador({ por_dia: 3 }), [cuenta({ tope_diario: 3 }), cuenta({ id: "109", tope_diario: 5 }), cuenta({ id: "7", tope_diario: 0 })])).toBe(11);
+    expect(dailyCap(publicador({ por_dia: 3, cuentas_habilitadas: 4 }), null)).toBe(12);
   });
 });

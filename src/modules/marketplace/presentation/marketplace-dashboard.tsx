@@ -16,6 +16,7 @@ import {
 } from "@/modules/marketplace/domain/marketplace-monitor";
 import { type ChannelSales, type NetmagiStats, RANGE_OPTIONS } from "@/modules/marketplace/domain/marketplace-stats";
 import { AccountsSection } from "./marketplace-accounts";
+import { AlertsStrip } from "./marketplace-alerts";
 import { AdsSection, type ProductLink } from "./marketplace-ads";
 import { TrendChart } from "./marketplace-chart";
 import { DetailSection } from "./marketplace-detail";
@@ -56,10 +57,13 @@ export function MarketplaceDashboard({ days, desde, hasta, fetchDesde, now, stat
   const hour = bogotaHour(now);
 
   const today_ = React.useMemo(
-    () => (resumen ? buildTodayCards({ resumen, cuentas: stats.cuentas, publicador: stats.publicador, today, hour }) : null),
-    [resumen, stats.cuentas, stats.publicador, today, hour],
+    () => (resumen ? buildTodayCards({ resumen, cuentas: stats.cuentas, publicador: stats.publicador, today, hour, alertas: stats.alertas }) : null),
+    [resumen, stats.cuentas, stats.publicador, stats.alertas, today, hour],
   );
-  const accounts = React.useMemo(() => buildAccountViews(stats.cuentas ?? [], stats.publicador, now), [stats.cuentas, stats.publicador, now]);
+  const accounts = React.useMemo(
+    () => buildAccountViews(stats.cuentas ?? [], stats.publicador, now, stats.alertas),
+    [stats.cuentas, stats.publicador, stats.alertas, now],
+  );
   const chart = React.useMemo(() => (resumen ? buildChart(resumen.serie, 30) : null), [resumen]);
 
   return (
@@ -110,6 +114,7 @@ export function MarketplaceDashboard({ days, desde, hasta, fetchDesde, now, stat
             </p>
           ) : null}
 
+          <AlertsStrip alertas={stats.alertas} cuentas={stats.cuentas} now={now} />
           <VerdictBanner verdict={today_.verdict} today={today} />
           <TodayCards cards={today_.cards} />
 

@@ -119,6 +119,35 @@ export type CuentaRow = {
   ubicacion: string; // ubicacion por defecto de la cuenta
 };
 
+// Alertas de cuentas (T-503). NETMAGI las manda dentro de la respuesta de /cuentas: las abiertas y las cerradas en las
+// ultimas 24 h. Si no vienen (NETMAGI viejo o sin la migracion), la lista queda vacia y la pagina funciona igual.
+export const ALERT_TYPES = ["bloqueo", "caida", "sin_contestar", "fuera_messenger", "no_publica"] as const;
+export type AlertaTipo = (typeof ALERT_TYPES)[number];
+export type AlertaRow = {
+  id: string;
+  cuenta_id: string;
+  tipo: AlertaTipo;
+  mensaje: string; // texto corto ya armado por NETMAGI, sin datos de personas
+  abierta_en: string;
+  cerrada_en: string | null;
+};
+
+export function parseAlertas(body: unknown): AlertaRow[] {
+  if (!isObj(body) || !Array.isArray(body.alertas)) return [];
+  return body.alertas
+    .filter(isObj)
+    .filter((row) => (ALERT_TYPES as readonly string[]).includes(String(row.tipo)))
+    .slice(0, 200)
+    .map((row) => ({
+      id: str(row.id, 20),
+      cuenta_id: str(row.cuenta_id, 20),
+      tipo: row.tipo as AlertaTipo,
+      mensaje: str(row.mensaje, 200),
+      abierta_en: str(row.abierta_en, 30),
+      cerrada_en: strOrNull(row.cerrada_en, 30),
+    }));
+}
+
 export function parseCuentas(body: unknown): CuentaRow[] | null {
   if (!isObj(body) || body.ok !== true || !Array.isArray(body.cuentas)) return null;
   return body.cuentas.filter(isObj).map((row) => {
@@ -525,6 +554,8 @@ export type NetmagiStats = {
   error: string | null;
   resumen: Resumen | null;
   cuentas: CuentaRow[] | null;
+  // Alertas de las cuentas (abiertas y cerradas en 24 h). Vacia si NETMAGI aun no las manda.
+  alertas: AlertaRow[];
   productos: ProductoRow[] | null;
   publicador: Publicador | null;
   anuncios: Anuncios | null;
