@@ -26,6 +26,16 @@ export function splitPurchaseLine(cantidad: number, pendientes: number) {
   return { entranAlInventario: cantidad - pendientes, pendientes };
 }
 
+/** Filas de CompraUnidad de una línea: las que entraron, en Cali; las pendientes, sin color ni ubicación. */
+export function lotUnitsForLine(cantidad: number, pendientes: number): Array<{ estado: LotUnitState; ubicacion: LotLocation | null }> {
+  const { entranAlInventario } = splitPurchaseLine(cantidad, pendientes);
+  if (pendientes === 0) return [];
+  return [
+    ...Array.from({ length: entranAlInventario }, () => ({ estado: "EN_INVENTARIO" as const, ubicacion: "CALI" as const })),
+    ...Array.from({ length: pendientes }, () => ({ estado: "PENDIENTE" as const, ubicacion: null })),
+  ];
+}
+
 export type LotUnit = { estado: string; ubicacion?: string | null; color?: string | null };
 export type LotAction = "fabricar" | "llego" | "ubicacion" | "color" | "vendida";
 export type LotActionData = { color?: string | null; ubicacion?: string | null; saleOrderId?: string | null };

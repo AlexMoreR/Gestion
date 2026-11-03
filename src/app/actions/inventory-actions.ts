@@ -41,6 +41,7 @@ import {
   purchaseStockDeltas,
   type ExistingPurchaseItem,
 } from "@/lib/purchase-edit";
+import { lotUnitsForLine, splitPurchaseLine } from "@/modules/inventory/domain/purchase-lot";
 
 const repository = createPrismaInventoryRepository();
 
@@ -385,6 +386,8 @@ async function runDirectPurchase(formData: FormData, editOrderId?: string): Prom
     orderItemId: string;
     productId: string;
     quantity: number;
+    // Compra por lote: cuántas quedan pendientes por fabricar (no entran todavía al inventario).
+    pending: number;
     cost: number;
     supplierId: string;
     color: string;
@@ -404,6 +407,7 @@ async function runDirectPurchase(formData: FormData, editOrderId?: string): Prom
           orderItemId: typeof entry.orderItemId === "string" ? entry.orderItemId.trim() : "",
           productId: typeof entry.productId === "string" ? entry.productId.trim() : "",
           quantity: Math.trunc(Number(entry.quantity) || 0),
+          pending: Number(entry.pending) || 0,
           cost: Number(entry.cost) || 0,
           supplierId: typeof entry.supplierId === "string" ? entry.supplierId.trim() : "",
           color: typeof entry.color === "string" ? entry.color.trim() : "",
@@ -431,6 +435,14 @@ async function runDirectPurchase(formData: FormData, editOrderId?: string): Prom
 
   if (items.length === 0) {
     redirectWithError(returnTo, "Agrega al menos un producto con cantidad.");
+  }
+  // Pendientes por fabricar: entre 0 y la cantidad, enteras (antes de escribir nada).
+  for (const item of items) {
+    try {
+      splitPurchaseLine(item.quantity, item.pending);
+    } catch (error) {
+      redirectWithError(returnTo, error instanceof Error ? error.message : "Pendientes inválidas.");
+    }
   }
 
   // Pre-valida cada producto antes de escribir nada (los movimientos no son
@@ -576,6 +588,18 @@ async function runDirectPurchase(formData: FormData, editOrderId?: string): Prom
 
     for (const item of items) {
       const product = productInfoById.get(item.productId)!;
+      const { entranAlInventario: entran, pendientes } = splitPurchaseLine(item.quantity, item.pending);
+      // Compra por lote: una fila por unidad (las que entraron, en Cali; las pendientes, sin color).
+      if (pendientes > 0) {
+        await prisma.compraUnidad.createMany({
+          data: lotUnitsForLine(item.quantity, pendientes).map((unidad) => ({
+            ...unidad,
+            orderId: purchaseOrderId,
+            productId: item.productId,
+            createdById,
+          })),
+        });
+      }
 
       if (product.isBundle) {
         // Combo: no hay stock propio. Por cada componente se reparte el stock
@@ -583,15 +607,18 @@ async function runDirectPurchase(formData: FormData, editOrderId?: string): Prom
         // proveedor elegido para ese componente.
         const chargeByChild = new Map(item.components.map((component) => [component.childId, component]));
         for (const component of product.components) {
-          const movementId = await registerInventoryMovementUseCase(repository, {
-            productId: component.childId,
-            type: "IN",
-            quantity: component.quantity * item.quantity,
-            note: `Compra combo ${product.name} (x${item.quantity})`,
-            movementDate,
-            createdById,
-          });
-          movementIds.push(movementId);
+          // Solo entran las que no quedaron pendientes; el cargo y la línea van por la cantidad completa.
+          const movementId = entran > 0
+            ? await registerInventoryMovementUseCase(repository, {
+                productId: component.childId,
+                type: "IN",
+                quantity: component.quantity * entran,
+                note: `Compra combo ${product.name} (x${entran})`,
+                movementDate,
+                createdById,
+              })
+            : null;
+          if (movementId) movementIds.push(movementId);
           if (firstMovementId === null) firstMovementId = movementId;
 
           const charge = chargeByChild.get(component.childId);
@@ -639,15 +666,17 @@ async function runDirectPurchase(formData: FormData, editOrderId?: string): Prom
 
       // Producto normal: una entrada y, si tiene proveedor y costo, un cargo.
       const supplier = await resolveSupplier(item.supplierId);
-      const movementId = await registerInventoryMovementUseCase(repository, {
-        productId: item.productId,
-        type: "IN",
-        quantity: item.quantity,
-        note: supplier ? `Compra a ${supplier.name}` : "Compra directa",
-        movementDate,
-        createdById,
-      });
-      movementIds.push(movementId);
+      const movementId = entran > 0
+        ? await registerInventoryMovementUseCase(repository, {
+            productId: item.productId,
+            type: "IN",
+            quantity: entran,
+            note: supplier ? `Compra a ${supplier.name}` : "Compra directa",
+            movementDate,
+            createdById,
+          })
+        : null;
+      if (movementId) movementIds.push(movementId);
       if (firstMovementId === null) firstMovementId = movementId;
 
       // Nota del item: combina color y descripcion (si los hay).
@@ -730,11 +759,14 @@ async function runDirectPurchase(formData: FormData, editOrderId?: string): Prom
     throw error;
   }
 
+  const totalPendientes = items.reduce((sum, item) => sum + item.pending, 0);
   await logActivity({
     action: "CREATE",
     entityType: "PURCHASE",
     entityId: purchaseOrderId,
-    summary: `Registró la compra ${purchaseCode} (${items.length} producto${items.length === 1 ? "" : "s"})`,
+    summary: `Registró la compra ${purchaseCode} (${items.length} producto${items.length === 1 ? "" : "s"})${
+      totalPendientes > 0 ? `, ${totalPendientes} pendiente${totalPendientes === 1 ? "" : "s"} por fabricar` : ""
+    }`,
   });
 
   revalidatePath("/admin/inventario");
@@ -844,6 +876,9 @@ async function runPurchaseEdit(input: PurchaseEditInput): Promise<void> {
   }
   if (!order.purchaseCode) {
     redirectWithError(returnTo, "Esta compra no tiene código COM: no se puede editar aquí.");
+  }
+  if ((await prisma.compraUnidad.count({ where: { orderId } })) > 0) {
+    redirectWithError(returnTo, "Esta compra es por lote: se maneja en Inventario → Lotes");
   }
   const purchaseCode = order.purchaseCode;
   const beforePurchase = await purchaseForLog(orderId);
