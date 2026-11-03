@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseReversalInput, REVERSAL_REASONS, reversalLine } from "./order-item-reversal";
+import { itemDeliveryState, parseReversalInput, REVERSAL_REASONS, reversalLine } from "./order-item-reversal";
 
 function form(fields: Record<string, string>): FormData {
   const data = new FormData();
@@ -66,5 +66,19 @@ describe("reversalLine", () => {
     expect(
       reversalLine({ action: "Despacho reversado", fromState: "DESPACHADO", toState: "POR_DESPACHAR", reason: "DANADO" }),
     ).toBe("Despacho reversado (DESPACHADO → POR_DESPACHAR): Llegó dañado");
+  });
+});
+
+describe("itemDeliveryState", () => {
+  it("despacho entregado y sin reversa → ENTREGADO", () => {
+    expect(itemDeliveryState({ dispatchStatus: "DELIVERED", deliveryReversedAt: null })).toBe("ENTREGADO");
+  });
+  it("despacho entregado pero producto reversado → DESPACHADO", () => {
+    expect(itemDeliveryState({ dispatchStatus: "DELIVERED", deliveryReversedAt: new Date("2026-11-03T15:00:00Z") })).toBe(
+      "DESPACHADO",
+    );
+  });
+  it("despacho enviado sin reversa → DESPACHADO", () => {
+    expect(itemDeliveryState({ dispatchStatus: "SHIPPED", deliveryReversedAt: null })).toBe("DESPACHADO");
   });
 });

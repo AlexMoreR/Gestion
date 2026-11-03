@@ -1781,6 +1781,11 @@ export async function adminUndoDeliveryAction(formData: FormData): Promise<void>
       where: { id: dispatch.id },
       data: { status: "SHIPPED", deliveredAt: null, shippedAt: dispatch.shippedAt ?? now, notes },
     });
+    // Sin marcas viejas de reversa por producto: todo el despacho vuelve a Despachado.
+    await tx.dispatchItem.updateMany({
+      where: { dispatchId: dispatch.id, deliveryReversedAt: { not: null } },
+      data: { deliveryReversedAt: null },
+    });
 
     if (dispatch.order.status === "COMPLETED") {
       await tx.order.update({
@@ -1821,6 +1826,137 @@ export async function adminUndoDeliveryAction(formData: FormData): Promise<void>
   revalidatePath("/admin/ordenes");
   revalidatePath(`/admin/ordenes/${dispatch.orderId}`);
   redirect(`${returnTo}?ok=Entrega+deshecha`);
+}
+
+// Despacho activo más reciente de un producto (el mismo que muestra la página de la orden).
+async function findActiveDispatchItem(orderItemId: string) {
+  return prisma.dispatchItem.findFirst({
+    where: { orderItemId, dispatch: { status: { notIn: ["CANCELLED", "RETURNED"] } } },
+    orderBy: { dispatch: { createdAt: "desc" } },
+    include: {
+      dispatch: { select: { id: true, code: true, status: true, orderId: true, order: { select: { code: true } } } },
+      orderItem: { select: { product: { select: { name: true } } } },
+    },
+  });
+}
+
+// Reversa la entrega de UN producto (Entregado → Despachado). No toca la orden, su fecha de
+// entrega, el despacho ni la plata: una contraentrega ya contada en Balances no se mueve sola.
+export async function adminReverseItemDeliveryAction(formData: FormData): Promise<void> {
+  const changedById = await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/ordenes");
+  const parsed = undoDispatchItemSchema.safeParse({ orderItemId: formData.get("orderItemId") });
+  if (!parsed.success) {
+    redirect(`${returnTo}?error=Producto+invalido`);
+  }
+  // Sin motivo válido no se reversa nada.
+  const reversal = parseReversalInput(formData);
+  if (!reversal.ok) {
+    redirect(`${returnTo}?error=${encodeURIComponent(reversal.error)}`);
+  }
+
+  const dispatchItem = await findActiveDispatchItem(parsed.data.orderItemId);
+  if (!dispatchItem || dispatchItem.dispatch.status !== "DELIVERED") {
+    redirect(`${returnTo}?error=${encodeURIComponent("El producto no está entregado")}`);
+  }
+  if (dispatchItem.deliveryReversedAt !== null) {
+    redirect(`${returnTo}?error=${encodeURIComponent("La entrega de este producto ya está reversada")}`);
+  }
+  const { dispatch } = dispatchItem;
+  const productName = dispatchItem.orderItem.product.name;
+  const actor = await getActivityActor();
+  const motive = reversalLine({ action: "Entrega reversada", fromState: "ENTREGADO", toState: "DESPACHADO", ...reversal.value });
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Solo si nadie la reversó entre la lectura y ahora (doble clic).
+      const marked = await tx.dispatchItem.updateMany({
+        where: { dispatchId: dispatch.id, orderItemId: dispatchItem.orderItemId, deliveryReversedAt: null },
+        data: { deliveryReversedAt: new Date() },
+      });
+      if (marked.count === 0) throw new Error("La entrega de este producto ya está reversada");
+      await tx.orderItemReversal.create({
+        data: {
+          orderId: dispatch.orderId,
+          orderItemId: dispatchItem.orderItemId,
+          dispatchId: dispatch.id,
+          fromState: "ENTREGADO",
+          toState: "DESPACHADO",
+          reason: reversal.value.reason,
+          reasonText: reversal.value.reasonText,
+          comment: reversal.value.comment,
+          createdById: changedById,
+        },
+      });
+      await logActivityTx(tx, actor, {
+        action: "UPDATE",
+        entityType: "ORDER",
+        entityId: dispatch.orderId,
+        entityCode: dispatch.order.code,
+        summary: `${motive} · ${productName} · ${dispatch.code} de ${dispatch.order.code}`,
+        before: { despacho: dispatch.code, producto: productName, estadoProducto: "ENTREGADO" },
+        after: {
+          despacho: dispatch.code,
+          producto: productName,
+          estadoProducto: "DESPACHADO",
+          motivo: reversal.value.reason,
+          motivoTexto: reversal.value.reasonText,
+          comentario: reversal.value.comment,
+        },
+      });
+    });
+  } catch (error) {
+    console.error("Failed to reverse item delivery:", error);
+    redirect(`${returnTo}?error=${encodeURIComponent("No se pudo reversar la entrega")}`);
+  }
+
+  revalidatePath("/admin/ordenes");
+  revalidatePath(`/admin/ordenes/${dispatch.orderId}`);
+  redirect(`${returnTo}?ok=Entrega+reversada`);
+}
+
+// Vuelve a marcar como entregado un producto cuya entrega se había reversado. Solo bitácora.
+export async function adminRedeliverItemAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/ordenes");
+  const parsed = undoDispatchItemSchema.safeParse({ orderItemId: formData.get("orderItemId") });
+  if (!parsed.success) {
+    redirect(`${returnTo}?error=Producto+invalido`);
+  }
+
+  const dispatchItem = await findActiveDispatchItem(parsed.data.orderItemId);
+  if (!dispatchItem || dispatchItem.dispatch.status !== "DELIVERED" || dispatchItem.deliveryReversedAt === null) {
+    redirect(`${returnTo}?error=${encodeURIComponent("Este producto no tiene una entrega reversada")}`);
+  }
+  const { dispatch } = dispatchItem;
+  const productName = dispatchItem.orderItem.product.name;
+  const actor = await getActivityActor();
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const cleared = await tx.dispatchItem.updateMany({
+        where: { dispatchId: dispatch.id, orderItemId: dispatchItem.orderItemId, deliveryReversedAt: { not: null } },
+        data: { deliveryReversedAt: null },
+      });
+      if (cleared.count === 0) throw new Error("Este producto ya estaba entregado");
+      await logActivityTx(tx, actor, {
+        action: "UPDATE",
+        entityType: "ORDER",
+        entityId: dispatch.orderId,
+        entityCode: dispatch.order.code,
+        summary: `Volvió a entregar ${productName} · ${dispatch.code} de ${dispatch.order.code}`,
+        before: { despacho: dispatch.code, producto: productName, estadoProducto: "DESPACHADO" },
+        after: { despacho: dispatch.code, producto: productName, estadoProducto: "ENTREGADO" },
+      });
+    });
+  } catch (error) {
+    console.error("Failed to redeliver item:", error);
+    redirect(`${returnTo}?error=${encodeURIComponent("No se pudo registrar la entrega")}`);
+  }
+
+  revalidatePath("/admin/ordenes");
+  revalidatePath(`/admin/ordenes/${dispatch.orderId}`);
+  redirect(`${returnTo}?ok=Entrega+registrada`);
 }
 
 const dispatchTrackingSchema = z.object({

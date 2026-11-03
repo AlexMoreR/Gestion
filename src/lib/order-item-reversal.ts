@@ -71,3 +71,11 @@ export function reversalLine(input: {
   const comment = input.comment ? ` — ${input.comment}` : "";
   return `${input.action} (${input.fromState} → ${input.toState}): ${motive}${comment}`;
 }
+
+// Estado de entrega de UN producto: Entregado solo si su despacho está DELIVERED y no se le reversó la entrega.
+export function itemDeliveryState(input: {
+  dispatchStatus: string;
+  deliveryReversedAt: Date | null;
+}): "ENTREGADO" | "DESPACHADO" {
+  return input.dispatchStatus === "DELIVERED" && input.deliveryReversedAt === null ? "ENTREGADO" : "DESPACHADO";
+}

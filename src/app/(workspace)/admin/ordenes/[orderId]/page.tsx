@@ -17,6 +17,7 @@ import { computeStockExitCost } from "@/lib/stock-exit-cost";
 import { computeItemUnitCost } from "@/lib/order-item-cost";
 import { prisma } from "@/lib/prisma";
 import { formatNoteDate } from "@/lib/order-notes";
+import { itemDeliveryState } from "@/lib/order-item-reversal";
 import {
   getFulfillmentModeLabel,
   getOrderDisplayState,
@@ -251,7 +252,10 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   // Despacho por producto: un item esta despachado si pertenece a un despacho
   // activo (no cancelado ni devuelto). La orden pasa a "Despachada" solo cuando
   // todos los productos estan despachados.
-  const dispatchByItemId = new Map<string, { code: string; carrierName: string | null }>();
+  const dispatchByItemId = new Map<
+    string,
+    { code: string; carrierName: string | null; status: string; deliveryReversedAt: Date | null }
+  >();
   for (const dispatch of order.dispatches) {
     if (dispatch.status === "CANCELLED" || dispatch.status === "RETURNED") {
       continue;
@@ -261,6 +265,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         dispatchByItemId.set(dispatchItem.orderItemId, {
           code: dispatch.code,
           carrierName: dispatch.carrierName,
+          status: dispatch.status,
+          deliveryReversedAt: dispatchItem.deliveryReversedAt,
         });
       }
     }
@@ -312,6 +318,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   );
 
   const orderItemsData = order.items.map((item) => {
+    const itemDispatch = dispatchByItemId.get(item.id);
     // Proveedores efectivos: los del producto o, si es un combo (sin proveedor
     // propio), la union de los proveedores de sus componentes (sin repetir).
     const componentSuppliers = item.product.bundleComponents.flatMap((component) => component.child.suppliers);
@@ -342,6 +349,9 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       isConfirmed: itemIsConfirmed(item),
       isRecogido: isItemRecogido(item),
       isDespachado: isItemDespachado(item),
+      isEntregado: itemDispatch ? itemDeliveryState({ dispatchStatus: itemDispatch.status, deliveryReversedAt: itemDispatch.deliveryReversedAt }) === "ENTREGADO" : false,
+      // Despacho entregado, pero a este producto se le reversó la entrega.
+      isDeliveryReversed: itemDispatch?.status === "DELIVERED" && itemDispatch.deliveryReversedAt !== null,
       dispatchCode: dispatchByItemId.get(item.id)?.code ?? null,
       dispatchCarrierName: dispatchByItemId.get(item.id)?.carrierName ?? null,
       requiresManufacturing: item.fulfillmentMode !== "STOCK",
