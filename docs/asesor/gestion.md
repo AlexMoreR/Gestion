@@ -79,6 +79,7 @@ en las Server Actions y en `src/lib/`.
 - `DispatchItem`: qué productos y cuántas unidades salen en un despacho; reparte el costo del envío.
 - `OrderStatusHistory`: cada cambio de estado de una orden; la última entrada a "entregada" es la fecha de entrega.
 - `OrderNote`: notas internas del equipo sobre una orden (texto, quién y cuándo). Se ven en el detalle de la orden y como ícono en la lista; nunca salen al cliente, a la proveedora ni en guías. Se borran con la orden.
+- `OrderItemReversal`: cada reversa de una entrega o un despacho con su motivo de la lista (clave, texto si es "Otro", comentario opcional), estado de antes y de después, quién y cuándo. Hoy la crea **Deshacer entrega** de la orden (toda la orden, de ENTREGADO a DESPACHADO). Se borra con la orden; si se quita el despacho o la línea, queda sin ellos.
 - `Account`: cuenta de dinero del negocio (efectivo, banco, billetera) con saldo inicial. El tipo `OWNER` es la cuenta "Aportes del dueño": gastos de Magilus pagados con la plata del dueño; no es dinero del negocio.
 - `AccountMovement`: entrada, salida o transferencia manual de dinero en una cuenta.
 - `ExpenseCategory`: categoría de gasto operativo.

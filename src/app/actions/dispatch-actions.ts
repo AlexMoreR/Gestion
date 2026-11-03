@@ -12,6 +12,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getActivityActor, logActivityTx } from "@/lib/activity-log";
+import { parseReversalInput, reversalLine } from "@/lib/order-item-reversal";
 import { SHIPPING_COST_LOG_FIELDS, SUPPLIER_LEDGER_LOG_FIELDS, snapshotForLog } from "@/lib/activity-log-snapshot";
 import { anularConMotivo, anularVarias, pagosPrimero } from "@/lib/anulaciones";
 import { buildDispatchCode, parseDispatchCodeNumber } from "@/lib/orders";
@@ -1653,6 +1654,11 @@ export async function adminUndoDeliveryAction(formData: FormData): Promise<void>
   if (!dispatchId) {
     redirect(`${returnTo}?error=Despacho+invalido`);
   }
+  // Sin motivo válido no se deshace nada.
+  const reversal = parseReversalInput(formData);
+  if (!reversal.ok) {
+    redirect(`${returnTo}?error=${encodeURIComponent(reversal.error)}`);
+  }
 
   const dispatch = await prisma.dispatch.findUnique({
     where: { id: dispatchId },
@@ -1664,12 +1670,45 @@ export async function adminUndoDeliveryAction(formData: FormData): Promise<void>
   if (dispatch.status !== "DELIVERED") {
     redirect(`${returnTo}?error=El+despacho+no+esta+entregado`);
   }
+  const actor = await getActivityActor();
 
   const now = new Date();
-  const line = `[${formatBogotaStamp(now)}] Entrega deshecha: no se habia entregado.`;
+  const motive = reversalLine({ action: "Entrega deshecha", fromState: "ENTREGADO", toState: "DESPACHADO", ...reversal.value });
+  const line = `[${formatBogotaStamp(now)}] ${motive}`;
   const notes = dispatch.notes?.trim() ? `${line}\n${dispatch.notes}` : line;
 
   await prisma.$transaction(async (tx) => {
+    await tx.orderItemReversal.create({
+      data: {
+        orderId: dispatch.orderId,
+        orderItemId: null,
+        dispatchId: dispatch.id,
+        fromState: "ENTREGADO",
+        toState: "DESPACHADO",
+        reason: reversal.value.reason,
+        reasonText: reversal.value.reasonText,
+        comment: reversal.value.comment,
+        createdById: changedById,
+      },
+    });
+    // Si no se puede anotar, no se deshace nada.
+    await logActivityTx(tx, actor, {
+      action: "UPDATE",
+      entityType: "ORDER",
+      entityId: dispatch.orderId,
+      entityCode: dispatch.order.code,
+      summary: `${motive} · ${dispatch.code} de ${dispatch.order.code}`,
+      before: { despacho: dispatch.code, estadoDespacho: dispatch.status, estadoOrden: dispatch.order.status },
+      after: {
+        despacho: dispatch.code,
+        estadoDespacho: "SHIPPED",
+        estadoOrden: dispatch.order.status === "COMPLETED" ? "DISPATCHED" : dispatch.order.status,
+        motivo: reversal.value.reason,
+        motivoTexto: reversal.value.reasonText,
+        comentario: reversal.value.comment,
+      },
+    });
+
     await tx.dispatch.update({
       where: { id: dispatch.id },
       data: { status: "SHIPPED", deliveredAt: null, shippedAt: dispatch.shippedAt ?? now, notes },
@@ -1685,7 +1724,7 @@ export async function adminUndoDeliveryAction(formData: FormData): Promise<void>
           orderId: dispatch.orderId,
           fromStatus: "COMPLETED",
           toStatus: "DISPATCHED",
-          note: `Entrega deshecha: ${dispatch.code} no se habia entregado`,
+          note: `${motive} · ${dispatch.code}`,
           changedById,
         },
       });
@@ -1702,7 +1741,7 @@ export async function adminUndoDeliveryAction(formData: FormData): Promise<void>
           visibleToClient: false,
           actor: "SYSTEM",
           actorUserId: changedById,
-          note: "Entrega deshecha desde la orden (no se habia entregado)",
+          note: "Entrega deshecha desde la orden",
           occurredAt: now,
         },
       });

@@ -42,6 +42,7 @@ model User {
   dispatchesCreated        Dispatch[]            @relation("DispatchCreatedBy")
   orderStatusChanges       OrderStatusHistory[]  @relation("OrderStatusHistoryChangedBy")
   orderNotes               OrderNote[]           @relation("OrderNoteCreatedBy")
+  orderItemReversals       OrderItemReversal[]   @relation("OrderItemReversalCreatedBy")
   supplierLedgerEntries    SupplierLedgerEntry[] @relation("SupplierLedgerCreatedBy")
   shippingCostsCreated     ShippingCost[]
   accountsCreated          Account[]             @relation("AccountCreatedBy")
@@ -637,6 +638,7 @@ model Order {
   dispatches            Dispatch[]
   history               OrderStatusHistory[]
   noteEntries           OrderNote[]
+  reversals             OrderItemReversal[]
   supplierLedgerEntries SupplierLedgerEntry[]
   manufacturingOrders   ManufacturingOrder[]
 
@@ -674,6 +676,7 @@ model OrderItem {
   dispatchItems         DispatchItem[]
   photos                OrderItemPhoto[]
   supplierLedgerEntries SupplierLedgerEntry[]
+  reversals             OrderItemReversal[]
 
   @@index([orderId])
   @@index([productId])
@@ -749,6 +752,7 @@ model Dispatch {
   shippingLegs          DispatchShippingLeg[]
   supplierLedgerEntries SupplierLedgerEntry[]
   shipment              Shipment?
+  reversals             OrderItemReversal[]
 
   @@index([orderId])
   @@index([createdById, createdAt])
@@ -763,6 +767,8 @@ model DispatchItem {
   // Porcion del costo de envio asignada a este producto (reparte el total del despacho).
   shippingCost Decimal   @default(0) @db.Decimal(12, 2)
   notes        String?
+  // Entregado = despacho DELIVERED y esta columna NULL (se llena al deshacer la entrega de este producto).
+  deliveryReversedAt DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   dispatch     Dispatch  @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
@@ -821,6 +827,28 @@ model OrderNote {
   createdAt   DateTime @default(now())
   order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   createdBy   User     @relation("OrderNoteCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([orderId, createdAt])
+}
+
+// Reversa de una entrega o un despacho, con su motivo (src/lib/order-item-reversal.ts).
+// orderItemId NULL = reversa de toda la orden. fromState/toState: 'ENTREGADO', 'DESPACHADO', 'POR_DESPACHAR'...
+model OrderItemReversal {
+  id          String     @id @default(cuid())
+  orderId     String
+  orderItemId String?
+  dispatchId  String?
+  fromState   String
+  toState     String
+  reason      String
+  reasonText  String?
+  comment     String?
+  createdById String
+  createdAt   DateTime   @default(now())
+  order       Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem   OrderItem? @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  dispatch    Dispatch?  @relation(fields: [dispatchId], references: [id], onDelete: SetNull)
+  createdBy   User       @relation("OrderItemReversalCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([orderId, createdAt])
 }

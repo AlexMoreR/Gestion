@@ -3,12 +3,13 @@
 import * as React from "react";
 import { useFormStatus } from "react-dom";
 import { adminUndoDeliveryAction } from "@/app/actions/dispatch-actions";
+import { ReversalReasonFields } from "@/components/admin/reversal-reason-fields";
 import { Button } from "@/components/ui/button";
 
-function ConfirmButton() {
+function ConfirmButton({ ready }: { ready: boolean }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" size="sm" variant="destructive" disabled={pending} className="h-8">
+    <Button type="submit" size="sm" variant="destructive" disabled={pending || !ready} className="h-8">
       {pending ? "Deshaciendo..." : "Sí, deshacer entrega"}
     </Button>
   );
@@ -17,6 +18,7 @@ function ConfirmButton() {
 // Paso "Entregar" de la orden: devuelve un despacho marcado como entregado por error a En camino.
 export function UndoDeliveryButton({ dispatchId, returnTo }: { dispatchId: string; returnTo: string }) {
   const [asking, setAsking] = React.useState(false);
+  const [ready, setReady] = React.useState(false);
 
   if (!asking) {
     return (
@@ -35,10 +37,11 @@ export function UndoDeliveryButton({ dispatchId, returnTo }: { dispatchId: strin
       <input type="hidden" name="dispatchId" value={dispatchId} />
       <input type="hidden" name="returnTo" value={returnTo} />
       <p className="w-full text-xs text-foreground">
-        La orden vuelve a Despachada y el despacho a En camino. Queda anotado en el historial.
+        La orden vuelve a Despachada y el despacho a En camino. Queda anotado en el historial con el motivo.
       </p>
-      <ConfirmButton />
-      <Button type="button" size="sm" variant="outline" className="h-8" onClick={() => setAsking(false)}>
+      <ReversalReasonFields onReadyChange={setReady} />
+      <ConfirmButton ready={ready} />
+      <Button type="button" size="sm" variant="outline" className="h-8" onClick={() => { setAsking(false); setReady(false); }}>
         Cancelar
       </Button>
     </form>

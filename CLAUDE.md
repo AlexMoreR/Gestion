@@ -149,6 +149,12 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   solo aditiva, cascada con la orden). Tarjeta "Notas" en el detalle (agregar; borrar solo las propias), ícono con la
   última nota en la lista y el buscador las encuentra. Cada nota y cada borrado van a `ActivityLog` como UPDATE de ORDER.
   Lógica pura en `src/lib/order-notes.ts`. Nunca salen al cliente, a la proveedora ni en guías.
+- **OrderItemReversal** — reversa de una entrega o despacho con **motivo obligatorio** (migración
+  `20261104120000_reversas_por_producto`, solo aditiva): `orderItemId` (NULL = toda la orden), `dispatchId`, `fromState`/`toState`
+  ('ENTREGADO', 'DESPACHADO'...), `reason` (clave de `REVERSAL_REASONS`), `reasonText` (con OTRO), `comment`, quién y cuándo.
+  «Deshacer entrega» la crea y anota el motivo en la nota del despacho, `OrderStatusHistory` y `ActivityLog`. Reglas puras en
+  `src/lib/order-item-reversal.ts`; campos en `src/components/admin/reversal-reason-fields.tsx`. `DispatchItem.deliveryReversedAt`:
+  un producto está Entregado solo con su despacho DELIVERED y esa columna NULL (la usa la reversa por producto).
 - **ProductionJob** — trabajo de fabricación (`code`, estado `ProductionJobStatus`, asignado a alguien).
 - **Dispatch** — despacho/entrega: `deliveryType` (`COUNTER`/`PICKUP`/`SHIPPING`), transportadora,
   `shippingCost`, guía, direcciones y fotos de entrega.
