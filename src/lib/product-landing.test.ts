@@ -129,7 +129,7 @@ describe("buildProductLandingData", () => {
     expect(data.hydraulic).toBe(true);
     expect(data.measure).toBeNull();
     expect(data.description).toBe("");
-    expect(data.chips).toEqual(["Fábrica en Cali y Bogotá", "1 año de garantía"]);
+    expect(data.chips).toEqual(["Fábrica en Cali y Bogotá", "1 año de garantía y 5 años en el sistema hidráulico"]);
     expect(data.specs.find((row) => row.label === "Medidas")).toEqual({
       label: "Medidas",
       value: ASK_ADVISOR_LABEL,

@@ -1,11 +1,18 @@
 type GuaranteeBadgeProps = {
   className?: string;
+  /** Producto con sistema hidraulico: el texto para lectores de pantalla nombra tambien los 5 años. */
+  hydraulic?: boolean;
 };
 
 // Sello circular "GARANTÍA 1 AÑO DE FÁBRICA" dibujado en SVG (texto curvo + número central).
-export function GuaranteeBadge({ className }: GuaranteeBadgeProps) {
+export function GuaranteeBadge({ className, hydraulic = false }: GuaranteeBadgeProps) {
   return (
-    <svg viewBox="0 0 100 100" className={className} role="img" aria-label="Garantía 1 año de fábrica">
+    <svg
+      viewBox="0 0 100 100"
+      className={className}
+      role="img"
+      aria-label={hydraulic ? "Garantía 1 año de fábrica y 5 años en el sistema hidráulico" : "Garantía 1 año de fábrica"}
+    >
       <defs>
         <path id="guarantee-top-arc" d="M 19,50 A 31,31 0 0 1 81,50" fill="none" />
         <path id="guarantee-bottom-arc" d="M 13,51 A 37,37 0 0 0 87,51" fill="none" />

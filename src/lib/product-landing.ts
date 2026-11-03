@@ -193,7 +193,7 @@ export function buildProductLandingData(product: ProductLandingSource): ProductL
   const chips = [
     ...(measure ? [`Medida ${measure}`] : []),
     `Fábrica en ${FACTORY_LOCATIONS}`,
-    WARRANTY_BASE_TEXT,
+    warrantyText,
   ];
 
   const specs: ProductSpecRow[] = [

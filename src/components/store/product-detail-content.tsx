@@ -298,7 +298,7 @@ export async function ProductDetailContent({
           <div className="mt-4 grid grid-cols-3 gap-2 text-center">
             {[
               { title: "Fábrica", text: FACTORY_LOCATIONS },
-              { title: "Garantía", text: "1 año" },
+              { title: "Garantía", text: landing.hydraulic ? "1 año + 5 años en el sistema hidráulico" : "1 año" },
               { title: "Pago", text: landing.cashOnDelivery ? "50/50 o contraentrega" : "50 % y 50 %" },
             ].map((item) => (
               <div
