@@ -145,6 +145,10 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
 - **OrderItemPhoto** — fotos del ítem (evidencia de fabricación/estado).
 - **OrderStatusHistory** — historial de cambios de estado de una orden. La **última entrada a
   `COMPLETED`** define la **fecha de entrega** (la que decide el mes de las ventas en contraentrega).
+- **OrderNote** — notas internas por orden (`text`, `createdById`, `createdAt`; migración `20261103120000_notas_de_orden`,
+  solo aditiva, cascada con la orden). Tarjeta "Notas" en el detalle (agregar; borrar solo las propias), ícono con la
+  última nota en la lista y el buscador las encuentra. Cada nota y cada borrado van a `ActivityLog` como UPDATE de ORDER.
+  Lógica pura en `src/lib/order-notes.ts`. Nunca salen al cliente, a la proveedora ni en guías.
 - **ProductionJob** — trabajo de fabricación (`code`, estado `ProductionJobStatus`, asignado a alguien).
 - **Dispatch** — despacho/entrega: `deliveryType` (`COUNTER`/`PICKUP`/`SHIPPING`), transportadora,
   `shippingCost`, guía, direcciones y fotos de entrega.

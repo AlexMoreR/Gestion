@@ -3,11 +3,12 @@
 import * as React from "react";
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpRight, MoreHorizontal, Pencil, ShoppingCart, X } from "lucide-react";
+import { ArrowUpRight, MoreHorizontal, Pencil, ShoppingCart, StickyNote, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +44,8 @@ type OrderRow = {
   status: "DRAFT" | "RELEASED" | "IN_PRODUCTION" | "READY_FOR_DISPATCH" | "DISPATCHED" | "COMPLETED" | "CANCELLED";
   createdAt: string;
   orderDateISO: string;
+  notesText: string;
+  lastNote: { text: string; by: string; date: string } | null;
 };
 
 // Dia local (YYYY-MM-DD) de la fecha de la orden, para comparar con el rango.
@@ -93,6 +96,30 @@ function StatusBadge({ order }: { order: OrderRow }) {
     >
       {getOrderStatusLabel(order.status)}
     </span>
+  );
+}
+
+// Ícono de nota: al pasar el mouse o tocarlo muestra la última nota de la orden.
+function NoteIndicator({ order }: { order: OrderRow }) {
+  const note = order.lastNote;
+  if (!note) return null;
+  return (
+    <Popover>
+      <PopoverTrigger
+        openOnHover
+        delay={150}
+        aria-label={`Última nota de ${displayCode(order.code)}`}
+        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+      >
+        <StickyNote className="h-4 w-4" />
+      </PopoverTrigger>
+      <PopoverContent align="start" className="gap-1">
+        <p className="whitespace-pre-wrap break-words text-sm text-foreground">{note.text}</p>
+        <p className="text-xs text-muted-foreground">
+          {note.by} · {note.date}
+        </p>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -217,6 +244,13 @@ export function OrdersWorkspace({
 
   const columns: ColumnDef<OrderRow>[] = [
     {
+      // El valor (texto de las notas) es lo que lee el buscador; la celda solo muestra el ícono.
+      accessorKey: "notesText",
+      header: "",
+      enableSorting: false,
+      cell: ({ row }) => <NoteIndicator order={row.original} />,
+    },
+    {
       accessorKey: "code",
       header: "Orden",
       cell: ({ row }) => <span className="text-sm font-semibold text-foreground">{displayCode(row.original.code)}</span>,
@@ -270,7 +304,10 @@ export function OrdersWorkspace({
     <article className="space-y-2.5 rounded-xl border border-border bg-card p-3">
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-semibold text-foreground">{displayCode(order.code)}</p>
+          <p className="flex items-center gap-1 text-sm font-semibold text-foreground">
+            {displayCode(order.code)}
+            <NoteIndicator order={order} />
+          </p>
           <StatusBadge order={order} />
         </div>
         <p className="text-sm text-foreground">{displayCode(order.saleCode)}</p>
@@ -332,7 +369,7 @@ export function OrdersWorkspace({
       <DataTable
         data={tableData}
         columns={columns}
-        searchPlaceholder="Buscar orden, venta o cliente"
+        searchPlaceholder="Buscar orden, venta, cliente o nota"
         onSearchChange={setSearchQuery}
         emptyMessage="Aun no hay ordenes."
         pageSize={12}

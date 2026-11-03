@@ -5,6 +5,7 @@ import { OrdersWorkspace } from "@/components/admin/orders-workspace";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { comboStock } from "@/lib/combo";
 import { prisma } from "@/lib/prisma";
+import { formatNoteDate } from "@/lib/order-notes";
 import { createPrismaInventoryRepository } from "@/modules/inventory/infrastructure/prisma-inventory-repository";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
@@ -39,6 +40,10 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
         supplier: true,
         createdBy: true,
         assignedTo: true,
+        noteEntries: {
+          orderBy: { createdAt: "desc" },
+          select: { text: true, createdAt: true, createdBy: { select: { name: true, email: true } } },
+        },
       },
       take: 200,
     }),
@@ -147,6 +152,7 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
     // Fecha de la orden: en compras es la fecha elegida (releasedAt); si no, la
     // de creacion. Se entrega tambien en ISO para el filtro por rango.
     const orderDate = order.releasedAt ?? order.createdAt;
+    const lastNote = order.noteEntries[0];
     return {
       kind: isPurchase ? ("purchase" as const) : ("order" as const),
       id: order.id,
@@ -161,6 +167,15 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
       status: order.status,
       createdAt: orderDate.toLocaleDateString("es-CO"),
       orderDateISO: orderDate.toISOString(),
+      // Texto de todas las notas: solo para que el buscador las encuentre.
+      notesText: order.noteEntries.map((note) => note.text).join(" "),
+      lastNote: lastNote
+        ? {
+            text: lastNote.text,
+            by: lastNote.createdBy.name || lastNote.createdBy.email,
+            date: formatNoteDate(lastNote.createdAt),
+          }
+        : null,
     };
   });
 

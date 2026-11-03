@@ -78,6 +78,7 @@ en las Server Actions y en `src/lib/`.
 - `Dispatch`: despacho o entrega de una orden: tipo de entrega, transportadora, guía, costo de envío y fotos.
 - `DispatchItem`: qué productos y cuántas unidades salen en un despacho; reparte el costo del envío.
 - `OrderStatusHistory`: cada cambio de estado de una orden; la última entrada a "entregada" es la fecha de entrega.
+- `OrderNote`: notas internas del equipo sobre una orden (texto, quién y cuándo). Se ven en el detalle de la orden y como ícono en la lista; nunca salen al cliente, a la proveedora ni en guías. Se borran con la orden.
 - `Account`: cuenta de dinero del negocio (efectivo, banco, billetera) con saldo inicial. El tipo `OWNER` es la cuenta "Aportes del dueño": gastos de Magilus pagados con la plata del dueño; no es dinero del negocio.
 - `AccountMovement`: entrada, salida o transferencia manual de dinero en una cuenta.
 - `ExpenseCategory`: categoría de gasto operativo.

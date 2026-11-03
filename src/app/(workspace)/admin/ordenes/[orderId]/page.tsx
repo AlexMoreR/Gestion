@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { AddShippingLegDialog } from "@/components/admin/add-shipping-leg-dialog";
 import { OrderActionsMenu } from "@/components/admin/order-actions-menu";
 import { OrderHistoryTabs } from "@/components/admin/order-history-tabs";
+import { OrderNotesCard } from "@/components/admin/order-notes-card";
 import { OrderItemsTable } from "@/components/admin/order-items-table";
 import { OrderStepper } from "@/components/admin/order-stepper";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,7 @@ import { resolveDispatchLegs, sumShippingLegs } from "@/lib/dispatch-shipping-le
 import { computeStockExitCost } from "@/lib/stock-exit-cost";
 import { computeItemUnitCost } from "@/lib/order-item-cost";
 import { prisma } from "@/lib/prisma";
+import { formatNoteDate } from "@/lib/order-notes";
 import {
   getFulfillmentModeLabel,
   getOrderDisplayState,
@@ -177,6 +179,10 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           include: {
             changedBy: true,
           },
+          orderBy: { createdAt: "desc" },
+        },
+        noteEntries: {
+          include: { createdBy: { select: { name: true, email: true } } },
           orderBy: { createdAt: "desc" },
         },
       },
@@ -789,6 +795,17 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               </CardContent>
             </Card>
           ) : null}
+
+          <OrderNotesCard
+            orderId={order.id}
+            notes={order.noteEntries.map((note) => ({
+              id: note.id,
+              text: note.text,
+              by: note.createdBy.name || note.createdBy.email,
+              date: formatNoteDate(note.createdAt),
+              mine: note.createdById === session.user.id,
+            }))}
+          />
 
           <Card className="border-border bg-card/95">
             <CardContent>

@@ -41,6 +41,7 @@ model User {
   productionJobsCreated    ProductionJob[]       @relation("ProductionJobCreatedBy")
   dispatchesCreated        Dispatch[]            @relation("DispatchCreatedBy")
   orderStatusChanges       OrderStatusHistory[]  @relation("OrderStatusHistoryChangedBy")
+  orderNotes               OrderNote[]           @relation("OrderNoteCreatedBy")
   supplierLedgerEntries    SupplierLedgerEntry[] @relation("SupplierLedgerCreatedBy")
   shippingCostsCreated     ShippingCost[]
   accountsCreated          Account[]             @relation("AccountCreatedBy")
@@ -635,6 +636,7 @@ model Order {
   productionJobs        ProductionJob[]
   dispatches            Dispatch[]
   history               OrderStatusHistory[]
+  noteEntries           OrderNote[]
   supplierLedgerEntries SupplierLedgerEntry[]
   manufacturingOrders   ManufacturingOrder[]
 
@@ -808,6 +810,19 @@ model OrderStatusHistory {
 
   @@index([orderId, createdAt])
   @@index([changedById, createdAt])
+}
+
+// Notas internas del equipo sobre una orden (qué pasa, qué recordar). Nunca salen al cliente ni a la proveedora.
+model OrderNote {
+  id          String   @id @default(cuid())
+  orderId     String
+  text        String
+  createdById String
+  createdAt   DateTime @default(now())
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdBy   User     @relation("OrderNoteCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([orderId, createdAt])
 }
 
 enum AccountType {

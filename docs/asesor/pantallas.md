@@ -118,7 +118,7 @@ Edita una cotización existente; es el mismo asistente de 3 pasos abierto en mod
 
 ## /admin/ordenes
 Lista de órdenes de venta y de compra a proveedor.
-**Qué se ve:** tarjetas Ordenes / Activas / Produccion / Cerradas. Tabla: Orden, Venta (en compras sale el código `COM-...`), Cliente, Responsable, Estado, Total, Fecha. Buscador "Buscar orden, venta o cliente" (al escribir busca en todas las órdenes) y filtro "Rango de fechas", que por defecto es el mes actual. Las órdenes abiertas se ven siempre.
+**Qué se ve:** tarjetas Ordenes / Activas / Produccion / Cerradas. Tabla: ícono de nota (solo en las órdenes con notas; al pasar el mouse o tocarlo muestra la última nota, quién la escribió y cuándo), Orden, Venta (en compras sale el código `COM-...`), Cliente, Responsable, Estado, Total, Fecha. En celular el ícono sale junto al código de la orden. Buscador "Buscar orden, venta, cliente o nota" (al escribir busca en todas las órdenes, también en el texto de sus notas) y filtro "Rango de fechas", que por defecto es el mes actual. Las órdenes abiertas se ven siempre.
 **Botones y acciones:**
 - **Nuevo**: abre el modal "Comprar" (compra directa a proveedor). Pide la fecha y luego **Agregar producto**: buscador "Buscar codigo o producto", Proveedor, Cantidad, Costo unitario, Color, Descripción y foto. Muestra el "Total compra". **Registrar compra** guarda la compra y **Cancelar** cierra.
 - Menú de fila (tres puntos):
@@ -130,7 +130,7 @@ Lista de órdenes de venta y de compra a proveedor.
 
 ## /admin/ordenes/[orderId]
 Detalle de una orden. Aquí se fabrica, se recoge, se despacha y se entrega cada producto.
-**Qué se ve:** el código de la orden y la venta y el cliente. Insignias "Pago: …" (o "Forma de pago sin definir") y "Origen: …". En órdenes de venta, botón **Cambiar forma de pago** (quien tiene acceso a Ventas o Cotizaciones): diálogo "Forma de pago" (50/50 o Contraentrega, sin "Sin definir") → **Cancelar** / **Guardar**; queda en la bitácora. Tarjetas Total, **Valor ganado** (con "Ver desglose →", que lleva a `/ganancia`), Produccion y Despachos. Una insignia de avance: "Pendiente fabricar/recoger/despachar …" o "Despachado". Tabla de productos con columnas Producto, Detalle y Estado. El estado puede ser Sin confirmar, Fabricando, Recogido o Despachado, y si se pulsa el estado se puede deshacer. A la derecha está el avance en 4 pasos (Fabricar → Recoger → Despachar → Entregar) y los recuadros "Envío" y "Guías Magilus". Abajo, las pestañas **Historial**, **Abonos** (con "Total abonado") y **Fabricación** (esta última solo en órdenes de venta).
+**Qué se ve:** el código de la orden y la venta y el cliente. Insignias "Pago: …" (o "Forma de pago sin definir") y "Origen: …". En órdenes de venta, botón **Cambiar forma de pago** (quien tiene acceso a Ventas o Cotizaciones): diálogo "Forma de pago" (50/50 o Contraentrega, sin "Sin definir") → **Cancelar** / **Guardar**; queda en la bitácora. Tarjetas Total, **Valor ganado** (con "Ver desglose →", que lleva a `/ganancia`), Produccion y Despachos. Una insignia de avance: "Pendiente fabricar/recoger/despachar …" o "Despachado". Tabla de productos con columnas Producto, Detalle y Estado. El estado puede ser Sin confirmar, Fabricando, Recogido o Despachado, y si se pulsa el estado se puede deshacer. A la derecha está el avance en 4 pasos (Fabricar → Recoger → Despachar → Entregar) y los recuadros "Envío" y "Guías Magilus". Debajo, la tarjeta **Notas** y, abajo, las pestañas **Historial**, **Abonos** (con "Total abonado") y **Fabricación** (esta última solo en órdenes de venta).
 **Botones y acciones:**
 - Menú de la orden (arriba a la derecha):
   - **Editar orden**: modal "Editar orden" con "Fecha de la orden" y el modo de cada producto (Stock / Fabricación). Se guarda con **Guardar cambios**.
@@ -161,6 +161,7 @@ Detalle de una orden. Aquí se fabrica, se recoge, se despacha y se entrega cada
   - **Copiar enlace**: copia el enlace.
   - **Enviar por WhatsApp**: manda un mensaje con el enlace al WhatsApp de la proveedora.
 - Pestaña **Historial**: si se pulsa un movimiento se abre "Editar fecha del movimiento", que se guarda con **Guardar**.
+- Tarjeta **Notas** (solo para el equipo; no sale a la clienta ni a la proveedora): cuadro de texto (máximo 1.000 letras) y botón **Agregar nota**. Debajo, las notas de la más nueva a la más vieja con quién la escribió y la fecha y hora de Colombia. En las notas propias sale **Borrar** (pide confirmar); las notas no se editan. Cada nota queda en la bitácora de la orden ("Agregó una nota: …").
 
 ## /admin/ordenes/[orderId]/editar-compra
 Edita una compra directa a proveedor. Si la orden es de venta, la página manda al detalle de la orden.

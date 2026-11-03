@@ -10,6 +10,7 @@ import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
 import { stockToRestore } from "@/lib/order-stock-restore";
 import { prisma } from "@/lib/prisma";
+import { parseOrderNoteText } from "@/lib/order-notes";
 import { createSaleOrder, type CreateSaleOrderResult } from "@/lib/sale-order";
 import { isRetiredUser } from "@/modules/equipo/infrastructure/prisma-team-repository";
 
@@ -313,6 +314,84 @@ export async function adminAssignOrderAction(formData: FormData): Promise<void> 
   revalidatePath("/admin/ordenes");
   revalidatePath(`${returnTo}`);
   redirect(`${returnTo}?ok=Orden+asignada`);
+}
+
+// Ruta fija del detalle: no se toma returnTo del formulario para no redirigir a donde sea.
+function orderDetailPath(orderId: string): string {
+  return `/admin/ordenes/${encodeURIComponent(orderId)}`;
+}
+
+export async function adminAddOrderNoteAction(formData: FormData): Promise<void> {
+  const userId = await requireAdminSession();
+  const orderId = String(formData.get("orderId") ?? "").trim();
+  if (!orderId) {
+    redirect("/admin/ordenes?error=Orden+invalida");
+  }
+  const back = orderDetailPath(orderId);
+
+  const parsed = parseOrderNoteText(formData.get("text"));
+  if (!parsed.ok) {
+    redirect(`${back}?error=${encodeURIComponent(parsed.error)}`);
+  }
+
+  const order = await prisma.order.findUnique({ where: { id: orderId }, select: { id: true, code: true } });
+  if (!order) {
+    redirect("/admin/ordenes?error=Orden+no+encontrada");
+  }
+
+  const note = await prisma.orderNote.create({
+    data: { orderId: order.id, text: parsed.text, createdById: userId },
+    select: { id: true },
+  });
+
+  // UPDATE: la nota es un cambio de la orden, no una orden nueva.
+  await logActivity({
+    action: "UPDATE",
+    entityType: "ORDER",
+    entityId: order.id,
+    entityCode: order.code,
+    summary: `Agregó una nota: ${parsed.text}`,
+    after: { noteId: note.id, text: parsed.text },
+  });
+
+  revalidatePath("/admin/ordenes");
+  revalidatePath(back);
+  redirect(`${back}?ok=Nota+agregada`);
+}
+
+export async function adminDeleteOrderNoteAction(formData: FormData): Promise<void> {
+  const userId = await requireAdminSession();
+  const noteId = String(formData.get("noteId") ?? "").trim();
+  const note = noteId
+    ? await prisma.orderNote.findUnique({
+        where: { id: noteId },
+        select: { id: true, text: true, createdById: true, orderId: true, order: { select: { code: true } } },
+      })
+    : null;
+  if (!note) {
+    redirect("/admin/ordenes?error=Nota+no+encontrada");
+  }
+  const back = orderDetailPath(note.orderId);
+  if (note.createdById !== userId) {
+    redirect(`${back}?error=${encodeURIComponent("Solo puedes borrar tus notas")}`);
+  }
+
+  // deleteMany con el autor en el where: si cambió entre la lectura y el borrado, no borra nada ajeno.
+  await prisma.orderNote.deleteMany({ where: { id: note.id, createdById: userId } });
+
+  // Se anota como cambio de la orden (UPDATE): el Revisor diario lee DELETE de ORDER como orden borrada.
+  await logActivity({
+    action: "UPDATE",
+    entityType: "ORDER",
+    entityId: note.orderId,
+    entityCode: note.order.code,
+    summary: `Borró una nota: ${note.text}`,
+    before: { noteId: note.id, text: note.text },
+  });
+
+  revalidatePath("/admin/ordenes");
+  revalidatePath(back);
+  redirect(`${back}?ok=Nota+borrada`);
 }
 
 export async function adminCancelOrderAction(formData: FormData): Promise<void> {
