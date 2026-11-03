@@ -361,7 +361,6 @@ Inicio del panel ("Panel de Administración"). Solo para usuarios Admin.
 **Qué se ve:** "Bienvenido, <nombre>. Gestiona los módulos de tu sistema desde aquí." y tarjetas de acceso rápido (solo las que el rol puede ver): Configuración, Productos, Cotizaciones, Ventas, Balances, Ordenes, Produccion y Despachos. El resto de módulos está en el menú lateral.
 **Botones y acciones:**
 - Clic en una tarjeta: abre ese módulo (por ejemplo `/admin/ventas`).
-- Botón de la barra superior **Marcar entrada** / **Marcar salida** (en el celular dice **Entrada** / **Salida**): está en todas las pantallas del panel, solo para usuarios Empleado y Admin. Marca con la hora del servidor (mientras guarda dice **Marcando...**). Al pasar el mouse dice "Trabajando desde <hora>" si hay una entrada abierta. Para marcar por otra persona o corregir: `/admin/asistencia`.
 
 ## /admin/asistencia
 Registro de entrada y salida del equipo (solo dueño/admin, permiso de Asistencia).

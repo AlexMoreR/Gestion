@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { Fragment } from "react";
 import type { Role } from "@prisma/client";
 import { AppSidebar } from "@/components/app-sidebar";
-import { AttendanceButton, type AttendanceButtonState } from "@/components/attendance-button";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -33,10 +32,9 @@ type AppShellProps = {
   brandName: string;
   adminModuleAccess: Record<AdminModuleKey, boolean>;
   // Boton de marcar entrada/salida (Empleado y Admin); null para los demas.
-  attendance?: AttendanceButtonState | null;
 };
 
-export function AppShell({ children, initialUser, brandName, adminModuleAccess, attendance = null }: AppShellProps) {
+export function AppShell({ children, initialUser, brandName, adminModuleAccess }: AppShellProps) {
   const { data } = useSession();
   const pathname = usePathname();
   const user = data?.user ?? initialUser;
@@ -60,8 +58,6 @@ export function AppShell({ children, initialUser, brandName, adminModuleAccess, 
                 ? "Comisiones"
               : pathname.startsWith("/admin/equipo")
                 ? "Equipo"
-              : pathname.startsWith("/admin/asistencia")
-                ? "Asistencia"
               : pathname.startsWith("/admin/gastos")
                 ? "Gastos"
               : pathname.startsWith("/admin/inventario")
@@ -222,7 +218,6 @@ export function AppShell({ children, initialUser, brandName, adminModuleAccess, 
               </Breadcrumb>
             </div>
             <div className="flex shrink-0 items-center gap-1 px-4">
-              {attendance ? <AttendanceButton state={attendance} /> : null}
               <NotificationBell />
               <ModeToggle />
             </div>
