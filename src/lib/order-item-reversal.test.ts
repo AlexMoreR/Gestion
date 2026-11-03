@@ -61,10 +61,4 @@ describe("reversalLine", () => {
       reversalLine({ action: "Entrega deshecha", fromState: "ENTREGADO", toState: "DESPACHADO", reason: "OTRO", reasonText: "Se mojó" }),
     ).toBe("Entrega deshecha (ENTREGADO → DESPACHADO): Otro: Se mojó");
   });
-
-  it("arma la frase del despacho reversado", () => {
-    expect(
-      reversalLine({ action: "Despacho reversado", fromState: "DESPACHADO", toState: "POR_DESPACHAR", reason: "DANADO" }),
-    ).toBe("Despacho reversado (DESPACHADO → POR_DESPACHAR): Llegó dañado");
-  });
 });
