@@ -268,6 +268,45 @@ describe("caminos con plata (base real)", () => {
     await comprobar("entregar");
   });
 
+  it("7b. reversar la entrega de un producto y volver a entregarlo", async () => {
+    const item = { orderItemId: ctx.orderItemId };
+    const sinMotivo = await llamar(dispatches.adminReverseItemDeliveryAction, item);
+    expect(sinMotivo.error).toBe("Elige el motivo.");
+    const fila = () => prisma.dispatchItem.findFirstOrThrow({ where: { dispatchId: ctx.dispatchId, orderItemId: ctx.orderItemId } });
+    expect((await fila()).deliveryReversedAt).toBeNull();
+
+    sinError(await llamar(dispatches.adminReverseItemDeliveryAction, { ...item, reversalReason: "DANADO" }));
+    expect((await fila()).deliveryReversedAt).not.toBeNull();
+    expect(
+      await prisma.orderItemReversal.count({
+        where: { orderItemId: ctx.orderItemId, fromState: "ENTREGADO", toState: "DESPACHADO", reason: "DANADO" },
+      }),
+    ).toBe(1);
+    // La orden y el despacho no se mueven: Balances no cambia solo.
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: ctx.orderId } })).status).toBe("COMPLETED");
+    expect((await prisma.dispatch.findUniqueOrThrow({ where: { id: ctx.dispatchId } })).status).toBe("DELIVERED");
+    const otraVez = await llamar(dispatches.adminReverseItemDeliveryAction, { ...item, reversalReason: "DANADO" });
+    expect(otraVez.error).toBe("La entrega de este producto ya está reversada");
+
+    sinError(await llamar(dispatches.adminRedeliverItemAction, item));
+    expect((await fila()).deliveryReversedAt).toBeNull();
+    expect(await prisma.activityLog.count({ where: { summary: { startsWith: "Volvió a entregar" } } })).toBe(1);
+
+    // «Deshacer entrega» de toda la orden limpia la marca; luego se vuelve a entregar para seguir.
+    sinError(await llamar(dispatches.adminReverseItemDeliveryAction, { ...item, reversalReason: "NO_LLEGO" }));
+    sinError(await llamar(dispatches.adminUndoDeliveryAction, { dispatchId: ctx.dispatchId, reversalReason: "ERROR" }));
+    expect((await fila()).deliveryReversedAt).toBeNull();
+    sinError(
+      await llamar(dispatches.adminCompleteDeliveryAction, {
+        dispatchId: ctx.dispatchId,
+        deliveryPhoto: comprobante("entrega.png"),
+        confirmedReceived: "on",
+      }),
+    );
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: ctx.orderId } })).status).toBe("COMPLETED");
+    await comprobar("reversar entrega de un producto");
+  });
+
   it("8. anular abono", async () => {
     const abono = await prisma.salePayment.findFirstOrThrow({ where: { saleId: ctx.saleId } });
     sinError(await llamar(sales.adminVoidSalePaymentAction, { paymentId: abono.id, motivo: "Abono repetido" }));

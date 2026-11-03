@@ -14,6 +14,8 @@ import {
 } from "@/app/actions/order-item-actions";
 import {
   adminDispatchOrderItemAction,
+  adminRedeliverItemAction,
+  adminReverseItemDeliveryAction,
   adminUndoDispatchItemAction,
 } from "@/app/actions/dispatch-actions";
 import { Badge } from "@/components/ui/badge";
@@ -73,6 +75,10 @@ export type OrderItemManagerData = {
   isConfirmed: boolean;
   isRecogido: boolean;
   isDespachado: boolean;
+  /** Su despacho está entregado y a este producto no se le reversó la entrega. */
+  isEntregado: boolean;
+  /** Despacho entregado, pero la entrega de este producto se reversó. */
+  isDeliveryReversed: boolean;
   requiresManufacturing: boolean;
   factoryPrice: number;
   /** Pieza por stock sin confirmar: costo que se va a usar y de dónde sale. */
@@ -153,6 +159,26 @@ function UndoDispatchSubmitButton({ ready }: { ready: boolean }) {
   );
 }
 
+function ReverseDeliverySubmitButton({ ready }: { ready: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="destructive" className="w-full" disabled={pending || !ready}>
+      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+      {pending ? "Reversando..." : "Reversar entrega"}
+    </Button>
+  );
+}
+
+function RedeliverSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" size="sm" className="h-8 bg-emerald-600 text-white hover:bg-emerald-700" disabled={pending}>
+      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackageCheck className="h-4 w-4" />}
+      {pending ? "Guardando..." : "Registrar entrega"}
+    </Button>
+  );
+}
+
 function UndoPickupSubmitButton({ label = "Si, deshacer recogido" }: { label?: string }) {
   const { pending } = useFormStatus();
   return (
@@ -200,6 +226,8 @@ export function OrderItemManager({
   const [dispatchOpen, setDispatchOpen] = useState(false);
   const [undoOpen, setUndoOpen] = useState(false);
   const [undoReady, setUndoReady] = useState(false);
+  const [reverseDeliveryOpen, setReverseDeliveryOpen] = useState(false);
+  const [reverseDeliveryReady, setReverseDeliveryReady] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
   const [undoPickupOpen, setUndoPickupOpen] = useState(false);
   const [undoConfirmOpen, setUndoConfirmOpen] = useState(false);
@@ -268,7 +296,17 @@ export function OrderItemManager({
         {formatMoney(item.unitPrice, currency)}
       </TableCell>
       <TableCell>
-        {item.isDespachado ? (
+        {item.isEntregado ? (
+          <button
+            type="button"
+            onClick={() => setReverseDeliveryOpen(true)}
+            title="Entregado - Click para reversar la entrega"
+            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-medium text-emerald-600 transition hover:bg-emerald-500/25 dark:text-emerald-400"
+          >
+            Entregado
+            <RotateCcw className="h-3 w-3" />
+          </button>
+        ) : item.isDespachado ? (
           <button
             type="button"
             onClick={() => setUndoOpen(true)}
@@ -305,7 +343,13 @@ export function OrderItemManager({
         )}
       </TableCell>
       <TableCell className="text-right">
-        {item.isDespachado ? (
+        {item.isDeliveryReversed ? (
+          <form action={adminRedeliverItemAction} className="inline">
+            <input type="hidden" name="returnTo" value={returnTo} />
+            <input type="hidden" name="orderItemId" value={item.id} />
+            <RedeliverSubmitButton />
+          </form>
+        ) : item.isDespachado ? (
           <Button
             type="button"
             size="sm"
@@ -833,6 +877,25 @@ export function OrderItemManager({
             <input type="hidden" name="orderItemId" value={item.id} />
             <ReversalReasonFields onReadyChange={setUndoReady} />
             <UndoDispatchSubmitButton ready={undoReady} />
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reverseDeliveryOpen} onOpenChange={(value) => (value ? null : setReverseDeliveryOpen(false))}>
+        <DialogContent className="max-h-[88vh] max-w-md overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Reversar entrega</DialogTitle>
+            <DialogDescription>
+              <span className="font-medium text-foreground">{item.productName}</span> vuelve a &quot;Despachado&quot;.
+              Los demás productos{item.dispatchCode ? ` del despacho ${displayCode(item.dispatchCode)}` : ""} siguen
+              entregados y la orden, el flete y los pagos no cambian. Queda anotado con el motivo.
+            </DialogDescription>
+          </DialogHeader>
+          <form action={adminReverseItemDeliveryAction} className="space-y-3">
+            <input type="hidden" name="returnTo" value={returnTo} />
+            <input type="hidden" name="orderItemId" value={item.id} />
+            <ReversalReasonFields onReadyChange={setReverseDeliveryReady} />
+            <ReverseDeliverySubmitButton ready={reverseDeliveryReady} />
           </form>
         </DialogContent>
       </Dialog>
