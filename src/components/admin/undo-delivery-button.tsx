@@ -39,7 +39,7 @@ export function UndoDeliveryButton({ dispatchId, returnTo }: { dispatchId: strin
       <p className="w-full text-xs text-foreground">
         La orden vuelve a Despachada y el despacho a En camino. Queda anotado en el historial con el motivo.
       </p>
-      <ReversalReasonFields onReadyChange={setReady} />
+      <ReversalReasonFields onReadyChange={setReady} pideFotoLlegada />
       <ConfirmButton ready={ready} />
       <Button type="button" size="sm" variant="outline" className="h-8" onClick={() => { setAsking(false); setReady(false); }}>
         Cancelar

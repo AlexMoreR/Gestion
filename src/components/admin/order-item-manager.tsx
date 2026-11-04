@@ -965,7 +965,7 @@ export function OrderItemManager({
           <form action={adminReverseItemDeliveryAction} className="space-y-3">
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="orderItemId" value={item.id} />
-            <ReversalReasonFields onReadyChange={setReverseDeliveryReady} />
+            <ReversalReasonFields onReadyChange={setReverseDeliveryReady} pideFotoLlegada />
             <ReverseDeliverySubmitButton ready={reverseDeliveryReady} />
           </form>
         </DialogContent>

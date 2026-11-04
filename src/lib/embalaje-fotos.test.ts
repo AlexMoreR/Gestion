@@ -5,6 +5,7 @@ import {
   FALTA_CERRADO,
   FALTAN_LAS_DOS,
   fotosEmbalajeParaVer,
+  fotosLlegadaParaVer,
   validarFotosEmbalaje,
 } from "./embalaje-fotos";
 
@@ -51,5 +52,16 @@ describe("fotosEmbalajeParaVer", () => {
     ];
     expect(fotosEmbalajeParaVer(fotos).map((f) => f.id)).toEqual(["a1", "a2", "c1", "e1", "e2"]);
     expect(fotos).toHaveLength(6);
+  });
+});
+
+describe("fotosLlegadaParaVer", () => {
+  it("deja solo LLEGADA, la más vieja primero", () => {
+    const fotos = [
+      { id: "a", tipo: "LLEGADA" as const, createdAt: new Date("2026-11-02T10:00:00Z") },
+      { id: "b", tipo: "ABIERTO" as const, createdAt: new Date("2026-11-01T10:00:00Z") },
+      { id: "c", tipo: "LLEGADA" as const, createdAt: new Date("2026-11-01T10:00:00Z") },
+    ];
+    expect(fotosLlegadaParaVer(fotos).map((foto) => foto.id)).toEqual(["c", "a"]);
   });
 });

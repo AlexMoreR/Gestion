@@ -38,3 +38,10 @@ export function fotosEmbalajeParaVer<T extends { tipo: EmbalajeTipo; createdAt: 
     .filter((foto) => foto.tipo !== "LLEGADA")
     .sort((a, b) => ORDEN_TIPO[a.tipo] - ORDEN_TIPO[b.tipo] || a.createdAt.getTime() - b.createdAt.getTime());
 }
+
+// Solo las de llegada (cómo llegó, al reversar "Llegó dañado"), la más vieja primero.
+export function fotosLlegadaParaVer<T extends { tipo: EmbalajeTipo; createdAt: Date }>(fotos: readonly T[]): T[] {
+  return fotos
+    .filter((foto) => foto.tipo === "LLEGADA")
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+}

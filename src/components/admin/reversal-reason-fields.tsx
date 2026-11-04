@@ -8,15 +8,26 @@ import {
   REVERSAL_OTHER_MAX,
   REVERSAL_OTHER_MIN,
   REVERSAL_REASONS,
+  pideFotoLlegada as motivoPideFoto,
 } from "@/lib/order-item-reversal";
 
 // Motivo de una reversa (entrega o despacho). Va dentro de un <form>; la acción valida con parseReversalInput.
 // onReadyChange avisa si ya hay motivo elegido (y el texto de "Otro" escrito) para habilitar el botón.
-export function ReversalReasonFields({ onReadyChange }: { onReadyChange?: (ready: boolean) => void }) {
+// pideFotoLlegada (solo al reversar una entrega): con "Llegó dañado" pide la foto fotoLlegada.
+export function ReversalReasonFields({
+  onReadyChange,
+  pideFotoLlegada = false,
+}: {
+  onReadyChange?: (ready: boolean) => void;
+  pideFotoLlegada?: boolean;
+}) {
   const [reason, setReason] = React.useState("");
   const [otherText, setOtherText] = React.useState("");
+  const [hasPhoto, setHasPhoto] = React.useState(false);
   const groupId = React.useId();
-  const ready = reason !== "" && (reason !== "OTRO" || otherText.trim().length >= REVERSAL_OTHER_MIN);
+  const needsPhoto = pideFotoLlegada && motivoPideFoto(reason);
+  const ready =
+    reason !== "" && (reason !== "OTRO" || otherText.trim().length >= REVERSAL_OTHER_MIN) && (!needsPhoto || hasPhoto);
 
   React.useEffect(() => {
     onReadyChange?.(ready);
@@ -55,6 +66,22 @@ export function ReversalReasonFields({ onReadyChange }: { onReadyChange?: (ready
             minLength={REVERSAL_OTHER_MIN}
             maxLength={REVERSAL_OTHER_MAX}
             placeholder={`Mínimo ${REVERSAL_OTHER_MIN} letras`}
+            className="h-8 text-xs"
+          />
+        </div>
+      ) : null}
+      {needsPhoto ? (
+        <div className="space-y-1">
+          <label htmlFor={`${groupId}-foto`} className="text-xs font-medium text-foreground">
+            Foto de cómo llegó (obligatoria)
+          </label>
+          <Input
+            id={`${groupId}-foto`}
+            type="file"
+            name="fotoLlegada"
+            accept="image/*"
+            required
+            onChange={(event) => setHasPhoto((event.target.files?.length ?? 0) > 0)}
             className="h-8 text-xs"
           />
         </div>

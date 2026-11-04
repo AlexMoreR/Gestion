@@ -136,9 +136,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             },
             confirmedSupplier: true,
             photos: { orderBy: { createdAt: "asc" } },
-            // Fotos del embalaje (con y sin despacho) para la tarjeta; el despacho usa solo las sin despacho.
+            // Fotos del embalaje y de llegada para la tarjeta; el despacho usa solo las de embalaje sin despacho.
             embalajeFotos: {
-              where: { tipo: { not: "LLEGADA" } },
               orderBy: { createdAt: "asc" },
               select: { id: true, url: true, tipo: true, dispatchId: true, subidoPorTexto: true, createdAt: true },
             },
@@ -452,7 +451,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       })),
       // Solo las aún sin despacho (las sube la proveedora en su enlace de la OF): deciden si el despacho pide fotos.
       embalajeFotos: item.embalajeFotos
-        .filter((foto) => foto.dispatchId === null)
+        .filter((foto) => foto.dispatchId === null && foto.tipo !== "LLEGADA")
         .map(({ id, url, tipo }) => ({ id, url, tipo })),
     };
   });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   countReversedItems,
+  pideFotoLlegada,
   itemDeliveryState,
   parseReversalInput,
   REVERSAL_REASONS,
@@ -121,5 +122,12 @@ describe("reversalMoneyWarning", () => {
   });
   it("0 reversados → sin aviso", () => {
     expect(reversalMoneyWarning({ paymentMethod: "CONTRAENTREGA", orderStatus: "COMPLETED", reversedItems: 0 })).toBeNull();
+  });
+});
+
+describe("pideFotoLlegada", () => {
+  it("solo Llegó dañado pide foto de llegada", () => {
+    expect(pideFotoLlegada("DANADO")).toBe(true);
+    for (const reason of ["NO_LLEGO", "RECHAZADO", "OTRO"]) expect(pideFotoLlegada(reason)).toBe(false);
   });
 });

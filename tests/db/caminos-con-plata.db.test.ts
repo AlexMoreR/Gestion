@@ -316,8 +316,20 @@ describe("caminos con plata (base real)", () => {
     const fila = () => prisma.dispatchItem.findFirstOrThrow({ where: { dispatchId: ctx.dispatchId, orderItemId: ctx.orderItemId } });
     expect((await fila()).deliveryReversedAt).toBeNull();
 
-    sinError(await llamar(dispatches.adminReverseItemDeliveryAction, { ...item, reversalReason: "DANADO" }));
+    // «Llegó dañado» sin foto de cómo llegó: error y no reversa nada.
+    const sinFoto = await llamar(dispatches.adminReverseItemDeliveryAction, { ...item, reversalReason: "DANADO" });
+    expect(sinFoto.error).toBe("Falta la foto de cómo llegó");
+    expect((await fila()).deliveryReversedAt).toBeNull();
+    expect(await prisma.orderItemReversal.count({ where: { orderItemId: ctx.orderItemId } })).toBe(0);
+    expect(await prisma.embalajeFoto.count({ where: { orderItemId: ctx.orderItemId, tipo: "LLEGADA" } })).toBe(0);
+
+    sinError(
+      await llamar(dispatches.adminReverseItemDeliveryAction, { ...item, reversalReason: "DANADO", fotoLlegada: comprobante("llegada.png") }),
+    );
     expect((await fila()).deliveryReversedAt).not.toBeNull();
+    const llegada = await prisma.embalajeFoto.findMany({ where: { orderItemId: ctx.orderItemId, tipo: "LLEGADA" } });
+    expect(llegada).toHaveLength(1);
+    expect(llegada[0]).toMatchObject({ dispatchId: ctx.dispatchId, subidoPorTexto: "Dueño Prueba" });
     expect(
       await prisma.orderItemReversal.count({
         where: { orderItemId: ctx.orderItemId, fromState: "ENTREGADO", toState: "DESPACHADO", reason: "DANADO" },
@@ -326,7 +338,11 @@ describe("caminos con plata (base real)", () => {
     // La orden y el despacho no se mueven: Balances no cambia solo.
     expect((await prisma.order.findUniqueOrThrow({ where: { id: ctx.orderId } })).status).toBe("COMPLETED");
     expect((await prisma.dispatch.findUniqueOrThrow({ where: { id: ctx.dispatchId } })).status).toBe("DELIVERED");
-    const otraVez = await llamar(dispatches.adminReverseItemDeliveryAction, { ...item, reversalReason: "DANADO" });
+    const otraVez = await llamar(dispatches.adminReverseItemDeliveryAction, {
+      ...item,
+      reversalReason: "DANADO",
+      fotoLlegada: comprobante("llegada.png"),
+    });
     expect(otraVez.error).toBe("La entrega de este producto ya está reversada");
 
     sinError(await llamar(dispatches.adminRedeliverItemAction, item));
@@ -335,6 +351,9 @@ describe("caminos con plata (base real)", () => {
 
     // «Deshacer entrega» de toda la orden limpia la marca; luego se vuelve a entregar para seguir.
     sinError(await llamar(dispatches.adminReverseItemDeliveryAction, { ...item, reversalReason: "NO_LLEGO" }));
+    const deshacerSinFoto = await llamar(dispatches.adminUndoDeliveryAction, { dispatchId: ctx.dispatchId, reversalReason: "DANADO" });
+    expect(deshacerSinFoto.error).toBe("Falta la foto de cómo llegó");
+    expect((await prisma.dispatch.findUniqueOrThrow({ where: { id: ctx.dispatchId } })).status).toBe("DELIVERED");
     sinError(await llamar(dispatches.adminUndoDeliveryAction, { dispatchId: ctx.dispatchId, reversalReason: "ERROR" }));
     expect((await fila()).deliveryReversedAt).toBeNull();
     sinError(

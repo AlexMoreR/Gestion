@@ -20,6 +20,13 @@ export const REVERSAL_COMMENT_MAX = 500;
 export type ReversalInput = { reason: ReversalReasonKey; reasonText: string | null; comment: string | null };
 export type ReversalInputResult = { ok: true; value: ReversalInput } | { ok: false; error: string };
 
+export const FALTA_FOTO_LLEGADA = "Falta la foto de cómo llegó";
+
+// Al reversar una entrega, "Llegó dañado" exige foto de cómo llegó (prueba para reclamar).
+export function pideFotoLlegada(reason: string): boolean {
+  return reason === "DANADO";
+}
+
 export function reversalReasonLabel(key: string): string {
   return REVERSAL_REASONS.find((r) => r.key === key)?.label ?? key;
 }

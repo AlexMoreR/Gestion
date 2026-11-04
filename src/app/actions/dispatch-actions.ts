@@ -12,7 +12,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getActivityActor, logActivityTx } from "@/lib/activity-log";
-import { parseReversalInput, reversalLine } from "@/lib/order-item-reversal";
+import { FALTA_FOTO_LLEGADA, parseReversalInput, pideFotoLlegada, reversalLine } from "@/lib/order-item-reversal";
 import { SHIPPING_COST_LOG_FIELDS, SUPPLIER_LEDGER_LOG_FIELDS, snapshotForLog } from "@/lib/activity-log-snapshot";
 import { anularConMotivo, anularVarias, pagosPrimero } from "@/lib/anulaciones";
 import { buildDispatchCode, parseDispatchCodeNumber } from "@/lib/orders";
@@ -1814,6 +1814,27 @@ export async function adminLogCarrierResponseAction(formData: FormData): Promise
   redirect(`${CARRIER_FOLLOWUP_PATH}?ok=Respuesta+guardada`);
 }
 
+// Foto de cómo llegó (reversa "Llegó dañado"): se guarda en disco ANTES de la transacción;
+// si no sirve, corta con redirect y no se reversa nada.
+async function guardarFotoLlegada(
+  archivo: FormDataEntryValue | null,
+  userId: string,
+  returnTo: string,
+): Promise<{ url: string; subidoPorUserId: string; subidoPorTexto: string }> {
+  let url = "";
+  let photoError: string | null = null;
+  try {
+    ({ url } = await saveShipmentPhoto(archivo as File));
+  } catch (error) {
+    photoError = error instanceof Error ? error.message : "No se pudo guardar la foto de cómo llegó.";
+  }
+  if (photoError) {
+    redirect(`${returnTo}?error=${encodeURIComponent(photoError)}`);
+  }
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true } });
+  return { url, subidoPorUserId: userId, subidoPorTexto: user?.name?.trim() || user?.email || "Usuario" };
+}
+
 // Deshacer entrega (paso "Entregar" de la orden): para un despacho marcado como entregado por
 // error. El despacho vuelve a En camino (SHIPPED) sin fecha de entrega, la orden COMPLETED vuelve a
 // DISPATCHED con historial, y si tiene guia Magilus vuelve a "En transito" con un evento interno.
@@ -1829,10 +1850,15 @@ export async function adminUndoDeliveryAction(formData: FormData): Promise<void>
   if (!reversal.ok) {
     redirect(`${returnTo}?error=${encodeURIComponent(reversal.error)}`);
   }
+  const fotoLlegada = formData.get("fotoLlegada");
+  const conFoto = pideFotoLlegada(reversal.value.reason);
+  if (conFoto && !hasUploadedFile(fotoLlegada)) {
+    redirect(`${returnTo}?error=${encodeURIComponent(FALTA_FOTO_LLEGADA)}`);
+  }
 
   const dispatch = await prisma.dispatch.findUnique({
     where: { id: dispatchId },
-    include: { order: true },
+    include: { order: true, items: { select: { orderItemId: true } } },
   });
   if (!dispatch) {
     redirect(`${returnTo}?error=Despacho+no+encontrado`);
@@ -1840,6 +1866,7 @@ export async function adminUndoDeliveryAction(formData: FormData): Promise<void>
   if (dispatch.status !== "DELIVERED") {
     redirect(`${returnTo}?error=El+despacho+no+esta+entregado`);
   }
+  const foto = conFoto ? await guardarFotoLlegada(fotoLlegada, changedById, returnTo) : null;
   const actor = await getActivityActor();
 
   const now = new Date();
@@ -1861,6 +1888,13 @@ export async function adminUndoDeliveryAction(formData: FormData): Promise<void>
         createdById: changedById,
       },
     });
+    // Foto de cómo llegó: una fila por producto del despacho, ligada al despacho (nunca cuenta como embalaje pendiente).
+    if (foto) {
+      const orderItemIds = [...new Set(dispatch.items.map((item) => item.orderItemId))];
+      await tx.embalajeFoto.createMany({
+        data: orderItemIds.map((orderItemId) => ({ orderItemId, dispatchId: dispatch.id, tipo: "LLEGADA" as const, ...foto })),
+      });
+    }
     // Si no se puede anotar, no se deshace nada.
     await logActivityTx(tx, actor, {
       action: "UPDATE",
@@ -1956,6 +1990,11 @@ export async function adminReverseItemDeliveryAction(formData: FormData): Promis
   if (!reversal.ok) {
     redirect(`${returnTo}?error=${encodeURIComponent(reversal.error)}`);
   }
+  const fotoLlegada = formData.get("fotoLlegada");
+  const conFoto = pideFotoLlegada(reversal.value.reason);
+  if (conFoto && !hasUploadedFile(fotoLlegada)) {
+    redirect(`${returnTo}?error=${encodeURIComponent(FALTA_FOTO_LLEGADA)}`);
+  }
 
   const dispatchItem = await findActiveDispatchItem(parsed.data.orderItemId);
   if (!dispatchItem || dispatchItem.dispatch.status !== "DELIVERED") {
@@ -1966,6 +2005,7 @@ export async function adminReverseItemDeliveryAction(formData: FormData): Promis
   }
   const { dispatch } = dispatchItem;
   const productName = dispatchItem.orderItem.product.name;
+  const foto = conFoto ? await guardarFotoLlegada(fotoLlegada, changedById, returnTo) : null;
   const actor = await getActivityActor();
   const motive = reversalLine({ action: "Entrega reversada", fromState: "ENTREGADO", toState: "DESPACHADO", ...reversal.value });
 
@@ -1990,6 +2030,11 @@ export async function adminReverseItemDeliveryAction(formData: FormData): Promis
           createdById: changedById,
         },
       });
+      if (foto) {
+        await tx.embalajeFoto.create({
+          data: { orderItemId: dispatchItem.orderItemId, dispatchId: dispatch.id, tipo: "LLEGADA", ...foto },
+        });
+      }
       await logActivityTx(tx, actor, {
         action: "UPDATE",
         entityType: "ORDER",
