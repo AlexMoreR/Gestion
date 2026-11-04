@@ -6,6 +6,7 @@ import { Eye, MapPin, Package, Truck } from "lucide-react";
 import { adminUpdateDispatchShippingCostsAction } from "@/app/actions/dispatch-actions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { EmbalajeFotosCard, type EmbalajeFotosGrupo } from "@/components/admin/embalaje-fotos-card";
 import { MoneyInput } from "@/components/ui/money-input";
 import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
@@ -37,6 +38,7 @@ export type DispatchReviewData = {
   deliveredAt: string | null;
   shippingReceiptUrl: string | null;
   items: { id: string; name: string; code: string | null; quantity: number; shippingCost: number }[];
+  embalajeFotos: EmbalajeFotosGrupo[];
 };
 
 const DELIVERY_TYPE_LABEL: Record<DispatchReviewData["deliveryType"], string> = {
@@ -249,6 +251,8 @@ export function DispatchReviewButton({
                 </div>
               )}
             </div>
+
+            <EmbalajeFotosCard grupos={dispatch.embalajeFotos} />
 
             <div className="grid grid-cols-3 gap-4">
               <Field label="Creado" value={dispatch.createdAt} />

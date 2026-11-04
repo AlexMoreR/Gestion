@@ -12,6 +12,7 @@ import {
 } from "@/modules/guias/domain/statuses";
 import type { CityOption } from "@/modules/guias/domain/types";
 import { findShipmentByCarrierToken } from "@/modules/guias/infrastructure/shipments-repository";
+// fotos del embalaje: solo internas (este link de la transportadora nunca las consulta ni las muestra).
 import { CallButton, CarrierPanel } from "@/modules/guias/presentation/carrier-panel";
 
 // Enlace del transportador (sin cuenta). Muestra lo minimo: guia, destino, primer nombre del

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { DispatchesWorkspace } from "@/components/admin/dispatches-workspace";
+import { gruposEmbalaje } from "@/components/admin/embalaje-fotos-card";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
@@ -39,6 +40,19 @@ export default async function AdminDespachosPage({ searchParams }: PageProps) {
         },
         createdBy: true,
         shippingLegs: { orderBy: { position: "asc" } },
+        // Fotos del embalaje ligadas a este despacho (solo internas).
+        embalajeFotos: {
+          where: { tipo: { not: "LLEGADA" } },
+          select: {
+            id: true,
+            url: true,
+            tipo: true,
+            subidoPorTexto: true,
+            createdAt: true,
+            orderItemId: true,
+            orderItem: { select: { product: { select: { name: true } } } },
+          },
+        },
         items: {
           include: {
             orderItem: {
@@ -186,6 +200,9 @@ export default async function AdminDespachosPage({ searchParams }: PageProps) {
             quantity: item.quantity,
             shippingCost: Number(item.shippingCost),
           })),
+          embalajeFotos: gruposEmbalaje(
+            dispatch.embalajeFotos.map(({ orderItem, ...foto }) => ({ ...foto, producto: orderItem.product.name })),
+          ),
         }))}
       />
     </section>

@@ -29,3 +29,12 @@ export function validarFotosEmbalaje({
   if (todas.filter((tipo) => tipo !== "LLEGADA").length > EMBALAJE_MAX_FOTOS) return DEMASIADAS_FOTOS;
   return null;
 }
+
+const ORDEN_TIPO: Record<EmbalajeTipo, number> = { ABIERTO: 0, CERRADO: 1, EXTRA: 2, LLEGADA: 3 };
+
+// Para mostrar (orden y despacho): sin LLEGADA (parte 4), ABIERTO → CERRADO → EXTRA y, en el mismo tipo, la más vieja primero.
+export function fotosEmbalajeParaVer<T extends { tipo: EmbalajeTipo; createdAt: Date }>(fotos: readonly T[]): T[] {
+  return fotos
+    .filter((foto) => foto.tipo !== "LLEGADA")
+    .sort((a, b) => ORDEN_TIPO[a.tipo] - ORDEN_TIPO[b.tipo] || a.createdAt.getTime() - b.createdAt.getTime());
+}

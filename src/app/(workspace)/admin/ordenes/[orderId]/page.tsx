@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { AddShippingLegDialog } from "@/components/admin/add-shipping-leg-dialog";
 import { OrderActionsMenu } from "@/components/admin/order-actions-menu";
 import { OrderHistoryTabs } from "@/components/admin/order-history-tabs";
+import { EmbalajeFotosCard, gruposEmbalaje } from "@/components/admin/embalaje-fotos-card";
 import { OrderNotesCard } from "@/components/admin/order-notes-card";
 import { OrderReversalsCard } from "@/components/admin/order-reversals-card";
 import { OrderItemsTable } from "@/components/admin/order-items-table";
@@ -135,11 +136,11 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             },
             confirmedSupplier: true,
             photos: { orderBy: { createdAt: "asc" } },
-            // Fotos del embalaje aún sin despacho (las sube la proveedora en su enlace de la OF).
+            // Fotos del embalaje (con y sin despacho) para la tarjeta; el despacho usa solo las sin despacho.
             embalajeFotos: {
-              where: { dispatchId: null, tipo: { not: "LLEGADA" } },
+              where: { tipo: { not: "LLEGADA" } },
               orderBy: { createdAt: "asc" },
-              select: { id: true, url: true, tipo: true },
+              select: { id: true, url: true, tipo: true, dispatchId: true, subidoPorTexto: true, createdAt: true },
             },
             supplierLedgerEntries: {
               where: { type: "PAYMENT" },
@@ -449,7 +450,10 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         url: photo.url,
         name: photo.name,
       })),
-      embalajeFotos: item.embalajeFotos,
+      // Solo las aún sin despacho (las sube la proveedora en su enlace de la OF): deciden si el despacho pide fotos.
+      embalajeFotos: item.embalajeFotos
+        .filter((foto) => foto.dispatchId === null)
+        .map(({ id, url, tipo }) => ({ id, url, tipo })),
     };
   });
 
@@ -914,6 +918,14 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               date: formatNoteDate(note.createdAt),
               mine: note.createdById === session.user.id,
             }))}
+          />
+
+          <EmbalajeFotosCard
+            grupos={gruposEmbalaje(
+              order.items.flatMap((item) =>
+                item.embalajeFotos.map((foto) => ({ ...foto, orderItemId: item.id, producto: item.product.name })),
+              ),
+            )}
           />
 
           <OrderReversalsCard
