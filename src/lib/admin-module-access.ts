@@ -79,13 +79,6 @@ export const adminModuleDefinitions = [
     group: "Catalogo",
   },
   {
-    key: "colores",
-    label: "Carta de colores",
-    description: "Colores de cueros y telas que ve la clienta en magilus.com/colores",
-    path: "/admin/colores",
-    group: "Catalogo",
-  },
-  {
     key: "clients",
     label: "Clientes",
     description: "Directorio de clientes (se crean al cotizar).",

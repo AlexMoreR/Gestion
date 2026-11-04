@@ -89,8 +89,8 @@ en las Server Actions y en `src/lib/`.
 - `RegistroRetroactivo`: una venta, abono o gasto registrado con fecha anterior a hoy: tipo, a qué registro apunta (queda aunque el registro se borre), fecha puesta, momento real del registro, quién, motivo y monto copiado.
 - `InventoryMovement`: entrada, salida o ajuste de stock de un producto.
 - `CompraUnidad`: una unidad de una compra por lote a proveedora (migración `20261105120000_compra_por_lote`). Estado Pendiente → Fabricando (con color) → En inventario (Cali o Taller proveedora) → Vendida (con su orden de venta). La deuda con la proveedora se carga completa al registrar la compra; al inventario solo entra lo fabricado ("Llegó" suma 1, sin cargo nuevo). "Salió en venta" es manual.
-- `ColorMaterial`: material de la carta de colores (Cuerotex, Prana y Corsos son cueros; Telas es tela), con su grupo (`ColorGrupo`: cuero o tela), orden y si está oculto. La migración `20261106120000_carta_colores` deja creados solo esos 4; no se puede borrar un material que tenga colores.
-- `CartaColor`: un color de un material de la carta: código ("03"), nombre ("Palo rosa"), color de muestra `#RRGGBB` opcional, foto opcional, oculto, orden y quién lo creó. Dos colores del mismo material no repiten código. Lo carga el equipo; en la tienda sale como "Prana 03 · Palo rosa" y el WhatsApp dice "Hola, me gustó el color Prana 03 Palo rosa".
+- `ColorMaterial`: material de la antigua carta de colores de Gestión (Cuerotex, Prana, Corsos y Telas). Sin uso desde nov-2026; la carta vive en el CRM. Los datos se conservan.
+- `CartaColor`: un color de la antigua carta de colores de Gestión (código, nombre, muestra, foto). Sin uso desde nov-2026; la carta vive en el CRM. Los datos se conservan.
 - `MonthClosure`: cierre de mes congelado (ventas, costos, envíos, gastos, utilidad y margen) que se comparte por correo.
 - `ManufacturingOrder`: orden de fabricación (OF-) de una proveedora dentro de una orden de venta, con enlace para enviársela, fecha y dirección de entrega.
 - `TeamMember`: ficha de un trabajador (Equipo): datos personales, cargo, vinculación, forma de pago, fecha de ingreso, fecha de salida y motivo. Unida opcionalmente (y una sola vez) a su usuario; si se borra el usuario, la ficha queda. El nombre de la ficha es el nombre visible del usuario unido: al guardarla se copia a `User.name` y todo lo demás sigue ligado al id. La sesión de la persona puede mostrar el nombre viejo hasta que vuelva a entrar, y los PDF ya generados conservan el nombre viejo.
@@ -109,7 +109,6 @@ en las Server Actions y en `src/lib/`.
 - `/productos/[productId]`: ficha de producto por id (ruta alterna).
 - `/distribuidor`: lista de precios al por mayor.
 - `/cobertura`: el cliente consulta si su ciudad o corregimiento tiene envío gratis; `?ref=1` y `?ref=2` cambian el WhatsApp de la línea de venta.
-- `/colores`: carta de colores pública (cueros y telas) para el celular: el cliente toca una muestra y "Quiero este color" abre el WhatsApp de Ventas 1 con el color ya escrito (no envía nada solo). La asesora manda ese link en vez de fotos; lo oculto en `/admin/colores` no sale.
 - `/legal/[slug]`: políticas (privacidad, términos, datos personales, garantía).
 - `/cotizaciones/[token]`: cotización compartida con el cliente, con PDF.
 - `/sales/[token]`: factura o comprobante de una venta para el cliente.

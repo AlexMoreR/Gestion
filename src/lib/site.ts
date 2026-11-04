@@ -49,7 +49,7 @@ export const siteConfig = {
   ],
 } as const;
 
-// Numero de WhatsApp por linea de venta (?ref= de /cobertura; /colores usa siempre la "1").
+// Numero de WhatsApp por linea de venta (?ref= de /cobertura).
 export const SALES_LINE_WHATSAPP: Record<string, string> = {
   "1": "573169831667", // Ventas 1
   "2": "573205138377", // Ventas 2

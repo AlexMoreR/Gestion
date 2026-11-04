@@ -23,12 +23,7 @@ export async function saveShipmentPhoto(file: File): Promise<{ url: string }> {
   return savePhoto(file, "shipments");
 }
 
-// Muestra de un color de la carta (cueros y telas): mismo proceso, carpeta propia.
-export async function saveColorSwatchPhoto(file: File): Promise<{ url: string }> {
-  return savePhoto(file, "colores");
-}
-
-async function savePhoto(file: File, folder: "shipments" | "colores"): Promise<{ url: string }> {
+async function savePhoto(file: File, folder: "shipments"): Promise<{ url: string }> {
   if (!hasUploadedFile(file)) {
     throw new Error("No se pudo leer la foto.");
   }

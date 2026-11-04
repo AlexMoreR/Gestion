@@ -44,7 +44,7 @@ describe("buildWhatsAppQuoteMessage", () => {
 });
 
 describe("SALES_LINE_WHATSAPP", () => {
-  it("mantiene los números de Ventas 1 y Ventas 2 (los usan /cobertura y /colores)", () => {
+  it("mantiene los números de Ventas 1 y Ventas 2 (los usa /cobertura)", () => {
     expect(SALES_LINE_WHATSAPP).toEqual({ "1": "573169831667", "2": "573205138377" });
   });
 });
