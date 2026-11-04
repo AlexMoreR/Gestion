@@ -171,7 +171,9 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
                     // referencia y en qué color se fabrica (26-oct-2026).
                     <div className="space-y-2">
                       <p className="rounded-lg bg-amber-100 px-3 py-2 text-center text-sm font-bold text-amber-900 ring-1 ring-amber-300">
-                        {line.color
+                        {line.imagenColores
+                          ? "Vista de referencia con los colores a fabricar"
+                          : line.color
                           ? `Foto de referencia, fabricar en color ${colorLabel({
                               color: line.color.toUpperCase(),
                               colorCodigo: line.colorCodigo,
@@ -181,11 +183,25 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
                       </p>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={imageVariantUrl(getPublicAssetUrl(line.imageUrl), "large")}
-                        alt={line.productName}
+                        src={
+                          line.imagenColores
+                            ? getPublicAssetUrl(line.imageUrl)
+                            : imageVariantUrl(getPublicAssetUrl(line.imageUrl), "large")
+                        }
+                        alt={line.imagenColores ? `${line.productName} con los colores a fabricar` : line.productName}
                         className="h-auto w-full rounded-lg border border-slate-100 object-contain"
                       />
                     </div>
+                  ) : null}
+                  {line.partesTexto.length > 0 ? (
+                    // Color por parte, una debajo de otra.
+                    <ul className="space-y-1">
+                      {line.partesTexto.map((texto) => (
+                        <li key={texto} className="rounded-md bg-amber-100 px-2 py-1 text-lg font-bold text-amber-900">
+                          {texto.toUpperCase()}
+                        </li>
+                      ))}
+                    </ul>
                   ) : null}
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -197,7 +213,7 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
                       </p>
                       <p className="text-sm font-semibold text-slate-900">Cantidad: {line.quantity}</p>
                     </div>
-                    {line.color ? (
+                    {line.color && line.partesTexto.length === 0 ? (
                       <div className="flex flex-wrap items-center gap-3">
                         {line.colorFotoUrl ? (
                           // Muestra del color de la carta del CRM (la foto vive en el CRM).

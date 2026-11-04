@@ -39,6 +39,18 @@ function recargosDe(lista: string[], tabla: Record<string, number> | undefined):
   return filas.length > 0 ? Object.fromEntries(filas) : undefined;
 }
 
+// Color exacto de cada acabado (#RRGGBB) para la vista previa; vacío = color de fábrica.
+const acabadosHexSchema = z.record(z.string().max(60), z.string().trim().regex(/^#[0-9A-Fa-f]{6}$/, "El color de un acabado va como #RRGGBB"));
+
+/** Solo los colores de acabados que siguen en la lista, en mayúsculas. */
+function hexDe(lista: string[], tabla: Record<string, string> | undefined): Record<string, string> | undefined {
+  const filas = lista.flatMap((opcion) => {
+    const valor = Object.entries(tabla ?? {}).find(([llave]) => llave.trim().toLowerCase() === opcion.toLowerCase())?.[1];
+    return valor ? [[opcion, valor.toUpperCase()] as const] : [];
+  });
+  return filas.length > 0 ? Object.fromEntries(filas) : undefined;
+}
+
 const parteSchema = z
   .object({
     nombre: z.string().trim().min(1, "Cada parte necesita un nombre").max(40, "El nombre va hasta 40 letras"),
@@ -47,6 +59,7 @@ const parteSchema = z
     acabados: listaSchema,
     recargos: z.object({ materiales: recargoSchema.optional(), acabados: recargoSchema.optional() }).optional(),
     coloresComunes: listaSchema.optional().default([]),
+    acabadosHex: acabadosHexSchema.optional(),
   })
   .transform((parte) => {
     // Solo se guarda la lista que usa el tipo.
@@ -65,6 +78,7 @@ const parteSchema = z
       acabados,
       recargos,
       coloresComunes: parte.tipo === "CARTA" ? limpiarLista(parte.coloresComunes) : [],
+      acabadosHex: hexDe(acabados, parte.acabadosHex) ?? null,
     };
   })
   .refine((parte) => parte.tipo !== "CARTA" || parte.materiales.length > 0, {
@@ -113,13 +127,19 @@ export async function guardarPartesColorAction(input: unknown): Promise<PartesCo
     const antes = await tx.parteColor.findMany({
       where,
       orderBy: { orden: "asc" },
-      select: { nombre: true, tipo: true, materiales: true, acabados: true, recargos: true, coloresComunes: true, mascaraUrl: true },
+      select: { nombre: true, tipo: true, materiales: true, acabados: true, recargos: true, coloresComunes: true, acabadosHex: true, mascaraUrl: true },
     });
     await tx.parteColor.deleteMany({ where });
     if (partes.length > 0) {
       // Cada parte que sigue con el mismo nombre conserva su máscara.
       await tx.parteColor.createMany({
-        data: conservarMascaras(antes, partes).map((parte, orden) => ({ ...where, ...parte, recargos: parte.recargos ?? Prisma.DbNull, orden })),
+        data: conservarMascaras(antes, partes).map((parte, orden) => ({
+          ...where,
+          ...parte,
+          recargos: parte.recargos ?? Prisma.DbNull,
+          acabadosHex: parte.acabadosHex ?? Prisma.DbNull,
+          orden,
+        })),
       });
     }
     await logActivityTx(tx, actor, {
@@ -208,7 +228,7 @@ export async function guardarMascaraParteAction(formData: FormData): Promise<Gua
 
   const partesSelect = {
     orderBy: { orden: "asc" as const },
-    select: { id: true, nombre: true, tipo: true, materiales: true, acabados: true, recargos: true, coloresComunes: true, mascaraUrl: true, orden: true },
+    select: { id: true, nombre: true, tipo: true, materiales: true, acabados: true, recargos: true, coloresComunes: true, acabadosHex: true, mascaraUrl: true, orden: true },
   };
   const product = await prisma.product.findUnique({
     where: { id: productId },
@@ -257,6 +277,7 @@ export async function guardarMascaraParteAction(formData: FormData): Promise<Gua
             materiales: parte.materiales,
             acabados: parte.acabados,
             recargos: parte.recargos ?? Prisma.DbNull,
+            acabadosHex: parte.acabadosHex ?? Prisma.DbNull,
             coloresComunes: parte.coloresComunes,
             orden: parte.orden,
           })),

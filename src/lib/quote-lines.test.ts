@@ -14,4 +14,10 @@ describe("mismasLineas", () => {
     expect(mismasLineas([linea], [{ ...linea, notes: "y" }])).toBe(false);
     expect(mismasLineas([linea], [linea, linea])).toBe(false);
   });
+  it("la imagen con colores no cuenta como cambio de la línea", () => {
+    const sin = JSON.stringify({ _type: "quote-item-meta", color: "Tapizado: Crema" });
+    const con = JSON.stringify({ _type: "quote-item-meta", color: "Tapizado: Crema", imagenColoresUrl: "/uploads/vista-color/a.webp" });
+    expect(mismasLineas([{ ...linea, notes: con }], [{ ...linea, notes: sin }])).toBe(true);
+    expect(mismasLineas([{ ...linea, notes: con }], [{ ...linea, notes: JSON.stringify({ _type: "quote-item-meta", color: "Otro" }) }])).toBe(false);
+  });
 });

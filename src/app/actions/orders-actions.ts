@@ -16,8 +16,11 @@ import {
   notesWithNewColor,
   parseColorChangeReason,
   parseNuevoColor,
+  partesCambiadas,
+  type NuevoColor,
 } from "@/lib/color-change";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
+import { imagenesDeColores } from "@/lib/vista-color.server";
 import { stockToRestore } from "@/lib/order-stock-restore";
 import { prisma } from "@/lib/prisma";
 import { parseOrderNoteText } from "@/lib/order-notes";
@@ -375,6 +378,67 @@ export async function getCartaColoresOrdenAction(): Promise<CartaColores> {
   return leerCartaColores();
 }
 
+// Lo que lee «Cambiar color»: la orden de venta, las líneas de su cotización y cuáles cambian.
+async function lineasParaCambioDeColor(db: Prisma.TransactionClient, orderId: string, orderItemId: string) {
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      code: true,
+      type: true,
+      status: true,
+      sale: { select: { code: true, status: true, quoteId: true } },
+      items: { select: { id: true, quoteItemId: true, productId: true, notes: true, product: { select: { name: true } } } },
+    },
+  });
+  if (!order || order.type !== "SALE" || !order.sale) return { error: "Solo se cambia el color en una orden de venta." };
+  if (order.status === "CANCELLED" || order.sale.status === "CANCELLED") {
+    return { error: "La venta está cancelada: no se puede cambiar el color." };
+  }
+  const quoteItems = await db.quoteItem.findMany({
+    where: { quoteId: order.sale.quoteId },
+    select: { id: true, productId: true, notes: true, product: { select: { name: true, isBundle: true } } },
+  });
+  const lines = linesToRecolor(
+    orderItemId,
+    quoteItems.map((q) => ({ id: q.id, notes: q.notes, productName: q.product.name, isBundle: q.product.isBundle })),
+    order.items,
+  );
+  const clicked = order.items.find((o) => o.id === orderItemId);
+  if (!lines || !clicked) return { error: "Producto no encontrado." };
+  return { order: { ...order, sale: order.sale }, quoteItems, lines, clicked };
+}
+
+/**
+ * Imagen nueva de cada línea que cambia (id → notas leídas + URL). Cada línea de la cotización se pinta con su
+ * producto (el combo en un combo); la orden copia la de su línea (las piezas de un combo sin desglosar, la del combo).
+ */
+async function imagenesParaCambioDeColor(orderId: string, orderItemId: string, nuevo: NuevoColor) {
+  const resultado = new Map<string, { notes: string | null; url: string }>();
+  const leidas = await lineasParaCambioDeColor(prisma, orderId, orderItemId);
+  if ("error" in leidas) return resultado;
+  const { order, quoteItems, lines } = leidas;
+  const quoteTargets = quoteItems.filter((q) => lines.quoteItemIds.includes(q.id));
+  const orderTargets = order.items.filter((o) => lines.orderItemIds.includes(o.id));
+  const fuente = (o: (typeof orderTargets)[number]) =>
+    quoteTargets.find((q) => q.id === o.quoteItemId) ?? (o.quoteItemId ? undefined : quoteTargets[0]);
+  const entrada = (productId: string, notes: string | null) => {
+    const meta = parseQuoteItemMeta(notes);
+    return { productId, comboCode: meta.comboCode, partes: partesCambiadas(meta.partes, nuevo.partes ?? []) };
+  };
+  const lista = [
+    ...quoteTargets.map((q) => ({ id: q.id, notes: q.notes, ...entrada(q.productId, q.notes) })),
+    ...orderTargets.map((o) => {
+      // La pieza se pinta como su línea de la cotización (mismo producto y combo), con sus propias partes.
+      const q = fuente(o);
+      return { id: o.id, notes: o.notes, ...entrada(q?.productId ?? o.productId, o.notes), comboCode: parseQuoteItemMeta(q?.notes ?? o.notes).comboCode };
+    }),
+  ];
+  const urls = await imagenesDeColores(lista);
+  lista.forEach((linea, i) => resultado.set(linea.id, { notes: linea.notes, url: urls[i] }));
+  return resultado;
+}
+
 // Cambia SOLO el color de un producto de una venta activa (cotización + orden; en un combo, todas sus
 // piezas), con motivo. Solo escribe las notas de las líneas, una nota de la orden y la bitácora:
 // no toca precios, totales, abonos, costos, estados, fechas ni avisa a nadie.
@@ -396,46 +460,34 @@ export async function adminChangeSaleItemColorAction(formData: FormData): Promis
     colorCodigo: formData.get("colorCodigo"),
     colorMaterial: formData.get("colorMaterial"),
     colorFotoUrl: formData.get("colorFotoUrl"),
+    partes: formData.get("partes"),
   });
   if (!nuevo.ok) redirect(`${back}?error=${encodeURIComponent(nuevo.error)}`);
 
+  // Con partes: la imagen nueva de cada línea se hace antes y fuera de la transacción (lee archivos).
+  // Si la nota cambió entre medio, esa línea queda sin imagen (nunca con una vieja).
+  const imagenes = nuevo.value.partes?.length
+    ? await imagenesParaCambioDeColor(item.orderId, orderItemId, nuevo.value)
+    : new Map<string, { notes: string | null; url: string }>();
+  const imagenDe = (id: string, notes: string | null) => {
+    const hecha = imagenes.get(id);
+    return hecha && hecha.notes === notes ? hecha.url : "";
+  };
+
   const actor = await getActivityActor();
   const result = await prisma.$transaction(async (tx) => {
-    const order = await tx.order.findUnique({
-      where: { id: item.orderId },
-      select: {
-        id: true,
-        code: true,
-        type: true,
-        status: true,
-        sale: { select: { code: true, status: true, quoteId: true } },
-        items: { select: { id: true, quoteItemId: true, notes: true, product: { select: { name: true } } } },
-      },
-    });
-    if (!order || order.type !== "SALE" || !order.sale) return { error: "Solo se cambia el color en una orden de venta." };
-    if (order.status === "CANCELLED" || order.sale.status === "CANCELLED") {
-      return { error: "La venta está cancelada: no se puede cambiar el color." };
-    }
-    const quoteItems = await tx.quoteItem.findMany({
-      where: { quoteId: order.sale.quoteId },
-      select: { id: true, notes: true, product: { select: { name: true, isBundle: true } } },
-    });
-    const lines = linesToRecolor(
-      orderItemId,
-      quoteItems.map((q) => ({ id: q.id, notes: q.notes, productName: q.product.name, isBundle: q.product.isBundle })),
-      order.items,
-    );
-    const clicked = order.items.find((o) => o.id === orderItemId);
-    if (!lines || !clicked) return { error: "Producto no encontrado." };
+    const leidas = await lineasParaCambioDeColor(tx, item.orderId, orderItemId);
+    if ("error" in leidas) return { error: leidas.error };
+    const { order, quoteItems, lines, clicked } = leidas;
     if (mismoColor(clicked.notes, nuevo.value)) return { error: "Ese ya es el color de este producto." };
 
     const before = quoteItems.filter((q) => lines.quoteItemIds.includes(q.id));
     const beforeOrder = order.items.filter((o) => lines.orderItemIds.includes(o.id));
     for (const q of before) {
-      await tx.quoteItem.update({ where: { id: q.id }, data: { notes: notesWithNewColor(q.notes, nuevo.value) } });
+      await tx.quoteItem.update({ where: { id: q.id }, data: { notes: notesWithNewColor(q.notes, nuevo.value, imagenDe(q.id, q.notes)) } });
     }
     for (const o of beforeOrder) {
-      await tx.orderItem.update({ where: { id: o.id }, data: { notes: notesWithNewColor(o.notes, nuevo.value) } });
+      await tx.orderItem.update({ where: { id: o.id }, data: { notes: notesWithNewColor(o.notes, nuevo.value, imagenDe(o.id, o.notes)) } });
     }
 
     // Nombre que se reconoce: el del combo (desglosado o no) o el del producto.

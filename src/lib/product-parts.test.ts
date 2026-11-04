@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { avisosDeRecargo, faltanColores, leerRecargos, limpiarLista, opcionesDeParte, resolverPartes, textoColores } from "./product-parts";
+import { avisosDeRecargo, faltanColores, hexDeAcabado, leerAcabadosHex, leerRecargos, limpiarLista, opcionesDeParte, partesParaRecolorear, resolverPartes, textoColores } from "./product-parts";
 import type { CartaMaterial } from "./carta-colores-crm";
 
 const tapizado = { nombre: "Tapizado", tipo: "CARTA" as const, materiales: ["Cuero", "Tela"], acabados: [], orden: 0 };
@@ -141,5 +141,59 @@ describe("leerRecargos", () => {
   it("ignora datos viejos o mal formados y deja solo números mayores a 0", () => {
     expect(leerRecargos(null)).toEqual({});
     expect(leerRecargos({ materiales: { Prana: 150000, Malo: "x", Cero: 0 }, acabados: [] })).toEqual({ materiales: { Prana: 150000 } });
+  });
+});
+
+describe("hexDeAcabado (color exacto de los acabados)", () => {
+  it("usa el valor guardado aunque cambien tildes o mayúsculas", () => {
+    expect(hexDeAcabado("Dorada", leerAcabadosHex({ dorada: "#aa1122" }))).toBe("#AA1122");
+  });
+  it("sin valor guardado usa el de fábrica", () => {
+    expect(hexDeAcabado("CROMADO", {})).toBe("#C0C0C0");
+    expect(hexDeAcabado("Cromado dorado", {})).toBe("#D4B26A");
+    expect(hexDeAcabado("Blanco", leerAcabadosHex({ Blanco: "rojo" }))).toBe("#F2F2F2");
+  });
+  it("sin guardado ni de fábrica: null", () => {
+    expect(hexDeAcabado("Bronce", {})).toBeNull();
+    expect(hexDeAcabado("", {})).toBeNull();
+  });
+});
+
+describe("partesParaRecolorear", () => {
+  const db = [
+    { nombre: "Tapizado", tipo: "CARTA" as const, mascaraUrl: "/uploads/mascaras/t.png", acabadosHex: null },
+    { nombre: "Base", tipo: "ACABADOS" as const, mascaraUrl: "/uploads/mascaras/b.png", acabadosHex: { Dorada: "#112233" } },
+  ];
+  const elegido = (parte: string, color: string, extra: Partial<{ hex: string; colorFotoUrl: string }> = {}) => ({
+    parte,
+    color,
+    hex: extra.hex ?? "",
+    colorFotoUrl: extra.colorFotoUrl ?? "",
+  });
+
+  it("acabado con el color de la base (no del navegador) y carta con su hex", () => {
+    expect(
+      partesParaRecolorear(db, [elegido("Tapizado", "Crema", { hex: "#eeddcc" }), elegido("base", "Dorada", { hex: "#000000" })]),
+    ).toEqual([
+      { mascara: "/uploads/mascaras/t.png", hex: "#EEDDCC", texturaUrl: null },
+      { mascara: "/uploads/mascaras/b.png", hex: "#112233", texturaUrl: null },
+    ]);
+  });
+  it("carta sin hex usa la foto de la muestra", () => {
+    const lista = partesParaRecolorear(db, [
+      elegido("Tapizado", "Crema", { colorFotoUrl: "https://crm.magilus.com/m.jpg" }),
+      elegido("Base", "Dorada"),
+    ]);
+    expect(lista?.[0]).toEqual({ mascara: "/uploads/mascaras/t.png", hex: null, texturaUrl: "https://crm.magilus.com/m.jpg" });
+  });
+  it("null si falta máscara, color, está Por definir o el acabado no tiene hex", () => {
+    expect(partesParaRecolorear(db, [elegido("Tapizado", "Crema", { hex: "#eeddcc" })])).toBeNull();
+    expect(partesParaRecolorear(db, [elegido("Tapizado", "Por definir", { hex: "#eeddcc" }), elegido("Base", "Dorada")])).toBeNull();
+    expect(partesParaRecolorear(db, [elegido("Tapizado", "Crema"), elegido("Base", "Dorada")])).toBeNull();
+    expect(partesParaRecolorear(db, [elegido("Tapizado", "Crema", { hex: "#eeddcc" }), elegido("Base", "Bronce")])).toBeNull();
+    expect(
+      partesParaRecolorear([{ ...db[0], mascaraUrl: null }], [elegido("Tapizado", "Crema", { hex: "#eeddcc" })]),
+    ).toBeNull();
+    expect(partesParaRecolorear([], [])).toBeNull();
   });
 });

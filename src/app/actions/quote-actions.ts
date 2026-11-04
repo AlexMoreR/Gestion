@@ -13,7 +13,8 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
 import { fullCopyForLog } from "@/lib/activity-log-snapshot";
-import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
+import { calculateQuoteLineTotal, parseQuoteItemMeta, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
+import { imagenDeColores, imagenesDeColores } from "@/lib/vista-color.server";
 import { prisma } from "@/lib/prisma";
 import { createQuoteWithNextCode, upsertQuoteClient } from "@/lib/quote-creation";
 import type { CartaColores } from "@/lib/carta-colores-crm";
@@ -226,6 +227,35 @@ export async function getCartaColoresAction(): Promise<CartaColores> {
   return leerCartaColores();
 }
 
+/** Pone en las notas la imagen con colores de cada línea con partes ("" si no se pudo). Fuera de transacciones. */
+async function conImagenDeColores<T extends { productId: string; notes: string | null }>(items: T[]): Promise<T[]> {
+  const metas = items.map((item) => parseQuoteItemMeta(item.notes));
+  const urls = await imagenesDeColores(
+    items.map((item, i) => ({ productId: item.productId, comboCode: metas[i].comboCode, partes: metas[i].partes })),
+  );
+  return items.map((item, i) =>
+    metas[i].partes.length > 0 ? { ...item, notes: stringifyQuoteItemMeta({ ...metas[i], imagenColoresUrl: urls[i] }) } : item,
+  );
+}
+
+const previsualizarSchema = z.object({
+  productId: z.string().trim().min(1).max(60),
+  partes: z.array(parteElegidaSchema).min(1).max(10),
+});
+
+/** Vista previa en el editor: URL de la imagen con colores, o "" (Sin vista previa de color). */
+// No redirige (se llama desde el navegador al cambiar un selector): sin permiso, sin vista previa.
+// La usan el editor de cotizaciones y «Cambiar color» de una orden.
+export async function previsualizarColoresAction(productId: unknown, partes: unknown): Promise<{ url: string }> {
+  const session = await auth();
+  if (!session?.user?.id || !(await hasAnyModuleAccess(session.user.id, session.user.role, ["quotes", "orders"]))) {
+    return { url: "" };
+  }
+  const parsed = previsualizarSchema.safeParse({ productId, partes });
+  if (!parsed.success) return { url: "" };
+  return { url: await imagenDeColores(parsed.data.productId, parsed.data.partes) };
+}
+
 function getReturnTo(formData: FormData): string {
   const raw = formData.get("returnTo");
   if (typeof raw !== "string") {
@@ -421,6 +451,7 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
 
   const subtotal = Number(normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2));
   const total = subtotal;
+  const itemsConImagen = await conImagenDeColores(normalizedItems);
 
   let createdQuoteCode: string | null = null;
   let createdQuoteId: string | null = null;
@@ -434,7 +465,7 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
       subtotal: new Prisma.Decimal(subtotal),
       total: new Prisma.Decimal(total),
       items: {
-        create: normalizedItems.map((item) => ({
+        create: itemsConImagen.map((item) => ({
           productId: item.productId,
           supplierId: item.supplierId,
           quantity: item.quantity,
@@ -661,6 +692,7 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
     redirect(`${returnTo}?${new URLSearchParams({ error: COTIZACION_CON_VENTA_LINEAS }).toString()}`);
   }
 
+  const itemsConImagen = linesLocked ? normalizedItems : await conImagenDeColores(normalizedItems);
   const beforeQuote = await quoteForLog(prisma, parsed.data.quoteId);
   const updatedQuote = await prisma.quote.update({
     where: { id: parsed.data.quoteId },
@@ -682,7 +714,7 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
       total: new Prisma.Decimal(total),
       items: {
         deleteMany: {},
-        create: normalizedItems.map((item) => ({
+        create: itemsConImagen.map((item) => ({
           productId: item.productId,
           supplierId: item.supplierId,
           quantity: item.quantity,

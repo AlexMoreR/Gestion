@@ -1,6 +1,8 @@
 "use client";
 
-import { Loader2, TriangleAlert } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ImageOff, Loader2, TriangleAlert } from "lucide-react";
+import { previsualizarColoresAction } from "@/app/actions/quote-actions";
 import type { CartaMaterial } from "@/lib/carta-colores-crm";
 import {
   POR_DEFINIR,
@@ -54,9 +56,57 @@ type Props = {
   elegidos: ParteElegida[];
   onChange: (next: ParteElegida[]) => void;
   idPrefix: string;
+  /** Producto (o combo) a pintar en la vista previa. Sin él no hay vista previa. */
+  productId?: string | null;
 };
 
-export function PartesColorSelector({ partes, carta, elegidos, onChange, idPrefix }: Props) {
+/** Vista previa con los colores elegidos: se pide ~400 ms después del último cambio. */
+function VistaPreviaColores({ productId, elegidos }: { productId: string; elegidos: ParteElegida[] }) {
+  const llave = JSON.stringify([productId, elegidos]);
+  const [resultado, setResultado] = useState<{ llave: string; url: string } | null>(null);
+
+  useEffect(() => {
+    let vigente = true;
+    const timer = setTimeout(() => {
+      previsualizarColoresAction(productId, elegidos)
+        .then((r) => vigente && setResultado({ llave, url: r.url }))
+        .catch(() => vigente && setResultado({ llave, url: "" }));
+    }, 400);
+    return () => {
+      vigente = false;
+      clearTimeout(timer);
+    };
+    // llave resume productId y elegidos.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [llave]);
+
+  if (!resultado || resultado.llave !== llave) {
+    return (
+      <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        Preparando vista previa...
+      </p>
+    );
+  }
+  if (!resultado.url) {
+    return (
+      <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
+        <ImageOff className="h-3.5 w-3.5" />
+        Sin vista previa de color
+      </p>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={resultado.url}
+      alt="Vista previa con los colores elegidos"
+      className="max-h-48 w-auto max-w-full rounded-lg border border-border bg-white object-contain"
+    />
+  );
+}
+
+export function PartesColorSelector({ partes, carta, elegidos, onChange, idPrefix, productId }: Props) {
   const actuales = partesIniciales(partes, elegidos);
   const avisos = avisosDeRecargo(partes, actuales);
 
@@ -119,6 +169,7 @@ export function PartesColorSelector({ partes, carta, elegidos, onChange, idPrefi
           );
         })}
       </div>
+      {productId ? <VistaPreviaColores productId={productId} elegidos={actuales} /> : null}
       {avisos.length > 0 ? (
         <ul className="space-y-1" role="status">
           {avisos.map((aviso) => (

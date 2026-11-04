@@ -5,6 +5,7 @@ import {
   notesWithNewColor,
   parseColorChangeReason,
   parseNuevoColor,
+  partesCambiadas,
   type LineaCotizacion,
   type LineaOrden,
 } from "./color-change";
@@ -125,5 +126,55 @@ describe("notesWithNewColor con partes", () => {
     const despues = parseQuoteItemMeta(notesWithNewColor(antes, palo));
     expect(despues.color).toBe("Palo de rosa");
     expect(despues.partes).toEqual([]);
+  });
+});
+
+describe("Cambiar color por parte", () => {
+  const p = (parte: string, color: string, extra: Partial<{ colorCodigo: string; hex: string }> = {}) => ({
+    parte,
+    color,
+    colorCodigo: extra.colorCodigo ?? "",
+    colorMaterial: "",
+    colorFotoUrl: "",
+    hex: extra.hex ?? "",
+  });
+  const antes = nota({
+    description: "Con base cromada",
+    partes: [p("Tapizado", "Crema"), p("Base", "Cromada")],
+    imagenColoresUrl: "/uploads/vista-color/vieja.webp",
+  });
+
+  it("parseNuevoColor lee las partes del formulario y arma el texto", () => {
+    const r = parseNuevoColor({ partes: JSON.stringify([p("Base", "Dorada", { hex: "#zz" })]) });
+    expect(r).toEqual({
+      ok: true,
+      value: { color: "Base: Dorada", colorCodigo: "", colorMaterial: "", colorFotoUrl: "", partes: [p("Base", "Dorada")] },
+    });
+    expect(parseNuevoColor({ partes: "no es json" }).ok).toBe(false);
+    expect(parseNuevoColor({ partes: JSON.stringify([p("Base", "Por definir")]) }).ok).toBe(false);
+    expect(parseNuevoColor({ partes: JSON.stringify([{ color: "Dorada" }]) }).ok).toBe(false);
+  });
+
+  it("cambia solo la parte del mismo nombre y guarda la imagen nueva", () => {
+    const nuevo = { color: "", colorCodigo: "", colorMaterial: "", colorFotoUrl: "", partes: [p("base", "Dorada")] };
+    const despues = parseQuoteItemMeta(notesWithNewColor(antes, nuevo, "/uploads/vista-color/nueva.webp"));
+    expect(despues.partes).toEqual([p("Tapizado", "Crema"), p("base", "Dorada")]);
+    expect(despues.color).toBe("Tapizado: Crema · base: Dorada");
+    expect(despues.description).toBe("Con base cromada");
+    expect(despues.imagenColoresUrl).toBe("/uploads/vista-color/nueva.webp");
+    // Sin imagen (falta una máscara): queda vacía, nunca la vieja.
+    expect(parseQuoteItemMeta(notesWithNewColor(antes, nuevo)).imagenColoresUrl).toBe("");
+  });
+
+  it("un color de texto quita las partes y la imagen vieja", () => {
+    const despues = parseQuoteItemMeta(notesWithNewColor(antes, palo));
+    expect(despues.partes).toEqual([]);
+    expect(despues.imagenColoresUrl).toBe("");
+  });
+
+  it("mismoColor con partes y partesCambiadas en una línea sin partes", () => {
+    expect(mismoColor(antes, { ...palo, partes: [p("Base", "Cromada")] })).toBe(true);
+    expect(mismoColor(antes, { ...palo, partes: [p("Base", "Dorada")] })).toBe(false);
+    expect(partesCambiadas([], [p("Base", "Dorada")])).toEqual([p("Base", "Dorada")]);
   });
 });

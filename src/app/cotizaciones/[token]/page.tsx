@@ -160,6 +160,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
       comboImageUrl: comboImageByCode.get(item.meta.comboCode.trim()) ?? "",
     })),
   );
+  const hayColores = displayItems.some((item) => item.coloresTexto);
 
   const subtotal = itemsWithMeta.reduce(
     (sum, item) => sum + item.quantity * Number(item.unitPrice),
@@ -410,7 +411,13 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
         >
           <TableHeader>
             <TableRow className="bg-zinc-200 hover:bg-zinc-200 [&>th]:h-auto [&>th]:py-1 [&>th]:font-bold [&>th]:text-zinc-900">
-              <TableHead className={isPdf ? "py-1 px-2 w-12 text-center" : "w-24 text-center"}>
+              <TableHead
+                className={
+                  hayColores
+                    ? isPdf ? "py-1 px-2 w-28 text-center" : "w-40 text-center"
+                    : isPdf ? "py-1 px-2 w-12 text-center" : "w-24 text-center"
+                }
+              >
                 Imagen
               </TableHead>
               <TableHead className={isPdf ? "py-1 px-2" : ""}>Producto</TableHead>
@@ -421,7 +428,25 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
             {displayItems.map((item) => (
               <TableRow key={item.key} className="transition-colors">
                 <TableCell className={isPdf ? "p-0 text-center" : "text-center"}>
-                  {item.imageUrl ? (
+                  {item.coloresTexto ? (
+                    // Con partes de color: la imagen con los colores (o el aviso) y el color de cada parte debajo.
+                    <div className={isPdf ? "space-y-0.5 p-1" : "space-y-1"}>
+                      {item.imagenColoresUrl ? (
+                        <img
+                          src={getPublicAssetUrl(item.imagenColoresUrl)}
+                          alt={`${item.imageAlt} con los colores elegidos`}
+                          className={isPdf ? "mx-auto h-20 w-auto max-w-full rounded border object-contain" : "mx-auto h-28 w-auto max-w-full rounded border object-contain"}
+                        />
+                      ) : (
+                        <p className={isPdf ? "text-[9px] italic text-slate-500" : "text-xs italic text-slate-500"}>
+                          Sin vista previa de color
+                        </p>
+                      )}
+                      <p className={isPdf ? "text-[9px] leading-tight text-slate-700" : "text-xs leading-tight text-slate-700"}>
+                        {item.coloresTexto}
+                      </p>
+                    </div>
+                  ) : item.imageUrl ? (
                     <img
                       src={imageVariantUrl(getPublicAssetUrl(item.imageUrl), "thumb")}
                       alt={item.imageAlt}

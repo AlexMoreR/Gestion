@@ -146,3 +146,77 @@ export function leerRecargos(json: unknown): RecargosParte {
   const acabados = tablaDeRecargos(raw.acabados);
   return { ...(materiales ? { materiales } : {}), ...(acabados ? { acabados } : {}) };
 }
+
+// ---- Color exacto de los acabados y lista para pintar la vista previa (parte 4) ----
+
+const HEX_VALIDO = /^#[0-9A-F]{6}$/i;
+
+/** Color de fábrica de los acabados comunes (llave sin tildes ni mayúsculas). Se usa si el acabado no tiene hex guardado. */
+export const ACABADOS_HEX_DEFECTO: Record<string, string> = {
+  blanco: "#F2F2F2",
+  blanca: "#F2F2F2",
+  negro: "#1C1C1C",
+  negra: "#1C1C1C",
+  dorado: "#C9A24A",
+  dorada: "#C9A24A",
+  "cromado dorado": "#D4B26A",
+  "cromada dorada": "#D4B26A",
+  cromado: "#C0C0C0",
+  cromada: "#C0C0C0",
+};
+
+/** ¿Es un color #RRGGBB? */
+export const esHexValido = (valor: string): boolean => HEX_VALIDO.test(valor.trim());
+
+/** Lee ParteColor.acabadosHex (Json) sin fallar: solo los #RRGGBB válidos, en mayúsculas. */
+export function leerAcabadosHex(json: unknown): Record<string, string> {
+  if (!json || typeof json !== "object" || Array.isArray(json)) return {};
+  return Object.fromEntries(
+    Object.entries(json as Record<string, unknown>).flatMap(([acabado, hex]) =>
+      typeof hex === "string" && esHexValido(hex) ? [[acabado, hex.trim().toUpperCase()]] : [],
+    ),
+  );
+}
+
+/** Color del acabado: el guardado; si no, el de fábrica; si tampoco, null (sin vista previa). */
+export function hexDeAcabado(acabado: string, acabadosHex: Record<string, string>): string | null {
+  const buscado = clave(acabado);
+  if (!buscado) return null;
+  const guardado = Object.entries(acabadosHex).find(([llave, hex]) => clave(llave) === buscado && esHexValido(hex))?.[1];
+  return guardado?.trim().toUpperCase() ?? ACABADOS_HEX_DEFECTO[buscado] ?? null;
+}
+
+/** Una parte de la base, lo justo para pintar. */
+export type ParteParaPintar = { nombre: string; tipo: ParteColorTipo; mascaraUrl: string | null; acabadosHex?: unknown };
+
+/** Lo que recibe recolorear por cada parte (mismo orden que la base). */
+export type PinturaDeParte = { mascara: string; hex: string | null; texturaUrl: string | null };
+
+/**
+ * Lista para recolorear, o null si no se puede pintar (sin partes, a una le falta máscara, está en
+ * «Por definir» o no tiene color). Acabados: el color sale siempre de la base, nunca del navegador.
+ * Carta: el hex de la carta; si no viene, la foto de la muestra como textura.
+ */
+export function partesParaRecolorear(
+  partesDb: ParteParaPintar[],
+  elegidos: Pick<ParteElegida, "parte" | "color" | "colorFotoUrl" | "hex">[],
+): PinturaDeParte[] | null {
+  if (partesDb.length === 0) return null;
+  const lista: PinturaDeParte[] = [];
+  for (const parte of partesDb) {
+    const elegido = elegidos.find((e) => clave(e.parte) === clave(parte.nombre));
+    const color = elegido?.color.trim() ?? "";
+    if (!elegido || !clave(color) || clave(color) === clave(POR_DEFINIR) || !parte.mascaraUrl) return null;
+    if (parte.tipo === "ACABADOS") {
+      const hex = hexDeAcabado(color, leerAcabadosHex(parte.acabadosHex));
+      if (!hex) return null;
+      lista.push({ mascara: parte.mascaraUrl, hex, texturaUrl: null });
+    } else {
+      const hex = esHexValido(elegido.hex ?? "") ? elegido.hex.trim().toUpperCase() : null;
+      const texturaUrl = elegido.colorFotoUrl?.trim() || null;
+      if (!hex && !texturaUrl) return null;
+      lista.push({ mascara: parte.mascaraUrl, hex, texturaUrl: hex ? null : texturaUrl });
+    }
+  }
+  return lista;
+}

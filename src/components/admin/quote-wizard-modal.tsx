@@ -332,12 +332,13 @@ export function QuoteWizardModal({
   const draftPartesDef = draftProduct?.partes ?? [];
 
   // Partes de una linea ya agregada: las del combo (por su codigo) o las del producto suelto.
-  const partesDeLinea = (line: QuoteLine): ParteParaCotizar[] => {
-    const duenio = line.comboKey
+  const duenioDeLinea = (line: QuoteLine) =>
+    line.comboKey
       ? products.find((product) => line.comboCode && product.code === line.comboCode)
       : products.find((product) => product.id === line.productId);
-    return duenio?.partes ?? [];
-  };
+  const partesDeLinea = (line: QuoteLine): ParteParaCotizar[] => duenioDeLinea(line)?.partes ?? [];
+  // La vista previa se pinta con el mismo producto que da las partes (el combo en un combo).
+  const productoDePartes = (line: QuoteLine): string | null => duenioDeLinea(line)?.id ?? null;
 
   // Cambia el color por parte de una linea (o de todas las lineas del combo).
   const updateLinePartes = (match: (line: QuoteLine) => boolean, partes: ParteElegida[]) => {
@@ -1124,6 +1125,7 @@ export function QuoteWizardModal({
                                     partes={partesDeLinea(group.firstLine)}
                                     carta={carta ? cartaMateriales : null}
                                     elegidos={group.partes}
+                                    productId={productoDePartes(group.firstLine)}
                                     onChange={(next) => updateLinePartes((line) => line.comboKey === group.key, next)}
                                   />
                                 </td>
@@ -1190,6 +1192,7 @@ export function QuoteWizardModal({
                                         partes={partesDef}
                                         carta={carta ? cartaMateriales : null}
                                         elegidos={line.partes}
+                                        productId={productoDePartes(line)}
                                         onChange={(next) => updateLinePartes((item) => item.uid === line.uid, next)}
                                       />
                                     </td>
@@ -1624,6 +1627,7 @@ export function QuoteWizardModal({
                         partes={draftPartesDef}
                         carta={carta ? cartaMateriales : null}
                         elegidos={draftPartes}
+                        productId={draftProductId || null}
                         onChange={setDraftPartes}
                       />
                     </div>

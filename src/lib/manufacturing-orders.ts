@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
+import { textoColores } from "@/lib/product-parts";
 import { stableShareToken } from "@/lib/manufacturing-share-token";
 import { colombiaDayKey } from "./colombia-time";
 import { computeOfBalance, type OfBalance } from "../modules/proveedores/domain/supplier-payment";
@@ -13,6 +14,10 @@ export type ManufacturingLine = {
   productName: string;
   productCode: string | null;
   imageUrl: string;
+  // true = imageUrl es la imagen con los colores elegidos (dirección directa, sin versiones reducidas).
+  imagenColores: boolean;
+  // Color por parte: "Tapizado: Crema" por parte (vacío = el producto no tiene partes).
+  partesTexto: string[];
   quantity: number;
   // Especificaciones / medidas escritas en la cotizacion (o la descripcion del producto).
   details: string;
@@ -41,7 +46,9 @@ export function toManufacturingLine(item: OrderItemForLine): ManufacturingLine {
     id: item.id,
     productName: item.product.name,
     productCode: item.product.code,
-    imageUrl: meta.imageUrl || item.product.thumbnailUrl,
+    imageUrl: meta.imagenColoresUrl || meta.imageUrl || item.product.thumbnailUrl,
+    imagenColores: Boolean(meta.imagenColoresUrl),
+    partesTexto: meta.partes.map((parte) => textoColores([parte])),
     quantity: item.quantity,
     details: meta.description.trim() || item.product.description?.trim() || "",
     color: meta.color.trim(),

@@ -11,6 +11,19 @@ type Linea = {
   notes?: string | null;
 };
 
+// La imagen con colores la pone el servidor al guardar: no cuenta como cambio de la línea.
+function sinImagenDeColores(notes: string | null | undefined): string | null {
+  if (!notes) return notes ?? null;
+  try {
+    const meta = JSON.parse(notes) as Record<string, unknown>;
+    if (!meta || typeof meta !== "object" || !("imagenColoresUrl" in meta)) return notes;
+    delete meta.imagenColoresUrl;
+    return JSON.stringify(meta);
+  } catch {
+    return notes;
+  }
+}
+
 const clave = (linea: Linea) =>
   JSON.stringify([
     linea.productId,
@@ -18,7 +31,7 @@ const clave = (linea: Linea) =>
     linea.quantity,
     Number(linea.unitPrice),
     linea.fulfillmentMode,
-    linea.notes ?? null,
+    sinImagenDeColores(linea.notes),
   ]);
 
 /** ¿Las dos listas tienen las mismas líneas (sin importar el orden)? */

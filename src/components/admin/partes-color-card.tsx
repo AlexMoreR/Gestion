@@ -7,7 +7,7 @@ import { Paintbrush, Palette, Plus, Trash2 } from "lucide-react";
 import { guardarPartesColorAction, usarPartesDeCategoriaAction } from "@/app/actions/product-parts-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { limpiarLista, type ParteColorTipo, type RecargosParte } from "@/lib/product-parts";
+import { esHexValido, hexDeAcabado, limpiarLista, type ParteColorTipo, type RecargosParte } from "@/lib/product-parts";
 
 export type ParteColorFila = {
   nombre: string;
@@ -16,6 +16,8 @@ export type ParteColorFila = {
   acabados: string[];
   recargos: RecargosParte;
   coloresComunes: string[];
+  /** Color exacto guardado de cada acabado (#RRGGBB). */
+  acabadosHex: Record<string, string>;
 };
 
 // En edición los acabados y los colores comunes se escriben como texto separado por comas, y
@@ -28,6 +30,7 @@ type ParteEditable = {
   comunesTexto: string;
   recargoMaterial: Record<string, string>;
   recargoAcabado: Record<string, string>;
+  hexAcabado: Record<string, string>;
 };
 
 const aTexto = (tabla: Record<string, number> | undefined) =>
@@ -41,7 +44,39 @@ const aEditable = (parte: ParteColorFila): ParteEditable => ({
   comunesTexto: parte.coloresComunes.join(", "),
   recargoMaterial: aTexto(parte.recargos.materiales),
   recargoAcabado: aTexto(parte.recargos.acabados),
+  hexAcabado: { ...parte.acabadosHex },
 });
+
+/** Solo los colores escritos de los acabados que siguen en la lista; el servidor valida #RRGGBB. */
+const aHex = (lista: string[], textos: Record<string, string>): Record<string, string> =>
+  Object.fromEntries(lista.flatMap((opcion) => (textos[opcion]?.trim() ? [[opcion, textos[opcion].trim()]] : [])));
+
+function HexInput({ acabado, value, disabled, onChange }: { acabado: string; value: string; disabled: boolean; onChange: (v: string) => void }) {
+  // Sin color escrito se muestra el de fábrica (si lo hay); vacío = se usa ese.
+  const defecto = hexDeAcabado(acabado, {});
+  const muestra = esHexValido(value) ? value : defecto ?? "#FFFFFF";
+  return (
+    <span className="inline-flex items-center gap-1">
+      <input
+        type="color"
+        value={muestra.toLowerCase()}
+        disabled={disabled}
+        aria-label={`Color de ${acabado}`}
+        className="h-8 w-9 cursor-pointer rounded border border-[var(--line)] bg-white p-0.5"
+        onChange={(event) => onChange(event.target.value.toUpperCase())}
+      />
+      <Input
+        value={value}
+        maxLength={7}
+        placeholder={defecto ?? "#RRGGBB"}
+        aria-label={`Código de color de ${acabado}`}
+        disabled={disabled}
+        className="h-8 w-24 font-mono"
+        onChange={(event) => onChange(event.target.value.trim())}
+      />
+    </span>
+  );
+}
 
 /** Solo los recargos escritos con un número mayor a 0, de las opciones que siguen en la lista. */
 const aRecargos = (lista: string[], textos: Record<string, string>): Record<string, number> =>
@@ -91,7 +126,11 @@ function resumen(parte: ParteColorFila): string {
     ? `Carta: ${conRecargo(parte.materiales, parte.recargos.materiales)}${
         parte.coloresComunes.length > 0 ? ` · Comunes: ${parte.coloresComunes.join(", ")}` : ""
       }`
-    : `Acabados: ${conRecargo(parte.acabados, parte.recargos.acabados)}`;
+    : `Acabados: ${conRecargo(parte.acabados, parte.recargos.acabados)}${
+        Object.keys(parte.acabadosHex).length > 0
+          ? ` · Colores: ${Object.entries(parte.acabadosHex).map(([acabado, hex]) => `${acabado} ${hex}`).join(", ")}`
+          : ""
+      }`;
 }
 
 // Tarjeta "Partes de color": qué partes del producto llevan color propio y de dónde sale cada uno.
@@ -148,6 +187,7 @@ export function PartesColorCard({ duenio, id, partes, partesCategoria = [], cate
               acabados: aRecargos(acabados, parte.recargoAcabado),
             },
             coloresComunes: limpiarLista(parte.comunesTexto.split(",")),
+            acabadosHex: aHex(acabados, parte.hexAcabado),
           };
         }),
       });
@@ -341,6 +381,12 @@ export function PartesColorCard({ duenio, id, partes, partesCategoria = [], cate
                         {limpiarLista(parte.acabadosTexto.split(",")).map((acabado) => (
                           <div key={acabado} className="inline-flex items-center gap-2 text-sm text-slate-700">
                             <span className="break-words">{acabado}</span>
+                            <HexInput
+                              acabado={acabado}
+                              value={parte.hexAcabado[acabado] ?? ""}
+                              disabled={pending}
+                              onChange={(valor) => cambiar(index, { hexAcabado: { ...parte.hexAcabado, [acabado]: valor } })}
+                            />
                             <RecargoInput
                               value={parte.recargoAcabado[acabado] ?? ""}
                               disabled={pending}
@@ -360,7 +406,8 @@ export function PartesColorCard({ duenio, id, partes, partesCategoria = [], cate
           })}
           {lista.length > 0 ? (
             <p className="text-xs text-slate-500">
-              El «Recargo $» solo sale como aviso en la cotización; no cambia ningún precio. Vacío = sin recargo.
+              El «Recargo $» solo sale como aviso en la cotización; no cambia ningún precio. Vacío = sin recargo. El color
+              de cada acabado pinta la vista previa; vacío = el de fábrica (Blanco, Negro, Dorado, Cromado).
             </p>
           ) : null}
           <div className="flex flex-wrap gap-2">
@@ -373,7 +420,7 @@ export function PartesColorCard({ duenio, id, partes, partesCategoria = [], cate
               onClick={() =>
                 setLista((actual) => [
                   ...actual,
-                  { nombre: "", tipo: "CARTA", materiales: [], acabadosTexto: "", comunesTexto: "", recargoMaterial: {}, recargoAcabado: {} },
+                  { nombre: "", tipo: "CARTA", materiales: [], acabadosTexto: "", comunesTexto: "", recargoMaterial: {}, recargoAcabado: {}, hexAcabado: {} },
                 ])
               }
             >

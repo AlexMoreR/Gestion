@@ -2,11 +2,65 @@
 // línea (QuoteItem y, copiado, OrderItem). Aquí solo reglas puras: validar, reescribir la nota sin
 // tocar lo demás y escoger qué líneas cambian. La escritura está en adminChangeSaleItemColorAction.
 import { parseQuoteItemMeta, stringifyQuoteItemMeta } from "./quote-item-meta";
+import { POR_DEFINIR, textoColores, type ParteElegida } from "./product-parts";
 
 export const COLOR_CHANGE_REASON_MIN = 3;
 export const COLOR_CHANGE_REASON_MAX = 300;
 
-export type NuevoColor = { color: string; colorCodigo: string; colorMaterial: string; colorFotoUrl: string };
+export type NuevoColor = {
+  color: string;
+  colorCodigo: string;
+  colorMaterial: string;
+  colorFotoUrl: string;
+  /** Color por parte: solo las partes que cambian (por nombre). Vacío/ausente = un solo color de texto. */
+  partes?: ParteElegida[];
+};
+
+const MAX_PARTES = 10;
+const clave = (v: string) => v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+
+const fotoHttp = (valor: string): string => {
+  try {
+    const url = new URL(valor);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : "";
+  } catch {
+    return "";
+  }
+};
+
+/** Partes que llegan del formulario (JSON). null = mal formadas. */
+function parsePartesNuevas(raw: unknown): ParteElegida[] | null {
+  if (raw == null || raw === "") return [];
+  let lista: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      lista = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (!Array.isArray(lista) || lista.length > MAX_PARTES) return null;
+  const partes = lista.map((p) => {
+    const r = (p ?? {}) as Record<string, unknown>;
+    const hex = texto(r.hex, 7);
+    const color = texto(r.color, 80);
+    return {
+      parte: texto(r.parte, 40),
+      color: clave(color) === clave(POR_DEFINIR) ? "" : color,
+      colorCodigo: texto(r.colorCodigo, 40),
+      colorMaterial: texto(r.colorMaterial, 80),
+      colorFotoUrl: fotoHttp(texto(r.colorFotoUrl, 1000)),
+      hex: /^#[0-9a-f]{6}$/i.test(hex) ? hex : "",
+    };
+  });
+  return partes.every((p) => p.parte) ? partes : null;
+}
+
+/** Las partes de la línea con las que cambian (mismo nombre, sin importar tildes); una línea sin partes toma las nuevas. */
+export function partesCambiadas(actuales: ParteElegida[], nuevas: ParteElegida[]): ParteElegida[] {
+  if (actuales.length === 0) return nuevas;
+  return actuales.map((parte) => nuevas.find((n) => clave(n.parte) === clave(parte.parte)) ?? parte);
+}
 
 type Resultado<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -26,6 +80,12 @@ export function parseColorChangeReason(raw: unknown): Resultado<string> {
 
 /** Color que llega del formulario: nombre obligatorio; código, material y foto (http/https) opcionales. */
 export function parseNuevoColor(input: Record<string, unknown>): Resultado<NuevoColor> {
+  const partes = parsePartesNuevas(input.partes);
+  if (partes === null) return { ok: false, error: "Los colores por parte no son válidos." };
+  if (partes.length > 0) {
+    if (!partes.some((p) => p.color)) return { ok: false, error: "Escoge el color de al menos una parte." };
+    return { ok: true, value: { color: textoColores(partes), colorCodigo: "", colorMaterial: "", colorFotoUrl: "", partes } };
+  }
   const color = texto(input.color, 80);
   if (!color) return { ok: false, error: "Escoge o escribe el color nuevo." };
   const foto = texto(input.colorFotoUrl, 1000);
@@ -51,14 +111,33 @@ export function parseNuevoColor(input: Record<string, unknown>): Resultado<Nuevo
   };
 }
 
-/** La misma nota con solo el color cambiado (descripción, descuento, costo adicional y combo quedan igual). */
-export function notesWithNewColor(notes: string | null, nuevo: NuevoColor): string | null {
-  // Sin partes: el color nuevo es un solo texto (con partes, stringify lo pisaría con el de las partes).
-  return stringifyQuoteItemMeta({ ...parseQuoteItemMeta(notes), ...nuevo, partes: [] });
+/**
+ * La misma nota con solo el color cambiado (descripción, descuento, costo adicional y combo quedan igual).
+ * Con partes cambia solo las del mismo nombre y guarda la imagen nueva (`imagenColoresUrl`, "" = sin vista previa).
+ */
+export function notesWithNewColor(notes: string | null, nuevo: NuevoColor, imagenColoresUrl = ""): string | null {
+  const meta = parseQuoteItemMeta(notes);
+  if (nuevo.partes && nuevo.partes.length > 0) {
+    return stringifyQuoteItemMeta({ ...meta, partes: partesCambiadas(meta.partes, nuevo.partes), imagenColoresUrl });
+  }
+  // Sin partes: el color nuevo es un solo texto (con partes, stringify lo pisaría con el de las partes) y la
+  // imagen con los colores viejos ya no vale.
+  const { partes: _sinPartes, ...soloColor } = nuevo;
+  void _sinPartes;
+  return stringifyQuoteItemMeta({ ...meta, ...soloColor, partes: [], imagenColoresUrl: "" });
 }
+
+const partesIguales = (a: ParteElegida[], b: ParteElegida[]) =>
+  a.length === b.length &&
+  a.every(
+    (p, i) => p.parte === b[i].parte && p.color === b[i].color && p.colorCodigo === b[i].colorCodigo && p.colorMaterial === b[i].colorMaterial,
+  );
 
 export function mismoColor(notes: string | null, nuevo: NuevoColor): boolean {
   const meta = parseQuoteItemMeta(notes);
+  if (nuevo.partes && nuevo.partes.length > 0) {
+    return meta.partes.length > 0 && partesIguales(meta.partes, partesCambiadas(meta.partes, nuevo.partes));
+  }
   return (
     meta.color.trim() === nuevo.color &&
     meta.colorCodigo.trim() === nuevo.colorCodigo &&
