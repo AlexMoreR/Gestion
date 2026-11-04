@@ -2,20 +2,24 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { extractApiKey, isValidApiKey } from "@/modules/asesor/presentation/mcp/auth";
-import { normalizePlaceName, quoteShipping } from "@/modules/transporte/domain/shipping";
+// Imports relativos: Vitest no resuelve el alias @/ y route.test.ts importa esta ruta.
+import { isCamillasCombo } from "../../../../lib/product-landing";
+import { extractApiKey, isValidApiKey } from "../../../../modules/asesor/presentation/mcp/auth";
+import { normalizePlaceName, quoteCashOnDelivery, quoteShipping } from "../../../../modules/transporte/domain/shipping";
 import {
   addLocalityIfMissing,
   ensureTransportSeed,
   findProductShippingInfo,
   searchPlacesForExternalApps,
-} from "@/modules/transporte/infrastructure/transporte-repository";
+} from "../../../../modules/transporte/infrastructure/transporte-repository";
 
 // Ubicaciones y tipo de envio para otras apps (el CRM de las asesoras). Gestion es la fuente unica.
 // Llave en "Authorization: Bearer" o "x-api-key": TRANSPORTE_API_KEY si existe, si no CATALOGO_API_KEY,
 // y si no la MCP_API_KEY del asesor. Sin llave valida: 401.
 //
 // GET  ?q=<texto>&producto=<codigo opcional>&limit=<1..50, def 20>  -> busca ciudades y corregimientos
+//      "contraentrega": { envio } solo con producto = combo de camillas (isCamillasCombo); envio null = se
+//      cotiza. Otro producto, sin producto o "No llegamos": null.
 // POST { cityId, nombre, origen? }  -> agrega un corregimiento/barrio bajo una ciudad (sin duplicar);
 //      queda "pendiente de revisar" en /admin/transporte.
 
@@ -67,11 +71,13 @@ export async function GET(request: NextRequest) {
       codigoProducto ? findProductShippingInfo(codigoProducto) : Promise.resolve(null),
     ]);
 
-    const resultados = lugares.map((lugar) => ({
+    const esCombo = producto ? isCamillasCombo({ code: producto.codigo }) : false;
+    const resultados = lugares.map(({ envioContraentrega, ...lugar }) => ({
       ...lugar,
       cotizacion: producto
         ? quoteShipping({ tipo: lugar.envio, price: producto.precio, shippingExtra: producto.envioAdicional })
         : null,
+      contraentrega: quoteCashOnDelivery({ tipo: lugar.envio, valor: envioContraentrega, esCombo }),
     }));
 
     return NextResponse.json({ resultados, producto }, { headers: NO_STORE });

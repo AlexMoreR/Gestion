@@ -22,11 +22,16 @@ import type {
   TransportPendingPlace,
   TransportSearchResult,
 } from "@/modules/transporte/domain/entities";
-import { resolveShippingType, type ShippingTypeName } from "@/modules/transporte/domain/shipping";
+import {
+  parseShippingExtraInput,
+  resolveShippingType,
+  type ShippingTypeName,
+} from "@/modules/transporte/domain/shipping";
 import {
   adminGetCityLocalitiesAction,
   adminGetDepartmentCitiesAction,
   adminSearchTransportAction,
+  adminSetPlaceCashOnDeliveryAction,
   adminSetPlaceShippingTypeAction,
 } from "@/app/actions/transporte-actions";
 
@@ -43,6 +48,7 @@ type ShippingFields = {
   freeShipping?: boolean;
   shippingType: ShippingTypeName | null;
   effectiveShippingType: ShippingTypeName;
+  cashOnDeliveryShipping: number | null;
   needsReview?: boolean;
 };
 
@@ -62,12 +68,86 @@ const SHIPPING_TONES: Record<ShippingTypeName, string> = {
 
 const AUTO_VALUE = "AUTO";
 
-// Selector de tipo de envio + etiqueta con el tipo que aplica de verdad.
+const formatCop = (value: number) =>
+  new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(value);
+
+// "Valor envio contraentrega" (solo combo de camillas). Se guarda al salir de la caja; vacio = se
+// cotiza (un corregimiento vacio usa el de su ciudad).
+function CashOnDeliveryInput({ kind, id, value }: { kind: PlaceKind; id: string; value: number | null }) {
+  const [saved, setSaved] = React.useState(value);
+  const [draft, setDraft] = React.useState(value == null ? "" : formatCop(value));
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setSaved(value);
+    setDraft(value == null ? "" : formatCop(value));
+  }, [value]);
+
+  async function save() {
+    const next = parseShippingExtraInput(draft);
+    if (next === undefined) {
+      setError("Valor no válido");
+      return;
+    }
+    setError(null);
+    if (next === saved) {
+      setDraft(next == null ? "" : formatCop(next));
+      return;
+    }
+    setSaving(true);
+    const result = await adminSetPlaceCashOnDeliveryAction(kind, id, draft);
+    setSaving(false);
+    if (!result.ok) {
+      setError(result.error ?? "No se pudo guardar el cambio");
+      return;
+    }
+    const stored = result.value ?? null;
+    setSaved(stored);
+    setDraft(stored == null ? "" : formatCop(stored));
+  }
+
+  return (
+    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className="whitespace-nowrap">Contraentrega $</span>
+      <span className="relative">
+        <input
+          value={draft}
+          inputMode="numeric"
+          disabled={saving}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            setError(null);
+          }}
+          onBlur={save}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur();
+          }}
+          placeholder={kind === "locality" ? "Como la ciudad" : "Se cotiza"}
+          aria-label="Valor envío contraentrega"
+          aria-invalid={error ? true : undefined}
+          title="Solo para el combo de camillas con contraentrega. Vacío = se cotiza."
+          className={`h-8 w-32 rounded-md border bg-background px-2 text-xs text-foreground disabled:opacity-60 ${
+            error ? "border-destructive" : "border-border"
+          }`}
+        />
+        {saving ? <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin text-muted-foreground" /> : null}
+      </span>
+      {error ? <span className="text-destructive">{error}</span> : null}
+    </label>
+  );
+}
+
+// Selector de tipo de envio + etiqueta con el tipo que aplica de verdad + valor contraentrega.
 function ShippingTypeControl({
+  kind,
+  id,
   place,
   pending,
   onChange,
 }: {
+  kind: PlaceKind;
+  id: string;
   place: ShippingFields;
   pending: boolean;
   onChange: (next: ShippingTypeName | null) => void;
@@ -75,6 +155,9 @@ function ShippingTypeControl({
   const effective = place.effectiveShippingType;
   return (
     <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+      {effective === "NO_LLEGA" ? null : (
+        <CashOnDeliveryInput kind={kind} id={id} value={place.cashOnDeliveryShipping} />
+      )}
       {place.needsReview ? (
         <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
           <AlertCircle className="h-3 w-3" /> Por revisar
@@ -345,7 +428,9 @@ export function TransporteWorkspace({
       <p className="text-xs text-muted-foreground">
         Tipos: <strong>Gratis</strong> (sin costo), <strong>Adicional</strong> (se suma el envio adicional del
         producto o su categoria), <strong>Se cotiza</strong> y <strong>No llegamos</strong>. &quot;Automatico&quot; usa
-        lo de antes: el de la ciudad si es un corregimiento, o envio gratis si esta marcado.
+        lo de antes: el de la ciudad si es un corregimiento, o envio gratis si esta marcado.{" "}
+        <strong>Contraentrega $</strong>: envio del combo de camillas pagando al recibir; vacio = se cotiza (un
+        corregimiento vacio usa el de su ciudad). No aplica en &quot;No llegamos&quot;.
       </p>
 
       {pendingPlaces.length > 0 ? (
@@ -371,6 +456,8 @@ export function TransporteWorkspace({
                   </p>
                 </div>
                 <ShippingTypeControl
+                  kind={place.kind}
+                  id={place.id}
                   place={{ ...place, needsReview: true }}
                   pending={pendingIds.has(place.id)}
                   onChange={(next) =>
@@ -444,6 +531,8 @@ export function TransporteWorkspace({
                     </p>
                   </div>
                   <ShippingTypeControl
+                    kind={result.kind}
+                    id={result.id}
                     place={result}
                     pending={pendingIds.has(result.id)}
                     onChange={(next) =>
@@ -530,6 +619,8 @@ export function TransporteWorkspace({
                                   ) : null}
                                 </button>
                                 <ShippingTypeControl
+                                  kind="city"
+                                  id={city.id}
                                   place={city}
                                   pending={pendingIds.has(city.id)}
                                   onChange={(next) =>
@@ -562,6 +653,8 @@ export function TransporteWorkspace({
                                             {locality.name}
                                           </span>
                                           <ShippingTypeControl
+                                            kind="locality"
+                                            id={locality.id}
                                             place={locality}
                                             pending={pendingIds.has(locality.id)}
                                             onChange={(next) =>

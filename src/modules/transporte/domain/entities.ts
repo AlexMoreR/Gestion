@@ -17,6 +17,7 @@ export type TransportCityRow = {
   freeShipping: boolean;
   shippingType: ShippingTypeName | null; // tipo propio (null = automatico, como antes)
   effectiveShippingType: ShippingTypeName; // el que aplica de verdad
+  cashOnDeliveryShipping: number | null; // envio contraentrega propio (COP); null = se cotiza o hereda de la ciudad
   needsReview: boolean;
   localityCount: number;
   freeLocalityCount: number;
@@ -29,6 +30,7 @@ export type TransportLocalityRow = {
   freeShipping: boolean;
   shippingType: ShippingTypeName | null;
   effectiveShippingType: ShippingTypeName; // hereda el de la ciudad si no tiene propio
+  cashOnDeliveryShipping: number | null; // envio contraentrega propio (COP); null = se cotiza o hereda de la ciudad
   needsReview: boolean;
 };
 
@@ -40,6 +42,7 @@ export type TransportSearchResult = {
   freeShipping: boolean;
   shippingType: ShippingTypeName | null;
   effectiveShippingType: ShippingTypeName;
+  cashOnDeliveryShipping: number | null; // envio contraentrega propio (COP); null = se cotiza o hereda de la ciudad
   needsReview: boolean;
   // Contexto para ubicar el lugar en la jerarquia.
   departmentName: string;
@@ -57,6 +60,7 @@ export type TransportPendingPlace = {
   freeShipping: boolean;
   shippingType: ShippingTypeName | null;
   effectiveShippingType: ShippingTypeName;
+  cashOnDeliveryShipping: number | null; // envio contraentrega propio (COP); null = se cotiza o hereda de la ciudad
   createdAt: string; // ISO
 };
 

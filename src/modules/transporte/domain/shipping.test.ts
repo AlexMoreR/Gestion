@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   normalizePlaceName,
   parseShippingExtraInput,
+  quoteCashOnDelivery,
   quoteShipping,
   resolveProductShippingExtra,
   resolveShippingType,
@@ -109,5 +110,30 @@ describe("quoteShipping", () => {
   it("cotizar y no llega: sin total", () => {
     expect(quoteShipping({ tipo: "COTIZAR", price: 989000, shippingExtra: 100000 }).total).toBeNull();
     expect(quoteShipping({ tipo: "NO_LLEGA", price: 989000, shippingExtra: 100000 }).total).toBeNull();
+  });
+});
+
+describe("quoteCashOnDelivery", () => {
+  it("combo con valor cargado: ese valor", () => {
+    expect(quoteCashOnDelivery({ tipo: "GRATIS", valor: 120000, esCombo: true })).toEqual({ envio: 120000 });
+  });
+
+  it("combo sin valor: se cotiza", () => {
+    expect(quoteCashOnDelivery({ tipo: "COTIZAR", valor: null, valorCiudad: null, esCombo: true })).toEqual({ envio: null });
+  });
+
+  it("corregimiento sin valor propio usa el de su ciudad; el propio manda", () => {
+    expect(quoteCashOnDelivery({ tipo: "ADICIONAL", valor: null, valorCiudad: 120000, esCombo: true })).toEqual({
+      envio: 120000,
+    });
+    expect(quoteCashOnDelivery({ tipo: "ADICIONAL", valor: 0, valorCiudad: 120000, esCombo: true })).toEqual({ envio: 0 });
+  });
+
+  it("No llegamos: no aplica", () => {
+    expect(quoteCashOnDelivery({ tipo: "NO_LLEGA", valor: 120000, esCombo: true })).toBeNull();
+  });
+
+  it("producto que no es el combo: no aplica", () => {
+    expect(quoteCashOnDelivery({ tipo: "GRATIS", valor: 120000, esCombo: false })).toBeNull();
   });
 });

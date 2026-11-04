@@ -491,6 +491,7 @@ Tipo de envío por ciudad y corregimiento (DANE).
 **Qué se ve:** tarjetas Ciudades con envio gratis, Corregimientos con envio gratis, Pendientes de revisar y Departamentos. Recuadro "Pendientes de revisar (N)" con lo nuevo que manda el CRM (marca **Por revisar**). Buscador "Buscar ciudad o corregimiento..." y lista de departamentos → ciudades → corregimientos (clic para desplegar).
 **Botones y acciones:**
 - Selector "Tipo de envio" en cada fila: **Automatico (como antes)**, **Gratis**, **Adicional**, **Se cotiza** o **No llegamos**. Se guarda al elegir y quita la marca de pendiente. El valor del envío adicional se pone en la categoría (`/admin/categorias`) o en el producto.
+- Caja **"Contraentrega $"** al lado del selector en cada fila (ciudad, corregimiento, búsqueda y pendientes): valor del envío contraentrega del **combo de camillas** (CMB005). Se guarda al salir de la caja o con Enter; acepta "120000", "120.000" o "$ 120.000" y queda como "$ 120.000". **Vacío = se cotiza**; un corregimiento vacío usa el valor de su ciudad. Con letras o decimales sale "Valor no válido" y no se guarda. No aparece en lugares "No llegamos". Las asesoras lo ven en el chat del CRM solo con ese combo.
 
 ## /admin/ventas/origen
 "Ventas por origen · <año>" (Meta Ads, Marketplace, Referido, Recurrente, Mostrador, Sin dato).

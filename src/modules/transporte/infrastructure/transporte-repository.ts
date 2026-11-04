@@ -129,6 +129,7 @@ export async function listCitiesByDepartment(departmentId: string): Promise<Tran
       name: true,
       freeShipping: true,
       shippingType: true,
+      cashOnDeliveryShipping: true,
       needsReview: true,
       _count: { select: { localities: true } },
       localities: { where: { freeShipping: true }, select: { id: true } },
@@ -142,6 +143,7 @@ export async function listCitiesByDepartment(departmentId: string): Promise<Tran
     freeShipping: city.freeShipping,
     shippingType: city.shippingType,
     effectiveShippingType: resolveShippingType({ shippingType: city.shippingType, freeShipping: city.freeShipping }),
+    cashOnDeliveryShipping: city.cashOnDeliveryShipping,
     needsReview: city.needsReview,
     localityCount: city._count.localities,
     freeLocalityCount: city.localities.length,
@@ -154,7 +156,15 @@ export async function listLocalitiesByCity(cityId: string): Promise<TransportLoc
     prisma.transportLocality.findMany({
       where: { cityId },
       orderBy: { name: "asc" },
-      select: { id: true, code: true, name: true, freeShipping: true, shippingType: true, needsReview: true },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        freeShipping: true,
+        shippingType: true,
+        cashOnDeliveryShipping: true,
+        needsReview: true,
+      },
     }),
   ]);
   return localities.map((locality) => ({
@@ -167,8 +177,15 @@ export async function listLocalitiesByCity(cityId: string): Promise<TransportLoc
   }));
 }
 
-const placeShippingSelect = { id: true, name: true, freeShipping: true, shippingType: true, needsReview: true } as const;
-const cityParentSelect = { shippingType: true, freeShipping: true } as const;
+const placeShippingSelect = {
+  id: true,
+  name: true,
+  freeShipping: true,
+  shippingType: true,
+  cashOnDeliveryShipping: true,
+  needsReview: true,
+} as const;
+const cityParentSelect = { shippingType: true, freeShipping: true, cashOnDeliveryShipping: true } as const;
 
 // Candidatos por tipo que se traen de la base antes de ordenar en memoria (rankPlaces).
 const SEARCH_POOL_PER_TYPE = 80;
@@ -256,6 +273,7 @@ export async function searchTransportPlaces(term: string): Promise<TransportSear
         freeShipping: place.freeShipping,
         shippingType: place.shippingType,
         effectiveShippingType: resolveShippingType({ shippingType: place.shippingType, freeShipping: place.freeShipping }),
+        cashOnDeliveryShipping: place.cashOnDeliveryShipping,
         needsReview: place.needsReview,
         departmentName: place.department.name,
         cityName: null,
@@ -272,6 +290,7 @@ export async function searchTransportPlaces(term: string): Promise<TransportSear
         freeShipping: place.freeShipping,
         parent: { shippingType: place.city.shippingType, freeShipping: place.city.freeShipping },
       }),
+      cashOnDeliveryShipping: place.cashOnDeliveryShipping,
       needsReview: place.needsReview,
       departmentName: place.city.department.name,
       cityName: place.city.name,
@@ -292,6 +311,17 @@ export async function setPlaceShippingType(
     shippingType == null
       ? { shippingType: null, needsReview: false }
       : { shippingType, freeShipping: shippingType === "GRATIS", needsReview: false };
+  if (kind === "city") {
+    await prisma.transportCity.update({ where: { id }, data });
+  } else {
+    await prisma.transportLocality.update({ where: { id }, data });
+  }
+}
+
+// Guarda el valor del envio contraentrega (COP) de una ciudad o corregimiento. null = se cotiza
+// (en un corregimiento: usa el de su ciudad).
+export async function setPlaceCashOnDelivery(kind: "city" | "locality", id: string, value: number | null): Promise<void> {
+  const data = { cashOnDeliveryShipping: value };
   if (kind === "city") {
     await prisma.transportCity.update({ where: { id }, data });
   } else {
@@ -332,6 +362,7 @@ export async function listPendingReview(): Promise<TransportPendingPlace[]> {
     freeShipping: city.freeShipping,
     shippingType: city.shippingType,
     effectiveShippingType: resolveShippingType({ shippingType: city.shippingType, freeShipping: city.freeShipping }),
+    cashOnDeliveryShipping: city.cashOnDeliveryShipping,
     createdAt: city.createdAt.toISOString(),
   }));
 
@@ -349,6 +380,7 @@ export async function listPendingReview(): Promise<TransportPendingPlace[]> {
       freeShipping: locality.freeShipping,
       parent: { shippingType: locality.city.shippingType, freeShipping: locality.city.freeShipping },
     }),
+    cashOnDeliveryShipping: locality.cashOnDeliveryShipping,
     createdAt: locality.createdAt.toISOString(),
   }));
 
@@ -366,6 +398,7 @@ export type ExternalPlaceMatch = {
   envio: ShippingTypeName;
   pendienteRevision: boolean;
   exacta: boolean;
+  envioContraentrega: number | null; // valor ya heredado de la ciudad; la API lo pasa a "contraentrega" solo para el combo
 };
 
 export async function searchPlacesForExternalApps(term: string, limit = 20): Promise<ExternalPlaceMatch[]> {
@@ -395,6 +428,7 @@ export async function searchPlacesForExternalApps(term: string, limit = 20): Pro
         envio: resolveShippingType({ shippingType: place.shippingType, freeShipping: place.freeShipping }),
         pendienteRevision: place.needsReview,
         exacta,
+        envioContraentrega: place.cashOnDeliveryShipping,
       };
     }
     return {
@@ -411,6 +445,7 @@ export async function searchPlacesForExternalApps(term: string, limit = 20): Pro
       }),
       pendienteRevision: place.needsReview,
       exacta,
+      envioContraentrega: place.cashOnDeliveryShipping ?? place.city.cashOnDeliveryShipping,
     };
   });
 }

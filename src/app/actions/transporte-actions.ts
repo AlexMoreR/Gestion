@@ -10,6 +10,7 @@ import {
   listLocalityOptions,
   resolveFreeShipping,
   searchTransportPlaces,
+  setPlaceCashOnDelivery,
   setPlaceShippingType,
 } from "@/modules/transporte/infrastructure/transporte-repository";
 import type {
@@ -19,7 +20,7 @@ import type {
   TransportOption,
   TransportSearchResult,
 } from "@/modules/transporte/domain/entities";
-import type { ShippingTypeName } from "@/modules/transporte/domain/shipping";
+import { parseShippingExtraInput, type ShippingTypeName } from "@/modules/transporte/domain/shipping";
 
 type ActionResult = { ok: boolean; error?: string };
 
@@ -53,6 +54,29 @@ export async function adminSetPlaceShippingTypeAction(
     await setPlaceShippingType(kind, id, shippingType);
     revalidatePath("/admin/transporte");
     return { ok: true };
+  } catch {
+    return { ok: false, error: "No se pudo guardar el cambio" };
+  }
+}
+
+// Guarda el "Valor envio contraentrega" (COP) de una ciudad o corregimiento, con la misma regla
+// del envio adicional: "120000", "120.000" o "$ 120.000"; vacio = se cotiza.
+export async function adminSetPlaceCashOnDeliveryAction(
+  kind: "city" | "locality",
+  id: string,
+  raw: string,
+): Promise<ActionResult & { value?: number | null }> {
+  if (!(await ensureTransportAdmin())) {
+    return { ok: false, error: "No autorizado" };
+  }
+  const value = parseShippingExtraInput(raw);
+  if ((kind !== "city" && kind !== "locality") || !id || value === undefined) {
+    return { ok: false, error: "Valor no válido" };
+  }
+  try {
+    await setPlaceCashOnDelivery(kind, id, value);
+    revalidatePath("/admin/transporte");
+    return { ok: true, value };
   } catch {
     return { ok: false, error: "No se pudo guardar el cambio" };
   }

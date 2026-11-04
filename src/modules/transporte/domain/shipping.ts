@@ -90,3 +90,18 @@ export function quoteShipping(params: {
   }
   return { tipo, envio: null, total: null };
 }
+
+// Envio contraentrega de un lugar (solo el combo de camillas, isCamillasCombo). Un corregimiento
+// sin valor propio usa el de su ciudad. null = no aplica (otro producto o "No llegamos");
+// { envio: null } = se cotiza (no hay valor cargado).
+export function quoteCashOnDelivery(params: {
+  tipo: ShippingTypeName;
+  valor: number | null;
+  valorCiudad?: number | null;
+  esCombo: boolean;
+}): { envio: number | null } | null {
+  if (!params.esCombo || params.tipo === "NO_LLEGA") {
+    return null;
+  }
+  return { envio: params.valor ?? params.valorCiudad ?? null };
+}

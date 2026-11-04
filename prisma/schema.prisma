@@ -1067,6 +1067,7 @@ model TransportCity {
   name         String
   freeShipping Boolean             @default(false)
   shippingType ShippingType?
+  cashOnDeliveryShipping Int? // envio contraentrega en COP (solo combo de camillas); NULL = se cotiza
   nameKey      String? // nombre sin acentos y en minusculas (buscar y no duplicar)
   needsReview  Boolean             @default(false)
   source       String              @default("DANE") // DANE | CRM | ADMIN
@@ -1090,6 +1091,7 @@ model TransportLocality {
   name         String
   freeShipping Boolean       @default(false)
   shippingType ShippingType?
+  cashOnDeliveryShipping Int? // NULL = usa el de su ciudad
   nameKey      String?
   needsReview  Boolean       @default(false)
   source       String        @default("DANE")
