@@ -379,7 +379,7 @@ export function PartesColorCard({ duenio, id, partes, partesCategoria = [], cate
                     {limpiarLista(parte.acabadosTexto.split(",")).length > 0 ? (
                       <div className="flex flex-wrap gap-x-4 gap-y-1.5">
                         {limpiarLista(parte.acabadosTexto.split(",")).map((acabado) => (
-                          <div key={acabado} className="inline-flex items-center gap-2 text-sm text-slate-700">
+                          <div key={acabado} className="inline-flex flex-wrap items-center gap-2 text-sm text-slate-700">
                             <span className="break-words">{acabado}</span>
                             <HexInput
                               acabado={acabado}
