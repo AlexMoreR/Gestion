@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Palette, Plus, Trash2 } from "lucide-react";
+import { Paintbrush, Palette, Plus, Trash2 } from "lucide-react";
 import { guardarPartesColorAction, usarPartesDeCategoriaAction } from "@/app/actions/product-parts-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,6 +80,8 @@ type Props = {
   categoriaNombre?: string | null;
   /** Materiales de la carta de colores del CRM (vacío si no respondió). */
   materialesCarta: string[];
+  /** Solo producto: enlace a la pantalla de máscaras y cuántas partes ya tienen máscara. */
+  mascaras?: { href: string; conMascara: number; total: number };
 };
 
 function resumen(parte: ParteColorFila): string {
@@ -92,7 +95,7 @@ function resumen(parte: ParteColorFila): string {
 }
 
 // Tarjeta "Partes de color": qué partes del producto llevan color propio y de dónde sale cada uno.
-export function PartesColorCard({ duenio, id, partes, partesCategoria = [], categoriaNombre, materialesCarta }: Props) {
+export function PartesColorCard({ duenio, id, partes, partesCategoria = [], categoriaNombre, materialesCarta, mascaras }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [mensaje, setMensaje] = useState<{ ok: boolean; text: string } | null>(null);
@@ -169,6 +172,15 @@ export function PartesColorCard({ duenio, id, partes, partesCategoria = [], cate
             ? "Plantilla para los productos de esta categoría"
             : "Qué partes de este producto llevan color propio"}
         </span>
+        {mascaras ? (
+          <Link
+            href={mascaras.href}
+            className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-[var(--primary)] underline-offset-4 hover:underline"
+          >
+            <Paintbrush className="h-3.5 w-3.5" />
+            Máscaras de color ({mascaras.conMascara} de {mascaras.total})
+          </Link>
+        ) : null}
       </div>
 
       {duenio === "producto" ? (

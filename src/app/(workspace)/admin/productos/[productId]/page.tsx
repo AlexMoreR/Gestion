@@ -38,7 +38,7 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
   const okMessage = typeof query.ok === "string" ? query.ok : "";
   const errorMessage = typeof query.error === "string" ? query.error : "";
 
-  const partesSelect = { orderBy: { orden: "asc" as const }, select: { nombre: true, tipo: true, materiales: true, acabados: true, recargos: true, coloresComunes: true } };
+  const partesSelect = { orderBy: { orden: "asc" as const }, select: { nombre: true, tipo: true, materiales: true, acabados: true, recargos: true, coloresComunes: true, mascaraUrl: true } };
   const isAdmin = session.user.role === "ADMIN";
   const [product, categories, suppliers, bundleProducts, systemCurrency, purchaseHistory, carta] = await Promise.all([
     prisma.product.findUnique({
@@ -136,6 +136,11 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
           partesCategoria={(product.category?.partesColor ?? []).map((parte) => ({ ...parte, recargos: leerRecargos(parte.recargos) }))}
           categoriaNombre={product.category?.name ?? null}
           materialesCarta={carta?.materiales.map((material) => material.nombre) ?? []}
+          mascaras={{
+            href: `/admin/productos/${product.id}/mascaras`,
+            conMascara: product.partesColor.filter((parte) => parte.mascaraUrl).length,
+            total: (product.partesColor.length > 0 ? product.partesColor : product.category?.partesColor ?? []).length,
+          }}
         />
       ) : null}
 
