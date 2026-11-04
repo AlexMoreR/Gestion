@@ -81,3 +81,24 @@ export type TransportMetrics = {
   freeLocalityCount: number;
   pendingReviewCount: number;
 };
+
+// Municipio para la vista de mapa (code = DANE de 5 digitos, el mismo de colombia-mapa.json).
+export type CoverageMapCity = {
+  id: string;
+  code: string;
+  name: string;
+  departmentName: string;
+  shippingType: ShippingTypeName | null; // tipo propio (null = automatico)
+  effectiveShippingType: ShippingTypeName;
+};
+
+// Corregimiento con tipo propio, para los puntos del mapa.
+export type CoverageMapLocality = {
+  id: string;
+  code: string;
+  name: string;
+  cityId: string;
+  cityCode: string;
+  shippingType: ShippingTypeName | null;
+  effectiveShippingType: ShippingTypeName;
+};

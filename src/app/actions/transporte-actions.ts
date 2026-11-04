@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import {
   listCitiesByDepartment,
+  listCoverageMapRows,
   listCityOptions,
   listLocalitiesByCity,
   listLocalityOptions,
@@ -14,6 +15,8 @@ import {
   setPlaceShippingType,
 } from "@/modules/transporte/infrastructure/transporte-repository";
 import type {
+  CoverageMapCity,
+  CoverageMapLocality,
   TransportCityRow,
   TransportLocalityRow,
   TransportLookupResult,
@@ -103,6 +106,14 @@ export async function adminSearchTransportAction(term: string): Promise<Transpor
     return [];
   }
   return searchTransportPlaces(term);
+}
+
+// Municipios y corregimientos con tipo propio para la vista de mapa.
+export async function adminGetCoverageMapAction(): Promise<{ cities: CoverageMapCity[]; localities: CoverageMapLocality[] }> {
+  if (!(await ensureTransportAdmin())) {
+    return { cities: [], localities: [] };
+  }
+  return listCoverageMapRows();
 }
 
 // --- Lectura publica (pagina del cliente, sin sesion) ---
