@@ -124,6 +124,8 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
 - **Sale** — venta (`code` `SAL-...`, `invoiceToken`). Estado `SaleStatus`:
   `DRAFT`/`ACTIVE`/`INVOICED`/`COMPLETED`/`CANCELLED`. `total` es el valor a cobrar; guarda comprobantes
   de pago. **`INVOICED` = totalmente pagada** (ver sección 6).
+  Forma de pago PAGO_TOTAL (nov-2026, migración `20261104120000_forma_pago_pago_total`, solo aditiva): exige abonos =
+  100 % del total neto al pasar a venta (`pagoTotalIncompleto`); en todo lo demás igual que ANTICIPO_50_50.
 - **SalePayment** — abonos/pagos de una venta (método, fecha, comprobante, cuenta que recibe el dinero).
   **Retención en la fuente** (oct-2026, migración `20261022140000_abono_retencion_fuente`, solo aditiva):
   `isWithholding` + `withholdingCertificate` (opcional). Es lo que una empresa cliente retiene y paga a la

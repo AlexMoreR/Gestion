@@ -19,6 +19,18 @@ describe("resolveProfitRecognition", () => {
     ).toEqual({ recognizedAt: paid, pendingDelivery: true });
   });
 
+  it("pago total pagada y sin entregar: igual que 50/50, cuenta en la fecha del pago", () => {
+    expect(
+      resolveProfitRecognition({
+        paymentMethod: "PAGO_TOTAL",
+        orderStatus: "IN_PRODUCTION",
+        deliveredAt: null,
+        fullyPaidAt: paid,
+        saleCreatedAt: created,
+      }),
+    ).toEqual({ recognizedAt: paid, pendingDelivery: true });
+  });
+
   it("venta vieja sin forma de pago: igual que 50/50", () => {
     expect(
       resolveProfitRecognition({
