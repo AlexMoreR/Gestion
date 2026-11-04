@@ -19,6 +19,8 @@ import { buildDispatchCode, parseDispatchCodeNumber } from "@/lib/orders";
 import { isOrderFullyDelivered } from "@/lib/order-partial-delivery";
 import { DELIVERY_NOT_CONFIRMED_ERROR, isDeliveryConfirmed } from "@/lib/delivery-confirmation";
 import { parseWeightKg } from "@/modules/guias/domain/weight";
+import { hasUploadedFile, saveShipmentPhoto } from "@/lib/upload-photo";
+import { validarFotosEmbalaje, type EmbalajeTipo } from "@/lib/embalaje-fotos";
 import {
   buildShippingLegs,
   distributeAmount,
@@ -605,6 +607,92 @@ async function recordDispatchShippingLegs(
   }
 }
 
+// Fotos del embalaje (despacho con transportadora): valida y guarda en disco ANTES de la
+// transacción; si falta una o una foto no sirve, corta con redirect y no se crea el despacho.
+type FotosEmbalajeListas = {
+  orderItemIds: string[];
+  fotos: { tipo: EmbalajeTipo; url: string }[];
+  subidoPorUserId: string;
+  subidoPorTexto: string;
+};
+
+async function prepararFotosEmbalaje(
+  formData: FormData,
+  orderItemIds: string[],
+  userId: string,
+  returnTo: string,
+): Promise<FotosEmbalajeListas> {
+  const archivos: { tipo: EmbalajeTipo; file: File }[] = [];
+  const abierto = formData.get("embalajeAbierto");
+  if (hasUploadedFile(abierto)) archivos.push({ tipo: "ABIERTO", file: abierto });
+  const cerrado = formData.get("embalajeCerrado");
+  if (hasUploadedFile(cerrado)) archivos.push({ tipo: "CERRADO", file: cerrado });
+  for (const extra of formData.getAll("embalajeExtra")) {
+    if (hasUploadedFile(extra)) archivos.push({ tipo: "EXTRA", file: extra });
+  }
+
+  const guardadas = await prisma.embalajeFoto.findMany({
+    where: { orderItemId: { in: orderItemIds }, dispatchId: null },
+    select: { orderItemId: true, tipo: true },
+  });
+  const nuevas = archivos.map((archivo) => archivo.tipo);
+  for (const orderItemId of orderItemIds) {
+    const existentes = guardadas.filter((foto) => foto.orderItemId === orderItemId).map((foto) => foto.tipo);
+    const error = validarFotosEmbalaje({ existentes, nuevas });
+    if (error) {
+      redirect(`${returnTo}?error=${encodeURIComponent(error)}`);
+    }
+  }
+
+  const fotos: { tipo: EmbalajeTipo; url: string }[] = [];
+  let photoError: string | null = null;
+  try {
+    for (const archivo of archivos) {
+      const { url } = await saveShipmentPhoto(archivo.file);
+      fotos.push({ tipo: archivo.tipo, url });
+    }
+  } catch (error) {
+    photoError = error instanceof Error ? error.message : "No se pudo guardar la foto del embalaje.";
+  }
+  if (photoError) {
+    redirect(`${returnTo}?error=${encodeURIComponent(photoError)}`);
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true } });
+  return {
+    orderItemIds,
+    fotos,
+    subidoPorUserId: userId,
+    subidoPorTexto: user?.name?.trim() || user?.email || "Usuario",
+  };
+}
+
+// Dentro de la transacción del despacho: una fila por producto y foto nueva, y liga a este
+// despacho las fotos que ya estaban guardadas sin despacho para esos productos.
+async function guardarFotosEmbalajeTx(
+  tx: Prisma.TransactionClient,
+  dispatchId: string,
+  listas: FotosEmbalajeListas,
+): Promise<void> {
+  await tx.embalajeFoto.updateMany({
+    where: { orderItemId: { in: listas.orderItemIds }, dispatchId: null },
+    data: { dispatchId },
+  });
+  const filas = listas.orderItemIds.flatMap((orderItemId) =>
+    listas.fotos.map((foto) => ({
+      orderItemId,
+      dispatchId,
+      tipo: foto.tipo,
+      url: foto.url,
+      subidoPorUserId: listas.subidoPorUserId,
+      subidoPorTexto: listas.subidoPorTexto,
+    })),
+  );
+  if (filas.length > 0) {
+    await tx.embalajeFoto.createMany({ data: filas });
+  }
+}
+
 const dispatchOrderItemSchema = z.object({
   orderId: z.string().trim().min(1, "Orden invalida"),
   orderItemId: z.string().trim().min(1, "Producto invalido"),
@@ -731,6 +819,7 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
       : [];
   const shippingCost = isShipping ? sumShippingLegs(legs) : 0;
   await assertLegPayments(legs, legPayments, returnTo);
+  const fotosEmbalaje = isShipping ? await prepararFotosEmbalaje(formData, [item.id], createdById, returnTo) : null;
   let createdDispatchCode: string | null = null;
 
   try {
@@ -773,6 +862,10 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
           },
         },
       });
+
+      if (fotosEmbalaje) {
+        await guardarFotosEmbalajeTx(tx, dispatch.id, fotosEmbalaje);
+      }
 
       // Costo de envio por tramo: gasto de la venta y cargo a cada transportador.
       await recordDispatchShippingLegs(tx, {
@@ -999,6 +1092,11 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
   const legPayments = readLegPayments(formData, extraLegs);
   await assertLegPayments(legs, legPayments, returnTo);
 
+  // Una foto abierta y una cerrada sirven para todos los productos del despacho.
+  const fotosEmbalaje = isShipping
+    ? await prepararFotosEmbalaje(formData, selectedItems.map((item) => item.id), createdById, returnTo)
+    : null;
+
   const trackingPhotoFile = formData.get("trackingPhoto");
   const hasTrackingPhoto = trackingPhotoFile instanceof File && trackingPhotoFile.size > 0;
   let createdDispatchCode: string | null = null;
@@ -1040,6 +1138,10 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
           },
         },
       });
+
+      if (fotosEmbalaje) {
+        await guardarFotosEmbalajeTx(tx, dispatch.id, fotosEmbalaje);
+      }
 
       // Costo de envio por tramo: gasto de la venta y cargo a cada transportador.
       await recordDispatchShippingLegs(tx, {

@@ -254,21 +254,40 @@ describe("caminos con plata (base real)", () => {
       }),
     );
     await comprobar("recoger");
+    const despachoConTransportadora = {
+      orderId: ctx.orderId,
+      orderItemId: ctx.orderItemId,
+      deliveryType: "SHIPPING",
+      carrierSupplierId: datos.transportadora.id,
+      shippingCost: "20000",
+      trackingNumber: "GUIA-1",
+      shippingAddress: "Calle 1 # 2-3",
+      accountId: datos.cuenta.id,
+      shippingReceipt: comprobante("flete.png"),
+    };
+    // Sin las 2 fotos del embalaje el despacho no se crea (ni flete ni cargo a la transportadora).
+    const sinFotos = await llamar(dispatches.adminDispatchOrderItemAction, despachoConTransportadora);
+    expect(sinFotos.error).toMatch(/Faltan las fotos del embalaje/);
+    expect(await prisma.dispatch.count({ where: { orderId: ctx.orderId } })).toBe(0);
+    expect(await prisma.shippingCost.count({ where: { saleId: ctx.saleId } })).toBe(0);
+    const soloAbierta = await llamar(dispatches.adminDispatchOrderItemAction, {
+      ...despachoConTransportadora,
+      embalajeAbierto: comprobante("abierto.png"),
+    });
+    expect(soloAbierta.error).toBe("Falta la foto 2: paquete cerrado con la guía");
+    expect(await prisma.dispatch.count({ where: { orderId: ctx.orderId } })).toBe(0);
     sinError(
       await llamar(dispatches.adminDispatchOrderItemAction, {
-        orderId: ctx.orderId,
-        orderItemId: ctx.orderItemId,
-        deliveryType: "SHIPPING",
-        carrierSupplierId: datos.transportadora.id,
-        shippingCost: "20000",
-        trackingNumber: "GUIA-1",
-        shippingAddress: "Calle 1 # 2-3",
-        accountId: datos.cuenta.id,
-        shippingReceipt: comprobante("flete.png"),
+        ...despachoConTransportadora,
+        embalajeAbierto: comprobante("abierto.png"),
+        embalajeCerrado: comprobante("cerrado.png"),
       }),
     );
     const despacho = await prisma.dispatch.findFirstOrThrow({ where: { orderId: ctx.orderId } });
     ctx.dispatchId = despacho.id;
+    const fotosEmbalaje = await prisma.embalajeFoto.findMany({ where: { orderItemId: ctx.orderItemId } });
+    expect(fotosEmbalaje.map((foto) => foto.tipo).sort()).toEqual(["ABIERTO", "CERRADO"]);
+    expect(fotosEmbalaje.every((foto) => foto.dispatchId === despacho.id && foto.subidoPorTexto === "Dueño Prueba")).toBe(true);
     expect(await prisma.shippingCost.count({ where: { saleId: ctx.saleId } })).toBeGreaterThan(0);
     await comprobar("despachar con flete");
   });
@@ -409,6 +428,8 @@ describe("deshacer sin perder rastro (base real)", () => {
         shippingAddress: "Carrera 5 # 6-7",
         accountId: datos.cuenta.id,
         shippingReceipt: comprobante("flete.png"),
+        embalajeAbierto: comprobante("abierto.png"),
+        embalajeCerrado: comprobante("cerrado.png"),
       }),
     );
     await comprobar("preparar deshacer");

@@ -64,6 +64,7 @@ model User {
   gastoBorradores          GastoBorrador[]       @relation("GastoBorradorCreadoPor")
   asistenciaAnuladas       AsistenciaMarca[]     @relation("AsistenciaMarcaAnuladaPor")
   cartaColores             CartaColor[]          @relation("CartaColorCreadoPor")
+  embalajeFotos            EmbalajeFoto[]        @relation("EmbalajeFotoSubidoPor")
 }
 
 enum ActivityAction {
@@ -692,10 +693,37 @@ model OrderItem {
   photos                OrderItemPhoto[]
   supplierLedgerEntries SupplierLedgerEntry[]
   reversals             OrderItemReversal[]
+  embalajeFotos         EmbalajeFoto[]
 
   @@index([orderId])
   @@index([productId])
   @@index([confirmedSupplierId])
+}
+
+enum EmbalajeFotoTipo {
+  ABIERTO
+  CERRADO
+  EXTRA
+  LLEGADA
+}
+
+// Foto del embalaje de un producto. dispatchId queda NULL mientras la foto no se usa en un despacho.
+model EmbalajeFoto {
+  id              String           @id @default(cuid())
+  orderItemId     String
+  dispatchId      String?
+  tipo            EmbalajeFotoTipo
+  url             String
+  subidoPorUserId String?
+  // Nombre del usuario o "Proveedora <nombre>".
+  subidoPorTexto  String
+  createdAt       DateTime         @default(now())
+  orderItem       OrderItem        @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  dispatch        Dispatch?        @relation(fields: [dispatchId], references: [id], onDelete: SetNull)
+  subidoPor       User?            @relation("EmbalajeFotoSubidoPor", fields: [subidoPorUserId], references: [id], onDelete: SetNull)
+
+  @@index([orderItemId])
+  @@index([dispatchId])
 }
 
 model OrderItemPhoto {
@@ -768,6 +796,7 @@ model Dispatch {
   supplierLedgerEntries SupplierLedgerEntry[]
   shipment              Shipment?
   reversals             OrderItemReversal[]
+  embalajeFotos         EmbalajeFoto[]
 
   @@index([orderId])
   @@index([createdById, createdAt])
