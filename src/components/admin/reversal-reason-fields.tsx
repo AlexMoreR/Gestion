@@ -44,7 +44,10 @@ export function ReversalReasonFields({
               name="reversalReason"
               value={option.key}
               checked={reason === option.key}
-              onChange={() => setReason(option.key)}
+              onChange={() => {
+                setReason(option.key);
+                setHasPhoto(false);
+              }}
               required
               className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--primary)]"
             />
