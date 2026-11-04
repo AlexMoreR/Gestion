@@ -8,16 +8,30 @@ vi.mock("next/navigation", () => ({
   },
 }));
 vi.mock("server-only", () => ({}));
-// La acción no usa sesión; el módulo importa @/auth por las acciones del admin.
-vi.mock("@/auth", () => ({ auth: async () => null }));
+// La acción de la proveedora no usa sesión; el despacho del admin (último caso) sí.
+const sesionAdmin: { user: { id: string; role: "ADMIN" } | null } = { user: null };
+vi.mock("@/auth", () => ({ auth: async () => (sesionAdmin.user ? { user: sesionAdmin.user } : null) }));
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined, revalidateTag: () => undefined }));
 
 const { prisma } = await import("@/lib/prisma");
 const { markReadyForDispatchAction } = await import("@/app/actions/manufacturing-order-actions");
+const { adminDispatchOrderItemAction } = await import("@/app/actions/dispatch-actions");
 
 // Datos propios con códigos PRB- (no chocan con los consecutivos ORD/OF/DES) y se borran al final:
 // la base es compartida con las otras pruebas de tests/db.
-const datos: { token: string; itemId: string; otroItemId: string; despachadoId: string; otroToken: string } = {
+const datos: {
+  token: string;
+  itemId: string;
+  otroItemId: string;
+  despachadoId: string;
+  otroToken: string;
+  listoId: string;
+  ordenId: string;
+  transportadoraId: string;
+} = {
+  listoId: "",
+  ordenId: "",
+  transportadoraId: "",
   token: "tok-embalaje-a",
   itemId: "",
   otroItemId: "",
@@ -55,6 +69,16 @@ beforeAll(async () => {
   datos.itemId = await crearItem(orden.id, producto.id, rosa.id);
   datos.despachadoId = await crearItem(orden.id, producto.id, rosa.id);
   datos.otroItemId = await crearItem(otraOrden.id, producto.id, laura.id);
+  // Listo para que el admin lo despache: costo confirmado, foto del terminado y pago marcado.
+  datos.listoId = await crearItem(orden.id, producto.id, rosa.id);
+  await prisma.orderItem.update({
+    where: { id: datos.listoId },
+    data: { purchaseCost: 100_000, supplierPaymentStatus: "PENDING", photos: { create: { url: "/uploads/x.jpg" } } },
+  });
+  datos.ordenId = orden.id;
+  sesionAdmin.user = { id: admin.id, role: "ADMIN" };
+  const transportadora = await prisma.supplier.create({ data: { name: "Envíos embalaje", type: "SHIPPING" } });
+  datos.transportadoraId = transportadora.id;
   await prisma.manufacturingOrder.create({
     data: { code: "PRB-OF-EMB01", orderId: orden.id, supplierId: rosa.id, shareToken: datos.token },
   });
@@ -78,7 +102,7 @@ afterAll(async () => {
   await prisma.manufacturingOrder.deleteMany({ where: { order: ordenes } });
   await prisma.order.deleteMany({ where: ordenes });
   await prisma.product.deleteMany({ where: { code: "EMB-PRUEBA" } });
-  await prisma.supplier.deleteMany({ where: { name: { in: ["Rosa embalaje", "Laura embalaje"] } } });
+  await prisma.supplier.deleteMany({ where: { name: { in: ["Rosa embalaje", "Laura embalaje", "Envíos embalaje"] } } });
   await prisma.activityLog.deleteMany({ where: { entityCode: "PRB-OF-EMB01" } });
   await prisma.user.deleteMany({ where: { email: "embalaje@prueba.local" } });
   await prisma.$disconnect();
@@ -163,5 +187,28 @@ describe("markReadyForDispatchAction", () => {
     });
     expect(r.error).toBe("Este producto ya fue despachado");
     expect(await fotosDe(datos.despachadoId)).toHaveLength(0);
+  });
+
+  it("el admin despacha sin volver a subir las fotos de la proveedora y quedan ligadas al despacho", async () => {
+    const subida = await llamar(markReadyForDispatchAction, {
+      token: datos.token,
+      orderItemId: datos.listoId,
+      embalajeAbierto: comprobante(),
+      embalajeCerrado: comprobante(),
+    });
+    expect(subida.error, subida.url).toBeNull();
+    const r = await llamar(adminDispatchOrderItemAction, {
+      returnTo: `/admin/ordenes/${datos.ordenId}`,
+      orderId: datos.ordenId,
+      orderItemId: datos.listoId,
+      deliveryType: "SHIPPING",
+      carrierSupplierId: datos.transportadoraId,
+      shippingCost: "0",
+    });
+    expect(r.error, r.url).toBeNull();
+    const fotos = await fotosDe(datos.listoId);
+    expect(fotos).toHaveLength(2);
+    const despacho = await prisma.dispatchItem.findFirst({ where: { orderItemId: datos.listoId } });
+    for (const foto of fotos) expect(foto.dispatchId).toBe(despacho?.dispatchId);
   });
 });
