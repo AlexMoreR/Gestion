@@ -24,7 +24,8 @@ export type ActivityEntityType =
   | "PAYROLL"
   | "TEAM_MEMBER"
   | "ATTENDANCE"
-  | "DUDAS_ACCESS";
+  | "DUDAS_ACCESS"
+  | "CARTA_COLORES";
 
 /** Desde dónde se hizo el cambio. Sin valor se guarda "PANTALLA". */
 export type ActivityOrigin = "PANTALLA" | "MCP" | "CRM" | "SCRIPT" | "MIGRACION" | "COORDINADOR";

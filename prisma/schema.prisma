@@ -62,6 +62,7 @@ model User {
   asistenciaCreadas        AsistenciaMarca[]     @relation("AsistenciaMarcaCreadaPor")
   gastoBorradores          GastoBorrador[]       @relation("GastoBorradorCreadoPor")
   asistenciaAnuladas       AsistenciaMarca[]     @relation("AsistenciaMarcaAnuladaPor")
+  cartaColores             CartaColor[]          @relation("CartaColorCreadoPor")
 }
 
 enum ActivityAction {
@@ -1402,4 +1403,42 @@ model PagoProveedoraBorrador {
   usadoEn       DateTime?
   creadoEn      DateTime            @default(now())
   ledgerEntry   SupplierLedgerEntry @relation(fields: [ledgerEntryId], references: [id], onDelete: Cascade)
+}
+
+// Carta de colores digital (nov-2026). Materiales (cueros y telas) y sus colores; reglas en
+// src/modules/colores/domain/carta-colores.ts.
+enum ColorGrupo {
+  CUERO
+  TELA
+}
+
+model ColorMaterial {
+  id        String       @id @default(cuid())
+  nombre    String       @unique
+  grupo     ColorGrupo
+  orden     Int
+  oculto    Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  colores   CartaColor[]
+}
+
+model CartaColor {
+  id          String        @id @default(cuid())
+  materialId  String
+  codigo      String
+  nombre      String
+  // Color de muestra (#RRGGBB) cuando no hay foto.
+  hex         String?
+  fotoUrl     String?
+  oculto      Boolean       @default(false)
+  orden       Int           @default(0)
+  createdById String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  material    ColorMaterial @relation(fields: [materialId], references: [id], onDelete: Restrict)
+  createdBy   User?         @relation("CartaColorCreadoPor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([materialId, codigo])
+  @@index([materialId])
 }

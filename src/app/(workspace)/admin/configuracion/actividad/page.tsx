@@ -52,6 +52,7 @@ const ENTITY_LABELS: Record<string, string> = {
   TEAM_MEMBER: "Equipo",
   ATTENDANCE: "Asistencia",
   DUDAS_ACCESS: "Acceso a dudas",
+  CARTA_COLORES: "Carta de colores",
 };
 
 // Las entradas viejas no tienen origen: se hicieron desde la pantalla.
