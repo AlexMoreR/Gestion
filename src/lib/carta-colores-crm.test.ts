@@ -38,6 +38,28 @@ describe("parseCartaColores", () => {
     ]);
   });
 
+  it("conserva hex solo si viene como #RRGGBB", () => {
+    const carta = parseCartaColores({
+      materiales: [
+        {
+          nombre: "Cuero",
+          colores: [
+            { codigo: "A", nombre: "Uno", hex: "#A1B2C3", orden: 1 },
+            { codigo: "B", nombre: "Dos", hex: "rojo", orden: 2 },
+            { codigo: "C", nombre: "Tres", hex: "#FFF", orden: 3 },
+            { codigo: "D", nombre: "Cuatro", orden: 4 },
+          ],
+        },
+      ],
+    });
+    expect(carta?.[0].colores).toEqual([
+      { codigo: "A", nombre: "Uno", fotoUrl: "", hex: "#A1B2C3" },
+      { codigo: "B", nombre: "Dos", fotoUrl: "" },
+      { codigo: "C", nombre: "Tres", fotoUrl: "" },
+      { codigo: "D", nombre: "Cuatro", fotoUrl: "" },
+    ]);
+  });
+
   it("devuelve null si la respuesta no trae materiales", () => {
     expect(parseCartaColores({ error: "no autorizado" })).toBeNull();
     expect(parseCartaColores(null)).toBeNull();

@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { CategoriesWorkspace } from "@/components/admin/categories-workspace";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
+import { leerCartaColores } from "@/lib/carta-colores-crm.server";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
 
@@ -25,10 +26,16 @@ export default async function AdminCategoriasPage({ searchParams }: PageProps) {
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
-  const categories = await prisma.category.findMany({
-    orderBy: { name: "asc" },
-    include: { _count: { select: { products: true } } },
-  });
+  const [categories, carta] = await Promise.all([
+    prisma.category.findMany({
+      orderBy: { name: "asc" },
+      include: {
+        _count: { select: { products: true } },
+        partesColor: { orderBy: { orden: "asc" }, select: { nombre: true, tipo: true, materiales: true, acabados: true } },
+      },
+    }),
+    leerCartaColores(),
+  ]);
 
   return (
     <section className="w-full space-y-5">
@@ -40,6 +47,9 @@ export default async function AdminCategoriasPage({ searchParams }: PageProps) {
       />
 
       <CategoriesWorkspace
+        materialesCarta={carta.materiales.map((material) => material.nombre)}
+        // Partes de color solo las edita un ADMIN (la acción lo vuelve a revisar).
+        canEditParts={session.user.role === "ADMIN"}
         categories={categories.map((category) => ({
           id: category.id,
           name: category.name,
@@ -50,6 +60,7 @@ export default async function AdminCategoriasPage({ searchParams }: PageProps) {
           logoUrl: category.logoUrl ? getPublicAssetUrl(category.logoUrl) : null,
           shippingExtra: category.shippingExtra,
           productsCount: category._count.products,
+          partesColor: category.partesColor,
         }))}
       />
     </section>

@@ -2,7 +2,8 @@
 // (GET /api/gestion/carta-de-colores). Aqui solo reglas puras: limpiar la respuesta y decidir
 // entre la memoria, el CRM y la ultima copia guardada. El pedido real esta en carta-colores-crm.server.ts.
 
-export type CartaColor = { codigo: string; nombre: string; fotoUrl: string };
+// hex: color exacto (#RRGGBB) si el CRM lo manda; si no viene o viene mal, no se pone.
+export type CartaColor = { codigo: string; nombre: string; fotoUrl: string; hex?: string };
 export type CartaMaterial = { nombre: string; colores: CartaColor[] };
 export type CartaColores = {
   materiales: CartaMaterial[];
@@ -16,6 +17,11 @@ const texto = (value: unknown, max: number): string =>
   typeof value === "string" ? value.trim().slice(0, max) : "";
 
 const orden = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
+
+const hexValido = (value: unknown): string => {
+  const raw = texto(value, 7);
+  return /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : "";
+};
 
 function fotoSegura(value: unknown): string {
   const raw = texto(value, 1000);
@@ -46,12 +52,13 @@ export function parseCartaColores(json: unknown): CartaMaterial[] | null {
               codigo: texto(color.codigo, 40),
               nombre: texto(color.nombre, 80),
               fotoUrl: fotoSegura(color.fotoUrl),
+              hex: hexValido(color.hex),
               orden: orden(color.orden),
             };
           })
           .filter((color) => color.codigo && color.nombre)
           .sort((a, b) => a.orden - b.orden)
-          .map(({ codigo, nombre, fotoUrl }) => ({ codigo, nombre, fotoUrl })),
+          .map(({ codigo, nombre, fotoUrl, hex }) => (hex ? { codigo, nombre, fotoUrl, hex } : { codigo, nombre, fotoUrl })),
       };
     })
     .filter((material) => material.nombre && material.colores.length > 0)

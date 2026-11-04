@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { adminCreateCategoryAction, adminUpdateCategoryAction } from "@/app/actions/catalog-actions";
 import { CategoriesDataTable } from "@/components/admin/categories-data-table";
+import { PartesColorCard, type ParteColorFila } from "@/components/admin/partes-color-card";
 import { Input } from "@/components/ui/input";
 import { getPublicAssetUrl } from "@/lib/site";
 import { Button } from "../ui/button";
@@ -19,6 +20,7 @@ type CategoryRow = {
   logoUrl: string | null;
   shippingExtra: number | null;
   productsCount: number;
+  partesColor: ParteColorFila[];
 };
 
 // Campo "Envio adicional (COP)": lo que se cobra de envio en ubicaciones ADICIONAL. Vacio = se cotiza.
@@ -41,9 +43,11 @@ function ShippingExtraField({ defaultValue }: { defaultValue?: number | null }) 
 
 type CategoriesWorkspaceProps = {
   categories: CategoryRow[];
+  materialesCarta: string[];
+  canEditParts: boolean;
 };
 
-export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
+export function CategoriesWorkspace({ categories, materialesCarta, canEditParts }: CategoriesWorkspaceProps) {
   const [modal, setModal] = useState<"new" | "edit" | null>(null);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -202,7 +206,7 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
           onClick={closeModal}
         >
           <div
-            className="saas-card w-full max-w-lg rounded-xl p-5"
+            className="saas-card max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl p-5"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
@@ -281,6 +285,17 @@ export function CategoriesWorkspace({ categories }: CategoriesWorkspaceProps) {
                 Guardar cambios
               </Button>
             </form>
+            {canEditParts ? (
+              <div className="mt-4">
+                <PartesColorCard
+                  key={activeCategory.id}
+                  duenio="categoria"
+                  id={activeCategory.id}
+                  partes={activeCategory.partesColor}
+                  materialesCarta={materialesCarta}
+                />
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

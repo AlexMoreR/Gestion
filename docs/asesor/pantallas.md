@@ -353,11 +353,12 @@ Crea un producto ("Define costo, porcentaje y precio final comercial antes de gu
 ## /admin/productos/[productId]
 Ficha de edición de un producto.
 
-**Qué se ve:** título con el nombre; botón **Traer de Drive** (fotos de Drive para este producto). Sección "Fotos (n)" para ordenar (arrastrar o flechas; la portada va primera). Sección "Ficha técnica" (Imagen de la ficha, enlace o id de Drive opcional). Formulario por pasos **Producto**, **Precios y compra**, **Inventario**, **Actividad**. En Producto, igual que al crear más la casilla **Ocultar de la tienda principal**. Inventario: Stock minimo, Envio adicional (COP), Precio normal (COP), Oferta: precio (COP), Oferta desde/hasta y "Compras en inventario". Actividad: bitácora del producto.
+**Qué se ve:** título con el nombre; botón **Traer de Drive** (fotos de Drive para este producto). Sección "Fotos (n)" para ordenar (arrastrar o flechas; la portada va primera). Sección "Ficha técnica" (Imagen de la ficha, enlace o id de Drive opcional). Tarjeta "Partes de color" (solo Admin). Formulario por pasos **Producto**, **Precios y compra**, **Inventario**, **Actividad**. En Producto, igual que al crear más la casilla **Ocultar de la tienda principal**. Inventario: Stock minimo, Envio adicional (COP), Precio normal (COP), Oferta: precio (COP), Oferta desde/hasta y "Compras en inventario". Actividad: bitácora del producto.
 
 **Botones y acciones:**
 - **Guardar fotos** / **Deshacer cambios** (galería; al quitar una foto pregunta "¿Quitar esta foto del producto?" **Si, quitar** / **No**).
 - **Agregar ficha**: sube la imagen de la ficha técnica.
+- Tarjeta **Partes de color** (debajo de la ficha técnica, solo Admin): **Usar las de la categoría** muestra la plantilla de la categoría sin poder cambiarla; **Partes propias** copia la plantilla para cambiarla solo en este producto, con **Agregar parte**, **Quitar** y **Guardar partes** (igual que en Categorías). Volver a **Usar las de la categoría** borra las partes propias (pregunta "El producto perderá sus partes propias y usará las de la categoría. ¿Seguir?").
 - **Habilitar combo (se arma con otros productos)** + **Agregar componente**: igual que al crear.
 - **Siguiente** / **← Atras** / **Cancelar** (vuelve a `/admin/productos`).
 - **Guardar cambios** (pasos 2 y 3): guarda el producto.
@@ -374,6 +375,7 @@ Categorías del catálogo de la tienda.
 **Botones y acciones:**
 - **Nueva categoria**: Nombre, Envio adicional (COP) ("vacio = se cotiza"), Logo (opcional), Descripcion de categoria, SEO title y SEO description → **Guardar categoria**.
 - Lápiz "Editar <categoría>": los mismos campos → **Guardar cambios**.
+- En el mismo diálogo de editar (solo Admin), tarjeta **Partes de color**: la plantilla de partes con color propio para los productos de la categoría. **Agregar parte** (Nombre, ej. Tapizado; Tipo **Carta de colores** o **Acabados**), **Quitar** y **Guardar partes**. Con Carta de colores se marcan los materiales de la carta del CRM (si el CRM no responde: "La carta de colores del CRM no respondió"); con Acabados se escriben separados por comas (ej. Cromada, Dorada, Negra).
 - Papelera "Eliminar <categoría>": borra la categoría.
 
 ## /admin/clientes
