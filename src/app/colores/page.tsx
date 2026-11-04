@@ -31,7 +31,18 @@ export default async function CartaColoresPage() {
     getSystemStorefrontLogoPath(),
     prisma.colorMaterial.findMany({
       where: { oculto: false },
-      include: { colores: { where: { oculto: false } } },
+      // Solo lo que usa la carta: la página es pública (nada de createdById ni fechas).
+      select: {
+        id: true,
+        nombre: true,
+        grupo: true,
+        orden: true,
+        oculto: true,
+        colores: {
+          where: { oculto: false },
+          select: { id: true, materialId: true, codigo: true, nombre: true, hex: true, fotoUrl: true, oculto: true, orden: true },
+        },
+      },
     }),
   ]);
 
