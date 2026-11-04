@@ -32,6 +32,7 @@ model User {
   updatedAt                DateTime              @updatedAt
   quotesAsClient           Quote[]               @relation("QuoteClient")
   quotesCreated            Quote[]               @relation("QuoteCreatedBy")
+  quotesColorsApproved     Quote[]               @relation("QuoteColoresAprobadosPor")
   salesAsClient            Sale[]                @relation("SaleClient")
   salesCreated             Sale[]                @relation("SaleCreatedBy")
   ordersAsClient           Order[]               @relation("OrderClient")
@@ -354,6 +355,10 @@ model Quote {
   origin       SaleOrigin?
   // Detalle del origen: anuncio, cuenta MK, item de Marketplace, linea, via, etc. Nunca telefonos.
   originDetail Json?
+  // "Cliente aprobó colores" al pasar a venta (nov-2026): cuándo y quién lo marcó.
+  coloresAprobadosEn    DateTime?
+  coloresAprobadosPorId String?
+  coloresAprobadosPor   User?     @relation("QuoteColoresAprobadosPor", fields: [coloresAprobadosPorId], references: [id], onDelete: SetNull)
 
   @@index([clientId, createdAt])
   @@index([createdById, createdAt])
@@ -1467,6 +1472,10 @@ model ParteColor {
   materiales String[]       @default([])
   acabados   String[]       @default([])
   mascaraUrl String?
+  // Recargo opcional, solo para avisar en la cotización: { materiales?: { [material]: n }, acabados?: { [acabado]: n } }.
+  recargos   Json?
+  // Colores de la carta (código o nombre) que salen primero en el selector.
+  coloresComunes String[]   @default([])
   orden      Int
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt

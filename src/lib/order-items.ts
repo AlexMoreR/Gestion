@@ -82,6 +82,8 @@ export function expandQuoteItemToOrderItems(item: QuoteItemForExpansion): OrderI
           colorCodigo: baseMeta.colorCodigo,
           colorMaterial: baseMeta.colorMaterial,
           colorFotoUrl: baseMeta.colorFotoUrl,
+          partes: baseMeta.partes,
+          imagenColoresUrl: baseMeta.imagenColoresUrl,
         }),
       }));
     }

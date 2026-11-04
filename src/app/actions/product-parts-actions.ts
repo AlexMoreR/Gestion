@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { getActivityActor, logActivityTx } from "@/lib/activity-log";
 import { prisma } from "@/lib/prisma";
@@ -16,20 +17,49 @@ const MAX_PARTES = 10;
 
 const listaSchema = z.array(z.string().max(60, "Máximo 60 letras por material o acabado")).max(30, "Máximo 30 opciones");
 
+// Recargo por opción (solo aviso en la cotización): pesos enteros, vacío o 0 = sin recargo.
+const recargoSchema = z.record(
+  z.string().max(60),
+  z.number().int("El recargo va en pesos enteros").min(0, "El recargo no puede ser negativo").max(100_000_000, "Recargo fuera de rango"),
+);
+
+/** Solo los recargos de opciones que siguen en la lista; sin ceros. */
+function recargosDe(lista: string[], tabla: Record<string, number> | undefined): Record<string, number> | undefined {
+  const filas = lista.flatMap((opcion) => {
+    const valor = Object.entries(tabla ?? {}).find(([llave]) => llave.trim().toLowerCase() === opcion.toLowerCase())?.[1];
+    return valor && valor > 0 ? [[opcion, valor] as const] : [];
+  });
+  return filas.length > 0 ? Object.fromEntries(filas) : undefined;
+}
+
 const parteSchema = z
   .object({
     nombre: z.string().trim().min(1, "Cada parte necesita un nombre").max(40, "El nombre va hasta 40 letras"),
     tipo: z.enum(["CARTA", "ACABADOS"]),
     materiales: listaSchema,
     acabados: listaSchema,
+    recargos: z.object({ materiales: recargoSchema.optional(), acabados: recargoSchema.optional() }).optional(),
+    coloresComunes: listaSchema.optional().default([]),
   })
-  .transform((parte) => ({
-    nombre: parte.nombre,
-    tipo: parte.tipo,
+  .transform((parte) => {
     // Solo se guarda la lista que usa el tipo.
-    materiales: parte.tipo === "CARTA" ? limpiarLista(parte.materiales) : [],
-    acabados: parte.tipo === "ACABADOS" ? limpiarLista(parte.acabados) : [],
-  }))
+    const materiales = parte.tipo === "CARTA" ? limpiarLista(parte.materiales) : [];
+    const acabados = parte.tipo === "ACABADOS" ? limpiarLista(parte.acabados) : [];
+    const recargoMateriales = recargosDe(materiales, parte.recargos?.materiales);
+    const recargoAcabados = recargosDe(acabados, parte.recargos?.acabados);
+    const recargos =
+      recargoMateriales || recargoAcabados
+        ? { ...(recargoMateriales ? { materiales: recargoMateriales } : {}), ...(recargoAcabados ? { acabados: recargoAcabados } : {}) }
+        : null;
+    return {
+      nombre: parte.nombre,
+      tipo: parte.tipo,
+      materiales,
+      acabados,
+      recargos,
+      coloresComunes: parte.tipo === "CARTA" ? limpiarLista(parte.coloresComunes) : [],
+    };
+  })
   .refine((parte) => parte.tipo !== "CARTA" || parte.materiales.length > 0, {
     message: "Una parte de carta necesita al menos un material",
   })
@@ -76,11 +106,13 @@ export async function guardarPartesColorAction(input: unknown): Promise<PartesCo
     const antes = await tx.parteColor.findMany({
       where,
       orderBy: { orden: "asc" },
-      select: { nombre: true, tipo: true, materiales: true, acabados: true },
+      select: { nombre: true, tipo: true, materiales: true, acabados: true, recargos: true, coloresComunes: true },
     });
     await tx.parteColor.deleteMany({ where });
     if (partes.length > 0) {
-      await tx.parteColor.createMany({ data: partes.map((parte, orden) => ({ ...where, ...parte, orden })) });
+      await tx.parteColor.createMany({
+        data: partes.map((parte, orden) => ({ ...where, ...parte, recargos: parte.recargos ?? Prisma.DbNull, orden })),
+      });
     }
     await logActivityTx(tx, actor, {
       action: "UPDATE",

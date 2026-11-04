@@ -12,6 +12,31 @@ export type ParteColorDatos = {
   orden: number;
 };
 
+/** Recargo opcional por opción, solo para avisar (nunca suma al precio). Llave = material o acabado. */
+export type RecargosParte = { materiales?: Record<string, number>; acabados?: Record<string, number> };
+
+/** Lo que el editor de cotización necesita de cada parte (ya resuelta: propia o de la categoría). */
+export type ParteParaCotizar = {
+  nombre: string;
+  tipo: ParteColorTipo;
+  materiales: string[];
+  acabados: string[];
+  recargos: RecargosParte;
+  coloresComunes: string[];
+};
+
+/** Color elegido de una parte, como se guarda en las notas de la línea. color "" = Por definir. */
+export type ParteElegida = {
+  parte: string;
+  color: string;
+  colorCodigo: string;
+  colorMaterial: string;
+  colorFotoUrl: string;
+  hex: string;
+};
+
+export const POR_DEFINIR = "Por definir";
+
 export type OpcionDeParte =
   | { tipo: "CARTA"; material: string; color: CartaColor }
   | { tipo: "ACABADOS"; acabado: string };
@@ -27,20 +52,70 @@ export function resolverPartes<T extends { orden: number }>(partesCategoria: T[]
 }
 
 /** CARTA → colores de la carta del CRM, solo de sus materiales (sin importar tildes ni mayúsculas). ACABADOS → su lista. */
+/** Los colores comunes (por código o nombre) van primero, en el orden escrito; el resto queda como estaba. */
 export function opcionesDeParte(
-  parte: Pick<ParteColorDatos, "tipo" | "materiales" | "acabados">,
+  parte: Pick<ParteColorDatos, "tipo" | "materiales" | "acabados"> & { coloresComunes?: string[] },
   carta: CartaMaterial[],
 ): OpcionDeParte[] {
   if (parte.tipo === "ACABADOS") return parte.acabados.map((acabado) => ({ tipo: "ACABADOS", acabado }));
   const materiales = new Set(parte.materiales.map(clave));
-  return carta
+  const opciones = carta
     .filter((material) => materiales.has(clave(material.nombre)))
     .flatMap((material) => material.colores.map((color) => ({ tipo: "CARTA" as const, material: material.nombre, color })));
+  const comunes = (parte.coloresComunes ?? []).map(clave).filter(Boolean);
+  if (comunes.length === 0) return opciones;
+  const puesto = (opcion: (typeof opciones)[number]) => {
+    const i = comunes.findIndex((c) => c === clave(opcion.color.codigo) || c === clave(opcion.color.nombre));
+    return i < 0 ? comunes.length : i;
+  };
+  // sort es estable: a igual puesto se conserva el orden de la carta.
+  return [...opciones].sort((a, b) => puesto(a) - puesto(b));
+}
+
+/** Recargo de lo elegido en una parte (por material o por acabado): [opción, pesos] o null. */
+export function recargoDe(
+  parte: Pick<ParteParaCotizar, "tipo" | "recargos">,
+  elegido: Pick<ParteElegida, "color" | "colorMaterial">,
+): [string, number] | null {
+  const tabla = parte.tipo === "CARTA" ? parte.recargos.materiales : parte.recargos.acabados;
+  const buscado = clave(parte.tipo === "CARTA" ? elegido.colorMaterial : elegido.color);
+  if (!tabla || !buscado) return null;
+  const fila = Object.entries(tabla).find(([llave]) => clave(llave) === buscado);
+  // La opción se nombra como se escribió en la tarjeta (ej. "Prana").
+  return fila && Number.isFinite(fila[1]) && fila[1] > 0 ? fila : null;
+}
+
+/** "Prana: +$150.000 — ajusta el precio a mano" por cada opción elegida con recargo. Solo aviso. */
+export function avisosDeRecargo(
+  partes: Pick<ParteParaCotizar, "nombre" | "tipo" | "recargos">[],
+  elegidos: Pick<ParteElegida, "parte" | "color" | "colorMaterial">[],
+): string[] {
+  return partes.flatMap((parte) => {
+    const elegido = elegidos.find((e) => clave(e.parte) === clave(parte.nombre));
+    const recargo = elegido && elegido.color.trim() ? recargoDe(parte, elegido) : null;
+    if (!recargo) return [];
+    return [`${recargo[0]}: +$${new Intl.NumberFormat("es-CO").format(recargo[1])} — ajusta el precio a mano`];
+  });
+}
+
+/** Una línea a revisar antes de pasar a venta: sus partes (leídas de la base) y lo que se eligió. */
+export type LineaColores = { etiqueta: string; requeridas: string[]; elegidos: Pick<ParteElegida, "parte" | "color">[] };
+
+/** "CMB005 – Tapizado" por cada parte sin color o en Por definir (sin repetir: un combo son varias líneas). */
+export function faltanColores(lineas: LineaColores[]): string[] {
+  const faltan = new Set<string>();
+  for (const linea of lineas) {
+    for (const parte of linea.requeridas) {
+      const color = linea.elegidos.find((e) => clave(e.parte) === clave(parte))?.color ?? "";
+      if (!clave(color) || clave(color) === clave(POR_DEFINIR)) faltan.add(`${linea.etiqueta} – ${parte}`);
+    }
+  }
+  return [...faltan];
 }
 
 /** 'Tapizado: Crema · Base: Dorada'; la parte sin color dice 'Por definir'. */
 export function textoColores(elegidos: { parte: string; color?: string | null }[]): string {
-  return elegidos.map(({ parte, color }) => `${parte}: ${color?.trim() || "Por definir"}`).join(" · ");
+  return elegidos.map(({ parte, color }) => `${parte}: ${color?.trim() || POR_DEFINIR}`).join(" · ");
 }
 
 /** Lista de texto limpia: sin vacíos ni repetidos (sin importar tildes ni mayúsculas). */
@@ -54,4 +129,20 @@ export function limpiarLista(valores: string[]): string[] {
       vistos.add(k);
       return true;
     });
+}
+
+const tablaDeRecargos = (valor: unknown): Record<string, number> | undefined => {
+  if (!valor || typeof valor !== "object" || Array.isArray(valor)) return undefined;
+  const filas = Object.entries(valor as Record<string, unknown>).filter(
+    (fila): fila is [string, number] => typeof fila[1] === "number" && Number.isFinite(fila[1]) && fila[1] > 0,
+  );
+  return filas.length > 0 ? Object.fromEntries(filas) : undefined;
+};
+
+/** Lee ParteColor.recargos (Json) sin fallar con datos viejos o mal formados. */
+export function leerRecargos(json: unknown): RecargosParte {
+  const raw = (json ?? {}) as { materiales?: unknown; acabados?: unknown };
+  const materiales = tablaDeRecargos(raw.materiales);
+  const acabados = tablaDeRecargos(raw.acabados);
+  return { ...(materiales ? { materiales } : {}), ...(acabados ? { acabados } : {}) };
 }

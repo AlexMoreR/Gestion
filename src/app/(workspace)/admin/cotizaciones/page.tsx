@@ -5,6 +5,8 @@ import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { comboStock } from "@/lib/combo";
 import { prisma } from "@/lib/prisma";
+import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
+import { partesPorProducto } from "@/lib/product-parts.server";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 import {
@@ -98,6 +100,11 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
   // Stock de productos normales; para combos, cuantos se pueden armar con sus
   // piezas (cada pieza suma sus alternas), ver comboStock.
   const stockByProduct = new Map(stockRows.map((row) => [row.productId, row._sum.change ?? 0]));
+  // Partes de color de cada producto (propias o de su categoría) para el selector por parte.
+  const partesById = await partesPorProducto(
+    prisma,
+    products.map((product) => product.id),
+  );
   const stockOf = (productId: string) => stockByProduct.get(productId) ?? 0;
   const stockFor = (product: (typeof products)[number]): number =>
     product.isBundle ? comboStock(product.bundleComponents, stockOf) : stockOf(product.id);
@@ -128,6 +135,8 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
           origin: quote.origin ?? null,
           originDetail: quote.originDetail ?? null,
           hasCamillaCombo: quote.items.some((item) => isCamillaComboProduct(toComboCheckProduct(item.product))),
+          // Casilla «Cliente aprobó colores»: si alguna línea trae color por parte (el servidor revisa de nuevo).
+          hasColorParts: quote.items.some((item) => parseQuoteItemMeta(item.notes).partes.length > 0),
         }))}
         clients={clients.map((client) => ({
           id: client.id,
@@ -154,6 +163,7 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
             name: row.supplier.name,
           })),
           isBundle: product.isBundle,
+          partes: partesById.get(product.id) ?? [],
           components: product.bundleComponents.map((component) => ({
             productId: component.childId,
             name: component.child.name,

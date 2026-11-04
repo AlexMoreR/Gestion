@@ -15,6 +15,8 @@ const emptyMeta: QuoteItemMeta = {
   colorCodigo: "",
   colorMaterial: "",
   colorFotoUrl: "",
+  partes: [],
+  imagenColoresUrl: "",
 };
 
 function quoteItem(input: Partial<QuoteDisplayItemInput> & { id: string }): QuoteDisplayItemInput {

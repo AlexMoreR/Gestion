@@ -5,6 +5,7 @@ import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { comboStock } from "@/lib/combo";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
+import { partesPorProducto } from "@/lib/product-parts.server";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 
@@ -83,6 +84,11 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
   // Stock de productos normales; para combos, cuantos se pueden armar con sus
   // piezas (cada pieza suma sus alternas), ver comboStock.
   const stockByProduct = new Map(stockRows.map((row) => [row.productId, row._sum.change ?? 0]));
+  // Partes de color de cada producto (propias o de su categoría) para el selector por parte.
+  const partesById = await partesPorProducto(
+    prisma,
+    products.map((product) => product.id),
+  );
   const stockOf = (productId: string) => stockByProduct.get(productId) ?? 0;
   const stockFor = (product: (typeof products)[number]): number =>
     product.isBundle ? comboStock(product.bundleComponents, stockOf) : stockOf(product.id);
@@ -139,6 +145,7 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
             colorCodigo: meta.colorCodigo,
             colorMaterial: meta.colorMaterial,
             colorFotoUrl: meta.colorFotoUrl,
+            partes: meta.partes,
             additionalCost: meta.additionalCost,
             discount: meta.discount,
             fulfillmentMode: item.fulfillmentMode === "MANUFACTURE" ? "MANUFACTURE" : "STOCK",
@@ -175,6 +182,7 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
           name: row.supplier.name,
         })),
         isBundle: product.isBundle,
+        partes: partesById.get(product.id) ?? [],
         components: product.bundleComponents.map((component) => ({
           productId: component.childId,
           name: component.child.name,

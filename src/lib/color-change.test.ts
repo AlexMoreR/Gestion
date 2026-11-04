@@ -118,3 +118,12 @@ describe("linesToRecolor", () => {
     expect(linesToRecolor("nada", quote, order)).toBeNull();
   });
 });
+
+describe("notesWithNewColor con partes", () => {
+  it("Cambiar color deja el color nuevo como texto (las partes no lo pisan)", () => {
+    const antes = nota({ partes: [{ parte: "Tapizado", color: "Crema", colorCodigo: "", colorMaterial: "", colorFotoUrl: "", hex: "" }] });
+    const despues = parseQuoteItemMeta(notesWithNewColor(antes, palo));
+    expect(despues.color).toBe("Palo de rosa");
+    expect(despues.partes).toEqual([]);
+  });
+});

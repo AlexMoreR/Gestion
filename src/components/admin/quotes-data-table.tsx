@@ -72,6 +72,7 @@ type QuoteRow = {
   shareToken: string;
   hasSale: boolean;
   hasCamillaCombo?: boolean;
+  hasColorParts?: boolean;
   // Origen avisado por el CRM al marcar GANADO (null = sin dato todavia).
   origin?: string | null;
   originDetail?: unknown;
@@ -792,6 +793,17 @@ function SaleInstallmentsModal({
                       onValueChange={onPaymentMethodChange}
                     />
                   </div>
+                  {quote.hasColorParts ? (
+                    <label className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-2.5 text-sm text-foreground">
+                      <input type="checkbox" name="coloresAprobados" required className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>
+                        <span className="font-medium">Cliente aprobó colores</span>
+                        <span className="block text-xs text-muted-foreground">
+                          Obligatorio: confirma que el cliente vio y aprobó el color de cada parte.
+                        </span>
+                      </span>
+                    </label>
+                  ) : null}
                 </div>
 
                 {installments.length === 0 ? (
