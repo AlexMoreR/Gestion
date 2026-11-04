@@ -3,11 +3,13 @@ import { PackageSearch } from "lucide-react";
 import { auth } from "@/auth";
 import { DriveImportButton } from "@/components/admin/drive-import-button";
 import { EditProductForm } from "@/components/admin/edit-product-form";
+import { PartesColorCard } from "@/components/admin/partes-color-card";
 import { ProductFichasSection } from "@/components/admin/product-fichas-section";
 import { ProductPhotoOrganizer } from "@/components/admin/product-photo-organizer";
 import { getLocalImageBytes } from "@/lib/gallery-organizer.server";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
+import { leerCartaColores } from "@/lib/carta-colores-crm.server";
 import { prisma } from "@/lib/prisma";
 import { enlaceDrive, separarImagenes } from "@/lib/product-fichas";
 import { toPromoFormFields } from "@/lib/product-promo";
@@ -35,11 +37,14 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
   const okMessage = typeof query.ok === "string" ? query.ok : "";
   const errorMessage = typeof query.error === "string" ? query.error : "";
 
-  const [product, categories, suppliers, bundleProducts, systemCurrency, purchaseHistory] = await Promise.all([
+  const partesSelect = { orderBy: { orden: "asc" as const }, select: { nombre: true, tipo: true, materiales: true, acabados: true } };
+  const isAdmin = session.user.role === "ADMIN";
+  const [product, categories, suppliers, bundleProducts, systemCurrency, purchaseHistory, carta] = await Promise.all([
     prisma.product.findUnique({
       where: { id: productId },
       include: {
-        category: true,
+        category: { include: { partesColor: partesSelect } },
+        partesColor: partesSelect,
         // Fotos y fichas tecnicas; se separan abajo. El organizador y el formulario solo ven fotos.
         images: { orderBy: { order: "asc" } },
         suppliers: {
@@ -61,6 +66,8 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
     }),
     getSystemCurrency(),
     getProductPurchaseHistory(productId),
+    // Las partes de color solo las ve y edita un ADMIN: sin admin no se pide la carta al CRM.
+    isAdmin ? leerCartaColores() : null,
   ]);
 
   if (!product) {
@@ -119,6 +126,17 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
           driveUrl: ficha.driveFileId ? enlaceDrive(ficha.driveFileId) : null,
         }))}
       />
+
+      {isAdmin ? (
+        <PartesColorCard
+          duenio="producto"
+          id={product.id}
+          partes={product.partesColor}
+          partesCategoria={product.category?.partesColor ?? []}
+          categoriaNombre={product.category?.name ?? null}
+          materialesCarta={carta?.materiales.map((material) => material.nombre) ?? []}
+        />
+      ) : null}
 
       <EditProductForm
         key={gallerySignature}
