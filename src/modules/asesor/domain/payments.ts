@@ -32,7 +32,7 @@ export type SaleLedgerInput = {
   // Estado de la venta (SaleStatus) y de su orden (OrderStatus); null = sin orden.
   saleStatus: string;
   orderStatus: string | null;
-  // ANTICIPO_50_50 / CONTRAENTREGA / null (sin definir).
+  // ANTICIPO_50_50 / PAGO_TOTAL / CONTRAENTREGA / null (sin definir).
   paymentMethod: string | null;
   total: number;
   // Lo pagado guardado en la venta (downPaymentAmount). En ventas viejas puede ser
@@ -213,6 +213,7 @@ export function describePayment(payment: LedgerPayment) {
 function paymentMethodLabel(method: string | null): string {
   if (method === "CONTRAENTREGA") return "Contraentrega";
   if (method === "ANTICIPO_50_50") return "Anticipo 50/50";
+  if (method === "PAGO_TOTAL") return "Pago total";
   return "Sin definir";
 }
 

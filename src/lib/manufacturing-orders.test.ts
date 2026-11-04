@@ -43,6 +43,10 @@ describe("supplierPaymentLabel", () => {
     expect(supplierPaymentLabel("ANTICIPO_50_50")).toBe("Pago: se te paga de una vez");
   });
 
+  it("pago total: se paga de una vez, igual que el 50/50", () => {
+    expect(supplierPaymentLabel("PAGO_TOTAL")).toBe("Pago: se te paga de una vez");
+  });
+
   it("contraentrega: se paga cuando le llegue al cliente", () => {
     expect(supplierPaymentLabel("CONTRAENTREGA")).toBe(
       "Pago: contraentrega, se te paga cuando el producto le llegue al cliente",

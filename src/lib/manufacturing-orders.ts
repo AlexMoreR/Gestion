@@ -83,7 +83,7 @@ export function destinationCityLabel(
 
 // Cómo se le paga a la proveedora, según la forma de pago de la venta. Sin venta o sin definir: por confirmar.
 export function supplierPaymentLabel(paymentMethod: string | null | undefined): string {
-  if (paymentMethod === "ANTICIPO_50_50") return "Pago: se te paga de una vez";
+  if (paymentMethod === "ANTICIPO_50_50" || paymentMethod === "PAGO_TOTAL") return "Pago: se te paga de una vez";
   if (paymentMethod === "CONTRAENTREGA") return "Pago: contraentrega, se te paga cuando el producto le llegue al cliente";
   return "Pago: por confirmar";
 }

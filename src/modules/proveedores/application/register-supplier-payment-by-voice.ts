@@ -26,7 +26,7 @@ export type OfInfo = {
   orderStatus: string;
   saleId: string | null;
   saleCode: string | null;
-  // ANTICIPO_50_50 | CONTRAENTREGA | null (sin definir)
+  // ANTICIPO_50_50 | PAGO_TOTAL | CONTRAENTREGA | null (sin definir)
   paymentMethod: string | null;
   supplier: { id: string; name: string };
 };
