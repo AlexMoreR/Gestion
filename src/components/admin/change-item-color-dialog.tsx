@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Loader2 } from "lucide-react";
-import { adminChangeSaleItemColorAction, getCartaColoresOrdenAction } from "@/app/actions/orders-actions";
+import {
+  adminChangeSaleItemColorAction,
+  getCartaColoresOrdenAction,
+  getPartesColorOrdenAction,
+  type PartesDeLineaOrden,
+} from "@/app/actions/orders-actions";
+import { PartesColorSelector, partesIniciales } from "@/components/admin/partes-color-selector";
+import { textoColores, type ParteElegida } from "@/lib/product-parts";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -40,9 +47,34 @@ export function ChangeItemColorDialog({
   const [elegido, setElegido] = useState<(CartaColor & { material: string }) | null>(null);
   const [manual, setManual] = useState(false);
   const [colorEscrito, setColorEscrito] = useState("");
+  // Partes de color del producto (null = cargando). Con partes se elige un color por parte.
+  const [partesLinea, setPartesLinea] = useState<PartesDeLineaOrden | null>(null);
+  const [partesElegidas, setPartesElegidas] = useState<ParteElegida[]>([]);
+  const conPartes = (partesLinea?.partes.length ?? 0) > 0;
   const materiales = carta?.materiales ?? [];
   const colorManual = manual || (carta !== null && materiales.length === 0);
-  const color = colorManual ? colorEscrito.trim() : elegido?.nombre ?? "";
+  const color = conPartes
+    ? partesElegidas.some((p) => p.color.trim())
+      ? textoColores(partesElegidas)
+      : ""
+    : colorManual
+      ? colorEscrito.trim()
+      : elegido?.nombre ?? "";
+
+  useEffect(() => {
+    if (!open || partesLinea) return;
+    let vivo = true;
+    getPartesColorOrdenAction(orderItemId)
+      .then((result) => {
+        if (!vivo) return;
+        setPartesLinea(result);
+        setPartesElegidas(partesIniciales(result.partes, result.elegidos));
+      })
+      .catch(() => vivo && setPartesLinea({ productId: null, partes: [], elegidos: [] }));
+    return () => {
+      vivo = false;
+    };
+  }, [open, partesLinea, orderItemId]);
 
   useEffect(() => {
     if (!open || carta) return;
@@ -77,7 +109,33 @@ export function ChangeItemColorDialog({
           <input type="hidden" name="colorCodigo" value={colorManual ? "" : elegido?.codigo ?? ""} />
           <input type="hidden" name="colorMaterial" value={colorManual ? "" : elegido?.material ?? ""} />
           <input type="hidden" name="colorFotoUrl" value={colorManual ? "" : elegido?.fotoUrl ?? ""} />
+          {conPartes ? <input type="hidden" name="partes" value={JSON.stringify(partesElegidas)} /> : null}
 
+          {!partesLinea ? (
+            <p className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Cargando partes de color...
+            </p>
+          ) : conPartes ? (
+            <div className="space-y-1.5">
+              <span className="text-sm font-medium text-foreground">Color por parte</span>
+              {carta && carta.origen !== "crm" ? (
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  {carta.origen === "copia"
+                    ? "No se pudo leer la carta del CRM. Se muestra la última copia guardada."
+                    : "No se pudo leer la carta del CRM. Deja la parte como está o en «Por definir»."}
+                </p>
+              ) : null}
+              <PartesColorSelector
+                idPrefix={`cambio-${orderItemId}`}
+                partes={partesLinea.partes}
+                carta={carta ? materiales : null}
+                elegidos={partesElegidas}
+                productId={partesLinea.productId}
+                onChange={setPartesElegidas}
+              />
+            </div>
+          ) : (
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm font-medium text-foreground">
@@ -169,6 +227,7 @@ export function ChangeItemColorDialog({
               </div>
             )}
           </div>
+          )}
 
           <div className="space-y-1">
             <label htmlFor={`motivo-${orderItemId}`} className="text-sm font-medium text-foreground">
@@ -185,7 +244,11 @@ export function ChangeItemColorDialog({
             />
           </div>
 
-          {!color ? <p className="text-xs text-muted-foreground">Escoge o escribe el color nuevo para guardar.</p> : null}
+          {!color ? (
+            <p className="text-xs text-muted-foreground">
+              {conPartes ? "Escoge el color de al menos una parte para guardar." : "Escoge o escribe el color nuevo para guardar."}
+            </p>
+          ) : null}
           <SaveButton disabled={!color} />
         </form>
       </DialogContent>

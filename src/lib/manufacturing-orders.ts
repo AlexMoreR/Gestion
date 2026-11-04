@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
-import { textoColores } from "@/lib/product-parts";
+import { textoColores } from "./product-parts";
 import { stableShareToken } from "@/lib/manufacturing-share-token";
 import { colombiaDayKey } from "./colombia-time";
 import { computeOfBalance, type OfBalance } from "../modules/proveedores/domain/supplier-payment";

@@ -21,6 +21,8 @@ import {
 } from "@/lib/color-change";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { imagenesDeColores } from "@/lib/vista-color.server";
+import { partesPorProducto } from "@/lib/product-parts.server";
+import type { ParteElegida, ParteParaCotizar } from "@/lib/product-parts";
 import { stockToRestore } from "@/lib/order-stock-restore";
 import { prisma } from "@/lib/prisma";
 import { parseOrderNoteText } from "@/lib/order-notes";
@@ -437,6 +439,25 @@ async function imagenesParaCambioDeColor(orderId: string, orderItemId: string, n
   const urls = await imagenesDeColores(lista);
   lista.forEach((linea, i) => resultado.set(linea.id, { notes: linea.notes, url: urls[i] }));
   return resultado;
+}
+
+export type PartesDeLineaOrden = { productId: string | null; partes: ParteParaCotizar[]; elegidos: ParteElegida[] };
+
+/** Partes de color del producto de una línea (el combo en un combo) y lo elegido, para «Cambiar color». */
+export async function getPartesColorOrdenAction(orderItemId: unknown): Promise<PartesDeLineaOrden> {
+  await requireAdminSession();
+  const vacio: PartesDeLineaOrden = { productId: null, partes: [], elegidos: [] };
+  const id = typeof orderItemId === "string" ? orderItemId.trim().slice(0, 60) : "";
+  const item = id ? await prisma.orderItem.findUnique({ where: { id }, select: { orderId: true } }) : null;
+  if (!item) return vacio;
+  const leidas = await lineasParaCambioDeColor(prisma, item.orderId, id);
+  if ("error" in leidas) return vacio;
+  const fuente = leidas.quoteItems.find((q) => q.id === leidas.lines.quoteItemIds[0]);
+  const comboCode = parseQuoteItemMeta(fuente?.notes ?? leidas.clicked.notes).comboCode.trim();
+  const combo = comboCode ? await prisma.product.findFirst({ where: { code: comboCode }, select: { id: true } }) : null;
+  const productId = combo?.id ?? fuente?.productId ?? leidas.clicked.productId;
+  const partes = (await partesPorProducto(prisma, [productId])).get(productId) ?? [];
+  return { productId, partes, elegidos: parseQuoteItemMeta(leidas.clicked.notes).partes };
 }
 
 // Cambia SOLO el color de un producto de una venta activa (cotización + orden; en un combo, todas sus
