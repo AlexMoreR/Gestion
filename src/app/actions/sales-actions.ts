@@ -9,6 +9,7 @@ import bcrypt from "bcryptjs";
 import { Prisma, Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
@@ -28,6 +29,8 @@ import { saleStatusForPaid } from "@/modules/ventas/domain/sale-paid-status";
 import { CONSUMIDOR_FINAL_EMAIL } from "@/modules/ventas/domain/sale-origin";
 import { saleItemsErrorMessage } from "@/modules/ventas/domain/sale-items-check";
 import { autoCreateComboOrder } from "@/modules/ventas/application/auto-create-combo-order";
+import { enviarReciboCaja } from "@/modules/ventas/application/enviar-recibo-caja";
+import { prismaReciboCajaPuertos } from "@/modules/ventas/infrastructure/prisma-recibo-caja";
 import {
   WITHHOLDING_LABEL,
   isWithholdingAccountValue,
@@ -435,6 +438,7 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
 
   let createdSaleCode: string | null = null;
   let createdSaleId: string | null = null;
+  let createdPaymentIds: string[] = [];
   try {
     await prisma.$transaction(async (tx) => {
       const saleCode = await getNextSaleCode(tx);
@@ -486,6 +490,7 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
         select: { id: true, salePayments: { select: { id: true, sortOrder: true } } },
       });
       createdSaleId = createdSale.id;
+      createdPaymentIds = [...createdSale.salePayments].sort((a, b) => a.sortOrder - b.sortOrder).map((p) => p.id);
 
       if (motivoCheck.motivo && earliestRawDate) {
         const paymentIdBySort = new Map(createdSale.salePayments.map((payment) => [payment.sortOrder, payment.id]));
@@ -543,6 +548,11 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
   revalidatePath("/admin/ventas");
   if (invoiceToken) {
     revalidatePath(`/sales/${invoiceToken}`);
+  }
+  // Recibo de caja al CRM: uno solo por todas las cuotas del anticipo, después de responder.
+  const saleIdForReceipt = createdSaleId;
+  if (saleIdForReceipt) {
+    after(() => enviarReciboCaja(saleIdForReceipt, createdPaymentIds, prismaReciboCajaPuertos));
   }
   redirect(`${returnTo}?${new URLSearchParams({ ok: `Venta creada${comboOk}` }).toString()}`);
 }
@@ -672,6 +682,7 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
   }
 
   const newTotalPaid = alreadyPaid + parsed.data.amount;
+  let createdPaymentId: string | null = null;
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -693,6 +704,7 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
         },
         select: { id: true },
       });
+      createdPaymentId = createdPayment.id;
 
       if (motivoCheck.motivo) {
         await registrarRetroactivos(tx, [
@@ -723,6 +735,11 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
   revalidatePath("/admin/ventas");
   revalidatePath("/admin/ventas/retenciones");
   revalidatePath(`/sales/${sale.invoiceToken}`);
+  // Recibo de caja al CRM por este abono (la retención en la fuente no es plata del cliente: no lleva).
+  const paymentIdForReceipt = createdPaymentId;
+  if (paymentIdForReceipt && !isWithholding) {
+    after(() => enviarReciboCaja(sale.id, [paymentIdForReceipt], prismaReciboCajaPuertos));
+  }
   redirect(`${returnTo}?${new URLSearchParams({ ok: okMessage }).toString()}`);
 }
 
