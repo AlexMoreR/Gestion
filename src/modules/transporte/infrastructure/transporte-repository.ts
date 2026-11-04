@@ -17,6 +17,7 @@ import {
   type ShippingTypeName,
 } from "../domain/shipping";
 import { aliasCityCode, isExactPlaceMatch, rankPlaces } from "../domain/place-search";
+import type { CoverageDepartmentRow } from "../domain/coverage-report";
 
 type SeedData = {
   departments: Array<{ code: string; name: string }>;
@@ -147,6 +148,33 @@ export async function listCitiesByDepartment(departmentId: string): Promise<Tran
     needsReview: city.needsReview,
     localityCount: city._count.localities,
     freeLocalityCount: city.localities.length,
+  }));
+}
+
+// Toda la cobertura (departamentos -> municipios -> corregimientos) para buildCoverageReport. Solo lectura.
+export async function listCoverageRows(): Promise<CoverageDepartmentRow[]> {
+  await ensureTransportSeed();
+  const place = { name: true, shippingType: true, freeShipping: true, needsReview: true } as const;
+  const departments = await prisma.transportDepartment.findMany({
+    orderBy: { name: "asc" },
+    select: {
+      name: true,
+      cities: {
+        orderBy: { name: "asc" },
+        select: { ...place, localities: { orderBy: { name: "asc" }, select: place } },
+      },
+    },
+  });
+
+  const toRow = (p: { name: string; shippingType: ShippingTypeName | null; freeShipping: boolean; needsReview: boolean }) => ({
+    nombre: p.name,
+    shippingType: p.shippingType,
+    freeShipping: p.freeShipping,
+    needsReview: p.needsReview,
+  });
+  return departments.map((department) => ({
+    nombre: department.name,
+    municipios: department.cities.map((city) => ({ ...toRow(city), corregimientos: city.localities.map(toRow) })),
   }));
 }
 
