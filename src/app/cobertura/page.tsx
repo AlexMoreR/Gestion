@@ -3,7 +3,7 @@ import Image from "next/image";
 import { MapPin } from "lucide-react";
 // Sedes de fabrica que se muestran con mapa de Google al final de la pagina.
 import { FACTORY_POINTS } from "@/lib/factory-points";
-import { getPublicAssetUrl, getSiteUrl } from "@/lib/site";
+import { getPublicAssetUrl, getSiteUrl, SALES_LINE_WHATSAPP } from "@/lib/site";
 import {
   getSystemBrandName,
   getSystemStorefrontLogoPath,
@@ -16,13 +16,6 @@ import {
 import { ServiceLookup } from "@/modules/transporte/presentation/service-lookup";
 
 export const dynamic = "force-dynamic";
-
-// Numero de WhatsApp por linea de venta (parametro ?ref=). Sin ref (o ref
-// desconocido) usa el numero general del sistema.
-const REF_WHATSAPP: Record<string, string> = {
-  "1": "573169831667", // Ventas 1
-  "2": "573205138377", // Ventas 2
-};
 
 export async function generateMetadata(): Promise<Metadata> {
   const brandName = await getSystemBrandName();
@@ -72,8 +65,8 @@ export default async function ServicioTransportePage({ searchParams }: PageProps
     listDepartmentOptions(),
   ]);
 
-  // Numero segun la linea de venta del enlace (?ref=1 / ?ref=2).
-  const whatsAppHref = REF_WHATSAPP[ref] ?? systemWhatsAppHref;
+  // Numero segun la linea de venta del enlace (?ref=1 / ?ref=2); sin ref (o desconocido), el general.
+  const whatsAppHref = SALES_LINE_WHATSAPP[ref] ?? systemWhatsAppHref;
 
   return (
     <div className="min-h-screen bg-slate-50">

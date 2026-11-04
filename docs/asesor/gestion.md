@@ -109,6 +109,7 @@ en las Server Actions y en `src/lib/`.
 - `/productos/[productId]`: ficha de producto por id (ruta alterna).
 - `/distribuidor`: lista de precios al por mayor.
 - `/cobertura`: el cliente consulta si su ciudad o corregimiento tiene envío gratis; `?ref=1` y `?ref=2` cambian el WhatsApp de la línea de venta.
+- `/colores`: carta de colores pública (cueros y telas) para el celular: el cliente toca una muestra y "Quiero este color" abre el WhatsApp de Ventas 1 con el color ya escrito (no envía nada solo). La asesora manda ese link en vez de fotos; lo oculto en `/admin/colores` no sale.
 - `/legal/[slug]`: políticas (privacidad, términos, datos personales, garantía).
 - `/cotizaciones/[token]`: cotización compartida con el cliente, con PDF.
 - `/sales/[token]`: factura o comprobante de una venta para el cliente.
