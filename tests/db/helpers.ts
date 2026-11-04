@@ -35,11 +35,11 @@ export async function llamar(accion: (form: FormData) => Promise<unknown>, campo
   return { url: "", ok: null, error: null };
 }
 
-/** Un comprobante pequeño (PNG de verdad: las acciones revisan los bytes). */
+/** Un comprobante pequeño (PNG 1×1 de verdad: las acciones revisan los bytes y sharp lo abre). */
 export function comprobante(nombre = "soporte.png"): File {
   const png = Buffer.from(
-    "89504e470d0a1a0a0000000d4948445200000001000000010806000000" +
-      "1f15c4890000000d49444154789c6360000002000100e221bc330000000049454e44ae426082",
+    "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de0000000970485973000003e8000003e801b57b526b" +
+      "0000000c49444154789c63f8ffff3f0005fe02fe0def46b80000000049454e44ae426082",
     "hex",
   );
   return new File([png], nombre, { type: "image/png" });

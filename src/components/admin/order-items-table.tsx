@@ -368,6 +368,24 @@ export function OrderItemsTable({
                     <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Foto de la guia</label>
                     <Input type="file" name="trackingPhoto" accept="image/*,application/pdf" className="h-8 text-xs" />
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      Foto 1: producto empacado, paquete abierto
+                    </label>
+                    <Input type="file" name="embalajeAbierto" accept="image/*" required className="h-8 text-xs" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      Foto 2: paquete cerrado con la guía
+                    </label>
+                    <Input type="file" name="embalajeCerrado" accept="image/*" required className="h-8 text-xs" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                      Fotos extra (hasta 3)
+                    </label>
+                    <Input type="file" name="embalajeExtra" accept="image/*" multiple className="h-8 text-xs" />
+                  </div>
                   <input type="hidden" name="shippingAddress" value={defaultAddress} />
                   {shipmentDefaults ? <ShipmentDispatchFields defaults={shipmentDefaults} /> : null}
                 </>
