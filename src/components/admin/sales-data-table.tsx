@@ -104,8 +104,6 @@ type SalePaymentRow = {
   receiptName: string | null;
   receiptType: string | null;
   paidAt: string | null;
-  // Recibo de caja al CRM: "ENVIADO", "FALLIDO" o null (no se mandó).
-  reciboCajaEstado: string | null;
 };
 
 type SaleRow = {
@@ -864,15 +862,6 @@ function AddSalePaymentSheet({
                       {payment.paidAt || "Sin fecha"}
                       {payment.note ? ` · ${payment.note}` : ""}
                     </p>
-                    {payment.reciboCajaEstado === "ENVIADO" ? (
-                      <span className="mt-1 inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
-                        Recibo enviado
-                      </span>
-                    ) : payment.reciboCajaEstado === "FALLIDO" ? (
-                      <span className="mt-1 inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                        Recibo no enviado
-                      </span>
-                    ) : null}
                   </div>
                   {payment.id ? (
                     <VoidPaymentButton paymentId={payment.id} amountLabel={formatMoney(payment.amount, currency)} />

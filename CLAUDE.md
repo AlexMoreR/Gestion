@@ -132,12 +132,6 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   En el formulario de abono es la opción "Retención en la fuente" de la lista de cuentas
   (`WITHHOLDING_ACCOUNT_VALUE`). Reglas puras en `src/modules/ventas/domain/withholding.ts`; reporte por
   mes en `/admin/ventas/retenciones?mes=AAAA-MM` (+ `/export` CSV).
-  **Recibo de caja al CRM** (nov-2026, migración `20261107120000_recibo_de_caja`, solo aditiva): al pasar a venta (uno
-  por todas las cuotas) y en cada abono (sin retención) se manda un PDF (pdf-lib) al CRM dentro de `after()`
-  (`CRM_RECIBO_URL`, def. `https://crm.magilus.com/api/gestion/recibo-de-caja`; Bearer `CRM_API_KEY` → `CATALOGO_API_KEY`
-  → `MCP_API_KEY`; reintentos 2/8/30 s) y se guarda `reciboCajaEstado` (ENVIADO/FALLIDO) + `reciboCajaEn`; etiqueta en
-  «Abonos registrados». `RECIBO_CAJA_AVISO=off` lo apaga. Razón social y dirección en
-  `src/modules/ventas/domain/recibo-caja.ts`; envío en `application/enviar-recibo-caja.ts`; prueba `npm run recibo:prueba`.
 - **ShippingCost** — **costo de envío por venta** (transportadora + monto). Es el "COSTO DE ENVÍO" que
   reduce la ganancia de esa venta (ej. flete a otra ciudad).
 

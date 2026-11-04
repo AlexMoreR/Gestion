@@ -37,7 +37,6 @@ type SaleWithDiscountFields = {
     createdAt?: unknown;
     isWithholding?: boolean | null;
     withholdingCertificate?: string | null;
-    reciboCajaEstado?: string | null;
   }>;
 };
 
@@ -263,7 +262,6 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
                 receiptName: typeof payment.receiptName === "string" && payment.receiptName.trim() ? payment.receiptName.trim() : null,
                 receiptType: typeof payment.receiptType === "string" && payment.receiptType.trim() ? payment.receiptType.trim() : null,
                 paidAt: formatPaymentDate(payment.paymentDate ?? payment.createdAt),
-                reciboCajaEstado: payment.reciboCajaEstado ?? null,
               }))
             : [],
           hasOrder: Boolean(sale.order),

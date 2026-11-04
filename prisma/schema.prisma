@@ -466,9 +466,6 @@ model SalePayment {
   isWithholding          Boolean @default(false)
   // Numero del certificado de retencion (opcional).
   withholdingCertificate String?
-  // Recibo de caja enviado al CRM: "ENVIADO" o "FALLIDO" (NULL = no se mando) y cuando.
-  reciboCajaEstado String?
-  reciboCajaEn     DateTime?
   // Quien registro el abono. NULL = abono viejo, sin dato.
   createdById   String?
   // createdAt = momento real del registro (nunca se sobrescribe); paymentDate = la que escribe el usuario.

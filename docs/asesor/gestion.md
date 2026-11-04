@@ -413,17 +413,6 @@ despachar (uno, en lote o tramo agregado; un aviso por cada cuenta distinta). Po
 `registrar_gasto` con `confirmado=true` devuelve el campo `aviso` con ese texto ("" si la cuenta no
 quedó en negativo). Regla en `src/modules/balances/domain/negative-balance.ts`.
 
-- `recibo_de_caja`: al pasar una cotización a venta (un solo recibo por todas las cuotas del anticipo) y en
-  cada abono nuevo, Gestión arma un **recibo de caja en PDF** (Magilus, Cali - Bogotá, Colombia; venta,
-  fecha, cliente, producto, valor abonado, saldo, estado del pedido y asesora) y lo manda al CRM
-  (`POST` a `CRM_RECIBO_URL`, por defecto `https://crm.magilus.com/api/gestion/recibo-de-caja`, con
-  `Authorization: Bearer` y la llave `CRM_API_KEY`, si no `CATALOGO_API_KEY`, si no `MCP_API_KEY`), que lo
-  reenvía por WhatsApp al cliente. Se manda después de responder a la asesora, con reintentos a los 2, 8 y
-  30 s; el abono guarda `reciboCajaEstado` (ENVIADO/FALLIDO) y `reciboCajaEn`. La retención en la fuente y
-  la venta de mostrador no llevan recibo. `RECIBO_CAJA_AVISO=off` lo apaga. No cambia montos, Balances ni
-  comisiones. Reglas en `src/modules/ventas/domain/recibo-caja.ts`; prueba sin mandar:
-  `npm run recibo:prueba -- --venta=SAL-123`.
-
 ## Qué NO tiene el sistema
 
 - El **origen** de las ventas anteriores a oct-2026 casi siempre es "Sin dato" (se puede rellenar con `npm run origen:rellenar`, que cruza el teléfono del cliente con el CRM).
@@ -441,8 +430,6 @@ quedó en negativo). Regla en `src/modules/balances/domain/negative-balance.ts`.
 - **Corte de mes y de día:** el día y el mes se cortan a medianoche de Colombia en todo el sistema (Balances, comisiones, nómina, gastos, retroactivos, equipo, Marketplace, cuenta de proveedoras). Una fecha que escribió una persona (la fecha de un abono, gasto o movimiento) cuenta en el día escrito; una hora real (cuando se registró algo) se lee en hora de Colombia. Un pago del 31 a las 8 p. m. es de ese mes, no del siguiente.
 
 ## Riesgos de operación
-
-- El **recibo de caja** le llega por WhatsApp al cliente apenas el CRM salga de modo PRUEBA. Si el CRM está caído más de ~40 s, la llave no coincide o el contenedor se reinicia justo al guardar, el recibo no sale y no se reintenta solo (el abono queda "Recibo no enviado" o sin etiqueta). Para apagarlo: `RECIBO_CAJA_AVISO=off`.
 
 - La **llave del MCP en la ruta** (`/api/mcp/{llave}`) queda escrita en la URL: puede aparecer en logs de Traefik o del proxy y en la configuración del conector. Si se filtra, cambia `MCP_API_KEY` en Portainer y vuelve a desplegar.
 - Los **links de `ver_venta`/`listar_ventas`/`listar_cotizaciones`** (cotización, venta, orden de fabricación) abren sin contraseña, y el MCP muestra costos: quien tenga la llave del MCP los ve. Se comparten solo con el cliente o la proveedora que corresponde.
