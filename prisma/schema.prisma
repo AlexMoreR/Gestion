@@ -1042,9 +1042,26 @@ model ManufacturingOrder {
   updatedAt       DateTime  @updatedAt
   order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
   supplier        Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  avisosColor     AvisoColorOF[]
 
   @@unique([orderId, supplierId])
   @@index([supplierId])
+}
+
+// Aviso de cambio de color para la proveedora (nov-2026): se crea al "Cambiar color" un producto de su
+// OF y se muestra arriba en /fabricacion/<token> hasta que ella toca "Ya lo vi" (vistoEn).
+model AvisoColorOF {
+  id                   String             @id @default(cuid())
+  manufacturingOrderId String
+  producto             String
+  colorViejo           String
+  colorNuevo           String
+  creadoPorId          String?
+  createdAt            DateTime           @default(now())
+  vistoEn              DateTime?
+  manufacturingOrder   ManufacturingOrder @relation(fields: [manufacturingOrderId], references: [id], onDelete: Cascade)
+
+  @@index([manufacturingOrderId])
 }
 
 // Modulo Transporte: cobertura de envio gratis por ciudad y corregimiento.

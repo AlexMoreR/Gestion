@@ -33,6 +33,7 @@ import {
   isManufacturingItem,
   suggestDeliveryAddress,
 } from "@/lib/manufacturing-orders";
+import { fechaAviso } from "@/lib/color-change";
 import type { ManufacturingCard } from "@/components/admin/order-manufacturing-tab";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { adminCreateShipmentAction } from "@/app/actions/shipment-actions";
@@ -510,6 +511,12 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           : Promise.resolve([]),
         getComboCamillasSupplierId(),
       ]);
+    // Avisos de cambio de color de cada OF (nov-2026): los sin ver y, si no hay, el último visto.
+    const avisosColor = await prisma.avisoColorOF.findMany({
+      where: { manufacturingOrderId: { in: manufacturingOrders.map((of) => of.id) } },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, manufacturingOrderId: true, producto: true, colorViejo: true, colorNuevo: true, createdAt: true, vistoEn: true },
+    });
     // Combo Camillas: aviso para mandarle el link a Laura (nunca se le manda solo).
     const ordenCombo = Boolean(logCreadaSola) || itemsParaPlan(quoteItems).some(esComboCamillas);
     brandName = systemBrandName;
@@ -524,9 +531,22 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       const supplierWhatsApp =
         phoneDigits.length === 10 && phoneDigits.startsWith("3") ? `57${phoneDigits}` : phoneDigits;
 
+      const avisos = avisosColor.filter((aviso) => aviso.manufacturingOrderId === manufacturingOrder.id);
+      const ultimoVisto = avisos.findLast((aviso) => aviso.vistoEn);
+
       return {
         id: manufacturingOrder.id,
         code: manufacturingOrder.code,
+        avisosSinVer: avisos
+          .filter((aviso) => !aviso.vistoEn)
+          .map((aviso) => ({
+            id: aviso.id,
+            producto: aviso.producto,
+            colorViejo: aviso.colorViejo,
+            colorNuevo: aviso.colorNuevo,
+            fecha: fechaAviso(aviso.createdAt),
+          })),
+        ultimoVistoEl: ultimoVisto?.vistoEn ? fechaAviso(ultimoVisto.vistoEn) : null,
         supplierName: supplier?.displayName || supplier?.name || "Proveedora",
         supplierWhatsApp,
         url: getSiteUrl(`/of/${manufacturingOrder.code}`),

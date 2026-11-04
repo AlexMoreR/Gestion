@@ -15,6 +15,7 @@ import {
   mismoColor,
   notesWithNewColor,
   parseColorChangeReason,
+  ofsConCambioDeColor,
   parseNuevoColor,
 } from "@/lib/color-change";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
@@ -376,8 +377,9 @@ export async function getCartaColoresOrdenAction(): Promise<CartaColores> {
 }
 
 // Cambia SOLO el color de un producto de una venta activa (cotización + orden; en un combo, todas sus
-// piezas), con motivo. Solo escribe las notas de las líneas, una nota de la orden y la bitácora:
-// no toca precios, totales, abonos, costos, estados, fechas ni avisa a nadie.
+// piezas), con motivo. Solo escribe las notas de las líneas, una nota de la orden, la bitácora y un aviso
+// por cada OF afectada (lo ve la proveedora en su OF; no se le manda nada solo). No toca precios,
+// totales, abonos, costos, estados ni fechas.
 export async function adminChangeSaleItemColorAction(formData: FormData): Promise<void> {
   await requireAdminSession();
   const orderItemId = String(formData.get("orderItemId") ?? "").trim();
@@ -409,12 +411,24 @@ export async function adminChangeSaleItemColorAction(formData: FormData): Promis
         type: true,
         status: true,
         sale: { select: { code: true, status: true, quoteId: true } },
-        items: { select: { id: true, quoteItemId: true, notes: true, product: { select: { name: true } } } },
+        items: {
+          select: {
+            id: true,
+            quoteItemId: true,
+            notes: true,
+            confirmedSupplierId: true,
+            fulfillmentMode: true,
+            product: { select: { name: true } },
+          },
+        },
+        manufacturingOrders: {
+          select: { id: true, supplierId: true, supplier: { select: { name: true, displayName: true } } },
+        },
       },
     });
-    if (!order || order.type !== "SALE" || !order.sale) return { error: "Solo se cambia el color en una orden de venta." };
+    if (!order || order.type !== "SALE" || !order.sale) return { error: "Solo se cambia el color en una orden de venta.", proveedoras: [] };
     if (order.status === "CANCELLED" || order.sale.status === "CANCELLED") {
-      return { error: "La venta está cancelada: no se puede cambiar el color." };
+      return { error: "La venta está cancelada: no se puede cambiar el color.", proveedoras: [] };
     }
     const quoteItems = await tx.quoteItem.findMany({
       where: { quoteId: order.sale.quoteId },
@@ -426,8 +440,8 @@ export async function adminChangeSaleItemColorAction(formData: FormData): Promis
       order.items,
     );
     const clicked = order.items.find((o) => o.id === orderItemId);
-    if (!lines || !clicked) return { error: "Producto no encontrado." };
-    if (mismoColor(clicked.notes, nuevo.value)) return { error: "Ese ya es el color de este producto." };
+    if (!lines || !clicked) return { error: "Producto no encontrado.", proveedoras: [] };
+    if (mismoColor(clicked.notes, nuevo.value)) return { error: "Ese ya es el color de este producto.", proveedoras: [] };
 
     const before = quoteItems.filter((q) => lines.quoteItemIds.includes(q.id));
     const beforeOrder = order.items.filter((o) => lines.orderItemIds.includes(o.id));
@@ -444,6 +458,19 @@ export async function adminChangeSaleItemColorAction(formData: FormData): Promis
     const viejo = parseQuoteItemMeta(clicked.notes).color.trim() || "sin color";
     const text = `Cambio de color de ${producto}: ${viejo} → ${nuevo.value.color}. Motivo: ${motivo.value}`;
     await tx.orderNote.create({ data: { orderId: order.id, text, createdById: actor.id } });
+    // Aviso a cada proveedora con una OF que tenga alguna de estas líneas (se ve arriba en su OF).
+    const ofIds = ofsConCambioDeColor(beforeOrder, order.manufacturingOrders);
+    if (ofIds.length > 0) {
+      await tx.avisoColorOF.createMany({
+        data: ofIds.map((manufacturingOrderId) => ({
+          manufacturingOrderId,
+          producto,
+          colorViejo: viejo,
+          colorNuevo: nuevo.value.color,
+          creadoPorId: actor.id,
+        })),
+      });
+    }
     await logActivityTx(tx, actor, {
       action: "UPDATE",
       entityType: "ORDER",
@@ -454,17 +481,29 @@ export async function adminChangeSaleItemColorAction(formData: FormData): Promis
         quoteItems: before.map((q) => ({ id: q.id, notes: q.notes })),
         orderItems: beforeOrder.map((o) => ({ id: o.id, notes: o.notes })),
       },
-      after: { color: nuevo.value, motivo: motivo.value, quoteItemIds: lines.quoteItemIds, orderItemIds: lines.orderItemIds },
+      after: {
+        color: nuevo.value,
+        motivo: motivo.value,
+        quoteItemIds: lines.quoteItemIds,
+        orderItemIds: lines.orderItemIds,
+        avisoColorOFs: ofIds,
+      },
     });
-    return { error: null };
+    const proveedoras = order.manufacturingOrders
+      .filter((of) => ofIds.includes(of.id))
+      .map((of) => of.supplier.displayName || of.supplier.name);
+    return { error: null, proveedoras };
   });
   if (result.error) redirect(`${back}?error=${encodeURIComponent(result.error)}`);
+  const ok = result.proveedoras.length
+    ? `Color cambiado. Avísale a ${result.proveedoras.join(" y ")} en la pestaña Fabricación`
+    : "Color cambiado";
 
   revalidatePath("/admin/ordenes");
   revalidatePath("/admin/cotizaciones");
   revalidatePath("/admin/ventas");
   revalidatePath(back);
-  redirect(`${back}?ok=${encodeURIComponent("Color cambiado")}`);
+  redirect(`${back}?ok=${encodeURIComponent(ok)}`);
 }
 
 export async function adminDeleteOrderNoteAction(formData: FormData): Promise<void> {

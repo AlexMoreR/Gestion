@@ -1,6 +1,8 @@
 // Cambio de color en una venta activa (nov-2026): el color vive como texto en las notas de cada
 // línea (QuoteItem y, copiado, OrderItem). Aquí solo reglas puras: validar, reescribir la nota sin
 // tocar lo demás y escoger qué líneas cambian. La escritura está en adminChangeSaleItemColorAction.
+import { displayCode } from "./code-display";
+import { colombiaDayKey } from "./colombia-time";
 import { parseQuoteItemMeta, stringifyQuoteItemMeta } from "./quote-item-meta";
 
 export const COLOR_CHANGE_REASON_MIN = 3;
@@ -115,4 +117,33 @@ export function linesToRecolor(
     }
   }
   return { quoteItemIds: [...ids], orderItemIds: [...orderIds] };
+}
+
+// ── Aviso a la proveedora (nov-2026) ──────────────────────────────────────────────────────────────
+// Un aviso por OF y por cambio: la OF es de una proveedora en una orden, y cuenta si alguna de las
+// líneas recoloreadas es suya y no sale de stock (las de stock no están en su OF).
+export type LineaRecoloreada = { confirmedSupplierId: string | null; fulfillmentMode: string };
+export type OFDeLaOrden = { id: string; supplierId: string };
+
+export function ofsConCambioDeColor(lineas: LineaRecoloreada[], ofs: OFDeLaOrden[]): string[] {
+  const proveedoras = new Set(
+    lineas.filter((l) => l.confirmedSupplierId && l.fulfillmentMode !== "STOCK").map((l) => l.confirmedSupplierId),
+  );
+  return ofs.filter((of) => proveedoras.has(of.supplierId)).map((of) => of.id);
+}
+
+export function mensajeCambioColorOF(aviso: {
+  code: string;
+  producto: string;
+  colorViejo: string;
+  colorNuevo: string;
+  url: string;
+}): string {
+  return `Cambio de color en ${displayCode(aviso.code)}: ${aviso.producto} pasa de ${aviso.colorViejo} a ${aviso.colorNuevo}\n${aviso.url}`;
+}
+
+/** Fecha del aviso para mostrar (día en Colombia), p. ej. "04/11/2026". */
+export function fechaAviso(date: Date): string {
+  const [y, m, d] = colombiaDayKey(date).split("-");
+  return `${d}/${m}/${y}`;
 }

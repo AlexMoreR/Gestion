@@ -93,6 +93,7 @@ en las Server Actions y en `src/lib/`.
 - `CartaColor`: un color de la antigua carta de colores de Gestión (código, nombre, muestra, foto). Sin uso desde nov-2026; la carta vive en el CRM. Los datos se conservan.
 - `ParteColor`: una parte de un producto que lleva color propio (ej. Tapizado, Estructura), con su orden (migración `20261108120000_partes_de_color`). Cuelga de una categoría (plantilla para sus productos) o de un producto (partes propias), nunca de los dos. Tipo Carta: sus colores salen de la carta del CRM, solo de los materiales marcados (ej. Cuero, Tela). Tipo Acabados: una lista fija escrita a mano (ej. Cromada, Dorada, Negra). Si el producto tiene partes propias mandan esas; si no, las de su categoría. `mascaraUrl`: PNG en blanco y negro sobre la foto de portada (blanco = la parte), pintado en `/admin/productos/[productId]/mascaras` y guardado en `public/uploads/mascaras/`; guardar las partes conserva la máscara de cada parte con el mismo nombre. Todavía no se usa en cotizaciones, ventas ni órdenes.
 - `MonthClosure`: cierre de mes congelado (ventas, costos, envíos, gastos, utilidad y margen) que se comparte por correo.
+- `AvisoColorOF`: aviso de cambio de color para la proveedora de una OF (producto, color viejo y nuevo, fecha y cuándo lo vio); se crea al "Cambiar color" y desaparece de la OF cuando ella toca "Ya lo vi".
 - `ManufacturingOrder`: orden de fabricación (OF-) de una proveedora dentro de una orden de venta, con enlace para enviársela, fecha y dirección de entrega.
 - `TeamMember`: ficha de un trabajador (Equipo): datos personales, cargo, vinculación, forma de pago, fecha de ingreso, fecha de salida y motivo. Unida opcionalmente (y una sola vez) a su usuario; si se borra el usuario, la ficha queda. El nombre de la ficha es el nombre visible del usuario unido: al guardarla se copia a `User.name` y todo lo demás sigue ligado al id. La sesión de la persona puede mostrar el nombre viejo hasta que vuelva a entrar, y los PDF ya generados conservan el nombre viejo.
 - `AsistenciaMarca`: La asistencia se quitó (28-oct-2026); la tabla `AsistenciaMarca` queda con los datos viejos, sin uso.
@@ -114,7 +115,7 @@ en las Server Actions y en `src/lib/`.
 - `/cotizaciones/[token]`: cotización compartida con el cliente, con PDF.
 - `/sales/[token]`: factura o comprobante de una venta para el cliente.
 - `/proveedores/[token]`: estado de cuenta de una proveedora.
-- `/fabricacion/[token]`: orden de fabricación para la proveedora: sus productos, medidas, color (si viene de la carta del CRM, con la foto de la muestra, el código y el material), fecha, dirección y costo, sin precio de venta ni datos del cliente.
+- `/fabricacion/[token]`: orden de fabricación para la proveedora: sus productos, medidas, color (si viene de la carta del CRM, con la foto de la muestra, el código y el material), fecha, dirección y costo, sin precio de venta ni datos del cliente. Si le cambiaron el color a un producto, arriba sale "Color cambiado el <fecha>: <producto> <viejo> → <nuevo>" con el botón **Ya lo vi** (lo quita).
 - `/informe`: informe mensual protegido con token.
 - `/login`: inicio de sesión.
 - `/register`: registro de clientes.

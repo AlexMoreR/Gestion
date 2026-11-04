@@ -78,3 +78,48 @@ export async function adminUpdateManufacturingOrderAction(formData: FormData): P
   revalidatePath(returnTo);
   redirectWith(returnTo, "ok", "Orden de fabricación actualizada");
 }
+
+// "Ya lo vi" de la proveedora en su OF pública (/fabricacion/<token>): sin sesión, el enlace secreto es el
+// permiso. Solo marca el aviso si es de la OF de ese enlace y aún no estaba visto; nada más cambia.
+export async function markColorNoticeSeenAction(formData: FormData): Promise<void> {
+  const token = String(formData.get("token") ?? "").trim();
+  const avisoId = String(formData.get("avisoId") ?? "").trim();
+  if (!token || !avisoId || token.length > 200 || avisoId.length > 100) return;
+
+  const aviso = await prisma.avisoColorOF.findFirst({
+    where: { id: avisoId, vistoEn: null, manufacturingOrder: { shareToken: token } },
+    select: {
+      id: true,
+      producto: true,
+      colorViejo: true,
+      colorNuevo: true,
+      manufacturingOrder: {
+        select: { code: true, orderId: true, supplier: { select: { name: true, displayName: true } } },
+      },
+    },
+  });
+  if (aviso) {
+    const of = aviso.manufacturingOrder;
+    const vistoEn = new Date();
+    await prisma.$transaction(async (tx) => {
+      // vistoEn: null en el where: si dos toques llegan a la vez, solo uno lo marca y lo anota.
+      const { count } = await tx.avisoColorOF.updateMany({ where: { id: aviso.id, vistoEn: null }, data: { vistoEn } });
+      if (count === 0) return;
+      await tx.activityLog.create({
+        data: {
+          actorId: null,
+          actorName: `${of.supplier.displayName || of.supplier.name} (proveedora, enlace de la OF)`,
+          action: "UPDATE",
+          entityType: "ORDER",
+          entityId: of.orderId,
+          entityCode: of.code,
+          summary: `La proveedora vio el cambio de color de ${aviso.producto}: ${aviso.colorViejo} → ${aviso.colorNuevo}`.slice(0, 500),
+          after: { avisoColorOFId: aviso.id, vistoEn: vistoEn.toISOString() },
+          origin: "PANTALLA",
+        },
+      });
+    });
+    revalidatePath(`/admin/ordenes/${of.orderId}`);
+    revalidatePath(`/fabricacion/${token}`);
+  }
+}

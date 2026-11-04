@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { CalendarDays, MapPin } from "lucide-react";
+import { AlertTriangle, CalendarDays, MapPin } from "lucide-react";
+import { markColorNoticeSeenAction } from "@/app/actions/manufacturing-order-actions";
+import { fechaAviso } from "@/lib/color-change";
 import { displayCode } from "@/lib/code-display";
 import { formatMoney } from "@/lib/currency";
 import { colorLabel } from "@/lib/quote-item-meta";
@@ -53,6 +55,12 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
     where: { shareToken: token },
     include: {
       supplier: { select: { name: true, displayName: true } },
+      // Cambios de color que la proveedora aún no marca como vistos (nov-2026).
+      avisosColor: {
+        where: { vistoEn: null },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, producto: true, colorViejo: true, colorNuevo: true, createdAt: true },
+      },
       // Del cliente solo ciudad y departamento de destino; nunca dirección, barrio, nombre ni teléfono (29-oct-2026).
       // De la venta solo la forma de pago, para decirle cómo se le paga (30-oct-2026).
       order: {
@@ -112,6 +120,30 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
       </header>
 
       <main className="mx-auto w-full max-w-4xl space-y-5 px-4 py-6 md:px-6 md:py-8">
+        {manufacturingOrder.avisosColor.map((aviso) => (
+          <section
+            key={aviso.id}
+            className="flex flex-col gap-3 rounded-xl border-2 border-amber-400 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <p className="flex items-start gap-2 text-base font-bold text-amber-900">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+              <span>
+                Color cambiado el {fechaAviso(aviso.createdAt)}: {aviso.producto} {aviso.colorViejo} → {aviso.colorNuevo}
+              </span>
+            </p>
+            <form action={markColorNoticeSeenAction} className="print:hidden">
+              <input type="hidden" name="token" value={token} />
+              <input type="hidden" name="avisoId" value={aviso.id} />
+              <button
+                type="submit"
+                className="w-full rounded-full bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 sm:w-auto"
+              >
+                Ya lo vi
+              </button>
+            </form>
+          </section>
+        ))}
+
         <section className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{displayCode(manufacturingOrder.code)}</h1>
