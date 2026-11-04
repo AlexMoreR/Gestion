@@ -1,3 +1,4 @@
+import { textoColores } from "./product-parts";
 import type { QuoteItemMeta } from "./quote-item-meta";
 
 type QuoteDisplayProduct = {
@@ -28,7 +29,16 @@ export type QuoteDisplayItem = {
   imageUrl: string;
   imageAlt: string;
   observation: string;
+  /** Imagen con los colores elegidos ("" si no hay); tiene prioridad sobre imageUrl donde se muestre. */
+  imagenColoresUrl: string;
+  /** 'Tapizado: Crema · Base: Dorada' si la línea tiene partes; "" si no. */
+  coloresTexto: string;
 };
+
+const coloresDe = (meta: QuoteItemMeta) => ({
+  imagenColoresUrl: clean(meta.imagenColoresUrl),
+  coloresTexto: meta.partes.length > 0 ? textoColores(meta.partes) : "",
+});
 
 function toNumber(value: unknown): number {
   const numberValue = Number(value ?? 0);
@@ -63,6 +73,7 @@ export function groupQuoteDisplayItems(items: QuoteDisplayItemInput[]): QuoteDis
         imageUrl: clean(item.meta.imageUrl) || clean(item.product.thumbnailUrl),
         imageAlt: item.product.name,
         observation: clean(item.product.description),
+        ...coloresDe(item.meta),
       });
       continue;
     }
@@ -78,6 +89,8 @@ export function groupQuoteDisplayItems(items: QuoteDisplayItemInput[]): QuoteDis
       }
       if (!group.observation) group.observation = clean(item.meta.description) || clean(item.product.description);
       if (!group.productCode) group.productCode = clean(item.meta.comboCode) || null;
+      if (!group.imagenColoresUrl) group.imagenColoresUrl = clean(item.meta.imagenColoresUrl);
+      if (!group.coloresTexto) group.coloresTexto = coloresDe(item.meta).coloresTexto;
       continue;
     }
 
@@ -97,6 +110,7 @@ export function groupQuoteDisplayItems(items: QuoteDisplayItemInput[]): QuoteDis
       imageUrl,
       imageAlt: productName,
       observation: clean(item.meta.description) || clean(item.product.description),
+      ...coloresDe(item.meta),
     });
   }
 

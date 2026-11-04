@@ -421,7 +421,22 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
             {displayItems.map((item) => (
               <TableRow key={item.key} className="transition-colors">
                 <TableCell className={isPdf ? "p-0 text-center" : "text-center"}>
-                  {item.imageUrl ? (
+                  {item.imagenColoresUrl ? (
+                    // La imagen con colores no tiene versiones reducidas: va con su dirección directa.
+                    <img
+                      src={getPublicAssetUrl(item.imagenColoresUrl)}
+                      alt={`${item.imageAlt} con los colores elegidos`}
+                      className={
+                        isPdf
+                          ? "h-14 w-14 rounded object-contain border mx-auto bg-white"
+                          : "h-20 w-20 rounded object-contain border mx-auto bg-white"
+                      }
+                    />
+                  ) : item.coloresTexto ? (
+                    <span className={isPdf ? "block px-1 text-[9px] leading-tight text-slate-500" : "block text-xs leading-tight text-slate-500"}>
+                      Sin vista previa de color
+                    </span>
+                  ) : item.imageUrl ? (
                     <img
                       src={imageVariantUrl(getPublicAssetUrl(item.imageUrl), "thumb")}
                       alt={item.imageAlt}
@@ -443,6 +458,11 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                         {item.productCode}
                       </p>
                     )}
+                    {item.coloresTexto ? (
+                      <p className={isPdf ? "mt-0.5 text-[10px] text-slate-700" : "mt-1 text-xs text-slate-700"}>
+                        {item.coloresTexto}
+                      </p>
+                    ) : null}
                   </div>
                 </TableCell>
                 <TableCell className={isPdf ? "py-1 px-2" : ""}>

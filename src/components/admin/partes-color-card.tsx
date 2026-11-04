@@ -7,7 +7,7 @@ import { Paintbrush, Palette, Plus, Trash2 } from "lucide-react";
 import { guardarPartesColorAction, usarPartesDeCategoriaAction } from "@/app/actions/product-parts-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { limpiarLista, type ParteColorTipo, type RecargosParte } from "@/lib/product-parts";
+import { esHex, hexDeAcabado, limpiarLista, type ParteColorTipo, type RecargosParte } from "@/lib/product-parts";
 
 export type ParteColorFila = {
   nombre: string;
@@ -16,6 +16,8 @@ export type ParteColorFila = {
   acabados: string[];
   recargos: RecargosParte;
   coloresComunes: string[];
+  /** Color exacto de cada acabado (#RRGGBB); sin valor = el de fábrica. */
+  acabadosHex: Record<string, string>;
 };
 
 // En edición los acabados y los colores comunes se escriben como texto separado por comas, y
@@ -28,6 +30,7 @@ type ParteEditable = {
   comunesTexto: string;
   recargoMaterial: Record<string, string>;
   recargoAcabado: Record<string, string>;
+  hexAcabado: Record<string, string>;
 };
 
 const aTexto = (tabla: Record<string, number> | undefined) =>
@@ -41,7 +44,37 @@ const aEditable = (parte: ParteColorFila): ParteEditable => ({
   comunesTexto: parte.coloresComunes.join(", "),
   recargoMaterial: aTexto(parte.recargos.materiales),
   recargoAcabado: aTexto(parte.recargos.acabados),
+  hexAcabado: { ...parte.acabadosHex },
 });
+
+/** Los colores escritos de los acabados que siguen en la lista (el servidor valida #RRGGBB). */
+const aHex = (lista: string[], textos: Record<string, string>): Record<string, string> =>
+  Object.fromEntries(lista.flatMap((acabado) => (textos[acabado]?.trim() ? [[acabado, textos[acabado].trim()]] : [])));
+
+function HexAcabadoInput({ acabado, value, disabled, onChange }: { acabado: string; value: string; disabled: boolean; onChange: (v: string) => void }) {
+  const defecto = hexDeAcabado(acabado, {});
+  return (
+    <span className="inline-flex items-center gap-1">
+      <input
+        type="color"
+        aria-label={`Color de ${acabado}`}
+        value={(esHex(value) ? value : defecto ?? "#808080").toLowerCase()}
+        disabled={disabled}
+        className="h-8 w-8 shrink-0 cursor-pointer rounded border border-[var(--line)] bg-white p-0.5"
+        onChange={(event) => onChange(event.target.value.toUpperCase())}
+      />
+      <Input
+        value={value}
+        maxLength={7}
+        placeholder={defecto ?? "#RRGGBB"}
+        aria-label={`Código de color de ${acabado}`}
+        disabled={disabled}
+        className="h-8 w-24 font-mono text-xs"
+        onChange={(event) => onChange(event.target.value.trim())}
+      />
+    </span>
+  );
+}
 
 /** Solo los recargos escritos con un número mayor a 0, de las opciones que siguen en la lista. */
 const aRecargos = (lista: string[], textos: Record<string, string>): Record<string, number> =>
@@ -148,6 +181,7 @@ export function PartesColorCard({ duenio, id, partes, partesCategoria = [], cate
               acabados: aRecargos(acabados, parte.recargoAcabado),
             },
             coloresComunes: limpiarLista(parte.comunesTexto.split(",")),
+            acabadosHex: aHex(acabados, parte.hexAcabado),
           };
         }),
       });
@@ -341,6 +375,12 @@ export function PartesColorCard({ duenio, id, partes, partesCategoria = [], cate
                         {limpiarLista(parte.acabadosTexto.split(",")).map((acabado) => (
                           <div key={acabado} className="inline-flex items-center gap-2 text-sm text-slate-700">
                             <span className="break-words">{acabado}</span>
+                            <HexAcabadoInput
+                              acabado={acabado}
+                              value={parte.hexAcabado[acabado] ?? ""}
+                              disabled={pending}
+                              onChange={(valor) => cambiar(index, { hexAcabado: { ...parte.hexAcabado, [acabado]: valor } })}
+                            />
                             <RecargoInput
                               value={parte.recargoAcabado[acabado] ?? ""}
                               disabled={pending}
@@ -361,6 +401,7 @@ export function PartesColorCard({ duenio, id, partes, partesCategoria = [], cate
           {lista.length > 0 ? (
             <p className="text-xs text-slate-500">
               El «Recargo $» solo sale como aviso en la cotización; no cambia ningún precio. Vacío = sin recargo.
+              El color de cada acabado (#RRGGBB) pinta la vista previa; vacío = el de fábrica, si lo hay.
             </p>
           ) : null}
           <div className="flex flex-wrap gap-2">
@@ -373,7 +414,7 @@ export function PartesColorCard({ duenio, id, partes, partesCategoria = [], cate
               onClick={() =>
                 setLista((actual) => [
                   ...actual,
-                  { nombre: "", tipo: "CARTA", materiales: [], acabadosTexto: "", comunesTexto: "", recargoMaterial: {}, recargoAcabado: {} },
+                  { nombre: "", tipo: "CARTA", materiales: [], acabadosTexto: "", comunesTexto: "", recargoMaterial: {}, recargoAcabado: {}, hexAcabado: {} },
                 ])
               }
             >

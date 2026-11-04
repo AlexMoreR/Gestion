@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { CartaColor, CartaColores } from "@/lib/carta-colores-crm";
 import { COLOR_CHANGE_REASON_MAX, COLOR_CHANGE_REASON_MIN } from "@/lib/color-change";
+import { POR_DEFINIR, textoColores, type ParteElegida, type ParteParaCotizar } from "@/lib/product-parts";
+import { PartesColorSelector, partesIniciales } from "@/components/admin/partes-color-selector";
 
 function SaveButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
@@ -29,20 +31,28 @@ export function ChangeItemColorDialog({
   orderItemId,
   productName,
   currentColor,
+  partes = [],
+  partesElegidas = [],
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   orderItemId: string;
   productName: string;
   currentColor: string;
+  /** Partes de color del producto: si hay, se cambia el color de cada parte (y se rehace la imagen). */
+  partes?: ParteParaCotizar[];
+  partesElegidas?: ParteElegida[];
 }) {
+  const porPartes = partes.length > 0;
+  const [elegidos, setElegidos] = useState<ParteElegida[]>(() => partesIniciales(partes, partesElegidas));
+  const faltaParte = elegidos.some((e) => !e.color.trim() || e.color.trim() === POR_DEFINIR);
   const [carta, setCarta] = useState<CartaColores | null>(null);
   const [elegido, setElegido] = useState<(CartaColor & { material: string }) | null>(null);
   const [manual, setManual] = useState(false);
   const [colorEscrito, setColorEscrito] = useState("");
   const materiales = carta?.materiales ?? [];
   const colorManual = manual || (carta !== null && materiales.length === 0);
-  const color = colorManual ? colorEscrito.trim() : elegido?.nombre ?? "";
+  const color = porPartes ? (faltaParte ? "" : textoColores(elegidos)) : colorManual ? colorEscrito.trim() : elegido?.nombre ?? "";
 
   useEffect(() => {
     if (!open || carta) return;
@@ -73,11 +83,32 @@ export function ChangeItemColorDialog({
 
         <form action={adminChangeSaleItemColorAction} className="space-y-3">
           <input type="hidden" name="orderItemId" value={orderItemId} />
+          {porPartes ? <input type="hidden" name="partes" value={JSON.stringify(elegidos)} /> : null}
           <input type="hidden" name="color" value={color} />
           <input type="hidden" name="colorCodigo" value={colorManual ? "" : elegido?.codigo ?? ""} />
           <input type="hidden" name="colorMaterial" value={colorManual ? "" : elegido?.material ?? ""} />
           <input type="hidden" name="colorFotoUrl" value={colorManual ? "" : elegido?.fotoUrl ?? ""} />
 
+          {porPartes ? (
+            <div className="space-y-1.5">
+              <span className="text-sm font-medium text-foreground">Color por parte</span>
+              {carta && carta.origen !== "crm" ? (
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  {carta.origen === "copia"
+                    ? "No se pudo leer la carta del CRM. Se muestra la última copia guardada."
+                    : "No se pudo leer la carta del CRM. Solo se pueden cambiar los acabados."}
+                </p>
+              ) : null}
+              <PartesColorSelector
+                idPrefix={`cambio-${orderItemId}`}
+                partes={partes}
+                carta={carta ? materiales : null}
+                elegidos={elegidos}
+                onChange={setElegidos}
+              />
+              <p className="text-xs text-muted-foreground">La imagen con colores se vuelve a hacer al guardar.</p>
+            </div>
+          ) : (
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm font-medium text-foreground">
@@ -169,6 +200,7 @@ export function ChangeItemColorDialog({
               </div>
             )}
           </div>
+          )}
 
           <div className="space-y-1">
             <label htmlFor={`motivo-${orderItemId}`} className="text-sm font-medium text-foreground">
@@ -185,7 +217,11 @@ export function ChangeItemColorDialog({
             />
           </div>
 
-          {!color ? <p className="text-xs text-muted-foreground">Escoge o escribe el color nuevo para guardar.</p> : null}
+          {!color ? (
+            <p className="text-xs text-muted-foreground">
+              {porPartes ? "Escoge el color de cada parte para guardar." : "Escoge o escribe el color nuevo para guardar."}
+            </p>
+          ) : null}
           <SaveButton disabled={!color} />
         </form>
       </DialogContent>

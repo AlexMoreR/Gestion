@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Loader2, TriangleAlert } from "lucide-react";
+import { previsualizarColoresAction } from "@/app/actions/quote-actions";
 import type { CartaMaterial } from "@/lib/carta-colores-crm";
 import {
   POR_DEFINIR,
@@ -54,9 +56,49 @@ type Props = {
   elegidos: ParteElegida[];
   onChange: (next: ParteElegida[]) => void;
   idPrefix: string;
+  /** Producto dueño de las partes (en un combo, el combo): si viene, muestra la vista previa con colores. */
+  vistaProductId?: string;
 };
 
-export function PartesColorSelector({ partes, carta, elegidos, onChange, idPrefix }: Props) {
+/** Imagen con los colores elegidos, pedida unos 400 ms después del último cambio. */
+function VistaPreviaColores({ productId, elegidos }: { productId: string; elegidos: ParteElegida[] }) {
+  const firma = JSON.stringify(elegidos);
+  const [vista, setVista] = useState<{ firma: string; url: string } | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    const espera = setTimeout(() => {
+      previsualizarColoresAction(productId, JSON.parse(firma))
+        .then((result) => vivo && setVista({ firma, url: result.url }))
+        .catch(() => vivo && setVista({ firma, url: "" }));
+    }, 400);
+    return () => {
+      vivo = false;
+      clearTimeout(espera);
+    };
+  }, [productId, firma]);
+
+  if (!vista || vista.firma !== firma) {
+    return (
+      <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        Preparando vista previa...
+      </p>
+    );
+  }
+  return vista.url ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={vista.url}
+      alt="Vista previa con los colores elegidos"
+      className="h-40 w-40 max-w-full rounded-md border border-border bg-white object-contain"
+    />
+  ) : (
+    <p className="text-xs text-muted-foreground">Sin vista previa de color</p>
+  );
+}
+
+export function PartesColorSelector({ partes, carta, elegidos, onChange, idPrefix, vistaProductId }: Props) {
   const actuales = partesIniciales(partes, elegidos);
   const avisos = avisosDeRecargo(partes, actuales);
 
@@ -119,6 +161,7 @@ export function PartesColorSelector({ partes, carta, elegidos, onChange, idPrefi
           );
         })}
       </div>
+      {vistaProductId ? <VistaPreviaColores productId={vistaProductId} elegidos={actuales} /> : null}
       {avisos.length > 0 ? (
         <ul className="space-y-1" role="status">
           {avisos.map((aviso) => (

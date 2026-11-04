@@ -213,10 +213,17 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
                       </p>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={imageVariantUrl(getPublicAssetUrl(line.imageUrl), "large")}
-                        alt={line.productName}
+                        src={
+                          line.imagenDeColores
+                            ? getPublicAssetUrl(line.imageUrl)
+                            : imageVariantUrl(getPublicAssetUrl(line.imageUrl), "large")
+                        }
+                        alt={line.imagenDeColores ? `${line.productName} con los colores a fabricar` : line.productName}
                         className="h-auto w-full rounded-lg border border-slate-100 object-contain"
                       />
+                      {line.partesTexto ? (
+                        <p className="text-center text-sm font-semibold text-slate-900">{line.partesTexto}</p>
+                      ) : null}
                     </div>
                   ) : null}
                   <div className="min-w-0 space-y-1">

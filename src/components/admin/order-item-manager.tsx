@@ -21,6 +21,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChangeItemColorDialog } from "@/components/admin/change-item-color-dialog";
+import type { ParteElegida, ParteParaCotizar } from "@/lib/product-parts";
 import { ProductThumb } from "@/components/admin/product-thumb";
 import { ReversalReasonFields } from "@/components/admin/reversal-reason-fields";
 import {
@@ -77,6 +78,10 @@ export type OrderItemManagerData = {
   color: string;
   /** Venta activa (no cancelada): se puede cambiar solo el color. */
   canChangeColor: boolean;
+  /** Partes de color del producto (o de su combo); vacío = un solo color. */
+  partesDef: ParteParaCotizar[];
+  /** Color elegido por parte (de las notas de la línea). */
+  partesElegidas: ParteElegida[];
   isConfirmed: boolean;
   isRecogido: boolean;
   isDespachado: boolean;
@@ -922,11 +927,14 @@ export function OrderItemManager({
 
       {item.canChangeColor ? (
         <ChangeItemColorDialog
+          key={item.color}
           open={colorOpen}
           onOpenChange={setColorOpen}
           orderItemId={item.id}
           productName={item.productName}
           currentColor={item.color}
+          partes={item.partesDef}
+          partesElegidas={item.partesElegidas}
         />
       ) : null}
       <Dialog open={splitOpen} onOpenChange={(value) => (value ? null : setSplitOpen(false))}>

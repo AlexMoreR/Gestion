@@ -61,6 +61,9 @@ import {
 import { paymentMethodLabel } from "@/modules/ventas/domain/withholding";
 import type { ShipmentDefaults } from "@/modules/guias/presentation/shipment-dispatch-fields";
 import { displayCode } from "@/lib/code-display";
+import { duenioDePartes, lineaFuente } from "@/lib/color-change";
+import { partesPorProducto } from "@/lib/product-parts.server";
+import type { ParteParaCotizar } from "@/lib/product-parts";
 
 type PageProps = {
   params: Promise<{ orderId: string }>;
@@ -345,6 +348,25 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   // Cambiar color: solo en una venta (y su orden) no cancelada.
   const canChangeColor =
     !isPurchase && Boolean(order.sale) && order.sale?.status !== "CANCELLED" && order.status !== "CANCELLED";
+  // Partes de color de cada producto (para «Cambiar color» por parte): las del combo o las del producto.
+  const partesDeItem = new Map<string, ParteParaCotizar[]>();
+  if (canChangeColor && order.sale) {
+    const quoteItems = await prisma.quoteItem.findMany({
+      where: { quoteId: order.sale.quoteId },
+      select: { id: true, productId: true, notes: true, product: { select: { name: true, isBundle: true } } },
+    });
+    const cotizacion = quoteItems.map((q) => ({ id: q.id, productId: q.productId, notes: q.notes, productName: q.product.name, isBundle: q.product.isBundle }));
+    const codigos = [...new Set(order.items.map((item) => parseQuoteItemMeta(item.notes).comboCode.trim()).filter(Boolean))];
+    const combos = codigos.length
+      ? await prisma.product.findMany({ where: { code: { in: codigos } }, select: { id: true, code: true } })
+      : [];
+    const idPorCodigo = new Map(combos.flatMap((c) => (c.code ? [[c.code, c.id] as const] : [])));
+    const duenios = new Map(
+      order.items.map((item) => [item.id, duenioDePartes(item, lineaFuente(item, cotizacion), idPorCodigo)] as const),
+    );
+    const partes = await partesPorProducto(prisma, [...duenios.values()]);
+    for (const [itemId, duenio] of duenios) partesDeItem.set(itemId, partes.get(duenio) ?? []);
+  }
   const orderItemsData = order.items.map((item) => {
     const itemDispatch = dispatchByItemId.get(item.id);
     // Proveedores efectivos: los del producto o, si es un combo (sin proveedor
@@ -376,6 +398,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       observations,
       color: meta.color.trim(),
       canChangeColor,
+      partesDef: partesDeItem.get(item.id) ?? [],
+      partesElegidas: meta.partes,
       isConfirmed: itemIsConfirmed(item),
       isRecogido: isItemRecogido(item),
       isDespachado: isItemDespachado(item),

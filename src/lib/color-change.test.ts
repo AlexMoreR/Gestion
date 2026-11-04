@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  duenioDePartes,
   fechaAviso,
+  lineaFuente,
+  partesConCambio,
   linesToRecolor,
   mensajeCambioColorOF,
   ofsConCambioDeColor,
@@ -128,6 +131,64 @@ describe("notesWithNewColor con partes", () => {
     const despues = parseQuoteItemMeta(notesWithNewColor(antes, palo));
     expect(despues.color).toBe("Palo de rosa");
     expect(despues.partes).toEqual([]);
+  });
+
+  const parte = (p: string, color: string) => ({ parte: p, color, colorCodigo: "", colorMaterial: "", colorFotoUrl: "", hex: "" });
+  const conPartes = nota({
+    description: "Combo: CMB005",
+    partes: [parte("Tapizado", "Crema"), parte("Base", "Cromada")],
+    imagenColoresUrl: "/uploads/vista-color/vieja.webp",
+  });
+
+  it("cambia solo la parte con el mismo nombre, conserva las demás y guarda la imagen nueva", () => {
+    const nuevo = parseNuevoColor({ partes: JSON.stringify([parte("base", "Dorada")]) });
+    expect(nuevo.ok).toBe(true);
+    if (!nuevo.ok) return;
+    const despues = parseQuoteItemMeta(notesWithNewColor(conPartes, nuevo.value, "/uploads/vista-color/nueva.webp"));
+    expect(despues.partes.map((p) => `${p.parte}:${p.color}`)).toEqual(["Tapizado:Crema", "Base:Dorada"]);
+    expect(despues.color).toBe("Tapizado: Crema · Base: Dorada");
+    expect(despues.description).toBe("Combo: CMB005");
+    expect(despues.imagenColoresUrl).toBe("/uploads/vista-color/nueva.webp");
+  });
+
+  it("un color de texto borra la imagen con colores vieja", () => {
+    expect(parseQuoteItemMeta(notesWithNewColor(conPartes, palo)).imagenColoresUrl).toBe("");
+  });
+
+  it("mismoColor con partes: igual si las partes elegidas no cambian", () => {
+    expect(mismoColor(conPartes, { ...palo, partes: [parte("Base", "Cromada")] })).toBe(true);
+    expect(mismoColor(conPartes, { ...palo, partes: [parte("Base", "Dorada")] })).toBe(false);
+  });
+
+  it("una línea sin partes toma las nuevas", () => {
+    expect(partesConCambio(nota({ color: "Negro" }), { ...palo, partes: [parte("Base", "Dorada")] })).toEqual([parte("Base", "Dorada")]);
+  });
+
+  it("parseNuevoColor rechaza una parte en Por definir o sin color, y hex que no es #RRGGBB", () => {
+    expect(parseNuevoColor({ partes: JSON.stringify([parte("Base", "Por definir")]) }).ok).toBe(false);
+    expect(parseNuevoColor({ partes: JSON.stringify([parte("Base", "")]) }).ok).toBe(false);
+    expect(parseNuevoColor({ partes: "no es json" }).ok).toBe(false);
+    const r = parseNuevoColor({ partes: JSON.stringify([{ ...parte("Base", "Dorada"), hex: "red" }]) });
+    expect(r.ok && r.value.partes?.[0].hex).toBe("");
+  });
+});
+
+describe("lineaFuente / duenioDePartes", () => {
+  const quote: (LineaCotizacion & { productId: string })[] = [
+    { id: "q1", productId: "cmb", notes: nota({ color: "Crema" }), productName: "Combo camillas", isBundle: true },
+  ];
+  const pieza = { id: "o1", quoteItemId: null, productId: "camilla", notes: nota({ description: "Combo: Combo camillas", color: "Crema" }) };
+
+  it("pieza de un combo sin desglosar: el dueño es el combo", () => {
+    const fuente = lineaFuente(pieza, quote);
+    expect(fuente?.id).toBe("q1");
+    expect(duenioDePartes(pieza, fuente, new Map())).toBe("cmb");
+  });
+
+  it("combo desglosado: el dueño sale del código del combo; sin nada, el propio producto", () => {
+    const desglosada = { productId: "camilla", notes: nota({ comboKey: "k", comboCode: "CMB005" }) };
+    expect(duenioDePartes(desglosada, undefined, new Map([["CMB005", "cmb"]]))).toBe("cmb");
+    expect(duenioDePartes({ productId: "silla", notes: null }, undefined, new Map())).toBe("silla");
   });
 });
 

@@ -11,6 +11,21 @@ type Linea = {
   notes?: string | null;
 };
 
+/** Las notas sin la imagen con colores: es derivada (se rehace sola), no un cambio de la línea. */
+function notasSinImagen(notes: string | null | undefined): string | null {
+  if (!notes) return notes ?? null;
+  try {
+    const meta = JSON.parse(notes) as Record<string, unknown>;
+    if (meta && typeof meta === "object" && "imagenColoresUrl" in meta) {
+      delete meta.imagenColoresUrl;
+      return JSON.stringify(meta);
+    }
+  } catch {
+    // Nota de texto plano.
+  }
+  return notes;
+}
+
 const clave = (linea: Linea) =>
   JSON.stringify([
     linea.productId,
@@ -18,7 +33,7 @@ const clave = (linea: Linea) =>
     linea.quantity,
     Number(linea.unitPrice),
     linea.fulfillmentMode,
-    linea.notes ?? null,
+    notasSinImagen(linea.notes),
   ]);
 
 /** ¿Las dos listas tienen las mismas líneas (sin importar el orden)? */

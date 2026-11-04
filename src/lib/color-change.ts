@@ -3,12 +3,20 @@
 // tocar lo demás y escoger qué líneas cambian. La escritura está en adminChangeSaleItemColorAction.
 import { displayCode } from "./code-display";
 import { colombiaDayKey } from "./colombia-time";
+import { POR_DEFINIR, esHex, textoColores, type ParteElegida } from "./product-parts";
 import { parseQuoteItemMeta, stringifyQuoteItemMeta } from "./quote-item-meta";
 
 export const COLOR_CHANGE_REASON_MIN = 3;
 export const COLOR_CHANGE_REASON_MAX = 300;
 
-export type NuevoColor = { color: string; colorCodigo: string; colorMaterial: string; colorFotoUrl: string };
+/** Con partes (nov-2026), `color` es su texto y solo cambian las partes con el mismo nombre. */
+export type NuevoColor = {
+  color: string;
+  colorCodigo: string;
+  colorMaterial: string;
+  colorFotoUrl: string;
+  partes?: ParteElegida[];
+};
 
 type Resultado<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -26,8 +34,57 @@ export function parseColorChangeReason(raw: unknown): Resultado<string> {
   return { ok: true, value: motivo };
 }
 
+const fotoHttp = (valor: unknown): string => {
+  const foto = texto(valor, 1000);
+  if (!foto) return "";
+  try {
+    const url = new URL(foto);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : "";
+  } catch {
+    return "";
+  }
+};
+
+const claveParte = (valor: string) => valor.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+
+/** Partes que llegan del formulario (JSON): cada una con nombre y color (no Por definir). */
+function parsePartesNuevas(raw: unknown): Resultado<ParteElegida[]> {
+  let lista: unknown;
+  try {
+    lista = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch {
+    return { ok: false, error: "Colores por parte inválidos." };
+  }
+  if (!Array.isArray(lista) || lista.length === 0 || lista.length > 10) return { ok: false, error: "Colores por parte inválidos." };
+  const partes: ParteElegida[] = [];
+  for (const item of lista) {
+    const p = (item ?? {}) as Record<string, unknown>;
+    const parte = texto(p.parte, 40);
+    const color = texto(p.color, 80);
+    if (!parte) return { ok: false, error: "Colores por parte inválidos." };
+    if (!color || claveParte(color) === claveParte(POR_DEFINIR)) return { ok: false, error: `Escoge el color de ${parte}.` };
+    const colorCodigo = texto(p.colorCodigo, 40);
+    partes.push({
+      parte,
+      color,
+      colorCodigo,
+      colorMaterial: colorCodigo ? texto(p.colorMaterial, 80) : "",
+      colorFotoUrl: colorCodigo ? fotoHttp(p.colorFotoUrl) : "",
+      hex: esHex(p.hex) ? String(p.hex).trim() : "",
+    });
+  }
+  if (new Set(partes.map((p) => claveParte(p.parte))).size !== partes.length) return { ok: false, error: "Colores por parte inválidos." };
+  return { ok: true, value: partes };
+}
+
 /** Color que llega del formulario: nombre obligatorio; código, material y foto (http/https) opcionales. */
+/** Si trae `partes` (JSON), es el color por parte y el nombre sale de ellas. */
 export function parseNuevoColor(input: Record<string, unknown>): Resultado<NuevoColor> {
+  if (typeof input.partes === "string" && input.partes.trim()) {
+    const partes = parsePartesNuevas(input.partes);
+    if (!partes.ok) return partes;
+    return { ok: true, value: { color: textoColores(partes.value), colorCodigo: "", colorMaterial: "", colorFotoUrl: "", partes: partes.value } };
+  }
   const color = texto(input.color, 80);
   if (!color) return { ok: false, error: "Escoge o escribe el color nuevo." };
   const foto = texto(input.colorFotoUrl, 1000);
@@ -53,14 +110,45 @@ export function parseNuevoColor(input: Record<string, unknown>): Resultado<Nuevo
   };
 }
 
-/** La misma nota con solo el color cambiado (descripción, descuento, costo adicional y combo quedan igual). */
-export function notesWithNewColor(notes: string | null, nuevo: NuevoColor): string | null {
-  // Sin partes: el color nuevo es un solo texto (con partes, stringify lo pisaría con el de las partes).
-  return stringifyQuoteItemMeta({ ...parseQuoteItemMeta(notes), ...nuevo, partes: [] });
+/**
+ * Partes de la línea después del cambio: las suyas con solo las del mismo nombre cambiadas (en orden).
+ * Si la línea no tenía partes, las nuevas. Sin partes nuevas: [].
+ */
+export function partesConCambio(notes: string | null, nuevo: NuevoColor): ParteElegida[] {
+  if (!nuevo.partes?.length) return [];
+  const actuales = parseQuoteItemMeta(notes).partes;
+  if (actuales.length === 0) return nuevo.partes;
+  return actuales.map((p) => {
+    const cambio = nuevo.partes!.find((n) => claveParte(n.parte) === claveParte(p.parte));
+    return cambio ? { ...cambio, parte: p.parte } : p;
+  });
 }
+
+/**
+ * La misma nota con solo el color cambiado (descripción, descuento, costo adicional y combo quedan igual).
+ * `imagenColoresUrl` es la imagen rehecha con las partes nuevas ("" = sin vista previa).
+ */
+export function notesWithNewColor(notes: string | null, nuevo: NuevoColor, imagenColoresUrl = ""): string | null {
+  const meta = parseQuoteItemMeta(notes);
+  const { partes: _partes, ...color } = nuevo;
+  void _partes;
+  if (nuevo.partes?.length) {
+    // stringify pone el texto de las partes como color.
+    return stringifyQuoteItemMeta({ ...meta, partes: partesConCambio(notes, nuevo), imagenColoresUrl });
+  }
+  // Sin partes: el color nuevo es un solo texto (con partes, stringify lo pisaría con el de las partes).
+  return stringifyQuoteItemMeta({ ...meta, ...color, partes: [], imagenColoresUrl: "" });
+}
+
+const mismaParte = (a: ParteElegida, b: ParteElegida) =>
+  a.color === b.color && a.colorCodigo === b.colorCodigo && a.colorMaterial === b.colorMaterial;
 
 export function mismoColor(notes: string | null, nuevo: NuevoColor): boolean {
   const meta = parseQuoteItemMeta(notes);
+  if (nuevo.partes?.length) {
+    const despues = partesConCambio(notes, nuevo);
+    return meta.partes.length === despues.length && meta.partes.every((p, i) => mismaParte(p, despues[i]));
+  }
   return (
     meta.color.trim() === nuevo.color &&
     meta.colorCodigo.trim() === nuevo.colorCodigo &&
@@ -85,6 +173,26 @@ const colorDe = (notes: string | null) => parseQuoteItemMeta(notes).color.trim()
  * - en la orden, las ligadas a esas líneas y las piezas de un combo sin desglosar ("Combo: <nombre>").
  * Si hay dos combos sin desglosar del mismo producto, se separan por el color que tenían.
  */
+/** La línea de la cotización de donde sale un producto de la orden (la del combo si es una pieza sin desglosar). */
+export function lineaFuente<Q extends LineaCotizacion>(clicked: LineaOrden, quoteItems: Q[]): Q | undefined {
+  if (clicked.quoteItemId) return quoteItems.find((q) => q.id === clicked.quoteItemId);
+  const combos = quoteItems.filter((q) => q.isBundle && esPiezaDe(clicked, q));
+  return combos.length === 1 ? combos[0] : combos.find((q) => colorDe(q.notes) === colorDe(clicked.notes));
+}
+
+/**
+ * Producto dueño de las partes de color de una línea: el combo por su código (combo desglosado), si no el
+ * de su línea de la cotización (combo sin desglosar o producto suelto), si no el propio.
+ */
+export function duenioDePartes(
+  linea: { productId: string; notes: string | null },
+  fuente: { productId: string } | undefined,
+  idPorCodigo: Map<string, string>,
+): string {
+  const comboCode = parseQuoteItemMeta(linea.notes).comboCode.trim();
+  return (comboCode && idPorCodigo.get(comboCode)) || fuente?.productId || linea.productId;
+}
+
 export function linesToRecolor(
   orderItemId: string,
   quoteItems: LineaCotizacion[],
@@ -93,11 +201,7 @@ export function linesToRecolor(
   const clicked = orderItems.find((o) => o.id === orderItemId);
   if (!clicked) return null;
 
-  let source = clicked.quoteItemId ? quoteItems.find((q) => q.id === clicked.quoteItemId) : undefined;
-  if (!source && !clicked.quoteItemId) {
-    const combos = quoteItems.filter((q) => q.isBundle && esPiezaDe(clicked, q));
-    source = combos.length === 1 ? combos[0] : combos.find((q) => colorDe(q.notes) === colorDe(clicked.notes));
-  }
+  const source = lineaFuente(clicked, quoteItems);
   if (!source) return { quoteItemIds: [], orderItemIds: [clicked.id] };
 
   const comboKey = parseQuoteItemMeta(source.notes).comboKey;

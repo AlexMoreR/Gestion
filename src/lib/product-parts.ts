@@ -146,3 +146,76 @@ export function leerRecargos(json: unknown): RecargosParte {
   const acabados = tablaDeRecargos(raw.acabados);
   return { ...(materiales ? { materiales } : {}), ...(acabados ? { acabados } : {}) };
 }
+
+// ── Color exacto de los acabados (nov-2026) ───────────────────────────────────────────────────────
+const HEX_RGB = /^#[0-9a-f]{6}$/i;
+
+/** Color de fábrica de los acabados más comunes, si la parte no tiene uno guardado. Llave sin tildes ni mayúsculas. */
+export const ACABADOS_HEX_DEFECTO: Record<string, string> = {
+  blanco: "#F2F2F2",
+  blanca: "#F2F2F2",
+  negro: "#1C1C1C",
+  negra: "#1C1C1C",
+  dorado: "#C9A24A",
+  dorada: "#C9A24A",
+  "cromado dorado": "#D4B26A",
+  "cromada dorada": "#D4B26A",
+  cromado: "#C0C0C0",
+  cromada: "#C0C0C0",
+};
+
+export const esHex = (valor: unknown): valor is string => typeof valor === "string" && HEX_RGB.test(valor.trim());
+
+/** Lee ParteColor.acabadosHex (Json) sin fallar: solo pares acabado → #RRGGBB válidos, en mayúsculas. */
+export function leerAcabadosHex(json: unknown): Record<string, string> {
+  if (!json || typeof json !== "object" || Array.isArray(json)) return {};
+  return Object.fromEntries(
+    Object.entries(json as Record<string, unknown>)
+      .filter((fila): fila is [string, string] => Boolean(fila[0].trim()) && esHex(fila[1]))
+      .map(([acabado, hex]) => [acabado.trim(), hex.trim().toUpperCase()]),
+  );
+}
+
+/** Hex de un acabado: el guardado en la parte; si no, el de fábrica; si tampoco, null (sin vista previa). */
+export function hexDeAcabado(acabado: string, acabadosHex: Record<string, string>): string | null {
+  const buscado = clave(acabado);
+  if (!buscado) return null;
+  const guardado = Object.entries(acabadosHex).find(([llave]) => clave(llave) === buscado)?.[1];
+  return guardado ?? ACABADOS_HEX_DEFECTO[buscado] ?? null;
+}
+
+/** Parte de la base con lo que hace falta para pintar la foto. */
+export type ParteParaPintar = Pick<ParteColorDatos, "nombre" | "tipo"> & { mascaraUrl: string | null; acabadosHex: unknown };
+
+/** Lo que recibe recolorear por cada parte (misma forma que ParteARecolorear). */
+export type PartePintada = { mascara: string; hex: string | null; texturaUrl: string | null };
+
+/**
+ * Lista para recolorear, en el orden de las partes de la base. Acabados: el hex sale siempre de la base
+ * (o del de fábrica), nunca del navegador. Carta: el hex de la carta; si no trae, la foto de la muestra.
+ * null si a una parte le falta máscara o color, o está en Por definir.
+ */
+export function partesParaRecolorear(
+  partes: ParteParaPintar[],
+  elegidos: Pick<ParteElegida, "parte" | "color" | "colorFotoUrl" | "hex">[],
+): PartePintada[] | null {
+  if (partes.length === 0) return null;
+  const lista: PartePintada[] = [];
+  for (const parte of partes) {
+    const elegido = elegidos.find((e) => clave(e.parte) === clave(parte.nombre));
+    const color = elegido?.color.trim() ?? "";
+    if (!elegido || !color || clave(color) === clave(POR_DEFINIR) || !parte.mascaraUrl) return null;
+    if (parte.tipo === "ACABADOS") {
+      const hex = hexDeAcabado(color, leerAcabadosHex(parte.acabadosHex));
+      if (!hex) return null;
+      lista.push({ mascara: parte.mascaraUrl, hex, texturaUrl: null });
+    } else if (esHex(elegido.hex)) {
+      lista.push({ mascara: parte.mascaraUrl, hex: elegido.hex.trim(), texturaUrl: null });
+    } else if (elegido.colorFotoUrl.trim()) {
+      lista.push({ mascara: parte.mascaraUrl, hex: null, texturaUrl: elegido.colorFotoUrl.trim() });
+    } else {
+      return null;
+    }
+  }
+  return lista;
+}

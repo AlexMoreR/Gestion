@@ -14,6 +14,7 @@ import { auth } from "@/auth";
 import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
 import { fullCopyForLog } from "@/lib/activity-log-snapshot";
 import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
+import { imagenDeColores, imagenesDeLineas } from "@/lib/vista-color.server";
 import { prisma } from "@/lib/prisma";
 import { createQuoteWithNextCode, upsertQuoteClient } from "@/lib/quote-creation";
 import type { CartaColores } from "@/lib/carta-colores-crm";
@@ -226,6 +227,20 @@ export async function getCartaColoresAction(): Promise<CartaColores> {
   return leerCartaColores();
 }
 
+// Vista previa de la imagen con colores en el editor ("" = Sin vista previa de color). productId es el
+// dueño de las partes (en un combo, el combo). Mismo permiso que guardar la cotización.
+const previsualizarSchema = z.object({
+  productId: z.string().trim().min(1).max(60),
+  partes: z.array(parteElegidaSchema).min(1).max(10),
+});
+
+export async function previsualizarColoresAction(productId: unknown, partes: unknown): Promise<{ url: string }> {
+  await requireAdminSession();
+  const parsed = previsualizarSchema.safeParse({ productId, partes });
+  if (!parsed.success) return { url: "" };
+  return { url: await imagenDeColores(parsed.data.productId, parsed.data.partes) };
+}
+
 function getReturnTo(formData: FormData): string {
   const raw = formData.get("returnTo");
   if (typeof raw !== "string") {
@@ -371,8 +386,10 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
   }
 
   const productMap = new Map(products.map((product) => [product.id, product]));
+  // Imagen con los colores de cada línea con partes ("" si falta una máscara o algo falla).
+  const imagenes = await imagenesDeLineas(parsed.data.items);
 
-  const normalizedItems = parsed.data.items.map((item) => {
+  const normalizedItems = parsed.data.items.map((item, index) => {
     const product = productMap.get(item.productId);
     if (!product) {
       throw new Error("Producto invalido");
@@ -406,6 +423,7 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
       colorMaterial: item.colorMaterial ?? "",
       colorFotoUrl: item.colorFotoUrl ?? "",
       partes: item.partes,
+      imagenColoresUrl: imagenes[index],
     });
 
     return {
@@ -604,7 +622,16 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
 
   const productMap = new Map(products.map((product) => [product.id, product]));
 
-  const normalizedItems = parsed.data.items.map((item) => {
+  // Con venta, las líneas quedan fijas (las notas y el estado sí cambian).
+  const quoteWithSale = await prisma.quote.findUnique({
+    where: { id: parsed.data.quoteId },
+    select: { sale: { select: { id: true } }, items: true },
+  });
+  const linesLocked = Boolean(quoteWithSale?.sale);
+  // La imagen con colores solo se rehace si las líneas se van a guardar.
+  const imagenes = linesLocked ? parsed.data.items.map(() => "") : await imagenesDeLineas(parsed.data.items);
+
+  const normalizedItems = parsed.data.items.map((item, index) => {
     const product = productMap.get(item.productId);
     if (!product) {
       throw new Error("Producto invalido");
@@ -636,6 +663,7 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
       colorMaterial: item.colorMaterial ?? "",
       colorFotoUrl: item.colorFotoUrl ?? "",
       partes: item.partes,
+      imagenColoresUrl: imagenes[index],
     });
     return {
       productId: item.productId,
@@ -651,12 +679,6 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
   const subtotal = Number(normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2));
   const total = subtotal;
 
-  // Con venta, las líneas quedan fijas (las notas y el estado sí cambian).
-  const quoteWithSale = await prisma.quote.findUnique({
-    where: { id: parsed.data.quoteId },
-    select: { sale: { select: { id: true } }, items: true },
-  });
-  const linesLocked = Boolean(quoteWithSale?.sale);
   if (linesLocked && !mismasLineas(quoteWithSale!.items, normalizedItems)) {
     redirect(`${returnTo}?${new URLSearchParams({ error: COTIZACION_CON_VENTA_LINEAS }).toString()}`);
   }

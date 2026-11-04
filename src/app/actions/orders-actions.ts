@@ -11,14 +11,19 @@ import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log
 import type { CartaColores } from "@/lib/carta-colores-crm";
 import { leerCartaColores } from "@/lib/carta-colores-crm.server";
 import {
+  duenioDePartes,
+  lineaFuente,
   linesToRecolor,
   mismoColor,
   notesWithNewColor,
   parseColorChangeReason,
   ofsConCambioDeColor,
   parseNuevoColor,
+  partesConCambio,
+  type NuevoColor,
 } from "@/lib/color-change";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
+import { imagenDeColores } from "@/lib/vista-color.server";
 import { stockToRestore } from "@/lib/order-stock-restore";
 import { prisma } from "@/lib/prisma";
 import { parseOrderNoteText } from "@/lib/order-notes";
@@ -376,6 +381,54 @@ export async function getCartaColoresOrdenAction(): Promise<CartaColores> {
   return leerCartaColores();
 }
 
+/**
+ * Imagen con los colores nuevos de cada línea que cambia (cotización y orden), por id de línea, con la firma
+ * de sus partes: en la transacción se usa solo si las partes salen iguales. Fuera de la transacción porque
+ * sharp puede tardar; si algo falla la línea queda sin imagen ("").
+ */
+async function imagenesDelCambio(orderId: string, orderItemId: string, nuevo: NuevoColor) {
+  const resultado = new Map<string, { firma: string; url: string }>();
+  if (!nuevo.partes?.length) return resultado;
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      sale: { select: { quoteId: true } },
+      items: { select: { id: true, quoteItemId: true, productId: true, notes: true } },
+    },
+  });
+  if (!order?.sale) return resultado;
+  const quoteItems = await prisma.quoteItem.findMany({
+    where: { quoteId: order.sale.quoteId },
+    select: { id: true, productId: true, notes: true, product: { select: { name: true, isBundle: true } } },
+  });
+  const cotizacion = quoteItems.map((q) => ({ id: q.id, productId: q.productId, notes: q.notes, productName: q.product.name, isBundle: q.product.isBundle }));
+  const lines = linesToRecolor(orderItemId, cotizacion, order.items);
+  if (!lines) return resultado;
+  const codigos = [
+    ...new Set([...cotizacion, ...order.items].map((l) => parseQuoteItemMeta(l.notes).comboCode.trim()).filter(Boolean)),
+  ];
+  const combos = codigos.length
+    ? await prisma.product.findMany({ where: { code: { in: codigos } }, select: { id: true, code: true } })
+    : [];
+  const idPorCodigo = new Map(combos.flatMap((c) => (c.code ? [[c.code, c.id] as const] : [])));
+
+  const lineas = [
+    ...cotizacion.filter((q) => lines.quoteItemIds.includes(q.id)).map((q) => ({ linea: q, fuente: q })),
+    ...order.items.filter((o) => lines.orderItemIds.includes(o.id)).map((o) => ({ linea: o, fuente: lineaFuente(o, cotizacion) })),
+  ];
+  const hechas = new Map<string, Promise<string>>();
+  await Promise.all(
+    lineas.map(async ({ linea, fuente }) => {
+      const partes = partesConCambio(linea.notes, nuevo);
+      const duenio = duenioDePartes(linea, fuente, idPorCodigo);
+      const llave = JSON.stringify([duenio, partes]);
+      if (!hechas.has(llave)) hechas.set(llave, imagenDeColores(duenio, partes));
+      resultado.set(linea.id, { firma: JSON.stringify(partes), url: await hechas.get(llave)! });
+    }),
+  );
+  return resultado;
+}
+
 // Cambia SOLO el color de un producto de una venta activa (cotización + orden; en un combo, todas sus
 // piezas), con motivo. Solo escribe las notas de las líneas, una nota de la orden, la bitácora y un aviso
 // por cada OF afectada (lo ve la proveedora en su OF; no se le manda nada solo). No toca precios,
@@ -398,8 +451,16 @@ export async function adminChangeSaleItemColorAction(formData: FormData): Promis
     colorCodigo: formData.get("colorCodigo"),
     colorMaterial: formData.get("colorMaterial"),
     colorFotoUrl: formData.get("colorFotoUrl"),
+    partes: formData.get("partes"),
   });
   if (!nuevo.ok) redirect(`${back}?error=${encodeURIComponent(nuevo.error)}`);
+
+  const imagenes = await imagenesDelCambio(item.orderId, orderItemId, nuevo.value);
+  // La imagen rehecha solo si las partes de la línea siguen siendo las que se usaron para hacerla.
+  const imagenDe = (id: string, notes: string | null) => {
+    const hecha = imagenes.get(id);
+    return hecha && hecha.firma === JSON.stringify(partesConCambio(notes, nuevo.value)) ? hecha.url : "";
+  };
 
   const actor = await getActivityActor();
   const result = await prisma.$transaction(async (tx) => {
@@ -446,10 +507,10 @@ export async function adminChangeSaleItemColorAction(formData: FormData): Promis
     const before = quoteItems.filter((q) => lines.quoteItemIds.includes(q.id));
     const beforeOrder = order.items.filter((o) => lines.orderItemIds.includes(o.id));
     for (const q of before) {
-      await tx.quoteItem.update({ where: { id: q.id }, data: { notes: notesWithNewColor(q.notes, nuevo.value) } });
+      await tx.quoteItem.update({ where: { id: q.id }, data: { notes: notesWithNewColor(q.notes, nuevo.value, imagenDe(q.id, q.notes)) } });
     }
     for (const o of beforeOrder) {
-      await tx.orderItem.update({ where: { id: o.id }, data: { notes: notesWithNewColor(o.notes, nuevo.value) } });
+      await tx.orderItem.update({ where: { id: o.id }, data: { notes: notesWithNewColor(o.notes, nuevo.value, imagenDe(o.id, o.notes)) } });
     }
 
     // Nombre que se reconoce: el del combo (desglosado o no) o el del producto.

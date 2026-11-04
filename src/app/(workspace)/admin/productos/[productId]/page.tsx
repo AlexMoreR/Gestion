@@ -16,7 +16,7 @@ import { toPromoFormFields } from "@/lib/product-promo";
 import { getProductPurchaseHistory } from "@/lib/product-purchase-history";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
-import { leerRecargos } from "@/lib/product-parts";
+import { leerAcabadosHex, leerRecargos } from "@/lib/product-parts";
 
 type PageProps = {
   params: Promise<{ productId: string }>;
@@ -38,7 +38,7 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
   const okMessage = typeof query.ok === "string" ? query.ok : "";
   const errorMessage = typeof query.error === "string" ? query.error : "";
 
-  const partesSelect = { orderBy: { orden: "asc" as const }, select: { nombre: true, tipo: true, materiales: true, acabados: true, recargos: true, coloresComunes: true, mascaraUrl: true } };
+  const partesSelect = { orderBy: { orden: "asc" as const }, select: { nombre: true, tipo: true, materiales: true, acabados: true, recargos: true, acabadosHex: true, coloresComunes: true, mascaraUrl: true } };
   const isAdmin = session.user.role === "ADMIN";
   const [product, categories, suppliers, bundleProducts, systemCurrency, purchaseHistory, carta] = await Promise.all([
     prisma.product.findUnique({
@@ -132,8 +132,8 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
         <PartesColorCard
           duenio="producto"
           id={product.id}
-          partes={product.partesColor.map((parte) => ({ ...parte, recargos: leerRecargos(parte.recargos) }))}
-          partesCategoria={(product.category?.partesColor ?? []).map((parte) => ({ ...parte, recargos: leerRecargos(parte.recargos) }))}
+          partes={product.partesColor.map((parte) => ({ ...parte, recargos: leerRecargos(parte.recargos), acabadosHex: leerAcabadosHex(parte.acabadosHex) }))}
+          partesCategoria={(product.category?.partesColor ?? []).map((parte) => ({ ...parte, recargos: leerRecargos(parte.recargos), acabadosHex: leerAcabadosHex(parte.acabadosHex) }))}
           categoriaNombre={product.category?.name ?? null}
           materialesCarta={carta?.materiales.map((material) => material.nombre) ?? []}
           mascaras={{

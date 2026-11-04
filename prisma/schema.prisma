@@ -1492,6 +1492,8 @@ model ParteColor {
   mascaraUrl String?
   // Recargo opcional, solo para avisar en la cotización: { materiales?: { [material]: n }, acabados?: { [acabado]: n } }.
   recargos   Json?
+  // Color exacto de cada acabado para la vista previa: { "<acabado>": "#RRGGBB" }. Sin valor = el de fábrica.
+  acabadosHex Json?
   // Colores de la carta (código o nombre) que salen primero en el selector.
   coloresComunes String[]   @default([])
   orden      Int
