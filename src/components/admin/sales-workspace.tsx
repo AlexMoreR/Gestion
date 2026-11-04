@@ -37,6 +37,7 @@ type SaleRow = {
     receiptName: string | null;
     receiptType: string | null;
     paidAt: string | null;
+    reciboCajaEstado: string | null;
   }>;
   hasOrder: boolean;
   orderId: string | null;
