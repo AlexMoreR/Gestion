@@ -48,8 +48,14 @@ async function savePhoto(file: File, folder: "shipments"): Promise<{ url: string
   }
 
   const uploadDir = path.join(process.cwd(), "public", "uploads", folder);
-  await mkdir(uploadDir, { recursive: true });
   const fileName = `${randomUUID()}.jpg`;
-  await writeFile(path.join(uploadDir, fileName), output);
+  try {
+    await mkdir(uploadDir, { recursive: true });
+    await writeFile(path.join(uploadDir, fileName), output);
+  } catch (error) {
+    // El error del disco trae la ruta del servidor: no se muestra (la página de la proveedora es pública).
+    console.error("No se pudo guardar la foto:", error);
+    throw new Error("No se pudo guardar la foto. Intenta de nuevo.");
+  }
   return { url: `/uploads/${folder}/${fileName}` };
 }
