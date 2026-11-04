@@ -108,7 +108,7 @@ function CashOnDeliveryInput({ kind, id, value }: { kind: PlaceKind; id: string;
   }
 
   return (
-    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+    <label className="flex flex-wrap items-center justify-end gap-1.5 text-xs text-muted-foreground">
       <span className="whitespace-nowrap">Contraentrega $</span>
       <span className="relative">
         <input
