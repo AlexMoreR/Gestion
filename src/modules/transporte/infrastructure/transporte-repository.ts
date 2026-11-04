@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import divipola from "../data/colombia-divipola.json";
 import type {
+  CoverageMapCity,
+  CoverageMapLocality,
   TransportCityRow,
   TransportDepartmentSummary,
   TransportLocalityRow,
@@ -176,6 +178,59 @@ export async function listCoverageRows(): Promise<CoverageDepartmentRow[]> {
     nombre: department.name,
     municipios: department.cities.map((city) => ({ ...toRow(city), corregimientos: city.localities.map(toRow) })),
   }));
+}
+
+// Municipios (todos) y corregimientos con tipo propio para la vista de mapa. Solo lectura.
+export async function listCoverageMapRows(): Promise<{ cities: CoverageMapCity[]; localities: CoverageMapLocality[] }> {
+  await ensureTransportSeed();
+  const [cities, localities] = await Promise.all([
+    prisma.transportCity.findMany({
+      orderBy: { code: "asc" },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        shippingType: true,
+        freeShipping: true,
+        department: { select: { name: true } },
+      },
+    }),
+    prisma.transportLocality.findMany({
+      where: { shippingType: { not: null } },
+      orderBy: { code: "asc" },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        shippingType: true,
+        freeShipping: true,
+        city: { select: { id: true, code: true, shippingType: true, freeShipping: true } },
+      },
+    }),
+  ]);
+  return {
+    cities: cities.map((city) => ({
+      id: city.id,
+      code: city.code,
+      name: city.name,
+      departmentName: city.department.name,
+      shippingType: city.shippingType,
+      effectiveShippingType: resolveShippingType({ shippingType: city.shippingType, freeShipping: city.freeShipping }),
+    })),
+    localities: localities.map((locality) => ({
+      id: locality.id,
+      code: locality.code,
+      name: locality.name,
+      cityId: locality.city.id,
+      cityCode: locality.city.code,
+      shippingType: locality.shippingType,
+      effectiveShippingType: resolveShippingType({
+        shippingType: locality.shippingType,
+        freeShipping: locality.freeShipping,
+        parent: locality.city,
+      }),
+    })),
+  };
 }
 
 export async function listLocalitiesByCity(cityId: string): Promise<TransportLocalityRow[]> {
