@@ -5,6 +5,7 @@ import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { leerCartaColores } from "@/lib/carta-colores-crm.server";
 import { prisma } from "@/lib/prisma";
+import { leerRecargos } from "@/lib/product-parts";
 import { getPublicAssetUrl } from "@/lib/site";
 
 type PageProps = {
@@ -31,7 +32,7 @@ export default async function AdminCategoriasPage({ searchParams }: PageProps) {
       orderBy: { name: "asc" },
       include: {
         _count: { select: { products: true } },
-        partesColor: { orderBy: { orden: "asc" }, select: { nombre: true, tipo: true, materiales: true, acabados: true } },
+        partesColor: { orderBy: { orden: "asc" }, select: { nombre: true, tipo: true, materiales: true, acabados: true, recargos: true, coloresComunes: true } },
       },
     }),
     leerCartaColores(),
@@ -60,7 +61,7 @@ export default async function AdminCategoriasPage({ searchParams }: PageProps) {
           logoUrl: category.logoUrl ? getPublicAssetUrl(category.logoUrl) : null,
           shippingExtra: category.shippingExtra,
           productsCount: category._count.products,
-          partesColor: category.partesColor,
+          partesColor: category.partesColor.map((parte) => ({ ...parte, recargos: leerRecargos(parte.recargos) })),
         }))}
       />
     </section>

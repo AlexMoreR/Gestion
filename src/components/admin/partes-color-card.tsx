@@ -6,24 +6,66 @@ import { Palette, Plus, Trash2 } from "lucide-react";
 import { guardarPartesColorAction, usarPartesDeCategoriaAction } from "@/app/actions/product-parts-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { limpiarLista, type ParteColorTipo } from "@/lib/product-parts";
+import { limpiarLista, type ParteColorTipo, type RecargosParte } from "@/lib/product-parts";
 
 export type ParteColorFila = {
   nombre: string;
   tipo: ParteColorTipo;
   materiales: string[];
   acabados: string[];
+  recargos: RecargosParte;
+  coloresComunes: string[];
 };
 
-// En edición los acabados se escriben como texto separado por comas.
-type ParteEditable = { nombre: string; tipo: ParteColorTipo; materiales: string[]; acabadosTexto: string };
+// En edición los acabados y los colores comunes se escriben como texto separado por comas, y
+// cada recargo como el texto del campo (vacío = sin recargo).
+type ParteEditable = {
+  nombre: string;
+  tipo: ParteColorTipo;
+  materiales: string[];
+  acabadosTexto: string;
+  comunesTexto: string;
+  recargoMaterial: Record<string, string>;
+  recargoAcabado: Record<string, string>;
+};
+
+const aTexto = (tabla: Record<string, number> | undefined) =>
+  Object.fromEntries(Object.entries(tabla ?? {}).map(([llave, valor]) => [llave, String(valor)]));
 
 const aEditable = (parte: ParteColorFila): ParteEditable => ({
   nombre: parte.nombre,
   tipo: parte.tipo,
   materiales: parte.materiales,
   acabadosTexto: parte.acabados.join(", "),
+  comunesTexto: parte.coloresComunes.join(", "),
+  recargoMaterial: aTexto(parte.recargos.materiales),
+  recargoAcabado: aTexto(parte.recargos.acabados),
 });
+
+/** Solo los recargos escritos con un número mayor a 0, de las opciones que siguen en la lista. */
+const aRecargos = (lista: string[], textos: Record<string, string>): Record<string, number> =>
+  Object.fromEntries(
+    lista.flatMap((opcion) => {
+      const valor = Number((textos[opcion] ?? "").replace(/[^0-9]/g, ""));
+      return valor > 0 ? [[opcion, valor]] : [];
+    }),
+  );
+
+const pesos = (valor: number) => `+$${new Intl.NumberFormat("es-CO").format(valor)}`;
+
+function RecargoInput({ value, disabled, label, onChange }: { value: string; disabled: boolean; label: string; onChange: (v: string) => void }) {
+  return (
+    <Input
+      value={value}
+      inputMode="numeric"
+      placeholder="Recargo $"
+      aria-label={label}
+      disabled={disabled}
+      className="h-8 w-28"
+      onChange={(event) => onChange(event.target.value.replace(/[^0-9]/g, ""))}
+    />
+  );
+}
 
 const MAX_PARTES = 10;
 
@@ -40,7 +82,13 @@ type Props = {
 };
 
 function resumen(parte: ParteColorFila): string {
-  return parte.tipo === "CARTA" ? `Carta: ${parte.materiales.join(", ")}` : `Acabados: ${parte.acabados.join(", ")}`;
+  const conRecargo = (lista: string[], tabla: Record<string, number> | undefined) =>
+    lista.map((opcion) => (tabla?.[opcion] ? `${opcion} (${pesos(tabla[opcion])})` : opcion)).join(", ");
+  return parte.tipo === "CARTA"
+    ? `Carta: ${conRecargo(parte.materiales, parte.recargos.materiales)}${
+        parte.coloresComunes.length > 0 ? ` · Comunes: ${parte.coloresComunes.join(", ")}` : ""
+      }`
+    : `Acabados: ${conRecargo(parte.acabados, parte.recargos.acabados)}`;
 }
 
 // Tarjeta "Partes de color": qué partes del producto llevan color propio y de dónde sale cada uno.
@@ -85,12 +133,20 @@ export function PartesColorCard({ duenio, id, partes, partesCategoria = [], cate
       const result = await guardarPartesColorAction({
         duenio,
         id,
-        partes: lista.map((parte) => ({
-          nombre: parte.nombre,
-          tipo: parte.tipo,
-          materiales: parte.materiales,
-          acabados: limpiarLista(parte.acabadosTexto.split(",")),
-        })),
+        partes: lista.map((parte) => {
+          const acabados = limpiarLista(parte.acabadosTexto.split(","));
+          return {
+            nombre: parte.nombre,
+            tipo: parte.tipo,
+            materiales: parte.materiales,
+            acabados,
+            recargos: {
+              materiales: aRecargos(parte.materiales, parte.recargoMaterial),
+              acabados: aRecargos(acabados, parte.recargoAcabado),
+            },
+            coloresComunes: limpiarLista(parte.comunesTexto.split(",")),
+          };
+        }),
       });
       setMensaje({ ok: result.ok, text: result.message });
       if (result.ok) {
@@ -215,41 +271,86 @@ export function PartesColorCard({ duenio, id, partes, partesCategoria = [], cate
                         La carta de colores del CRM no respondió. Intenta más tarde o usa «Acabados».
                       </p>
                     ) : (
-                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      <div className="flex flex-wrap gap-x-4 gap-y-1.5">
                         {opciones.map((material) => (
-                          <label key={material} className="inline-flex items-center gap-1.5 text-sm text-slate-700">
-                            <input
-                              type="checkbox"
-                              disabled={pending}
-                              checked={parte.materiales.includes(material)}
-                              onChange={(event) =>
-                                cambiar(index, {
-                                  materiales: event.target.checked
-                                    ? [...parte.materiales, material]
-                                    : parte.materiales.filter((m) => m !== material),
-                                })
-                              }
-                            />
-                            {material}
-                          </label>
+                          <div key={material} className="inline-flex items-center gap-2">
+                            <label className="inline-flex items-center gap-1.5 text-sm text-slate-700">
+                              <input
+                                type="checkbox"
+                                disabled={pending}
+                                checked={parte.materiales.includes(material)}
+                                onChange={(event) =>
+                                  cambiar(index, {
+                                    materiales: event.target.checked
+                                      ? [...parte.materiales, material]
+                                      : parte.materiales.filter((m) => m !== material),
+                                  })
+                                }
+                              />
+                              {material}
+                            </label>
+                            {parte.materiales.includes(material) ? (
+                              <RecargoInput
+                                value={parte.recargoMaterial[material] ?? ""}
+                                disabled={pending}
+                                label={`Recargo de ${material}`}
+                                onChange={(valor) =>
+                                  cambiar(index, { recargoMaterial: { ...parte.recargoMaterial, [material]: valor } })
+                                }
+                              />
+                            ) : null}
+                          </div>
                         ))}
                       </div>
                     )}
+                    <label className="grid gap-1 pt-1 text-xs font-medium text-slate-700">
+                      Colores comunes (salen primero), código o nombre separados por comas
+                      <Input
+                        value={parte.comunesTexto}
+                        placeholder="Ej. Lila, Negro, Beige"
+                        disabled={pending}
+                        onChange={(event) => cambiar(index, { comunesTexto: event.target.value })}
+                      />
+                    </label>
                   </fieldset>
                 ) : (
-                  <label className="grid gap-1 text-xs font-medium text-slate-700">
-                    Acabados, separados por comas
-                    <Input
-                      value={parte.acabadosTexto}
-                      placeholder="Ej. Cromada, Dorada, Negra"
-                      disabled={pending}
-                      onChange={(event) => cambiar(index, { acabadosTexto: event.target.value })}
-                    />
-                  </label>
+                  <div className="space-y-2">
+                    <label className="grid gap-1 text-xs font-medium text-slate-700">
+                      Acabados, separados por comas
+                      <Input
+                        value={parte.acabadosTexto}
+                        placeholder="Ej. Cromada, Dorada, Negra"
+                        disabled={pending}
+                        onChange={(event) => cambiar(index, { acabadosTexto: event.target.value })}
+                      />
+                    </label>
+                    {limpiarLista(parte.acabadosTexto.split(",")).length > 0 ? (
+                      <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                        {limpiarLista(parte.acabadosTexto.split(",")).map((acabado) => (
+                          <div key={acabado} className="inline-flex items-center gap-2 text-sm text-slate-700">
+                            <span className="break-words">{acabado}</span>
+                            <RecargoInput
+                              value={parte.recargoAcabado[acabado] ?? ""}
+                              disabled={pending}
+                              label={`Recargo de ${acabado}`}
+                              onChange={(valor) =>
+                                cambiar(index, { recargoAcabado: { ...parte.recargoAcabado, [acabado]: valor } })
+                              }
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                 )}
               </div>
             );
           })}
+          {lista.length > 0 ? (
+            <p className="text-xs text-slate-500">
+              El «Recargo $» solo sale como aviso en la cotización; no cambia ningún precio. Vacío = sin recargo.
+            </p>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -258,7 +359,10 @@ export function PartesColorCard({ duenio, id, partes, partesCategoria = [], cate
               className="gap-1"
               disabled={pending || lista.length >= MAX_PARTES}
               onClick={() =>
-                setLista((actual) => [...actual, { nombre: "", tipo: "CARTA", materiales: [], acabadosTexto: "" }])
+                setLista((actual) => [
+                  ...actual,
+                  { nombre: "", tipo: "CARTA", materiales: [], acabadosTexto: "", comunesTexto: "", recargoMaterial: {}, recargoAcabado: {} },
+                ])
               }
             >
               <Plus className="h-3.5 w-3.5" />

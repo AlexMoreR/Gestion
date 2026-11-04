@@ -53,7 +53,8 @@ export function parseNuevoColor(input: Record<string, unknown>): Resultado<Nuevo
 
 /** La misma nota con solo el color cambiado (descripción, descuento, costo adicional y combo quedan igual). */
 export function notesWithNewColor(notes: string | null, nuevo: NuevoColor): string | null {
-  return stringifyQuoteItemMeta({ ...parseQuoteItemMeta(notes), ...nuevo });
+  // Sin partes: el color nuevo es un solo texto (con partes, stringify lo pisaría con el de las partes).
+  return stringifyQuoteItemMeta({ ...parseQuoteItemMeta(notes), ...nuevo, partes: [] });
 }
 
 export function mismoColor(notes: string | null, nuevo: NuevoColor): boolean {

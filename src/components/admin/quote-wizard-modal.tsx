@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import {
   AlignLeft,
   Boxes,
@@ -36,6 +36,8 @@ import { expandComboLines, faltanPiezasCombo, pickComboPieces, type ComboCompone
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { calculateQuoteLineTotal, colorLabel } from "@/lib/quote-item-meta";
 import type { CartaColor, CartaColores } from "@/lib/carta-colores-crm";
+import { textoColores, type ParteElegida, type ParteParaCotizar } from "@/lib/product-parts";
+import { PartesColorSelector, partesIniciales } from "@/components/admin/partes-color-selector";
 import { imageVariantUrl } from "@/lib/image-variants";
 import { Button } from "../ui/button";
 import { displayCode } from "@/lib/code-display";
@@ -69,6 +71,8 @@ export type QuoteWizardProduct = {
   suppliers: ProductSupplierOption[];
   isBundle?: boolean;
   components?: ComboComponent[];
+  // Partes de color ya resueltas (propias o de la categoría). Vacío = selector de color de siempre.
+  partes?: ParteParaCotizar[];
 };
 
 type FulfillmentMode = "STOCK" | "MANUFACTURE";
@@ -83,6 +87,8 @@ type QuoteLine = {
   colorCodigo: string;
   colorMaterial: string;
   colorFotoUrl: string;
+  // Color por parte (vacío = producto sin partes).
+  partes: ParteElegida[];
   unitPrice: number;
   description: string;
   additionalCost: number;
@@ -106,6 +112,7 @@ export type QuoteWizardInitialLine = {
   colorCodigo?: string;
   colorMaterial?: string;
   colorFotoUrl?: string;
+  partes?: ParteElegida[];
   additionalCost: number;
   discount: number;
   fulfillmentMode: FulfillmentMode;
@@ -219,6 +226,7 @@ export function QuoteWizardModal({
       colorCodigo: item.colorCodigo ?? "",
       colorMaterial: item.colorMaterial ?? "",
       colorFotoUrl: item.colorFotoUrl ?? "",
+      partes: item.partes ?? [],
       unitPrice: item.unitPrice,
       description: item.description,
       additionalCost: item.additionalCost,
@@ -241,6 +249,8 @@ export function QuoteWizardModal({
   // Color de la carta del CRM (null = escrito a mano o sin color).
   const [draftCartaColor, setDraftCartaColor] = useState<(CartaColor & { material: string }) | null>(null);
   const [manualColor, setManualColor] = useState(false);
+  // Color por parte del producto en borrador (solo si tiene partes).
+  const [draftPartes, setDraftPartes] = useState<ParteElegida[]>([]);
   const [carta, setCarta] = useState<CartaColores | null>(null);
   const cartaMateriales = carta?.materiales ?? [];
   // Sin carta (CRM caido y sin copia) solo queda escribir el color a mano.
@@ -319,6 +329,26 @@ export function QuoteWizardModal({
     () => products.find((product) => product.id === draftProductId) ?? null,
     [products, draftProductId],
   );
+  const draftPartesDef = draftProduct?.partes ?? [];
+
+  // Partes de una linea ya agregada: las del combo (por su codigo) o las del producto suelto.
+  const partesDeLinea = (line: QuoteLine): ParteParaCotizar[] => {
+    const duenio = line.comboKey
+      ? products.find((product) => line.comboCode && product.code === line.comboCode)
+      : products.find((product) => product.id === line.productId);
+    return duenio?.partes ?? [];
+  };
+
+  // Cambia el color por parte de una linea (o de todas las lineas del combo).
+  const updateLinePartes = (match: (line: QuoteLine) => boolean, partes: ParteElegida[]) => {
+    setLines((current) =>
+      current.map((line) =>
+        match(line)
+          ? { ...line, partes, color: textoColores(partes), colorCodigo: "", colorMaterial: "", colorFotoUrl: "" }
+          : line,
+      ),
+    );
+  };
 
   const linesWithMeta = useMemo(
     () =>
@@ -358,6 +388,8 @@ export function QuoteWizardModal({
         description: string;
         thumbnailUrl: string;
         total: number;
+        partes: ParteElegida[];
+        firstLine: QuoteLine;
       };
   const groupedLines = useMemo<LineGroup[]>(() => {
     const groups: LineGroup[] = [];
@@ -387,6 +419,8 @@ export function QuoteWizardModal({
           description: item.line.description,
           thumbnailUrl: item.line.imageUrl || item.product?.thumbnailUrl || "",
           total: item.lineTotal,
+          partes: item.line.partes,
+          firstLine: item.line,
         });
       }
     }
@@ -424,6 +458,7 @@ export function QuoteWizardModal({
     setDraftColor("");
     setDraftCartaColor(null);
     setManualColor(false);
+    setDraftPartes([]);
     setDraftUnitPrice("");
     setDraftDescription("");
     setDraftAdditionalCost("0");
@@ -445,6 +480,7 @@ export function QuoteWizardModal({
   const applyProductSelection = (product: QuoteWizardProduct) => {
     setDraftProductId(product.id);
     setProductLookup(product.code || product.name);
+    setDraftPartes(partesIniciales(product.partes ?? []));
     // En modo mayorista usa el wholesalePrice (si el producto lo tiene configurado).
     setDraftUnitPrice(String(priceForMode(product, wholesaleMode)));
     // Sin stock -> por orden (se fabrica); con stock -> por existencias.
@@ -468,6 +504,7 @@ export function QuoteWizardModal({
 
   const clearDraftProductSelection = () => {
     setDraftProductId("");
+    setDraftPartes([]);
     setProductLookup("");
     setDraftUnitPrice("");
     setDraftImageUrl("");
@@ -532,15 +569,19 @@ export function QuoteWizardModal({
       return;
     }
 
-    // Color escogido de la carta (con codigo, material y foto) o escrito a mano (solo el nombre).
-    const draftColorFields = draftCartaColor
-      ? {
-          color: draftCartaColor.nombre,
-          colorCodigo: draftCartaColor.codigo,
-          colorMaterial: draftCartaColor.material,
-          colorFotoUrl: draftCartaColor.fotoUrl,
-        }
-      : { color: draftColor.trim(), colorCodigo: "", colorMaterial: "", colorFotoUrl: "" };
+    // Con partes: un color por parte (el texto sale de ellas). Si no, color escogido de la carta
+    // (con codigo, material y foto) o escrito a mano (solo el nombre).
+    const draftColorFields = draftPartesDef.length > 0
+      ? { color: textoColores(draftPartes), colorCodigo: "", colorMaterial: "", colorFotoUrl: "", partes: draftPartes }
+      : draftCartaColor
+        ? {
+            color: draftCartaColor.nombre,
+            colorCodigo: draftCartaColor.codigo,
+            colorMaterial: draftCartaColor.material,
+            colorFotoUrl: draftCartaColor.fotoUrl,
+            partes: [],
+          }
+        : { color: draftColor.trim(), colorCodigo: "", colorMaterial: "", colorFotoUrl: "", partes: [] };
 
     // Si es un combo, se separa en sus componentes (cada uno conserva su
     // producto real y su proveedor); el precio del combo se reparte entre las
@@ -711,6 +752,8 @@ export function QuoteWizardModal({
       colorCodigo: line.colorCodigo || null,
       colorMaterial: line.colorMaterial || null,
       colorFotoUrl: line.colorFotoUrl || null,
+      // Con partes el servidor arma el texto del color.
+      ...(line.partes.length > 0 ? { color: null, partes: line.partes } : {}),
       additionalCost: line.additionalCost,
       discount: line.discount,
       notes: line.description || null,
@@ -1025,7 +1068,8 @@ export function QuoteWizardModal({
                         groupedLines.map((group) =>
                           group.type === "combo" ? (
                             // Combo: una sola fila con el nombre y codigo del combo.
-                            <tr key={group.key} className="border-t border-border bg-card transition hover:bg-muted/40">
+                            <Fragment key={group.key}>
+                            <tr className="border-t border-border bg-card transition hover:bg-muted/40">
                               <td className="px-3 py-2">
                                 <div className="flex items-center gap-2.5">
                                   {group.thumbnailUrl ? (
@@ -1072,11 +1116,27 @@ export function QuoteWizardModal({
                                 </Button>
                               </td>
                             </tr>
+                            {partesDeLinea(group.firstLine).length > 0 ? (
+                              <tr className="bg-muted/30">
+                                <td colSpan={7} className="px-3 pb-3 pt-1">
+                                  <PartesColorSelector
+                                    idPrefix={`combo-${group.key}`}
+                                    partes={partesDeLinea(group.firstLine)}
+                                    carta={carta ? cartaMateriales : null}
+                                    elegidos={group.partes}
+                                    onChange={(next) => updateLinePartes((line) => line.comboKey === group.key, next)}
+                                  />
+                                </td>
+                              </tr>
+                            ) : null}
+                            </Fragment>
                           ) : (
                             (() => {
                               const { line, product } = group.item;
+                              const partesDef = partesDeLinea(line);
                               return (
-                                <tr key={line.uid} className="border-t border-border bg-card transition hover:bg-muted/40">
+                                <Fragment key={line.uid}>
+                                <tr className="border-t border-border bg-card transition hover:bg-muted/40">
                                   <td className="px-3 py-2">
                                     <div className="flex items-center gap-2.5">
                                       {line.imageUrl || product?.thumbnailUrl ? (
@@ -1122,6 +1182,20 @@ export function QuoteWizardModal({
                                     </Button>
                                   </td>
                                 </tr>
+                                {partesDef.length > 0 ? (
+                                  <tr className="bg-muted/30">
+                                    <td colSpan={7} className="px-3 pb-3 pt-1">
+                                      <PartesColorSelector
+                                        idPrefix={`linea-${line.uid}`}
+                                        partes={partesDef}
+                                        carta={carta ? cartaMateriales : null}
+                                        elegidos={line.partes}
+                                        onChange={(next) => updateLinePartes((item) => item.uid === line.uid, next)}
+                                      />
+                                    </td>
+                                  </tr>
+                                ) : null}
+                                </Fragment>
                               );
                             })()
                           ),
@@ -1532,6 +1606,28 @@ export function QuoteWizardModal({
                 </div>
 
                 <div className="grid gap-3 rounded-xl border border-border bg-muted/60 p-3 md:grid-cols-2">
+                  {draftPartesDef.length > 0 ? (
+                    <div className="space-y-1.5 md:col-span-2">
+                      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                        <Palette className="h-3.5 w-3.5 text-muted-foreground" />
+                        Color por parte
+                      </span>
+                      {carta && carta.origen !== "crm" ? (
+                        <p className="text-xs text-amber-700 dark:text-amber-400">
+                          {carta.origen === "copia"
+                            ? "No se pudo leer la carta del CRM. Se muestra la última copia guardada."
+                            : "No se pudo leer la carta del CRM. Deja la parte en «Por definir» y elígela después."}
+                        </p>
+                      ) : null}
+                      <PartesColorSelector
+                        idPrefix="draft"
+                        partes={draftPartesDef}
+                        carta={carta ? cartaMateriales : null}
+                        elegidos={draftPartes}
+                        onChange={setDraftPartes}
+                      />
+                    </div>
+                  ) : (
                   <div className="space-y-1.5 md:col-span-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
@@ -1628,6 +1724,7 @@ export function QuoteWizardModal({
                       </div>
                     )}
                   </div>
+                  )}
 
                   <label className="space-y-1.5">
                     <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">

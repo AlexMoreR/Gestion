@@ -15,7 +15,10 @@ import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log
 import { MOTIVO_ANULACION_ERROR, anularConMotivo, anularVarias, pagosPrimero } from "@/lib/anulaciones";
 import { fullCopyForLog } from "@/lib/activity-log-snapshot";
 import { stockToRestore } from "@/lib/order-stock-restore";
-import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
+import { calculateQuoteLineTotal, parseQuoteItemMeta, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
+import { faltanColores } from "@/lib/product-parts";
+import { displayCode } from "@/lib/code-display";
+import { partesPorProducto } from "@/lib/product-parts.server";
 import { prisma } from "@/lib/prisma";
 import {
   MISSING_PAYMENT_METHOD_MESSAGE,
@@ -226,6 +229,32 @@ async function comboOrderOkSuffix(saleId: string | null, actorId: string): Promi
   }
 }
 
+/** Partes de cada línea (de la base) contra lo elegido en sus notas. conPartes = hay que pedir la aprobación. */
+async function revisarColoresParaVenta(
+  items: { productId: string; notes: string | null; product: { name: string; code: string | null } }[],
+) {
+  const metas = items.map((item) => ({ item, meta: parseQuoteItemMeta(item.notes) }));
+  const comboCodes = [...new Set(metas.map(({ meta }) => meta.comboCode).filter(Boolean))];
+  const combos = comboCodes.length
+    ? await prisma.product.findMany({ where: { code: { in: comboCodes } }, select: { id: true, code: true } })
+    : [];
+  const comboIdByCode = new Map(combos.map((combo) => [combo.code, combo.id]));
+  const lineas = metas.map(({ item, meta }) => {
+    const duenioId = (meta.comboCode && comboIdByCode.get(meta.comboCode)) || item.productId;
+    return { duenioId, meta, etiqueta: displayCode(meta.comboCode || item.product.code || "") || item.product.name };
+  });
+  const partes = await partesPorProducto(prisma, lineas.map((l) => l.duenioId));
+  const conPartes = lineas.filter((l) => (partes.get(l.duenioId) ?? []).length > 0);
+  const faltan = faltanColores(
+    conPartes.map(({ duenioId, meta, etiqueta }) => ({
+      etiqueta,
+      requeridas: (partes.get(duenioId) ?? []).map((p) => p.nombre),
+      elegidos: meta.partes,
+    })),
+  );
+  return { conPartes: conPartes.length > 0, faltan, textos: [...new Set(conPartes.map(({ meta }) => meta.color))] };
+}
+
 export async function adminCreateSaleFromQuoteAction(formData: FormData): Promise<void> {
   const createdById = await requireAdminSession();
   const returnTo = getReturnTo(formData);
@@ -259,7 +288,7 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
     where: { id: parsed.data.quoteId },
     include: {
       client: true,
-      items: { include: { product: { select: { name: true, baseCost: true, additionalCost: true } } } },
+      items: { include: { product: { select: { name: true, code: true, baseCost: true, additionalCost: true } } } },
       sale: true,
     },
   });
@@ -288,6 +317,17 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
   );
   if (itemsError) {
     redirectWithError(returnTo, itemsError);
+  }
+
+  // Colores por parte (nov-2026): las partes se leen de la base, no del navegador. Una línea de
+  // combo usa las partes del combo (por su código); un producto suelto, las suyas.
+  const colorCheck = await revisarColoresParaVenta(quote.items);
+  if (colorCheck.faltan.length > 0) {
+    redirectWithError(returnTo, `Falta elegir color: ${colorCheck.faltan.join(", ")}. Edita la cotización y elige los colores.`);
+  }
+  const coloresAprobados = colorCheck.conPartes && formData.get("coloresAprobados") === "on";
+  if (colorCheck.conPartes && !coloresAprobados) {
+    redirectWithError(returnTo, "Marca «Cliente aprobó colores» para pasar a venta.");
   }
 
   const grossTotal = Number(quote.total);
@@ -520,7 +560,10 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
 
       await tx.quote.update({
         where: { id: quote.id },
-        data: { status: "ACCEPTED" },
+        data: {
+          status: "ACCEPTED",
+          ...(coloresAprobados ? { coloresAprobadosEn: new Date(), coloresAprobadosPorId: createdById } : {}),
+        },
       });
     });
   } catch (error) {
@@ -540,6 +583,16 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
       ? `Creó la venta ${createdSaleCode} desde la cotización ${quote.code}`
       : `Creó una venta desde la cotización ${quote.code}`,
   });
+
+  if (coloresAprobados) {
+    await logActivity({
+      action: "UPDATE",
+      entityType: "QUOTE",
+      entityId: quote.id,
+      entityCode: quote.code,
+      summary: `Cliente aprobó colores de la cotización ${quote.code}: ${colorCheck.textos.join(" | ")}`,
+    });
+  }
 
   const comboOk = await comboOrderOkSuffix(createdSaleId, createdById);
 

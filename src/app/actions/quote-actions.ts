@@ -81,6 +81,27 @@ const createClientSchema = z.object({
 // ante un payload manipulado.
 const MAX_MONEY = 1_000_000_000;
 
+// Color por parte (nov-2026): textos cortos, foto solo como enlace web, hex #RRGGBB. color "" = Por definir.
+const parteElegidaSchema = z.object({
+  parte: z.string().trim().min(1, "Parte sin nombre").max(40, "Nombre de parte demasiado largo"),
+  color: z.string().trim().max(80, "Color de parte demasiado largo").optional().default(""),
+  colorCodigo: z.string().trim().max(40).optional().default(""),
+  colorMaterial: z.string().trim().max(80).optional().default(""),
+  colorFotoUrl: z
+    .string()
+    .trim()
+    .max(1000)
+    .refine((v) => !v || /^https?:\/\//i.test(v), "Foto de color invalida")
+    .optional()
+    .default(""),
+  hex: z
+    .string()
+    .trim()
+    .refine((v) => !v || /^#[0-9a-fA-F]{6}$/.test(v), "Color hex invalido")
+    .optional()
+    .default(""),
+});
+
 const quoteItemSchema = z.object({
   productId: z.string().trim().min(1, "Producto invalido"),
   supplierId: z.string().trim().optional().nullable(),
@@ -111,6 +132,7 @@ const quoteItemSchema = z.object({
   comboName: z.string().trim().max(200).optional().nullable(),
   comboCode: z.string().trim().max(120).optional().nullable(),
   comboQuantity: z.coerce.number().int().min(0).optional().default(0),
+  partes: z.array(parteElegidaSchema).max(10, "Maximo 10 partes de color").optional().default([]),
 });
 
 const QUOTE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
@@ -383,6 +405,7 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
       colorCodigo: item.colorCodigo ?? "",
       colorMaterial: item.colorMaterial ?? "",
       colorFotoUrl: item.colorFotoUrl ?? "",
+      partes: item.partes,
     });
 
     return {
@@ -612,6 +635,7 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
       colorCodigo: item.colorCodigo ?? "",
       colorMaterial: item.colorMaterial ?? "",
       colorFotoUrl: item.colorFotoUrl ?? "",
+      partes: item.partes,
     });
     return {
       productId: item.productId,
