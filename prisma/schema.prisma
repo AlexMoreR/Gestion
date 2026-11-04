@@ -389,6 +389,7 @@ enum SaleStatus {
 // CONTRAENTREGA: solo combo de camilla; el envio se cobra.
 enum PaymentMethod {
   ANTICIPO_50_50
+  PAGO_TOTAL // 100 % por adelantado; envío gratis igual que el 50/50
   CONTRAENTREGA
 }
 

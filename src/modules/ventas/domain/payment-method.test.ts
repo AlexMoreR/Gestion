@@ -9,6 +9,9 @@ import {
   parsePaymentMethodInput,
   MISSING_PAYMENT_METHOD_MESSAGE,
   MISSING_RECEIPT_MESSAGE,
+  PAYMENT_METHOD_LABEL,
+  PAYMENT_METHOD_SHORT_LABEL,
+  pagoTotalIncompleto,
   quotePaymentTermsText,
   saleFromQuoteMissing,
   suggestAmountToCollect,
@@ -139,5 +142,25 @@ describe("saleFromQuoteMissing", () => {
   });
   it("con forma de pago y comprobante si pasa", () => {
     expect(saleFromQuoteMissing({ paymentMethod: "ANTICIPO_50_50", installmentsHaveReceipt: [true, true] })).toEqual([]);
+  });
+});
+
+describe("pagoTotalIncompleto", () => {
+  it("si falta plata dice cuanto falta", () => {
+    expect(pagoTotalIncompleto({ paymentMethod: "PAGO_TOTAL", total: 1_250_000, pagado: 1_000_000 })).toBe(
+      "Con Pago total los abonos deben sumar el 100 % del total ($1.250.000). Faltan $250.000.",
+    );
+  });
+  it("si cuadra no hay error, tambien con diferencia de centavos", () => {
+    expect(pagoTotalIncompleto({ paymentMethod: "PAGO_TOTAL", total: 600_000, pagado: 600_000 })).toBeNull();
+    expect(pagoTotalIncompleto({ paymentMethod: "PAGO_TOTAL", total: 600_000.4, pagado: 599_999.6 })).toBeNull();
+  });
+  it("con 50/50 o contraentrega no aplica", () => {
+    expect(pagoTotalIncompleto({ paymentMethod: "ANTICIPO_50_50", total: 600_000, pagado: 300_000 })).toBeNull();
+    expect(pagoTotalIncompleto({ paymentMethod: "CONTRAENTREGA", total: 600_000, pagado: 0 })).toBeNull();
+  });
+  it("etiquetas larga y corta", () => {
+    expect(PAYMENT_METHOD_LABEL.PAGO_TOTAL).toBe("Pago total (100 % por adelantado; envío gratis en ciudades principales)");
+    expect(PAYMENT_METHOD_SHORT_LABEL.PAGO_TOTAL).toBe("Pago total");
   });
 });

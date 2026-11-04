@@ -24,7 +24,7 @@ import {
 import { adminDeleteQuoteAction } from "@/app/actions/quote-actions";
 import { adminCreateSaleFromQuoteAction } from "@/app/actions/sales-actions";
 import { PaymentMethodField } from "@/modules/ventas/presentation/payment-method-field";
-import { saleFromQuoteMissing, type SalePaymentMethod } from "@/modules/ventas/domain/payment-method";
+import { pagoTotalIncompleto, saleFromQuoteMissing, type SalePaymentMethod } from "@/modules/ventas/domain/payment-method";
 import { SaleOriginBadge } from "@/modules/ventas/presentation/sale-origin-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -268,6 +268,10 @@ function validateSaleInstallments({
 
   if (totalInstallments > capitalTotal) {
     summaryErrors.push("La suma de los abonos no puede superar el capital neto de la venta.");
+  }
+  const pagoTotalError = pagoTotalIncompleto({ paymentMethod, total: capitalTotal, pagado: totalInstallments });
+  if (pagoTotalError) {
+    summaryErrors.push(pagoTotalError);
   }
 
   const hasInstallmentErrors = Object.keys(installmentErrors).length > 0;

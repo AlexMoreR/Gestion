@@ -492,3 +492,55 @@ describe("bloqueos y borrado definitivo (base real)", () => {
     await comprobar("borrado definitivo");
   });
 });
+
+describe("pago total (base real)", () => {
+  async function cotizar(nombre: string, telefono: string) {
+    sinError(
+      await llamar(quotes.adminCreateQuoteAction, {
+        clientId: "",
+        name: nombre,
+        email: "",
+        phone: telefono,
+        address: "Calle 1 # 2-3",
+        city: "Cali",
+        document: "",
+        neighborhood: "",
+        department: "",
+        items: [{ productId: datos.producto.id, supplierId: datos.proveedora.id, quantity: 1, unitPrice: 300_000, fulfillmentMode: "MANUFACTURE" }],
+      }),
+    );
+    return prisma.quote.findFirstOrThrow({ orderBy: { createdAt: "desc" } });
+  }
+
+  function venderConPagoTotal(quoteId: string, monto: string) {
+    return llamar(sales.adminCreateSaleFromQuoteAction, {
+      quoteId,
+      paymentMethod: "PAGO_TOTAL",
+      paymentReceiptAmounts: monto,
+      paymentReceipts: comprobante(),
+      paymentReceiptAccounts: datos.cuenta.id,
+      paymentReceiptNotes: "",
+      paymentReceiptDates: "",
+    });
+  }
+
+  it("con un abono por el total queda pagada (INVOICED) y con forma de pago PAGO_TOTAL", async () => {
+    const quote = await cotizar("Clienta Pago Total", "3000000010");
+    sinError(await venderConPagoTotal(quote.id, "300000"));
+    const sale = await prisma.sale.findUniqueOrThrow({ where: { quoteId: quote.id } });
+    expect(sale.status).toBe("INVOICED");
+    expect(sale.paymentMethod).toBe("PAGO_TOTAL");
+    await comprobar("pago total completo");
+  });
+
+  it("con un abono menor se rechaza y no crea venta ni orden", async () => {
+    const quote = await cotizar("Clienta Pago Corto", "3000000011");
+    const ventas = await prisma.sale.count();
+    const ordenes = await prisma.order.count();
+    const r = await venderConPagoTotal(quote.id, "200000");
+    expect(r.error).toBe("Con Pago total los abonos deben sumar el 100 % del total ($300.000). Faltan $100.000.");
+    expect(await prisma.sale.count()).toBe(ventas);
+    expect(await prisma.order.count()).toBe(ordenes);
+    await comprobar("pago total incompleto");
+  });
+});

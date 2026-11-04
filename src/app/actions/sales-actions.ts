@@ -22,6 +22,7 @@ import { partesPorProducto } from "@/lib/product-parts.server";
 import { prisma } from "@/lib/prisma";
 import {
   MISSING_PAYMENT_METHOD_MESSAGE,
+  pagoTotalIncompleto,
   MISSING_RECEIPT_MESSAGE,
   PAYMENT_METHOD_SHORT_LABEL,
   parsePaymentMethodInput,
@@ -442,6 +443,10 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
 
   if (totalDownPayment > netTotal) {
     redirectWithError(returnTo, "La suma de los abonos no puede superar el total real de la venta");
+  }
+  const pagoTotalError = pagoTotalIncompleto({ paymentMethod, total: netTotal, pagado: totalDownPayment });
+  if (pagoTotalError) {
+    redirectWithError(returnTo, pagoTotalError);
   }
 
   const savedReceipts = await Promise.all(
@@ -1687,7 +1692,8 @@ export async function adminUpdateSaleDateAction(formData: FormData): Promise<voi
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Fecha de la venta actualizada" }).toString()}`);
 }
 
-// Cambia la forma de pago de una venta (50/50 o contraentrega; no se deja en blanco). No toca abonos.
+// Cambia la forma de pago de una venta (50/50, Pago total o contraentrega; no se deja en blanco). No toca
+// abonos ni exige el 100 % con Pago total: ese chequeo es solo al pasar a venta.
 export async function adminUpdateSalePaymentMethodAction(formData: FormData): Promise<void> {
   await requireAdminSession();
   const returnTo = getReturnTo(formData);

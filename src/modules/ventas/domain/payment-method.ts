@@ -1,26 +1,30 @@
 // Forma de pago de la venta (decision de Alexander, 7-oct-2026). Reglas puras, sin Prisma.
 // - 50/50: 50 % anticipo + 50 % al terminar; envio gratis en ciudades de envio GRATIS.
+// - Pago total (nov-2026): 100 % por adelantado al pasar a venta; envio gratis igual que el 50/50.
 // - Contraentrega: solo combo de camilla. El envio se cobra: Bogota $100.000; Cali, Medellin y
 //   demas ciudades de envio GRATIS $150.000; las otras ciudades se cotizan.
 
 import { normalizePlaceName, type ShippingTypeName } from "../../transporte/domain/shipping";
 
-export const SALE_PAYMENT_METHODS = ["ANTICIPO_50_50", "CONTRAENTREGA"] as const;
+export const SALE_PAYMENT_METHODS = ["ANTICIPO_50_50", "PAGO_TOTAL", "CONTRAENTREGA"] as const;
 export type SalePaymentMethod = (typeof SALE_PAYMENT_METHODS)[number];
 
 export const PAYMENT_METHOD_LABEL: Readonly<Record<SalePaymentMethod, string>> = {
   ANTICIPO_50_50: "50 % anticipo + 50 % al terminar (envío gratis en ciudades principales)",
+  PAGO_TOTAL: "Pago total (100 % por adelantado; envío gratis en ciudades principales)",
   CONTRAENTREGA: "Contraentrega (solo combo de camilla; el envío se cobra)",
 };
 
 export const PAYMENT_METHOD_SHORT_LABEL: Readonly<Record<SalePaymentMethod, string>> = {
   ANTICIPO_50_50: "50/50",
+  PAGO_TOTAL: "Pago total",
   CONTRAENTREGA: "Contraentrega",
 };
 
 // Clases del badge (mismo estilo de los demas badges del admin).
 export const PAYMENT_METHOD_BADGE: Readonly<Record<SalePaymentMethod, string>> = {
   ANTICIPO_50_50: "border-sky-500/30 bg-sky-500/15 text-sky-700 dark:text-sky-400",
+  PAGO_TOTAL: "border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
   CONTRAENTREGA: "border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-400",
 };
 
@@ -170,7 +174,7 @@ export function suggestAmountToCollect(params: {
 
 // --- Pasar una cotizacion a venta (caso SAL-00081, 26-oct-2026) ---
 
-export const MISSING_PAYMENT_METHOD_MESSAGE = "Falta escoger la forma de pago (50/50 o Contraentrega).";
+export const MISSING_PAYMENT_METHOD_MESSAGE = "Falta escoger la forma de pago (50/50, Pago total o Contraentrega).";
 export const MISSING_RECEIPT_MESSAGE = "Falta subir el comprobante del primer pago (foto o PDF).";
 
 // Lo que falta para crear la venta desde la cotizacion: forma de pago definida y un comprobante
@@ -187,4 +191,23 @@ export function saleFromQuoteMissing(params: {
     missing.push(MISSING_RECEIPT_MESSAGE);
   }
   return missing;
+}
+
+// Pago total: los abonos al pasar a venta deben sumar el total (con descuento). Se compara en
+// pesos redondeados para no fallar por centavos. null = no aplica o cuadra.
+export function pagoTotalIncompleto(params: {
+  paymentMethod: SalePaymentMethod | null | undefined;
+  total: number;
+  pagado: number;
+}): string | null {
+  if (params.paymentMethod !== "PAGO_TOTAL") {
+    return null;
+  }
+  const total = Math.round(params.total);
+  const faltan = total - Math.round(params.pagado);
+  if (faltan <= 0) {
+    return null;
+  }
+  const peso = (value: number) => `$${value.toLocaleString("es-CO")}`;
+  return `Con Pago total los abonos deben sumar el 100 % del total (${peso(total)}). Faltan ${peso(faltan)}.`;
 }
