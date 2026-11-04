@@ -12,6 +12,7 @@ import {
   type ReciboVenta,
 } from "../domain/recibo-caja";
 import { generarReciboCajaPdf } from "../infrastructure/recibo-caja-pdf";
+import { after } from "next/server";
 
 export type ReciboCajaCuerpo = ReciboCajaDatos & { pdfBase64: string; nombreArchivo: string };
 
@@ -100,5 +101,24 @@ export async function enviarReciboCaja(
     console.error(`Recibo de caja de la venta ${saleId}: falló.`, error);
     await puertos.marcar(abonoIds, "FALLIDO", new Date()).catch(() => undefined);
     return "FALLIDO";
+  }
+}
+
+/**
+ * Programa el envío del recibo sin poder romper la venta ni el abono: dentro de una petición usa
+ * after() de Next; fuera de una (pruebas, scripts) after() lanza error y se manda igual en segundo plano.
+ */
+export function dispararRecibo(tarea: () => Promise<unknown>, programar: (t: () => Promise<unknown>) => void = after): void {
+  const enSegundoPlano = () => {
+    try {
+      void tarea().catch((error) => console.error("Recibo de caja: falló en segundo plano.", error));
+    } catch (error) {
+      console.error("Recibo de caja: no se pudo arrancar.", error);
+    }
+  };
+  try {
+    programar(tarea);
+  } catch {
+    enSegundoPlano();
   }
 }

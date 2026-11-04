@@ -9,7 +9,6 @@ import bcrypt from "bcryptjs";
 import { Prisma, Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { after } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
@@ -29,7 +28,7 @@ import { saleStatusForPaid } from "@/modules/ventas/domain/sale-paid-status";
 import { CONSUMIDOR_FINAL_EMAIL } from "@/modules/ventas/domain/sale-origin";
 import { saleItemsErrorMessage } from "@/modules/ventas/domain/sale-items-check";
 import { autoCreateComboOrder } from "@/modules/ventas/application/auto-create-combo-order";
-import { enviarReciboCaja } from "@/modules/ventas/application/enviar-recibo-caja";
+import { dispararRecibo, enviarReciboCaja } from "@/modules/ventas/application/enviar-recibo-caja";
 import { prismaReciboCajaPuertos } from "@/modules/ventas/infrastructure/prisma-recibo-caja";
 import {
   WITHHOLDING_LABEL,
@@ -552,7 +551,7 @@ export async function adminCreateSaleFromQuoteAction(formData: FormData): Promis
   // Recibo de caja al CRM: uno solo por todas las cuotas del anticipo, después de responder.
   const saleIdForReceipt = createdSaleId;
   if (saleIdForReceipt) {
-    after(() => enviarReciboCaja(saleIdForReceipt, createdPaymentIds, prismaReciboCajaPuertos));
+    dispararRecibo(() => enviarReciboCaja(saleIdForReceipt, createdPaymentIds, prismaReciboCajaPuertos));
   }
   redirect(`${returnTo}?${new URLSearchParams({ ok: `Venta creada${comboOk}` }).toString()}`);
 }
@@ -738,7 +737,7 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
   // Recibo de caja al CRM por este abono (la retención en la fuente no es plata del cliente: no lleva).
   const paymentIdForReceipt = createdPaymentId;
   if (paymentIdForReceipt && !isWithholding) {
-    after(() => enviarReciboCaja(sale.id, [paymentIdForReceipt], prismaReciboCajaPuertos));
+    dispararRecibo(() => enviarReciboCaja(sale.id, [paymentIdForReceipt], prismaReciboCajaPuertos));
   }
   redirect(`${returnTo}?${new URLSearchParams({ ok: okMessage }).toString()}`);
 }

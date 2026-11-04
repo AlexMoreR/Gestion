@@ -11,6 +11,8 @@ vi.mock("next/navigation", () => ({
 // "server-only" es solo una marca de Next para no mandar el módulo al navegador.
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined, revalidateTag: () => undefined }));
+// El recibo de caja no sale a la red en las pruebas (el disparo fuera de petición sí se ejercita).
+process.env.RECIBO_CAJA_AVISO = "off";
 
 const { prisma } = await import("@/lib/prisma");
 const quotes = await import("@/app/actions/quote-actions");
@@ -121,6 +123,23 @@ describe("caminos con plata (base real)", () => {
     ctx.saleId = sale.id;
     ctx.saleCode = sale.code;
     await comprobar("vender con abono");
+  });
+
+  it("2b. abono fuera de petición", async () => {
+    // Sin petición web after() de Next lanza error: el recibo no puede tumbar el abono.
+    sinError(
+      await llamar(sales.adminAddSalePaymentAction, {
+        saleId: ctx.saleId,
+        amount: "50000",
+        accountId: datos.cuenta.id,
+        receipt: comprobante(),
+        note: "",
+        paymentDate: "",
+      }),
+    );
+    const sale = await prisma.sale.findUniqueOrThrow({ where: { id: ctx.saleId }, include: { salePayments: true } });
+    expect(sale.salePayments).toHaveLength(2);
+    await comprobar("abono fuera de petición");
   });
 
   it("3. orden", async () => {
