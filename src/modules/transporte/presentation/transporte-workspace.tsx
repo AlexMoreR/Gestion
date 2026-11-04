@@ -303,6 +303,12 @@ export function TransporteWorkspace({
         ))}
       </div>
 
+      {error ? (
+        <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+
       {view === "mapa" ? (
         <TransporteMap
           // Misma funcion de guardar de la lista: la lista queda al dia al volver.
@@ -391,12 +397,6 @@ export function TransporteWorkspace({
           </button>
         ) : null}
       </div>
-
-      {error ? (
-        <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
 
       {showingSearch ? (
         <div className="rounded-xl border border-border bg-card">
