@@ -1,13 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Check, Copy, ExternalLink, Factory, MessageCircle } from "lucide-react";
+import { AlertTriangle, Check, Copy, ExternalLink, Factory, MessageCircle } from "lucide-react";
 import { adminUpdateManufacturingOrderAction } from "@/app/actions/manufacturing-order-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { displayCode } from "@/lib/code-display";
+import { mensajeCambioColorOF } from "@/lib/color-change";
 import type { ManufacturingPaymentSummary } from "@/lib/manufacturing-orders";
 
 export type ManufacturingCard = {
@@ -28,6 +29,10 @@ export type ManufacturingCard = {
   pago: ManufacturingPaymentSummary | null;
   // Combo Camillas: la orden se creo sola con Laura; falta que la asesora le mande el link.
   creadaSolaParaLaura?: boolean;
+  // Cambios de color que la proveedora aún no marca "Ya lo vi" en su OF (fecha dd/mm/aaaa).
+  avisosSinVer: Array<{ id: string; producto: string; colorViejo: string; colorNuevo: string; fecha: string }>;
+  // Fecha en que vio el último aviso (solo se muestra si no queda ninguno sin ver).
+  ultimoVistoEl: string | null;
 };
 
 type OrderManufacturingTabProps = {
@@ -148,6 +153,35 @@ export function OrderManufacturingTab({ cards, currency, returnTo, brandName }: 
                 </li>
               ))}
             </ul>
+
+            {card.avisosSinVer.length > 0 ? (
+              <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 dark:border-amber-700 dark:bg-amber-950/40">
+                {card.avisosSinVer.map((aviso) => (
+                  <div key={aviso.id} className="space-y-1.5">
+                    <p className="flex items-start gap-1.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        Cambio de color sin ver ({aviso.fecha}): {aviso.producto} {aviso.colorViejo} → {aviso.colorNuevo}
+                      </span>
+                    </p>
+                    <a
+                      href={`https://wa.me/${card.supplierWhatsApp}?text=${encodeURIComponent(
+                        mensajeCambioColorOF({ code: card.code, ...aviso, url: card.url }),
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" /> Avisar cambio de color por WhatsApp
+                    </a>
+                  </div>
+                ))}
+              </div>
+            ) : card.ultimoVistoEl ? (
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
+                Visto por la proveedora el {card.ultimoVistoEl} (cambio de color)
+              </p>
+            ) : null}
 
             <SupplierPayments pago={card.pago} currency={currency} />
 

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  fechaAviso,
   linesToRecolor,
+  mensajeCambioColorOF,
+  ofsConCambioDeColor,
   mismoColor,
   notesWithNewColor,
   parseColorChangeReason,
@@ -125,5 +128,50 @@ describe("notesWithNewColor con partes", () => {
     const despues = parseQuoteItemMeta(notesWithNewColor(antes, palo));
     expect(despues.color).toBe("Palo de rosa");
     expect(despues.partes).toEqual([]);
+  });
+});
+
+describe("ofsConCambioDeColor", () => {
+  const ofs = [
+    { id: "of-laura", supplierId: "laura" },
+    { id: "of-ana", supplierId: "ana" },
+  ];
+  it("avisa solo a la OF de la proveedora con la línea asignada que no sale de stock", () => {
+    expect(ofsConCambioDeColor([{ confirmedSupplierId: "laura", fulfillmentMode: "MANUFACTURE" }], ofs)).toEqual(["of-laura"]);
+  });
+  it("un combo con piezas de dos proveedoras avisa a las dos OF", () => {
+    const lineas = [
+      { confirmedSupplierId: "laura", fulfillmentMode: "MANUFACTURE" },
+      { confirmedSupplierId: "ana", fulfillmentMode: "MIXED" },
+      { confirmedSupplierId: "laura", fulfillmentMode: "MANUFACTURE" },
+    ];
+    expect(ofsConCambioDeColor(lineas, ofs)).toEqual(["of-laura", "of-ana"]);
+  });
+  it("sin proveedora o desde stock no deja aviso", () => {
+    const lineas = [
+      { confirmedSupplierId: null, fulfillmentMode: "MANUFACTURE" },
+      { confirmedSupplierId: "ana", fulfillmentMode: "STOCK" },
+    ];
+    expect(ofsConCambioDeColor(lineas, ofs)).toEqual([]);
+  });
+});
+
+describe("mensajeCambioColorOF", () => {
+  it("arma el texto exacto con el código sin ceros y el enlace", () => {
+    expect(
+      mensajeCambioColorOF({
+        code: "OF-00043",
+        producto: "Combo Camillas",
+        colorViejo: "Crema",
+        colorNuevo: "Palo rosa",
+        url: "https://magilus.com/of/OF-00043",
+      }),
+    ).toBe("Cambio de color en OF-43: Combo Camillas pasa de Crema a Palo rosa\nhttps://magilus.com/of/OF-00043");
+  });
+});
+
+describe("fechaAviso", () => {
+  it("usa el día de Colombia (las 3 a. m. UTC todavía son el día anterior)", () => {
+    expect(fechaAviso(new Date("2026-11-05T03:00:00.000Z"))).toBe("04/11/2026");
   });
 });
