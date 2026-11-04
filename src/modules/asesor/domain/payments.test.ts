@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   bogotaDay,
   buildSaleLedger,
+  describeLedgerDates,
   matchesPaymentStatus,
   matchesText,
   normalizeSaleCode,
@@ -92,6 +93,30 @@ describe("buildSaleLedger", () => {
 
     expect(ledger.payments[0]).toMatchObject({ retroactive: true, beforeQuote: true });
     expect(bogotaDay(ledger.fullyPaidAt!)).toBe("2026-09-26");
+    expect(ledger.countsInBalances).toBe(true);
+    expect(ledger.balance).toBe(0);
+  });
+
+  it("pago total pagada sin entregar: dice Pago total y cuenta en Balances como el 50/50", () => {
+    const ledger = buildSaleLedger(
+      sale({
+        paymentMethod: "PAGO_TOTAL",
+        recordedPaid: 1_000_000,
+        payments: [
+          {
+            amount: 1_000_000,
+            paymentDate: writtenDay("2026-10-02"),
+            registeredAt: at("2026-10-02T16:00:00.000Z"),
+            accountName: "Bancolombia",
+            method: "Bancolombia",
+            note: null,
+          },
+        ],
+      }),
+    );
+
+    expect(describeLedgerDates(ledger).forma_de_pago).toBe("Pago total");
+    expect(bogotaDay(ledger.fullyPaidAt!)).toBe("2026-10-02");
     expect(ledger.countsInBalances).toBe(true);
     expect(ledger.balance).toBe(0);
   });
