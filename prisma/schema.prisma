@@ -139,7 +139,6 @@ model Product {
   inventoryMovements InventoryMovement[]
   reviews            ProductReview[]
   lotUnits           CompraUnidad[]
-  partesColor        ParteColor[]
 }
 
 model ProductReview {
@@ -218,7 +217,6 @@ model Category {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   products       Product[]
-  partesColor    ParteColor[]
 }
 
 enum SupplierType {
@@ -1446,31 +1444,4 @@ model CartaColor {
 
   @@unique([materialId, codigo])
   @@index([materialId])
-}
-
-// Partes de un producto que llevan color propio (nov-2026). Va en la categoria (plantilla) o en
-// el producto (partes propias); exactamente uno de los dos (CHECK en la migracion).
-enum ParteColorTipo {
-  CARTA
-  ACABADOS
-}
-
-model ParteColor {
-  id         String         @id @default(cuid())
-  categoryId String?
-  productId  String?
-  nombre     String
-  tipo       ParteColorTipo
-  // CARTA: materiales de la carta del CRM (ej. Cuero, Tela). ACABADOS: lista fija (ej. Cromada, Dorada).
-  materiales String[]       @default([])
-  acabados   String[]       @default([])
-  mascaraUrl String?
-  orden      Int
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
-  category   Category?      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  product    Product?       @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@index([categoryId])
-  @@index([productId])
 }
