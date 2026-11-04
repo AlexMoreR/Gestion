@@ -20,6 +20,7 @@ import {
 } from "@/app/actions/dispatch-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ChangeItemColorDialog } from "@/components/admin/change-item-color-dialog";
 import { ProductThumb } from "@/components/admin/product-thumb";
 import { ReversalReasonFields } from "@/components/admin/reversal-reason-fields";
 import {
@@ -72,6 +73,10 @@ export type OrderItemManagerData = {
   unitPrice: number;
   fulfillmentLabel: string;
   observations: string;
+  /** Color guardado en la línea (texto). */
+  color: string;
+  /** Venta activa (no cancelada): se puede cambiar solo el color. */
+  canChangeColor: boolean;
   isConfirmed: boolean;
   isRecogido: boolean;
   isDespachado: boolean;
@@ -229,6 +234,7 @@ export function OrderItemManager({
   const [reverseDeliveryOpen, setReverseDeliveryOpen] = useState(false);
   const [reverseDeliveryReady, setReverseDeliveryReady] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
+  const [colorOpen, setColorOpen] = useState(false);
   const [undoPickupOpen, setUndoPickupOpen] = useState(false);
   const [undoConfirmOpen, setUndoConfirmOpen] = useState(false);
   const [dispatchDeliveryType, setDispatchDeliveryType] = useState<"COUNTER" | "PICKUP" | "SHIPPING">("SHIPPING");
@@ -281,6 +287,20 @@ export function OrderItemManager({
             </button>
           )}
         </p>
+        {item.color || item.canChangeColor ? (
+          <p className="text-xs text-muted-foreground">
+            Color: {item.color || "sin color"}
+            {item.canChangeColor ? (
+              <button
+                type="button"
+                onClick={() => setColorOpen(true)}
+                className="ml-2 underline hover:text-foreground"
+              >
+                Cambiar color
+              </button>
+            ) : null}
+          </p>
+        ) : null}
         <Badge
           variant="outline"
           className={`mt-1 text-[10px] ${
@@ -900,6 +920,15 @@ export function OrderItemManager({
         </DialogContent>
       </Dialog>
 
+      {item.canChangeColor ? (
+        <ChangeItemColorDialog
+          open={colorOpen}
+          onOpenChange={setColorOpen}
+          orderItemId={item.id}
+          productName={item.productName}
+          currentColor={item.color}
+        />
+      ) : null}
       <Dialog open={splitOpen} onOpenChange={(value) => (value ? null : setSplitOpen(false))}>
         <DialogContent className="max-w-md">
           <DialogHeader>

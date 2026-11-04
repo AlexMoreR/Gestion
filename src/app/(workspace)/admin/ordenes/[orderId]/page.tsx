@@ -341,6 +341,9 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     ),
   );
 
+  // Cambiar color: solo en una venta (y su orden) no cancelada.
+  const canChangeColor =
+    !isPurchase && Boolean(order.sale) && order.sale?.status !== "CANCELLED" && order.status !== "CANCELLED";
   const orderItemsData = order.items.map((item) => {
     const itemDispatch = dispatchByItemId.get(item.id);
     // Proveedores efectivos: los del producto o, si es un combo (sin proveedor
@@ -370,6 +373,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       unitPrice: Number(item.unitPrice),
       fulfillmentLabel: getFulfillmentModeLabel(item.fulfillmentMode),
       observations,
+      color: meta.color.trim(),
+      canChangeColor,
       isConfirmed: itemIsConfirmed(item),
       isRecogido: isItemRecogido(item),
       isDespachado: isItemDespachado(item),

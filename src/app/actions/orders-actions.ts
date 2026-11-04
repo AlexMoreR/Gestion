@@ -7,7 +7,17 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
-import { logActivity } from "@/lib/activity-log";
+import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
+import type { CartaColores } from "@/lib/carta-colores-crm";
+import { leerCartaColores } from "@/lib/carta-colores-crm.server";
+import {
+  linesToRecolor,
+  mismoColor,
+  notesWithNewColor,
+  parseColorChangeReason,
+  parseNuevoColor,
+} from "@/lib/color-change";
+import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { stockToRestore } from "@/lib/order-stock-restore";
 import { prisma } from "@/lib/prisma";
 import { parseOrderNoteText } from "@/lib/order-notes";
@@ -357,6 +367,104 @@ export async function adminAddOrderNoteAction(formData: FormData): Promise<void>
   revalidatePath("/admin/ordenes");
   revalidatePath(back);
   redirect(`${back}?ok=Nota+agregada`);
+}
+
+// La carta de colores para "Cambiar color" en la orden (la de cotizaciones pide permiso de Cotizaciones).
+export async function getCartaColoresOrdenAction(): Promise<CartaColores> {
+  await requireAdminSession();
+  return leerCartaColores();
+}
+
+// Cambia SOLO el color de un producto de una venta activa (cotización + orden; en un combo, todas sus
+// piezas), con motivo. Solo escribe las notas de las líneas, una nota de la orden y la bitácora:
+// no toca precios, totales, abonos, costos, estados, fechas ni avisa a nadie.
+export async function adminChangeSaleItemColorAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const orderItemId = String(formData.get("orderItemId") ?? "").trim();
+  const item = orderItemId
+    ? await prisma.orderItem.findUnique({ where: { id: orderItemId }, select: { orderId: true } })
+    : null;
+  if (!item) {
+    redirect("/admin/ordenes?error=Producto+no+encontrado");
+  }
+  const back = orderDetailPath(item.orderId);
+
+  const motivo = parseColorChangeReason(formData.get("motivo"));
+  if (!motivo.ok) redirect(`${back}?error=${encodeURIComponent(motivo.error)}`);
+  const nuevo = parseNuevoColor({
+    color: formData.get("color"),
+    colorCodigo: formData.get("colorCodigo"),
+    colorMaterial: formData.get("colorMaterial"),
+    colorFotoUrl: formData.get("colorFotoUrl"),
+  });
+  if (!nuevo.ok) redirect(`${back}?error=${encodeURIComponent(nuevo.error)}`);
+
+  const actor = await getActivityActor();
+  const result = await prisma.$transaction(async (tx) => {
+    const order = await tx.order.findUnique({
+      where: { id: item.orderId },
+      select: {
+        id: true,
+        code: true,
+        type: true,
+        status: true,
+        sale: { select: { code: true, status: true, quoteId: true } },
+        items: { select: { id: true, quoteItemId: true, notes: true, product: { select: { name: true } } } },
+      },
+    });
+    if (!order || order.type !== "SALE" || !order.sale) return { error: "Solo se cambia el color en una orden de venta." };
+    if (order.status === "CANCELLED" || order.sale.status === "CANCELLED") {
+      return { error: "La venta está cancelada: no se puede cambiar el color." };
+    }
+    const quoteItems = await tx.quoteItem.findMany({
+      where: { quoteId: order.sale.quoteId },
+      select: { id: true, notes: true, product: { select: { name: true, isBundle: true } } },
+    });
+    const lines = linesToRecolor(
+      orderItemId,
+      quoteItems.map((q) => ({ id: q.id, notes: q.notes, productName: q.product.name, isBundle: q.product.isBundle })),
+      order.items,
+    );
+    const clicked = order.items.find((o) => o.id === orderItemId);
+    if (!lines || !clicked) return { error: "Producto no encontrado." };
+    if (mismoColor(clicked.notes, nuevo.value)) return { error: "Ese ya es el color de este producto." };
+
+    const before = quoteItems.filter((q) => lines.quoteItemIds.includes(q.id));
+    const beforeOrder = order.items.filter((o) => lines.orderItemIds.includes(o.id));
+    for (const q of before) {
+      await tx.quoteItem.update({ where: { id: q.id }, data: { notes: notesWithNewColor(q.notes, nuevo.value) } });
+    }
+    for (const o of beforeOrder) {
+      await tx.orderItem.update({ where: { id: o.id }, data: { notes: notesWithNewColor(o.notes, nuevo.value) } });
+    }
+
+    // Nombre que se reconoce: el del combo (desglosado o no) o el del producto.
+    const meta = parseQuoteItemMeta(before[0]?.notes ?? clicked.notes);
+    const producto = meta.comboName || before[0]?.product.name || clicked.product.name;
+    const viejo = parseQuoteItemMeta(clicked.notes).color.trim() || "sin color";
+    const text = `Cambio de color de ${producto}: ${viejo} → ${nuevo.value.color}. Motivo: ${motivo.value}`;
+    await tx.orderNote.create({ data: { orderId: order.id, text, createdById: actor.id } });
+    await logActivityTx(tx, actor, {
+      action: "UPDATE",
+      entityType: "ORDER",
+      entityId: order.id,
+      entityCode: order.code,
+      summary: `${text} (${order.sale.code})`,
+      before: {
+        quoteItems: before.map((q) => ({ id: q.id, notes: q.notes })),
+        orderItems: beforeOrder.map((o) => ({ id: o.id, notes: o.notes })),
+      },
+      after: { color: nuevo.value, motivo: motivo.value, quoteItemIds: lines.quoteItemIds, orderItemIds: lines.orderItemIds },
+    });
+    return { error: null };
+  });
+  if (result.error) redirect(`${back}?error=${encodeURIComponent(result.error)}`);
+
+  revalidatePath("/admin/ordenes");
+  revalidatePath("/admin/cotizaciones");
+  revalidatePath("/admin/ventas");
+  revalidatePath(back);
+  redirect(`${back}?ok=${encodeURIComponent("Color cambiado")}`);
 }
 
 export async function adminDeleteOrderNoteAction(formData: FormData): Promise<void> {
