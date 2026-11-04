@@ -1,6 +1,6 @@
 import { inflateSync } from "node:zlib";
 import { describe, expect, it, vi } from "vitest";
-import { armarReciboCaja, estadoPedido, type ReciboVenta } from "./recibo-caja";
+import { armarReciboCaja, estadoPedido, ventaMandaRecibo, type ReciboVenta } from "./recibo-caja";
 import {
   armarCuerpoRecibo,
   enviarReciboCaja,
@@ -16,6 +16,7 @@ const venta = (cambios: Partial<ReciboVenta> = {}): ReciboVenta => ({
   productos: ["Silla barbera", "2 x Butaco"],
   asesora: "Ingrid",
   orderStatus: null,
+  esMostrador: false,
   pagos: [
     // 10-oct escrita por la persona (medianoche UTC) y un momento real del 4-nov a las 9 p. m. en Colombia.
     { id: "p1", amount: 300_000, paymentDate: new Date("2026-10-10T00:00:00Z"), createdAt: new Date(), isWithholding: false },
@@ -132,6 +133,22 @@ describe("recibo de caja: PDF y envío", () => {
     fetchMock.mockClear();
     marcar.mockClear();
     expect(await enviarReciboCaja("s1", ["p1"], puertos, { ...deps, env: { CRM_API_KEY: "k", RECIBO_CAJA_AVISO: "off" } })).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(marcar).not.toHaveBeenCalled();
+  });
+
+  it("venta de mostrador: ventaMandaRecibo da false y el abono no llama al CRM ni se marca", async () => {
+    expect(ventaMandaRecibo(venta())).toBe(true);
+    expect(ventaMandaRecibo(venta({ esMostrador: true }))).toBe(false);
+    const fetchMock = vi.fn(async () => new Response("{}", { status: 200 }));
+    const marcar = vi.fn(async () => undefined);
+    const puertos: ReciboCajaPuertos = { cargarVenta: async () => venta({ esMostrador: true }), marcar };
+    const estado = await enviarReciboCaja("s1", ["p2"], puertos, {
+      fetch: fetchMock as unknown as typeof fetch,
+      env: { CRM_API_KEY: "k" },
+      esperar: async () => undefined,
+    });
+    expect(estado).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(marcar).not.toHaveBeenCalled();
   });

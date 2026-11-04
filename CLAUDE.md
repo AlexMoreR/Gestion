@@ -136,7 +136,7 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   por todas las cuotas) y en cada abono (sin retención) se manda un PDF (pdf-lib) al CRM con `dispararRecibo` (`after()`; fuera de una petición, en segundo plano; nunca rompe la venta ni el abono)
   (`CRM_RECIBO_URL`, def. `https://crm.magilus.com/api/gestion/recibo-de-caja`; Bearer `CRM_API_KEY` → `CATALOGO_API_KEY`
   → `MCP_API_KEY`; reintentos 2/8/30 s) y se guarda `reciboCajaEstado` (ENVIADO/FALLIDO) + `reciboCajaEn`; etiqueta en
-  «Abonos registrados». `RECIBO_CAJA_AVISO=off` lo apaga. Razón social y dirección en
+  «Abonos registrados». `RECIBO_CAJA_AVISO=off` lo apaga. Las ventas de mostrador (cotización con origen `MOSTRADOR`) no mandan recibo ni en abonos posteriores (`ventaMandaRecibo`; vale el último origen). Razón social y dirección en
   `src/modules/ventas/domain/recibo-caja.ts`; envío en `application/enviar-recibo-caja.ts`; prueba `npm run recibo:prueba`.
 - **ShippingCost** — **costo de envío por venta** (transportadora + monto). Es el "COSTO DE ENVÍO" que
   reduce la ganancia de esa venta (ej. flete a otra ciudad).

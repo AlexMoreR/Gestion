@@ -10,6 +10,7 @@ import {
   type ReciboCajaDatos,
   type ReciboCajaEstado,
   type ReciboVenta,
+  ventaMandaRecibo,
 } from "../domain/recibo-caja";
 import { generarReciboCajaPdf } from "../infrastructure/recibo-caja-pdf";
 import { after } from "next/server";
@@ -80,7 +81,7 @@ export type ReciboCajaPuertos = {
 
 /**
  * Arma y manda un recibo por los abonos indicados de la venta y deja el estado en esos abonos.
- * Con RECIBO_CAJA_AVISO=off no hace nada (ni marca).
+ * Con RECIBO_CAJA_AVISO=off o en una venta de mostrador no hace nada (ni marca).
  */
 export async function enviarReciboCaja(
   saleId: string,
@@ -91,7 +92,7 @@ export async function enviarReciboCaja(
   if (reciboCajaApagado(deps.env ?? process.env) || abonoIds.length === 0) return null;
   try {
     const venta = await puertos.cargarVenta(saleId);
-    const datos = venta ? armarReciboCaja(venta, abonoIds) : null;
+    const datos = venta && ventaMandaRecibo(venta) ? armarReciboCaja(venta, abonoIds) : null;
     if (!datos) return null;
     const ok = await postReciboAlCrm(await armarCuerpoRecibo(datos), deps);
     const estado: ReciboCajaEstado = ok ? "ENVIADO" : "FALLIDO";

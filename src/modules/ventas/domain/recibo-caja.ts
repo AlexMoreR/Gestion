@@ -29,9 +29,16 @@ export type ReciboVenta = {
   productos: string[];
   asesora: string;
   orderStatus: string | null;
+  /** La cotización de la venta tiene origen MOSTRADOR (venta directa). */
+  esMostrador: boolean;
   /** Todos los abonos de la venta (para el saldo). */
   pagos: ReciboAbono[];
 };
+
+/** Decisión del dueño (nov-2026): las ventas de mostrador no mandan recibo de caja. Vale el último origen. */
+export function ventaMandaRecibo(venta: Pick<ReciboVenta, "esMostrador">): boolean {
+  return !venta.esMostrador;
+}
 
 export type ReciboCajaDatos = {
   reciboId: string;

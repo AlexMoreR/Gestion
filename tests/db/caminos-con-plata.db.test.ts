@@ -25,6 +25,7 @@ const dispatches = await import("@/app/actions/dispatch-actions");
 const catalog = await import("@/app/actions/catalog-actions");
 const products = await import("@/app/actions/product-actions");
 const { COTIZACION_CON_VENTA_LINEAS } = await import("@/lib/quote-lines");
+const { prismaReciboCajaPuertos } = await import("@/modules/ventas/infrastructure/prisma-recibo-caja");
 const { PROVEEDORA_CON_MOVIMIENTOS, PRODUCTO_CON_MOVIMIENTOS } = await import("@/lib/anulaciones");
 
 let datos: Awaited<ReturnType<typeof sembrar>>;
@@ -139,6 +140,8 @@ describe("caminos con plata (base real)", () => {
     );
     const sale = await prisma.sale.findUniqueOrThrow({ where: { id: ctx.saleId }, include: { salePayments: true } });
     expect(sale.salePayments).toHaveLength(2);
+    // Venta con cotización (no de mostrador): sus abonos sí mandan recibo.
+    expect((await prismaReciboCajaPuertos.cargarVenta(ctx.saleId!))?.esMostrador).toBe(false);
     await comprobar("abono fuera de petición");
   });
 

@@ -14,6 +14,7 @@ export const prismaReciboCajaPuertos: ReciboCajaPuertos = {
         // "Asesora" = quien creó la cotización (así define Gestión a la vendedora).
         quote: {
           select: {
+            origin: true,
             createdBy: { select: { name: true } },
             items: { select: { quantity: true, product: { select: { name: true } } } },
           },
@@ -36,6 +37,7 @@ export const prismaReciboCajaPuertos: ReciboCajaPuertos = {
       ),
       asesora: sale.quote.createdBy.name ?? "",
       orderStatus: sale.order?.status ?? null,
+      esMostrador: sale.quote.origin === "MOSTRADOR",
       pagos: sale.salePayments.map((pago) => ({ ...pago, amount: Number(pago.amount) })),
     };
   },
