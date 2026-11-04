@@ -135,6 +135,12 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             },
             confirmedSupplier: true,
             photos: { orderBy: { createdAt: "asc" } },
+            // Fotos del embalaje aún sin despacho (las sube la proveedora en su enlace de la OF).
+            embalajeFotos: {
+              where: { dispatchId: null, tipo: { not: "LLEGADA" } },
+              orderBy: { createdAt: "asc" },
+              select: { id: true, url: true, tipo: true },
+            },
             supplierLedgerEntries: {
               where: { type: "PAYMENT" },
               select: { amount: true },
@@ -443,6 +449,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         url: photo.url,
         name: photo.name,
       })),
+      embalajeFotos: item.embalajeFotos,
     };
   });
 

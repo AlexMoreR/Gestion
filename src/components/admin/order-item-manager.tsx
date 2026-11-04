@@ -106,9 +106,34 @@ export type OrderItemManagerData = {
   paymentStatus: "PENDING" | "PAID" | null;
   receiptUrl: string | null;
   photos: ItemPhoto[];
+  /** Fotos del embalaje sin despacho (subidas por la proveedora en su enlace de la OF). */
+  embalajeFotos: { id: string; url: string; tipo: string }[];
   dispatchCode: string | null;
   dispatchCarrierName: string | null;
 };
+
+// Con foto 1 (abierto) y foto 2 (cerrado) ya guardadas, el despacho no las vuelve a pedir.
+export function tieneEmbalajeCompleto(fotos: OrderItemManagerData["embalajeFotos"]): boolean {
+  return fotos.some((foto) => foto.tipo === "ABIERTO") && fotos.some((foto) => foto.tipo === "CERRADO");
+}
+
+export function EmbalajeYaSubido({ fotos }: { fotos: OrderItemManagerData["embalajeFotos"] }) {
+  return (
+    <div className="space-y-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5">
+      <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+        Fotos del embalaje ya subidas por la proveedora
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {fotos.map((foto) => (
+          <a key={foto.id} href={foto.url} target="_blank" rel="noreferrer" className="inline-block">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={foto.url} alt="Foto del embalaje" className="h-12 w-12 rounded-md border border-border object-cover" />
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 type OrderItemManagerProps = {
   item: OrderItemManagerData;
@@ -257,6 +282,7 @@ export function OrderItemManager({
   // Cuando el item ya esta recogido se muestra un resumen de solo lectura;
   // el lapiz habilita el formulario para editar el despacho.
   const showDispatchForm = !item.isRecogido || editing;
+  const embalajeListo = tieneEmbalajeCompleto(item.embalajeFotos);
 
   const openModal = () => {
     setEditing(false);
@@ -872,17 +898,18 @@ export function OrderItemManager({
                     />
                   </div>
 
+                  {embalajeListo ? <EmbalajeYaSubido fotos={item.embalajeFotos} /> : null}
                   <div className="space-y-1">
                     <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                       Foto 1: producto empacado, paquete abierto
                     </label>
-                    <Input type="file" name="embalajeAbierto" accept="image/*" required className="h-8 text-xs" />
+                    <Input type="file" name="embalajeAbierto" accept="image/*" required={!embalajeListo} className="h-8 text-xs" />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                       Foto 2: paquete cerrado con la guía
                     </label>
-                    <Input type="file" name="embalajeCerrado" accept="image/*" required className="h-8 text-xs" />
+                    <Input type="file" name="embalajeCerrado" accept="image/*" required={!embalajeListo} className="h-8 text-xs" />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">

@@ -26,7 +26,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { OrderItemManager, type OrderItemManagerData } from "@/components/admin/order-item-manager";
+import {
+  EmbalajeYaSubido,
+  OrderItemManager,
+  tieneEmbalajeCompleto,
+  type OrderItemManagerData,
+} from "@/components/admin/order-item-manager";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import {
   ShipmentDispatchFields,
@@ -132,6 +137,8 @@ export function OrderItemsTable({
 
   const selectedIdsJson = JSON.stringify(selectedItems.map((item) => item.id));
   const count = selectedItems.length;
+  // En lote, las fotos dejan de ser obligatorias solo si todos los productos elegidos ya las tienen.
+  const embalajeListo = count > 0 && selectedItems.every((item) => tieneEmbalajeCompleto(item.embalajeFotos));
 
   const dispatchCostTotal = selectedItems.reduce(
     (sum, item) => sum + (Number(itemCosts[item.id] || 0) || 0),
@@ -368,17 +375,20 @@ export function OrderItemsTable({
                     <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Foto de la guia</label>
                     <Input type="file" name="trackingPhoto" accept="image/*,application/pdf" className="h-8 text-xs" />
                   </div>
+                  {embalajeListo
+                    ? selectedItems.map((item) => <EmbalajeYaSubido key={item.id} fotos={item.embalajeFotos} />)
+                    : null}
                   <div className="space-y-1">
                     <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                       Foto 1: producto empacado, paquete abierto
                     </label>
-                    <Input type="file" name="embalajeAbierto" accept="image/*" required className="h-8 text-xs" />
+                    <Input type="file" name="embalajeAbierto" accept="image/*" required={!embalajeListo} className="h-8 text-xs" />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                       Foto 2: paquete cerrado con la guía
                     </label>
-                    <Input type="file" name="embalajeCerrado" accept="image/*" required className="h-8 text-xs" />
+                    <Input type="file" name="embalajeCerrado" accept="image/*" required={!embalajeListo} className="h-8 text-xs" />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">

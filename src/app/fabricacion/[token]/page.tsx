@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { AlertTriangle, CalendarDays, MapPin } from "lucide-react";
-import { markColorNoticeSeenAction } from "@/app/actions/manufacturing-order-actions";
+import { AlertTriangle, CalendarDays, CheckCircle2, MapPin, PackageCheck } from "lucide-react";
+import { markColorNoticeSeenAction, markReadyForDispatchAction } from "@/app/actions/manufacturing-order-actions";
+import { colombiaDayKey, colombiaTimeOfDay } from "@/lib/colombia-time";
+import { EMBALAJE_MAX_FOTOS } from "@/lib/embalaje-fotos";
 import { fechaAviso } from "@/lib/color-change";
 import { displayCode } from "@/lib/code-display";
 import { formatMoney } from "@/lib/currency";
@@ -27,7 +29,22 @@ export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ ok?: string; error?: string }>;
 };
+
+// "04/11/2026 a las 14:30", en hora de Colombia.
+function fechaHoraColombia(value: Date): string {
+  return `${colombiaDayKey(value).split("-").reverse().join("/")} a las ${colombiaTimeOfDay(value)}`;
+}
+
+const TIPO_FOTO: Record<string, string> = {
+  ABIERTO: "Foto 1: paquete abierto",
+  CERRADO: "Foto 2: paquete cerrado",
+  EXTRA: "Foto extra",
+};
+
+const fileInputClass =
+  "block w-full text-sm text-slate-700 file:mr-3 file:rounded-full file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-slate-800";
 
 export async function generateMetadata(): Promise<Metadata> {
   const brandName = await getSystemBrandName();
@@ -47,8 +64,9 @@ function formatCalendarDate(value: Date | null): string {
   });
 }
 
-export default async function ManufacturingOrderPublicPage({ params }: PageProps) {
+export default async function ManufacturingOrderPublicPage({ params, searchParams }: PageProps) {
   const { token } = await params;
+  const { ok, error } = await searchParams;
   if (!token) notFound();
 
   const manufacturingOrder = await prisma.manufacturingOrder.findUnique({
@@ -88,6 +106,17 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
         purchaseCost: true,
         notes: true,
         product: { select: { name: true, code: true, thumbnailUrl: true, description: true } },
+        // Fotos del embalaje aún sin despacho y si ya está despachado (despacho no cancelado ni devuelto).
+        embalajeFotos: {
+          where: { dispatchId: null, tipo: { not: "LLEGADA" } },
+          orderBy: { createdAt: "asc" },
+          select: { id: true, tipo: true, url: true, createdAt: true },
+        },
+        dispatchItems: {
+          where: { dispatch: { status: { notIn: ["CANCELLED", "RETURNED"] } } },
+          select: { id: true },
+          take: 1,
+        },
       },
     }),
     getSystemBrandName(),
@@ -97,6 +126,9 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
   ]);
 
   const lines = items.map(toManufacturingLine);
+  const embalajeById = new Map(
+    items.map((item) => [item.id, { fotos: item.embalajeFotos, despachado: item.dispatchItems.length > 0 }] as const),
+  );
   const totalCost = lines.reduce((sum, line) => sum + (line.subtotal ?? 0), 0);
   const totalUnits = lines.reduce((sum, line) => sum + line.quantity, 0);
   const supplierName = manufacturingOrder.supplier.displayName || manufacturingOrder.supplier.name;
@@ -120,6 +152,16 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
       </header>
 
       <main className="mx-auto w-full max-w-4xl space-y-5 px-4 py-6 md:px-6 md:py-8">
+        {ok ? (
+          <p className="flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 print:hidden">
+            <CheckCircle2 className="h-4 w-4 shrink-0" /> {ok}
+          </p>
+        ) : null}
+        {error ? (
+          <p className="flex items-center gap-2 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800 print:hidden">
+            <AlertTriangle className="h-4 w-4 shrink-0" /> {error}
+          </p>
+        ) : null}
         {manufacturingOrder.avisosColor.map((aviso) => (
           <section
             key={aviso.id}
@@ -274,6 +316,86 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
                       )}
                     </p>
                   </div>
+                  {(() => {
+                    const embalaje = embalajeById.get(line.id);
+                    if (!embalaje || embalaje.despachado) return null;
+                    const tieneObligatorias =
+                      embalaje.fotos.some((foto) => foto.tipo === "ABIERTO") &&
+                      embalaje.fotos.some((foto) => foto.tipo === "CERRADO");
+                    const cupoExtra = EMBALAJE_MAX_FOTOS - embalaje.fotos.length;
+                    return (
+                      <div className="space-y-3 print:hidden">
+                        {embalaje.fotos.length > 0 ? (
+                          <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                            <p className="text-sm font-semibold text-emerald-900">Fotos del embalaje enviadas</p>
+                            <ul className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                              {embalaje.fotos.map((foto) => (
+                                <li key={foto.id} className="space-y-1">
+                                  <a href={getPublicAssetUrl(foto.url)} target="_blank" rel="noreferrer">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={getPublicAssetUrl(foto.url)}
+                                      alt={TIPO_FOTO[foto.tipo] ?? "Foto del embalaje"}
+                                      className="aspect-square w-full rounded-md border border-emerald-200 object-cover"
+                                    />
+                                  </a>
+                                  <p className="text-xs font-semibold text-slate-800">{TIPO_FOTO[foto.tipo] ?? "Foto"}</p>
+                                  <p className="text-xs text-slate-600">Subida el {fechaHoraColombia(foto.createdAt)}</p>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                        {cupoExtra > 0 ? (
+                          <details className="group rounded-lg border border-slate-200">
+                            <summary className="flex cursor-pointer list-none items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
+                              <PackageCheck className="h-4 w-4" />
+                              {tieneObligatorias ? "Agregar más fotos" : "Listo para despacho"}
+                            </summary>
+                            <form action={markReadyForDispatchAction} className="space-y-3 p-3">
+                              <input type="hidden" name="token" value={token} />
+                              <input type="hidden" name="orderItemId" value={line.id} />
+                              {tieneObligatorias ? null : (
+                                <>
+                                  <label className="block space-y-1">
+                                    <span className="text-sm font-semibold text-slate-900">
+                                      Foto 1: producto empacado, paquete abierto
+                                    </span>
+                                    <input type="file" name="embalajeAbierto" accept="image/*" required className={fileInputClass} />
+                                  </label>
+                                  <label className="block space-y-1">
+                                    <span className="text-sm font-semibold text-slate-900">
+                                      Foto 2: paquete cerrado con la guía
+                                    </span>
+                                    <input type="file" name="embalajeCerrado" accept="image/*" required className={fileInputClass} />
+                                  </label>
+                                </>
+                              )}
+                              <label className="block space-y-1">
+                                <span className="text-sm font-semibold text-slate-900">
+                                  Fotos extra (hasta {Math.min(3, tieneObligatorias ? cupoExtra : cupoExtra - 2)})
+                                </span>
+                                <input
+                                  type="file"
+                                  name="embalajeExtra"
+                                  accept="image/*"
+                                  multiple
+                                  required={tieneObligatorias}
+                                  className={fileInputClass}
+                                />
+                              </label>
+                              <button
+                                type="submit"
+                                className="w-full rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 sm:w-auto"
+                              >
+                                Enviar fotos
+                              </button>
+                            </form>
+                          </details>
+                        ) : null}
+                      </div>
+                    );
+                  })()}
                 </li>
               ))}
             </ul>
