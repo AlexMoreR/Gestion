@@ -189,7 +189,7 @@ export function PartesColorCard({ duenio, id, partes, partesCategoria = [], cate
                       value={parte.tipo}
                       disabled={pending}
                       onChange={(event) => cambiar(index, { tipo: event.target.value as ParteColorTipo })}
-                      className="h-8 rounded-lg border border-[var(--line)] bg-white px-2 text-sm text-slate-900 outline-none focus:border-[var(--primary)]"
+                      className="field-select"
                     >
                       <option value="CARTA">Carta de colores</option>
                       <option value="ACABADOS">Acabados</option>
