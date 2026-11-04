@@ -63,6 +63,8 @@ import {
   prepareMonthClose,
 } from "@/modules/balances/application/close-month";
 import { createPrismaMonthCloseDeps } from "@/modules/balances/infrastructure/prisma-month-close";
+import { buildCoverageReport } from "@/modules/transporte/domain/coverage-report";
+import { listCoverageRows } from "@/modules/transporte/infrastructure/transporte-repository";
 import type { McpServerDefinition, McpToolDefinition, McpToolResult } from "./protocol";
 
 // Casi todas las herramientas son de SOLO LECTURA: solo llaman casos de uso de consulta.
@@ -473,6 +475,21 @@ export const asesorTools: McpToolDefinition[] = [
     handler: (_args, deps) => listOpenOrdersUseCase(deps),
   }),
   defineTool({
+    name: "listar_cobertura",
+    title: "Cobertura de envíos",
+    description:
+      "SOLO LECTURA. Cobertura de envíos del panel de Transporte (/admin/transporte): el tipo efectivo de envío (GRATIS, ADICIONAL, COTIZAR o NO_LLEGA) por departamento y municipio. Los corregimientos solo salen si su tipo es distinto al de su municipio; los demás solo cuentan en los totales por tipo. pendiente_revision = lugar nuevo que mandó el CRM y aún no se revisa. Filtros opcionales: departamento (con o sin tildes) y tipo. Sirve, por ejemplo, para las exclusiones de campañas (dónde no llegamos o se cotiza).",
+    schema: z.object({
+      departamento: z.string().max(80).optional().describe("Nombre del departamento, con o sin tildes (ej. arauca). Si se omite, todos."),
+      tipo: z
+        .enum(["gratis", "adicional", "cotizar", "no_llega"])
+        .optional()
+        .describe("gratis, adicional, cotizar o no_llega. Si se omite, todos."),
+    }),
+    handler: async (args) =>
+      buildCoverageReport(await listCoverageRows(), { departamento: args.departamento, tipo: args.tipo }),
+  }),
+  defineTool({
     name: "registrar_gasto",
     title: "Registrar un gasto",
     description:
@@ -734,6 +751,6 @@ export const asesorMcpServer: McpServerDefinition = {
   name: "gestion-magilus",
   version: "1.2.0",
   instructions:
-    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos, pagos a proveedoras y el cierre de mes: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), saldos de cuentas, gastos del mes con la ganancia real (listar_gastos) cuanto se le debe a cada proveedora orden por orden (deuda_con_proveedoras) y pedidos por clienta o ciudad con su estado (buscar_pedido, pedidos_abiertos). Para entender el sistema completo usa primero que_es_esta_aplicacion. Todas las herramientas son de lectura salvo registrar_gasto, registrar_pago_proveedora y cerrar_mes (cierre de mes: el dueno dicta el saldo real de cada cuenta y se crea un ajuste por cuenta), las unicas que escriben: antes de guardar SIEMPRE repite el resumen al dueno y espera su 'si' (primero con confirmado=false, luego confirmado=true, UNA sola vez: dos llamadas de registrar_gasto crean dos gastos). Un pago a una proveedora por su orden de fabricacion (OF) va con registrar_pago_proveedora, nunca como gasto (contaria el costo dos veces). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
+    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos, pagos a proveedoras y el cierre de mes: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), saldos de cuentas, gastos del mes con la ganancia real (listar_gastos) cuanto se le debe a cada proveedora orden por orden (deuda_con_proveedoras), pedidos por clienta o ciudad con su estado (buscar_pedido, pedidos_abiertos) y la cobertura de envios por departamento y municipio (listar_cobertura). Para entender el sistema completo usa primero que_es_esta_aplicacion. Todas las herramientas son de lectura salvo registrar_gasto, registrar_pago_proveedora y cerrar_mes (cierre de mes: el dueno dicta el saldo real de cada cuenta y se crea un ajuste por cuenta), las unicas que escriben: antes de guardar SIEMPRE repite el resumen al dueno y espera su 'si' (primero con confirmado=false, luego confirmado=true, UNA sola vez: dos llamadas de registrar_gasto crean dos gastos). Un pago a una proveedora por su orden de fabricacion (OF) va con registrar_pago_proveedora, nunca como gasto (contaria el costo dos veces). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
   tools: asesorTools,
 };
