@@ -17,6 +17,10 @@ export type ManufacturingLine = {
   // Especificaciones / medidas escritas en la cotizacion (o la descripcion del producto).
   details: string;
   color: string;
+  // Color de la carta del CRM (vacios si el color se escribio a mano).
+  colorCodigo: string;
+  colorMaterial: string;
+  colorFotoUrl: string;
   comboName: string;
   unitCost: number | null;
   subtotal: number | null;
@@ -41,6 +45,9 @@ export function toManufacturingLine(item: OrderItemForLine): ManufacturingLine {
     quantity: item.quantity,
     details: meta.description.trim() || item.product.description?.trim() || "",
     color: meta.color.trim(),
+    colorCodigo: meta.colorCodigo.trim(),
+    colorMaterial: meta.colorMaterial.trim(),
+    colorFotoUrl: meta.colorFotoUrl.trim(),
     comboName: meta.comboName.trim(),
     unitCost,
     subtotal: unitCost == null ? null : unitCost * item.quantity,

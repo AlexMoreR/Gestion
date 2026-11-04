@@ -16,6 +16,8 @@ import { fullCopyForLog } from "@/lib/activity-log-snapshot";
 import { calculateQuoteLineTotal, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 import { createQuoteWithNextCode, upsertQuoteClient } from "@/lib/quote-creation";
+import type { CartaColores } from "@/lib/carta-colores-crm";
+import { leerCartaColores } from "@/lib/carta-colores-crm.server";
 
 // Foto de la cotización para la bitácora (antes/después). Sin la imagen de los ítems.
 async function quoteForLog(db: Prisma.TransactionClient, quoteId: string) {
@@ -89,6 +91,13 @@ const quoteItemSchema = z.object({
   // "por stock" (STOCK) o "por orden" (MANUFACTURE), elegido por linea de venta.
   fulfillmentMode: z.enum(["STOCK", "MANUFACTURE"]).optional().default("STOCK"),
   color: z.string().trim().max(120, "Color demasiado largo").optional().nullable(),
+  // Color de la carta del CRM (copia en texto). La foto solo como enlace http(s).
+  colorCodigo: z.string().trim().max(40).optional().nullable(),
+  colorMaterial: z.string().trim().max(80).optional().nullable(),
+  colorFotoUrl: z.preprocess(
+    emptyToUndefined,
+    z.string().trim().max(1000).regex(/^https?:\/\//i, "Foto de color invalida").optional().nullable(),
+  ),
   notes: z.string().trim().max(4000, "Notas demasiado largas").optional().nullable(),
   additionalCost: z.coerce.number().min(0, "Costo adicional invalido").max(MAX_MONEY, "Costo adicional fuera de rango").optional().default(0),
   discount: z.coerce.number().min(0, "Descuento invalido").max(MAX_MONEY, "Descuento fuera de rango").optional().default(0),
@@ -187,6 +196,12 @@ async function assertQuoteOwnership(quoteId: string): Promise<void> {
   if (!quote || quote.createdById !== session?.user?.id) {
     redirect("/unauthorized");
   }
+}
+
+// Carta de colores del CRM para el editor de cotizaciones (memoria de 5 min + ultima copia).
+export async function getCartaColoresAction(): Promise<CartaColores> {
+  await requireAdminSession();
+  return leerCartaColores();
 }
 
 function getReturnTo(formData: FormData): string {
@@ -365,6 +380,9 @@ export async function adminCreateQuoteAction(formData: FormData): Promise<void> 
       comboName: item.comboName ?? "",
       comboCode: item.comboCode ?? "",
       comboQuantity: item.comboQuantity ?? 0,
+      colorCodigo: item.colorCodigo ?? "",
+      colorMaterial: item.colorMaterial ?? "",
+      colorFotoUrl: item.colorFotoUrl ?? "",
     });
 
     return {
@@ -591,6 +609,9 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
       comboName: item.comboName ?? "",
       comboCode: item.comboCode ?? "",
       comboQuantity: item.comboQuantity ?? 0,
+      colorCodigo: item.colorCodigo ?? "",
+      colorMaterial: item.colorMaterial ?? "",
+      colorFotoUrl: item.colorFotoUrl ?? "",
     });
     return {
       productId: item.productId,

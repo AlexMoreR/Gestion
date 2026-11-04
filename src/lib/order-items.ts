@@ -79,6 +79,9 @@ export function expandQuoteItemToOrderItems(item: QuoteItemForExpansion): OrderI
         notes: stringifyQuoteItemMeta({
           description: baseMeta.description ? `${baseMeta.description} - ${comboLabel}` : comboLabel,
           color: baseMeta.color,
+          colorCodigo: baseMeta.colorCodigo,
+          colorMaterial: baseMeta.colorMaterial,
+          colorFotoUrl: baseMeta.colorFotoUrl,
         }),
       }));
     }

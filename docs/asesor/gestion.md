@@ -113,7 +113,7 @@ en las Server Actions y en `src/lib/`.
 - `/cotizaciones/[token]`: cotización compartida con el cliente, con PDF.
 - `/sales/[token]`: factura o comprobante de una venta para el cliente.
 - `/proveedores/[token]`: estado de cuenta de una proveedora.
-- `/fabricacion/[token]`: orden de fabricación para la proveedora: sus productos, medidas, fecha, dirección y costo, sin precio de venta ni datos del cliente.
+- `/fabricacion/[token]`: orden de fabricación para la proveedora: sus productos, medidas, color (si viene de la carta del CRM, con la foto de la muestra, el código y el material), fecha, dirección y costo, sin precio de venta ni datos del cliente.
 - `/informe`: informe mensual protegido con token.
 - `/login`: inicio de sesión.
 - `/register`: registro de clientes.

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { CalendarDays, MapPin } from "lucide-react";
 import { displayCode } from "@/lib/code-display";
 import { formatMoney } from "@/lib/currency";
+import { colorLabel } from "@/lib/quote-item-meta";
 import { destinationCityLabel, supplierPaymentLabel, toManufacturingLine } from "@/lib/manufacturing-orders";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
@@ -171,7 +172,11 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
                     <div className="space-y-2">
                       <p className="rounded-lg bg-amber-100 px-3 py-2 text-center text-sm font-bold text-amber-900 ring-1 ring-amber-300">
                         {line.color
-                          ? `Foto de referencia, fabricar en color ${line.color.toUpperCase()}`
+                          ? `Foto de referencia, fabricar en color ${colorLabel({
+                              color: line.color.toUpperCase(),
+                              colorCodigo: line.colorCodigo,
+                              colorMaterial: line.colorMaterial,
+                            })}`
                           : "Foto de referencia"}
                       </p>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -193,9 +198,25 @@ export default async function ManufacturingOrderPublicPage({ params }: PageProps
                       <p className="text-sm font-semibold text-slate-900">Cantidad: {line.quantity}</p>
                     </div>
                     {line.color ? (
-                      <p className="inline-block rounded-md bg-amber-100 px-2 py-1 text-lg font-bold text-amber-900">
-                        Color: {line.color.toUpperCase()}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-3">
+                        {line.colorFotoUrl ? (
+                          // Muestra del color de la carta del CRM (la foto vive en el CRM).
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={line.colorFotoUrl}
+                            alt={`Muestra del color ${line.color}`}
+                            className="h-16 w-16 shrink-0 rounded-md border border-slate-200 object-cover"
+                          />
+                        ) : null}
+                        <p className="inline-block rounded-md bg-amber-100 px-2 py-1 text-lg font-bold text-amber-900">
+                          Color:{" "}
+                          {colorLabel({
+                            color: line.color.toUpperCase(),
+                            colorCodigo: line.colorCodigo,
+                            colorMaterial: line.colorMaterial,
+                          })}
+                        </p>
+                      </div>
                     ) : null}
                     {line.details ? (
                       <p className="whitespace-pre-line text-sm font-semibold text-slate-900">

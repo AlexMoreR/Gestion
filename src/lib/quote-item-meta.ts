@@ -12,6 +12,11 @@ export type QuoteItemMeta = {
   comboName: string;
   comboCode: string;
   comboQuantity: number;
+  // Color escogido de la carta del CRM (nov-2026): copia en texto para que la cotizacion no
+  // cambie si despues editan la carta. Vacios = color escrito a mano (o sin color).
+  colorCodigo: string;
+  colorMaterial: string;
+  colorFotoUrl: string;
 };
 
 const EMPTY_QUOTE_ITEM_META: QuoteItemMeta = {
@@ -24,6 +29,9 @@ const EMPTY_QUOTE_ITEM_META: QuoteItemMeta = {
   comboName: "",
   comboCode: "",
   comboQuantity: 0,
+  colorCodigo: "",
+  colorMaterial: "",
+  colorFotoUrl: "",
 };
 
 export function parseQuoteItemMeta(value: string | null | undefined): QuoteItemMeta {
@@ -45,6 +53,9 @@ export function parseQuoteItemMeta(value: string | null | undefined): QuoteItemM
         comboName: typeof parsed.comboName === "string" ? parsed.comboName : "",
         comboCode: typeof parsed.comboCode === "string" ? parsed.comboCode : "",
         comboQuantity: typeof parsed.comboQuantity === "number" ? parsed.comboQuantity : 0,
+        colorCodigo: typeof parsed.colorCodigo === "string" ? parsed.colorCodigo : "",
+        colorMaterial: typeof parsed.colorMaterial === "string" ? parsed.colorMaterial : "",
+        colorFotoUrl: typeof parsed.colorFotoUrl === "string" ? parsed.colorFotoUrl : "",
       };
     }
   } catch {
@@ -68,6 +79,9 @@ export function stringifyQuoteItemMeta(meta: Partial<QuoteItemMeta>): string | n
     comboName: meta.comboName?.trim() ?? "",
     comboCode: meta.comboCode?.trim() ?? "",
     comboQuantity: Number.isFinite(meta.comboQuantity) ? Number(meta.comboQuantity) : 0,
+    colorCodigo: meta.colorCodigo?.trim() ?? "",
+    colorMaterial: meta.colorMaterial?.trim() ?? "",
+    colorFotoUrl: meta.colorFotoUrl?.trim() ?? "",
   };
 
   if (
@@ -81,10 +95,25 @@ export function stringifyQuoteItemMeta(meta: Partial<QuoteItemMeta>): string | n
     return null;
   }
 
+  // Los campos de la carta solo se escriben si traen algo: asi una linea vieja guardada otra vez
+  // queda con el mismo texto (mismasLineas compara las notas de una cotizacion con venta).
+  const { colorCodigo, colorMaterial, colorFotoUrl, ...rest } = normalized;
   return JSON.stringify({
     _type: "quote-item-meta",
-    ...normalized,
+    ...rest,
+    ...(colorCodigo ? { colorCodigo } : {}),
+    ...(colorMaterial ? { colorMaterial } : {}),
+    ...(colorFotoUrl ? { colorFotoUrl } : {}),
   });
+}
+
+/** "CÓDIGO · Nombre (Material)" para un color de la carta; el nombre tal cual si se escribio a mano. */
+export function colorLabel(meta: Pick<QuoteItemMeta, "color" | "colorCodigo" | "colorMaterial">): string {
+  const nombre = meta.color.trim();
+  const codigo = meta.colorCodigo.trim();
+  const material = meta.colorMaterial.trim();
+  if (!codigo) return nombre;
+  return `${codigo} · ${nombre}${material ? ` (${material})` : ""}`;
 }
 
 export function calculateQuoteLineTotal(

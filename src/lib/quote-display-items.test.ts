@@ -12,6 +12,9 @@ const emptyMeta: QuoteItemMeta = {
   comboName: "",
   comboCode: "",
   comboQuantity: 0,
+  colorCodigo: "",
+  colorMaterial: "",
+  colorFotoUrl: "",
 };
 
 function quoteItem(input: Partial<QuoteDisplayItemInput> & { id: string }): QuoteDisplayItemInput {

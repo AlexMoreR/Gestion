@@ -25,6 +25,7 @@ import {
   adminResolveClientAction,
   adminUpdateQuoteFullAction,
   adminUploadQuoteImageAction,
+  getCartaColoresAction,
 } from "@/app/actions/quote-actions";
 import { DatePicker } from "@/components/ui/date-picker";
 import { todayInColombia } from "@/lib/colombia-time";
@@ -33,7 +34,8 @@ import { Input } from "@/components/ui/input";
 import { ProductThumb } from "@/components/admin/product-thumb";
 import { expandComboLines, faltanPiezasCombo, pickComboPieces, type ComboComponent } from "@/lib/combo";
 import type { SupportedCurrencyCode } from "@/lib/currency";
-import { calculateQuoteLineTotal } from "@/lib/quote-item-meta";
+import { calculateQuoteLineTotal, colorLabel } from "@/lib/quote-item-meta";
+import type { CartaColor, CartaColores } from "@/lib/carta-colores-crm";
 import { imageVariantUrl } from "@/lib/image-variants";
 import { Button } from "../ui/button";
 import { displayCode } from "@/lib/code-display";
@@ -78,6 +80,9 @@ type QuoteLine = {
   productId: string;
   quantity: number;
   color: string;
+  colorCodigo: string;
+  colorMaterial: string;
+  colorFotoUrl: string;
   unitPrice: number;
   description: string;
   additionalCost: number;
@@ -98,6 +103,9 @@ export type QuoteWizardInitialLine = {
   unitPrice: number;
   description: string;
   color: string;
+  colorCodigo?: string;
+  colorMaterial?: string;
+  colorFotoUrl?: string;
   additionalCost: number;
   discount: number;
   fulfillmentMode: FulfillmentMode;
@@ -208,6 +216,9 @@ export function QuoteWizardModal({
       productId: item.productId,
       quantity: item.quantity,
       color: item.color,
+      colorCodigo: item.colorCodigo ?? "",
+      colorMaterial: item.colorMaterial ?? "",
+      colorFotoUrl: item.colorFotoUrl ?? "",
       unitPrice: item.unitPrice,
       description: item.description,
       additionalCost: item.additionalCost,
@@ -227,6 +238,13 @@ export function QuoteWizardModal({
   const [draftProductId, setDraftProductId] = useState("");
   const [draftQuantity, setDraftQuantity] = useState("1");
   const [draftColor, setDraftColor] = useState("");
+  // Color de la carta del CRM (null = escrito a mano o sin color).
+  const [draftCartaColor, setDraftCartaColor] = useState<(CartaColor & { material: string }) | null>(null);
+  const [manualColor, setManualColor] = useState(false);
+  const [carta, setCarta] = useState<CartaColores | null>(null);
+  const cartaMateriales = carta?.materiales ?? [];
+  // Sin carta (CRM caido y sin copia) solo queda escribir el color a mano.
+  const colorManual = manualColor || (carta !== null && cartaMateriales.length === 0);
   const [draftUnitPrice, setDraftUnitPrice] = useState("");
   // Modo mayorista a nivel de cotizacion: usa el wholesalePrice de cada producto.
   const [wholesaleMode, setWholesaleMode] = useState(false);
@@ -247,6 +265,22 @@ export function QuoteWizardModal({
       setShowClientForm(false);
     }
   }, [open]);
+
+  // La carta de colores del CRM se pide una vez al abrir el editor (el servidor la guarda 5 min).
+  useEffect(() => {
+    if (!open || carta) return;
+    let vivo = true;
+    getCartaColoresAction()
+      .then((result) => {
+        if (vivo) setCarta(result);
+      })
+      .catch(() => {
+        if (vivo) setCarta({ materiales: [], origen: "nada" });
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [open, carta]);
 
   const filteredClients = useMemo(() => {
     const q = clientName.trim().toLowerCase();
@@ -349,7 +383,7 @@ export function QuoteWizardModal({
           comboCode: item.line.comboCode,
           comboQuantity: item.line.comboQuantity || 1,
           fulfillmentMode: item.line.fulfillmentMode,
-          color: item.line.color,
+          color: colorLabel(item.line),
           description: item.line.description,
           thumbnailUrl: item.line.imageUrl || item.product?.thumbnailUrl || "",
           total: item.lineTotal,
@@ -388,6 +422,8 @@ export function QuoteWizardModal({
     setProductLookup("");
     setDraftQuantity("1");
     setDraftColor("");
+    setDraftCartaColor(null);
+    setManualColor(false);
     setDraftUnitPrice("");
     setDraftDescription("");
     setDraftAdditionalCost("0");
@@ -496,6 +532,16 @@ export function QuoteWizardModal({
       return;
     }
 
+    // Color escogido de la carta (con codigo, material y foto) o escrito a mano (solo el nombre).
+    const draftColorFields = draftCartaColor
+      ? {
+          color: draftCartaColor.nombre,
+          colorCodigo: draftCartaColor.codigo,
+          colorMaterial: draftCartaColor.material,
+          colorFotoUrl: draftCartaColor.fotoUrl,
+        }
+      : { color: draftColor.trim(), colorCodigo: "", colorMaterial: "", colorFotoUrl: "" };
+
     // Si es un combo, se separa en sus componentes (cada uno conserva su
     // producto real y su proveedor); el precio del combo se reparte entre las
     // lineas. El descuento y costo adicional del combo se REPARTEN entre las
@@ -522,7 +568,7 @@ export function QuoteWizardModal({
           uid: crypto.randomUUID(),
           productId: line.productId,
           quantity: line.quantity,
-          color: draftColor.trim(),
+          ...draftColorFields,
           unitPrice: line.unitPrice,
           description: draftDescription.trim(),
           additionalCost: Math.max(0, additionalParts[index] ?? 0),
@@ -547,7 +593,7 @@ export function QuoteWizardModal({
         uid: crypto.randomUUID(),
         productId: draftProductId,
         quantity,
-        color: draftColor.trim(),
+        ...draftColorFields,
         unitPrice,
         description: draftDescription.trim(),
         additionalCost,
@@ -662,6 +708,9 @@ export function QuoteWizardModal({
       unitPrice: line.unitPrice,
       fulfillmentMode: line.fulfillmentMode,
       color: line.color || null,
+      colorCodigo: line.colorCodigo || null,
+      colorMaterial: line.colorMaterial || null,
+      colorFotoUrl: line.colorFotoUrl || null,
       additionalCost: line.additionalCost,
       discount: line.discount,
       notes: line.description || null,
@@ -1052,7 +1101,7 @@ export function QuoteWizardModal({
                                   </td>
                                   <td className="px-3 py-2 text-foreground">{line.description || "-"}</td>
                                   <td className="px-3 py-2 text-foreground">{line.quantity}</td>
-                                  <td className="px-3 py-2 text-foreground">{line.color || "-"}</td>
+                                  <td className="px-3 py-2 text-foreground">{colorLabel(line) || "-"}</td>
                                   <td className="px-3 py-2 text-foreground">
                                     {line.unitPrice.toLocaleString("es-CO", { style: "currency", currency })}
                                   </td>
@@ -1301,7 +1350,7 @@ export function QuoteWizardModal({
                                 </td>
                                 <td className="px-3 py-2 text-foreground">{line.description || "-"}</td>
                                 <td className="px-3 py-2 text-foreground">{line.quantity}</td>
-                                <td className="px-3 py-2 text-foreground">{line.color || "-"}</td>
+                                <td className="px-3 py-2 text-foreground">{colorLabel(line) || "-"}</td>
                                 <td className="px-3 py-2 text-foreground">
                                   {line.unitPrice.toLocaleString("es-CO", { style: "currency", currency })}
                                 </td>
@@ -1483,13 +1532,102 @@ export function QuoteWizardModal({
                 </div>
 
                 <div className="grid gap-3 rounded-xl border border-border bg-muted/60 p-3 md:grid-cols-2">
-                  <label className="space-y-1.5">
-                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-                      <Palette className="h-3.5 w-3.5 text-muted-foreground" />
-                      Color
-                    </span>
-                    <Input value={draftColor} onChange={(event) => setDraftColor(event.target.value)} placeholder="Color" />
-                  </label>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                        <Palette className="h-3.5 w-3.5 text-muted-foreground" />
+                        Color
+                        {draftCartaColor ? (
+                          <span className="font-normal text-muted-foreground">
+                            · {draftCartaColor.codigo} · {draftCartaColor.nombre} ({draftCartaColor.material})
+                          </span>
+                        ) : null}
+                      </span>
+                      {cartaMateriales.length > 0 ? (
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="sm"
+                          className="h-auto px-0"
+                          onClick={() => {
+                            setManualColor((current) => !current);
+                            setDraftCartaColor(null);
+                            setDraftColor("");
+                          }}
+                        >
+                          {colorManual ? "Escoger de la carta" : "Escribir otro color"}
+                        </Button>
+                      ) : null}
+                    </div>
+                    {carta && carta.origen !== "crm" ? (
+                      <p className="text-xs text-amber-700 dark:text-amber-400">
+                        {carta.origen === "copia"
+                          ? "No se pudo leer la carta del CRM. Se muestra la última copia guardada."
+                          : "No se pudo leer la carta del CRM. Escribe el color a mano."}
+                      </p>
+                    ) : null}
+                    {colorManual ? (
+                      <Input
+                        value={draftColor}
+                        onChange={(event) => setDraftColor(event.target.value)}
+                        placeholder="Escribe el color"
+                        aria-label="Color"
+                      />
+                    ) : !carta ? (
+                      <p className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Cargando colores del CRM...
+                      </p>
+                    ) : (
+                      <div className="max-h-64 space-y-3 overflow-y-auto rounded-lg border border-border bg-background p-2">
+                        {cartaMateriales.map((material) => (
+                          <div key={material.nombre} className="space-y-1.5">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              {material.nombre}
+                            </p>
+                            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                              {material.colores.map((color) => {
+                                const elegido =
+                                  draftCartaColor?.codigo === color.codigo &&
+                                  draftCartaColor.material === material.nombre;
+                                return (
+                                  <button
+                                    key={`${material.nombre}-${color.codigo}`}
+                                    type="button"
+                                    aria-pressed={elegido}
+                                    onClick={() =>
+                                      setDraftCartaColor(elegido ? null : { ...color, material: material.nombre })
+                                    }
+                                    className={`flex min-w-0 items-center gap-2 rounded-md border p-1.5 text-left text-xs transition-colors ${
+                                      elegido
+                                        ? "border-primary bg-primary/10 ring-1 ring-primary"
+                                        : "border-border hover:bg-muted"
+                                    }`}
+                                  >
+                                    {color.fotoUrl ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={color.fotoUrl}
+                                        alt=""
+                                        loading="lazy"
+                                        className="h-8 w-8 shrink-0 rounded border border-border object-cover"
+                                      />
+                                    ) : (
+                                      <span className="h-8 w-8 shrink-0 rounded border border-dashed border-border bg-muted" />
+                                    )}
+                                    <span className="min-w-0">
+                                      <span className="block font-semibold text-foreground">{color.codigo}</span>
+                                      <span className="block truncate text-muted-foreground">{color.nombre}</span>
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   <label className="space-y-1.5">
                     <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
