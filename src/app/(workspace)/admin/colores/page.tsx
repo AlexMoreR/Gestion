@@ -37,7 +37,9 @@ export default async function AdminColoresPage({ searchParams }: PageProps) {
         errorTitle="No se pudo guardar"
       />
 
+      {/* key: con un aviso de "listo" se cierra el formulario; con error queda abierto para corregir. */}
       <ColoresWorkspace
+        key={okMessage}
         materiales={materiales.map((material) => ({
           id: material.id,
           nombre: material.nombre,
