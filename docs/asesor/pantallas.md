@@ -359,6 +359,7 @@ Ficha de edición de un producto.
 - **Guardar fotos** / **Deshacer cambios** (galería; al quitar una foto pregunta "¿Quitar esta foto del producto?" **Si, quitar** / **No**).
 - **Agregar ficha**: sube la imagen de la ficha técnica.
 - Tarjeta **Partes de color** (debajo de la ficha técnica, solo Admin): **Usar las de la categoría** muestra la plantilla de la categoría sin poder cambiarla; **Partes propias** copia la plantilla para cambiarla solo en este producto, con **Agregar parte**, **Quitar** y **Guardar partes** (igual que en Categorías, con **Recargo $** y "Colores comunes"). Volver a **Usar las de la categoría** borra las partes propias (pregunta "El producto perderá sus partes propias y usará las de la categoría. ¿Seguir?").
+- En la misma tarjeta, enlace **Máscaras de color (N de M)** (N = partes con máscara): abre `/admin/productos/[productId]/mascaras`. Guardar las partes conserva la máscara de cada parte que sigue con el mismo nombre.
 - **Habilitar combo (se arma con otros productos)** + **Agregar componente**: igual que al crear.
 - **Siguiente** / **← Atras** / **Cancelar** (vuelve a `/admin/productos`).
 - **Guardar cambios** (pasos 2 y 3): guarda el producto.
@@ -474,6 +475,18 @@ Monitoreo del canal Facebook Marketplace (NETMAGI). Solo lectura.
 - **Actualizar** (se actualiza solo cada 2 minutos) y periodo **7 días** / **30 días** / **90 días**.
 - Anuncios: filtros Desde, Hasta, Cuenta, Ciudad, Estado y "Buscar código o nombre"; **Quitar filtros**; **Exportar CSV**; **Ver en Facebook** en cada anuncio.
 - "Qué funciona" (etiqueta "Fórmula de venta") es solo lectura; dentro de "Más detalle" hay otro **Exportar CSV**.
+
+## /admin/productos/[productId]/mascaras
+Máscaras de color de un producto (solo Admin). Se llega con el enlace **Máscaras de color** de la tarjeta "Partes de color" de la ficha.
+
+**Qué se ve:** título "Máscaras de color · <producto>" y enlace **Volver a la ficha**. La foto de portada (la primera foto) con la capa de la parte elegida encima en rojo. Si el producto usa las partes de su categoría, aviso amarillo: al guardar la primera máscara se copian como partes propias. Sin portada: "Este producto no tiene foto de portada…" con **Ir a la ficha**; sin partes: "Este producto no tiene partes de color…" con **Ir a la ficha**.
+
+**Botones y acciones:**
+- Lista **Parte**: elige qué parte se pinta (dice "(sin máscara)", "(sin guardar)" o ✓).
+- **Pincel**: pinta la zona de la parte (con el dedo o el mouse). **Borrador**: la quita.
+- **Tamaño (N px)**: grosor del pincel y del borrador.
+- **Ver máscara** / **Ver foto**: muestra la máscara sola en blanco y negro o vuelve a la foto.
+- **Guardar máscara**: guarda la máscara de la parte elegida (PNG en blanco y negro del tamaño de la portada, máximo 2000 px por lado). Si usaba las partes de la categoría pregunta "…¿Seguir?" antes. Mensajes: "Máscara de Tapizado guardada" o el error ("La máscara no tiene el tamaño de la foto de portada…").
 
 ## /admin/productos/fichas
 "Fichas técnicas en lote": sube un CSV y las imágenes (cada una llamada como su driveFileId).

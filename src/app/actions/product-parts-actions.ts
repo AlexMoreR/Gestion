@@ -1,12 +1,19 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+import { mkdir, rename, unlink, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { revalidatePath } from "next/cache";
+import sharp from "sharp";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { getActivityActor, logActivityTx } from "@/lib/activity-log";
 import { prisma } from "@/lib/prisma";
-import { limpiarLista } from "@/lib/product-parts";
+import { conservarMascaras, MASCARA_MAX_BYTES, medidaLienzo, validarMascara } from "@/lib/mascara-parte";
+import { limpiarLista, resolverPartes } from "@/lib/product-parts";
+import { leerImagen, medidasVisibles } from "@/lib/recolor-image.server";
+import { separarImagenes } from "@/lib/product-fichas";
 
 // Partes de color (nov-2026): plantilla de la categoría o partes propias del producto.
 // Solo ADMIN. Guardar reemplaza toda la lista de una vez; cada guardado queda en la bitácora.
@@ -106,12 +113,13 @@ export async function guardarPartesColorAction(input: unknown): Promise<PartesCo
     const antes = await tx.parteColor.findMany({
       where,
       orderBy: { orden: "asc" },
-      select: { nombre: true, tipo: true, materiales: true, acabados: true, recargos: true, coloresComunes: true },
+      select: { nombre: true, tipo: true, materiales: true, acabados: true, recargos: true, coloresComunes: true, mascaraUrl: true },
     });
     await tx.parteColor.deleteMany({ where });
     if (partes.length > 0) {
+      // Cada parte que sigue con el mismo nombre conserva su máscara.
       await tx.parteColor.createMany({
-        data: partes.map((parte, orden) => ({ ...where, ...parte, recargos: parte.recargos ?? Prisma.DbNull, orden })),
+        data: conservarMascaras(antes, partes).map((parte, orden) => ({ ...where, ...parte, recargos: parte.recargos ?? Prisma.DbNull, orden })),
       });
     }
     await logActivityTx(tx, actor, {
@@ -159,4 +167,122 @@ export async function usarPartesDeCategoriaAction(productId: unknown): Promise<P
 
   revalidar("producto", product.id);
   return { ok: true, message: "El producto usa las partes de su categoría" };
+}
+
+export type GuardarMascaraResult = PartesColorResult & { mascaraUrl?: string };
+
+const mascaraSchema = z.object({
+  productId: z.string().trim().min(1).max(60),
+  parte: z.string().trim().min(1).max(40),
+});
+
+/** Guarda en disco el PNG en blanco y negro (public/uploads/mascaras, como las fichas) y devuelve su URL. */
+async function escribirMascara(bytes: Buffer): Promise<{ url: string; filePath: string }> {
+  const carpeta = path.join(process.cwd(), "public", "uploads", "mascaras");
+  await mkdir(carpeta, { recursive: true });
+  const nombre = `mascara-${randomUUID()}.png`;
+  const filePath = path.join(carpeta, nombre);
+  const temporal = `${filePath}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(temporal, bytes);
+    await rename(temporal, filePath);
+  } catch (error) {
+    await unlink(temporal).catch(() => undefined);
+    throw error;
+  }
+  return { url: `/uploads/mascaras/${nombre}`, filePath };
+}
+
+/**
+ * Máscara de una parte (PNG del tamaño del lienzo de la portada; blanco = la parte). Si el producto usa
+ * las partes de su categoría, primero se copian como partes propias.
+ */
+export async function guardarMascaraParteAction(formData: FormData): Promise<GuardarMascaraResult> {
+  if (!(await esAdmin())) return { ok: false, message: "Solo un administrador puede guardar máscaras" };
+  const parsed = mascaraSchema.safeParse({ productId: formData.get("productId"), parte: formData.get("parte") });
+  if (!parsed.success) return { ok: false, message: "Datos inválidos" };
+  const archivo = formData.get("mascara");
+  if (!(archivo instanceof File)) return { ok: false, message: "Falta la máscara" };
+  if (archivo.size > MASCARA_MAX_BYTES) return { ok: false, message: "La máscara pesa más de 8 MB" };
+  const { productId, parte: nombreParte } = parsed.data;
+
+  const partesSelect = {
+    orderBy: { orden: "asc" as const },
+    select: { id: true, nombre: true, tipo: true, materiales: true, acabados: true, recargos: true, coloresComunes: true, mascaraUrl: true, orden: true },
+  };
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      images: { orderBy: { order: "asc" }, select: { url: true, tipo: true, order: true } },
+      partesColor: partesSelect,
+      category: { select: { partesColor: partesSelect } },
+    },
+  });
+  if (!product) return { ok: false, message: "El producto no existe" };
+  const portada = separarImagenes(product.images).fotos[0];
+  if (!portada) return { ok: false, message: "Este producto no tiene foto de portada" };
+
+  const bytes = Buffer.from(await archivo.arrayBuffer());
+  let blancoYNegro: Buffer;
+  try {
+    const medidas = await medidasVisibles(await leerImagen(portada.url));
+    if (!medidas) return { ok: false, message: "No se pudo leer la foto de portada" };
+    const meta = await sharp(bytes).metadata().catch(() => null);
+    const error = validarMascara({ bytes, ancho: meta?.width, alto: meta?.height, lienzo: medidaLienzo(medidas.ancho, medidas.alto) });
+    if (error) return { ok: false, message: error };
+    blancoYNegro = await sharp(bytes).flatten({ background: "#000000" }).greyscale().threshold(128).png().toBuffer();
+  } catch {
+    return { ok: false, message: "No se pudo leer la foto de portada o la máscara" };
+  }
+
+  const partes = resolverPartes(product.category?.partesColor ?? [], product.partesColor);
+  if (!partes.some((parte) => parte.nombre === nombreParte)) return { ok: false, message: "Esa parte ya no existe; recarga la página" };
+
+  const { url, filePath } = await escribirMascara(blancoYNegro);
+  const actor = await getActivityActor();
+  try {
+    await prisma.$transaction(async (tx) => {
+      let propias = await tx.parteColor.findMany({ where: { productId }, select: { id: true, nombre: true, mascaraUrl: true } });
+      const copio = propias.length === 0;
+      if (copio) {
+        // Usaba las de la categoría: se copian como propias (desde aquí no sigue los cambios de la categoría).
+        await tx.parteColor.createMany({
+          data: (product.category?.partesColor ?? []).map((parte) => ({
+            productId,
+            nombre: parte.nombre,
+            tipo: parte.tipo,
+            materiales: parte.materiales,
+            acabados: parte.acabados,
+            recargos: parte.recargos ?? Prisma.DbNull,
+            coloresComunes: parte.coloresComunes,
+            orden: parte.orden,
+          })),
+        });
+        propias = await tx.parteColor.findMany({ where: { productId }, select: { id: true, nombre: true, mascaraUrl: true } });
+      }
+      const parte = propias.find((fila) => fila.nombre === nombreParte);
+      if (!parte) throw new Error("PARTE_NO_EXISTE");
+      await tx.parteColor.update({ where: { id: parte.id }, data: { mascaraUrl: url } });
+      await logActivityTx(tx, actor, {
+        action: "UPDATE",
+        entityType: "PRODUCT",
+        entityId: product.id,
+        entityCode: product.code,
+        summary: `Guardó la máscara de ${parte.nombre} de ${product.code ?? product.name}${copio ? " (copió las partes de la categoría como propias)" : ""}`,
+        before: { parte: parte.nombre, mascaraUrl: parte.mascaraUrl },
+        after: { parte: parte.nombre, mascaraUrl: url },
+      });
+    });
+  } catch (error) {
+    await unlink(filePath).catch(() => undefined);
+    if (error instanceof Error && error.message === "PARTE_NO_EXISTE") return { ok: false, message: "Esa parte ya no existe; recarga la página" };
+    throw error;
+  }
+
+  revalidatePath(`/admin/productos/${product.id}`);
+  revalidatePath(`/admin/productos/${product.id}/mascaras`);
+  return { ok: true, message: `Máscara de ${nombreParte} guardada`, mascaraUrl: url };
 }

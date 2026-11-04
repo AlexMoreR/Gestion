@@ -18,6 +18,7 @@
     "compras:reparar-92": "node scripts/reparar-ord-00092.mjs",
     "stock:costo-95": "node scripts/costo-real-ord-00095.mjs",
     "ventas:revisar-costos": "vite-node scripts/revisar-ventas-sin-costo.ts --",
+    "vista-color:prueba": "vite-node --config scripts/vite-node.config.mjs scripts/vista-color-prueba.ts --",
     "recibo:prueba": "vite-node --config scripts/vite-node.config.mjs scripts/recibo-caja-prueba.ts --",
     "aportes:arriendo": "vite-node --config scripts/vite-node.config.mjs scripts/aportes-dueno-arriendo.mjs --",
     "productos:corregir-nombres": "node scripts/corregir-nombres-productos.mjs"
