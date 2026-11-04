@@ -53,6 +53,7 @@ const ENTITY_LABELS: Record<string, string> = {
   ATTENDANCE: "Asistencia",
   DUDAS_ACCESS: "Acceso a dudas",
   CARTA_COLORES: "Carta de colores",
+  COLOR: "Color de la carta",
 };
 
 // Las entradas viejas no tienen origen: se hicieron desde la pantalla.

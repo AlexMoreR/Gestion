@@ -25,7 +25,8 @@ export type ActivityEntityType =
   | "TEAM_MEMBER"
   | "ATTENDANCE"
   | "DUDAS_ACCESS"
-  | "CARTA_COLORES";
+  | "CARTA_COLORES"
+  | "COLOR";
 
 /** Desde dónde se hizo el cambio. Sin valor se guarda "PANTALLA". */
 export type ActivityOrigin = "PANTALLA" | "MCP" | "CRM" | "SCRIPT" | "MIGRACION" | "COORDINADOR";

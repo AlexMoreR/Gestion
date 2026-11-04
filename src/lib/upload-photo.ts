@@ -20,6 +20,15 @@ export function hasUploadedFile(value: FormDataEntryValue | null): value is File
 }
 
 export async function saveShipmentPhoto(file: File): Promise<{ url: string }> {
+  return savePhoto(file, "shipments");
+}
+
+// Muestra de un color de la carta (cueros y telas): mismo proceso, carpeta propia.
+export async function saveColorSwatchPhoto(file: File): Promise<{ url: string }> {
+  return savePhoto(file, "colores");
+}
+
+async function savePhoto(file: File, folder: "shipments" | "colores"): Promise<{ url: string }> {
   if (!hasUploadedFile(file)) {
     throw new Error("No se pudo leer la foto.");
   }
@@ -43,9 +52,9 @@ export async function saveShipmentPhoto(file: File): Promise<{ url: string }> {
     throw new Error("La foto no se pudo procesar. Toma otra e intenta de nuevo.");
   }
 
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "shipments");
+  const uploadDir = path.join(process.cwd(), "public", "uploads", folder);
   await mkdir(uploadDir, { recursive: true });
   const fileName = `${randomUUID()}.jpg`;
   await writeFile(path.join(uploadDir, fileName), output);
-  return { url: `/uploads/shipments/${fileName}` };
+  return { url: `/uploads/${folder}/${fileName}` };
 }

@@ -11,6 +11,7 @@ import {
   MapPinned,
   MessageCircleQuestionMark,
   Package,
+  Palette,
   ReceiptText,
   Settings,
   Store,
@@ -86,7 +87,8 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
         !isAdminDispatchesRoute &&
         !isAdminSuppliersRoute &&
         !pathname.startsWith("/admin/marketplace") &&
-        !pathname.startsWith("/admin/dudas")),
+        !pathname.startsWith("/admin/dudas") &&
+        !pathname.startsWith("/admin/colores")),
       items: [
         { title: "Vista general", url: dashboardHref },
       ],
@@ -253,6 +255,17 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
         icon: MessageCircleQuestionMark,
         isActive: pathname.startsWith("/admin/dudas"),
         items: [{ title: "Respuestas y accesos", url: "/admin/dudas" }],
+      });
+    }
+
+    // Carta de colores: el dueno puede darsela a un empleado.
+    if (adminModuleAccess.colores) {
+      navMain.push({
+        title: "Carta de colores",
+        url: "/admin/colores",
+        icon: Palette,
+        isActive: pathname.startsWith("/admin/colores"),
+        items: [{ title: "Colores", url: "/admin/colores" }],
       });
     }
 

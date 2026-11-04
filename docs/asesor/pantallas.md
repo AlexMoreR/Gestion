@@ -381,6 +381,15 @@ Directorio de clientes ("Se crean automaticamente al cotizar o manualmente aqui.
 **Botones y acciones:**
 - **Crear cliente**: Nombre, Documento ("Cedula / NIT (opcional)"), Correo (opcional), Telefono, Direccion, Barrio, Departamento y Ciudad → **Guardar cliente**.
 
+## /admin/colores
+Carta de colores: los colores de cueros y telas que ve la clienta en `magilus.com/colores` (permiso "Carta de colores"; el dueño se lo puede dar a un empleado). Nada se borra: lo que no sirve se oculta.
+**Qué se ve:** una sección por material, en orden: **Cuerotex**, **Prana**, **Corsos** y **Telas**. Cada color es una tarjeta con su muestra (la foto o el cuadro del color), su nombre ("Prana 03 · Palo rosa") y la marca **Visible** u **Oculto**. Un material sin colores dice "Aún no hay colores cargados en este material".
+**Botones y acciones:**
+- **Agregar color**: Material, Código, Nombre, Color (selector de color) y Foto (opcional; JPG, PNG o WEBP, máximo 12 MB) → **Guardar color**. Si el código ya existe en ese material sale "Ya existe un color con el código X en este material".
+- **Editar** (en cada tarjeta): los mismos campos → **Guardar cambios**. Sin foto nueva se deja la que había.
+- **Ocultar** / **Mostrar** (en cada tarjeta): esconde o vuelve a mostrar ese color.
+- **Ocultar material** / **Mostrar material** (junto al nombre del material): esconde o vuelve a mostrar el material entero.
+
 ## /admin/configuracion
 Menú de configuración ("Elige el apartado que quieres administrar.").
 **Qué se ve:** tarjetas **Usuarios** (`/admin/configuracion/usuarios`), **Configuracion negocio** (`/admin/configuracion/negocio`), **Control de modulos** (`/admin/configuracion/permisos`) y **Cierre de mes** (`/admin/configuracion/cierre-mes`), según los permisos. Dentro de cada apartado hay pestañas: **Negocio**, **Empleados**, **Cuentas** (`/admin/configuracion/cuentas`), **Regla inicial** y **Actividad**.

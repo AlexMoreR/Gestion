@@ -24,6 +24,7 @@ import {
   Users,
   X,
   MessageCircleQuestionMark,
+  Palette,
 } from "lucide-react";
 import { adminUpdateUserModuleAccessAction } from "@/app/actions/auth-actions";
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,7 @@ const moduleIconMap = {
   transporte: MapPinned,
   marketplace: Store,
   dudas: MessageCircleQuestionMark,
+  colores: Palette,
 } satisfies Record<AdminModuleKey, React.ComponentType<{ className?: string }>>;
 
 export function ModuleAccessWorkspace({ roles, modules }: ModuleAccessWorkspaceProps) {
