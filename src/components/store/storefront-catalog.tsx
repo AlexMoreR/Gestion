@@ -11,7 +11,7 @@ import { formatMoney } from "@/lib/currency";
 import { FACTORY_POINTS, factoryPointPostalAddress } from "@/lib/factory-points";
 import { imageVariantUrl } from "@/lib/image-variants";
 import { prisma } from "@/lib/prisma";
-import { hasHydraulicSystem, isCamillasCombo } from "@/lib/product-landing";
+import { HARDWARE_PAYMENT_LABEL, hasHydraulicSystem, isCamillasCombo, isReadyMadeHardware } from "@/lib/product-landing";
 import { buildProductPath } from "@/lib/product-slugs";
 import {
   buildCategorySeoDescription,
@@ -665,7 +665,11 @@ export async function StorefrontCatalog({
                           Pago
                           <br />
                           {/* Mismo texto que el cuadro "Pago" de la ficha; espacios duros para que "50 % y 50 %" no se parta */}
-                          {isCamillasCombo(product) ? "50/50 o contraentrega" : "50\u00a0%\u00a0y\u00a050\u00a0%"}
+                          {isReadyMadeHardware({ categoryName: product.category?.name })
+                            ? HARDWARE_PAYMENT_LABEL
+                            : isCamillasCombo(product)
+                              ? "50/50 o contraentrega"
+                              : "50\u00a0%\u00a0y\u00a050\u00a0%"}
                         </p>
                       </div>
                     </div>

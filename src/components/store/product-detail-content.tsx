@@ -12,7 +12,13 @@ import type { SupportedCurrencyCode } from "@/lib/currency";
 import { altFicha, soloFotos } from "@/lib/product-fichas";
 import { buildProductPath } from "@/lib/product-slugs";
 import { imageVariantUrl } from "@/lib/image-variants";
-import { buildProductLandingData, FACTORY_LOCATIONS, productDisplayName } from "@/lib/product-landing";
+import {
+  buildProductLandingData,
+  FACTORY_LOCATIONS,
+  HARDWARE_PAYMENT_LABEL,
+  HARDWARE_SHIPPING_TEXT,
+  productDisplayName,
+} from "@/lib/product-landing";
 import { buildProductFallbackDescription, compactPriceLabel } from "@/lib/seo-metadata";
 import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, sanitizeDescription } from "@/lib/site";
 import { comboSavingsFromProduct, SHIPPING_CHECK_LABEL, SHIPPING_COVERAGE_PATH } from "@/lib/storefront-offer";
@@ -299,7 +305,14 @@ export async function ProductDetailContent({
             {[
               { title: "Fábrica", text: FACTORY_LOCATIONS },
               { title: "Garantía", text: landing.hydraulic ? "1 año + 5 años en el sistema hidráulico" : "1 año" },
-              { title: "Pago", text: landing.cashOnDelivery ? "50/50 o contraentrega" : "50 % y 50 %" },
+              {
+                title: "Pago",
+                text: landing.readyMade
+                  ? HARDWARE_PAYMENT_LABEL
+                  : landing.cashOnDelivery
+                    ? "50/50 o contraentrega"
+                    : "50 % y 50 %",
+              },
             ].map((item) => (
               <div
                 key={item.title}
@@ -379,8 +392,14 @@ export async function ProductDetailContent({
             { icon: ShieldCheck, title: "Garantía", body: <>{landing.warrantyText}.</> },
             {
               icon: CreditCard,
-              title: landing.cashOnDelivery ? "Formas de pago" : "Pagas en dos partes",
-              body: (
+              title: landing.readyMade
+                ? HARDWARE_PAYMENT_LABEL
+                : landing.cashOnDelivery
+                  ? "Formas de pago"
+                  : "Pagas en dos partes",
+              body: landing.readyMade ? (
+                <>El herraje ya está hecho: se paga completo antes de despachar.</>
+              ) : (
                 <>
                   50 % para fabricar y 50 % antes de despachar, con envío gratis a ciudades principales.
                   {landing.cashOnDelivery ? " O contraentrega, pagando tú el envío." : null}
@@ -390,7 +409,9 @@ export async function ProductDetailContent({
             {
               icon: Truck,
               title: "Envío a tu ciudad",
-              body: (
+              body: landing.readyMade ? (
+                <>{HARDWARE_SHIPPING_TEXT}</>
+              ) : (
                 <>
                   Gratis a ciudades principales.{" "}
                   <Link href={SHIPPING_COVERAGE_PATH} className="font-bold text-foreground underline underline-offset-[3px]">
@@ -426,12 +447,14 @@ export async function ProductDetailContent({
           {[
             { title: "Escríbenos por WhatsApp", text: "El botón ya lleva el código y el precio de este producto." },
             { title: "Confirma color y envío", text: "La asesora te dice el color, el envío a tu ciudad y la fecha." },
-            {
-              title: "Paga el 50 % y fabricamos",
-              text: landing.cashOnDelivery
-                ? "El otro 50 % lo pagas antes del despacho, o paga contraentrega pagando el envío."
-                : "El otro 50 % lo pagas antes del despacho.",
-            },
+            landing.readyMade
+              ? { title: "Paga y despachamos", text: "Pagas el total y te lo despachamos." }
+              : {
+                  title: "Paga el 50 % y fabricamos",
+                  text: landing.cashOnDelivery
+                    ? "El otro 50 % lo pagas antes del despacho, o paga contraentrega pagando el envío."
+                    : "El otro 50 % lo pagas antes del despacho.",
+                },
           ].map((step, index) => (
             <li
               key={step.title}

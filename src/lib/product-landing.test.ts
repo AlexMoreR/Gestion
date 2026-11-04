@@ -6,6 +6,8 @@ import {
   extractMeasureFromDescription,
   hasHydraulicSystem,
   isCamillasCombo,
+  isReadyMadeHardware,
+  HARDWARE_FREE_SHIPPING_TEXT,
   productDisplayName,
   readableDescription,
   WARRANTY_BASE_TEXT,
@@ -212,5 +214,43 @@ describe("buildProductLandingData: contraentrega solo en el Combo Camillas", () 
   it("producto hidraulico sigue con la garantia del sistema hidraulico en la FAQ", () => {
     const data = buildProductLandingData({ ...base, name: "HIDRAU PRO REY", categoryName: "Sillas Hidráulicas" });
     expect(faqText(data.faq)).toContain("1 año de garantía y 5 años en el sistema hidráulico");
+  });
+});
+
+describe("herrajes (4-nov-2026: pago completo, envío gratis desde 6)", () => {
+  const brandName = "Magilus";
+
+  it("se reconocen por la categoria con herraje, sin importar tildes ni mayusculas", () => {
+    expect(isReadyMadeHardware({ categoryName: "Herrajes y Partes" })).toBe(true);
+    expect(isReadyMadeHardware({ categoryName: "HERRAJES" })).toBe(true);
+    expect(isReadyMadeHardware({ categoryName: "Sillas Hidráulicas" })).toBe(false);
+    expect(isReadyMadeHardware({ categoryName: null })).toBe(false);
+  });
+
+  it("el HM001 sale con pago completo y envío gratis desde 6, sin 50 %", () => {
+    const data = buildProductLandingData({
+      name: "Aro de caucho para bases de sillas",
+      code: "HM001",
+      categoryName: "Herrajes y Partes",
+      brandName,
+    });
+    expect(HARDWARE_FREE_SHIPPING_TEXT).toBe("Envío gratis desde 6 unidades");
+    expect(data.readyMade).toBe(true);
+    expect(data.cashOnDelivery).toBe(false);
+    const faqText = data.faq.map((item) => item.answer).join(" ");
+    expect(faqText).not.toContain("50 %");
+    expect(faqText).not.toContain("ciudades principales");
+    expect(faqText).toContain("Envío gratis desde 6 unidades");
+    expect(faqText).toContain("Pago completo");
+  });
+
+  it("sillas y el combo CMB005 siguen igual", () => {
+    const silla = buildProductLandingData({ name: "HIDRAU PRO REY", categoryName: "Sillas Hidráulicas", brandName });
+    expect(silla.readyMade).toBe(false);
+    expect(silla.faq[1].answer).toBe("50 % para fabricar y 50 % antes de despachar, con envío gratis a ciudades principales.");
+    const combo = buildProductLandingData({ name: "Combo Camilla Diván", code: "CMB005", categoryName: "Combos", brandName });
+    expect(combo.readyMade).toBe(false);
+    expect(combo.cashOnDelivery).toBe(true);
+    expect(combo.faq[1].answer).toContain("contraentrega");
   });
 });

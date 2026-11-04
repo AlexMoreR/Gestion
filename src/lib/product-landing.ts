@@ -9,6 +9,8 @@
 // - Contraentrega pagando el envio: SOLO los codigos de CASH_ON_DELIVERY_CODES (isCamillasCombo).
 //   3-nov-2026, decision del dueño: solo el Combo Camilla Diván (CMB005), el de la politica del 22-oct.
 // - No llegamos a San Andrés, Leticia, Inírida, Mitú ni Bahía Solano.
+// - Herrajes (4-nov-2026, decision del dueño): ya vienen hechos, se pagan completos (sin 50 %);
+//   de 1 a 5 el envio lo paga el cliente, envio gratis desde 6 (por mayor). Se reconocen por la categoria.
 
 import { normalizeProductCode } from "./product-code";
 import { expandProductNameForSeo, toSentenceCase } from "./seo-metadata";
@@ -59,6 +61,16 @@ export const CASH_ON_DELIVERY_CODES: readonly string[] = ["CMB005"];
 /** ¿La tienda ofrece contraentrega? Solo si el codigo (sin espacios ni mayusculas) esta en la lista. */
 export function isCamillasCombo(product: { code?: string | null }): boolean {
   return CASH_ON_DELIVERY_CODES.includes(normalizeProductCode(product.code));
+}
+
+// El 6 va fijo (lo dijo el dueño), no sale de minWholesaleQty: el texto publico no cambia si editan ese minimo.
+export const HARDWARE_FREE_SHIPPING_TEXT = "Envío gratis desde 6 unidades";
+export const HARDWARE_PAYMENT_LABEL = "Pago completo";
+export const HARDWARE_SHIPPING_TEXT = `${HARDWARE_FREE_SHIPPING_TEXT}. De 1 a 5 unidades el envío lo pagas tú; la asesora te confirma el valor.`;
+
+/** ¿Es un herraje (se vende ya hecho)? Su categoria dice "herraje" (sin importar tildes ni mayusculas). */
+export function isReadyMadeHardware(product: { categoryName?: string | null }): boolean {
+  return normalizeForMatch(product.categoryName).includes("herraje");
 }
 
 /** Texto de garantia segun el producto (solo menciona el hidraulico si lo tiene). */
@@ -149,6 +161,7 @@ export type ProductLandingData = {
   specs: ProductSpecRow[];
   faq: ProductFaqItem[];
   cashOnDelivery: boolean;
+  readyMade: boolean;
 };
 
 function specRow(label: string, value: string | null | undefined): ProductSpecRow {
@@ -157,19 +170,37 @@ function specRow(label: string, value: string | null | undefined): ProductSpecRo
 }
 
 /** Preguntas frecuentes con las reglas vigentes (sin cifras de envio, lista de ciudades ni tiempos inventados). */
-export function buildProductFaq(input: { warrantyText: string; cashOnDelivery?: boolean }): ProductFaqItem[] {
+export function buildProductFaq(input: {
+  warrantyText: string;
+  cashOnDelivery?: boolean;
+  readyMade?: boolean;
+}): ProductFaqItem[] {
+  const shippingAndPayment: ProductFaqItem[] = input.readyMade
+    ? [
+        {
+          question: "¿Cuánto cuesta el envío?",
+          answer: `${HARDWARE_SHIPPING_TEXT} No llegamos a San Andrés, Leticia, Inírida, Mitú ni Bahía Solano.`,
+        },
+        {
+          question: "¿Cómo se paga?",
+          answer: "Pago completo: el herraje ya está hecho y se paga antes de despachar.",
+        },
+      ]
+    : [
+        {
+          question: "¿Cuánto cuesta el envío?",
+          answer:
+            "Envío gratis a ciudades principales. Para otras ciudades consulta la página de cobertura o pregúntale a la asesora por WhatsApp. No llegamos a San Andrés, Leticia, Inírida, Mitú ni Bahía Solano.",
+        },
+        {
+          question: "¿Cómo se paga?",
+          answer: `50 % para fabricar y 50 % antes de despachar, con envío gratis a ciudades principales.${
+            input.cashOnDelivery ? " También puedes pagar contraentrega, pagando tú el envío." : ""
+          }`,
+        },
+      ];
   return [
-    {
-      question: "¿Cuánto cuesta el envío?",
-      answer:
-        "Envío gratis a ciudades principales. Para otras ciudades consulta la página de cobertura o pregúntale a la asesora por WhatsApp. No llegamos a San Andrés, Leticia, Inírida, Mitú ni Bahía Solano.",
-    },
-    {
-      question: "¿Cómo se paga?",
-      answer: `50 % para fabricar y 50 % antes de despachar, con envío gratis a ciudades principales.${
-        input.cashOnDelivery ? " También puedes pagar contraentrega, pagando tú el envío." : ""
-      }`,
-    },
+    ...shippingAndPayment,
     {
       question: "¿Qué garantía tiene?",
       answer: `${input.warrantyText}.`,
@@ -194,6 +225,7 @@ export function buildProductLandingData(product: ProductLandingSource): ProductL
   const description = readableDescription(product.description);
   const categoryName = product.categoryName?.trim();
   const cashOnDelivery = isCamillasCombo(product);
+  const readyMade = isReadyMadeHardware(product);
 
   const chips = [
     ...(measure ? [`Medida ${measure}`] : []),
@@ -218,7 +250,8 @@ export function buildProductLandingData(product: ProductLandingSource): ProductL
     description,
     chips,
     specs,
-    faq: buildProductFaq({ warrantyText, cashOnDelivery }),
+    faq: buildProductFaq({ warrantyText, cashOnDelivery, readyMade }),
     cashOnDelivery,
+    readyMade,
   };
 }
