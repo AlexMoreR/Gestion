@@ -266,7 +266,8 @@ export function QuoteWizardModal({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [productFormError, setProductFormError] = useState("");
   const [isManualQuoteSubmit, setIsManualQuoteSubmit] = useState(false);
-  const [faltaColorError, setFaltaColorError] = useState("");
+  // Se prende al tocar Generar/Guardar; el aviso se calcula en vivo y se va solo al escoger el color.
+  const [revisarColores, setRevisarColores] = useState(false);
 
   // Al abrir, arrancamos siempre en el paso 1 (Productos). El cliente ya viene
   // precargado en edicion, asi que no mostramos el formulario expandido.
@@ -768,6 +769,19 @@ export function QuoteWizardModal({
   if (!open) {
     return null;
   }
+
+  const faltanColoresLista = lineasSinColor(
+    lines.map((line) => {
+      const duenio = duenioDeLinea(line);
+      return {
+        etiqueta: displayCode(line.comboCode || duenio?.code || "") || line.comboName || duenio?.name || "Producto",
+        requeridas: partesDeLinea(line).map((parte) => parte.nombre),
+        elegidos: line.partes,
+        combo: Boolean(line.comboKey),
+        color: line.color,
+      };
+    }),
+  );
 
   const action = isEdit ? adminUpdateQuoteFullAction : adminCreateQuoteAction;
   const title = isEdit ? `Editar cotizacion ${displayCode(quoteCode)}` : "Nueva cotizacion";
@@ -1485,9 +1499,9 @@ export function QuoteWizardModal({
                   </div>
                 </div>
 
-                {faltaColorError ? (
+                {revisarColores && faltanColoresLista.length > 0 ? (
                   <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
-                    {faltaColorError}
+                    Falta escoger el color: {faltanColoresLista.join(", ")}
                   </p>
                 ) : null}
 
@@ -1500,24 +1514,8 @@ export function QuoteWizardModal({
                     size="lg"
                     onClick={(event) => {
                       // Combos y productos con partes no se guardan sin color (misma regla del paso a venta).
-                      const faltan = lineasSinColor(
-                        lines.map((line) => {
-                          const duenio = duenioDeLinea(line);
-                          return {
-                            etiqueta:
-                              displayCode(line.comboCode || duenio?.code || "") || line.comboName || duenio?.name || "Producto",
-                            requeridas: partesDeLinea(line).map((parte) => parte.nombre),
-                            elegidos: line.partes,
-                            combo: Boolean(line.comboKey),
-                            color: line.color,
-                          };
-                        }),
-                      );
-                      if (faltan.length > 0) {
-                        setFaltaColorError(`Falta escoger el color: ${faltan.join(", ")}`);
-                        return;
-                      }
-                      setFaltaColorError("");
+                      setRevisarColores(true);
+                      if (faltanColoresLista.length > 0) return;
                       setIsManualQuoteSubmit(true);
                       event.currentTarget.form?.requestSubmit();
                     }}
