@@ -125,6 +125,8 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
   const gesture = React.useRef<Gesture | null>(null);
   const pathRefs = React.useRef(new Map<string, SVGPathElement>());
   const [boxes, setBoxes] = React.useState<Map<string, ShapeBox> | null>(null);
+  // Píxeles de pantalla por unidad del mapa con la vista completa (cambia con el ancho del celular).
+  const [pxFull, setPxFull] = React.useState(1);
   const loaded = rows !== null && rows.cities.length > 0;
 
   // Mide cada forma una sola vez, cuando ya están pintadas (el JSON no trae posiciones).
@@ -141,6 +143,20 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
     }
     setBoxes(measured);
   }, [loaded, boxes]);
+
+  React.useLayoutEffect(() => {
+    const svg = svgRef.current;
+    if (!loaded || !svg) return;
+    const measure = () => {
+      const ctm = svg.getScreenCTM();
+      const box = svg.viewBox.baseVal;
+      if (ctm && box.width > 0) setPxFull((ctm.a * box.width) / FULL_VIEW.w || 1);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, [loaded]);
 
   // Rótulos fijos (no dependen del zoom): departamentos, capitales y demás municipios.
   const labels = React.useMemo(() => {
@@ -378,6 +394,8 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
   const cityById = new Map(rows.cities.map((city) => [city.id, city]));
   // Los puntos guardan su tamaño en pantalla al acercar.
   const zoomScale = view.w / FULL_VIEW.w;
+  // Rótulos en píxeles de pantalla: igual tamaño al acercar y legibles en el celular.
+  const px = zoomScale / pxFull;
 
   const selectedCity =
     selected?.kind === "city" ? cityById.get(selected.id) : undefined;
@@ -504,8 +522,8 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
                         x={m.x}
                         y={m.y}
                         dominantBaseline="middle"
-                        fontSize={6 * zoomScale}
-                        strokeWidth={1.5 * zoomScale}
+                        fontSize={10 * px}
+                        strokeWidth={2.5 * px}
                       >
                         {m.name}
                       </text>
@@ -517,9 +535,9 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
                   x={dep.center.x}
                   y={dep.center.y}
                   dominantBaseline="middle"
-                  fontSize={9 * zoomScale}
+                  fontSize={12 * px}
                   fontWeight={700}
-                  strokeWidth={2.5 * zoomScale}
+                  strokeWidth={3 * px}
                 >
                   {dep.name}
                 </text>
@@ -529,18 +547,18 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
                   <circle
                     cx={cap.x}
                     cy={cap.y}
-                    r={1.8 * zoomScale}
+                    r={3 * px}
                     fill="black"
                     stroke="white"
-                    strokeWidth={0.6 * zoomScale}
+                    strokeWidth={1 * px}
                   />
                   <text
-                    x={cap.x + 3 * zoomScale}
+                    x={cap.x + 5 * px}
                     y={cap.y}
                     textAnchor="start"
                     dominantBaseline="middle"
-                    fontSize={7 * zoomScale}
-                    strokeWidth={2 * zoomScale}
+                    fontSize={11 * px}
+                    strokeWidth={3 * px}
                   >
                     {cap.name}
                   </text>
