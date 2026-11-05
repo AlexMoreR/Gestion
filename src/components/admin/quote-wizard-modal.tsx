@@ -274,6 +274,7 @@ export function QuoteWizardModal({
   useEffect(() => {
     if (open) {
       setStep(1);
+      setRevisarColores(false);
       setShowClientForm(false);
     }
   }, [open]);
