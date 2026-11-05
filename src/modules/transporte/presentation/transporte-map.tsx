@@ -14,11 +14,13 @@ import {
   clampView,
   MAP_MAX_ZOOM,
   countCitiesByType,
+  groupCitiesByDepartment,
   localityDots,
   zoomView,
   type MapView,
 } from "@/modules/transporte/domain/coverage-map";
 import type { ShippingTypeName } from "@/modules/transporte/domain/shipping";
+import { isDepartmentCapitalCode } from "@/modules/transporte/domain/place-search";
 import { adminGetCoverageMapAction } from "@/app/actions/transporte-actions";
 import {
   SHIPPING_LABELS,
@@ -56,6 +58,15 @@ const FULL_VIEW: MapView = { x: FULL_X, y: FULL_Y, w: FULL_W, h: FULL_H };
 const DRAG_PX = 5;
 
 type Selected = { kind: PlaceKind; id: string };
+// Caja y centro medidos de cada forma del mapa principal, por código DANE.
+type ShapeBox = { bounds: MapView; cx: number; cy: number };
+// Estilo de los rótulos: borde blanco detrás de la letra y sin tapar el clic.
+const LABEL_STYLE: React.CSSProperties = {
+  paintOrder: "stroke",
+  stroke: "white",
+  strokeLinejoin: "round",
+  pointerEvents: "none",
+};
 
 // Punto de la pantalla (clientX/Y) en unidades del viewBox actual del SVG.
 function toSvgPoint(svg: SVGSVGElement, clientX: number, clientY: number) {
@@ -112,7 +123,50 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
   const [view, setView] = React.useState<MapView>(FULL_VIEW);
   const svgRef = React.useRef<SVGSVGElement | null>(null);
   const gesture = React.useRef<Gesture | null>(null);
+  const pathRefs = React.useRef(new Map<string, SVGPathElement>());
+  const [boxes, setBoxes] = React.useState<Map<string, ShapeBox> | null>(null);
   const loaded = rows !== null && rows.cities.length > 0;
+
+  // Mide cada forma una sola vez, cuando ya están pintadas (el JSON no trae posiciones).
+  React.useLayoutEffect(() => {
+    if (!loaded || boxes) return;
+    const measured = new Map<string, ShapeBox>();
+    for (const [code, path] of pathRefs.current) {
+      const b = path.getBBox();
+      measured.set(code, {
+        bounds: { x: b.x, y: b.y, w: b.width, h: b.height },
+        cx: b.x + b.width / 2,
+        cy: b.y + b.height / 2,
+      });
+    }
+    setBoxes(measured);
+  }, [loaded, boxes]);
+
+  // Rótulos fijos (no dependen del zoom): departamentos, capitales y demás municipios.
+  const labels = React.useMemo(() => {
+    if (!boxes || !rows) return null;
+    const cityByCode = new Map(rows.cities.map((city) => [city.code, city]));
+    const departments = groupCitiesByDepartment(
+      [...boxes].map(([code, box]) => ({
+        code,
+        departmentName: cityByCode.get(code)?.departmentName,
+        bounds: box.bounds,
+      })),
+    ).filter((group) => group.name && group.codes.length > 1); // Bogotá ya sale como capital
+    const capitals: { code: string; name: string; x: number; y: number }[] = [];
+    const others: typeof capitals = [];
+    for (const [code, box] of boxes) {
+      const city = cityByCode.get(code);
+      if (!city) continue;
+      (isDepartmentCapitalCode(code) ? capitals : others).push({
+        code,
+        name: city.name,
+        x: box.cx,
+        y: box.cy,
+      });
+    }
+    return { departments, capitals, others };
+  }, [boxes, rows]);
 
   // La rueda acerca o aleja hacia el puntero. passive:false para que no baje la página.
   React.useEffect(() => {
@@ -246,6 +300,14 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
         return (
           <path
             key={city.id}
+            ref={
+              shapes === MAIN_SHAPES
+                ? (el: SVGPathElement | null) => {
+                    if (el) pathRefs.current.set(city.code, el);
+                    else pathRefs.current.delete(city.code);
+                  }
+                : undefined
+            }
             d={d}
             fill={SHIPPING_MAP_COLORS[city.effectiveShippingType]}
             strokeWidth={isSelected ? 1.5 : 0.3}
@@ -419,6 +481,73 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
         >
           <g>{cityPaths?.main}</g>
           <g>{renderDots(MAIN_POINTS, 1.6 * zoomScale)}</g>
+          {labels ? (
+            <g
+              style={LABEL_STYLE}
+              aria-hidden="true"
+              // Letra oscura con borde blanco: se lee igual en tema claro y oscuro.
+              className="fill-neutral-900"
+              textAnchor="middle"
+            >
+              {view.w < FULL_VIEW.w / 4
+                ? labels.others
+                    .filter(
+                      (m) =>
+                        m.x >= view.x &&
+                        m.x <= view.x + view.w &&
+                        m.y >= view.y &&
+                        m.y <= view.y + view.h,
+                    )
+                    .map((m) => (
+                      <text
+                        key={m.code}
+                        x={m.x}
+                        y={m.y}
+                        dominantBaseline="middle"
+                        fontSize={6 * zoomScale}
+                        strokeWidth={1.5 * zoomScale}
+                      >
+                        {m.name}
+                      </text>
+                    ))
+                : null}
+              {labels.departments.map((dep) => (
+                <text
+                  key={dep.name}
+                  x={dep.center.x}
+                  y={dep.center.y}
+                  dominantBaseline="middle"
+                  fontSize={9 * zoomScale}
+                  fontWeight={700}
+                  strokeWidth={2.5 * zoomScale}
+                >
+                  {dep.name}
+                </text>
+              ))}
+              {labels.capitals.map((cap) => (
+                <g key={cap.code}>
+                  <circle
+                    cx={cap.x}
+                    cy={cap.y}
+                    r={1.8 * zoomScale}
+                    fill="black"
+                    stroke="white"
+                    strokeWidth={0.6 * zoomScale}
+                  />
+                  <text
+                    x={cap.x + 3 * zoomScale}
+                    y={cap.y}
+                    textAnchor="start"
+                    dominantBaseline="middle"
+                    fontSize={7 * zoomScale}
+                    strokeWidth={2 * zoomScale}
+                  >
+                    {cap.name}
+                  </text>
+                </g>
+              ))}
+            </g>
+          ) : null}
           <rect
             x={ISLAND_BOX.x}
             y={ISLAND_BOX.y}

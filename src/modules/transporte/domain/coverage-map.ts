@@ -129,3 +129,41 @@ export function fitBounds(bounds: MapView, full: MapView, margen = 0.1): MapView
   const cy = bounds.y + bounds.h / 2;
   return clampView({ x: cx - w / 2, y: cy - h / 2, w, h }, full);
 }
+
+export type MapCityBox = { code: string; departmentName?: string | null; bounds: MapView };
+export type MapDepartmentGroup = {
+  name: string; // "" si ningún municipio del grupo trae el nombre
+  bounds: MapView; // caja que une a todos sus municipios
+  center: { x: number; y: number }; // donde va el rótulo
+  codes: string[];
+};
+
+// Agrupa las formas de los municipios por departamento. El nombre sale de las filas de ciudades;
+// una forma sin fila (sin nombre) va al departamento de los dos primeros dígitos de su código DANE.
+export function groupCitiesByDepartment(items: MapCityBox[]): MapDepartmentGroup[] {
+  const nameByPrefix = new Map<string, string>();
+  for (const item of items) {
+    if (item.departmentName) nameByPrefix.set(item.code.slice(0, 2), item.departmentName);
+  }
+  const groups = new Map<string, { name: string; x1: number; y1: number; x2: number; y2: number; codes: string[] }>();
+  for (const { code, departmentName, bounds: b } of items) {
+    const name = departmentName || nameByPrefix.get(code.slice(0, 2)) || "";
+    const key = name || `dane:${code.slice(0, 2)}`;
+    const g = groups.get(key);
+    if (!g) {
+      groups.set(key, { name, x1: b.x, y1: b.y, x2: b.x + b.w, y2: b.y + b.h, codes: [code] });
+      continue;
+    }
+    g.x1 = Math.min(g.x1, b.x);
+    g.y1 = Math.min(g.y1, b.y);
+    g.x2 = Math.max(g.x2, b.x + b.w);
+    g.y2 = Math.max(g.y2, b.y + b.h);
+    g.codes.push(code);
+  }
+  return [...groups.values()].map((g) => ({
+    name: g.name,
+    bounds: { x: g.x1, y: g.y1, w: g.x2 - g.x1, h: g.y2 - g.y1 },
+    center: { x: (g.x1 + g.x2) / 2, y: (g.y1 + g.y2) / 2 },
+    codes: g.codes,
+  }));
+}

@@ -3,6 +3,7 @@ import {
   applyShippingTypeChange,
   countCitiesByType,
   fitBounds,
+  groupCitiesByDepartment,
   localityDots,
   MAP_MAX_ZOOM,
   SHIPPING_MAP_COLORS,
@@ -144,5 +145,42 @@ describe("zoomView y fitBounds", () => {
     expect(view.y).toBeGreaterThanOrEqual(0);
     // Una zona diminuta no pasa del zoom máximo.
     expect(fitBounds({ x: 300, y: 300, w: 0.1, h: 0.1 }, full).w).toBeCloseTo(full.w / MAP_MAX_ZOOM);
+  });
+});
+
+describe("groupCitiesByDepartment", () => {
+  const items = [
+    { code: "44001", departmentName: "La Guajira", bounds: { x: 10, y: 10, w: 5, h: 5 } },
+    { code: "44847", departmentName: "La Guajira", bounds: { x: 20, y: 2, w: 10, h: 4 } },
+    // Forma sin fila de ciudad: va a La Guajira por el código DANE.
+    { code: "44090", bounds: { x: 8, y: 12, w: 2, h: 10 } },
+    { code: "97001", departmentName: "Vaupés", bounds: { x: 100, y: 200, w: 6, h: 6 } },
+  ];
+
+  it("agrupa por departamento y la caja cubre a todos sus municipios", () => {
+    const groups = groupCitiesByDepartment(items);
+    expect(groups).toHaveLength(2);
+    const guajira = groups.find((g) => g.name === "La Guajira")!;
+    expect(guajira.codes.sort()).toEqual(["44001", "44090", "44847"]);
+    for (const item of items.filter((i) => i.code.startsWith("44"))) {
+      const b = item.bounds;
+      expect(b.x).toBeGreaterThanOrEqual(guajira.bounds.x);
+      expect(b.y).toBeGreaterThanOrEqual(guajira.bounds.y);
+      expect(b.x + b.w).toBeLessThanOrEqual(guajira.bounds.x + guajira.bounds.w);
+      expect(b.y + b.h).toBeLessThanOrEqual(guajira.bounds.y + guajira.bounds.h);
+    }
+    expect(guajira.bounds).toEqual({ x: 8, y: 2, w: 22, h: 20 });
+    expect(guajira.center).toEqual({ x: 19, y: 12 });
+    expect(groups.find((g) => g.name === "Vaupés")!.codes).toEqual(["97001"]);
+  });
+
+  it("sin ningún nombre agrupa por los dos primeros dígitos", () => {
+    const groups = groupCitiesByDepartment([
+      { code: "91001", bounds: { x: 0, y: 0, w: 1, h: 1 } },
+      { code: "91263", bounds: { x: 2, y: 2, w: 1, h: 1 } },
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].name).toBe("");
+    expect(groups[0].codes).toEqual(["91001", "91263"]);
   });
 });
