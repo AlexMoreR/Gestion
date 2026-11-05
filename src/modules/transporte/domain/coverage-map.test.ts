@@ -5,6 +5,8 @@ import {
   fitBounds,
   groupCitiesByDepartment,
   localityDots,
+  searchDepartments,
+  searchMapCities,
   MAP_MAX_ZOOM,
   SHIPPING_MAP_COLORS,
   zoomView,
@@ -182,5 +184,24 @@ describe("groupCitiesByDepartment", () => {
     expect(groups).toHaveLength(1);
     expect(groups[0].name).toBe("");
     expect(groups[0].codes).toEqual(["91001", "91263"]);
+  });
+});
+
+describe("searchDepartments", () => {
+  it("encuentra Antioquia sin importar tildes ni mayúsculas", () => {
+    const nombres = ["Atlántico", "Antioquia", "Chocó", "Bogotá, D.C."];
+    expect(searchDepartments(nombres, "antioquia")).toEqual(["Antioquia"]);
+    expect(searchDepartments(nombres, "CHOCO")).toEqual(["Chocó"]);
+    expect(searchDepartments(nombres, "bogota")).toEqual(["Bogotá, D.C."]);
+    expect(searchDepartments(nombres, "xyz")).toEqual([]);
+  });
+});
+
+describe("searchMapCities", () => {
+  it("usa el mismo orden de la Lista y encuentra municipios sin forma", () => {
+    const cali: CoverageMapCity = { ...riohacha, id: "c-cali", code: "76001", name: "Santiago de Cali" };
+    const california: CoverageMapCity = { ...riohacha, id: "c-calif", code: "68132", name: "California" };
+    expect(searchMapCities([california, cali], "cali").map((c) => c.name)).toEqual(["Santiago de Cali", "California"]);
+    expect(searchMapCities([uribia, belen], "nuevo belen")[0].id).toBe("c-belen");
   });
 });

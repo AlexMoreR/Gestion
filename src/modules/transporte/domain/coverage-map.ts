@@ -1,6 +1,7 @@
 // Reglas puras de la vista de mapa de cobertura (sin Prisma).
 
 import type { CoverageMapCity, CoverageMapLocality } from "./entities";
+import { rankPlaces } from "./place-search";
 import { resolveShippingType, type ShippingTypeName } from "./shipping";
 
 export const SHIPPING_MAP_COLORS: Record<ShippingTypeName, string> = {
@@ -166,4 +167,20 @@ export function groupCitiesByDepartment(items: MapCityBox[]): MapDepartmentGroup
     center: { x: (g.x1 + g.x2) / 2, y: (g.y1 + g.y2) / 2 },
     codes: g.codes,
   }));
+}
+
+// Departamentos cuyo nombre coincide con el término, sin tildes ni mayúsculas (normalizePlaceName,
+// dentro de rankPlaces): exacta > palabra completa > empieza por > contiene, luego alfabético.
+export function searchDepartments(nombres: string[], termino: string, limit = 5): string[] {
+  const places = nombres.map((name) => ({ kind: "locality" as const, name }));
+  return rankPlaces(places, termino, limit).map((place) => place.name);
+}
+
+// Municipios del mapa en el mismo orden de la Lista (alias "cali", "bogota"... primero).
+export function searchMapCities(cities: CoverageMapCity[], termino: string, limit = 8): CoverageMapCity[] {
+  return rankPlaces(
+    cities.map((city) => ({ ...city, kind: "city" as const })),
+    termino,
+    limit,
+  );
 }

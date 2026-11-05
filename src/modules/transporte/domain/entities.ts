@@ -47,6 +47,9 @@ export type TransportSearchResult = {
   // Contexto para ubicar el lugar en la jerarquia.
   departmentName: string;
   cityName: string | null; // solo para corregimientos
+  code: string; // codigo DANE (o CRM-...) del lugar
+  cityId: string | null; // solo para corregimientos
+  cityCode: string | null; // DANE de su municipio, solo para corregimientos
 };
 
 // Ubicacion nueva (llego del CRM) que espera que un admin le defina el tipo de envio.

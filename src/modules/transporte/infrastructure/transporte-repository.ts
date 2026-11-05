@@ -278,7 +278,7 @@ const searchLocalitySelect = {
   ...placeShippingSelect,
   code: true,
   nameKey: true,
-  city: { select: { id: true, name: true, ...cityParentSelect, department: { select: { name: true } } } },
+  city: { select: { id: true, code: true, name: true, ...cityParentSelect, department: { select: { name: true } } } },
 } as const;
 
 // Trae candidatos de ciudades y corregimientos para un termino: exactas, la ciudad del alias
@@ -360,6 +360,9 @@ export async function searchTransportPlaces(term: string): Promise<TransportSear
         needsReview: place.needsReview,
         departmentName: place.department.name,
         cityName: null,
+        code: place.code,
+        cityId: null,
+        cityCode: null,
       };
     }
     return {
@@ -377,6 +380,9 @@ export async function searchTransportPlaces(term: string): Promise<TransportSear
       needsReview: place.needsReview,
       departmentName: place.city.department.name,
       cityName: place.city.name,
+      code: place.code,
+      cityId: place.city.id,
+      cityCode: place.city.code,
     };
   });
 }
