@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Loader2, X } from "lucide-react";
+import { Loader2, Maximize, Minus, Plus, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import mapa from "@/modules/transporte/data/colombia-mapa.json";
 import type {
   CoverageMapCity,
@@ -10,8 +11,12 @@ import type {
 import {
   SHIPPING_MAP_COLORS,
   applyShippingTypeChange,
+  clampView,
+  MAP_MAX_ZOOM,
   countCitiesByType,
   localityDots,
+  zoomView,
+  type MapView,
 } from "@/modules/transporte/domain/coverage-map";
 import type { ShippingTypeName } from "@/modules/transporte/domain/shipping";
 import { adminGetCoverageMapAction } from "@/app/actions/transporte-actions";
@@ -45,7 +50,28 @@ const [, , ISLAND_W, ISLAND_H] = ISLAND.viewBox.split(" ").map(Number);
 const ISLAND_BOX = { x: 8, y: 8, height: 150 };
 const ISLAND_BOX_W = (ISLAND_W / ISLAND_H) * ISLAND_BOX.height;
 
+const [FULL_X, FULL_Y, FULL_W, FULL_H] = mapa.viewBox.split(" ").map(Number);
+const FULL_VIEW: MapView = { x: FULL_X, y: FULL_Y, w: FULL_W, h: FULL_H };
+// Más de esto (en px de pantalla) entre bajar y soltar es arrastre, no toque.
+const DRAG_PX = 5;
+
 type Selected = { kind: PlaceKind; id: string };
+
+// Punto de la pantalla (clientX/Y) en unidades del viewBox actual del SVG.
+function toSvgPoint(svg: SVGSVGElement, clientX: number, clientY: number) {
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return null;
+  return new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
+}
+
+type Gesture = {
+  pointers: Map<number, { x: number; y: number }>;
+  start: { x: number; y: number }; // donde bajó el primer dedo o el mouse
+  startView: MapView; // vista al empezar el arrastre o el pellizco
+  anchor: { x: number; y: number }; // pantalla al empezar (1 dedo) o punto medio en el SVG (2 dedos)
+  startDist: number;
+  moved: boolean;
+};
 
 type TransporteMapProps = {
   // La misma funcion de guardar de la Lista; devuelve si salio bien.
@@ -83,6 +109,175 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
   const [loadError, setLoadError] = React.useState(false);
   const [selected, setSelected] = React.useState<Selected | null>(null);
   const [saving, setSaving] = React.useState(false);
+  const [view, setView] = React.useState<MapView>(FULL_VIEW);
+  const svgRef = React.useRef<SVGSVGElement | null>(null);
+  const gesture = React.useRef<Gesture | null>(null);
+  const loaded = rows !== null && rows.cities.length > 0;
+
+  // La rueda acerca o aleja hacia el puntero. passive:false para que no baje la página.
+  React.useEffect(() => {
+    const svg = svgRef.current;
+    if (!loaded || !svg) return;
+    function onWheel(event: WheelEvent) {
+      event.preventDefault();
+      const point = toSvgPoint(svg!, event.clientX, event.clientY);
+      if (!point) return;
+      const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+      setView((current) =>
+        zoomView(
+          current,
+          Math.exp(-delta * 0.002),
+          point.x,
+          point.y,
+          FULL_VIEW,
+        ),
+      );
+    }
+    svg.addEventListener("wheel", onWheel, { passive: false });
+    return () => svg.removeEventListener("wheel", onWheel);
+  }, [loaded]);
+
+  function startGesture(g: Gesture) {
+    const svg = svgRef.current;
+    const pts = [...g.pointers.values()];
+    g.startView = view;
+    if (pts.length >= 2 && svg) {
+      const mid = toSvgPoint(
+        svg,
+        (pts[0].x + pts[1].x) / 2,
+        (pts[0].y + pts[1].y) / 2,
+      );
+      g.anchor = mid ? { x: mid.x, y: mid.y } : { x: 0, y: 0 };
+      g.startDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1;
+    } else if (pts.length === 1) {
+      g.anchor = pts[0];
+    }
+  }
+
+  function onPointerDown(event: React.PointerEvent<SVGSVGElement>) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    const point = { x: event.clientX, y: event.clientY };
+    if (!gesture.current || gesture.current.pointers.size === 0) {
+      gesture.current = {
+        pointers: new Map(),
+        start: point,
+        startView: view,
+        anchor: point,
+        startDist: 1,
+        moved: false,
+      };
+    }
+    const g = gesture.current;
+    g.pointers.set(event.pointerId, point);
+    if (g.pointers.size >= 2) {
+      // Pellizco: es gesto de zoom, no toque.
+      g.moved = true;
+      for (const id of g.pointers.keys()) {
+        if (!event.currentTarget.hasPointerCapture(id)) {
+          try {
+            event.currentTarget.setPointerCapture(id);
+          } catch {
+            // el puntero ya se soltó
+          }
+        }
+      }
+    }
+    startGesture(g);
+  }
+
+  function onPointerMove(event: React.PointerEvent<SVGSVGElement>) {
+    const g = gesture.current;
+    if (!g || !g.pointers.has(event.pointerId)) return;
+    g.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const svg = event.currentTarget;
+    const pts = [...g.pointers.values()];
+    if (pts.length >= 2) {
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      setView(
+        zoomView(
+          g.startView,
+          dist / g.startDist,
+          g.anchor.x,
+          g.anchor.y,
+          FULL_VIEW,
+        ),
+      );
+      return;
+    }
+    if (!g.moved) {
+      if (
+        Math.hypot(event.clientX - g.start.x, event.clientY - g.start.y) <=
+        DRAG_PX
+      )
+        return;
+      // Ya es arrastre: se captura el puntero (antes no, para que el toque llegue al municipio).
+      g.moved = true;
+      svg.setPointerCapture(event.pointerId);
+    }
+    const scale = g.startView.w / (svg.getBoundingClientRect().width || 1);
+    setView(
+      clampView(
+        {
+          ...g.startView,
+          x: g.startView.x - (event.clientX - g.anchor.x) * scale,
+          y: g.startView.y - (event.clientY - g.anchor.y) * scale,
+        },
+        FULL_VIEW,
+      ),
+    );
+  }
+
+  function onPointerEnd(event: React.PointerEvent<SVGSVGElement>) {
+    const g = gesture.current;
+    if (!g || !g.pointers.delete(event.pointerId)) return;
+    // Si queda un dedo después del pellizco, sigue arrastrando desde donde está.
+    startGesture(g);
+  }
+
+  // Las formas de los municipios no se recalculan al mover o acercar: solo cambia el viewBox.
+  const cityPaths = React.useMemo(() => {
+    const cities = rows?.cities ?? [];
+    function renderCities(shapes: Shapes) {
+      return cities.map((city) => {
+        const d = shapes[city.code];
+        if (!d) return null;
+        const label = `${city.name}, ${city.departmentName}: ${SHIPPING_LABELS[city.effectiveShippingType]}`;
+        const isSelected = selected?.kind === "city" && selected.id === city.id;
+        return (
+          <path
+            key={city.id}
+            d={d}
+            fill={SHIPPING_MAP_COLORS[city.effectiveShippingType]}
+            strokeWidth={isSelected ? 1.5 : 0.3}
+            vectorEffect="non-scaling-stroke"
+            {...clickable(
+              label,
+              () => setSelected({ kind: "city", id: city.id }),
+              isSelected ? "stroke-foreground" : "stroke-card",
+            )}
+          >
+            <title>{label}</title>
+          </path>
+        );
+      });
+    }
+    return {
+      main: renderCities(MAIN_SHAPES),
+      island: renderCities(ISLAND_SHAPES),
+    };
+  }, [rows, selected]);
+
+  function zoomButton(factor: number) {
+    setView((current) =>
+      zoomView(
+        current,
+        factor,
+        current.x + current.w / 2,
+        current.y + current.h / 2,
+        FULL_VIEW,
+      ),
+    );
+  }
 
   React.useEffect(() => {
     let alive = true;
@@ -119,6 +314,8 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
   const counts = countCitiesByType(rows.cities, SHAPE_CODES);
   const dots = localityDots(rows.localities, rows.cities);
   const cityById = new Map(rows.cities.map((city) => [city.id, city]));
+  // Los puntos guardan su tamaño en pantalla al acercar.
+  const zoomScale = view.w / FULL_VIEW.w;
 
   const selectedCity =
     selected?.kind === "city" ? cityById.get(selected.id) : undefined;
@@ -151,30 +348,6 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
           : prev,
       );
     }
-  }
-
-  function renderCities(shapes: Shapes) {
-    return rows!.cities.map((city) => {
-      const d = shapes[city.code];
-      if (!d) return null;
-      const label = `${city.name}, ${city.departmentName}: ${SHIPPING_LABELS[city.effectiveShippingType]}`;
-      const isSelected = selected?.kind === "city" && selected.id === city.id;
-      return (
-        <path
-          key={city.id}
-          d={d}
-          fill={SHIPPING_MAP_COLORS[city.effectiveShippingType]}
-          strokeWidth={isSelected ? 1.5 : 0.3}
-          {...clickable(
-            label,
-            () => setSelected({ kind: "city", id: city.id }),
-            isSelected ? "stroke-foreground" : "stroke-card",
-          )}
-        >
-          <title>{label}</title>
-        </path>
-      );
-    });
   }
 
   function renderDots(points: Points, radius: number) {
@@ -225,17 +398,27 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
       </ul>
       <p className="text-xs text-muted-foreground">
         Toca un municipio o un punto (corregimiento con otro tipo) para cambiar
-        su tipo de envío.
+        su tipo de envío. Acerca con la rueda o con dos dedos y arrastra para
+        moverte.
       </p>
 
       <div className="relative overflow-hidden rounded-xl border border-border bg-card">
         <svg
-          viewBox={mapa.viewBox}
-          className="mx-auto block h-auto max-h-[80vh] w-full"
+          ref={svgRef}
+          viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
+          className="mx-auto block h-auto max-h-[80vh] w-full touch-none select-none"
           aria-label="Mapa de cobertura de envíos"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerEnd}
+          onPointerCancel={onPointerEnd}
+          onClickCapture={(event) => {
+            // Después de arrastrar o pellizcar, soltar no abre ningún panel.
+            if (gesture.current?.moved) event.stopPropagation();
+          }}
         >
-          <g>{renderCities(MAIN_SHAPES)}</g>
-          <g>{renderDots(MAIN_POINTS, 1.6)}</g>
+          <g>{cityPaths?.main}</g>
+          <g>{renderDots(MAIN_POINTS, 1.6 * zoomScale)}</g>
           <rect
             x={ISLAND_BOX.x}
             y={ISLAND_BOX.y}
@@ -252,8 +435,8 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
             height={ISLAND_BOX.height}
             viewBox={ISLAND.viewBox}
           >
-            <g>{renderCities(ISLAND_SHAPES)}</g>
-            <g>{renderDots(ISLAND_POINTS, 6)}</g>
+            <g>{cityPaths?.island}</g>
+            <g>{renderDots(ISLAND_POINTS, 6 * zoomScale)}</g>
           </svg>
           <text
             x={ISLAND_BOX.x + 3}
@@ -264,6 +447,42 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
             San Andrés y Providencia
           </text>
         </svg>
+
+        <div className="absolute bottom-2 right-2 flex flex-col items-end gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label="Acercar"
+            title="Acercar"
+            disabled={view.w <= FULL_VIEW.w / MAP_MAX_ZOOM + 1e-9}
+            onClick={() => zoomButton(2)}
+          >
+            <Plus />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label="Alejar"
+            title="Alejar"
+            disabled={view.w >= FULL_VIEW.w}
+            onClick={() => zoomButton(0.5)}
+          >
+            <Minus />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-label="Ver toda Colombia"
+            disabled={view.w >= FULL_VIEW.w}
+            onClick={() => setView(FULL_VIEW)}
+          >
+            <Maximize />
+            Ver toda Colombia
+          </Button>
+        </div>
 
         {selectedPlace ? (
           <div className="absolute inset-x-2 top-2 ml-auto max-w-sm rounded-lg border border-border bg-background p-3 shadow-lg">

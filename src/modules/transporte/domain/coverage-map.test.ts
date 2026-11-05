@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { applyShippingTypeChange, countCitiesByType, localityDots, SHIPPING_MAP_COLORS } from "./coverage-map";
+import {
+  applyShippingTypeChange,
+  countCitiesByType,
+  fitBounds,
+  localityDots,
+  MAP_MAX_ZOOM,
+  SHIPPING_MAP_COLORS,
+  zoomView,
+} from "./coverage-map";
 import type { CoverageMapCity, CoverageMapLocality } from "./entities";
 
 const uribia: CoverageMapCity = {
@@ -97,5 +105,44 @@ describe("applyShippingTypeChange", () => {
     expect(next.cities[0].effectiveShippingType).toBe("NO_LLEGA");
     expect(next.localities[0]).toEqual(caboDeLaVela);
     expect(localityDots(next.localities, next.cities)).toEqual([]);
+  });
+});
+
+describe("zoomView y fitBounds", () => {
+  const full = { x: 0, y: 0, w: 606.5, h: 834.4 };
+
+  it("acercar no pasa del zoom máximo y deja quieto el punto", () => {
+    let view = full;
+    for (let i = 0; i < 20; i++) view = zoomView(view, 2, 300, 400, full);
+    expect(view.w).toBeCloseTo(full.w / MAP_MAX_ZOOM);
+    expect(view.h / view.w).toBeCloseTo(full.h / full.w);
+    expect(view.x).toBeLessThanOrEqual(300);
+    expect(view.x + view.w).toBeGreaterThanOrEqual(300);
+    const una = zoomView(full, 2, 100, 200, full);
+    // El punto bajo el puntero queda en la misma fracción de la vista.
+    expect((100 - una.x) / una.w).toBeCloseTo(100 / full.w);
+    expect((200 - una.y) / una.h).toBeCloseTo(200 / full.h);
+  });
+
+  it("alejar nunca va más allá de toda Colombia", () => {
+    const cerca = zoomView(full, 8, 590, 820, full);
+    const lejos = zoomView(cerca, 1 / 100, 590, 820, full);
+    expect(lejos).toEqual(full);
+    const unPoco = zoomView(cerca, 1 / 2, 600, 830, full);
+    expect(unPoco.x + unPoco.w).toBeLessThanOrEqual(full.w + 1e-9);
+    expect(unPoco.y + unPoco.h).toBeLessThanOrEqual(full.h + 1e-9);
+  });
+
+  it("fitBounds respeta la proporción del mapa y contiene la zona", () => {
+    const zona = { x: 100, y: 50, w: 200, h: 20 };
+    const view = fitBounds(zona, full, 0.1);
+    expect(view.h / view.w).toBeCloseTo(full.h / full.w);
+    expect(view.x).toBeLessThanOrEqual(zona.x);
+    expect(view.y).toBeLessThanOrEqual(zona.y);
+    expect(view.x + view.w).toBeGreaterThanOrEqual(zona.x + zona.w);
+    expect(view.y + view.h).toBeGreaterThanOrEqual(zona.y + zona.h);
+    expect(view.y).toBeGreaterThanOrEqual(0);
+    // Una zona diminuta no pasa del zoom máximo.
+    expect(fitBounds({ x: 300, y: 300, w: 0.1, h: 0.1 }, full).w).toBeCloseTo(full.w / MAP_MAX_ZOOM);
   });
 });

@@ -89,3 +89,43 @@ export function applyShippingTypeChange(
   });
   return { cities: rows.cities, localities };
 }
+
+// Vista visible del mapa en unidades del SVG (lo que va en el viewBox).
+export type MapView = { x: number; y: number; w: number; h: number };
+
+// Zoom máximo: la vista nunca es más angosta que full.w / MAP_MAX_ZOOM.
+export const MAP_MAX_ZOOM = 64;
+
+// Deja la vista con la proporción de full, entre el zoom máximo y la vista completa, y dentro de
+// sus bordes. Sirve también para mover (arrastrar) sin salirse del mapa.
+export function clampView(view: MapView, full: MapView): MapView {
+  const w = Math.min(Math.max(view.w, full.w / MAP_MAX_ZOOM), full.w);
+  const h = (w * full.h) / full.w;
+  return {
+    x: Math.min(Math.max(view.x, full.x), full.x + full.w - w),
+    y: Math.min(Math.max(view.y, full.y), full.y + full.h - h),
+    w,
+    h,
+  };
+}
+
+// Acerca (factor > 1) o aleja (factor < 1) dejando quieto el punto (centroX, centroY).
+export function zoomView(view: MapView, factor: number, centroX: number, centroY: number, full: MapView): MapView {
+  const w = Math.min(Math.max(view.w / factor, full.w / MAP_MAX_ZOOM), full.w);
+  const k = w / view.w;
+  return clampView(
+    { x: centroX - (centroX - view.x) * k, y: centroY - (centroY - view.y) * k, w, h: (w * full.h) / full.w },
+    full,
+  );
+}
+
+// Vista que encuadra una zona con la proporción de full; margen = fracción del tamaño de la zona
+// que se deja libre a cada lado (0.1 = 10 %).
+export function fitBounds(bounds: MapView, full: MapView, margen = 0.1): MapView {
+  const aspect = full.w / full.h;
+  const w = Math.max(bounds.w * (1 + 2 * margen), bounds.h * (1 + 2 * margen) * aspect, full.w / MAP_MAX_ZOOM);
+  const h = w / aspect;
+  const cx = bounds.x + bounds.w / 2;
+  const cy = bounds.y + bounds.h / 2;
+  return clampView({ x: cx - w / 2, y: cy - h / 2, w, h }, full);
+}
