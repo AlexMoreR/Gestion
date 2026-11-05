@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { colorLabel, parseQuoteItemMeta, stringifyQuoteItemMeta } from "./quote-item-meta";
+import { colorLabel, lineasSinColor, parseQuoteItemMeta, stringifyQuoteItemMeta } from "./quote-item-meta";
 
 describe("color en las notas del producto", () => {
   it("un color escrito a mano sigue igual (mismo texto guardado y misma etiqueta)", () => {
@@ -69,5 +69,36 @@ describe("color por parte en las notas", () => {
   it("imagenColoresUrl se guarda solo si trae algo", () => {
     expect(stringifyQuoteItemMeta({ color: "Negro" })).not.toContain("imagenColoresUrl");
     expect(parseQuoteItemMeta(stringifyQuoteItemMeta({ partes, imagenColoresUrl: "https://x/y.png" })).imagenColoresUrl).toBe("https://x/y.png");
+  });
+});
+
+describe("lineasSinColor (antes de guardar la cotización)", () => {
+  const parte = (nombre: string, color: string) => ({ parte: nombre, color });
+
+  it("una parte en Por definir sale como 'CMB005 – Tapizado'", () => {
+    expect(
+      lineasSinColor([
+        { etiqueta: "CMB005", requeridas: ["Tapizado"], elegidos: [parte("Tapizado", "Por definir")], combo: true, color: "" },
+        { etiqueta: "CMB005", requeridas: ["Tapizado"], elegidos: [parte("Tapizado", "Por definir")], combo: true, color: "" },
+      ]),
+    ).toEqual(["CMB005 – Tapizado"]);
+  });
+
+  it("un combo sin partes y sin color sale con su etiqueta", () => {
+    expect(
+      lineasSinColor([
+        { etiqueta: "CMB009", requeridas: [], elegidos: [], combo: true, color: "" },
+        { etiqueta: "SIL01", requeridas: [], elegidos: [], combo: false, color: "" },
+      ]),
+    ).toEqual(["CMB009"]);
+  });
+
+  it("todo con color: vacío", () => {
+    expect(
+      lineasSinColor([
+        { etiqueta: "CMB005", requeridas: ["Tapizado"], elegidos: [parte("Tapizado", "Crema")], combo: true, color: "Tapizado: Crema" },
+        { etiqueta: "CMB009", requeridas: [], elegidos: [], combo: true, color: "Negro" },
+      ]),
+    ).toEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-import { textoColores, type ParteElegida } from "./product-parts";
+import { faltanColores, POR_DEFINIR, textoColores, type LineaColores, type ParteElegida } from "./product-parts";
 
 export type QuoteItemMeta = {
   description: string;
@@ -157,6 +157,19 @@ export function colorLabel(meta: Pick<QuoteItemMeta, "color" | "colorCodigo" | "
   const material = meta.colorMaterial.trim();
   if (!codigo) return nombre;
   return `${codigo} · ${nombre}${material ? ` (${material})` : ""}`;
+}
+
+/**
+ * Lo que falta escoger antes de guardar la cotización: cada parte sin color (misma regla del paso a
+ * venta) y cada combo sin partes ni color. Etiquetas sin repetir ("CMB005 – Tapizado", "CMB005").
+ */
+export function lineasSinColor(lineas: (LineaColores & { combo: boolean; color: string })[]): string[] {
+  const conPartes = lineas.filter((l) => l.requeridas.length > 0);
+  const combosSinColor = lineas
+    .filter((l) => l.requeridas.length === 0 && l.combo)
+    .filter((l) => !l.color.trim() || l.color.trim().toLowerCase() === POR_DEFINIR.toLowerCase())
+    .map((l) => l.etiqueta);
+  return [...new Set([...faltanColores(conPartes), ...combosSinColor])];
 }
 
 export function calculateQuoteLineTotal(

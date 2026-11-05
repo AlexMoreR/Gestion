@@ -34,7 +34,7 @@ import { Input } from "@/components/ui/input";
 import { ProductThumb } from "@/components/admin/product-thumb";
 import { expandComboLines, faltanPiezasCombo, pickComboPieces, type ComboComponent } from "@/lib/combo";
 import type { SupportedCurrencyCode } from "@/lib/currency";
-import { calculateQuoteLineTotal, colorLabel } from "@/lib/quote-item-meta";
+import { calculateQuoteLineTotal, colorLabel, lineasSinColor } from "@/lib/quote-item-meta";
 import type { CartaColor, CartaColores } from "@/lib/carta-colores-crm";
 import { textoColores, type ParteElegida, type ParteParaCotizar } from "@/lib/product-parts";
 import { PartesColorSelector, partesIniciales } from "@/components/admin/partes-color-selector";
@@ -266,6 +266,7 @@ export function QuoteWizardModal({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [productFormError, setProductFormError] = useState("");
   const [isManualQuoteSubmit, setIsManualQuoteSubmit] = useState(false);
+  const [faltaColorError, setFaltaColorError] = useState("");
 
   // Al abrir, arrancamos siempre en el paso 1 (Productos). El cliente ya viene
   // precargado en edicion, asi que no mostramos el formulario expandido.
@@ -1484,6 +1485,12 @@ export function QuoteWizardModal({
                   </div>
                 </div>
 
+                {faltaColorError ? (
+                  <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+                    {faltaColorError}
+                  </p>
+                ) : null}
+
                 <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
                   <Button type="button" variant="outline" size="lg" onClick={() => setStep(2)}>
                     Atras
@@ -1492,6 +1499,25 @@ export function QuoteWizardModal({
                     type="button"
                     size="lg"
                     onClick={(event) => {
+                      // Combos y productos con partes no se guardan sin color (misma regla del paso a venta).
+                      const faltan = lineasSinColor(
+                        lines.map((line) => {
+                          const duenio = duenioDeLinea(line);
+                          return {
+                            etiqueta:
+                              displayCode(line.comboCode || duenio?.code || "") || line.comboName || duenio?.name || "Producto",
+                            requeridas: partesDeLinea(line).map((parte) => parte.nombre),
+                            elegidos: line.partes,
+                            combo: Boolean(line.comboKey),
+                            color: line.color,
+                          };
+                        }),
+                      );
+                      if (faltan.length > 0) {
+                        setFaltaColorError(`Falta escoger el color: ${faltan.join(", ")}`);
+                        return;
+                      }
+                      setFaltaColorError("");
                       setIsManualQuoteSubmit(true);
                       event.currentTarget.form?.requestSubmit();
                     }}

@@ -368,9 +368,32 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                           : "text-slate-900 max-w-[240px]"
                       }
                     >
-                      <span className={isPdf ? "line-clamp-2" : "line-clamp-2"}>
-                        {item.description || "—"}
-                      </span>
+                      {item.description ? <span className="line-clamp-2">{item.description}</span> : null}
+                      {item.colores.length > 0 ? (
+                        <ul className={item.description ? "mt-1 space-y-1" : "space-y-1"}>
+                          {item.colores.map((color) => (
+                            <li key={color.texto} className="flex items-center gap-1.5 leading-tight">
+                              {color.fotoUrl ? (
+                                // Foto de la muestra tal cual la da la carta del CRM (como en /fabricacion).
+                                <img
+                                  src={color.fotoUrl}
+                                  alt={`Muestra ${color.texto}`}
+                                  className={
+                                    isPdf
+                                      ? "h-5 w-5 shrink-0 rounded border object-cover"
+                                      : "h-8 w-8 shrink-0 rounded border object-cover"
+                                  }
+                                />
+                              ) : null}
+                              <span className={isPdf ? "text-[10px]" : "text-xs"}>{color.texto}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className={`${item.description ? "mt-1 " : ""}${isPdf ? "text-[10px]" : "text-xs"} italic text-slate-500`}>
+                          Color por confirmar
+                        </p>
+                      )}
                     </TableCell>
                     <TableCell
                       className={

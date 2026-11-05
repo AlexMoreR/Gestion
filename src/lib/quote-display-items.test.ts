@@ -184,4 +184,65 @@ describe("groupQuoteDisplayItems", () => {
 
     expect(result[0].imageUrl).toBe("/uploads/foto-personalizada.jpg");
   });
+
+  describe("colores para la cotización del cliente", () => {
+    const carta = { ...emptyMeta, color: "Crema", colorCodigo: "T12", colorMaterial: "Sintético", colorFotoUrl: "https://crm/t12.jpg" };
+
+    it("color de la carta: 'T12 · Crema (Sintético)' con su foto", () => {
+      const [row] = groupQuoteDisplayItems([quoteItem({ id: "l1", meta: carta })]);
+      expect(row.colores).toEqual([{ texto: "T12 · Crema (Sintético)", fotoUrl: "https://crm/t12.jpg" }]);
+    });
+
+    it("color escrito a mano: solo el texto, sin foto", () => {
+      const [row] = groupQuoteDisplayItems([quoteItem({ id: "l1", meta: { ...emptyMeta, color: "Vinotinto" } })]);
+      expect(row.colores).toEqual([{ texto: "Vinotinto", fotoUrl: "" }]);
+    });
+
+    const combo = { ...emptyMeta, comboKey: "k1", comboName: "Combo", comboCode: "CMB005", comboQuantity: 1 };
+    const pieza = (id: string, name: string, meta: QuoteItemMeta) =>
+      quoteItem({ id, product: { name, code: null, thumbnailUrl: "", description: null }, meta });
+
+    it("combo con un solo color: una sola entrada", () => {
+      const [row] = groupQuoteDisplayItems([
+        pieza("a", "Camilla", { ...combo, ...carta, comboKey: "k1" }),
+        pieza("b", "Butaco", { ...combo, ...carta, comboKey: "k1" }),
+      ]);
+      expect(row.colores).toEqual([{ texto: "T12 · Crema (Sintético)", fotoUrl: "https://crm/t12.jpg" }]);
+    });
+
+    it("combo con dos colores: una entrada por pieza con su nombre", () => {
+      const [row] = groupQuoteDisplayItems([
+        pieza("a", "Camilla", { ...combo, ...carta, comboKey: "k1" }),
+        pieza("b", "Butaco", { ...combo, comboKey: "k1", color: "Negro" }),
+      ]);
+      expect(row.colores).toEqual([
+        { texto: "Camilla: T12 · Crema (Sintético)", fotoUrl: "https://crm/t12.jpg" },
+        { texto: "Butaco: Negro", fotoUrl: "" },
+      ]);
+    });
+
+    it("con partes: una entrada por parte", () => {
+      const [row] = groupQuoteDisplayItems([
+        quoteItem({
+          id: "l1",
+          meta: {
+            ...emptyMeta,
+            partes: [
+              { parte: "Tapizado", color: "Crema", colorCodigo: "T12", colorMaterial: "Sintético", colorFotoUrl: "f.jpg", hex: "" },
+              { parte: "Base", color: "", colorCodigo: "", colorMaterial: "", colorFotoUrl: "", hex: "" },
+            ],
+          },
+        }),
+      ]);
+      expect(row.colores).toEqual([
+        { texto: "Tapizado: T12 · Crema (Sintético)", fotoUrl: "f.jpg" },
+        { texto: "Base: Por definir", fotoUrl: "" },
+      ]);
+    });
+
+    it("sin color: lista vacía", () => {
+      const [row] = groupQuoteDisplayItems([quoteItem({ id: "l1" })]);
+      expect(row.colores).toEqual([]);
+    });
+  });
 });

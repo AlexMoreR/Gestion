@@ -1,5 +1,5 @@
-import { textoColores } from "./product-parts";
-import type { QuoteItemMeta } from "./quote-item-meta";
+import { POR_DEFINIR, textoColores } from "./product-parts";
+import { colorLabel, type QuoteItemMeta } from "./quote-item-meta";
 
 type QuoteDisplayProduct = {
   name: string;
@@ -33,7 +33,42 @@ export type QuoteDisplayItem = {
   imagenColoresUrl: string;
   /** 'Tapizado: Crema · Base: Dorada' si la línea tiene partes; "" si no. */
   coloresTexto: string;
+  /** Un color por entrada para la cotización del cliente; vacío = "Color por confirmar". */
+  colores: ColorDeFila[];
 };
+
+/** "T12 · Crema (Sintético)" (o "Tapizado: …", "Camilla: …") con la foto de la muestra ("" si no hay). */
+export type ColorDeFila = { texto: string; fotoUrl: string };
+
+/** Colores de una línea: uno por parte, o el color único (de la carta o escrito a mano). */
+function coloresDeLinea(meta: QuoteItemMeta): ColorDeFila[] {
+  if (meta.partes.length > 0) {
+    return meta.partes.map((p) => ({
+      texto: `${p.parte}: ${p.color ? colorLabel(p) : POR_DEFINIR}`,
+      fotoUrl: p.color ? clean(p.colorFotoUrl) : "",
+    }));
+  }
+  const texto = colorLabel(meta);
+  return texto ? [{ texto, fotoUrl: clean(meta.colorFotoUrl) }] : [];
+}
+
+const sinRepetir = (colores: ColorDeFila[]) =>
+  colores.filter((c, i) => colores.findIndex((o) => o.texto === c.texto) === i);
+
+/** Combo: si todas las piezas tienen el mismo color va una vez; si no, cada uno con el nombre de su pieza. */
+function coloresDeCombo(piezas: { pieza: string; colores: ColorDeFila[] }[]): ColorDeFila[] {
+  const todos = piezas.flatMap((p) => p.colores);
+  const distintos = sinRepetir(todos);
+  const mismoColor = piezas.every((p) => p.colores.map((c) => c.texto).join("|") === piezas[0].colores.map((c) => c.texto).join("|"));
+  if (mismoColor) return distintos;
+  return sinRepetir(
+    piezas.flatMap((p) =>
+      p.colores.length > 0
+        ? p.colores.map((c) => ({ ...c, texto: `${p.pieza}: ${c.texto}` }))
+        : [{ texto: `${p.pieza}: Color por confirmar`, fotoUrl: "" }],
+    ),
+  );
+}
 
 const coloresDe = (meta: QuoteItemMeta) => ({
   imagenColoresUrl: clean(meta.imagenColoresUrl),
@@ -56,6 +91,7 @@ function clean(value: string | null | undefined): string {
 export function groupQuoteDisplayItems(items: QuoteDisplayItemInput[]): QuoteDisplayItem[] {
   const groups: QuoteDisplayItem[] = [];
   const indexByCombo = new Map<string, number>();
+  const piezasPorCombo = new Map<number, { pieza: string; colores: ColorDeFila[] }[]>();
 
   for (const item of items) {
     const comboKey = clean(item.meta.comboKey);
@@ -74,6 +110,7 @@ export function groupQuoteDisplayItems(items: QuoteDisplayItemInput[]): QuoteDis
         imageAlt: item.product.name,
         observation: clean(item.product.description),
         ...coloresDe(item.meta),
+        colores: coloresDeLinea(item.meta),
       });
       continue;
     }
@@ -91,6 +128,7 @@ export function groupQuoteDisplayItems(items: QuoteDisplayItemInput[]): QuoteDis
       if (!group.productCode) group.productCode = clean(item.meta.comboCode) || null;
       if (!group.imagenColoresUrl) group.imagenColoresUrl = clean(item.meta.imagenColoresUrl);
       if (!group.coloresTexto) group.coloresTexto = coloresDe(item.meta).coloresTexto;
+      piezasPorCombo.get(existingIndex)?.push({ pieza: item.product.name, colores: coloresDeLinea(item.meta) });
       continue;
     }
 
@@ -99,6 +137,7 @@ export function groupQuoteDisplayItems(items: QuoteDisplayItemInput[]): QuoteDis
     const imageUrl = clean(item.meta.imageUrl) || clean(item.comboImageUrl) || clean(item.product.thumbnailUrl);
 
     indexByCombo.set(comboKey, groups.length);
+    piezasPorCombo.set(groups.length, [{ pieza: item.product.name, colores: coloresDeLinea(item.meta) }]);
     groups.push({
       key: `combo:${comboKey}`,
       quantity,
@@ -111,8 +150,11 @@ export function groupQuoteDisplayItems(items: QuoteDisplayItemInput[]): QuoteDis
       imageAlt: productName,
       observation: clean(item.meta.description) || clean(item.product.description),
       ...coloresDe(item.meta),
+      colores: [],
     });
   }
+
+  for (const [index, piezas] of piezasPorCombo) groups[index].colores = coloresDeCombo(piezas);
 
   return groups;
 }
