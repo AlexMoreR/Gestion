@@ -1,6 +1,7 @@
 // Estado de una entrega (despacho) o fabricación (OF) contra su fecha y hora estimada.
 // Puro y sin alias "@/" para que Vitest lo resuelva. Compara momentos reales: no usa colombiaDayKey.
 import { formatNoteDate } from "./order-notes";
+import { todayInColombia } from "./colombia-time";
 
 export type TipoEstadoEntrega =
   | "SIN_FECHA"
@@ -11,19 +12,31 @@ export type TipoEstadoEntrega =
   | "ENTREGADO_A_TIEMPO"
   | "ENTREGADO_TARDE";
 
-export type EstadoEntrega = { tipo: TipoEstadoEntrega; etiqueta: string; atrasoHoras: number };
+// diasRestantes: días calendario (Colombia) de hoy a la estimada; negativo = atraso. null si no aplica.
+export type EstadoEntrega = { tipo: TipoEstadoEntrega; etiqueta: string; atrasoHoras: number; diasRestantes: number | null };
 
 const HORA_MS = 60 * 60 * 1000;
+const DIA_MS = 24 * HORA_MS;
+
+// Días calendario en Colombia de `ahora` a `fecha` (0 = hoy, 1 = mañana, -1 = ayer).
+// todayInColombia y no colombiaDayKey: 7:00 p. m. Colombia es medianoche UTC y colombiaDayKey la daría como del día siguiente.
+export function diasCalendario(fecha: Date, ahora: Date): number {
+  const dia = (momento: Date) => Date.parse(`${todayInColombia(momento)}T00:00:00Z`);
+  return Math.round((dia(fecha) - dia(ahora)) / DIA_MS);
+}
+
+// Texto corto del chip: "vence hoy", "quedan 3 días", "lleva 2 días de atraso"...
+function etiquetaDias(dias: number, vencido: boolean): string {
+  if (dias <= -2) return `lleva ${-dias} días de atraso`;
+  if (dias === -1) return "venció ayer";
+  if (dias === 0) return vencido ? "venció hoy" : "vence hoy";
+  if (dias === 1) return "vence mañana";
+  return `quedan ${dias} días`;
+}
 
 // Horas hacia abajo con mínimo 1, para no mostrar "0 h".
 function horasDeAtraso(desde: Date, hasta: Date): number {
   return Math.max(1, Math.floor((hasta.getTime() - desde.getTime()) / HORA_MS));
-}
-
-function etiquetaAtraso(horas: number): string {
-  if (horas < 24) return `ATRASADO ${horas} h`;
-  const dias = Math.floor(horas / 24);
-  return `ATRASADO ${dias} ${dias === 1 ? "día" : "días"}`;
 }
 
 export function estadoDeEntrega(
@@ -32,22 +45,25 @@ export function estadoDeEntrega(
 ): EstadoEntrega {
   if (realEn && estimadoEn) {
     if (realEn.getTime() <= estimadoEn.getTime()) {
-      return { tipo: "ENTREGADO_A_TIEMPO", etiqueta: "Entregado a tiempo", atrasoHoras: 0 };
+      return { tipo: "ENTREGADO_A_TIEMPO", etiqueta: "Entregado a tiempo", atrasoHoras: 0, diasRestantes: null };
     }
-    return { tipo: "ENTREGADO_TARDE", etiqueta: "Entregado tarde", atrasoHoras: horasDeAtraso(estimadoEn, realEn) };
+    return { tipo: "ENTREGADO_TARDE", etiqueta: "Entregado tarde", atrasoHoras: horasDeAtraso(estimadoEn, realEn), diasRestantes: null };
   }
   // Con real y sin estimado tampoco cuenta para cumplimiento.
-  if (!estimadoEn) return { tipo: "SIN_FECHA", etiqueta: "Sin fecha", atrasoHoras: 0 };
+  if (!estimadoEn) return { tipo: "SIN_FECHA", etiqueta: "Sin fecha", atrasoHoras: 0, diasRestantes: null };
+  const dias = diasCalendario(estimadoEn, ahora);
   // Vencido gana a "en camino": un envío atrasado no se esconde.
   if (ahora.getTime() > estimadoEn.getTime()) {
     const horas = horasDeAtraso(estimadoEn, ahora);
-    return { tipo: "ATRASADO", etiqueta: etiquetaAtraso(horas), atrasoHoras: horas };
+    return { tipo: "ATRASADO", etiqueta: etiquetaDias(dias, true), atrasoHoras: horas, diasRestantes: dias };
   }
-  if (enCamino) return { tipo: "EN_CAMINO", etiqueta: "En camino", atrasoHoras: 0 };
-  if (estimadoEn.getTime() - ahora.getTime() < 24 * HORA_MS) {
-    return { tipo: "POR_VENCER", etiqueta: "Por vencer", atrasoHoras: 0 };
+  const texto = etiquetaDias(dias, false);
+  if (enCamino) return { tipo: "EN_CAMINO", etiqueta: `En camino · ${texto}`, atrasoHoras: 0, diasRestantes: dias };
+  // El color sigue la regla de las 24 horas; el texto cuenta días calendario.
+  if (estimadoEn.getTime() - ahora.getTime() < DIA_MS) {
+    return { tipo: "POR_VENCER", etiqueta: texto, atrasoHoras: 0, diasRestantes: dias };
   }
-  return { tipo: "A_TIEMPO", etiqueta: "A tiempo", atrasoHoras: 0 };
+  return { tipo: "A_TIEMPO", etiqueta: texto, atrasoHoras: 0, diasRestantes: dias };
 }
 
 // Historial de fechas (despacho y OF): la bitácora se filtra por este prefijo; no hay tabla propia.
@@ -74,7 +90,7 @@ export function resumenCambioFechaOf(codigo: string, { estimada, real }: { estim
 
 // ---- Seguimiento de una orden en la lista (peor estado de entrega y de fabricación) ----
 
-// De más grave a menos grave; entre dos ATRASADO gana el de más horas.
+// De más grave a menos grave; entre dos ATRASADO gana el de más horas; a igual estado, la fecha más cercana.
 const GRAVEDAD: TipoEstadoEntrega[] = [
   "ATRASADO",
   "SIN_FECHA",
@@ -108,7 +124,8 @@ function peorDe(estados: EstadoEntrega[]): SeguimientoParte | null {
     const ga = GRAVEDAD.indexOf(a.tipo);
     const gb = GRAVEDAD.indexOf(b.tipo);
     if (ga !== gb) return gb < ga ? b : a;
-    return b.atrasoHoras > a.atrasoHoras ? b : a;
+    if (b.atrasoHoras !== a.atrasoHoras) return b.atrasoHoras > a.atrasoHoras ? b : a;
+    return b.diasRestantes !== null && a.diasRestantes !== null && b.diasRestantes < a.diasRestantes ? b : a;
   });
   return { peor, detalles: estados };
 }
