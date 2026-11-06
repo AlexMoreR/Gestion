@@ -17,6 +17,7 @@ type EditQuoteData = {
   validUntil: string;
   createdAt: string;
   notes: string;
+  tieneVenta: boolean;
   client: QuoteWizardClient;
   items: QuoteWizardInitialLine[];
 };
@@ -55,6 +56,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
       initialStatus={quote.status}
       initialValidUntil={quote.validUntil}
       initialNotes={quote.notes}
+      tieneVenta={quote.tieneVenta}
     />
   );
 }

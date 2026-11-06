@@ -31,6 +31,7 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
       where: { id: quoteId },
       include: {
         client: true,
+        sale: { select: { id: true } },
         items: {
           include: {
             product: true,
@@ -123,6 +124,7 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
         validUntil: validUntilValue,
         createdAt: createdAtValue,
         notes: quote.notes ?? "",
+        tieneVenta: Boolean(quote.sale),
         client: {
           id: quote.client.id,
           name: quote.client.name || quote.client.email,

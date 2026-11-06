@@ -10,6 +10,7 @@ import {
   Link2,
   Loader2,
   Palette,
+  Pencil,
   Percent,
   Plus,
   RefreshCw,
@@ -35,6 +36,13 @@ import { ProductThumb } from "@/components/admin/product-thumb";
 import { expandComboLines, faltanPiezasCombo, pickComboPieces, type ComboComponent } from "@/lib/combo";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { calculateQuoteLineTotal, colorLabel, lineasSinColor } from "@/lib/quote-item-meta";
+import {
+  aplicarEdicionCombo,
+  COTIZACION_CON_VENTA_LINEAS,
+  distributeAmount,
+  resumenCombo,
+  type ValoresCombo,
+} from "@/lib/quote-lines";
 import type { CartaColor, CartaColores } from "@/lib/carta-colores-crm";
 import { textoColores, type ParteElegida, type ParteParaCotizar } from "@/lib/product-parts";
 import { PartesColorSelector, partesIniciales } from "@/components/admin/partes-color-selector";
@@ -140,30 +148,11 @@ type QuoteWizardModalProps = {
   initialStatus?: QuoteStatus;
   initialValidUntil?: string;
   initialNotes?: string;
+  // Con venta creada las lineas no se cambian (el servidor lo rechaza igual).
+  tieneVenta?: boolean;
 };
 
 const todayLocal = () => todayInColombia();
-
-// Reparte un monto (descuento o costo adicional del combo) entre las lineas en
-// proporcion a su peso. El ultimo elemento absorbe el redondeo para que la suma
-// sea exacta. Asi ninguna linea concentra todo el descuento (evita el recorte a
-// 0) y el desglose Subtotal/Descuento/Adicional cuadra con el Total.
-function distributeAmount(amount: number, weights: number[]): number[] {
-  if (weights.length === 0) return [];
-  const totalWeight = weights.reduce((sum, w) => sum + Math.max(0, w), 0);
-  let allocated = 0;
-  return weights.map((w, index) => {
-    if (index === weights.length - 1) {
-      return Math.round(amount - allocated);
-    }
-    const part =
-      totalWeight > 0
-        ? Math.round((amount * Math.max(0, w)) / totalWeight)
-        : Math.round(amount / weights.length);
-    allocated += part;
-    return part;
-  });
-}
 
 // Badge del tipo de cumplimiento (solo lectura) para la revision.
 function FulfillmentBadge({ mode }: { mode: FulfillmentMode; canStock?: boolean }) {
@@ -196,6 +185,7 @@ export function QuoteWizardModal({
   initialStatus = "DRAFT",
   initialValidUntil = "",
   initialNotes = "",
+  tieneVenta = false,
 }: QuoteWizardModalProps) {
   const isEdit = mode === "edit";
 
@@ -266,6 +256,16 @@ export function QuoteWizardModal({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [productFormError, setProductFormError] = useState("");
   const [isManualQuoteSubmit, setIsManualQuoteSubmit] = useState(false);
+  // Linea (uid) o combo (comboKey) que se esta editando en el panel; null = agregando.
+  const [editing, setEditing] = useState<{
+    uid: string;
+    comboKey: string;
+    nombre: string;
+    codigo: string;
+    foto: string;
+    partesDef: ParteParaCotizar[];
+    colorInicial: string;
+  } | null>(null);
   // Se prende al tocar Generar/Guardar; el aviso se calcula en vivo y se va solo al escoger el color.
   const [revisarColores, setRevisarColores] = useState(false);
 
@@ -332,7 +332,8 @@ export function QuoteWizardModal({
     () => products.find((product) => product.id === draftProductId) ?? null,
     [products, draftProductId],
   );
-  const draftPartesDef = draftProduct?.partes ?? [];
+  // En edicion, las partes de la linea (un combo usa las del combo, no las de una pieza).
+  const draftPartesDef = editing ? editing.partesDef : (draftProduct?.partes ?? []);
 
   // Partes de una linea ya agregada: las del combo (por su codigo) o las del producto suelto.
   const duenioDeLinea = (line: QuoteLine) =>
@@ -469,6 +470,7 @@ export function QuoteWizardModal({
     setDraftImageUrl("");
     setIsUploadingImage(false);
     setProductFormError("");
+    setEditing(null);
   };
 
   const openAddProductModal = () => {
@@ -540,12 +542,8 @@ export function QuoteWizardModal({
     }
   };
 
-  const addDraftProduct = () => {
-    if (!draftProductId) {
-      setProductFormError("Selecciona un producto por codigo.");
-      return;
-    }
-
+  // Valida los numeros del panel (agregar y editar). Null = hay error y ya se mostro.
+  const leerValoresDraft = (): ValoresCombo | null => {
     const quantity = Number(draftQuantity || 0);
     const unitPrice = Number(draftUnitPrice || 0);
     const additionalCost = Number(draftAdditionalCost || 0);
@@ -553,27 +551,42 @@ export function QuoteWizardModal({
 
     if (!Number.isFinite(quantity) || quantity <= 0) {
       setProductFormError("La cantidad debe ser mayor a 0.");
-      return;
+      return null;
+    }
+
+    if (!Number.isInteger(quantity)) {
+      setProductFormError("La cantidad debe ser un número entero.");
+      return null;
     }
 
     if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
       setProductFormError("El precio debe ser mayor a 0.");
-      return;
+      return null;
     }
 
     if (!Number.isFinite(additionalCost) || additionalCost < 0) {
       setProductFormError("El costo adicional no puede ser negativo.");
-      return;
+      return null;
     }
 
     if (!Number.isFinite(discount) || discount < 0) {
       setProductFormError("El descuento no puede ser negativo.");
-      return;
+      return null;
     }
 
-    // Con partes: un color por parte (el texto sale de ellas). Si no, color escogido de la carta
-    // (con codigo, material y foto) o escrito a mano (solo el nombre).
-    const draftColorFields = draftPartesDef.length > 0
+    // El enlace publico resta el descuento sobre la suma y la pantalla recorta por linea: si pasa del valor, no cuadran.
+    if (discount > quantity * unitPrice + additionalCost) {
+      setProductFormError("El descuento no puede ser mayor que el valor del producto (cantidad × precio + costo adicional).");
+      return null;
+    }
+
+    return { quantity, unitPrice, additionalCost, discount };
+  };
+
+  // Con partes: un color por parte (el texto sale de ellas). Si no, color escogido de la carta
+  // (con codigo, material y foto) o escrito a mano (solo el nombre).
+  const colorDraft = () =>
+    draftPartesDef.length > 0
       ? { color: textoColores(draftPartes), colorCodigo: "", colorMaterial: "", colorFotoUrl: "", partes: draftPartes }
       : draftCartaColor
         ? {
@@ -584,6 +597,93 @@ export function QuoteWizardModal({
             partes: [],
           }
         : { color: draftColor.trim(), colorCodigo: "", colorMaterial: "", colorFotoUrl: "", partes: [] };
+
+  // Huella del color del panel: si no cambia, la linea conserva su color tal cual (colores viejos o partes fuera de la lista).
+  const claveColor = (
+    color: string,
+    cartaColor: { codigo: string; material: string } | null,
+    partes: ParteElegida[],
+  ) => JSON.stringify([color.trim(), cartaColor?.codigo ?? "", cartaColor?.material ?? "", partes]);
+
+  // Abre el panel con los datos de una linea suelta o de todas las lineas de un combo.
+  const abrirEdicion = (lineas: QuoteLine[], nombre: string, codigo: string) => {
+    const first = lineas[0];
+    if (!first) return;
+    const owner = duenioDeLinea(first);
+    const partesDef = partesDeLinea(first);
+    const valores: ValoresCombo = first.comboKey
+      ? resumenCombo(lineas)
+      : {
+          quantity: first.quantity,
+          unitPrice: first.unitPrice,
+          discount: first.discount,
+          additionalCost: first.additionalCost,
+        };
+    const cartaColor = first.colorCodigo
+      ? { codigo: first.colorCodigo, nombre: first.color, fotoUrl: first.colorFotoUrl, material: first.colorMaterial }
+      : null;
+    const partes = partesDef.length > 0 ? partesIniciales(partesDef, first.partes) : [];
+
+    resetDraftProduct();
+    setDraftProductId(owner?.id ?? first.productId);
+    setDraftQuantity(String(valores.quantity));
+    setDraftUnitPrice(String(valores.unitPrice));
+    setDraftDiscount(String(valores.discount));
+    setDraftAdditionalCost(String(valores.additionalCost));
+    setDraftDescription(first.description);
+    setDraftImageUrl(first.imageUrl);
+    setDraftFulfillmentMode(first.fulfillmentMode);
+    setDraftCartaColor(cartaColor);
+    setDraftColor(first.color);
+    setManualColor(!first.colorCodigo && Boolean(first.color.trim()));
+    setDraftPartes(partes);
+    setEditing({
+      uid: first.uid,
+      comboKey: first.comboKey,
+      nombre,
+      codigo,
+      foto: owner?.thumbnailUrl ?? products.find((product) => product.id === first.productId)?.thumbnailUrl ?? "",
+      partesDef,
+      colorInicial: claveColor(first.color, cartaColor, partes),
+    });
+    setOpenProductModal(true);
+  };
+
+  // Guarda el panel de edicion: la linea (o el combo) cambia en su sitio y conserva uid y posicion.
+  const guardarEdicion = () => {
+    if (!editing) return;
+    const valores = leerValoresDraft();
+    if (!valores) return;
+    const colorCambio = claveColor(draftColor, draftCartaColor, draftPartes) !== editing.colorInicial;
+    const comunes = {
+      description: draftDescription.trim(),
+      imageUrl: draftImageUrl.trim(),
+      ...(colorCambio ? colorDraft() : {}),
+    };
+    setLines((current) => {
+      if (editing.comboKey) {
+        const delCombo = current.filter((line) => line.comboKey === editing.comboKey);
+        const editadas = new Map(
+          aplicarEdicionCombo(delCombo, valores).map((line) => [line.uid, { ...line, ...comunes }]),
+        );
+        return current.map((line) => editadas.get(line.uid) ?? line);
+      }
+      return current.map((line) => (line.uid === editing.uid ? { ...line, ...valores, ...comunes } : line));
+    });
+    setOpenProductModal(false);
+    resetDraftProduct();
+  };
+
+  const addDraftProduct = () => {
+    if (!draftProductId) {
+      setProductFormError("Selecciona un producto por codigo.");
+      return;
+    }
+
+    const valores = leerValoresDraft();
+    if (!valores) return;
+    const { quantity, unitPrice, additionalCost, discount } = valores;
+    const draftColorFields = colorDraft();
 
     // Si es un combo, se separa en sus componentes (cada uno conserva su
     // producto real y su proveedor); el precio del combo se reparte entre las
@@ -1050,6 +1150,12 @@ export function QuoteWizardModal({
                   <span className="font-medium text-foreground">Precios al por mayor</span>
                 </label>
 
+                {tieneVenta ? (
+                  <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+                    {COTIZACION_CON_VENTA_LINEAS}
+                  </p>
+                ) : null}
+
                 <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                   <table className="w-full text-sm">
                     <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
@@ -1120,15 +1226,35 @@ export function QuoteWizardModal({
                                 {group.total.toLocaleString("es-CO", { style: "currency", currency })}
                               </td>
                               <td className="px-3 py-2">
-                                <Button
-                                  type="button"
-                                  variant="destructive"
-                                  size="icon"
-                                  onClick={() => removeCombo(group.key)}
-                                  aria-label="Quitar combo"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                <div className="flex items-center gap-1.5">
+                                  {!tieneVenta ? (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={() =>
+                                        abrirEdicion(
+                                          lines.filter((line) => line.comboKey === group.key),
+                                          group.comboName,
+                                          group.comboCode,
+                                        )
+                                      }
+                                      aria-label="Editar"
+                                      title="Editar"
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                  ) : null}
+                                  <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="icon"
+                                    onClick={() => removeCombo(group.key)}
+                                    aria-label="Quitar combo"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
                             {partesDeLinea(group.firstLine).length > 0 ? (
@@ -1187,15 +1313,31 @@ export function QuoteWizardModal({
                                     {(line.quantity * line.unitPrice).toLocaleString("es-CO", { style: "currency", currency })}
                                   </td>
                                   <td className="px-3 py-2">
-                                    <Button
-                                      type="button"
-                                      variant="destructive"
-                                      size="icon"
-                                      onClick={() => removeLine(line.uid)}
-                                      aria-label="Quitar producto"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                    <div className="flex items-center gap-1.5">
+                                      {!tieneVenta ? (
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="icon"
+                                          onClick={() =>
+                                            abrirEdicion([line], product?.name || "Producto", product?.code || "")
+                                          }
+                                          aria-label="Editar"
+                                          title="Editar"
+                                        >
+                                          <Pencil className="h-4 w-4" />
+                                        </Button>
+                                      ) : null}
+                                      <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="icon"
+                                        onClick={() => removeLine(line.uid)}
+                                        aria-label="Quitar producto"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
                                   </td>
                                 </tr>
                                 {partesDef.length > 0 ? (
@@ -1537,7 +1679,7 @@ export function QuoteWizardModal({
           <DialogHeader className="shrink-0 border-b px-6 py-4">
             <DialogTitle className="inline-flex items-center gap-2">
               <Boxes className="h-4 w-4 text-muted-foreground" />
-              <span>Agregar producto</span>
+              <span>{editing ? "Editar producto" : "Agregar producto"}</span>
             </DialogTitle>
           </DialogHeader>
 
@@ -1601,13 +1743,18 @@ export function QuoteWizardModal({
               <>
                 <div className="mb-3 flex items-center gap-3 rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/5 p-2.5">
                   <ProductThumb
-                    src={draftProduct?.thumbnailUrl ?? ""}
-                    alt={draftProduct?.name ?? ""}
+                    src={(editing ? editing.foto : draftProduct?.thumbnailUrl) ?? ""}
+                    alt={(editing ? editing.nombre : draftProduct?.name) ?? ""}
                     className="h-12 w-12 shrink-0 rounded-md border border-border object-cover"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-foreground">{draftProduct?.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{draftProduct?.code || "Sin codigo"}</p>
+                    {/* En edicion el nombre sale de la fila: el producto puede no estar en la lista. */}
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {editing ? editing.nombre : draftProduct?.name}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {(editing ? editing.codigo : draftProduct?.code) || "Sin codigo"}
+                    </p>
                   </div>
                   <label className="flex shrink-0 flex-col gap-1">
                     <span className="text-[11px] font-medium text-muted-foreground">Cantidad</span>
@@ -1619,16 +1766,18 @@ export function QuoteWizardModal({
                       className="h-9 w-20"
                     />
                   </label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={clearDraftProductSelection}
-                    aria-label="Cambiar producto"
-                    title="Cambiar producto"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
+                  {!editing ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={clearDraftProductSelection}
+                      aria-label="Cambiar producto"
+                      title="Cambiar producto"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                  ) : null}
                 </div>
 
                 <div className="grid gap-3 rounded-xl border border-border bg-muted/60 p-3 md:grid-cols-2">
@@ -1692,7 +1841,11 @@ export function QuoteWizardModal({
                     {colorManual ? (
                       <Input
                         value={draftColor}
-                        onChange={(event) => setDraftColor(event.target.value)}
+                        onChange={(event) => {
+                          setDraftColor(event.target.value);
+                          // El color de la carta gana al guardar: al escribir a mano se suelta.
+                          setDraftCartaColor(null);
+                        }}
                         placeholder="Escribe el color"
                         aria-label="Color"
                       />
@@ -1753,6 +1906,8 @@ export function QuoteWizardModal({
                   </div>
                   )}
 
+                  {/* En edicion no se cambia: obligaria a volver a escoger las piezas del combo. */}
+                  {!editing ? (
                   <label className="space-y-1.5">
                     <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
                       <Truck className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1770,6 +1925,7 @@ export function QuoteWizardModal({
                       <option value="MANUFACTURE">Por orden (se fabrica)</option>
                     </select>
                   </label>
+                  ) : null}
 
                   <label className="space-y-1.5">
                     <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
@@ -1816,11 +1972,11 @@ export function QuoteWizardModal({
                             void handleImageUpload(file);
                           }}
                         />
-                        {draftImageUrl || draftProduct?.thumbnailUrl ? (
+                        {draftImageUrl || (editing ? editing.foto : draftProduct?.thumbnailUrl) ? (
                           <>
                             <ProductThumb
-                              src={draftImageUrl || draftProduct?.thumbnailUrl || ""}
-                              alt={draftProduct?.name ?? "Producto"}
+                              src={draftImageUrl || (editing ? editing.foto : draftProduct?.thumbnailUrl) || ""}
+                              alt={(editing ? editing.nombre : draftProduct?.name) ?? "Producto"}
                               className="h-full w-full object-cover"
                             />
                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/45 text-white opacity-0 transition group-hover:opacity-100">
@@ -1921,8 +2077,8 @@ export function QuoteWizardModal({
                 <Button type="button" variant="outline" size="lg" onClick={() => setOpenProductModal(false)}>
                   Cancelar
                 </Button>
-                <Button type="button" size="lg" onClick={addDraftProduct}>
-                  Agregar producto
+                <Button type="button" size="lg" onClick={editing ? guardarEdicion : addDraftProduct}>
+                  {editing ? "Guardar cambios" : "Agregar producto"}
                 </Button>
               </div>
             </div>
