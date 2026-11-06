@@ -113,10 +113,12 @@ function peorDe(estados: EstadoEntrega[]): SeguimientoParte | null {
   return { peor, detalles: estados };
 }
 
-export function seguimientoDeOrden(
+// Estado de cada despacho (con su posición en `despachos`) y de cada OF (por proveedora) que cuenta.
+// Lo usan los chips de la lista (seguimientoDeOrden) y la tarjeta del panel (resumirSeguimiento).
+function estadosDeOrden(
   { orderStatus, despachos, productos, ofs }: SeguimientoEntrada,
   ahora: Date,
-): SeguimientoOrden {
+): { entregas: Array<{ indice: number; estado: EstadoEntrega }>; fabricaciones: Array<{ supplierId: string; estado: EstadoEntrega }> } {
   // Orden cerrada o cancelada: solo cuenta lo ya terminado, para que el histórico no se llene de alertas.
   const cerrada = orderStatus === "COMPLETED" || orderStatus === "CANCELLED";
   const cuenta = (estado: EstadoEntrega, realEn: Date | null) => {
@@ -126,8 +128,10 @@ export function seguimientoDeOrden(
   };
 
   const entregas = despachos
-    .filter((despacho) => despachoVivo(despacho.status))
-    .map((despacho) => ({
+    .map((despacho, indice) => ({ despacho, indice }))
+    .filter(({ despacho }) => despachoVivo(despacho.status))
+    .map(({ despacho, indice }) => ({
+      indice,
       estado: estadoDeEntrega(
         { estimadoEn: despacho.estimatedDeliveryAt, realEn: despacho.deliveredAt, enCamino: despacho.status === "SHIPPED" },
         ahora,
@@ -135,13 +139,13 @@ export function seguimientoDeOrden(
       realEn: despacho.deliveredAt,
     }))
     .filter(({ estado, realEn }) => cuenta(estado, realEn))
-    .map(({ estado }) => estado);
+    .map(({ indice, estado }) => ({ indice, estado }));
 
   // La fila OF solo existe si se abrió la orden de fabricación: se parte de las proveedoras con productos.
   const proveedoras = new Set(
     productos.filter(esDeFabricacion).map((item) => item.confirmedSupplierId as string),
   );
-  const fabricaciones: EstadoEntrega[] = [];
+  const fabricaciones: Array<{ supplierId: string; estado: EstadoEntrega }> = [];
   for (const supplierId of proveedoras) {
     const of = ofs.find((fila) => fila.supplierId === supplierId);
     const realEn = of?.receivedAt ?? null;
@@ -151,8 +155,134 @@ export function seguimientoDeOrden(
       const propios = productos.filter((item) => esDeFabricacion(item) && item.confirmedSupplierId === supplierId);
       if (propios.every((item) => item.dispatchStatuses.some(despachoVivo))) continue;
     }
-    fabricaciones.push(estado);
+    fabricaciones.push({ supplierId, estado });
   }
 
-  return { entrega: peorDe(entregas), fabricacion: peorDe(fabricaciones) };
+  return { entregas, fabricaciones };
+}
+
+export function seguimientoDeOrden(entrada: SeguimientoEntrada, ahora: Date): SeguimientoOrden {
+  const { entregas, fabricaciones } = estadosDeOrden(entrada, ahora);
+  return {
+    entrega: peorDe(entregas.map((fila) => fila.estado)),
+    fabricacion: peorDe(fabricaciones.map((fila) => fila.estado)),
+  };
+}
+
+// ---- Tarjeta del panel /admin: pendientes y cumplimiento por proveedor ----
+
+export type OrdenParaResumen = SeguimientoEntrada & {
+  orderId: string;
+  codigo: string;
+  cliente: string;
+  // Transportadora de cada despacho, en el mismo orden de `despachos` (null = sin transportadora).
+  transportadoras: Array<string | null>;
+  // supplierId → nombre de la proveedora.
+  proveedoras: Record<string, string>;
+};
+
+export type PendienteSeguimiento = {
+  orderId: string;
+  codigo: string;
+  cliente: string;
+  que: string;
+  estado: EstadoEntrega;
+};
+
+export type ResumenSeguimiento = {
+  atrasados: number;
+  porVencer: number;
+  enCamino: number;
+  sinFecha: number;
+  totalPendientes: number;
+  pendientes: PendienteSeguimiento[];
+};
+
+// Orden de la lista: lo atrasado primero; "A tiempo" y lo ya entregado no salen.
+const ORDEN_LISTA: TipoEstadoEntrega[] = ["ATRASADO", "POR_VENCER", "SIN_FECHA", "EN_CAMINO"];
+const MAX_PENDIENTES = 10;
+
+export function resumirSeguimiento(ordenes: OrdenParaResumen[], ahora: Date): ResumenSeguimiento {
+  const todos: PendienteSeguimiento[] = [];
+  for (const orden of ordenes) {
+    const { entregas, fabricaciones } = estadosDeOrden(orden, ahora);
+    const base = { orderId: orden.orderId, codigo: orden.codigo, cliente: orden.cliente };
+    for (const { indice, estado } of entregas) {
+      const transportadora = orden.transportadoras[indice];
+      todos.push({ ...base, que: transportadora ? `Despacho · ${transportadora}` : "Despacho", estado });
+    }
+    for (const { supplierId, estado } of fabricaciones) {
+      const proveedora = orden.proveedoras[supplierId];
+      todos.push({ ...base, que: proveedora ? `OF · ${proveedora}` : "OF", estado });
+    }
+  }
+  const contar = (tipo: TipoEstadoEntrega) => todos.filter((fila) => fila.estado.tipo === tipo).length;
+  const pendientes = todos
+    .filter((fila) => ORDEN_LISTA.includes(fila.estado.tipo))
+    .sort((a, b) => {
+      const ga = ORDEN_LISTA.indexOf(a.estado.tipo);
+      const gb = ORDEN_LISTA.indexOf(b.estado.tipo);
+      return ga !== gb ? ga - gb : b.estado.atrasoHoras - a.estado.atrasoHoras;
+    });
+  return {
+    atrasados: contar("ATRASADO"),
+    porVencer: contar("POR_VENCER"),
+    enCamino: contar("EN_CAMINO"),
+    sinFecha: contar("SIN_FECHA"),
+    totalPendientes: pendientes.length,
+    pendientes: pendientes.slice(0, MAX_PENDIENTES),
+  };
+}
+
+export type EntregaParaCumplimiento = {
+  proveedorId: string;
+  nombre: string;
+  tipo: "FABRICACION" | "TRANSPORTE";
+  estimadoEn: Date | null;
+  realEn: Date | null;
+};
+
+export type CumplimientoProveedor = {
+  proveedorId: string;
+  nombre: string;
+  tipo: "FABRICACION" | "TRANSPORTE";
+  entregas: number;
+  aTiempo: number;
+  tarde: number;
+  cumplimientoPct: number;
+  atrasoPromedioHoras: number;
+};
+
+// Solo filas con estimada y real: los registros viejos sin fecha no ensucian la medida.
+export function cumplimientoPorProveedor(entregas: EntregaParaCumplimiento[]): CumplimientoProveedor[] {
+  const porProveedor = new Map<string, { fila: EntregaParaCumplimiento; aTiempo: number; tarde: number; horasTarde: number }>();
+  for (const fila of entregas) {
+    if (!fila.estimadoEn || !fila.realEn) continue;
+    // La misma regla del chip: da las mismas horas de atraso.
+    const estado = estadoDeEntrega({ estimadoEn: fila.estimadoEn, realEn: fila.realEn, enCamino: false }, fila.realEn);
+    const clave = `${fila.tipo}:${fila.proveedorId}`;
+    const acumulado = porProveedor.get(clave) ?? { fila, aTiempo: 0, tarde: 0, horasTarde: 0 };
+    if (estado.tipo === "ENTREGADO_TARDE") {
+      acumulado.tarde += 1;
+      acumulado.horasTarde += estado.atrasoHoras;
+    } else {
+      acumulado.aTiempo += 1;
+    }
+    porProveedor.set(clave, acumulado);
+  }
+  return [...porProveedor.values()]
+    .map(({ fila, aTiempo, tarde, horasTarde }) => {
+      const total = aTiempo + tarde; // siempre ≥ 1: solo hay proveedores con alguna fila válida
+      return {
+        proveedorId: fila.proveedorId,
+        nombre: fila.nombre,
+        tipo: fila.tipo,
+        entregas: total,
+        aTiempo,
+        tarde,
+        cumplimientoPct: Math.round((aTiempo / total) * 100),
+        atrasoPromedioHoras: tarde > 0 ? Math.round(horasTarde / tarde) : 0,
+      };
+    })
+    .sort((a, b) => a.cumplimientoPct - b.cumplimientoPct || b.atrasoPromedioHoras - a.atrasoPromedioHoras || a.nombre.localeCompare(b.nombre));
 }

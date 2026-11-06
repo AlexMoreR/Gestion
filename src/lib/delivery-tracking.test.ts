@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { estadoDeEntrega, seguimientoDeOrden, PREFIJO_CAMBIO_FECHA, resumenCambioFechaDespacho, resumenCambioFechaOf } from "./delivery-tracking";
+import {
+  estadoDeEntrega,
+  seguimientoDeOrden,
+  resumirSeguimiento,
+  cumplimientoPorProveedor,
+  PREFIJO_CAMBIO_FECHA,
+  resumenCambioFechaDespacho,
+  resumenCambioFechaOf,
+  type OrdenParaResumen,
+} from "./delivery-tracking";
 import { parseColombiaDateTime } from "./colombia-time";
 
 const d = (iso: string) => new Date(iso);
@@ -221,5 +230,120 @@ describe("seguimientoDeOrden", () => {
       ahora,
     );
     expect(vencida.entrega?.peor.tipo).toBe("ENTREGADO_TARDE");
+  });
+});
+
+describe("resumirSeguimiento", () => {
+  const ahora = mas(0);
+  const orden = (n: number, o: Partial<OrdenParaResumen> = {}): OrdenParaResumen => ({
+    orderId: `o${n}`,
+    codigo: `ORD-${n}`,
+    cliente: `Cliente ${n}`,
+    orderStatus: "RELEASED",
+    despachos: [],
+    productos: [],
+    ofs: [],
+    transportadoras: [],
+    proveedoras: {},
+    ...o,
+  });
+  const fab = { confirmedSupplierId: "p1", fulfillmentMode: "MANUFACTURE", dispatchStatuses: [] as string[] };
+
+  it("cuenta cada despacho y cada OF por separado: una orden con los dos atrasados suma 2", () => {
+    const r = resumirSeguimiento(
+      [
+        orden(1, {
+          despachos: [{ status: "SHIPPED", estimatedDeliveryAt: mas(-5 * H), deliveredAt: null }],
+          productos: [fab],
+          ofs: [{ supplierId: "p1", estimatedDeliveryAt: mas(-30 * H), receivedAt: null }],
+          transportadoras: ["Don Rafa"],
+          proveedoras: { p1: "Laura" },
+        }),
+      ],
+      ahora,
+    );
+    expect(r.atrasados).toBe(2);
+    expect(r.pendientes.map((p) => p.que)).toEqual(["OF · Laura", "Despacho · Don Rafa"]);
+    expect(r.pendientes[0]).toMatchObject({ orderId: "o1", codigo: "ORD-1", cliente: "Cliente 1", estado: { etiqueta: "ATRASADO 1 día" } });
+  });
+
+  it("cuenta por vencer, en camino y sin fecha; deja fuera A tiempo y entregados", () => {
+    const r = resumirSeguimiento(
+      [
+        orden(1, {
+          despachos: [
+            { status: "PENDING", estimatedDeliveryAt: mas(5 * H), deliveredAt: null },
+            { status: "SHIPPED", estimatedDeliveryAt: mas(50 * H), deliveredAt: null },
+            { status: "PENDING", estimatedDeliveryAt: null, deliveredAt: null },
+            { status: "PENDING", estimatedDeliveryAt: mas(80 * H), deliveredAt: null },
+            { status: "DELIVERED", estimatedDeliveryAt: mas(-H), deliveredAt: mas(-2 * H) },
+            { status: "CANCELLED", estimatedDeliveryAt: mas(-50 * H), deliveredAt: null },
+          ],
+          transportadoras: [null, "Servientrega", null, null, null, null],
+        }),
+      ],
+      ahora,
+    );
+    expect(r).toMatchObject({ atrasados: 0, porVencer: 1, enCamino: 1, sinFecha: 1, totalPendientes: 3 });
+    expect(r.pendientes.map((p) => [p.estado.tipo, p.que])).toEqual([
+      ["POR_VENCER", "Despacho"],
+      ["SIN_FECHA", "Despacho"],
+      ["EN_CAMINO", "Despacho · Servientrega"],
+    ]);
+  });
+
+  it("ordena por horas de atraso (más atrasado primero) y corta en 10", () => {
+    const ordenes = Array.from({ length: 12 }, (_, i) =>
+      orden(i, { despachos: [{ status: "PENDING", estimatedDeliveryAt: mas(-(i + 1) * H), deliveredAt: null }], transportadoras: [null] }),
+    );
+    const r = resumirSeguimiento(ordenes, ahora);
+    expect(r.atrasados).toBe(12);
+    expect(r.totalPendientes).toBe(12);
+    expect(r.pendientes).toHaveLength(10);
+    expect(r.pendientes[0].codigo).toBe("ORD-11");
+    const horas = r.pendientes.map((p) => p.estado.atrasoHoras);
+    expect(horas).toEqual([...horas].sort((a, b) => b - a));
+  });
+
+  it("sin órdenes: todo en cero y lista vacía", () => {
+    expect(resumirSeguimiento([], ahora)).toEqual({ atrasados: 0, porVencer: 0, enCamino: 0, sinFecha: 0, totalPendientes: 0, pendientes: [] });
+  });
+});
+
+describe("cumplimientoPorProveedor", () => {
+  const fila = (proveedorId: string, estimadoEn: Date | null, realEn: Date | null, tipo: "FABRICACION" | "TRANSPORTE" = "FABRICACION") => ({
+    proveedorId,
+    nombre: proveedorId.toUpperCase(),
+    tipo,
+    estimadoEn,
+    realEn,
+  });
+
+  it("ignora filas sin estimada o sin real, calcula % y promedia solo las tardías", () => {
+    const r = cumplimientoPorProveedor([
+      fila("a", estimado, mas(-H)),
+      fila("a", estimado, mas(10 * H)),
+      fila("a", estimado, mas(20 * H)),
+      fila("a", null, mas(H)),
+      fila("a", estimado, null),
+      fila("b", estimado, estimado),
+    ]);
+    expect(r).toEqual([
+      { proveedorId: "a", nombre: "A", tipo: "FABRICACION", entregas: 3, aTiempo: 1, tarde: 2, cumplimientoPct: 33, atrasoPromedioHoras: 15 },
+      { proveedorId: "b", nombre: "B", tipo: "FABRICACION", entregas: 1, aTiempo: 1, tarde: 0, cumplimientoPct: 100, atrasoPromedioHoras: 0 },
+    ]);
+  });
+
+  it("separa fabricación y transporte del mismo proveedor", () => {
+    const r = cumplimientoPorProveedor([fila("a", estimado, estimado), fila("a", estimado, mas(3 * H), "TRANSPORTE")]);
+    expect(r.map((x) => [x.tipo, x.cumplimientoPct])).toEqual([
+      ["TRANSPORTE", 0],
+      ["FABRICACION", 100],
+    ]);
+  });
+
+  it("sin filas válidas: lista vacía, sin dividir por cero", () => {
+    expect(cumplimientoPorProveedor([])).toEqual([]);
+    expect(cumplimientoPorProveedor([fila("a", null, estimado), fila("a", estimado, null)])).toEqual([]);
   });
 });

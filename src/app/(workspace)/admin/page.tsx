@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth } from "@/auth";
 import { getAdminModuleAccess } from "@/lib/admin-module-access";
+import { DeliveryTrackingCard } from "@/components/admin/delivery-tracking-card";
+import { cargarSeguimiento, type SeguimientoPanel } from "@/lib/delivery-tracking.server";
 import { 
   Settings, 
   Package, 
@@ -24,6 +26,16 @@ export default async function AdminPage() {
   }
 
   const moduleAccess = await getAdminModuleAccess(session.user.id, session.user.role);
+
+  // Si la consulta falla, el panel sale sin la tarjeta: no se puede caer por esto.
+  let seguimiento: SeguimientoPanel | null = null;
+  if (moduleAccess.orders) {
+    try {
+      seguimiento = await cargarSeguimiento(new Date());
+    } catch (error) {
+      console.error("No se pudo cargar el seguimiento de entregas", error);
+    }
+  }
 
   const adminModules = [
     {
@@ -119,6 +131,8 @@ export default async function AdminPage() {
           Bienvenido, {session.user.name}. Gestiona los módulos de tu sistema desde aquí.
         </p>
       </div>
+
+      {seguimiento && <DeliveryTrackingCard datos={seguimiento} />}
 
       <div className="pt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {adminModules.map((module) => (

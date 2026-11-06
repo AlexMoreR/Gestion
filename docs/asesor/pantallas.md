@@ -374,9 +374,10 @@ Ficha de edición de un producto.
 
 ## /admin
 Inicio del panel ("Panel de Administración"). Solo para usuarios Admin.
-**Qué se ve:** "Bienvenido, <nombre>. Gestiona los módulos de tu sistema desde aquí." y tarjetas de acceso rápido (solo las que el rol puede ver): Configuración, Productos, Cotizaciones, Ventas, Balances, Ordenes, Produccion y Despachos. El resto de módulos está en el menú lateral.
+**Qué se ve:** "Bienvenido, <nombre>. Gestiona los módulos de tu sistema desde aquí."; si el rol tiene acceso a Órdenes, la tarjeta **Seguimiento de entregas y fabricaciones** ("Despachos y órdenes de fabricación (OF) de las órdenes abiertas."): cuatro contadores **Atrasados**, **Por vencer hoy**, **En camino** y **Sin fecha** (cada despacho y cada OF cuenta por separado), y una lista de hasta 10 pendientes, el más atrasado primero, con código de la orden, cliente, qué es ("Despacho · <transportadora>" u "OF · <proveedora>") y el chip de estado ("ATRASADO …", "Por vencer", "Sin fecha", "En camino"); con más sale "Se muestran 10 de N."; sin pendientes, "No hay entregas ni fabricaciones pendientes.". Debajo, el bloque plegable **Cumplimiento últimos 90 días** ("Por fecha real. En un envío con varios tramos solo se mide la transportadora principal.") con dos tablas, **Fabricación** y **Transportadoras**: Proveedor, Entregas, A tiempo, Tarde, % cumplimiento y Atraso promedio, el peor cumplimiento primero; sin datos dice "Aún no hay entregas con fecha estimada". Si la consulta falla, el panel sale sin la tarjeta. Luego, tarjetas de acceso rápido (solo las que el rol puede ver): Configuración, Productos, Cotizaciones, Ventas, Balances, Ordenes, Produccion y Despachos. El resto de módulos está en el menú lateral.
 **Botones y acciones:**
 - Clic en una tarjeta: abre ese módulo (por ejemplo `/admin/ventas`).
+- Clic en una fila de la lista de seguimiento: abre esa orden (`/admin/ordenes/<id>`).
 
 ## /admin/categorias
 Categorías del catálogo de la tienda.
