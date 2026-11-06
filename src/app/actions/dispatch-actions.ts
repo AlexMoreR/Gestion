@@ -11,6 +11,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { parseColombiaDateTime } from "@/lib/colombia-time";
 import { getActivityActor, logActivityTx } from "@/lib/activity-log";
 import { FALTA_FOTO_LLEGADA, parseReversalInput, pideFotoLlegada, reversalLine } from "@/lib/order-item-reversal";
 import { SHIPPING_COST_LOG_FIELDS, SUPPLIER_LEDGER_LOG_FIELDS, snapshotForLog } from "@/lib/activity-log-snapshot";
@@ -704,6 +705,8 @@ const dispatchOrderItemSchema = z.object({
   notes: z.string().trim().max(4000, "Notas demasiado largas").optional(),
 });
 
+const ESTIMATED_DELIVERY_REQUIRED_ERROR = "Pon la fecha y hora estimada de entrega";
+
 // Despacho de UN producto de la orden con su propia transportadora. Permite
 // despachos parciales (varios productos pueden salir con transportadoras
 // distintas). La orden pasa a DISPATCHED solo cuando TODOS los items estan
@@ -725,6 +728,12 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
 
   if (!parsed.success) {
     redirect(`${returnTo}?error=Datos+de+despacho+invalidos`);
+  }
+
+  // Obligatoria en todo despacho nuevo (cualquier modalidad); se revisa antes de fotos y fletes.
+  const estimatedDeliveryAt = parseColombiaDateTime(String(formData.get("estimatedDeliveryAt") ?? ""));
+  if (!estimatedDeliveryAt) {
+    redirect(`${returnTo}?error=${encodeURIComponent(ESTIMATED_DELIVERY_REQUIRED_ERROR)}`);
   }
 
   const isShipping = parsed.data.deliveryType === "SHIPPING";
@@ -840,6 +849,7 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
           orderId: order.id,
           status: "PACKING",
           deliveryType: parsed.data.deliveryType,
+          estimatedDeliveryAt,
           carrierName: carrier?.name ?? null,
           carrierSupplierId: carrier?.id ?? null,
           shippingCost,
@@ -959,6 +969,12 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
 
   if (!parsed.success) {
     redirect(`${returnTo}?error=Datos+de+despacho+invalidos`);
+  }
+
+  // Obligatoria en todo despacho nuevo (cualquier modalidad); se revisa antes de fotos y fletes.
+  const estimatedDeliveryAt = parseColombiaDateTime(String(formData.get("estimatedDeliveryAt") ?? ""));
+  if (!estimatedDeliveryAt) {
+    redirect(`${returnTo}?error=${encodeURIComponent(ESTIMATED_DELIVERY_REQUIRED_ERROR)}`);
   }
 
   const isShipping = parsed.data.deliveryType === "SHIPPING";
@@ -1118,6 +1134,7 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
           orderId: order.id,
           status: "PACKING",
           deliveryType: parsed.data.deliveryType,
+          estimatedDeliveryAt,
           carrierName: carrier?.name ?? null,
           carrierSupplierId: carrier?.id ?? null,
           shippingCost,

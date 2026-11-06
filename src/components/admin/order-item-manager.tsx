@@ -854,6 +854,19 @@ export function OrderItemManager({
                 ) : null}
               </div>
 
+              <div className="space-y-1">
+                <label htmlFor={`estimated-delivery-${item.id}`} className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Fecha y hora estimada de entrega
+                </label>
+                <Input
+                  id={`estimated-delivery-${item.id}`}
+                  type="datetime-local"
+                  name="estimatedDeliveryAt"
+                  required
+                  className="h-8 text-sm"
+                />
+              </div>
+
               {isDispatchShipping ? (
                 <>
 

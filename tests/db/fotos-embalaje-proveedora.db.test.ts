@@ -204,6 +204,7 @@ describe("markReadyForDispatchAction", () => {
       deliveryType: "SHIPPING",
       carrierSupplierId: datos.transportadoraId,
       shippingCost: "0",
+      estimatedDeliveryAt: "2026-11-20T19:00",
     });
     expect(r.error, r.url).toBeNull();
     const fotos = await fotosDe(datos.listoId);

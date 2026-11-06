@@ -264,7 +264,12 @@ describe("caminos con plata (base real)", () => {
       shippingAddress: "Calle 1 # 2-3",
       accountId: datos.cuenta.id,
       shippingReceipt: comprobante("flete.png"),
+      estimatedDeliveryAt: "2026-11-20T19:00",
     };
+    // Sin la fecha y hora estimada de entrega el despacho no se crea.
+    const sinFecha = await llamar(dispatches.adminDispatchOrderItemAction, { ...despachoConTransportadora, estimatedDeliveryAt: "" });
+    expect(sinFecha.error).toBe("Pon la fecha y hora estimada de entrega");
+    expect(await prisma.dispatch.count({ where: { orderId: ctx.orderId } })).toBe(0);
     // Sin las 2 fotos del embalaje el despacho no se crea (ni flete ni cargo a la transportadora).
     const sinFotos = await llamar(dispatches.adminDispatchOrderItemAction, despachoConTransportadora);
     expect(sinFotos.error).toMatch(/Faltan las fotos del embalaje/);
@@ -285,6 +290,7 @@ describe("caminos con plata (base real)", () => {
     );
     const despacho = await prisma.dispatch.findFirstOrThrow({ where: { orderId: ctx.orderId } });
     ctx.dispatchId = despacho.id;
+    expect(despacho.estimatedDeliveryAt?.toISOString()).toBe("2026-11-21T00:00:00.000Z");
     const fotosEmbalaje = await prisma.embalajeFoto.findMany({ where: { orderItemId: ctx.orderItemId } });
     expect(fotosEmbalaje.map((foto) => foto.tipo).sort()).toEqual(["ABIERTO", "CERRADO"]);
     expect(fotosEmbalaje.every((foto) => foto.dispatchId === despacho.id && foto.subidoPorTexto === "Dueño Prueba")).toBe(true);
@@ -444,6 +450,7 @@ describe("deshacer sin perder rastro (base real)", () => {
         carrierSupplierId: datos.transportadora.id,
         shippingCost: "25000",
         trackingNumber: "GUIA-2",
+        estimatedDeliveryAt: "2026-11-20T19:00",
         shippingAddress: "Carrera 5 # 6-7",
         accountId: datos.cuenta.id,
         shippingReceipt: comprobante("flete.png"),

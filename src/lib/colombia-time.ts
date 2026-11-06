@@ -61,3 +61,28 @@ export function inColombiaPeriod(date: Date, period: ColombiaRange | string): bo
 export function dbWindow(range: ColombiaRange): ColombiaRange {
   return { start: new Date(range.start.getTime() - OFFSET_MS), end: range.end };
 }
+
+// 'AAAA-MM-DDTHH:MM' (un input datetime-local) leído como hora de Colombia → momento real.
+// null si el texto o la fecha no existen (ej. 31 de febrero). No se lee con colombiaDayKey.
+export function parseColombiaDateTime(value: string | null | undefined): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec((value ?? "").trim());
+  if (!match) return null;
+  const [year, month, day, hour, minute] = match.slice(1).map(Number);
+  const utc = Date.UTC(year, month - 1, day, hour, minute);
+  const check = new Date(utc);
+  if (
+    check.getUTCFullYear() !== year ||
+    check.getUTCMonth() !== month - 1 ||
+    check.getUTCDate() !== day ||
+    check.getUTCHours() !== hour ||
+    check.getUTCMinutes() !== minute
+  ) {
+    return null;
+  }
+  return new Date(utc + OFFSET_MS);
+}
+
+// Valor 'AAAA-MM-DDTHH:MM' en hora de Colombia para un input datetime-local.
+export function colombiaDateTimeInput(date: Date): string {
+  return new Date(date.getTime() - OFFSET_MS).toISOString().slice(0, 16);
+}

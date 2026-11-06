@@ -783,6 +783,8 @@ model Dispatch {
   packedAt              DateTime?
   shippedAt             DateTime?
   deliveredAt           DateTime?
+  // Fecha y hora estimada de entrega (momento real, hora de Colombia). Obligatoria en despachos nuevos.
+  estimatedDeliveryAt   DateTime?
   createdById           String
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
@@ -1065,6 +1067,9 @@ model ManufacturingOrder {
   supplierId      String
   shareToken      String    @unique
   deliveryDate    DateTime?
+  // Fecha y hora estimada de fabricación y cuándo se recibió (momentos reales; deliveryDate es solo fecha).
+  estimatedDeliveryAt DateTime?
+  receivedAt      DateTime?
   deliveryAddress String?
   notes           String?
   createdAt       DateTime  @default(now())

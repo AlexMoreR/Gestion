@@ -308,6 +308,19 @@ export function OrderItemsTable({
                 </select>
               </div>
 
+              <div className="space-y-1">
+                <label htmlFor="bulk-estimated-delivery" className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  Fecha y hora estimada de entrega
+                </label>
+                <Input
+                  id="bulk-estimated-delivery"
+                  type="datetime-local"
+                  name="estimatedDeliveryAt"
+                  required
+                  className="h-8 text-sm"
+                />
+              </div>
+
               {isDispatchShipping ? (
                 <>
                   <div className="space-y-1">

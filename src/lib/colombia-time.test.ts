@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  colombiaDateTimeInput,
   colombiaDayKey,
   colombiaDayRange,
   colombiaMonthKey,
   colombiaMonthRange,
   dbWindow,
   inColombiaPeriod,
+  parseColombiaDateTime,
   todayInColombia,
 } from "./colombia-time";
 
@@ -55,5 +57,18 @@ describe("colombia-time", () => {
     expect(day).toEqual({ start: d("2026-10-31T05:00:00.000Z"), end: d("2026-11-01T05:00:00.000Z") });
     expect(dbWindow(day).start).toEqual(d("2026-10-31T00:00:00.000Z"));
     expect(dbWindow(day).end).toEqual(day.end);
+  });
+
+  it("parseColombiaDateTime: las 7:00 p. m. de Colombia son las 00:00Z del día siguiente", () => {
+    expect(parseColombiaDateTime("2026-11-20T19:00")?.toISOString()).toBe("2026-11-21T00:00:00.000Z");
+    expect(colombiaDateTimeInput(d("2026-11-21T00:00:00.000Z"))).toBe("2026-11-20T19:00");
+  });
+
+  it("parseColombiaDateTime: texto malo o fecha que no existe da null", () => {
+    expect(parseColombiaDateTime("mañana")).toBeNull();
+    expect(parseColombiaDateTime("")).toBeNull();
+    expect(parseColombiaDateTime(null)).toBeNull();
+    expect(parseColombiaDateTime("2026-02-31T10:00")).toBeNull();
+    expect(parseColombiaDateTime("2026-11-20T24:00")).toBeNull();
   });
 });
