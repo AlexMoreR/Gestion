@@ -32,12 +32,13 @@ describe("estadoDeEntrega", () => {
       tipo: "ENTREGADO_TARDE",
       etiqueta: "Entregado tarde",
       atrasoHoras: 5,
+      diasRestantes: null,
     });
   });
 
   it("con real y sin estimado, o sin estimado: SIN_FECHA", () => {
     expect(estado({ estimadoEn: null, realEn: estimado }, estimado).tipo).toBe("SIN_FECHA");
-    expect(estado({ estimadoEn: null }, estimado)).toEqual({ tipo: "SIN_FECHA", etiqueta: "Sin fecha", atrasoHoras: 0 });
+    expect(estado({ estimadoEn: null }, estimado)).toEqual({ tipo: "SIN_FECHA", etiqueta: "Sin fecha", atrasoHoras: 0, diasRestantes: null });
   });
 
   it("exactamente a la hora estimada aún no está atrasado", () => {
@@ -45,11 +46,11 @@ describe("estadoDeEntrega", () => {
     expect(estado({ enCamino: true }, estimado).tipo).toBe("EN_CAMINO");
   });
 
-  it("atrasado: mínimo 1 h, horas bajo 24 y días desde 24", () => {
-    expect(estado({}, mas(30 * 60 * 1000))).toEqual({ tipo: "ATRASADO", etiqueta: "ATRASADO 1 h", atrasoHoras: 1 });
-    expect(estado({}, mas(23.9 * H)).etiqueta).toBe("ATRASADO 23 h");
-    expect(estado({}, mas(24 * H)).etiqueta).toBe("ATRASADO 1 día");
-    expect(estado({}, mas(50 * H))).toEqual({ tipo: "ATRASADO", etiqueta: "ATRASADO 2 días", atrasoHoras: 50 });
+  it("atrasado: horas mínimo 1 y texto por día calendario", () => {
+    // Estimado 20-nov 7:00 p. m.; 7:30 p. m. sigue siendo el 20.
+    expect(estado({}, mas(30 * 60 * 1000))).toEqual({ tipo: "ATRASADO", etiqueta: "venció hoy", atrasoHoras: 1, diasRestantes: 0 });
+    expect(estado({}, mas(23.9 * H))).toMatchObject({ etiqueta: "venció ayer", atrasoHoras: 23 });
+    expect(estado({}, mas(50 * H))).toEqual({ tipo: "ATRASADO", etiqueta: "lleva 2 días de atraso", atrasoHoras: 50, diasRestantes: -2 });
   });
 
   it("atrasado gana a en camino", () => {
@@ -58,7 +59,7 @@ describe("estadoDeEntrega", () => {
 
   it("por vencer con menos de 24 h; a tiempo con exactamente 24 h o más", () => {
     expect(estado({}, mas(-23.9 * H)).tipo).toBe("POR_VENCER");
-    expect(estado({}, mas(-24 * H))).toEqual({ tipo: "A_TIEMPO", etiqueta: "A tiempo", atrasoHoras: 0 });
+    expect(estado({}, mas(-24 * H))).toEqual({ tipo: "A_TIEMPO", etiqueta: "vence mañana", atrasoHoras: 0, diasRestantes: 1 });
     expect(estado({ enCamino: true }, mas(-48 * H)).tipo).toBe("EN_CAMINO");
   });
 
@@ -68,6 +69,47 @@ describe("estadoDeEntrega", () => {
     // 6:59 p. m. del 20-nov: falta 1 min → por vencer; 7:01 p. m.: atrasado.
     expect(estado({ estimadoEn: desdeFormulario }, d("2026-11-20T23:59:00Z")).tipo).toBe("POR_VENCER");
     expect(estado({ estimadoEn: desdeFormulario }, d("2026-11-21T00:01:00Z")).tipo).toBe("ATRASADO");
+  });
+});
+
+describe("días restantes en el texto del chip", () => {
+  // Ahora = 6-nov-2026 10:00 a. m. Colombia.
+  const ahora = parseColombiaDateTime("2026-11-06T10:00") as Date;
+  const col = (v: string) => parseColombiaDateTime(v) as Date;
+  const etiqueta = (estimadoEn: Date | null, en: Date = ahora, enCamino = false) =>
+    estadoDeEntrega({ estimadoEn, realEn: null, enCamino }, en).etiqueta;
+
+  it("hoy, mañana, 3 días, vencida el mismo día, ayer, 2 días y sin fecha", () => {
+    expect(etiqueta(col("2026-11-06T15:00"))).toBe("vence hoy");
+    expect(etiqueta(col("2026-11-07T10:00"))).toBe("vence mañana");
+    expect(etiqueta(col("2026-11-09T10:00"))).toBe("quedan 3 días");
+    expect(etiqueta(col("2026-11-05T10:00"))).toBe("venció ayer");
+    expect(etiqueta(col("2026-11-04T10:00"))).toBe("lleva 2 días de atraso");
+    expect(etiqueta(col("2026-11-06T08:00"))).toBe("venció hoy");
+    expect(etiqueta(null)).toBe("Sin fecha");
+  });
+
+  it("cambio de mes", () => {
+    expect(etiqueta(col("2026-12-02T10:00"), col("2026-11-30T10:00"))).toBe("quedan 2 días");
+    expect(etiqueta(col("2026-10-31T10:00"), col("2026-11-01T10:00"))).toBe("venció ayer");
+  });
+
+  it("7:00 p. m. Colombia (medianoche UTC) es del mismo día", () => {
+    expect(etiqueta(d("2026-11-21T00:00:00Z"), col("2026-11-20T10:00"))).toBe("vence hoy");
+  });
+
+  it("cuenta días calendario, no horas", () => {
+    const e = estadoDeEntrega({ estimadoEn: col("2026-11-07T08:00"), realEn: null, enCamino: false }, col("2026-11-06T23:00"));
+    expect(e).toMatchObject({ tipo: "POR_VENCER", etiqueta: "vence mañana", diasRestantes: 1 });
+  });
+
+  it("entregados no cambian y en camino suma los días", () => {
+    const real = (r: string) => estadoDeEntrega({ estimadoEn: col("2026-11-06T15:00"), realEn: col(r), enCamino: false }, ahora).etiqueta;
+    expect(real("2026-11-06T14:00")).toBe("Entregado a tiempo");
+    expect(real("2026-11-06T16:00")).toBe("Entregado tarde");
+    const camino = estadoDeEntrega({ estimadoEn: col("2026-11-09T10:00"), realEn: null, enCamino: true }, ahora);
+    expect(camino).toMatchObject({ tipo: "EN_CAMINO", etiqueta: "En camino · quedan 3 días" });
+    expect(estadoDeEntrega({ estimadoEn: col("2026-11-05T10:00"), realEn: null, enCamino: true }, ahora).tipo).toBe("ATRASADO");
   });
 });
 
@@ -126,8 +168,22 @@ describe("seguimientoDeOrden", () => {
       },
       ahora,
     );
-    expect(r.entrega?.peor).toEqual({ tipo: "ATRASADO", etiqueta: "ATRASADO 3 días", atrasoHoras: 72 });
+    expect(r.entrega?.peor).toEqual({ tipo: "ATRASADO", etiqueta: "lleva 3 días de atraso", atrasoHoras: 72, diasRestantes: -3 });
     expect(r.entrega?.detalles).toHaveLength(3);
+  });
+
+  it("a igual estado gana la fecha más cercana", () => {
+    const r = seguimientoDeOrden(
+      {
+        ...base,
+        despachos: [
+          despacho({ estimatedDeliveryAt: d("2026-12-05T12:00:00Z") }),
+          despacho({ estimatedDeliveryAt: d("2026-11-28T12:00:00Z") }),
+        ],
+      },
+      ahora,
+    );
+    expect(r.entrega?.peor).toMatchObject({ tipo: "A_TIEMPO", etiqueta: "quedan 3 días" });
   });
 
   it("orden de gravedad: sin fecha gana a por vencer, y por vencer a entregado", () => {
@@ -194,7 +250,7 @@ describe("seguimientoDeOrden", () => {
       },
       ahora,
     );
-    expect(r.fabricacion?.peor).toEqual({ tipo: "ATRASADO", etiqueta: "ATRASADO 1 día", atrasoHoras: 24 });
+    expect(r.fabricacion?.peor).toEqual({ tipo: "ATRASADO", etiqueta: "venció ayer", atrasoHoras: 24, diasRestantes: -1 });
   });
 
   it("OF sin fecha con todos sus productos ya despachados no cuenta", () => {
@@ -264,7 +320,7 @@ describe("resumirSeguimiento", () => {
     );
     expect(r.atrasados).toBe(2);
     expect(r.pendientes.map((p) => p.que)).toEqual(["OF · Laura", "Despacho · Don Rafa"]);
-    expect(r.pendientes[0]).toMatchObject({ orderId: "o1", codigo: "ORD-1", cliente: "Cliente 1", estado: { etiqueta: "ATRASADO 1 día" } });
+    expect(r.pendientes[0]).toMatchObject({ orderId: "o1", codigo: "ORD-1", cliente: "Cliente 1", estado: { tipo: "ATRASADO", atrasoHoras: 30 } });
   });
 
   it("cuenta por vencer, en camino y sin fecha; deja fuera A tiempo y entregados", () => {
