@@ -46,3 +46,10 @@ export function imagenesDeLaLinea(
   if (colores) return { principal: colores, principalEsColores: true, referencia: manual };
   return { principal: manual || catalogo, principalEsColores: false, referencia: "" };
 }
+
+/** Texto de la nota interna y la bitácora al cambiar o restaurar la imagen de la OF, con quién lo hizo. */
+export function notaCambioImagen(producto: string, persona: string, restaurar: boolean): string {
+  return restaurar
+    ? `Imagen de ${producto} restaurada a la del catálogo por ${persona}`
+    : `Imagen de ${producto} cambiada por ${persona}`;
+}
