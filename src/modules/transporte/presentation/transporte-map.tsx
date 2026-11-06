@@ -38,6 +38,7 @@ import {
   ShippingTypeControl,
   type PlaceKind,
 } from "./shipping-type-control";
+import { ROAD_STYLES, TransporteIslandRoads, TransporteRoads } from "./transporte-roads";
 
 type Shapes = Record<string, string>;
 type Points = Record<string, number[]>;
@@ -73,6 +74,13 @@ const [FULL_X, FULL_Y, FULL_W, FULL_H] = mapa.viewBox.split(" ").map(Number);
 const FULL_VIEW: MapView = { x: FULL_X, y: FULL_Y, w: FULL_W, h: FULL_H };
 // Más de esto (en px de pantalla) entre bajar y soltar es arrastre, no toque.
 const DRAG_PX = 5;
+// Las vías menores salen al acercar: en la vista completa tapan los colores de envío.
+const MINOR_ROADS_MAX_W = FULL_VIEW.w / 3;
+const ROAD_LEGEND = [
+  { level: "principales", label: "Carretera principal" },
+  { level: "secundarias", label: "Carretera secundaria" },
+  { level: "terciarias", label: "Otras carreteras (al acercar)" },
+] as const;
 
 // Departamento: id = su nombre.
 type Selected = { kind: PlaceKind | "department"; id: string };
@@ -713,6 +721,18 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
             mapa
           </li>
         ) : null}
+        {ROAD_LEGEND.map(({ level, label }) => (
+          <li key={level} className="flex items-center gap-1.5">
+            <span
+              className="w-4 rounded-full"
+              style={{
+                height: ROAD_STYLES[level].width + 1,
+                backgroundColor: ROAD_STYLES[level].color,
+              }}
+            />
+            {label}
+          </li>
+        ))}
       </ul>
       <p className="text-xs text-muted-foreground">
         Toca un municipio o un punto (corregimiento con otro tipo) para cambiar
@@ -849,6 +869,7 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
         >
           <style>{BLINK_CSS}</style>
           <g>{cityPaths?.main}</g>
+          <TransporteRoads showMinor={view.w < MINOR_ROADS_MAX_W} />
           <g>{renderDots(MAIN_POINTS, 1.6 * zoomScale)}</g>
           {renderHighlight(MAIN_SHAPES, false, 5 * zoomScale)}
           {labels ? (
@@ -935,6 +956,7 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
             viewBox={ISLAND.viewBox}
           >
             <g>{cityPaths?.island}</g>
+            <TransporteIslandRoads />
             <g>{renderDots(ISLAND_POINTS, 6 * zoomScale)}</g>
             {renderHighlight(ISLAND_SHAPES, true, 14 * zoomScale)}
           </svg>
@@ -947,6 +969,11 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
             San Andrés y Providencia
           </text>
         </svg>
+
+        {/* La licencia de OpenStreetMap (ODbL) pide mostrar el crédito donde se ven sus datos. */}
+        <p className="pointer-events-none absolute bottom-1 left-2 text-[10px] text-muted-foreground">
+          Carreteras © OpenStreetMap
+        </p>
 
         <div className="absolute bottom-2 right-2 flex flex-col items-end gap-1">
           <Button

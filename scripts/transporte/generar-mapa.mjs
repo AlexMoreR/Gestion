@@ -103,10 +103,10 @@ export function simplificar(puntos, tolerancia) {
   return puntos.filter((_, i) => marca[i]);
 }
 
-const r1 = (n) => Math.round(n * 10) / 10;
-const num = (n) => String(r1(n)).replace(/^(-?)0\./, "$1.");
+export const r1 = (n) => Math.round(n * 10) / 10;
+export const num = (n) => String(r1(n)).replace(/^(-?)0\./, "$1.");
 
-function anillos(geometria) {
+export function anillos(geometria) {
   if (!geometria) return [];
   if (geometria.type === "Polygon") return geometria.coordinates;
   if (geometria.type === "MultiPolygon") return geometria.coordinates.flat();
@@ -114,7 +114,7 @@ function anillos(geometria) {
 }
 
 // Proyección equirectangular sencilla: x = (lon − lon0)·cos(lat0)·escala, y = (latMax − lat)·escala.
-function proyeccion(limites, escala) {
+export function proyeccion(limites, escala) {
   const [lonMin, latMin, lonMax, latMax] = limites;
   const k = Math.cos((((latMin + latMax) / 2) * Math.PI) / 180);
   return {
@@ -123,7 +123,7 @@ function proyeccion(limites, escala) {
   };
 }
 
-function limitesDe(features) {
+export function limitesDe(features) {
   let l = [Infinity, Infinity, -Infinity, -Infinity];
   for (const f of features)
     for (const anillo of anillos(f.geometry))

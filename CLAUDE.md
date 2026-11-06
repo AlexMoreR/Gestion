@@ -262,6 +262,11 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   - `needsReview` + `source` (`DANE`/`CRM`/...): lo que agrega el CRM entra como corregimiento con
     código `CRM-<ciudad>-<nombre>` y `needsReview=true`; aparece en "Pendientes de revisar" y se limpia
     al guardarle un tipo.
+- **Carreteras del mapa** (`src/modules/transporte/data/colombia-carreteras.json`, misma proyección de
+  `colombia-mapa.json`): las genera `scripts/transporte/generar-carreteras.mjs` desde OpenStreetMap (trunk/
+  motorway = principales, primary = secundarias, secondary = terciarias, que salen solo al acercar). Son
+  datos fijos: para actualizarlas se corre el script y se sube el JSON. Licencia ODbL: el crédito
+  "© OpenStreetMap" debe seguir visible en el mapa.
 - **Búsqueda por nombre** (panel y `/api/transporte/ubicaciones`): orden puro en
   `src/modules/transporte/domain/place-search.ts` (`rankPlaces`). Alias de nombre común → ciudad DANE
   (`CITY_ALIASES`: "cali" → Santiago de Cali, "bogota" → Bogotá, D.C., "cucuta", "cartagena", "buga",
