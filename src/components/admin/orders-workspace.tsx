@@ -276,18 +276,23 @@ export function OrdersWorkspace({
           ))}
         </select>
       </label>
-      <DateRangePicker
-        from={fromDate}
-        to={toDate}
-        onChange={(range) => {
-          setFromDate(range.from);
-          setToDate(range.to);
-        }}
-        aria-label="Rango de fechas"
-        className="sm:w-64"
-        placeholder="Rango de fechas"
-      />
-      {fromDate || toDate ? (
+      {/* Con seguimiento el rango no aplica: se oculta para que no parezca que falló. */}
+      {seguimiento ? (
+        <span className="text-xs text-muted-foreground">Todas las fechas</span>
+      ) : (
+        <DateRangePicker
+          from={fromDate}
+          to={toDate}
+          onChange={(range) => {
+            setFromDate(range.from);
+            setToDate(range.to);
+          }}
+          aria-label="Rango de fechas"
+          className="sm:w-64"
+          placeholder="Rango de fechas"
+        />
+      )}
+      {!seguimiento && (fromDate || toDate) ? (
         <Button
           type="button"
           variant="ghost"
@@ -441,7 +446,7 @@ export function OrdersWorkspace({
         columns={columns}
         searchPlaceholder="Buscar orden, venta, cliente o nota"
         onSearchChange={setSearchQuery}
-        emptyMessage="Aun no hay ordenes."
+        emptyMessage={seguimiento ? "Ninguna orden con ese seguimiento." : "Aun no hay ordenes."}
         pageSize={12}
         minWidth="min-w-[1180px]"
         toolbar={dateFilter}
