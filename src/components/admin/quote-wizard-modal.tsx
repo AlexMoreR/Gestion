@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useState, useTransition, type FocusEvent } from "react";
 import {
   AlignLeft,
   Boxes,
@@ -155,6 +155,23 @@ type QuoteWizardModalProps = {
 };
 
 const todayLocal = () => todayInColombia();
+
+// Celular (< 640 px): casillas y listas de 44 px y letra de 16 px (con menos, el iPhone hace zoom al
+// enfocar). Las listas llevan "!" porque .field-select va fuera de las capas de Tailwind. Con un campo
+// activo queda espacio abajo para que hasta el ultimo se pueda centrar sobre el teclado; se quita 300 ms
+// despues de soltar el campo, para que el boton que se toco no se mueva antes de recibir el toque.
+const CUERPO_CELULAR =
+  "max-sm:[&_input:not([type=checkbox]):not([type=file])]:h-11 max-sm:[&_input]:text-base max-sm:[&_select]:h-11! max-sm:[&_select]:text-base! max-sm:[&_textarea]:text-base max-sm:transition-[padding] max-sm:duration-0 max-sm:delay-300 max-sm:has-[:is(input,select,textarea):focus]:pb-[50vh] max-sm:has-[:is(input,select,textarea):focus]:delay-0";
+
+// Al enfocar una casilla en celular la lleva al centro cuando el teclado ya abrio (unos 300 ms).
+const centrarCampoEnCelular = (event: FocusEvent<HTMLElement>) => {
+  const campo = event.target;
+  if (!(campo instanceof HTMLInputElement || campo instanceof HTMLSelectElement || campo instanceof HTMLTextAreaElement)) return;
+  if (!window.matchMedia("(max-width: 639px)").matches) return;
+  window.setTimeout(() => {
+    if (document.activeElement === campo) campo.scrollIntoView({ block: "center" });
+  }, 300);
+};
 
 export function QuoteWizardModal({
   open,
@@ -992,7 +1009,7 @@ export function QuoteWizardModal({
             </h2>
             <label className="order-last inline-flex w-full items-center gap-2 sm:order-none sm:mr-auto sm:w-auto">
               <span className="text-sm font-medium text-muted-foreground">Fecha</span>
-              <DatePicker value={createdAt} onChange={setCreatedAt} />
+              <DatePicker value={createdAt} onChange={setCreatedAt} className="max-sm:h-11" />
             </label>
             <Button type="button" variant="outline" size="icon" className="size-11 sm:size-8" onClick={onClose} aria-label="Cerrar">
               <X className="h-4 w-4" />
@@ -1078,7 +1095,7 @@ export function QuoteWizardModal({
             </div>
 
             {/* Celular: solo este cuerpo se desplaza; encabezado y pasos quedan quietos arriba. */}
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain sm:overflow-visible">
+            <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain sm:overflow-visible ${CUERPO_CELULAR}`} onFocus={centrarCampoEnCelular}>
             {step === 2 ? (
               <div className="space-y-4 rounded-xl border border-border p-3">
                 {!showClientForm ? (
@@ -1121,13 +1138,13 @@ export function QuoteWizardModal({
                                     variant="ghost"
                                     onMouseDown={(event) => event.preventDefault()}
                                     onClick={() => applyClientSelection(client)}
-                                    className="h-auto w-full justify-between px-2.5 py-2 text-left font-normal"
+                                    className="h-auto min-h-11 w-full justify-between gap-2 whitespace-normal px-2.5 py-2 text-left font-normal"
                                   >
-                                    <span className="inline-flex items-center gap-2 text-foreground">
-                                      <UserRound className="h-3.5 w-3.5 text-muted-foreground" />
-                                      {getClientDisplayName(client)}
+                                    <span className="inline-flex min-w-0 items-center gap-2 break-words text-foreground">
+                                      <UserRound className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                      <span className="min-w-0">{getClientDisplayName(client)}</span>
                                     </span>
-                                    <span className="text-xs text-muted-foreground">{client.phone || "Sin telefono"}</span>
+                                    <span className="shrink-0 text-xs text-muted-foreground">{client.phone || "Sin telefono"}</span>
                                   </Button>
                                 ))
                               ) : (
@@ -1538,7 +1555,7 @@ export function QuoteWizardModal({
                     </label>
                     <label className="space-y-1.5 block">
                       <span className="text-sm font-medium text-foreground">Valida hasta</span>
-                      <DatePicker value={validUntil} onChange={setValidUntil} />
+                      <DatePicker value={validUntil} onChange={setValidUntil} className="max-sm:h-11" />
                     </label>
                     <label className="space-y-1.5 block">
                       <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
@@ -1771,15 +1788,15 @@ export function QuoteWizardModal({
       </div>
 
       <Dialog open={openProductModal} onOpenChange={setOpenProductModal}>
-        <DialogContent className="flex max-h-[92vh] w-full max-w-3xl flex-col gap-0 overflow-hidden p-0">
-          <DialogHeader className="shrink-0 border-b px-6 py-4">
+        <DialogContent className="flex max-h-[92vh] w-full max-w-3xl flex-col gap-0 overflow-hidden p-0 max-sm:top-0 max-sm:left-0 max-sm:h-[100dvh] max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0">
+          <DialogHeader className="shrink-0 border-b px-6 py-4 max-sm:px-4">
             <DialogTitle className="inline-flex items-center gap-2">
               <Boxes className="h-4 w-4 text-muted-foreground" />
               <span>{editing ? "Editar producto" : "Agregar producto"}</span>
             </DialogTitle>
           </DialogHeader>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <div className={`min-h-0 flex-1 overflow-y-auto px-6 py-5 max-sm:px-4 ${CUERPO_CELULAR}`} onFocus={centrarCampoEnCelular}>
             {!draftProductId ? (
               <div className="space-y-3">
                 <div className="relative">
@@ -1837,29 +1854,29 @@ export function QuoteWizardModal({
               </div>
             ) : (
               <>
-                <div className="mb-3 flex items-center gap-3 rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/5 p-2.5">
+                <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/5 p-2.5 sm:flex-nowrap">
                   <ProductThumb
                     src={(editing ? editing.foto : draftProduct?.thumbnailUrl) ?? ""}
                     alt={(editing ? editing.nombre : draftProduct?.name) ?? ""}
                     className="h-12 w-12 shrink-0 rounded-md border border-border object-cover"
                   />
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 max-sm:basis-[calc(100%-3.75rem)]">
                     {/* En edicion el nombre sale de la fila: el producto puede no estar en la lista. */}
-                    <p className="truncate text-sm font-semibold text-foreground">
+                    <p className="break-words text-sm font-semibold text-foreground sm:truncate">
                       {editing ? editing.nombre : draftProduct?.name}
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
                       {(editing ? editing.codigo : draftProduct?.code) || "Sin codigo"}
                     </p>
                   </div>
-                  <label className="flex shrink-0 flex-col gap-1">
+                  <label className="flex shrink-0 flex-col gap-1 max-sm:ml-auto">
                     <span className="text-[11px] font-medium text-muted-foreground">Cantidad</span>
                     <Input
                       type="number"
                       min={1}
                       value={draftQuantity}
                       onChange={(event) => setDraftQuantity(event.target.value)}
-                      className="h-9 w-20"
+                      className="h-9 w-20 max-sm:w-24"
                     />
                   </label>
                   {!editing ? (
@@ -1868,6 +1885,7 @@ export function QuoteWizardModal({
                       variant="outline"
                       size="icon"
                       onClick={clearDraftProductSelection}
+                      className="max-sm:size-11 max-sm:self-end"
                       aria-label="Cambiar producto"
                       title="Cambiar producto"
                     >
@@ -1916,7 +1934,7 @@ export function QuoteWizardModal({
                           type="button"
                           variant="link"
                           size="sm"
-                          className="h-auto px-0"
+                          className="h-auto min-h-11 px-0"
                           onClick={() => {
                             setManualColor((current) => !current);
                             setDraftCartaColor(null);
@@ -1970,7 +1988,7 @@ export function QuoteWizardModal({
                                     onClick={() =>
                                       setDraftCartaColor(elegido ? null : { ...color, material: material.nombre })
                                     }
-                                    className={`flex min-w-0 items-center gap-2 rounded-md border p-1.5 text-left text-xs transition-colors ${
+                                    className={`flex min-h-11 min-w-0 items-center gap-2 rounded-md border p-1.5 text-left text-xs transition-colors ${
                                       elegido
                                         ? "border-primary bg-primary/10 ring-1 ring-primary"
                                         : "border-border hover:bg-muted"
@@ -1989,7 +2007,7 @@ export function QuoteWizardModal({
                                     )}
                                     <span className="min-w-0">
                                       <span className="block font-semibold text-foreground">{color.codigo}</span>
-                                      <span className="block truncate text-muted-foreground">{color.nombre}</span>
+                                      <span className="block break-words text-muted-foreground">{color.nombre}</span>
                                     </span>
                                   </button>
                                 );
@@ -2020,6 +2038,23 @@ export function QuoteWizardModal({
                       ) : null}
                       <option value="MANUFACTURE">Por orden (se fabrica)</option>
                     </select>
+                  </label>
+                  ) : null}
+
+                  {/* Precio solo al editar: al agregar sale del catalogo. Un combo reparte el nuevo precio entre sus piezas. */}
+                  {editing ? (
+                  <label className="space-y-1.5">
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                      <Coins className="h-3.5 w-3.5 text-muted-foreground" />
+                      Precio
+                    </span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={draftUnitPrice}
+                      onChange={(event) => setDraftUnitPrice(event.target.value)}
+                    />
                   </label>
                   ) : null}
 
@@ -2075,7 +2110,7 @@ export function QuoteWizardModal({
                               alt={(editing ? editing.nombre : draftProduct?.name) ?? "Producto"}
                               className="h-full w-full object-cover"
                             />
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/45 text-white opacity-0 transition group-hover:opacity-100">
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/45 text-white opacity-0 transition group-hover:opacity-100 pointer-coarse:inset-x-0 pointer-coarse:top-auto pointer-coarse:flex-row pointer-coarse:py-1 pointer-coarse:opacity-100">
                               {isUploadingImage ? (
                                 <Loader2 className="h-5 w-5 animate-spin" />
                               ) : (
@@ -2104,7 +2139,7 @@ export function QuoteWizardModal({
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="h-auto px-1 py-0 text-xs text-muted-foreground"
+                          className="h-auto px-1 py-0 text-xs text-muted-foreground max-sm:min-h-11"
                           onClick={() => setDraftImageUrl("")}
                         >
                           Quitar foto
@@ -2162,7 +2197,7 @@ export function QuoteWizardModal({
           </div>
 
           {draftProductId ? (
-            <div className="shrink-0 space-y-3 border-t bg-card px-6 py-4">
+            <div className="shrink-0 space-y-3 border-t bg-card px-6 py-4 max-sm:px-4 max-sm:py-3">
               <div className="flex items-center justify-between rounded-xl border border-[var(--primary)]/20 bg-[var(--primary)]/5 px-4 py-3">
                 <span className="text-sm font-semibold text-foreground">Total a pagar</span>
                 <span className="text-xl font-bold text-[var(--primary)]">
@@ -2170,10 +2205,10 @@ export function QuoteWizardModal({
                 </span>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                <Button type="button" variant="outline" size="lg" onClick={() => setOpenProductModal(false)}>
+                <Button type="button" variant="outline" size="lg" className="max-sm:h-11" onClick={() => setOpenProductModal(false)}>
                   Cancelar
                 </Button>
-                <Button type="button" size="lg" onClick={editing ? guardarEdicion : addDraftProduct}>
+                <Button type="button" size="lg" className="max-sm:h-11" onClick={editing ? guardarEdicion : addDraftProduct}>
                   {editing ? "Guardar cambios" : "Agregar producto"}
                 </Button>
               </div>
