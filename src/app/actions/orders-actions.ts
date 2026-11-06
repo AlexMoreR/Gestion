@@ -22,6 +22,8 @@ import {
   partesConCambio,
   type NuevoColor,
 } from "@/lib/color-change";
+import { guardarImagenOF } from "@/lib/of-image.server";
+import { imagenManualDe, notesWithOfImage, validarArchivoImagenOF } from "@/lib/of-image";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { imagenDeColores } from "@/lib/vista-color.server";
 import { stockToRestore } from "@/lib/order-stock-restore";
@@ -565,6 +567,82 @@ export async function adminChangeSaleItemColorAction(formData: FormData): Promis
   revalidatePath("/admin/ventas");
   revalidatePath(back);
   redirect(`${back}?ok=${encodeURIComponent(ok)}`);
+}
+
+// Cambia SOLO la imagen que ve la proveedora en un producto de la OF (o la vuelve a la del catálogo).
+// Escribe únicamente las notas de ESA línea de la orden (imageUrl), una nota de la orden y la bitácora:
+// no toca el producto del catálogo, la cotización, otras órdenes, precios, costos, pagos ni estados.
+export async function adminChangeOrderItemImageAction(formData: FormData): Promise<void> {
+  const userId = await requireAdminSession();
+  const orderItemId = String(formData.get("orderItemId") ?? "").trim();
+  const item = orderItemId
+    ? await prisma.orderItem.findUnique({ where: { id: orderItemId }, select: { orderId: true } })
+    : null;
+  if (!item) {
+    redirect("/admin/ordenes?error=Producto+no+encontrado");
+  }
+  const back = orderDetailPath(item.orderId);
+  const restaurar = String(formData.get("accion") ?? "") === "restaurar";
+
+  let url = "";
+  if (!restaurar) {
+    const archivo = formData.get("imagen");
+    if (!(archivo instanceof File)) {
+      redirect(`${back}?error=${encodeURIComponent("Escoge una imagen.")}`);
+    }
+    const valida = validarArchivoImagenOF(archivo);
+    if (!valida.ok) redirect(`${back}?error=${encodeURIComponent(valida.error)}`);
+    try {
+      url = (await guardarImagenOF(archivo)).url;
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : "No se pudo guardar la imagen.";
+      redirect(`${back}?error=${encodeURIComponent(mensaje)}`);
+    }
+  }
+
+  const actor = await getActivityActor();
+  const result = await prisma.$transaction(async (tx) => {
+    const order = await tx.order.findUnique({
+      where: { id: item.orderId },
+      select: {
+        id: true,
+        code: true,
+        type: true,
+        status: true,
+        sale: { select: { code: true, status: true } },
+        items: { where: { id: orderItemId }, select: { id: true, notes: true, product: { select: { name: true } } } },
+      },
+    });
+    if (!order || order.type !== "SALE" || !order.sale) return { error: "Solo se cambia la imagen en una orden de venta." };
+    if (order.status === "CANCELLED" || order.sale.status === "CANCELLED") {
+      return { error: "La venta está cancelada: no se puede cambiar la imagen." };
+    }
+    const linea = order.items[0];
+    if (!linea) return { error: "Producto no encontrado." };
+    const antes = imagenManualDe(linea.notes);
+    if (restaurar && !antes) return { error: "Este producto ya usa la imagen del catálogo." };
+
+    await tx.orderItem.update({ where: { id: linea.id }, data: { notes: notesWithOfImage(linea.notes, url) } });
+    const text = restaurar
+      ? `Imagen de ${linea.product.name} restaurada a la del catálogo`
+      : `Imagen de ${linea.product.name} cambiada`;
+    await tx.orderNote.create({ data: { orderId: order.id, text, createdById: userId } });
+    await logActivityTx(tx, actor, {
+      action: "UPDATE",
+      entityType: "ORDER",
+      entityId: order.id,
+      entityCode: order.code,
+      summary: `${text} (${order.sale.code})`,
+      before: { orderItemId: linea.id, imageUrl: antes },
+      after: { orderItemId: linea.id, imageUrl: url },
+    });
+    return { error: null };
+  });
+  if (result.error) redirect(`${back}?error=${encodeURIComponent(result.error)}`);
+
+  revalidatePath("/admin/ordenes");
+  revalidatePath(back);
+  redirect(`${back}?ok=${encodeURIComponent(restaurar ? "Imagen restaurada a la del catálogo" : "Imagen cambiada")}`);
 }
 
 export async function adminDeleteOrderNoteAction(formData: FormData): Promise<void> {

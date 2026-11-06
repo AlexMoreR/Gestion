@@ -266,6 +266,17 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
                       {line.partesTexto ? (
                         <p className="text-center text-sm font-semibold text-slate-900">{line.partesTexto}</p>
                       ) : null}
+                      {line.imagenReferenciaUrl ? (
+                        <div className="space-y-1">
+                          <p className="text-center text-xs font-semibold text-slate-700">Imagen de referencia del producto</p>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={imageVariantUrl(getPublicAssetUrl(line.imagenReferenciaUrl), "large")}
+                            alt={`${line.productName}: imagen de referencia`}
+                            className="h-auto w-full rounded-lg border border-slate-100 object-contain"
+                          />
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                   <div className="min-w-0 space-y-1">

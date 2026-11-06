@@ -407,6 +407,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       observations,
       color: meta.color.trim(),
       canChangeColor,
+      // La imagen que ve la proveedora: la subida a mano o, si no hay, la del catálogo.
+      imagenManual: meta.imageUrl.trim() ? getPublicAssetUrl(meta.imageUrl.trim()) : null,
       partesDef: partesDeItem.get(item.id) ?? [],
       partesElegidas: meta.partes,
       isConfirmed: itemIsConfirmed(item),

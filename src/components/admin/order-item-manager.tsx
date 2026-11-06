@@ -21,6 +21,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChangeItemColorDialog } from "@/components/admin/change-item-color-dialog";
+import { ChangeItemImageDialog } from "@/components/admin/change-item-image-dialog";
 import type { ParteElegida, ParteParaCotizar } from "@/lib/product-parts";
 import { ProductThumb } from "@/components/admin/product-thumb";
 import { ReversalReasonFields } from "@/components/admin/reversal-reason-fields";
@@ -78,6 +79,8 @@ export type OrderItemManagerData = {
   color: string;
   /** Venta activa (no cancelada): se puede cambiar solo el color. */
   canChangeColor: boolean;
+  /** Imagen subida a mano para la OF (null = usa la del catálogo). */
+  imagenManual: string | null;
   /** Partes de color del producto (o de su combo); vacío = un solo color. */
   partesDef: ParteParaCotizar[];
   /** Color elegido por parte (de las notas de la línea). */
@@ -265,6 +268,7 @@ export function OrderItemManager({
   const [reverseDeliveryReady, setReverseDeliveryReady] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
   const [colorOpen, setColorOpen] = useState(false);
+  const [imagenOpen, setImagenOpen] = useState(false);
   const [undoPickupOpen, setUndoPickupOpen] = useState(false);
   const [undoConfirmOpen, setUndoConfirmOpen] = useState(false);
   const [dispatchDeliveryType, setDispatchDeliveryType] = useState<"COUNTER" | "PICKUP" | "SHIPPING">("SHIPPING");
@@ -330,6 +334,18 @@ export function OrderItemManager({
                 Cambiar color
               </button>
             ) : null}
+          </p>
+        ) : null}
+        {item.canChangeColor ? (
+          <p className="text-xs text-muted-foreground">
+            Imagen: {item.imagenManual ? "subida a mano" : "del catálogo"}
+            <button
+              type="button"
+              onClick={() => setImagenOpen(true)}
+              className="ml-2 underline hover:text-foreground"
+            >
+              Cambiar imagen
+            </button>
           </p>
         ) : null}
         <Badge
@@ -994,6 +1010,17 @@ export function OrderItemManager({
           currentColor={item.color}
           partes={item.partesDef}
           partesElegidas={item.partesElegidas}
+        />
+      ) : null}
+      {item.canChangeColor ? (
+        <ChangeItemImageDialog
+          key={item.imagenManual ?? "catalogo"}
+          open={imagenOpen}
+          onOpenChange={setImagenOpen}
+          orderItemId={item.id}
+          productName={item.productName}
+          imagenActual={item.imagenManual ?? item.productImageUrl}
+          imagenManual={item.imagenManual}
         />
       ) : null}
       <Dialog open={splitOpen} onOpenChange={(value) => (value ? null : setSplitOpen(false))}>

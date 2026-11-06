@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
+import { imagenesDeLaLinea } from "./of-image";
 import { textoColores } from "./product-parts";
 import { stableShareToken } from "@/lib/manufacturing-share-token";
 import { colombiaDayKey } from "./colombia-time";
@@ -18,6 +19,8 @@ export type ManufacturingLine = {
   imageUrl: string;
   // La imagen es la de colores (va con su dirección directa: no tiene versiones reducidas).
   imagenDeColores: boolean;
+  // Imagen subida a mano por el admin cuando la principal es la de colores ("" = no hay otra que mostrar).
+  imagenReferenciaUrl: string;
   // 'Tapizado: Crema · Base: Dorada' si la línea tiene partes; "" si no.
   partesTexto: string;
   quantity: number;
@@ -44,12 +47,14 @@ type OrderItemForLine = {
 export function toManufacturingLine(item: OrderItemForLine): ManufacturingLine {
   const meta = parseQuoteItemMeta(item.notes);
   const unitCost = item.purchaseCost == null ? null : Number(item.purchaseCost);
+  const imagenes = imagenesDeLaLinea(meta, item.product.thumbnailUrl);
   return {
     id: item.id,
     productName: item.product.name,
     productCode: item.product.code,
-    imageUrl: meta.imagenColoresUrl || meta.imageUrl || item.product.thumbnailUrl,
-    imagenDeColores: Boolean(meta.imagenColoresUrl),
+    imageUrl: imagenes.principal,
+    imagenDeColores: imagenes.principalEsColores,
+    imagenReferenciaUrl: imagenes.referencia,
     partesTexto: meta.partes.length > 0 ? textoColores(meta.partes) : "",
     quantity: item.quantity,
     details: meta.description.trim() || item.product.description?.trim() || "",
