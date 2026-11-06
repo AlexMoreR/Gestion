@@ -23,7 +23,7 @@ import {
   type NuevoColor,
 } from "@/lib/color-change";
 import { guardarImagenOF } from "@/lib/of-image.server";
-import { imagenManualDe, notesWithOfImage, validarArchivoImagenOF } from "@/lib/of-image";
+import { imagenManualDe, notaCambioImagen, notesWithOfImage, validarArchivoImagenOF } from "@/lib/of-image";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { imagenDeColores } from "@/lib/vista-color.server";
 import { stockToRestore } from "@/lib/order-stock-restore";
@@ -623,9 +623,8 @@ export async function adminChangeOrderItemImageAction(formData: FormData): Promi
     if (restaurar && !antes) return { error: "Este producto ya usa la imagen del catálogo." };
 
     await tx.orderItem.update({ where: { id: linea.id }, data: { notes: notesWithOfImage(linea.notes, url) } });
-    const text = restaurar
-      ? `Imagen de ${linea.product.name} restaurada a la del catálogo`
-      : `Imagen de ${linea.product.name} cambiada`;
+    const persona = actor.name?.trim() || actor.email?.trim() || "Desconocido";
+    const text = notaCambioImagen(linea.product.name, persona, restaurar);
     await tx.orderNote.create({ data: { orderId: order.id, text, createdById: userId } });
     await logActivityTx(tx, actor, {
       action: "UPDATE",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { imagenesDeLaLinea, imagenManualDe, notesWithOfImage, validarArchivoImagenOF, OF_IMAGE_MAX_BYTES } from "./of-image";
+import { imagenesDeLaLinea, imagenManualDe, notaCambioImagen, notesWithOfImage, validarArchivoImagenOF, OF_IMAGE_MAX_BYTES } from "./of-image";
 import { parseQuoteItemMeta, stringifyQuoteItemMeta } from "./quote-item-meta";
 
 describe("notesWithOfImage", () => {
@@ -70,5 +70,14 @@ describe("validarArchivoImagenOF", () => {
     expect(validarArchivoImagenOF({ name: "a.jpg", type: "image/jpeg", size: OF_IMAGE_MAX_BYTES + 1 }).ok).toBe(false);
     expect(validarArchivoImagenOF({ name: "a.pdf", type: "application/pdf", size: 10 }).ok).toBe(false);
     expect(validarArchivoImagenOF({ name: "a.exe", type: "image/png", size: 10 }).ok).toBe(false);
+  });
+});
+
+describe("notaCambioImagen", () => {
+  it("dice quién cambió la imagen", () => {
+    expect(notaCambioImagen("Silla", "María", false)).toBe("Imagen de Silla cambiada por María");
+  });
+  it("dice quién la restauró a la del catálogo", () => {
+    expect(notaCambioImagen("Silla", "María", true)).toBe("Imagen de Silla restaurada a la del catálogo por María");
   });
 });
