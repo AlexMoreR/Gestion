@@ -46,6 +46,8 @@ import {
 import type { CartaColor, CartaColores } from "@/lib/carta-colores-crm";
 import { textoColores, type ParteElegida, type ParteParaCotizar } from "@/lib/product-parts";
 import { PartesColorSelector, partesIniciales } from "@/components/admin/partes-color-selector";
+import { FulfillmentBadge, QuoteLineCard } from "@/components/admin/quote-line-card";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { imageVariantUrl } from "@/lib/image-variants";
 import { Button } from "../ui/button";
 import { displayCode } from "@/lib/code-display";
@@ -154,21 +156,6 @@ type QuoteWizardModalProps = {
 
 const todayLocal = () => todayInColombia();
 
-// Badge del tipo de cumplimiento (solo lectura) para la revision.
-function FulfillmentBadge({ mode }: { mode: FulfillmentMode; canStock?: boolean }) {
-  const isStock = mode === "STOCK";
-  const label = isStock ? "Stock" : "Fabricacion";
-  const tone = isStock
-    ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-    : "border-amber-500/30 bg-amber-500/15 text-amber-600 dark:text-amber-400";
-
-  return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${tone}`}>
-      {label}
-    </span>
-  );
-}
-
 export function QuoteWizardModal({
   open,
   onClose,
@@ -256,6 +243,8 @@ export function QuoteWizardModal({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [productFormError, setProductFormError] = useState("");
   const [isManualQuoteSubmit, setIsManualQuoteSubmit] = useState(false);
+  // Debajo de 1024 px las lineas se ven como tarjetas; el selector de colores va solo en la vista activa.
+  const vistaTarjetas = useIsMobile(1024);
   // Linea (uid) o combo (comboKey) que se esta editando en el panel; null = agregando.
   const [editing, setEditing] = useState<{
     uid: string;
@@ -888,6 +877,100 @@ export function QuoteWizardModal({
   const title = isEdit ? `Editar cotizacion ${displayCode(quoteCode)}` : "Nueva cotizacion";
   const submitLabel = isEdit ? "Guardar cambios" : "Generar cotizacion";
 
+  const sinProductos = (
+    <div className="flex flex-col items-center gap-3 text-center text-sm text-muted-foreground">
+      <div className="rounded-full border border-border bg-muted p-2">
+        <Boxes className="h-4 w-4 text-muted-foreground" />
+      </div>
+      <p>No hay productos agregados.</p>
+      <Button type="button" size="lg" onClick={openAddProductModal}>
+        <Plus className="h-4 w-4" />
+        Agregar producto
+      </Button>
+    </div>
+  );
+
+  // Lineas como tarjetas (pasos 1 y 3). editable: paso 1, con Editar, borrar y colores por parte.
+  const tarjetasDeLineas = (editable: boolean) =>
+    groupedLines.map((group) => {
+      if (group.type === "combo") {
+        const partesDef = partesDeLinea(group.firstLine);
+        return (
+          <QuoteLineCard
+            key={group.key}
+            name={group.comboName}
+            code={group.comboCode}
+            imageUrl={group.thumbnailUrl}
+            isCombo
+            fulfillmentMode={group.fulfillmentMode}
+            description={group.description}
+            color={group.color}
+            quantity={group.comboQuantity}
+            unitPrice={group.comboQuantity > 0 ? group.total / group.comboQuantity : group.total}
+            total={group.total}
+            currency={currency}
+            onEdit={
+              editable && !tieneVenta
+                ? () =>
+                    abrirEdicion(
+                      lines.filter((line) => line.comboKey === group.key),
+                      group.comboName,
+                      group.comboCode,
+                    )
+                : undefined
+            }
+            onRemove={editable ? () => removeCombo(group.key) : undefined}
+            removeLabel="Quitar combo"
+          >
+            {editable && vistaTarjetas && partesDef.length > 0 ? (
+              <PartesColorSelector
+                idPrefix={`combo-${group.key}`}
+                vistaProductId={duenioDeLinea(group.firstLine)?.id}
+                partes={partesDef}
+                carta={carta ? cartaMateriales : null}
+                elegidos={group.partes}
+                onChange={(next) => updateLinePartes((line) => line.comboKey === group.key, next)}
+              />
+            ) : null}
+          </QuoteLineCard>
+        );
+      }
+      const { line, product } = group.item;
+      const partesDef = partesDeLinea(line);
+      return (
+        <QuoteLineCard
+          key={line.uid}
+          name={product?.name || "Producto"}
+          code={product?.code || ""}
+          imageUrl={line.imageUrl || product?.thumbnailUrl || ""}
+          fulfillmentMode={line.fulfillmentMode}
+          description={line.description}
+          color={colorLabel(line)}
+          quantity={line.quantity}
+          unitPrice={line.unitPrice}
+          total={line.quantity * line.unitPrice}
+          currency={currency}
+          onEdit={
+            editable && !tieneVenta
+              ? () => abrirEdicion([line], product?.name || "Producto", product?.code || "")
+              : undefined
+          }
+          onRemove={editable ? () => removeLine(line.uid) : undefined}
+        >
+          {editable && vistaTarjetas && partesDef.length > 0 ? (
+            <PartesColorSelector
+              idPrefix={`linea-${line.uid}`}
+              vistaProductId={line.productId}
+              partes={partesDef}
+              carta={carta ? cartaMateriales : null}
+              elegidos={line.partes}
+              onChange={(next) => updateLinePartes((item) => item.uid === line.uid, next)}
+            />
+          ) : null}
+        </QuoteLineCard>
+      );
+    });
+
   return (
     <>
       <div
@@ -898,28 +981,27 @@ export function QuoteWizardModal({
         onClick={onClose}
       >
         <div
-          className="relative flex min-h-[100dvh] w-full max-w-6xl flex-col overflow-y-auto overflow-x-hidden rounded-none border border-border bg-card p-3 sm:mx-auto sm:min-h-0 sm:max-h-[92vh] sm:rounded-xl sm:p-4 md:p-5"
+          className="relative flex h-[100dvh] w-full max-w-6xl flex-col overflow-hidden rounded-none border border-border bg-card p-3 sm:mx-auto sm:block sm:h-auto sm:max-h-[92vh] sm:overflow-y-auto sm:overflow-x-hidden sm:rounded-xl sm:p-4 md:p-5"
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-foreground">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <span>{title}</span>
-              </h2>
-              <label className="inline-flex items-center gap-2">
-                <span className="text-sm font-medium text-muted-foreground">Fecha</span>
-                <DatePicker value={createdAt} onChange={setCreatedAt} />
-              </label>
-            </div>
-            <Button type="button" variant="outline" size="icon" onClick={onClose} aria-label="Cerrar">
+          {/* Celular: titulo y cerrar en una fila, la Fecha debajo. Escritorio: titulo, Fecha y cerrar a la derecha. */}
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 sm:mb-4">
+            <h2 className="inline-flex min-w-0 flex-1 items-center gap-2 text-lg font-semibold text-foreground sm:flex-none">
+              <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="break-words">{title}</span>
+            </h2>
+            <label className="order-last inline-flex w-full items-center gap-2 sm:order-none sm:mr-auto sm:w-auto">
+              <span className="text-sm font-medium text-muted-foreground">Fecha</span>
+              <DatePicker value={createdAt} onChange={setCreatedAt} />
+            </label>
+            <Button type="button" variant="outline" size="icon" className="size-11 sm:size-8" onClick={onClose} aria-label="Cerrar">
               <X className="h-4 w-4" />
             </Button>
           </div>
 
           <form
             action={action}
-            className="space-y-4"
+            className="flex min-h-0 flex-1 flex-col space-y-4 sm:block"
             onSubmit={(event) => {
               if (step !== 3 || !isManualQuoteSubmit) {
                 event.preventDefault();
@@ -950,39 +1032,39 @@ export function QuoteWizardModal({
             ) : null}
 
             <div>
-              <div className="grid gap-1.5 md:grid-cols-3">
+              <div className="grid grid-cols-3 gap-1.5">
                 <div className={`rounded-lg border p-2 transition ${step >= 1 ? "border-[var(--primary)]/30 bg-[var(--primary)]/5" : "border-border bg-card"}`}>
                   <div className="flex items-center gap-2">
-                    <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 1 ? "border-[var(--primary)] bg-[var(--primary)] text-primary-foreground" : "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"}`}>
+                    <div className={`hidden h-6 w-6 shrink-0 items-center justify-center rounded-md border sm:inline-flex ${step === 1 ? "border-[var(--primary)] bg-[var(--primary)] text-primary-foreground" : "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"}`}>
                       <Boxes className="h-3.5 w-3.5" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Paso 1</p>
-                      <p className="text-xs font-semibold text-foreground">Productos</p>
+                      <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Paso 1</p>
+                      <p className="whitespace-nowrap text-xs font-semibold text-foreground">Productos</p>
                     </div>
                   </div>
                 </div>
 
                 <div className={`rounded-lg border p-2 transition ${step >= 2 ? "border-[var(--primary)]/30 bg-[var(--primary)]/5" : "border-border bg-card"}`}>
                   <div className="flex items-center gap-2">
-                    <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 2 ? "border-[var(--primary)] bg-[var(--primary)] text-primary-foreground" : step > 2 ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "border-border bg-card text-muted-foreground"}`}>
+                    <div className={`hidden h-6 w-6 shrink-0 items-center justify-center rounded-md border sm:inline-flex ${step === 2 ? "border-[var(--primary)] bg-[var(--primary)] text-primary-foreground" : step > 2 ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "border-border bg-card text-muted-foreground"}`}>
                       <UserRound className="h-3.5 w-3.5" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Paso 2</p>
-                      <p className="text-xs font-semibold text-foreground">Cliente</p>
+                      <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Paso 2</p>
+                      <p className="whitespace-nowrap text-xs font-semibold text-foreground">Cliente</p>
                     </div>
                   </div>
                 </div>
 
                 <div className={`rounded-lg border p-2 transition ${step >= 3 ? "border-[var(--primary)]/30 bg-[var(--primary)]/5" : "border-border bg-card"}`}>
                   <div className="flex items-center gap-2">
-                    <div className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${step === 3 ? "border-[var(--primary)] bg-[var(--primary)] text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}>
+                    <div className={`hidden h-6 w-6 shrink-0 items-center justify-center rounded-md border sm:inline-flex ${step === 3 ? "border-[var(--primary)] bg-[var(--primary)] text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}>
                       <Link2 className="h-3.5 w-3.5" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Paso 3</p>
-                      <p className="text-xs font-semibold text-foreground">{isEdit ? "Finalizar" : "Generar"}</p>
+                      <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Paso 3</p>
+                      <p className="whitespace-nowrap text-xs font-semibold text-foreground">{isEdit ? "Finalizar" : "Generar"}</p>
                     </div>
                   </div>
                 </div>
@@ -995,6 +1077,8 @@ export function QuoteWizardModal({
               </div>
             </div>
 
+            {/* Celular: solo este cuerpo se desplaza; encabezado y pasos quedan quietos arriba. */}
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain sm:overflow-visible">
             {step === 2 ? (
               <div className="space-y-4 rounded-xl border border-border p-3">
                 {!showClientForm ? (
@@ -1120,10 +1204,12 @@ export function QuoteWizardModal({
                   </div>
                 )}
 
+                {/* Avisos y botones juntos: en celular quedan pegados abajo. */}
+                <div className="sticky bottom-0 z-10 space-y-2 border-t border-border bg-card pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:space-y-4">
                 {clientFormError ? <p className="text-xs font-medium text-destructive">{clientFormError}</p> : null}
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
-                  <Button type="button" variant="outline" size="lg" onClick={() => setStep(1)}>
+                <div className="flex gap-2 sm:justify-between">
+                  <Button type="button" variant="outline" size="lg" className="h-11 flex-1 sm:h-9 sm:flex-none" onClick={() => setStep(1)}>
                     Atras
                   </Button>
                   <Button
@@ -1131,10 +1217,11 @@ export function QuoteWizardModal({
                     size="lg"
                     onClick={goToReviewStep}
                     disabled={!isClientResolved || isResolvingClient}
-                    className="w-full sm:w-auto"
+                    className="h-11 flex-1 sm:h-9 sm:w-auto sm:flex-none"
                   >
                     {isResolvingClient ? "Guardando cliente..." : "Siguiente"}
                   </Button>
+                </div>
                 </div>
               </div>
             ) : step === 1 ? (
@@ -1156,7 +1243,16 @@ export function QuoteWizardModal({
                   </p>
                 ) : null}
 
-                <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                {/* Debajo de 1024 px: tarjetas (las 7 columnas no caben). */}
+                <div className="space-y-3 lg:hidden">
+                  {groupedLines.length === 0 ? (
+                    <div className="rounded-xl border border-border bg-card px-3 py-8">{sinProductos}</div>
+                  ) : (
+                    tarjetasDeLineas(true)
+                  )}
+                </div>
+
+                <div className="hidden overflow-hidden rounded-xl border border-border bg-card shadow-sm lg:block">
                   <table className="w-full text-sm">
                     <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
                       <tr>
@@ -1172,17 +1268,8 @@ export function QuoteWizardModal({
                     <tbody>
                       {groupedLines.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="px-3 py-8 text-center text-sm text-muted-foreground">
-                            <div className="flex flex-col items-center gap-3">
-                              <div className="rounded-full border border-border bg-muted p-2">
-                                <Boxes className="h-4 w-4 text-muted-foreground" />
-                              </div>
-                              <p>No hay productos agregados.</p>
-                              <Button type="button" size="lg" onClick={openAddProductModal}>
-                                <Plus className="h-4 w-4" />
-                                Agregar producto
-                              </Button>
-                            </div>
+                          <td colSpan={7} className="px-3 py-8">
+                            {sinProductos}
                           </td>
                         </tr>
                       ) : (
@@ -1257,7 +1344,7 @@ export function QuoteWizardModal({
                                 </div>
                               </td>
                             </tr>
-                            {partesDeLinea(group.firstLine).length > 0 ? (
+                            {!vistaTarjetas && partesDeLinea(group.firstLine).length > 0 ? (
                               <tr className="bg-muted/30">
                                 <td colSpan={7} className="px-3 pb-3 pt-1">
                                   <PartesColorSelector
@@ -1340,7 +1427,7 @@ export function QuoteWizardModal({
                                     </div>
                                   </td>
                                 </tr>
-                                {partesDef.length > 0 ? (
+                                {!vistaTarjetas && partesDef.length > 0 ? (
                                   <tr className="bg-muted/30">
                                     <td colSpan={7} className="px-3 pb-3 pt-1">
                                       <PartesColorSelector
@@ -1416,7 +1503,7 @@ export function QuoteWizardModal({
                   </div>
                 </div>
 
-                <div className="flex justify-end">
+                <div className="sticky bottom-0 z-10 space-y-2 border-t border-border bg-card pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:static sm:border-0 sm:bg-transparent sm:p-0 flex justify-end">
                   <Button
                     type="button"
                     size="lg"
@@ -1424,7 +1511,7 @@ export function QuoteWizardModal({
                       setIsManualQuoteSubmit(false);
                       setStep(2);
                     }}
-                    className="w-full sm:w-auto"
+                    className="h-11 w-full sm:h-9 sm:w-auto"
                     disabled={lines.length === 0}
                   >
                     Siguiente
@@ -1501,7 +1588,12 @@ export function QuoteWizardModal({
                   </div>
                 </div>
 
-                <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <div className="space-y-3 lg:hidden">
+                  <p className="text-sm font-semibold text-foreground">Productos</p>
+                  {tarjetasDeLineas(false)}
+                </div>
+
+                <div className="hidden overflow-hidden rounded-xl border border-border bg-card lg:block">
                   <div className="border-b border-border bg-muted px-3 py-2">
                     <p className="text-sm font-semibold text-foreground">Productos</p>
                   </div>
@@ -1642,14 +1734,16 @@ export function QuoteWizardModal({
                   </div>
                 </div>
 
+                {/* Avisos y botones juntos: en celular quedan pegados abajo. */}
+                <div className="sticky bottom-0 z-10 space-y-2 border-t border-border bg-card pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:space-y-3">
                 {revisarColores && faltanColoresLista.length > 0 ? (
-                  <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+                  <p className="max-h-20 overflow-y-auto rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive sm:max-h-none">
                     Falta escoger el color: {faltanColoresLista.join(", ")}
                   </p>
                 ) : null}
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
-                  <Button type="button" variant="outline" size="lg" onClick={() => setStep(2)}>
+                <div className="flex gap-2 sm:justify-between">
+                  <Button type="button" variant="outline" size="lg" className="h-11 flex-1 sm:h-9 sm:flex-none" onClick={() => setStep(2)}>
                     Atras
                   </Button>
                   <Button
@@ -1662,14 +1756,16 @@ export function QuoteWizardModal({
                       setIsManualQuoteSubmit(true);
                       event.currentTarget.form?.requestSubmit();
                     }}
-                    className="w-full sm:w-auto"
+                    className="h-11 flex-1 sm:h-9 sm:w-auto sm:flex-none"
                     disabled={!isClientResolved || lines.length === 0}
                   >
                     {submitLabel}
                   </Button>
                 </div>
+                </div>
               </div>
             )}
+            </div>
           </form>
         </div>
       </div>
