@@ -2,13 +2,19 @@
 
 import * as React from "react";
 import { AlertTriangle, Check, Copy, ExternalLink, Factory, MessageCircle } from "lucide-react";
-import { adminUpdateManufacturingOrderAction } from "@/app/actions/manufacturing-order-actions";
+import {
+  adminMarkManufacturingReceivedAction,
+  adminUpdateManufacturingOrderAction,
+} from "@/app/actions/manufacturing-order-actions";
+import { DeliveryStateChip } from "@/components/admin/delivery-state-chip";
+import { FechaHistorial, SaveDateButton, type CambioFechaView } from "@/components/admin/dispatch-estimate-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { displayCode } from "@/lib/code-display";
 import { mensajeCambioColorOF } from "@/lib/color-change";
+import type { EstadoEntrega } from "@/lib/delivery-tracking";
 import type { ManufacturingPaymentSummary } from "@/lib/manufacturing-orders";
 
 export type ManufacturingCard = {
@@ -18,7 +24,15 @@ export type ManufacturingCard = {
   // Solo digitos, listo para wa.me (puede venir vacio).
   supplierWhatsApp: string;
   url: string;
-  deliveryDate: string; // yyyy-MM-dd o ""
+  // Valores de input datetime-local (colombiaDateTimeInput) o "".
+  estimadaInput: string;
+  realInput: string;
+  // Fecha real "AAAA-MM-DD HH:MM" hora Colombia, o null si aún no se recibe.
+  realTexto: string | null;
+  // OF vieja sin estimada: su fecha de entrega anterior (yyyy-MM-dd) solo como ayuda, o "".
+  fechaAnterior: string;
+  estado: EstadoEntrega;
+  historial: CambioFechaView[];
   deliveryAddress: string;
   notes: string;
   totalCost: number;
@@ -136,6 +150,12 @@ export function OrderManufacturingTab({ cards, currency, returnTo, brandName }: 
                   <Factory className="h-4 w-4 text-muted-foreground" /> {displayCode(card.code)}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">{card.supplierName}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <DeliveryStateChip estado={card.estado} />
+                  {card.realTexto ? (
+                    <span className="text-[11px] text-muted-foreground">Recibido el {card.realTexto}</span>
+                  ) : null}
+                </div>
               </div>
               <div className="text-right">
                 <p className="text-sm font-semibold text-foreground">{formatMoney(card.totalCost, currency)}</p>
@@ -194,21 +214,36 @@ export function OrderManufacturingTab({ cards, currency, returnTo, brandName }: 
             <form action={adminUpdateManufacturingOrderAction} className="space-y-2">
               <input type="hidden" name="manufacturingOrderId" value={card.id} />
               <input type="hidden" name="returnTo" value={returnTo} />
-              <div className="grid gap-2 sm:grid-cols-[9.5rem_1fr]">
+              <div className="grid gap-2 sm:grid-cols-2">
                 <label className="space-y-1">
-                  <span className="text-[11px] font-medium text-muted-foreground">Fecha de entrega</span>
-                  <Input type="date" name="deliveryDate" defaultValue={card.deliveryDate} className="h-8 text-xs" />
-                </label>
-                <label className="space-y-1">
-                  <span className="text-[11px] font-medium text-muted-foreground">Dirección de despacho</span>
+                  <span className="text-[11px] font-medium text-muted-foreground">Fecha y hora estimada de entrega</span>
                   <Input
-                    name="deliveryAddress"
-                    defaultValue={card.deliveryAddress}
-                    placeholder="A dónde debe entregar"
+                    type="datetime-local"
+                    name="estimatedDeliveryAt"
+                    required
+                    defaultValue={card.estimadaInput}
                     className="h-8 text-xs"
                   />
+                  {!card.estimadaInput && card.fechaAnterior ? (
+                    <span className="block text-[11px] text-muted-foreground">
+                      Fecha anterior: {formatDay(card.fechaAnterior)}
+                    </span>
+                  ) : null}
+                </label>
+                <label className="space-y-1">
+                  <span className="text-[11px] font-medium text-muted-foreground">Fecha real (recibido)</span>
+                  <Input type="datetime-local" name="receivedAt" defaultValue={card.realInput} className="h-8 text-xs" />
                 </label>
               </div>
+              <label className="block space-y-1">
+                <span className="text-[11px] font-medium text-muted-foreground">Dirección de despacho</span>
+                <Input
+                  name="deliveryAddress"
+                  defaultValue={card.deliveryAddress}
+                  placeholder="A dónde debe entregar"
+                  className="h-8 text-xs"
+                />
+              </label>
               <label className="block space-y-1">
                 <span className="text-[11px] font-medium text-muted-foreground">Notas para la proveedora</span>
                 <textarea
@@ -226,6 +261,19 @@ export function OrderManufacturingTab({ cards, currency, returnTo, brandName }: 
               </div>
             </form>
 
+            {card.realTexto ? null : (
+              <form action={adminMarkManufacturingReceivedAction} className="flex justify-end">
+                <input type="hidden" name="manufacturingOrderId" value={card.id} />
+                <input type="hidden" name="returnTo" value={returnTo} />
+                <SaveDateButton label="Marcar recibido" />
+              </form>
+            )}
+
+            <div className="space-y-1">
+              <p className="text-[11px] font-medium text-muted-foreground">Historial de fechas</p>
+              <FechaHistorial items={card.historial} />
+            </div>
+
             <div className="flex flex-wrap gap-2 border-t border-border pt-3">
               {card.creadaSolaParaLaura ? (
                 <p className="w-full text-xs font-medium text-emerald-700 dark:text-emerald-400">
@@ -240,15 +288,29 @@ export function OrderManufacturingTab({ cards, currency, returnTo, brandName }: 
               >
                 <ExternalLink className="h-3.5 w-3.5" /> Ver
               </a>
-              <CopyLinkButton url={card.url} />
-              <a
-                href={waHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 text-xs font-semibold text-white hover:bg-emerald-700"
-              >
-                <MessageCircle className="h-3.5 w-3.5" /> Enviar por WhatsApp
-              </a>
+              {card.estimadaInput ? (
+                <>
+                  <CopyLinkButton url={card.url} />
+                  <a
+                    href={waHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" /> Enviar por WhatsApp
+                  </a>
+                </>
+              ) : (
+                // La OF se crea sola al abrir la orden: la fecha se exige antes de mandarla a la proveedora.
+                <>
+                  <Button type="button" variant="outline" size="sm" className="h-8 text-xs" disabled>
+                    <Copy className="h-3.5 w-3.5" /> Falta la fecha estimada
+                  </Button>
+                  <Button type="button" size="sm" className="h-8 text-xs" disabled>
+                    <MessageCircle className="h-3.5 w-3.5" /> Falta la fecha estimada
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         );

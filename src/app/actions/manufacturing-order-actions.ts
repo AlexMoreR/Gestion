@@ -6,6 +6,9 @@ import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
 import { snapshotForLog } from "@/lib/activity-log-snapshot";
 import { hasAnyModuleAccess } from "@/lib/admin-module-access";
+import { displayCode } from "@/lib/code-display";
+import { colombiaDateTimeInput, parseColombiaDateTime } from "@/lib/colombia-time";
+import { resumenCambioFechaOf } from "@/lib/delivery-tracking";
 import { validarFotosEmbalaje, type EmbalajeTipo } from "@/lib/embalaje-fotos";
 import { prisma } from "@/lib/prisma";
 import { hasUploadedFile, saveShipmentPhoto } from "@/lib/upload-photo";
@@ -19,7 +22,7 @@ function redirectWith(returnTo: string, key: "ok" | "error", message: string): n
   redirect(`${returnTo}?${new URLSearchParams({ [key]: message }).toString()}`);
 }
 
-// Guarda fecha de entrega, direccion de despacho y notas de una orden de fabricacion.
+// Guarda fecha estimada (obligatoria), fecha real (opcional), direccion de despacho y notas de una OF.
 export async function adminUpdateManufacturingOrderAction(formData: FormData): Promise<void> {
   const session = await auth();
   if (!session?.user?.id || !(await hasAnyModuleAccess(session.user.id, session.user.role, ["orders"]))) {
@@ -32,32 +35,70 @@ export async function adminUpdateManufacturingOrderAction(formData: FormData): P
     redirectWith(returnTo, "error", "Orden de fabricación inválida");
   }
 
-  const dateRaw = String(formData.get("deliveryDate") ?? "").trim();
-  let deliveryDate: Date | null = null;
-  if (dateRaw) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateRaw)) {
-      redirectWith(returnTo, "error", "Fecha de entrega inválida");
-    }
-    // Dia de calendario guardado como medianoche UTC (se muestra en UTC).
-    deliveryDate = new Date(`${dateRaw}T00:00:00.000Z`);
+  const estimadaRaw = String(formData.get("estimatedDeliveryAt") ?? "").trim();
+  const estimatedDeliveryAt = parseColombiaDateTime(estimadaRaw);
+  if (!estimatedDeliveryAt) {
+    redirectWith(returnTo, "error", "Escribe la fecha y hora estimada de entrega");
+  }
+  // Día del texto del campo (no colombiaDayKey: las 7:00 p. m. son medianoche UTC del día siguiente).
+  // /fabricacion/<token> y /of/<código> siguen leyendo deliveryDate.
+  const deliveryDate = new Date(`${estimadaRaw.slice(0, 10)}T00:00:00.000Z`);
+
+  const realRaw = String(formData.get("receivedAt") ?? "").trim();
+  const realNueva = realRaw ? parseColombiaDateTime(realRaw) : null;
+  if (realRaw && !realNueva) {
+    redirectWith(returnTo, "error", "Fecha real inválida");
+  }
+  if (realNueva && realNueva.getTime() > Date.now()) {
+    redirectWith(returnTo, "error", "La fecha real no puede ser en el futuro");
   }
 
   const deliveryAddress = String(formData.get("deliveryAddress") ?? "").trim().slice(0, 300) || null;
   const notes = String(formData.get("notes") ?? "").trim().slice(0, 1000) || null;
 
-  const LOG_FIELDS = ["deliveryDate", "deliveryAddress", "notes"] as const;
-  let log: { code: string; orderId: string; before: ReturnType<typeof snapshotForLog> } | null = null;
+  const LOG_FIELDS = ["deliveryDate", "estimatedDeliveryAt", "receivedAt", "deliveryAddress", "notes"] as const;
+  type Log = {
+    code: string;
+    orderId: string;
+    before: ReturnType<typeof snapshotForLog>;
+    after: ReturnType<typeof snapshotForLog>;
+    summary: string;
+  };
+  let log: Log | null = null;
   try {
     const before = await prisma.manufacturingOrder.findUnique({
       where: { id },
-      select: { code: true, orderId: true, deliveryDate: true, deliveryAddress: true, notes: true },
+      select: {
+        code: true,
+        orderId: true,
+        deliveryDate: true,
+        estimatedDeliveryAt: true,
+        receivedAt: true,
+        deliveryAddress: true,
+        notes: true,
+      },
     });
     if (before) {
-      await prisma.manufacturingOrder.update({
-        where: { id },
-        data: { deliveryDate, deliveryAddress, notes },
-      });
-      log = { code: before.code, orderId: before.orderId, before: snapshotForLog(before, LOG_FIELDS) };
+      // El campo no tiene segundos: si el texto es el mismo, se conserva el valor guardado (sin cambio falso).
+      const realSinCambio = (before.receivedAt ? colombiaDateTimeInput(before.receivedAt) : "") === realRaw;
+      const receivedAt = realSinCambio ? before.receivedAt : realNueva;
+      const estimadaCambio = before.estimatedDeliveryAt?.getTime() !== estimatedDeliveryAt.getTime();
+      const data = { deliveryDate, estimatedDeliveryAt, receivedAt, deliveryAddress, notes };
+      await prisma.manufacturingOrder.update({ where: { id }, data });
+      const code = displayCode(before.code);
+      log = {
+        code: before.code,
+        orderId: before.orderId,
+        before: snapshotForLog(before, LOG_FIELDS),
+        after: snapshotForLog(data, LOG_FIELDS),
+        summary:
+          estimadaCambio || !realSinCambio
+            ? resumenCambioFechaOf(code, {
+                estimada: estimadaCambio ? { antes: before.estimatedDeliveryAt, despues: estimatedDeliveryAt } : undefined,
+                real: realSinCambio ? undefined : { antes: before.receivedAt, despues: receivedAt },
+              })
+            : `Editó la orden de fabricación ${before.code}`,
+      };
     }
   } catch {
     log = null;
@@ -72,13 +113,50 @@ export async function adminUpdateManufacturingOrderAction(formData: FormData): P
     entityType: "ORDER",
     entityId: log.orderId,
     entityCode: log.code,
-    summary: `Editó la orden de fabricación ${log.code}`,
+    summary: log.summary,
     before: log.before,
-    after: snapshotForLog({ deliveryDate, deliveryAddress, notes }, LOG_FIELDS),
+    after: log.after,
   });
 
   revalidatePath(returnTo);
   redirectWith(returnTo, "ok", "Orden de fabricación actualizada");
+}
+
+// "Marcar recibido": la fecha real de la OF es ahora. Solo si aún no tenía (para corregirla, se edita).
+export async function adminMarkManufacturingReceivedAction(formData: FormData): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.id || !(await hasAnyModuleAccess(session.user.id, session.user.role, ["orders"]))) {
+    redirect("/unauthorized");
+  }
+
+  const returnTo = getReturnTo(formData);
+  const id = String(formData.get("manufacturingOrderId") ?? "").trim();
+  const of = id
+    ? await prisma.manufacturingOrder.findUnique({ where: { id }, select: { code: true, orderId: true } })
+    : null;
+  if (!of) {
+    redirectWith(returnTo, "error", "Orden de fabricación inválida");
+  }
+
+  const receivedAt = new Date();
+  // receivedAt: null en el where: dos toques a la vez la marcan una sola vez.
+  const { count } = await prisma.manufacturingOrder.updateMany({ where: { id, receivedAt: null }, data: { receivedAt } });
+  if (count === 0) {
+    redirectWith(returnTo, "error", "Esta orden de fabricación ya estaba marcada como recibida");
+  }
+
+  await logActivity({
+    action: "UPDATE",
+    entityType: "ORDER",
+    entityId: of.orderId,
+    entityCode: of.code,
+    summary: resumenCambioFechaOf(displayCode(of.code), { real: { antes: null, despues: receivedAt } }),
+    before: { receivedAt: null },
+    after: { receivedAt: receivedAt.toISOString() },
+  });
+
+  revalidatePath(returnTo);
+  redirectWith(returnTo, "ok", "Orden de fabricación marcada como recibida");
 }
 
 // "Ya lo vi" de la proveedora en su OF pública (/fabricacion/<token>): sin sesión, el enlace secreto es el

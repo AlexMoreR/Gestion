@@ -5,6 +5,8 @@ import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { textoColores } from "./product-parts";
 import { stableShareToken } from "@/lib/manufacturing-share-token";
 import { colombiaDayKey } from "./colombia-time";
+import { displayCode } from "./code-display";
+import { resumenCambioFechaOf } from "./delivery-tracking";
 import { computeOfBalance, type OfBalance } from "../modules/proveedores/domain/supplier-payment";
 
 // Ordenes de fabricacion (OF-00001): una por orden de venta + proveedora.
@@ -64,6 +66,66 @@ export function toManufacturingLine(item: OrderItemForLine): ManufacturingLine {
 // Productos de una orden que se le encargaron a una proveedora (fabricacion).
 export function isManufacturingItem(item: { confirmedSupplierId: string | null; fulfillmentMode: string }): boolean {
   return Boolean(item.confirmedSupplierId) && item.fulfillmentMode !== "STOCK";
+}
+
+// Fecha real automática de la OF: todos los productos de esa proveedora están en algún despacho vivo
+// (ni cancelado ni devuelto). Sin productos de la proveedora no hay nada recibido: falso.
+export function ofTodaDespachada(
+  supplierId: string,
+  items: Array<{ confirmedSupplierId: string | null; fulfillmentMode: string; dispatchStatuses: string[] }>,
+): boolean {
+  const propios = items.filter((item) => isManufacturingItem(item) && item.confirmedSupplierId === supplierId);
+  return (
+    propios.length > 0 &&
+    propios.every((item) => item.dispatchStatuses.some((status) => status !== "CANCELLED" && status !== "RETURNED"))
+  );
+}
+
+// Dentro de la transacción del despacho: marca recibida (ahora) cada OF sin fecha real cuya proveedora ya
+// despachó todo. Deshacer un despacho no la borra (se corrige a mano); las fotos de embalaje no cuentan.
+export async function marcarOfRecibidasSiDespachadas(tx: Prisma.TransactionClient, orderId: string): Promise<void> {
+  const pendientes = await tx.manufacturingOrder.findMany({
+    where: { orderId, receivedAt: null },
+    select: { id: true, code: true, supplierId: true },
+  });
+  if (pendientes.length === 0) return;
+  const items = await tx.orderItem.findMany({
+    where: { orderId },
+    select: {
+      confirmedSupplierId: true,
+      fulfillmentMode: true,
+      dispatchItems: { select: { dispatch: { select: { status: true } } } },
+    },
+  });
+  const conEstados = items.map((item) => ({
+    confirmedSupplierId: item.confirmedSupplierId,
+    fulfillmentMode: item.fulfillmentMode,
+    dispatchStatuses: item.dispatchItems.map((row) => row.dispatch.status),
+  }));
+  const ahora = new Date();
+  for (const of of pendientes) {
+    if (!ofTodaDespachada(of.supplierId, conEstados)) continue;
+    // receivedAt: null en el where: si dos despachos llegan a la vez, solo uno la marca y la anota.
+    const { count } = await tx.manufacturingOrder.updateMany({
+      where: { id: of.id, receivedAt: null },
+      data: { receivedAt: ahora },
+    });
+    if (count === 0) continue;
+    await tx.activityLog.create({
+      data: {
+        actorId: null,
+        actorName: "Automático (al despachar)",
+        action: "UPDATE",
+        entityType: "ORDER",
+        entityId: orderId,
+        entityCode: of.code,
+        summary: resumenCambioFechaOf(displayCode(of.code), { real: { antes: null, despues: ahora } }).slice(0, 500),
+        before: { receivedAt: null },
+        after: { receivedAt: ahora.toISOString() },
+        origin: "PANTALLA",
+      },
+    });
+  }
 }
 
 // Direccion de despacho sugerida: la del cliente, SIN nombre ni telefono.

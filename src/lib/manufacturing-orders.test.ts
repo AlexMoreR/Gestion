@@ -5,7 +5,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 vi.mock("@/lib/quote-item-meta", async () => await import("./quote-item-meta"));
 vi.mock("@/lib/manufacturing-share-token", async () => await import("./manufacturing-share-token"));
 
-import { destinationCityLabel, supplierPaymentLabel } from "./manufacturing-orders";
+import { destinationCityLabel, ofTodaDespachada, supplierPaymentLabel } from "./manufacturing-orders";
 
 describe("destinationCityLabel", () => {
   it("une ciudad y departamento", () => {
@@ -56,5 +56,35 @@ describe("supplierPaymentLabel", () => {
   it("sin definir o sin venta: por confirmar", () => {
     expect(supplierPaymentLabel(null)).toBe("Pago: por confirmar");
     expect(supplierPaymentLabel(undefined)).toBe("Pago: por confirmar");
+  });
+});
+
+describe("ofTodaDespachada", () => {
+  const fab = (supplier: string | null, statuses: string[], mode = "MANUFACTURE") => ({
+    confirmedSupplierId: supplier,
+    fulfillmentMode: mode,
+    dispatchStatuses: statuses,
+  });
+
+  it("es verdadero cuando todos los productos de la proveedora están en un despacho vivo", () => {
+    expect(ofTodaDespachada("laura", [fab("laura", ["PACKING"]), fab("laura", ["CANCELLED", "SHIPPED"])])).toBe(true);
+  });
+
+  it("es falso si falta despachar uno de sus productos", () => {
+    expect(ofTodaDespachada("laura", [fab("laura", ["PACKING"]), fab("laura", [])])).toBe(false);
+  });
+
+  it("un despacho cancelado o devuelto no cuenta", () => {
+    expect(ofTodaDespachada("laura", [fab("laura", ["CANCELLED"])])).toBe(false);
+    expect(ofTodaDespachada("laura", [fab("laura", ["RETURNED"])])).toBe(false);
+  });
+
+  it("ignora productos de otra proveedora y los de stock", () => {
+    expect(ofTodaDespachada("laura", [fab("laura", ["DELIVERED"]), fab("ana", []), fab("laura", [], "STOCK")])).toBe(true);
+  });
+
+  it("sin productos de la proveedora es falso", () => {
+    expect(ofTodaDespachada("laura", [])).toBe(false);
+    expect(ofTodaDespachada("laura", [fab("ana", ["PACKING"])])).toBe(false);
   });
 });

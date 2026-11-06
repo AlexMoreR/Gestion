@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estadoDeEntrega } from "./delivery-tracking";
+import { estadoDeEntrega, PREFIJO_CAMBIO_FECHA, resumenCambioFechaDespacho, resumenCambioFechaOf } from "./delivery-tracking";
 import { parseColombiaDateTime } from "./colombia-time";
 
 const d = (iso: string) => new Date(iso);
@@ -59,5 +59,27 @@ describe("estadoDeEntrega", () => {
     // 6:59 p. m. del 20-nov: falta 1 min → por vencer; 7:01 p. m.: atrasado.
     expect(estado({ estimadoEn: desdeFormulario }, d("2026-11-20T23:59:00Z")).tipo).toBe("POR_VENCER");
     expect(estado({ estimadoEn: desdeFormulario }, d("2026-11-21T00:01:00Z")).tipo).toBe("ATRASADO");
+  });
+});
+
+describe("resúmenes del historial de fechas", () => {
+  it("despacho: antes → después en hora Colombia", () => {
+    const texto = resumenCambioFechaDespacho("DSP-12", { antes: d("2026-11-05T20:00:00Z"), despues: d("2026-11-07T15:00:00Z") });
+    expect(texto).toBe("Cambió la fecha estimada de DSP-12: 2026-11-05 15:00 → 2026-11-07 10:00");
+    expect(texto.startsWith(PREFIJO_CAMBIO_FECHA)).toBe(true);
+  });
+
+  it("OF: solo lo que cambió y siempre con el mismo prefijo", () => {
+    expect(resumenCambioFechaOf("OF-35", { estimada: { antes: null, despues: d("2026-11-21T00:00:00Z") } })).toBe(
+      "Cambió la fecha estimada o real de OF-35: estimada sin fecha → 2026-11-20 19:00",
+    );
+    const ambos = resumenCambioFechaOf("OF-35", {
+      estimada: { antes: d("2026-11-21T00:00:00Z"), despues: d("2026-11-22T00:00:00Z") },
+      real: { antes: d("2026-11-20T15:00:00Z"), despues: null },
+    });
+    expect(ambos).toBe(
+      "Cambió la fecha estimada o real de OF-35: estimada 2026-11-20 19:00 → 2026-11-21 19:00 · real 2026-11-20 10:00 → sin fecha",
+    );
+    expect(ambos.startsWith(PREFIJO_CAMBIO_FECHA)).toBe(true);
   });
 });

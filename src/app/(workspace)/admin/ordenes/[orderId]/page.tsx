@@ -7,6 +7,9 @@ import { OrderActionsMenu } from "@/components/admin/order-actions-menu";
 import { OrderHistoryTabs } from "@/components/admin/order-history-tabs";
 import { EmbalajeFotosCard, gruposEmbalaje } from "@/components/admin/embalaje-fotos-card";
 import { OrderNotesCard } from "@/components/admin/order-notes-card";
+import { DispatchEstimateCard, type CambioFechaView } from "@/components/admin/dispatch-estimate-card";
+import { colombiaDateTimeInput } from "@/lib/colombia-time";
+import { estadoDeEntrega, PREFIJO_CAMBIO_FECHA } from "@/lib/delivery-tracking";
 import { OrderReversalsCard } from "@/components/admin/order-reversals-card";
 import { OrderItemsTable } from "@/components/admin/order-items-table";
 import { OrderStepper } from "@/components/admin/order-stepper";
@@ -515,6 +518,34 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     })
     .filter((card) => card.legs.length > 0);
 
+  // Historial de fechas (despachos y OF): bitácora con el prefijo, más nuevo primero, por código.
+  const cambiosDeFecha = await prisma.activityLog.findMany({
+    where: { entityType: "ORDER", entityId: order.id, summary: { startsWith: PREFIJO_CAMBIO_FECHA } },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, entityCode: true, summary: true, actorName: true, createdAt: true },
+  });
+  const historialDe = (code: string): CambioFechaView[] =>
+    cambiosDeFecha
+      .filter((cambio) => cambio.entityCode === code)
+      .map((cambio) => ({ id: cambio.id, summary: cambio.summary, by: cambio.actorName, date: formatNoteDate(cambio.createdAt) }));
+  const ahora = new Date();
+  const dispatchEstimates = order.dispatches
+    .filter((dispatch) => dispatch.status !== "CANCELLED")
+    .map((dispatch) => ({
+      id: dispatch.id,
+      code: displayCode(dispatch.code),
+      estado:
+        dispatch.status === "RETURNED"
+          ? null
+          : estadoDeEntrega(
+              { estimadoEn: dispatch.estimatedDeliveryAt, realEn: dispatch.deliveredAt, enCamino: dispatch.status === "SHIPPED" },
+              ahora,
+            ),
+      realEn: dispatch.deliveredAt ? formatNoteDate(dispatch.deliveredAt) : null,
+      estimadaInput: dispatch.estimatedDeliveryAt ? colombiaDateTimeInput(dispatch.estimatedDeliveryAt) : "",
+      historial: historialDe(dispatch.code),
+    }));
+
   // Ordenes de fabricacion (OF) por proveedora: solo en ordenes de venta.
   let manufacturingCards: ManufacturingCard[] = [];
   let brandName = "";
@@ -584,9 +615,18 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         supplierName: supplier?.displayName || supplier?.name || "Proveedora",
         supplierWhatsApp,
         url: getSiteUrl(`/of/${manufacturingOrder.code}`),
-        deliveryDate: manufacturingOrder.deliveryDate
-          ? manufacturingOrder.deliveryDate.toISOString().slice(0, 10)
+        estimadaInput: manufacturingOrder.estimatedDeliveryAt
+          ? colombiaDateTimeInput(manufacturingOrder.estimatedDeliveryAt)
           : "",
+        realInput: manufacturingOrder.receivedAt ? colombiaDateTimeInput(manufacturingOrder.receivedAt) : "",
+        realTexto: manufacturingOrder.receivedAt ? formatNoteDate(manufacturingOrder.receivedAt) : null,
+        // Solo ayuda: la fecha vieja no se copia a la estimada (la OF sigue "Sin fecha").
+        fechaAnterior: manufacturingOrder.deliveryDate ? manufacturingOrder.deliveryDate.toISOString().slice(0, 10) : "",
+        estado: estadoDeEntrega(
+          { estimadoEn: manufacturingOrder.estimatedDeliveryAt, realEn: manufacturingOrder.receivedAt, enCamino: false },
+          ahora,
+        ),
+        historial: historialDe(manufacturingOrder.code),
         deliveryAddress: manufacturingOrder.deliveryAddress ?? suggestedAddress,
         notes: manufacturingOrder.notes ?? "",
         totalCost: supplierItems.reduce(
@@ -907,6 +947,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               </CardContent>
             </Card>
           ) : null}
+
+          <DispatchEstimateCard dispatches={dispatchEstimates} returnTo={returnTo} />
 
           <OrderNotesCard
             orderId={order.id}

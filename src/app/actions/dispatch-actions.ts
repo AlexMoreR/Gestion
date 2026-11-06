@@ -12,7 +12,10 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { parseColombiaDateTime } from "@/lib/colombia-time";
-import { getActivityActor, logActivityTx } from "@/lib/activity-log";
+import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
+import { resumenCambioFechaDespacho } from "@/lib/delivery-tracking";
+import { marcarOfRecibidasSiDespachadas } from "@/lib/manufacturing-orders";
+import { displayCode } from "@/lib/code-display";
 import { FALTA_FOTO_LLEGADA, parseReversalInput, pideFotoLlegada, reversalLine } from "@/lib/order-item-reversal";
 import { SHIPPING_COST_LOG_FIELDS, SUPPLIER_LEDGER_LOG_FIELDS, snapshotForLog } from "@/lib/activity-log-snapshot";
 import { anularConMotivo, anularVarias, pagosPrimero } from "@/lib/anulaciones";
@@ -886,6 +889,9 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
         mainReference: receipt?.name ?? parsed.data.trackingNumber ?? `Despacho ${dispatch.code}`,
       });
 
+      // Fecha real de la OF: la proveedora que ya despachó todo queda recibida.
+      await marcarOfRecibidasSiDespachadas(tx, order.id);
+
       // La orden pasa a DISPATCHED solo cuando todos los productos estan despachados.
       const dispatchedCount = await tx.dispatchItem.count({
         where: {
@@ -1168,6 +1174,9 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
         createdById,
         mainReference: receipt?.name ?? trackingPhoto?.name ?? `Despacho ${dispatch.code}`,
       });
+
+      // Fecha real de la OF: la proveedora que ya despachó todo queda recibida.
+      await marcarOfRecibidasSiDespachadas(tx, order.id);
 
       const dispatchedCount = await tx.dispatchItem.count({
         where: {
@@ -2183,3 +2192,57 @@ export async function adminSetDispatchTrackingAction(formData: FormData): Promis
   redirect(`${CARRIER_FOLLOWUP_PATH}?ok=Guia+guardada`);
 }
 
+
+// Cambia la fecha y hora estimada de entrega de un despacho (detalle de la orden). Deja quién y cuándo
+// en la bitácora con el prefijo del historial; si la fecha no cambió no anota nada.
+export async function adminUpdateDispatchEstimateAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/ordenes");
+
+  const dispatchId = String(formData.get("dispatchId") ?? "").trim();
+  const estimatedDeliveryAt = parseColombiaDateTime(String(formData.get("estimatedDeliveryAt") ?? ""));
+  if (!dispatchId) {
+    redirect(`${returnTo}?error=Despacho+no+encontrado`);
+  }
+  if (!estimatedDeliveryAt) {
+    redirect(`${returnTo}?error=${encodeURIComponent("Escribe la fecha y hora estimada de entrega")}`);
+  }
+
+  const dispatch = await prisma.dispatch.findUnique({
+    where: { id: dispatchId },
+    select: { id: true, code: true, orderId: true, status: true, estimatedDeliveryAt: true },
+  });
+  if (!dispatch) {
+    redirect(`${returnTo}?error=Despacho+no+encontrado`);
+  }
+  if (dispatch.status === "CANCELLED") {
+    redirect(`${returnTo}?error=El+despacho+esta+cancelado`);
+  }
+  if (dispatch.estimatedDeliveryAt?.getTime() === estimatedDeliveryAt.getTime()) {
+    redirect(`${returnTo}?ok=${encodeURIComponent("La fecha no cambió")}`);
+  }
+
+  try {
+    await prisma.dispatch.update({ where: { id: dispatch.id }, data: { estimatedDeliveryAt } });
+  } catch (error) {
+    console.error("Failed to update dispatch estimate:", error);
+    redirect(`${returnTo}?error=${encodeURIComponent("No se pudo guardar la fecha")}`);
+  }
+
+  await logActivity({
+    action: "UPDATE",
+    entityType: "ORDER",
+    entityId: dispatch.orderId,
+    entityCode: dispatch.code,
+    summary: resumenCambioFechaDespacho(displayCode(dispatch.code), {
+      antes: dispatch.estimatedDeliveryAt,
+      despues: estimatedDeliveryAt,
+    }),
+    before: { estimatedDeliveryAt: dispatch.estimatedDeliveryAt?.toISOString() ?? null },
+    after: { estimatedDeliveryAt: estimatedDeliveryAt.toISOString() },
+  });
+
+  revalidatePath("/admin/despachos");
+  revalidatePath(`/admin/ordenes/${dispatch.orderId}`);
+  redirect(`${returnTo}?ok=${encodeURIComponent("Fecha estimada guardada")}`);
+}

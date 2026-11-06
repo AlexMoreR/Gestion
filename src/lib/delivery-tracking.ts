@@ -1,5 +1,6 @@
 // Estado de una entrega (despacho) o fabricación (OF) contra su fecha y hora estimada.
 // Puro y sin alias "@/" para que Vitest lo resuelva. Compara momentos reales: no usa colombiaDayKey.
+import { formatNoteDate } from "./order-notes";
 
 export type TipoEstadoEntrega =
   | "SIN_FECHA"
@@ -47,4 +48,26 @@ export function estadoDeEntrega(
     return { tipo: "POR_VENCER", etiqueta: "Por vencer", atrasoHoras: 0 };
   }
   return { tipo: "A_TIEMPO", etiqueta: "A tiempo", atrasoHoras: 0 };
+}
+
+// Historial de fechas (despacho y OF): la bitácora se filtra por este prefijo; no hay tabla propia.
+export const PREFIJO_CAMBIO_FECHA = "Cambió la fecha estimada";
+
+type CambioFecha = { antes: Date | null; despues: Date | null };
+
+function textoFecha(fecha: Date | null): string {
+  return fecha ? formatNoteDate(fecha) : "sin fecha";
+}
+
+// "Cambió la fecha estimada de DES-12: 2026-11-05 15:00 → 2026-11-07 10:00" (hora Colombia).
+export function resumenCambioFechaDespacho(codigo: string, cambio: CambioFecha): string {
+  return `${PREFIJO_CAMBIO_FECHA} de ${codigo}: ${textoFecha(cambio.antes)} → ${textoFecha(cambio.despues)}`;
+}
+
+// OF: lleva solo lo que cambió; con "o real" para que el cambio de la fecha real caiga en el mismo historial.
+export function resumenCambioFechaOf(codigo: string, { estimada, real }: { estimada?: CambioFecha; real?: CambioFecha }): string {
+  const partes: string[] = [];
+  if (estimada) partes.push(`estimada ${textoFecha(estimada.antes)} → ${textoFecha(estimada.despues)}`);
+  if (real) partes.push(`real ${textoFecha(real.antes)} → ${textoFecha(real.despues)}`);
+  return `${PREFIJO_CAMBIO_FECHA} o real de ${codigo}: ${partes.join(" · ")}`;
 }
