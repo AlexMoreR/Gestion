@@ -22,6 +22,7 @@ import { PurchaseDeleteMenuItem, PurchaseDeleteDialog } from "@/components/admin
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { getOrderDisplayState, getOrderStatusBadgeClassName, getOrderStatusLabel } from "@/lib/orders";
 import { displayCode } from "@/lib/code-display";
+import { formatNoteCount } from "@/lib/order-notes";
 import type { SeguimientoOrden, TipoEstadoEntrega } from "@/lib/delivery-tracking";
 import { DeliveryStateChip } from "@/components/admin/delivery-state-chip";
 
@@ -47,6 +48,7 @@ type OrderRow = {
   createdAt: string;
   orderDateISO: string;
   notesText: string;
+  notesCount: number;
   lastNote: { text: string; by: string; date: string } | null;
   // Productos con la entrega deshecha (solo cambia la etiqueta de una orden completada).
   reversedItems: number;
@@ -148,10 +150,16 @@ function NoteIndicator({ order }: { order: OrderRow }) {
       <PopoverTrigger
         openOnHover
         delay={150}
-        aria-label={`Última nota de ${displayCode(order.code)}`}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+        aria-label={`Última nota de ${displayCode(order.code)} (${order.notesCount} ${order.notesCount === 1 ? "nota" : "notas"})`}
+        className="relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
       >
         <StickyNote className="h-4 w-4" />
+        <span
+          aria-hidden
+          className="absolute -top-1 -right-1.5 flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-4 text-primary-foreground"
+        >
+          {formatNoteCount(order.notesCount)}
+        </span>
       </PopoverTrigger>
       <PopoverContent align="start" className="gap-1">
         <p className="whitespace-pre-wrap break-words text-sm text-foreground">{note.text}</p>

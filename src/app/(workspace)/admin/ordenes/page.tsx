@@ -199,6 +199,7 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
       orderDateISO: orderDate.toISOString(),
       // Texto de todas las notas: solo para que el buscador las encuentre.
       notesText: order.noteEntries.map((note) => note.text).join(" "),
+      notesCount: order.noteEntries.length,
       lastNote: lastNote
         ? {
             text: lastNote.text,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatNoteDate, ORDER_NOTE_MAX, parseOrderNoteText } from "./order-notes";
+import { formatNoteCount, formatNoteDate, ORDER_NOTE_MAX, parseOrderNoteText } from "./order-notes";
 
 describe("parseOrderNoteText", () => {
   it("rechaza vacía o solo espacios", () => {
@@ -26,5 +26,13 @@ describe("formatNoteDate", () => {
   it("antes de las 5 a. m. UTC sigue siendo el día anterior en Colombia", () => {
     expect(formatNoteDate(new Date("2026-11-04T03:10:00Z"))).toBe("2026-11-03 22:10");
     expect(formatNoteDate(new Date("2026-11-04T00:00:00Z"))).toBe("2026-11-03 19:00");
+  });
+});
+
+describe("formatNoteCount", () => {
+  it("muestra el número hasta 99 y 99+ desde 100", () => {
+    expect(formatNoteCount(1)).toBe("1");
+    expect(formatNoteCount(99)).toBe("99");
+    expect(formatNoteCount(100)).toBe("99+");
   });
 });

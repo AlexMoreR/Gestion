@@ -17,3 +17,8 @@ export function parseOrderNoteText(raw: unknown): OrderNoteTextResult {
 export function formatNoteDate(date: Date): string {
   return `${todayInColombia(date)} ${colombiaTimeOfDay(date)}`;
 }
+
+// Número sobre el ícono de nota de la lista de órdenes: hasta 99 tal cual; desde 100, "99+".
+export function formatNoteCount(count: number): string {
+  return count > 99 ? "99+" : String(count);
+}
