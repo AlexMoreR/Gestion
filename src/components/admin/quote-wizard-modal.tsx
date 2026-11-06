@@ -1555,35 +1555,35 @@ export function QuoteWizardModal({
                   <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
                     <div>
                       <p className="text-xs text-muted-foreground">Nombre</p>
-                      <p className="font-medium text-foreground">{clientId ? selectedClient?.name ?? clientName : clientName}</p>
+                      <p className="break-words font-medium text-foreground">{clientId ? selectedClient?.name ?? clientName : clientName}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">NIT</p>
-                      <p className="font-medium text-foreground">{clientDocument || "-"}</p>
+                      <p className="break-words font-medium text-foreground">{clientDocument || "-"}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Correo</p>
-                      <p className="font-medium text-foreground">{clientEmail || "-"}</p>
+                      <p className="break-words font-medium text-foreground">{clientEmail || "-"}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Telefono</p>
-                      <p className="font-medium text-foreground">{clientPhone || "-"}</p>
+                      <p className="break-words font-medium text-foreground">{clientPhone || "-"}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Direccion</p>
-                      <p className="font-medium text-foreground">{clientAddress || "-"}</p>
+                      <p className="break-words font-medium text-foreground">{clientAddress || "-"}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Barrio</p>
-                      <p className="font-medium text-foreground">{clientNeighborhood || "-"}</p>
+                      <p className="break-words font-medium text-foreground">{clientNeighborhood || "-"}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Departamento</p>
-                      <p className="font-medium text-foreground">{clientDepartment || "-"}</p>
+                      <p className="break-words font-medium text-foreground">{clientDepartment || "-"}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Ciudad</p>
-                      <p className="font-medium text-foreground">{clientCity || "-"}</p>
+                      <p className="break-words font-medium text-foreground">{clientCity || "-"}</p>
                     </div>
                   </div>
                 </div>
