@@ -7,6 +7,7 @@ import { comboStock } from "@/lib/combo";
 import { prisma } from "@/lib/prisma";
 import { formatNoteDate } from "@/lib/order-notes";
 import { countReversedItems } from "@/lib/order-item-reversal";
+import { seguimientoDeOrden } from "@/lib/delivery-tracking";
 import { createPrismaInventoryRepository } from "@/modules/inventory/infrastructure/prisma-inventory-repository";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
@@ -44,6 +45,16 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
         noteEntries: {
           orderBy: { createdAt: "desc" },
           select: { text: true, createdAt: true, createdBy: { select: { name: true, email: true } } },
+        },
+        // Para los chips de entrega y fabricación (seguimientoDeOrden).
+        dispatches: { select: { status: true, estimatedDeliveryAt: true, deliveredAt: true } },
+        manufacturingOrders: { select: { supplierId: true, estimatedDeliveryAt: true, receivedAt: true } },
+        items: {
+          select: {
+            confirmedSupplierId: true,
+            fulfillmentMode: true,
+            dispatchItems: { select: { dispatch: { select: { status: true } } } },
+          },
         },
       },
       take: 200,
@@ -162,6 +173,9 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
     },
   );
 
+  // Un solo "ahora" para que todas las filas se comparen contra el mismo momento.
+  const ahora = new Date();
+
   // Filas: ordenes de venta y de compra (mismo modelo Order, distinto type).
   const rows = orders.map((order) => {
     const isPurchase = order.type === "PURCHASE";
@@ -193,6 +207,22 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
           }
         : null,
       reversedItems: countReversedItems(reversedLinesByOrder.get(order.id) ?? []),
+      // Las compras no llevan chips de entrega ni fabricación.
+      seguimiento: isPurchase
+        ? null
+        : seguimientoDeOrden(
+            {
+              orderStatus: order.status,
+              despachos: order.dispatches,
+              productos: order.items.map((item) => ({
+                confirmedSupplierId: item.confirmedSupplierId,
+                fulfillmentMode: item.fulfillmentMode,
+                dispatchStatuses: item.dispatchItems.map((row) => row.dispatch.status),
+              })),
+              ofs: order.manufacturingOrders,
+            },
+            ahora,
+          ),
     };
   });
 

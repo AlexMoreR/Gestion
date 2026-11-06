@@ -71,3 +71,88 @@ export function resumenCambioFechaOf(codigo: string, { estimada, real }: { estim
   if (real) partes.push(`real ${textoFecha(real.antes)} → ${textoFecha(real.despues)}`);
   return `${PREFIJO_CAMBIO_FECHA} o real de ${codigo}: ${partes.join(" · ")}`;
 }
+
+// ---- Seguimiento de una orden en la lista (peor estado de entrega y de fabricación) ----
+
+// De más grave a menos grave; entre dos ATRASADO gana el de más horas.
+const GRAVEDAD: TipoEstadoEntrega[] = [
+  "ATRASADO",
+  "SIN_FECHA",
+  "POR_VENCER",
+  "EN_CAMINO",
+  "A_TIEMPO",
+  "ENTREGADO_TARDE",
+  "ENTREGADO_A_TIEMPO",
+];
+
+export type SeguimientoParte = { peor: EstadoEntrega; detalles: EstadoEntrega[] };
+export type SeguimientoOrden = { entrega: SeguimientoParte | null; fabricacion: SeguimientoParte | null };
+
+type SeguimientoEntrada = {
+  orderStatus: string;
+  despachos: Array<{ status: string; estimatedDeliveryAt: Date | null; deliveredAt: Date | null }>;
+  productos: Array<{ confirmedSupplierId: string | null; fulfillmentMode: string; dispatchStatuses: string[] }>;
+  ofs: Array<{ supplierId: string; estimatedDeliveryAt: Date | null; receivedAt: Date | null }>;
+};
+
+const despachoVivo = (status: string) => status !== "CANCELLED" && status !== "RETURNED";
+
+// Copia de isManufacturingItem (src/lib/manufacturing-orders.ts, que usa Prisma e importa este módulo):
+// si esa regla cambia, cambiar también esta.
+const esDeFabricacion = (item: { confirmedSupplierId: string | null; fulfillmentMode: string }) =>
+  Boolean(item.confirmedSupplierId) && item.fulfillmentMode !== "STOCK";
+
+function peorDe(estados: EstadoEntrega[]): SeguimientoParte | null {
+  if (estados.length === 0) return null;
+  const peor = estados.reduce((a, b) => {
+    const ga = GRAVEDAD.indexOf(a.tipo);
+    const gb = GRAVEDAD.indexOf(b.tipo);
+    if (ga !== gb) return gb < ga ? b : a;
+    return b.atrasoHoras > a.atrasoHoras ? b : a;
+  });
+  return { peor, detalles: estados };
+}
+
+export function seguimientoDeOrden(
+  { orderStatus, despachos, productos, ofs }: SeguimientoEntrada,
+  ahora: Date,
+): SeguimientoOrden {
+  // Orden cerrada o cancelada: solo cuenta lo ya terminado, para que el histórico no se llene de alertas.
+  const cerrada = orderStatus === "COMPLETED" || orderStatus === "CANCELLED";
+  const cuenta = (estado: EstadoEntrega, realEn: Date | null) => {
+    if (cerrada) return estado.tipo === "ENTREGADO_A_TIEMPO" || estado.tipo === "ENTREGADO_TARDE";
+    // Ya hecho sin fecha estimada: no queda fecha por poner.
+    return !(estado.tipo === "SIN_FECHA" && realEn);
+  };
+
+  const entregas = despachos
+    .filter((despacho) => despachoVivo(despacho.status))
+    .map((despacho) => ({
+      estado: estadoDeEntrega(
+        { estimadoEn: despacho.estimatedDeliveryAt, realEn: despacho.deliveredAt, enCamino: despacho.status === "SHIPPED" },
+        ahora,
+      ),
+      realEn: despacho.deliveredAt,
+    }))
+    .filter(({ estado, realEn }) => cuenta(estado, realEn))
+    .map(({ estado }) => estado);
+
+  // La fila OF solo existe si se abrió la orden de fabricación: se parte de las proveedoras con productos.
+  const proveedoras = new Set(
+    productos.filter(esDeFabricacion).map((item) => item.confirmedSupplierId as string),
+  );
+  const fabricaciones: EstadoEntrega[] = [];
+  for (const supplierId of proveedoras) {
+    const of = ofs.find((fila) => fila.supplierId === supplierId);
+    const realEn = of?.receivedAt ?? null;
+    const estado = estadoDeEntrega({ estimadoEn: of?.estimatedDeliveryAt ?? null, realEn, enCamino: false }, ahora);
+    if (!cuenta(estado, realEn)) continue;
+    if (estado.tipo === "SIN_FECHA") {
+      const propios = productos.filter((item) => esDeFabricacion(item) && item.confirmedSupplierId === supplierId);
+      if (propios.every((item) => item.dispatchStatuses.some(despachoVivo))) continue;
+    }
+    fabricaciones.push(estado);
+  }
+
+  return { entrega: peorDe(entregas), fabricacion: peorDe(fabricaciones) };
+}

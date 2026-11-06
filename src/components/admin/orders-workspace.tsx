@@ -22,6 +22,8 @@ import { PurchaseDeleteMenuItem, PurchaseDeleteDialog } from "@/components/admin
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { getOrderDisplayState, getOrderStatusBadgeClassName, getOrderStatusLabel } from "@/lib/orders";
 import { displayCode } from "@/lib/code-display";
+import type { SeguimientoOrden, TipoEstadoEntrega } from "@/lib/delivery-tracking";
+import { DeliveryStateChip } from "@/components/admin/delivery-state-chip";
 
 type PurchaseProductOption = {
   id: string;
@@ -48,7 +50,39 @@ type OrderRow = {
   lastNote: { text: string; by: string; date: string } | null;
   // Productos con la entrega deshecha (solo cambia la etiqueta de una orden completada).
   reversedItems: number;
+  // Peor estado de entrega y de fabricación; null en las compras.
+  seguimiento: SeguimientoOrden | null;
 };
+
+const SEGUIMIENTO_OPCIONES: { value: TipoEstadoEntrega; label: string }[] = [
+  { value: "A_TIEMPO", label: "A tiempo" },
+  { value: "POR_VENCER", label: "Por vencer" },
+  { value: "ATRASADO", label: "Atrasado" },
+  { value: "EN_CAMINO", label: "En camino" },
+  { value: "ENTREGADO_A_TIEMPO", label: "Entregado a tiempo" },
+  { value: "ENTREGADO_TARDE", label: "Entregado tarde" },
+  { value: "SIN_FECHA", label: "Sin fecha" },
+];
+
+function coincideSeguimiento(order: OrderRow, tipo: TipoEstadoEntrega): boolean {
+  const s = order.seguimiento;
+  return s?.entrega?.peor.tipo === tipo || s?.fabricacion?.peor.tipo === tipo;
+}
+
+// Chips «Entrega: …» y «Fabricación: …»; sin ninguno, «—».
+function SeguimientoChips({ order }: { order: OrderRow }) {
+  const entrega = order.seguimiento?.entrega?.peor;
+  const fabricacion = order.seguimiento?.fabricacion?.peor;
+  if (!entrega && !fabricacion) return <span className="text-sm text-muted-foreground">—</span>;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {entrega ? <DeliveryStateChip estado={{ ...entrega, etiqueta: `Entrega: ${entrega.etiqueta}` }} /> : null}
+      {fabricacion ? (
+        <DeliveryStateChip estado={{ ...fabricacion, etiqueta: `Fabricación: ${fabricacion.etiqueta}` }} />
+      ) : null}
+    </div>
+  );
+}
 
 // Dia local (YYYY-MM-DD) de la fecha de la orden, para comparar con el rango.
 function localDay(iso: string): string {
@@ -199,9 +233,12 @@ export function OrdersWorkspace({
   const [fromDate, setFromDate] = React.useState(defaultRange.from);
   const [toDate, setToDate] = React.useState(defaultRange.to);
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [seguimiento, setSeguimiento] = React.useState<TipoEstadoEntrega | "">("");
   const todayDay = React.useMemo(() => todayLocalDay(), []);
 
   const filtered = orders.filter((order) => {
+    // Con filtro de seguimiento se ignora el rango de fechas (igual que al buscar), para no esconder atrasos viejos.
+    if (seguimiento) return coincideSeguimiento(order, seguimiento);
     // Las ordenes activas (no cerradas ni canceladas) se "arrastran" al mes
     // actual: se filtran por hoy (no por su fecha real), asi las que siguen en
     // produccion/proceso quedan visibles hasta cerrarse. Las cerradas/canceladas
@@ -215,10 +252,30 @@ export function OrdersWorkspace({
 
   // Al buscar, la busqueda abarca TODAS las ordenes (el filtro de fechas solo
   // aplica por defecto, cuando no hay texto de busqueda).
-  const tableData = searchQuery.trim() ? orders : filtered;
+  // El filtro de seguimiento se sigue aplicando aunque se busque.
+  const tableData = searchQuery.trim()
+    ? seguimiento
+      ? orders.filter((order) => coincideSeguimiento(order, seguimiento))
+      : orders
+    : filtered;
 
   const dateFilter = (
-    <div className="flex items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
+      <label className="flex w-full items-center gap-1.5 text-xs text-muted-foreground sm:w-auto">
+        <span className="shrink-0">Seguimiento</span>
+        <select
+          value={seguimiento}
+          onChange={(event) => setSeguimiento(event.target.value as TipoEstadoEntrega | "")}
+          className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:w-40"
+        >
+          <option value="">Todos</option>
+          {SEGUIMIENTO_OPCIONES.map((opcion) => (
+            <option key={opcion.value} value={opcion.value}>
+              {opcion.label}
+            </option>
+          ))}
+        </select>
+      </label>
       <DateRangePicker
         from={fromDate}
         to={toDate}
@@ -284,6 +341,12 @@ export function OrdersWorkspace({
       cell: ({ row }) => <StatusBadge order={row.original} />,
     },
     {
+      id: "seguimiento",
+      header: "Entrega y fabricación",
+      enableSorting: false,
+      cell: ({ row }) => <SeguimientoChips order={row.original} />,
+    },
+    {
       accessorKey: "total",
       header: "Total",
       cell: ({ row }) => (
@@ -319,6 +382,7 @@ export function OrdersWorkspace({
         <p className="text-sm text-foreground">{displayCode(order.saleCode)}</p>
         <p className="text-sm text-foreground">{order.clientName}</p>
         <p className="text-xs text-muted-foreground">{order.assignedToName ?? "Sin asignar"}</p>
+        <SeguimientoChips order={order} />
         <p className="text-sm font-semibold text-foreground">{formatMoney(order.total, currency)}</p>
         <p className="text-xs text-muted-foreground">{order.createdAt}</p>
       </div>
@@ -379,7 +443,7 @@ export function OrdersWorkspace({
         onSearchChange={setSearchQuery}
         emptyMessage="Aun no hay ordenes."
         pageSize={12}
-        minWidth="min-w-[980px]"
+        minWidth="min-w-[1180px]"
         toolbar={dateFilter}
         searchFirst
         renderMobileCard={renderMobileCard}

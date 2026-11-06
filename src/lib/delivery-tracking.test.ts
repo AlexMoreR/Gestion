@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estadoDeEntrega, PREFIJO_CAMBIO_FECHA, resumenCambioFechaDespacho, resumenCambioFechaOf } from "./delivery-tracking";
+import { estadoDeEntrega, seguimientoDeOrden, PREFIJO_CAMBIO_FECHA, resumenCambioFechaDespacho, resumenCambioFechaOf } from "./delivery-tracking";
 import { parseColombiaDateTime } from "./colombia-time";
 
 const d = (iso: string) => new Date(iso);
@@ -81,5 +81,145 @@ describe("resúmenes del historial de fechas", () => {
       "Cambió la fecha estimada o real de OF-35: estimada 2026-11-20 19:00 → 2026-11-21 19:00 · real 2026-11-20 10:00 → sin fecha",
     );
     expect(ambos.startsWith(PREFIJO_CAMBIO_FECHA)).toBe(true);
+  });
+});
+
+describe("seguimientoDeOrden", () => {
+  const ahora = d("2026-11-25T12:00:00Z");
+  const base = { orderStatus: "RELEASED", despachos: [], productos: [], ofs: [] };
+  const despacho = (o: Partial<{ status: string; estimatedDeliveryAt: Date | null; deliveredAt: Date | null }>) => ({
+    status: "PENDING",
+    estimatedDeliveryAt: null,
+    deliveredAt: null,
+    ...o,
+  });
+  const fab = (supplierId: string, dispatchStatuses: string[] = []) => ({
+    confirmedSupplierId: supplierId,
+    fulfillmentMode: "MANUFACTURE",
+    dispatchStatuses,
+  });
+
+  it("sin despachos activos, entrega es null", () => {
+    expect(seguimientoDeOrden(base, ahora).entrega).toBeNull();
+    const soloMuertos = { ...base, despachos: [despacho({ status: "CANCELLED" }), despacho({ status: "RETURNED" })] };
+    expect(seguimientoDeOrden(soloMuertos, ahora).entrega).toBeNull();
+  });
+
+  it("con dos atrasados sale el de más horas", () => {
+    const r = seguimientoDeOrden(
+      {
+        ...base,
+        despachos: [
+          despacho({ estimatedDeliveryAt: d("2026-11-25T10:00:00Z") }),
+          despacho({ estimatedDeliveryAt: d("2026-11-22T12:00:00Z") }),
+          despacho({ estimatedDeliveryAt: d("2026-11-30T12:00:00Z") }),
+        ],
+      },
+      ahora,
+    );
+    expect(r.entrega?.peor).toEqual({ tipo: "ATRASADO", etiqueta: "ATRASADO 3 días", atrasoHoras: 72 });
+    expect(r.entrega?.detalles).toHaveLength(3);
+  });
+
+  it("orden de gravedad: sin fecha gana a por vencer, y por vencer a entregado", () => {
+    const r = seguimientoDeOrden(
+      {
+        ...base,
+        despachos: [
+          despacho({ estimatedDeliveryAt: d("2026-11-25T20:00:00Z") }),
+          despacho({ estimatedDeliveryAt: d("2026-11-24T12:00:00Z"), deliveredAt: d("2026-11-24T10:00:00Z"), status: "DELIVERED" }),
+          despacho({}),
+        ],
+      },
+      ahora,
+    );
+    expect(r.entrega?.peor.tipo).toBe("SIN_FECHA");
+    const sinSinFecha = seguimientoDeOrden(
+      { ...base, despachos: [despacho({ estimatedDeliveryAt: d("2026-11-25T20:00:00Z") }), despacho({ status: "DELIVERED", estimatedDeliveryAt: ahora, deliveredAt: ahora })] },
+      ahora,
+    );
+    expect(sinSinFecha.entrega?.peor.tipo).toBe("POR_VENCER");
+  });
+
+  it("despacho SHIPPED con fecha futura = en camino; entregado sin estimado no cuenta", () => {
+    const r = seguimientoDeOrden(
+      {
+        ...base,
+        despachos: [
+          despacho({ status: "SHIPPED", estimatedDeliveryAt: d("2026-11-30T12:00:00Z") }),
+          despacho({ status: "DELIVERED", deliveredAt: d("2026-11-24T12:00:00Z") }),
+        ],
+      },
+      ahora,
+    );
+    expect(r.entrega?.peor.tipo).toBe("EN_CAMINO");
+    expect(r.entrega?.detalles).toHaveLength(1);
+  });
+
+  it("proveedora con productos y sin fila OF: fabricación SIN_FECHA", () => {
+    const r = seguimientoDeOrden({ ...base, productos: [fab("laura")] }, ahora);
+    expect(r.fabricacion?.peor.tipo).toBe("SIN_FECHA");
+  });
+
+  it("fila OF de una proveedora sin productos se ignora; los de stock no cuentan", () => {
+    const r = seguimientoDeOrden(
+      {
+        ...base,
+        productos: [{ confirmedSupplierId: "laura", fulfillmentMode: "STOCK", dispatchStatuses: [] }],
+        ofs: [{ supplierId: "laura", estimatedDeliveryAt: d("2026-11-20T12:00:00Z"), receivedAt: null }],
+      },
+      ahora,
+    );
+    expect(r.fabricacion).toBeNull();
+  });
+
+  it("OF con fecha atrasada y OF recibida tarde: gana el atraso", () => {
+    const r = seguimientoDeOrden(
+      {
+        ...base,
+        productos: [fab("laura"), fab("ana")],
+        ofs: [
+          { supplierId: "laura", estimatedDeliveryAt: d("2026-11-24T12:00:00Z"), receivedAt: null },
+          { supplierId: "ana", estimatedDeliveryAt: d("2026-11-20T12:00:00Z"), receivedAt: d("2026-11-21T12:00:00Z") },
+        ],
+      },
+      ahora,
+    );
+    expect(r.fabricacion?.peor).toEqual({ tipo: "ATRASADO", etiqueta: "ATRASADO 1 día", atrasoHoras: 24 });
+  });
+
+  it("OF sin fecha con todos sus productos ya despachados no cuenta", () => {
+    const despachado = seguimientoDeOrden({ ...base, productos: [fab("laura", ["CANCELLED", "SHIPPED"])] }, ahora);
+    expect(despachado.fabricacion).toBeNull();
+    const devuelto = seguimientoDeOrden({ ...base, productos: [fab("laura", ["RETURNED"])] }, ahora);
+    expect(devuelto.fabricacion?.peor.tipo).toBe("SIN_FECHA");
+  });
+
+  it("orden COMPLETED o CANCELLED sin fecha: los dos son null; lo entregado sí cuenta", () => {
+    for (const orderStatus of ["COMPLETED", "CANCELLED"]) {
+      const r = seguimientoDeOrden(
+        {
+          orderStatus,
+          despachos: [despacho({ status: "DELIVERED", deliveredAt: d("2026-11-24T12:00:00Z") })],
+          productos: [fab("laura")],
+          ofs: [],
+        },
+        ahora,
+      );
+      expect(r).toEqual({ entrega: null, fabricacion: null });
+    }
+    const vencida = seguimientoDeOrden(
+      {
+        orderStatus: "COMPLETED",
+        despachos: [
+          despacho({ estimatedDeliveryAt: d("2026-11-01T12:00:00Z") }),
+          despacho({ status: "DELIVERED", estimatedDeliveryAt: d("2026-11-01T12:00:00Z"), deliveredAt: d("2026-11-02T12:00:00Z") }),
+        ],
+        productos: [],
+        ofs: [],
+      },
+      ahora,
+    );
+    expect(vencida.entrega?.peor.tipo).toBe("ENTREGADO_TARDE");
   });
 });
