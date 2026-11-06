@@ -253,29 +253,43 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
                             })}`
                           : "Foto de referencia"}
                       </p>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={
-                          line.imagenDeColores
-                            ? getPublicAssetUrl(line.imageUrl)
-                            : imageVariantUrl(getPublicAssetUrl(line.imageUrl), "large")
-                        }
-                        alt={line.imagenDeColores ? `${line.productName} con los colores a fabricar` : line.productName}
-                        className="h-auto w-full rounded-lg border border-slate-100 object-contain"
-                      />
+                      {line.imagenReferenciaUrl ? (
+                        // Colores a fabricar y referencia subida a mano lado a lado (también al imprimir); en
+                        // celular, apiladas.
+                        <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 print:grid-cols-2">
+                          <div className="space-y-1">
+                            <p className="text-center text-xs font-semibold text-slate-700">Con los colores a fabricar</p>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={getPublicAssetUrl(line.imageUrl)}
+                              alt={`${line.productName} con los colores a fabricar`}
+                              className="h-auto w-full rounded-lg border border-slate-100 object-contain"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-center text-xs font-semibold text-slate-700">Imagen de referencia del producto</p>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={imageVariantUrl(getPublicAssetUrl(line.imagenReferenciaUrl), "large")}
+                              alt={`${line.productName}: imagen de referencia`}
+                              className="h-auto w-full rounded-lg border border-slate-100 object-contain"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={
+                            line.imagenDeColores
+                              ? getPublicAssetUrl(line.imageUrl)
+                              : imageVariantUrl(getPublicAssetUrl(line.imageUrl), "large")
+                          }
+                          alt={line.imagenDeColores ? `${line.productName} con los colores a fabricar` : line.productName}
+                          className="h-auto w-full rounded-lg border border-slate-100 object-contain"
+                        />
+                      )}
                       {line.partesTexto ? (
                         <p className="text-center text-sm font-semibold text-slate-900">{line.partesTexto}</p>
-                      ) : null}
-                      {line.imagenReferenciaUrl ? (
-                        <div className="space-y-1">
-                          <p className="text-center text-xs font-semibold text-slate-700">Imagen de referencia del producto</p>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={imageVariantUrl(getPublicAssetUrl(line.imagenReferenciaUrl), "large")}
-                            alt={`${line.productName}: imagen de referencia`}
-                            className="h-auto w-full rounded-lg border border-slate-100 object-contain"
-                          />
-                        </div>
                       ) : null}
                     </div>
                   ) : null}
