@@ -1,4 +1,6 @@
 import { expandComboLines, type ComboComponent } from "./combo";
+import type { LineaColores } from "./product-parts";
+import { lineasSinColor } from "./quote-item-meta";
 
 // Una cotización con venta no puede cambiar sus líneas: antes se borraban y se rehacían.
 export const COTIZACION_CON_VENTA_LINEAS =
@@ -134,4 +136,43 @@ export function aplicarEdicionCombo<T extends LineaCombo>(lineas: T[], valores: 
   }
 
   return nuevas;
+}
+
+// --- Lo que el servidor revisa antes de guardar la edicion (la pantalla ya lo frena; aqui no se salta) ---
+
+export type LineaAGuardar = LineaColores & {
+  combo: boolean;
+  color: string;
+  quantity: number;
+  unitPrice: number;
+  discount: number;
+  additionalCost: number;
+  comboKey?: string | null;
+};
+
+const enPesos = (valor: number) => `$${new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 }).format(valor)}`;
+
+/**
+ * Error de los valores al guardar, o null. Primero el color (misma regla y texto de la pantalla).
+ * Luego el descuento: no pasa de cantidad × precio + adicional, por línea suelta y, en un combo,
+ * sumando sus líneas (el reparto redondeado puede dejar una pieza con unos pesos de más).
+ * Menos de 1 peso de diferencia no cuenta.
+ */
+export function errorAlGuardarLineas(lineas: LineaAGuardar[]): string | null {
+  const faltan = lineasSinColor(lineas);
+  if (faltan.length > 0) return `Falta escoger el color: ${faltan.join(", ")}`;
+
+  const grupos = new Map<string, LineaAGuardar[]>();
+  lineas.forEach((linea, index) => {
+    const clave = linea.comboKey ? `combo:${linea.comboKey}` : `linea:${index}`;
+    grupos.set(clave, [...(grupos.get(clave) ?? []), linea]);
+  });
+  for (const grupo of grupos.values()) {
+    const valor = grupo.reduce((sum, l) => sum + l.quantity * l.unitPrice + l.additionalCost, 0);
+    const descuento = grupo.reduce((sum, l) => sum + l.discount, 0);
+    if (descuento - valor >= 1) {
+      return `El descuento de ${grupo[0].etiqueta} (${enPesos(descuento)}) no puede pasar de su valor (${enPesos(valor)}).`;
+    }
+  }
+  return null;
 }

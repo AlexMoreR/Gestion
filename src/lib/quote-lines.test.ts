@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aplicarEdicionCombo, distributeAmount, mismasLineas, resumenCombo } from "./quote-lines";
+import { aplicarEdicionCombo, distributeAmount, errorAlGuardarLineas, mismasLineas, resumenCombo } from "./quote-lines";
 
 const linea = { productId: "p1", supplierId: null, quantity: 2, unitPrice: 1000, fulfillmentMode: "STOCK", notes: "x" };
 
@@ -66,6 +66,39 @@ describe("aplicarEdicionCombo", () => {
     const uno = [{ ...combo[0], quantity: 1, comboQuantity: 1 }, { ...combo[1], quantity: 1, comboQuantity: 1 }, { ...combo[1], uid: "c", quantity: 1, comboQuantity: 1 }];
     const nuevas = aplicarEdicionCombo(uno, { ...resumenCombo(uno), quantity: 3, unitPrice: 1000000 / 3 });
     expect(Math.abs(totalBruto(nuevas) - 1000000)).toBeLessThan(0.05);
+  });
+});
+
+describe("errorAlGuardarLineas", () => {
+  const suelta = { etiqueta: "SIL001", requeridas: [], elegidos: [], combo: false, color: "", quantity: 2, unitPrice: 500000, discount: 0, additionalCost: 0 };
+  // Combo de 1 a 1.000.000 con tres piezas de 333.333,33: la suma da 999.999,99.
+  const pieza = { etiqueta: "CMB005", requeridas: [], elegidos: [], combo: true, color: "Crema", quantity: 1, unitPrice: 333333.33, discount: 0, additionalCost: 0, comboKey: "k" };
+  const comboEntero = [
+    { ...pieza, discount: 333333 },
+    { ...pieza, discount: 333333 },
+    { ...pieza, discount: 333334 },
+  ];
+
+  it("suelto válido (descuento hasta cantidad × precio + adicional)", () => {
+    expect(errorAlGuardarLineas([{ ...suelta, discount: 1050000, additionalCost: 50000 }])).toBeNull();
+  });
+  it("descuento excedido en una línea suelta nombra el producto", () => {
+    expect(errorAlGuardarLineas([{ ...suelta, discount: 1000001 }])).toBe(
+      "El descuento de SIL001 ($1.000.001) no puede pasar de su valor ($1.000.000).",
+    );
+  });
+  it("combo: el reparto redondeado sigue siendo válido aunque una pieza pase su valor", () => {
+    expect(errorAlGuardarLineas(comboEntero)).toBeNull();
+  });
+  it("combo excedido sumando sus líneas", () => {
+    expect(errorAlGuardarLineas([...comboEntero.slice(0, 2), { ...pieza, discount: 333336 }])).toMatch(/^El descuento de CMB005/);
+  });
+  it("combo sin color", () => {
+    expect(errorAlGuardarLineas(comboEntero.map((l) => ({ ...l, color: " " })))).toBe("Falta escoger el color: CMB005");
+  });
+  it("parte en «Por definir»", () => {
+    const conPartes = { ...suelta, requeridas: ["Tapizado", "Base"], elegidos: [{ parte: "Tapizado", color: "Crema" }, { parte: "Base", color: "Por definir" }] };
+    expect(errorAlGuardarLineas([conPartes])).toBe("Falta escoger el color: SIL001 – Base");
   });
 });
 

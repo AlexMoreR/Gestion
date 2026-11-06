@@ -5,7 +5,9 @@ import { hasAnyModuleAccess } from "@/lib/admin-module-access";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { COTIZACION_CON_VENTA_LINEAS, mismasLineas } from "@/lib/quote-lines";
+import { COTIZACION_CON_VENTA_LINEAS, errorAlGuardarLineas, mismasLineas } from "@/lib/quote-lines";
+import { partesPorProducto } from "@/lib/product-parts.server";
+import { displayCode } from "@/lib/code-display";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -561,6 +563,65 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
     redirect(`${returnTo}?error=Datos+de+cotizacion+invalidos`);
   }
 
+  const productIds = Array.from(new Set(parsed.data.items.map((item) => item.productId)));
+  const products = await prisma.product.findMany({
+    where: { id: { in: productIds } },
+    include: {
+      suppliers: {
+        include: { supplier: true },
+      },
+    },
+  });
+
+  if (products.length !== productIds.length) {
+    redirect(`${returnTo}?error=Uno+o+mas+productos+no+existen`);
+  }
+
+  const productMap = new Map(products.map((product) => [product.id, product]));
+
+  // Con venta, las líneas quedan fijas (las notas y el estado sí cambian).
+  const quoteWithSale = await prisma.quote.findUnique({
+    where: { id: parsed.data.quoteId },
+    select: { sale: { select: { id: true } }, items: true },
+  });
+  const linesLocked = Boolean(quoteWithSale?.sale);
+  // El servidor no confía en la pantalla: color y descuento se revisan antes de escribir nada.
+  if (!linesLocked) {
+    const comboCodes = [...new Set(parsed.data.items.map((item) => item.comboCode?.trim() ?? "").filter(Boolean))];
+    const combos = comboCodes.length
+      ? await prisma.product.findMany({ where: { code: { in: comboCodes } }, select: { id: true, code: true, name: true } })
+      : [];
+    const comboByCode = new Map(combos.map((combo) => [combo.code, combo]));
+    // Mismo dueño que el editor: una línea de combo, el combo por su código; una suelta, su producto.
+    const duenios = parsed.data.items.map((item) =>
+      item.comboKey ? (item.comboCode ? comboByCode.get(item.comboCode) : undefined) : productMap.get(item.productId),
+    );
+    const partes = await partesPorProducto(
+      prisma,
+      duenios.flatMap((duenio) => (duenio ? [duenio.id] : [])),
+    );
+    const error = errorAlGuardarLineas(
+      parsed.data.items.map((item, index) => {
+        const duenio = duenios[index];
+        return {
+          etiqueta: displayCode(item.comboCode || duenio?.code || "") || item.comboName || duenio?.name || "Producto",
+          requeridas: (duenio ? (partes.get(duenio.id) ?? []) : []).map((parte) => parte.nombre),
+          elegidos: item.partes,
+          combo: Boolean(item.comboKey),
+          color: item.color ?? "",
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          discount: item.discount ?? 0,
+          additionalCost: item.additionalCost ?? 0,
+          comboKey: item.comboKey,
+        };
+      }),
+    );
+    if (error) {
+      redirect(`${returnTo}?${new URLSearchParams({ error }).toString()}`);
+    }
+  }
+
   let resolvedClientId = "";
   const incomingClientId = parsed.data.clientId?.trim() ?? "";
 
@@ -606,28 +667,6 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
     redirect(`${returnTo}?error=Fecha+de+cotizacion+invalida`);
   }
 
-  const productIds = Array.from(new Set(parsed.data.items.map((item) => item.productId)));
-  const products = await prisma.product.findMany({
-    where: { id: { in: productIds } },
-    include: {
-      suppliers: {
-        include: { supplier: true },
-      },
-    },
-  });
-
-  if (products.length !== productIds.length) {
-    redirect(`${returnTo}?error=Uno+o+mas+productos+no+existen`);
-  }
-
-  const productMap = new Map(products.map((product) => [product.id, product]));
-
-  // Con venta, las líneas quedan fijas (las notas y el estado sí cambian).
-  const quoteWithSale = await prisma.quote.findUnique({
-    where: { id: parsed.data.quoteId },
-    select: { sale: { select: { id: true } }, items: true },
-  });
-  const linesLocked = Boolean(quoteWithSale?.sale);
   // La imagen con colores solo se rehace si las líneas se van a guardar.
   const imagenes = linesLocked ? parsed.data.items.map(() => "") : await imagenesDeLineas(parsed.data.items);
 
