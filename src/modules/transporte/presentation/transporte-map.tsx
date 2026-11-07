@@ -734,11 +734,6 @@ export function TransporteMap({ onSave }: TransporteMapProps) {
           </li>
         ))}
       </ul>
-      <p className="text-xs text-muted-foreground">
-        Toca un municipio o un punto (corregimiento con otro tipo) para cambiar
-        su tipo de envío. Acerca con la rueda o con dos dedos y arrastra para
-        moverte.
-      </p>
 
       <div
         className="relative"
