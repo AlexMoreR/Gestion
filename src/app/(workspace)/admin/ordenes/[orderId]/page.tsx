@@ -25,7 +25,7 @@ import { computeItemUnitCost } from "@/lib/order-item-cost";
 import { prisma } from "@/lib/prisma";
 import { buildOrderDeliveryInfo, shortColombiaDate, whatsAppDigits } from "@/lib/order-delivery-info";
 import { formatNoteDate } from "@/lib/order-notes";
-import { dispatchToDeliver, isOrderDeliveryDone, pendingItemsLabel } from "@/lib/order-dispatch";
+import { confirmationKey, dispatchToDeliver, isOrderDeliveryDone, pendingItemsLabel } from "@/lib/order-dispatch";
 import { countReversedItems, itemDeliveryState, reversalMoneyWarning, reversalReasonLabel } from "@/lib/order-item-reversal";
 import {
   getFulfillmentModeLabel,
@@ -845,6 +845,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             </Badge>
           </div>
           <OrderItemsTable
+            key={confirmationKey(orderItemsData)}
             orderId={order.id}
             items={orderItemsData}
             currency={currency}

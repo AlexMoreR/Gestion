@@ -149,3 +149,10 @@ export function dispatchGaps(input: {
     readyNotDispatchedIds: readyNotDispatched.map((item) => item.id),
   };
 }
+
+// Huella de qué productos están confirmados. La ficha de la orden la usa como `key`
+// de la tabla: al confirmar (Fabricar/Confirmar, uno o varios) la tabla se reinicia,
+// se cierran los cuadros y no se encadena solo el de Recoger.
+export function confirmationKey(items: { id: string; isConfirmed: boolean }[]): string {
+  return items.filter((item) => item.isConfirmed).map((item) => item.id).join(",");
+}

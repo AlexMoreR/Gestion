@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  confirmationKey,
   dispatchBlocker,
   dispatchGaps,
   dispatchResultMessage,
@@ -171,5 +172,32 @@ describe("dispatchGaps (revisión de órdenes afectadas)", () => {
   it("sin despachos ligados (orden vieja) o cancelada: no se juzga", () => {
     expect(dispatchGaps({ orderStatus: "DISPATCHED", items, dispatchedItemIds: [] }).gaps).toEqual([]);
     expect(dispatchGaps({ orderStatus: "CANCELLED", items, dispatchedItemIds: ["a"] }).gaps).toEqual([]);
+  });
+});
+
+describe("confirmationKey", () => {
+  const row = (id: string, isConfirmed: boolean, isRecogido = false, isDespachado = false) => ({
+    id,
+    isConfirmed,
+    isRecogido,
+    isDespachado,
+  });
+
+  it("cambia cuando un producto pasa a confirmado (Fabricar → Confirmar compra)", () => {
+    const antes = [row("a", false), row("b", false)];
+    const despues = [row("a", true), row("b", false)];
+    expect(confirmationKey(despues)).not.toBe(confirmationKey(antes));
+  });
+
+  it("cambia cuando varios se confirman a la vez o uno vuelve a sin confirmar", () => {
+    const antes = [row("a", false), row("b", false), row("c", true)];
+    expect(confirmationKey([row("a", true), row("b", true), row("c", true)])).not.toBe(confirmationKey(antes));
+    expect(confirmationKey([row("a", false), row("b", false), row("c", false)])).not.toBe(confirmationKey(antes));
+  });
+
+  it("no cambia si solo pasa a recogido o despachado (el cuadro de Recoger no se cierra solo)", () => {
+    const antes = [row("a", true), row("b", true)];
+    const despues = [row("a", true, true), row("b", true, true, true)];
+    expect(confirmationKey(despues)).toBe(confirmationKey(antes));
   });
 });
