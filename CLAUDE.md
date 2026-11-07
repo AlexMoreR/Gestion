@@ -168,6 +168,17 @@ Definido en `prisma/schema.prisma` (PostgreSQL). Dinero como `Decimal`; ids `cui
   (`src/components/admin/order-reversals-card.tsx`). **Reversar no toca dinero**: `Order.status`, Balances, fletes y
   comisiones no cambian; en una contraentrega COMPLETED con reversas sale el aviso `reversalMoneyWarning` (detalle de la
   orden y fila de la venta) y administración decide.
+- **OrderReturn / OrderReturnItem / OrderReturnFile** — devolución de productos de una orden, sus líneas (producto
+  y cantidad) y sus fotos/archivos (migración `20261114120000_devoluciones_orden`, solo aditiva; parte 1 de 4, aún sin
+  pantalla). `OrderReturn`: `dispatchId?`, `returnDate` (`@db.Date`), `dispatchStatusBefore?` (al anular se vuelve a
+  ese), transportadora (`carrierSupplierId?`/`carrierName?`), `reason` (`MAL_ESTADO`/`NO_LO_QUISO`/`DIRECCION_ERRONEA`/
+  `NO_CONTESTO`/`OTRO` con `reasonText`), `comment`, `location` (`EN_TRANSITO`/`BODEGA`/`PERDIDO`), `nextStep`
+  (`POR_DEFINIR`/`REENVIAR`/`CAMBIAR`/`REPARAR`/`CERRAR`), `returnFreight?`, aviso a la vendedora, `closedAt`,
+  `annulledAt` + `annulReason`. Claves como texto validado, sin enums nuevos ni valores en `OrderStatus`. Reglas puras en
+  `src/lib/order-return.ts` (`parseOrderReturnInput`, `efectoDeRegistrar`, `estaAbierta`, `puedeVolverAEnviado`,
+  `perdidaDevolucion`, solo informativa). `getOrderDisplayState(..., devolucion)` muestra «Devuelta» (violeta),
+  «Devolución parcial» y «Devuelta – falta registrar» (ámbar). Con una devolución abierta, «Devolver a stock» /
+  «Deshacer recogido» y «Deshacer fabricacion» se rechazan en toda la orden. No toca dinero ni inventario.
 - **ProductionJob** — trabajo de fabricación (`code`, estado `ProductionJobStatus`, asignado a alguien).
 - **Dispatch** — despacho/entrega: `deliveryType` (`COUNTER`/`PICKUP`/`SHIPPING`), transportadora,
   `shippingCost`, guía, direcciones y fotos de entrega.
