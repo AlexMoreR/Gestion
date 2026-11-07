@@ -6,6 +6,7 @@ import {
   adminMarkManufacturingReceivedAction,
   adminUpdateManufacturingOrderAction,
 } from "@/app/actions/manufacturing-order-actions";
+import { CarrierMessageButton } from "@/components/admin/carrier-message-button";
 import { DeliveryStateChip } from "@/components/admin/delivery-state-chip";
 import { FechaHistorial, SaveDateButton, type CambioFechaView } from "@/components/admin/dispatch-estimate-card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,8 @@ export type ManufacturingCard = {
   // Solo digitos, listo para wa.me (puede venir vacio).
   supplierWhatsApp: string;
   url: string;
+  // Texto "Copiar datos de fabricación" (buildFabricationCopyText); "" si la OF no tiene productos.
+  fabricationText: string;
   // Valores de input datetime-local (colombiaDateTimeInput) o "".
   estimadaInput: string;
   realInput: string;
@@ -274,7 +277,7 @@ export function OrderManufacturingTab({ cards, currency, returnTo, brandName }: 
               <FechaHistorial items={card.historial} />
             </div>
 
-            <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+            <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
               {card.creadaSolaParaLaura ? (
                 <p className="w-full text-xs font-medium text-emerald-700 dark:text-emerald-400">
                   Orden creada sola para Laura. Envíale el link
@@ -288,6 +291,13 @@ export function OrderManufacturingTab({ cards, currency, returnTo, brandName }: 
               >
                 <ExternalLink className="h-3.5 w-3.5" /> Ver
               </a>
+              {/* Fuera del condicional de la fecha: sirve aunque la OF no tenga fecha ("Sin fecha"). */}
+              <CarrierMessageButton
+                message={card.fabricationText}
+                disabled={!card.fabricationText}
+                label="Copiar datos de fabricación"
+                copiedMessage="Datos de fabricación copiados"
+              />
               {card.estimadaInput ? (
                 <>
                   <CopyLinkButton url={card.url} />

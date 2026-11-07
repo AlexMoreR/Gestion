@@ -68,6 +68,7 @@ import {
 import { paymentMethodLabel } from "@/modules/ventas/domain/withholding";
 import type { ShipmentDefaults } from "@/modules/guias/presentation/shipment-dispatch-fields";
 import { displayCode } from "@/lib/code-display";
+import { buildFabricationCopyText } from "@/lib/order-fabrication-info";
 import { duenioDePartes, lineaFuente } from "@/lib/color-change";
 import { partesPorProducto } from "@/lib/product-parts.server";
 import type { ParteParaCotizar } from "@/lib/product-parts";
@@ -628,6 +629,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
 
       const avisos = avisosColor.filter((aviso) => aviso.manufacturingOrderId === manufacturingOrder.id);
       const ultimoVisto = avisos.findLast((aviso) => aviso.vistoEn);
+      const supplierName = supplier?.displayName || supplier?.name || "Proveedora";
 
       return {
         id: manufacturingOrder.id,
@@ -642,8 +644,19 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             fecha: fechaAviso(aviso.createdAt),
           })),
         ultimoVistoEl: ultimoVisto?.vistoEn ? fechaAviso(ultimoVisto.vistoEn) : null,
-        supplierName: supplier?.displayName || supplier?.name || "Proveedora",
+        supplierName,
         supplierWhatsApp,
+        // Solo el texto llega al cliente; los ítems se quedan en el servidor.
+        fabricationText: buildFabricationCopyText({
+          orderCode: order.code,
+          saleCode: order.sale?.code ?? null,
+          ofCode: manufacturingOrder.code,
+          supplierId: manufacturingOrder.supplierId,
+          supplierName,
+          estimatedDeliveryAt: manufacturingOrder.estimatedDeliveryAt,
+          ofNotes: manufacturingOrder.notes,
+          items: manufacturingItems,
+        }),
         url: getSiteUrl(`/of/${manufacturingOrder.code}`),
         estimadaInput: manufacturingOrder.estimatedDeliveryAt
           ? colombiaDateTimeInput(manufacturingOrder.estimatedDeliveryAt)
