@@ -103,7 +103,7 @@ export default async function ServicioTransportePage({ searchParams }: PageProps
 
         <p className="mt-6 text-center text-xs text-slate-400">
           Cobertura basada en la división oficial de Colombia (DANE). Si no encuentras tu zona,{" "}
-          <a href={waZoneLink} target="_blank" rel="noopener noreferrer">
+          <a href={waZoneLink} target="_blank" rel="noopener noreferrer" className="font-medium text-emerald-700 underline">
             escríbenos
           </a>{" "}
           y te ayudamos.
