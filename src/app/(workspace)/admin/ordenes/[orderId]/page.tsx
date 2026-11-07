@@ -25,6 +25,7 @@ import { computeItemUnitCost } from "@/lib/order-item-cost";
 import { prisma } from "@/lib/prisma";
 import { buildOrderDeliveryInfo, shortColombiaDate, whatsAppDigits } from "@/lib/order-delivery-info";
 import { formatNoteDate } from "@/lib/order-notes";
+import { dispatchToDeliver, isOrderDeliveryDone, pendingItemsLabel } from "@/lib/order-dispatch";
 import { countReversedItems, itemDeliveryState, reversalMoneyWarning, reversalReasonLabel } from "@/lib/order-item-reversal";
 import {
   getFulfillmentModeLabel,
@@ -317,7 +318,19 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   const step1Done = allItemsConfirmed;
   const step2Done = allItemsPaymentSet && allItemsHavePhotos;
   const step3Done = order.items.length > 0 && order.items.every((item) => isItemDespachado(item));
-  const step4Done = order.status === "COMPLETED" || latestDispatch?.status === "DELIVERED";
+  // Con varios despachos no basta el último: todos los productos despachados y todo despacho entregado.
+  const dispatchesForDelivery = order.dispatches.map((dispatch) => ({
+    id: dispatch.id,
+    status: dispatch.status,
+    createdAt: dispatch.createdAt,
+    itemCount: dispatch.items.length,
+  }));
+  const step4Done =
+    order.status === "COMPLETED" ||
+    isOrderDeliveryDone({ allItemsDispatched: step3Done, dispatches: dispatchesForDelivery });
+  // «Registrar entrega» toma el primer despacho sin entregar.
+  const deliveryDispatchId = dispatchToDeliver(dispatchesForDelivery);
+  const deliveryDispatch = order.dispatches.find((dispatch) => dispatch.id === deliveryDispatchId) ?? null;
   const reversedItems = countReversedItems(
     order.dispatches.flatMap((dispatch) =>
       dispatch.items.map((dispatchItem) => ({
@@ -354,15 +367,11 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   const pendingDespachar = order.items.filter(
     (item) => isItemConfirmed(item) && isItemRecogido(item) && !isItemDespachado(item),
   ).length;
-  const pluralProductos = (n: number) => `${n} producto${n === 1 ? "" : "s"}`;
-  const itemsTitle =
-    pendingFabricar > 0
-      ? `Pendiente fabricar ${pluralProductos(pendingFabricar)}`
-      : pendingRecoger > 0
-        ? `Pendiente recoger ${pluralProductos(pendingRecoger)}`
-        : pendingDespachar > 0
-          ? `Pendiente despachar ${pluralProductos(pendingDespachar)}`
-          : "Despachado";
+  const itemsTitle = pendingItemsLabel({
+    fabricar: pendingFabricar,
+    recoger: pendingRecoger,
+    despachar: pendingDespachar,
+  });
 
   // Pieza por stock sin confirmar: el costo que se va a usar (compra que la entró o catálogo).
   const stockExitCostById = new Map(
@@ -865,7 +874,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               allItemsHavePhotos,
             }}
             delivery={{
-              dispatchId: latestDispatch?.id ?? null,
+              dispatchId: deliveryDispatchId,
               returnTo,
               defaultInstagram: order.client?.instagram ?? "",
               defaultTiktok: order.client?.tiktok ?? "",
@@ -874,8 +883,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                 saleCode: order.sale ? displayCode(order.sale.code) : null,
                 clientName: order.client?.name || order.client?.email || null,
                 city: order.client?.city ?? null,
-                carrierName: latestDispatch?.carrierName ?? null,
-                trackingNumber: latestDispatch?.trackingNumber ?? null,
+                carrierName: deliveryDispatch?.carrierName ?? null,
+                trackingNumber: deliveryDispatch?.trackingNumber ?? null,
                 isContraentrega: salePaymentMethod === "CONTRAENTREGA",
               },
             }}

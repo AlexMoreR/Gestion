@@ -29,6 +29,7 @@ import { imagenDeColores } from "@/lib/vista-color.server";
 import { stockToRestore } from "@/lib/order-stock-restore";
 import { prisma } from "@/lib/prisma";
 import { parseOrderNoteText } from "@/lib/order-notes";
+import { missingDispatchItems } from "@/lib/order-dispatch";
 import { createSaleOrder, type CreateSaleOrderResult } from "@/lib/sale-order";
 import { isRetiredUser } from "@/modules/equipo/infrastructure/prisma-team-repository";
 
@@ -114,7 +115,14 @@ export async function syncOrderStatusAfterProduction(
     select: { id: true, status: true },
   });
 
-  if (!order || order.status === "CANCELLED" || order.status === "COMPLETED" || order.status === "DISPATCHED") {
+  // Ya lista: no se repite «Lista para despacho → Lista para despacho» en el historial.
+  if (
+    !order ||
+    order.status === "CANCELLED" ||
+    order.status === "COMPLETED" ||
+    order.status === "DISPATCHED" ||
+    order.status === "READY_FOR_DISPATCH"
+  ) {
     return false;
   }
 
@@ -228,12 +236,26 @@ export async function adminUpdateOrderStatusAction(formData: FormData): Promise<
 
   // A DESPACHADO solo se llega creando el despacho, que exige el pago del flete (cuenta y comprobante).
   if (parsed.data.status === "DISPATCHED") {
-    const activeDispatch = await prisma.dispatch.findFirst({
+    const activeDispatches = await prisma.dispatch.findMany({
       where: { orderId: order.id, status: { notIn: ["CANCELLED", "RETURNED"] } },
-      select: { id: true },
+      select: { items: { select: { orderItemId: true } } },
     });
-    if (!activeDispatch) {
+    if (activeDispatches.length === 0) {
       redirect(`${returnTo}?error=${encodeURIComponent("Crea el despacho con el pago del flete")}`);
+    }
+    // Solo con todos los productos despachados. Despachos viejos sin productos ligados: como antes.
+    const dispatchedIds = activeDispatches.flatMap((dispatch) => dispatch.items.map((row) => row.orderItemId));
+    if (dispatchedIds.length > 0) {
+      const items = await prisma.orderItem.findMany({
+        where: { orderId: order.id },
+        select: { id: true, product: { select: { name: true } } },
+        orderBy: { createdAt: "asc" },
+      });
+      const missing = missingDispatchItems(items, dispatchedIds);
+      if (missing.length > 0) {
+        const names = missing.map((item) => item.product.name).join(", ");
+        redirect(`${returnTo}?error=${encodeURIComponent(`Faltan por despachar: ${names}`)}`);
+      }
     }
   }
 

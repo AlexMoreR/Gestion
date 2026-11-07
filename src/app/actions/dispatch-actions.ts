@@ -21,6 +21,7 @@ import { SHIPPING_COST_LOG_FIELDS, SUPPLIER_LEDGER_LOG_FIELDS, snapshotForLog } 
 import { anularConMotivo, anularVarias, pagosPrimero } from "@/lib/anulaciones";
 import { buildDispatchCode, parseDispatchCodeNumber } from "@/lib/orders";
 import { isOrderFullyDelivered } from "@/lib/order-partial-delivery";
+import { dispatchBlocker, dispatchResultMessage, missingDispatchItems } from "@/lib/order-dispatch";
 import { DELIVERY_NOT_CONFIRMED_ERROR, isDeliveryConfirmed } from "@/lib/delivery-confirmation";
 import { parseWeightKg } from "@/modules/guias/domain/weight";
 import { hasUploadedFile, saveShipmentPhoto } from "@/lib/upload-photo";
@@ -330,6 +331,38 @@ export async function adminCompleteDeliveryAction(formData: FormData): Promise<v
   revalidatePath("/admin/ordenes");
   revalidatePath(`/admin/ordenes/${dispatch.orderId}`);
   redirect(`${returnTo}?ok=Entrega+registrada`);
+}
+
+// Ids de los productos de la orden que ya salen en algún despacho activo (no cancelado ni devuelto).
+async function dispatchedItemIds(tx: Prisma.TransactionClient, orderId: string): Promise<string[]> {
+  const rows = await tx.dispatchItem.findMany({
+    where: { orderItem: { orderId }, dispatch: { status: { notIn: ["CANCELLED", "RETURNED"] } } },
+    select: { orderItemId: true },
+  });
+  return rows.map((row) => row.orderItemId);
+}
+
+// La orden pasa a DISPATCHED solo cuando TODOS sus productos estan despachados.
+// Devuelve los productos que aun faltan por despachar (para el aviso).
+async function markOrderDispatchedIfComplete<T extends { id: string }>(
+  tx: Prisma.TransactionClient,
+  order: { id: string; status: OrderStatus; items: T[] },
+  changedById: string,
+): Promise<T[]> {
+  const missing = missingDispatchItems(order.items, await dispatchedItemIds(tx, order.id));
+  if (missing.length === 0 && order.items.length > 0 && order.status !== "DISPATCHED") {
+    await tx.order.update({ where: { id: order.id }, data: { status: "DISPATCHED" } });
+    await tx.orderStatusHistory.create({
+      data: {
+        orderId: order.id,
+        fromStatus: order.status,
+        toStatus: "DISPATCHED",
+        note: "Todos los productos despachados",
+        changedById,
+      },
+    });
+  }
+  return missing;
 }
 
 const updateDispatchStatusSchema = z.object({
@@ -765,6 +798,7 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
       items: {
         include: {
           photos: { select: { id: true } },
+          product: { select: { name: true } },
         },
       },
     },
@@ -833,6 +867,7 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
   await assertLegPayments(legs, legPayments, returnTo);
   const fotosEmbalaje = isShipping ? await prepararFotosEmbalaje(formData, [item.id], createdById, returnTo) : null;
   let createdDispatchCode: string | null = null;
+  let missingNames: string[] = [];
 
   try {
     const paidLegs = await saveLegPayments(legs, legPayments, order.id);
@@ -893,28 +928,7 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
       await marcarOfRecibidasSiDespachadas(tx, order.id);
 
       // La orden pasa a DISPATCHED solo cuando todos los productos estan despachados.
-      const dispatchedCount = await tx.dispatchItem.count({
-        where: {
-          orderItem: { orderId: order.id },
-          dispatch: { status: { notIn: ["CANCELLED", "RETURNED"] } },
-        },
-      });
-
-      if (dispatchedCount >= order.items.length && order.status !== "DISPATCHED") {
-        await tx.order.update({
-          where: { id: order.id },
-          data: { status: "DISPATCHED" },
-        });
-        await tx.orderStatusHistory.create({
-          data: {
-            orderId: order.id,
-            fromStatus: order.status,
-            toStatus: "DISPATCHED",
-            note: "Todos los productos despachados",
-            changedById: createdById,
-          },
-        });
-      }
+      missingNames = (await markOrderDispatchedIfComplete(tx, order, createdById)).map((entry) => entry.product.name);
     });
   } catch (error) {
     console.error("Failed to dispatch order item:", error);
@@ -926,7 +940,7 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
   revalidatePath(`/admin/ordenes/${order.id}`);
   revalidatePath("/admin/proveedores");
   const shipmentNote = await createShipmentIfRequested(formData, createdDispatchCode, createdById, isShipping);
-  redirect(`${returnTo}?ok=${encodeURIComponent(await withLegNegativeNotices(`Producto despachado${shipmentNote}`, legs, legPayments))}`);
+  redirect(`${returnTo}?ok=${encodeURIComponent(await withLegNegativeNotices(`${dispatchResultMessage(1, missingNames)}${shipmentNote}`, legs, legPayments))}`);
 }
 
 function parseOrderItemIds(value: FormDataEntryValue | null): string[] {
@@ -1004,7 +1018,7 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
   const order = await prisma.order.findUnique({
     where: { id: parsed.data.orderId },
     include: {
-      items: { include: { photos: { select: { id: true } } } },
+      items: { include: { photos: { select: { id: true } }, product: { select: { name: true } } } },
     },
   });
 
@@ -1020,27 +1034,25 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
     redirect(`${returnTo}?error=Productos+no+encontrados+en+la+orden`);
   }
 
-  // En una compra los items ya vienen comprados, y los de stock ya estan en
-  // bodega: no exigen proveedor, foto ni pago (los de stock solo deben estar
-  // confirmados, es decir descontados del inventario).
+  // Si la pantalla quedo vieja (alguien cambio un producto en otra pestaña) no se despacha
+  // NADA ni se registra flete: el flete se digito para esta seleccion. El error dice cual
+  // producto y en que estado esta. En una compra los items ya vienen comprados; los de stock
+  // solo deben estar confirmados (reglas en dispatchBlocker).
   const isPurchaseOrder = order.type === "PURCHASE";
   for (const item of selectedItems) {
-    if (!isPurchaseOrder && item.fulfillmentMode === "STOCK") {
-      if (item.confirmedAt === null) {
-        redirect(`${returnTo}?error=Confirma+la+salida+de+stock+de+todos+los+productos+antes+de+despachar`);
-      }
-      continue;
-    }
-    if (!isPurchaseOrder) {
-      if (!item.confirmedSupplierId || item.purchaseCost === null) {
-        redirect(`${returnTo}?error=Confirma+el+proveedor+y+costo+de+todos+los+productos+antes+de+despachar`);
-      }
-      if (item.photos.length === 0) {
-        redirect(`${returnTo}?error=Sube+al+menos+una+foto+de+cada+producto+terminado`);
-      }
-      if (item.supplierPaymentStatus === null) {
-        redirect(`${returnTo}?error=Registra+el+pago+al+proveedor+de+cada+producto+antes+de+despachar`);
-      }
+    const blocker = dispatchBlocker(
+      {
+        fulfillmentMode: item.fulfillmentMode,
+        confirmedAt: item.confirmedAt,
+        confirmedSupplierId: item.confirmedSupplierId,
+        hasPurchaseCost: item.purchaseCost !== null,
+        photoCount: item.photos.length,
+        supplierPaymentStatus: item.supplierPaymentStatus,
+      },
+      isPurchaseOrder,
+    );
+    if (blocker) {
+      redirect(`${returnTo}?error=${encodeURIComponent(`No se despachó nada. ${item.product.name}: ${blocker}`)}`);
     }
   }
 
@@ -1049,10 +1061,11 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
       orderItemId: { in: selectedItems.map((item) => item.id) },
       dispatch: { status: { notIn: ["CANCELLED", "RETURNED"] } },
     },
-    select: { id: true },
+    select: { orderItemId: true },
   });
   if (alreadyDispatched) {
-    redirect(`${returnTo}?error=Uno+de+los+productos+ya+fue+despachado`);
+    const name = selectedItems.find((item) => item.id === alreadyDispatched.orderItemId)?.product.name ?? "Un producto";
+    redirect(`${returnTo}?error=${encodeURIComponent(`No se despachó nada. ${name} ya fue despachado`)}`);
   }
 
   // Costo de envio por producto: el cliente envia un mapa orderItemId -> costo.
@@ -1122,6 +1135,7 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
   const trackingPhotoFile = formData.get("trackingPhoto");
   const hasTrackingPhoto = trackingPhotoFile instanceof File && trackingPhotoFile.size > 0;
   let createdDispatchCode: string | null = null;
+  let missingNames: string[] = [];
 
   try {
     const paidLegs = await saveLegPayments(legs, legPayments, order.id);
@@ -1178,25 +1192,8 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
       // Fecha real de la OF: la proveedora que ya despachó todo queda recibida.
       await marcarOfRecibidasSiDespachadas(tx, order.id);
 
-      const dispatchedCount = await tx.dispatchItem.count({
-        where: {
-          orderItem: { orderId: order.id },
-          dispatch: { status: { notIn: ["CANCELLED", "RETURNED"] } },
-        },
-      });
-
-      if (dispatchedCount >= order.items.length && order.status !== "DISPATCHED") {
-        await tx.order.update({ where: { id: order.id }, data: { status: "DISPATCHED" } });
-        await tx.orderStatusHistory.create({
-          data: {
-            orderId: order.id,
-            fromStatus: order.status,
-            toStatus: "DISPATCHED",
-            note: "Todos los productos despachados",
-            changedById: createdById,
-          },
-        });
-      }
+      // La orden pasa a DISPATCHED solo cuando todos los productos estan despachados.
+      missingNames = (await markOrderDispatchedIfComplete(tx, order, createdById)).map((entry) => entry.product.name);
     });
   } catch (error) {
     console.error("Failed to bulk dispatch order items:", error);
@@ -1209,7 +1206,7 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
   revalidatePath("/admin/proveedores");
   const shipmentNote = await createShipmentIfRequested(formData, createdDispatchCode, createdById, isShipping);
   redirect(
-    `${returnTo}?ok=${encodeURIComponent(await withLegNegativeNotices(`Despachados ${selectedItems.length} productos${shipmentNote}`, legs, legPayments))}`,
+    `${returnTo}?ok=${encodeURIComponent(await withLegNegativeNotices(`${dispatchResultMessage(selectedItems.length, missingNames)}${shipmentNote}`, legs, legPayments))}`,
   );
 }
 
@@ -1518,21 +1515,28 @@ export async function adminUpdateDispatchStatusAction(formData: FormData): Promi
       },
     });
 
-    if (parsed.data.status === "SHIPPED") {
-      await tx.order.update({
-        where: { id: dispatch.orderId },
-        data: { status: "DISPATCHED" },
-      });
+    // La orden pasa a DISPATCHED solo con todos sus productos despachados. Un despacho viejo
+    // sin productos ligados sigue como antes (toda la orden).
+    if (parsed.data.status === "SHIPPED" && dispatch.order.status !== "DISPATCHED") {
+      const hasItems = (await tx.dispatchItem.count({ where: { dispatchId: dispatch.id } })) > 0;
+      const orderItems = await tx.orderItem.findMany({ where: { orderId: dispatch.orderId }, select: { id: true } });
+      const complete = !hasItems || missingDispatchItems(orderItems, await dispatchedItemIds(tx, dispatch.orderId)).length === 0;
+      if (complete) {
+        await tx.order.update({
+          where: { id: dispatch.orderId },
+          data: { status: "DISPATCHED" },
+        });
 
-      await tx.orderStatusHistory.create({
-        data: {
-          orderId: dispatch.orderId,
-          fromStatus: dispatch.order.status,
-          toStatus: "DISPATCHED",
-          note: parsed.data.note || "Pedido despachado",
-          changedById,
-        },
-      });
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId: dispatch.orderId,
+            fromStatus: dispatch.order.status,
+            toStatus: "DISPATCHED",
+            note: parsed.data.note || "Pedido despachado",
+            changedById,
+          },
+        });
+      }
     }
 
     if (parsed.data.status === "DELIVERED") {

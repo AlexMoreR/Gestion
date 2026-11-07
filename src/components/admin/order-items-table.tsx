@@ -33,6 +33,7 @@ import {
   type OrderItemManagerData,
 } from "@/components/admin/order-item-manager";
 import type { SupportedCurrencyCode } from "@/lib/currency";
+import { splitDispatchSelection } from "@/lib/order-dispatch";
 import {
   ShipmentDispatchFields,
   type ShipmentDefaults,
@@ -96,7 +97,9 @@ export function OrderItemsTable({
     [items],
   );
 
+  // Cambiar la selección cierra cualquier modal que haya quedado abierto (p. ej. tras despachar).
   const toggle = (id: string) => {
+    setModal(null);
     setSelected((current) => {
       const next = new Set(current);
       if (next.has(id)) {
@@ -108,10 +111,28 @@ export function OrderItemsTable({
     });
   };
 
+  // Lo ya despachado sale solo de la selección (la pantalla se recarga tras despachar).
   const selectedItems = useMemo(
-    () => items.filter((item) => selected.has(item.id)),
+    () => items.filter((item) => selected.has(item.id) && !item.isDespachado),
     [items, selected],
   );
+
+  // Despacho colectivo: de lo elegido salen solo los Recogidos; el resto queda fuera con aviso.
+  const { toDispatch: dispatchItems, leftOut: leftOutItems } = useMemo(
+    () =>
+      splitDispatchSelection(
+        selectedItems.map((item) => ({
+          ...item,
+          name: item.productName,
+          ready: stageOf(item) === "despachar",
+          dispatched: item.isDespachado,
+        })),
+        selected,
+      ),
+    [selectedItems, selected],
+  );
+  const leftOutNames = leftOutItems.map((item) => item.productName).join(", ");
+  const dispatchCount = dispatchItems.length;
 
   // Etapa comun de la seleccion: solo se puede actuar en lote si todos los
   // seleccionados estan en la misma etapa.
@@ -119,12 +140,18 @@ export function OrderItemsTable({
     () => new Set(selectedItems.map((item) => stageOf(item))),
     [selectedItems],
   );
+  // Con Recogidos en la selección manda Despachar; si no, el lote exige una sola etapa.
   const commonStage: Stage | null =
-    selectedStages.size === 1 ? (selectedStages.values().next().value as Stage) : null;
+    dispatchCount > 0
+      ? "despachar"
+      : selectedStages.size === 1
+        ? (selectedStages.values().next().value as Stage)
+        : null;
 
   const allSelectableChecked = selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
 
   const toggleAll = () => {
+    setModal(null);
     setSelected((current) => {
       if (selectableIds.every((id) => current.has(id)) && selectableIds.length > 0) {
         return new Set();
@@ -138,14 +165,16 @@ export function OrderItemsTable({
   const selectedIdsJson = JSON.stringify(selectedItems.map((item) => item.id));
   const count = selectedItems.length;
   // En lote, las fotos dejan de ser obligatorias solo si todos los productos elegidos ya las tienen.
-  const embalajeListo = count > 0 && selectedItems.every((item) => tieneEmbalajeCompleto(item.embalajeFotos));
+  const embalajeListo =
+    dispatchCount > 0 && dispatchItems.every((item) => tieneEmbalajeCompleto(item.embalajeFotos));
+  const dispatchIdsJson = JSON.stringify(dispatchItems.map((item) => item.id));
 
-  const dispatchCostTotal = selectedItems.reduce(
+  const dispatchCostTotal = dispatchItems.reduce(
     (sum, item) => sum + (Number(itemCosts[item.id] || 0) || 0),
     0,
   );
   const itemShippingCostsJson = JSON.stringify(
-    selectedItems.map((item) => ({ orderItemId: item.id, cost: Number(itemCosts[item.id] || 0) || 0 })),
+    dispatchItems.map((item) => ({ orderItemId: item.id, cost: Number(itemCosts[item.id] || 0) || 0 })),
   );
 
   const stageLabel: Record<Stage, string> = {
@@ -163,7 +192,7 @@ export function OrderItemsTable({
           <span className="text-sm font-medium text-foreground">
             {count} {count === 1 ? "producto seleccionado" : "productos seleccionados"}
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {commonStage && commonStage !== "done" ? (
               <Button
                 type="button"
@@ -184,13 +213,18 @@ export function OrderItemsTable({
                 ) : (
                   <Factory className="h-4 w-4" />
                 )}
-                {stageLabel[commonStage]} {count}
+                {stageLabel[commonStage]} {commonStage === "despachar" ? dispatchCount : count}
               </Button>
             ) : (
               <span className="text-xs text-muted-foreground">
                 Selecciona productos en la misma etapa para actuar en lote.
               </span>
             )}
+            {commonStage === "despachar" && leftOutItems.length > 0 ? (
+              <span className="text-xs text-amber-600 dark:text-amber-400">
+                Quedan fuera (sin recoger): {leftOutNames}
+              </span>
+            ) : null}
             <Button type="button" variant="outline" size="sm" onClick={clearSelection}>
               <X className="h-4 w-4" />
               Limpiar
@@ -280,16 +314,27 @@ export function OrderItemsTable({
       </Dialog>
 
       {/* Modal: Despachar en lote */}
-      <Dialog open={modal === "despachar"} onOpenChange={(open) => (open ? null : setModal(null))}>
+      <Dialog
+        open={modal === "despachar" && dispatchCount > 0}
+        onOpenChange={(open) => (open ? null : setModal(null))}
+      >
         <DialogContent className="max-h-[88vh] max-w-lg overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Despachar {count} productos</DialogTitle>
+            <DialogTitle>
+              Despachar {dispatchCount} {dispatchCount === 1 ? "producto" : "productos"}
+            </DialogTitle>
+            <DialogDescription>Salen juntos en un solo despacho: {dispatchItems.map((item) => item.productName).join(", ")}.</DialogDescription>
           </DialogHeader>
+          {leftOutItems.length > 0 ? (
+            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-700 dark:text-amber-400">
+              Quedan fuera (sin recoger): {leftOutNames}
+            </p>
+          ) : null}
 
             <form action={adminBulkDispatchOrderItemsAction} className="space-y-3">
               <input type="hidden" name="returnTo" value={returnTo} />
               <input type="hidden" name="orderId" value={orderId} />
-              <input type="hidden" name="orderItemIds" value={selectedIdsJson} />
+              <input type="hidden" name="orderItemIds" value={dispatchIdsJson} />
 
               <div className="space-y-1">
                 <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
@@ -344,7 +389,7 @@ export function OrderItemsTable({
                       </span>
                     </div>
                     <div className="max-h-56 space-y-1.5 overflow-y-auto">
-                      {selectedItems.map((item) => (
+                      {dispatchItems.map((item) => (
                         <div key={item.id} className="flex items-center justify-between gap-3">
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium text-foreground">{item.productName}</p>
@@ -389,7 +434,7 @@ export function OrderItemsTable({
                     <Input type="file" name="trackingPhoto" accept="image/*,application/pdf" className="h-8 text-xs" />
                   </div>
                   {embalajeListo
-                    ? selectedItems.map((item) => <EmbalajeYaSubido key={item.id} fotos={item.embalajeFotos} />)
+                    ? dispatchItems.map((item) => <EmbalajeYaSubido key={item.id} fotos={item.embalajeFotos} />)
                     : null}
                   <div className="space-y-1">
                     <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
