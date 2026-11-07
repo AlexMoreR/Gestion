@@ -1121,6 +1121,14 @@ const PRODUCTION_JOB_LOG_FIELDS = ["id", "code", "status", "quantity", "assigned
 // Deshace el "Fabricar" (confirmacion) de un producto: borra su orden de
 // produccion, limpia el proveedor/costo confirmado y, si la orden ya no tiene
 // produccion, la regresa a "Liberada". El producto vuelve a "Sin confirmar".
+async function orderHasOpenReturn(orderId: string): Promise<boolean> {
+  const open = await prisma.orderReturn.findFirst({
+    where: { orderId, closedAt: null, annulledAt: null },
+    select: { id: true },
+  });
+  return open !== null;
+}
+
 export async function adminUndoConfirmOrderItemAction(formData: FormData): Promise<void> {
   const createdById = await requireAdminSession();
   const returnTo = getReturnTo(formData, "/admin/ordenes");
@@ -1151,6 +1159,11 @@ export async function adminUndoConfirmOrderItemAction(formData: FormData): Promi
 
   if (orderItem.order.status === "CANCELLED" || orderItem.order.status === "COMPLETED") {
     redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
+  }
+
+  // Con una devolución abierta no se limpia el costo ni se suma inventario: cambiaría costo y ganancia.
+  if (await orderHasOpenReturn(orderItem.order.id)) {
+    redirect(`${returnTo}?error=La+orden+tiene+una+devolucion+abierta`);
   }
 
   // No se puede deshacer la confirmacion si el producto ya avanzo de etapa.
@@ -1333,6 +1346,11 @@ export async function adminUndoPickupOrderItemAction(formData: FormData): Promis
 
   if (orderItem.order.status === "CANCELLED" || orderItem.order.status === "COMPLETED") {
     redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
+  }
+
+  // Con una devolución abierta no se limpia el costo ni se suma inventario: cambiaría costo y ganancia.
+  if (await orderHasOpenReturn(orderItem.order.id)) {
+    redirect(`${returnTo}?error=La+orden+tiene+una+devolucion+abierta`);
   }
 
   // No se puede deshacer el recogido si el producto ya esta despachado.

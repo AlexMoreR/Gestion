@@ -144,6 +144,17 @@ const GREEN_BADGE =
   "border-emerald-500/30 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400";
 const AMBER_BADGE =
   "border-amber-500/30 bg-amber-500/15 text-amber-600 dark:text-amber-400";
+const VIOLET_BADGE =
+  "border-violet-500/30 bg-violet-500/15 text-violet-600 dark:text-violet-400";
+
+// Estado de devolución que calcula quien llama (DEVUELTA, PARCIAL o FALTA_REGISTRAR); null = sin devolución.
+export type OrderReturnDisplay = "DEVUELTA" | "PARCIAL" | "FALTA_REGISTRAR";
+
+const RETURN_DISPLAY: Record<OrderReturnDisplay, { label: string; className: string }> = {
+  DEVUELTA: { label: "Devuelta", className: VIOLET_BADGE },
+  PARCIAL: { label: "Devolución parcial", className: AMBER_BADGE },
+  FALTA_REGISTRAR: { label: "Devuelta – falta registrar", className: AMBER_BADGE },
+};
 
 /**
  * Etiqueta y color del estado "real" de la orden de cara al usuario.
@@ -152,12 +163,16 @@ const AMBER_BADGE =
  *   - "Cerrado – Entregado": el cliente ya recibió.
  * `delivery` es el despacho más reciente (o null si aún no se despacha).
  * `reversedItems`: productos con la entrega deshecha (countReversedItems). Solo cambia la etiqueta, nunca el estado.
+ * `devolucion`: manda sobre los cierres (también en COMPLETED), salvo en una orden cancelada.
  */
 export function getOrderDisplayState(
   status: OrderStatus,
   delivery: { deliveryType: DeliveryType; status: DispatchStatus } | null,
   reversedItems = 0,
+  devolucion: OrderReturnDisplay | null = null,
 ): { label: string; className: string } {
+  if (devolucion && status !== "CANCELLED") return RETURN_DISPLAY[devolucion];
+
   if (status === "COMPLETED") {
     if (reversedItems > 0) {
       return { label: `Entregado parcial – ${reversedItems} sin entregar`, className: AMBER_BADGE };

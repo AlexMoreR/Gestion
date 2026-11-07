@@ -1,0 +1,11 @@
+## Entidades
+
+- `OrderReturn`: una devolución de productos de una orden (parte 1 de la Fase 1: solo la tabla y sus reglas, todavía sin pantalla). Guarda despacho (opcional), fecha de la devolución (`@db.Date`), estado del despacho antes de registrarla (`dispatchStatusBefore`, para que anular no lo pase a SHIPPED por error), transportadora (proveedor o nombre escrito), motivo de la lista (texto validado en `src/lib/order-return.ts`; "Otro" exige texto), comentario, ubicación (`EN_TRANSITO`/`BODEGA`/`PERDIDO`), siguiente paso (`POR_DEFINIR`/`REENVIAR`/`CAMBIAR`/`REPARAR`/`CERRAR`), flete de vuelta (opcional), aviso a la vendedora, cierre, anulación con motivo, quién y cuándo. Abierta = sin `closedAt` ni `annulledAt`: con una abierta, «Devolver a stock» / «Deshacer recogido» y «Deshacer fabricacion» se rechazan en toda la orden. No toca dinero ni inventario. Se borra con la orden; si se quita el despacho, la transportadora o quien avisó, queda sin ese dato.
+- `OrderReturnItem`: qué producto (línea de la orden) y cuántas unidades vuelven en una devolución. Se borra con la devolución o con su línea.
+- `OrderReturnFile`: foto o archivo de una devolución (URL, nombre, quién lo subió y cuándo). Se borra con la devolución.
+
+## Reglas de negocio
+
+- `efecto_de_registrar_devolucion`: `efectoDeRegistrar` (`src/lib/order-return.ts`) decide qué hace registrar una devolución según el despacho: SHIPPED y vuelve todo (contando las devoluciones abiertas anteriores) → pasa a RETURNED; SHIPPED y vuelve una parte → solo registro; DELIVERED → las líneas devueltas completas quedan como no entregadas (una línea devuelta en parte no); RETURNED o sin despacho → solo registro. Más unidades de las que salieron o un despacho sin salir → error.
+- `perdida_devolucion`: `perdidaDevolucion` suma el flete de ida de lo devuelto (`DispatchItem.shippingCost`, en proporción; si nada está repartido, el del despacho con la etiqueta «sin repartir») y el flete de vuelta. Solo informativa: no cambia Balances.
+- `bloqueo_por_devolucion_abierta`: con una devolución abierta en la orden, «Devolver a stock» / «Deshacer recogido» y «Deshacer fabricacion» se rechazan, porque limpiarían el costo confirmado y sumarían inventario.
