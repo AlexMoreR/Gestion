@@ -45,7 +45,6 @@ import {
 } from "@/modules/guias/presentation/shipment-dispatch-fields";
 import { CarrierSelect, type CarrierSelectOption } from "@/modules/guias/presentation/carrier-select";
 import { ExtraShippingLegsFields, LegPaymentFields } from "@/components/admin/extra-shipping-legs-fields";
-import { FechaFabricacionField, fechaFabricacionValida } from "@/components/admin/fecha-fabricacion-field";
 
 type SupplierOption = {
   id: string;
@@ -102,8 +101,6 @@ export type OrderItemManagerData = {
   hasProductionJob: boolean;
   suppliers: SupplierOption[];
   defaultSupplierId: string;
-  /** Proveedora que usa "Confirmar N" (la primera propia del producto, como el servidor); null = se omite. */
-  loteSupplier: SupplierOption | null;
   defaultCost: number;
   confirmedSupplierName: string | null;
   purchaseCost: number | null;
@@ -141,20 +138,8 @@ export function EmbalajeYaSubido({ fotos }: { fotos: OrderItemManagerData["embal
   );
 }
 
-// OF que ya existe en la orden por proveedora (una sola fecha por OF). dia = AAAA-MM-DD Colombia o null.
-export type OfDeProveedora = { code: string; supplierName: string; dia: string | null };
-
-// "Esta fecha es de toda la OF-35 de Laura" si la proveedora ya tiene OF en la orden.
-export function avisoOfExistente(of: OfDeProveedora | undefined): string | null {
-  return of ? `Esta fecha es de toda la ${displayCode(of.code)} de ${of.supplierName}: si la cambias, cambia para todos sus productos.` : null;
-}
-
 type OrderItemManagerProps = {
   item: OrderItemManagerData;
-  /** Por supplierId; vacío en órdenes de compra. */
-  ofsPorProveedora: Record<string, OfDeProveedora>;
-  /** Venta: la confirmación de fabricación pide la fecha. Compra: no (no tiene OF). */
-  pideFechaFabricacion: boolean;
   currency: SupportedCurrencyCode;
   returnTo: string;
   accounts: AccountOption[];
@@ -264,8 +249,6 @@ function UndoConfirmSubmitButton() {
 
 export function OrderItemManager({
   item,
-  ofsPorProveedora,
-  pideFechaFabricacion,
   currency,
   returnTo,
   accounts,
@@ -297,14 +280,6 @@ export function OrderItemManager({
   const [purchaseCost, setPurchaseCost] = useState(
     item.defaultCost ? String(Math.trunc(item.defaultCost)) : "",
   );
-  // Proveedora elegida y fecha de entrega de fabricación; si su OF ya tiene fecha vigente, se precarga.
-  const fechaDeOf = (supplierId: string) => {
-    const dia = ofsPorProveedora[supplierId]?.dia ?? "";
-    return fechaFabricacionValida(dia) ? dia : "";
-  };
-  const [confirmSupplierId, setConfirmSupplierId] = useState(item.defaultSupplierId);
-  const [fechaFabricacion, setFechaFabricacion] = useState(() => fechaDeOf(item.defaultSupplierId));
-  const faltaFecha = pideFechaFabricacion && !fechaFabricacionValida(fechaFabricacion);
   // Total a pagar al proveedor = costo unitario (digitos crudos) x cantidad.
   const confirmTotal = (Number(purchaseCost) || 0) * item.quantity;
   const hasSuppliers = item.suppliers.length > 0;
@@ -582,12 +557,7 @@ export function OrderItemManager({
                       <span className="text-sm font-medium text-foreground">Proveedor</span>
                       <select
                         name="supplierId"
-                        value={confirmSupplierId}
-                        onChange={(event) => {
-                          setConfirmSupplierId(event.target.value);
-                          const dia = fechaDeOf(event.target.value);
-                          if (dia) setFechaFabricacion(dia);
-                        }}
+                        defaultValue={item.defaultSupplierId}
                         className="field-select"
                       >
                         {item.suppliers.map((supplier) => (
@@ -608,16 +578,6 @@ export function OrderItemManager({
                     </label>
                   </div>
 
-                  {pideFechaFabricacion ? (
-                    <div className="rounded-xl border border-border bg-muted/40 p-3">
-                      <FechaFabricacionField
-                        value={fechaFabricacion}
-                        onChange={setFechaFabricacion}
-                        aviso={avisoOfExistente(ofsPorProveedora[confirmSupplierId])}
-                      />
-                    </div>
-                  ) : null}
-
                   <div className="flex items-center justify-between rounded-xl border border-[var(--primary)]/20 bg-[var(--primary)]/5 px-4 py-3">
                     <span className="text-sm font-semibold text-foreground">Total a pagar</span>
                     <span className="text-xl font-bold text-[var(--primary)]">
@@ -633,7 +593,7 @@ export function OrderItemManager({
                     <Button type="button" variant="outline" size="lg" onClick={() => setOpen(false)}>
                       Cancelar
                     </Button>
-                    <Button type="submit" size="lg" disabled={faltaFecha}>
+                    <Button type="submit" size="lg">
                       Confirmar compra
                     </Button>
                   </div>

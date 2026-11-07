@@ -7,8 +7,6 @@ import {
   PREFIJO_CAMBIO_FECHA,
   resumenCambioFechaDespacho,
   resumenCambioFechaOf,
-  fechaFabricacionDeDia,
-  sumarDias,
   type OrdenParaResumen,
 } from "./delivery-tracking";
 import { parseColombiaDateTime } from "./colombia-time";
@@ -403,37 +401,5 @@ describe("cumplimientoPorProveedor", () => {
   it("sin filas válidas: lista vacía, sin dividir por cero", () => {
     expect(cumplimientoPorProveedor([])).toEqual([]);
     expect(cumplimientoPorProveedor([fila("a", null, estimado), fila("a", estimado, null)])).toEqual([]);
-  });
-});
-
-describe("fechaFabricacionDeDia", () => {
-  const ahora = d("2026-11-07T15:00:00.000Z"); // 7-nov 10:00 a. m. Colombia
-
-  it("null si está vacío, no es un día o ya pasó", () => {
-    expect(fechaFabricacionDeDia("", ahora)).toBeNull();
-    expect(fechaFabricacionDeDia(null, ahora)).toBeNull();
-    expect(fechaFabricacionDeDia("2026-02-31", ahora)).toBeNull();
-    expect(fechaFabricacionDeDia("7/11/2026", ahora)).toBeNull();
-    expect(fechaFabricacionDeDia("2026-11-06", ahora)).toBeNull();
-  });
-
-  it("hoy o después: medianoche UTC del día y 5:00 p. m. Colombia", () => {
-    expect(fechaFabricacionDeDia("2026-11-07", ahora)).toEqual({
-      deliveryDate: d("2026-11-07T00:00:00.000Z"),
-      estimatedDeliveryAt: d("2026-11-07T22:00:00.000Z"),
-    });
-    expect(fechaFabricacionDeDia(" 2026-11-17 ", ahora)?.estimatedDeliveryAt).toEqual(d("2026-11-17T22:00:00.000Z"));
-  });
-
-  it("hoy se cuenta en Colombia: a las 9:00 p. m. del 7 (02:00Z del 8) el 7 sigue valiendo", () => {
-    expect(fechaFabricacionDeDia("2026-11-07", d("2026-11-08T02:00:00.000Z"))).not.toBeNull();
-  });
-});
-
-describe("sumarDias", () => {
-  it("suma días calendario y cambia de mes y de año", () => {
-    expect(sumarDias("2026-11-07", 7)).toBe("2026-11-14");
-    expect(sumarDias("2026-11-25", 10)).toBe("2026-12-05");
-    expect(sumarDias("2026-12-20", 15)).toBe("2027-01-04");
   });
 });

@@ -9,11 +9,10 @@ import { OrderHistoryTabs } from "@/components/admin/order-history-tabs";
 import { EmbalajeFotosCard, gruposEmbalaje } from "@/components/admin/embalaje-fotos-card";
 import { OrderNotesCard } from "@/components/admin/order-notes-card";
 import { DispatchEstimateCard, type CambioFechaView } from "@/components/admin/dispatch-estimate-card";
-import { colombiaDateTimeInput, todayInColombia } from "@/lib/colombia-time";
+import { colombiaDateTimeInput } from "@/lib/colombia-time";
 import { estadoDeEntrega, PREFIJO_CAMBIO_FECHA } from "@/lib/delivery-tracking";
 import { OrderReversalsCard } from "@/components/admin/order-reversals-card";
 import { OrderItemsTable } from "@/components/admin/order-items-table";
-import type { OfDeProveedora } from "@/components/admin/order-item-manager";
 import { OrderStepper } from "@/components/admin/order-stepper";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -460,10 +459,6 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         name: entry.supplier.name,
       })),
       defaultSupplierId: item.confirmedSupplierId ?? preferred?.supplierId ?? "",
-      // "Confirmar N" usa la primera proveedora propia (no la de las piezas de un combo).
-      loteSupplier: item.product.suppliers[0]
-        ? { id: item.product.suppliers[0].supplierId, name: item.product.suppliers[0].supplier.name }
-        : null,
       // Para un combo el costo por defecto es el costo base del combo, no el de un
       // solo componente; para un producto normal, el costo de su proveedor.
       defaultCost: Number(
@@ -586,8 +581,6 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
 
   // Ordenes de fabricacion (OF) por proveedora: solo en ordenes de venta.
   let manufacturingCards: ManufacturingCard[] = [];
-  // OF que ya existen, por proveedora: el cuadro de confirmar compra precarga su fecha y avisa.
-  const ofsPorProveedora: Record<string, OfDeProveedora> = {};
   let brandName = "";
   if (!isPurchase) {
     const manufacturingItems = order.items.filter(isManufacturingItem);
@@ -637,11 +630,6 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       const avisos = avisosColor.filter((aviso) => aviso.manufacturingOrderId === manufacturingOrder.id);
       const ultimoVisto = avisos.findLast((aviso) => aviso.vistoEn);
       const supplierName = supplier?.displayName || supplier?.name || "Proveedora";
-      ofsPorProveedora[manufacturingOrder.supplierId] = {
-        code: manufacturingOrder.code,
-        supplierName,
-        dia: manufacturingOrder.estimatedDeliveryAt ? todayInColombia(manufacturingOrder.estimatedDeliveryAt) : null,
-      };
 
       return {
         id: manufacturingOrder.id,
@@ -879,8 +867,6 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             carriers={carriers}
             defaultAddress={order.client?.address ?? ""}
             shipmentDefaults={shipmentDefaults}
-            ofsPorProveedora={ofsPorProveedora}
-            pideFechaFabricacion={!isPurchase}
           />
         </div>
 
