@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AddShippingLegDialog } from "@/components/admin/add-shipping-leg-dialog";
 import { OrderActionsMenu } from "@/components/admin/order-actions-menu";
+import { OrderClientCard } from "@/components/admin/order-client-card";
 import { OrderHistoryTabs } from "@/components/admin/order-history-tabs";
 import { EmbalajeFotosCard, gruposEmbalaje } from "@/components/admin/embalaje-fotos-card";
 import { OrderNotesCard } from "@/components/admin/order-notes-card";
@@ -22,6 +23,7 @@ import { resolveDispatchLegs, sumShippingLegs } from "@/lib/dispatch-shipping-le
 import { computeStockExitCost } from "@/lib/stock-exit-cost";
 import { computeItemUnitCost } from "@/lib/order-item-cost";
 import { prisma } from "@/lib/prisma";
+import { buildOrderDeliveryInfo, shortColombiaDate, whatsAppDigits } from "@/lib/order-delivery-info";
 import { formatNoteDate } from "@/lib/order-notes";
 import { countReversedItems, itemDeliveryState, reversalMoneyWarning, reversalReasonLabel } from "@/lib/order-item-reversal";
 import {
@@ -106,6 +108,16 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           include: {
             salePayments: { orderBy: { sortOrder: "asc" } },
             shippingCosts: { select: { amount: true } },
+            quote: {
+              select: {
+                id: true,
+                code: true,
+                shareToken: true,
+                notes: true,
+                createdAt: true,
+                createdBy: { select: { name: true, email: true } },
+              },
+            },
           },
         },
         client: true,
@@ -172,7 +184,14 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         },
         dispatches: {
           include: {
-            shipment: { select: { id: true, code: true, status: true } },
+            shipment: {
+              select: {
+                id: true,
+                code: true,
+                status: true,
+                destinationCity: { select: { name: true, department: { select: { name: true } } } },
+              },
+            },
             carrierSupplier: { select: { name: true } },
             shippingLegs: {
               orderBy: { position: "asc" },
@@ -482,6 +501,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   // El cambio de forma de pago usa la accion de ventas: solo se ofrece a quien tiene ese permiso.
   const canChangePaymentMethod =
     !isPurchase && Boolean(order.sale) && (await hasAnyModuleAccess(session.user.id, session.user.role, ["sales", "quotes"]));
+  const canEditQuote = !isPurchase && (await hasAdminModuleAccess(session.user.id, session.user.role, "quotes"));
+  const saleQuote = order.sale?.quote ?? null;
   const shippingDispatches = order.dispatches.filter(
     (dispatch) => dispatch.deliveryType === "SHIPPING" && dispatch.status !== "CANCELLED",
   );
@@ -594,9 +615,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         (item) => item.confirmedSupplierId === manufacturingOrder.supplierId,
       );
       const supplier = supplierItems[0]?.confirmedSupplier ?? null;
-      const phoneDigits = (supplier?.phone ?? "").replace(/\D/g, "");
-      const supplierWhatsApp =
-        phoneDigits.length === 10 && phoneDigits.startsWith("3") ? `57${phoneDigits}` : phoneDigits;
+      const supplierWhatsApp = whatsAppDigits(supplier?.phone);
 
       const avisos = avisosColor.filter((aviso) => aviso.manufacturingOrderId === manufacturingOrder.id);
       const ultimoVisto = avisos.findLast((aviso) => aviso.vistoEn);
@@ -672,7 +691,10 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           ) : (
             <p className="text-sm text-muted-foreground">
               Venta{" "}
-              <Link href="/admin/ventas" className="font-medium text-foreground hover:underline">
+              <Link
+                href={order.sale ? `/admin/ventas?q=${encodeURIComponent(order.sale.code)}` : "/admin/ventas"}
+                className="font-medium text-foreground hover:underline"
+              >
                 {displayCode(order.sale?.code)}
               </Link>{" "}
               - Cliente {order.client?.name || order.client?.email}
@@ -737,6 +759,28 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           {moneyWarning}
         </div>
+      ) : null}
+
+      {!isPurchase ? (
+        <OrderClientCard
+          name={order.client?.name}
+          phone={order.client?.phone}
+          instagram={order.client?.instagram}
+          delivery={buildOrderDeliveryInfo(order.client, order.dispatches)}
+          quote={
+            saleQuote
+              ? {
+                  id: saleQuote.id,
+                  code: saleQuote.code,
+                  shareToken: saleQuote.shareToken,
+                  notes: saleQuote.notes,
+                  date: shortColombiaDate(saleQuote.createdAt),
+                  by: saleQuote.createdBy.name || saleQuote.createdBy.email,
+                }
+              : null
+          }
+          canEditQuote={canEditQuote}
+        />
       ) : null}
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
