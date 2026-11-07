@@ -766,7 +766,10 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           name={order.client?.name}
           phone={order.client?.phone}
           instagram={order.client?.instagram}
-          delivery={buildOrderDeliveryInfo(order.client, order.dispatches)}
+          delivery={buildOrderDeliveryInfo(order.client, order.dispatches, {
+            orderCode: order.code,
+            saleCode: order.sale?.code,
+          })}
           quote={
             saleQuote
               ? {

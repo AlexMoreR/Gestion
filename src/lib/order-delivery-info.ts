@@ -1,4 +1,5 @@
 import { recipientAddress, recipientCity } from "../modules/guias/domain/document-view";
+import { displayCode } from "./code-display";
 import { colombiaDayKey } from "./colombia-time";
 
 // Datos de la franja "Cliente y entrega" de la ficha de la orden. Puro para poder probarlo.
@@ -58,6 +59,7 @@ export function shortColombiaDate(date: Date): string {
 export function buildOrderDeliveryInfo(
   client: ClientContact | null | undefined,
   dispatches: DispatchForDelivery[],
+  codes: { orderCode: string; saleCode?: string | null },
 ): OrderDeliveryInfo {
   const dispatch = dispatches.find((item) => item.status !== "CANCELLED" && item.status !== "RETURNED") ?? null;
 
@@ -83,6 +85,8 @@ export function buildOrderDeliveryInfo(
     address !== null &&
     address.localeCompare(clientAddress, "es", { sensitivity: "base" }) !== 0;
 
+  const reference = `Referencia: ${displayCode(codes.orderCode)}${codes.saleCode ? ` / ${displayCode(codes.saleCode)}` : ""}`;
+
   return {
     dispatchCode: dispatch?.code ?? null,
     pickup: false,
@@ -92,6 +96,8 @@ export function buildOrderDeliveryInfo(
     carrier: dispatch ? dispatch.carrierName || dispatch.carrierSupplier?.name || null : null,
     tracking: dispatch ? dispatch.trackingNumber || dispatch.shipment?.code || null : null,
     copyText:
-      address || city ? [client?.name, client?.phone, address, city].filter((line) => line?.trim()).join("\n") : "",
+      address || city
+        ? [reference, client?.name, client?.phone, address, city].filter((line) => line?.trim()).join("\n")
+        : "",
   };
 }
