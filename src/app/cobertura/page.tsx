@@ -67,6 +67,7 @@ export default async function ServicioTransportePage({ searchParams }: PageProps
 
   // Numero segun la linea de venta del enlace (?ref=1 / ?ref=2); sin ref (o desconocido), el general.
   const whatsAppHref = SALES_LINE_WHATSAPP[ref] ?? systemWhatsAppHref;
+  const waZoneLink = `https://wa.me/${whatsAppHref}?text=${encodeURIComponent(`Hola *${brandName}*, no encuentro mi zona en la página de cobertura y quiero consultar el envío.`)}`;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -101,8 +102,11 @@ export default async function ServicioTransportePage({ searchParams }: PageProps
         </div>
 
         <p className="mt-6 text-center text-xs text-slate-400">
-          Cobertura basada en la división oficial de Colombia (DANE). Si no encuentras tu zona, escríbenos y te
-          ayudamos.
+          Cobertura basada en la división oficial de Colombia (DANE). Si no encuentras tu zona,{" "}
+          <a href={waZoneLink} target="_blank" rel="noopener noreferrer">
+            escríbenos
+          </a>{" "}
+          y te ayudamos.
         </p>
 
         {/* Puntos de fabrica */}
