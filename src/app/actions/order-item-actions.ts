@@ -1118,9 +1118,7 @@ class UndoBlockedError extends Error {}
 
 const PRODUCTION_JOB_LOG_FIELDS = ["id", "code", "status", "quantity", "assignedToId", "startedAt", "completedAt"] as const;
 
-// Deshace el "Fabricar" (confirmacion) de un producto: borra su orden de
-// produccion, limpia el proveedor/costo confirmado y, si la orden ya no tiene
-// produccion, la regresa a "Liberada". El producto vuelve a "Sin confirmar".
+// Devolución abierta = sin cerrar ni anular (estaAbierta en src/lib/order-return.ts).
 async function orderHasOpenReturn(orderId: string): Promise<boolean> {
   const open = await prisma.orderReturn.findFirst({
     where: { orderId, closedAt: null, annulledAt: null },
@@ -1129,6 +1127,9 @@ async function orderHasOpenReturn(orderId: string): Promise<boolean> {
   return open !== null;
 }
 
+// Deshace el "Fabricar" (confirmacion) de un producto: borra su orden de
+// produccion, limpia el proveedor/costo confirmado y, si la orden ya no tiene
+// produccion, la regresa a "Liberada". El producto vuelve a "Sin confirmar".
 export async function adminUndoConfirmOrderItemAction(formData: FormData): Promise<void> {
   const createdById = await requireAdminSession();
   const returnTo = getReturnTo(formData, "/admin/ordenes");
