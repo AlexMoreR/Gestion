@@ -323,7 +323,10 @@ export function OrderItemsTable({
             <DialogTitle>
               Despachar {dispatchCount} {dispatchCount === 1 ? "producto" : "productos"}
             </DialogTitle>
-            <DialogDescription>Salen juntos en un solo despacho: {dispatchItems.map((item) => item.productName).join(", ")}.</DialogDescription>
+            <DialogDescription>
+              {dispatchCount === 1 ? "Sale en este despacho" : "Salen juntos en un solo despacho"}:{" "}
+              {dispatchItems.map((item) => item.productName).join(", ")}.
+            </DialogDescription>
           </DialogHeader>
           {leftOutItems.length > 0 ? (
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-700 dark:text-amber-400">
