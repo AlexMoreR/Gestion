@@ -5,9 +5,9 @@ import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { imagenesDeLaLinea } from "./of-image";
 import { textoColores } from "./product-parts";
 import { stableShareToken } from "@/lib/manufacturing-share-token";
-import { colombiaDayKey, todayInColombia } from "./colombia-time";
+import { colombiaDayKey } from "./colombia-time";
 import { displayCode } from "./code-display";
-import { fechaFabricacionDeDia, resumenCambioFechaOf } from "./delivery-tracking";
+import { resumenCambioFechaOf } from "./delivery-tracking";
 import { computeOfBalance, type OfBalance } from "../modules/proveedores/domain/supplier-payment";
 
 // Ordenes de fabricacion (OF-00001): una por orden de venta + proveedora.
@@ -236,57 +236,6 @@ export async function ensureManufacturingOrders(orderId: string, supplierIds: st
     where: { orderId, supplierId: { in: uniqueSupplierIds } },
     orderBy: { code: "asc" },
   });
-}
-
-// Proveedoras que "Confirmar N" va a poner a fabricar: las mismas condiciones del ciclo de
-// adminBulkConfirmOrderItemsAction (no stock, sin confirmar y con proveedora propia). Vacío = no pide fecha.
-export function proveedorasDelLote(
-  items: Array<{
-    fulfillmentMode: string;
-    confirmedSupplierId: string | null;
-    purchaseCost: unknown;
-    product: { suppliers: Array<{ supplierId: string }> };
-  }>,
-): string[] {
-  const ids = items
-    .filter((item) => item.fulfillmentMode !== "STOCK")
-    .filter((item) => !(Boolean(item.confirmedSupplierId) && item.purchaseCost !== null))
-    .map((item) => item.product.suppliers[0]?.supplierId ?? "")
-    .filter(Boolean);
-  return Array.from(new Set(ids));
-}
-
-export type CambioFechaFabricacion = {
-  orderId: string;
-  code: string;
-  antes: { deliveryDate: Date | null; estimatedDeliveryAt: Date | null };
-  despues: { deliveryDate: Date; estimatedDeliveryAt: Date };
-};
-
-// Pone el día elegido al confirmar en la OF de cada proveedora (la crea si falta). Mismos dos campos que
-// la pestaña Fabricación. Una OF que ya tiene ese día no se toca (conserva su hora, sin cambio falso).
-// Devuelve lo que cambió para anotarlo en la bitácora. El día ya viene validado (fechaFabricacionDeDia).
-export async function fijarFechaFabricacion(
-  orderId: string,
-  supplierIds: string[],
-  dia: string,
-): Promise<CambioFechaFabricacion[]> {
-  const fecha = fechaFabricacionDeDia(dia, new Date());
-  if (!fecha) throw new Error("Fecha de entrega de fabricación inválida");
-  const ofs = await ensureManufacturingOrders(orderId, supplierIds);
-  const cambios: CambioFechaFabricacion[] = [];
-  for (const of of ofs) {
-    // todayInColombia y no colombiaDayKey: las 7:00 p. m. Colombia son medianoche UTC del día siguiente.
-    if (of.estimatedDeliveryAt && todayInColombia(of.estimatedDeliveryAt) === dia) continue;
-    await prisma.manufacturingOrder.update({ where: { id: of.id }, data: fecha });
-    cambios.push({
-      orderId,
-      code: of.code,
-      antes: { deliveryDate: of.deliveryDate, estimatedDeliveryAt: of.estimatedDeliveryAt },
-      despues: fecha,
-    });
-  }
-  return cambios;
 }
 
 export type ManufacturingPayment = {

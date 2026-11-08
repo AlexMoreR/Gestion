@@ -1,7 +1,7 @@
 // Estado de una entrega (despacho) o fabricación (OF) contra su fecha y hora estimada.
 // Puro y sin alias "@/" para que Vitest lo resuelva. Compara momentos reales: no usa colombiaDayKey.
 import { formatNoteDate } from "./order-notes";
-import { parseColombiaDateTime, todayInColombia } from "./colombia-time";
+import { todayInColombia } from "./colombia-time";
 
 export type TipoEstadoEntrega =
   | "SIN_FECHA"
@@ -64,29 +64,6 @@ export function estadoDeEntrega(
     return { tipo: "POR_VENCER", etiqueta: texto, atrasoHoras: 0, diasRestantes: dias };
   }
   return { tipo: "A_TIEMPO", etiqueta: texto, atrasoHoras: 0, diasRestantes: dias };
-}
-
-// ---- Fecha de entrega de fabricación pedida al confirmar la compra (Fabricar / Confirmar N) ----
-
-// Hora fija con que se guarda el día elegido: el campo de la OF lleva hora y se edita en la pestaña Fabricación.
-export const HORA_ENTREGA_FABRICACION = "17:00";
-
-// 'AAAA-MM-DD' más n días calendario (atajos +7, +10, +15).
-export function sumarDias(dia: string, n: number): string {
-  return new Date(Date.parse(`${dia}T00:00:00Z`) + n * DIA_MS).toISOString().slice(0, 10);
-}
-
-// Día elegido → los dos campos de la OF (deliveryDate a medianoche UTC y estimatedDeliveryAt a las 5:00 p. m.
-// Colombia). null si está vacío, no existe (31 de febrero) o ya pasó; hoy sí vale.
-export function fechaFabricacionDeDia(
-  dia: string | null | undefined,
-  ahora: Date,
-): { deliveryDate: Date; estimatedDeliveryAt: Date } | null {
-  const texto = (dia ?? "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(texto) || texto < todayInColombia(ahora)) return null;
-  const estimatedDeliveryAt = parseColombiaDateTime(`${texto}T${HORA_ENTREGA_FABRICACION}`);
-  if (!estimatedDeliveryAt) return null;
-  return { deliveryDate: new Date(`${texto}T00:00:00.000Z`), estimatedDeliveryAt };
 }
 
 // Historial de fechas (despacho y OF): la bitácora se filtra por este prefijo; no hay tabla propia.
