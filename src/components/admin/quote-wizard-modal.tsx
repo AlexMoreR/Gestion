@@ -313,8 +313,6 @@ export function QuoteWizardModal({
       .slice(0, 8);
   }, [clients, clientName]);
 
-  const selectedClient = useMemo(() => clients.find((client) => client.id === clientId), [clients, clientId]);
-
   const getClientDisplayName = (client: QuoteWizardClient): string => {
     const byExactEmail = client.name.replace(client.email, "").trim();
     if (byExactEmail) {
@@ -1572,7 +1570,7 @@ export function QuoteWizardModal({
                   <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
                     <div>
                       <p className="text-xs text-muted-foreground">Nombre</p>
-                      <p className="break-words font-medium text-foreground">{clientId ? selectedClient?.name ?? clientName : clientName}</p>
+                      <p className="break-words font-medium text-foreground">{clientName}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">NIT</p>

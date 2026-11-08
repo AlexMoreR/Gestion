@@ -49,11 +49,12 @@ export async function upsertQuoteClient(db: PrismaClient, data: QuoteClientData)
 
   let existing = data.email ? await db.user.findUnique({ where: { email: data.email } }) : null;
 
-  if (!existing && data.document) {
+  // Textos como "Sin confirmar" no identifican a nadie: buscarlos pisaria la ficha de otro cliente.
+  if (!existing && data.document && /\d/.test(data.document)) {
     existing = await db.user.findFirst({ where: { role: "CLIENTE", document: data.document } });
   }
 
-  if (!existing && !data.document && data.phone) {
+  if (!existing && !data.document && data.phone.replace(/\D/g, "").length >= 7) {
     existing = await db.user.findFirst({ where: { role: "CLIENTE", phone: data.phone } });
   }
 
