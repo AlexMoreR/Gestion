@@ -27,6 +27,10 @@ const products = await import("@/app/actions/product-actions");
 const { COTIZACION_CON_VENTA_LINEAS } = await import("@/lib/quote-lines");
 const { prismaReciboCajaPuertos } = await import("@/modules/ventas/infrastructure/prisma-recibo-caja");
 const { PROVEEDORA_CON_MOVIMIENTOS, PRODUCTO_CON_MOVIMIENTOS } = await import("@/lib/anulaciones");
+const { sumarDias } = await import("@/lib/delivery-tracking");
+const { todayInColombia } = await import("@/lib/colombia-time");
+// Fabricar en una venta exige la fecha de entrega de fabricación (AAAA-MM-DD, hoy o después).
+const fechaFabricacion = sumarDias(todayInColombia(), 10);
 
 let datos: Awaited<ReturnType<typeof sembrar>>;
 let anterior: Foto | null = null;
@@ -155,13 +159,30 @@ describe("caminos con plata (base real)", () => {
   });
 
   it("4. pago a proveedora", async () => {
+    // Sin fecha de entrega de fabricación no confirma ni crea el cargo a la proveedora.
+    const sinFecha = await llamar(items.adminConfirmOrderItemAction, {
+      orderItemId: ctx.orderItemId,
+      supplierId: datos.proveedora.id,
+      purchaseCost: "100000",
+    });
+    expect(sinFecha.error).toContain("fecha de entrega de fabricación");
+    expect((await prisma.orderItem.findUniqueOrThrow({ where: { id: ctx.orderItemId } })).confirmedSupplierId).toBeNull();
+    expect(await prisma.supplierLedgerEntry.count({ where: { type: "CHARGE", orderId: ctx.orderId } })).toBe(0);
+
     sinError(
       await llamar(items.adminConfirmOrderItemAction, {
         orderItemId: ctx.orderItemId,
         supplierId: datos.proveedora.id,
         purchaseCost: "100000",
+        fechaFabricacion,
       }),
     );
+    // La fecha queda en la OF de la proveedora: la misma que edita la pestaña Fabricación y ve su enlace.
+    const of = await prisma.manufacturingOrder.findUniqueOrThrow({
+      where: { orderId_supplierId: { orderId: ctx.orderId!, supplierId: datos.proveedora.id } },
+    });
+    expect(of.deliveryDate?.toISOString()).toBe(`${fechaFabricacion}T00:00:00.000Z`);
+    expect(of.estimatedDeliveryAt?.toISOString()).toBe(`${fechaFabricacion}T22:00:00.000Z`);
     sinError(
       await llamar(ledger.adminCreateSupplierPaymentAction, {
         supplierId: datos.proveedora.id,
@@ -440,7 +461,7 @@ describe("deshacer sin perder rastro (base real)", () => {
     const order = await prisma.order.findFirstOrThrow({ where: { saleId: sale.id }, include: { items: true } });
     d.orderId = order.id;
     d.orderItemId = order.items[0].id;
-    sinError(await llamar(items.adminConfirmOrderItemAction, { orderItemId: d.orderItemId, supplierId: datos.proveedora.id, purchaseCost: "100000" }));
+    sinError(await llamar(items.adminConfirmOrderItemAction, { orderItemId: d.orderItemId, supplierId: datos.proveedora.id, purchaseCost: "100000", fechaFabricacion }));
     sinError(await llamar(items.adminBulkPickupOrderItemsAction, { orderItemIds: [d.orderItemId], photo: comprobante("terminado.png") }));
     sinError(
       await llamar(dispatches.adminDispatchOrderItemAction, {

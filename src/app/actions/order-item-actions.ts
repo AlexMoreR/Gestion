@@ -19,6 +19,9 @@ import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { syncOrderStatusAfterProduction } from "@/app/actions/orders-actions";
 import { computeStockExitCost } from "@/lib/stock-exit-cost";
 import { confirmOrderItemSupplier, type ConfirmOrderItemSupplierResult } from "@/lib/order-item-confirm";
+import { displayCode } from "@/lib/code-display";
+import { fechaFabricacionDeDia, resumenCambioFechaOf } from "@/lib/delivery-tracking";
+import { fijarFechaFabricacion, proveedorasDelLote } from "@/lib/manufacturing-orders";
 import { withNegativeBalanceNotice } from "@/modules/balances/application/use-cases";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import {
@@ -59,6 +62,47 @@ const CONFIRM_ITEM_ERRORS: Record<Extract<ConfirmOrderItemSupplierResult, { ok: 
   orden_cerrada: "La+orden+no+admite+cambios",
   proveedor_no_pertenece: "El+proveedor+no+pertenece+al+producto",
 };
+
+// Fecha de entrega de fabricación (obligatoria al confirmar una compra de fabricación en una venta).
+const FECHA_FABRICACION_FALTA = "Elige la fecha de entrega de fabricación (hoy o después)";
+const FECHA_FABRICACION_NO_GUARDADA =
+  "Compra confirmada, pero no se pudo guardar la fecha: ponla en la pestaña Fabricación";
+
+function leerFechaFabricacion(formData: FormData): string | null {
+  const dia = String(formData.get("fechaFabricacion") ?? "").trim();
+  return fechaFabricacionDeDia(dia, new Date()) ? dia : null;
+}
+
+// Después de confirmar: guarda el día en la OF de cada proveedora y lo anota en la bitácora
+// (sale en "Historial de fechas"). false si no se pudo: la compra ya quedó confirmada.
+async function guardarFechaFabricacion(orderId: string, supplierIds: string[], dia: string): Promise<boolean> {
+  try {
+    const cambios = await fijarFechaFabricacion(orderId, supplierIds, dia);
+    for (const cambio of cambios) {
+      await logActivity({
+        action: "UPDATE",
+        entityType: "ORDER",
+        entityId: cambio.orderId,
+        entityCode: cambio.code,
+        summary: `${resumenCambioFechaOf(displayCode(cambio.code), {
+          estimada: { antes: cambio.antes.estimatedDeliveryAt, despues: cambio.despues.estimatedDeliveryAt },
+        })} (al confirmar la compra)`,
+        before: {
+          deliveryDate: cambio.antes.deliveryDate?.toISOString() ?? null,
+          estimatedDeliveryAt: cambio.antes.estimatedDeliveryAt?.toISOString() ?? null,
+        },
+        after: {
+          deliveryDate: cambio.despues.deliveryDate.toISOString(),
+          estimatedDeliveryAt: cambio.despues.estimatedDeliveryAt.toISOString(),
+        },
+      });
+    }
+    return true;
+  } catch (error) {
+    console.error("Failed to set manufacturing delivery date:", error);
+    return false;
+  }
+}
 
 const deletePhotoSchema = z.object({
   photoId: z.string().trim().min(1, "Foto invalida"),
@@ -484,6 +528,17 @@ export async function adminConfirmOrderItemAction(formData: FormData): Promise<v
     redirect(`${returnTo}?error=Datos+de+confirmacion+invalidos`);
   }
 
+  // La fecha se exige antes de confirmar (sin ella no se crea el cargo). Las compras no tienen OF.
+  const itemOrder = await prisma.orderItem.findUnique({
+    where: { id: parsed.data.orderItemId },
+    select: { order: { select: { type: true } } },
+  });
+  const pideFecha = itemOrder?.order.type !== "PURCHASE";
+  const fechaFabricacion = leerFechaFabricacion(formData);
+  if (pideFecha && !fechaFabricacion) {
+    redirect(`${returnTo}?${new URLSearchParams({ error: FECHA_FABRICACION_FALTA }).toString()}`);
+  }
+
   let result: ConfirmOrderItemSupplierResult;
   try {
     result = await prisma.$transaction((tx) =>
@@ -503,9 +558,17 @@ export async function adminConfirmOrderItemAction(formData: FormData): Promise<v
     redirect(`${returnTo}?error=${CONFIRM_ITEM_ERRORS[result.motivo]}`);
   }
 
+  const fechaGuardada =
+    !pideFecha || !fechaFabricacion
+      ? true
+      : await guardarFechaFabricacion(result.orderId, [parsed.data.supplierId], fechaFabricacion);
+
   revalidatePath("/admin/ordenes");
   revalidatePath("/admin/produccion");
   revalidatePath(`/admin/ordenes/${result.orderId}`);
+  if (!fechaGuardada) {
+    redirect(`${returnTo}?${new URLSearchParams({ error: FECHA_FABRICACION_NO_GUARDADA }).toString()}`);
+  }
   redirect(`${returnTo}?ok=Item+confirmado+y+enviado+a+produccion`);
 }
 
@@ -838,7 +901,7 @@ export async function adminBulkConfirmOrderItemsAction(formData: FormData): Prom
   const items = await prisma.orderItem.findMany({
     where: { id: { in: ids } },
     include: {
-      order: { select: { id: true, code: true, status: true, saleId: true } },
+      order: { select: { id: true, code: true, status: true, saleId: true, type: true } },
       product: {
         select: {
           name: true,
@@ -862,6 +925,15 @@ export async function adminBulkConfirmOrderItemsAction(formData: FormData): Prom
   if (orderStatus === "CANCELLED" || orderStatus === "COMPLETED") {
     redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
   }
+
+  // Con productos de fabricación la fecha es obligatoria y se exige antes de confirmar nada.
+  const pideFecha = items[0].order.type !== "PURCHASE" && proveedorasDelLote(items).length > 0;
+  const fechaFabricacion = leerFechaFabricacion(formData);
+  if (pideFecha && !fechaFabricacion) {
+    redirect(`${returnTo}?${new URLSearchParams({ error: FECHA_FABRICACION_FALTA }).toString()}`);
+  }
+  // Proveedoras que de verdad quedaron confirmadas en el lote (sus OF reciben la fecha).
+  const confirmedSupplierIds = new Set<string>();
 
   // Stock disponible por producto (para los items "por stock"); se decrementa a
   // medida que se confirma cada item dentro del lote.
@@ -952,6 +1024,7 @@ export async function adminBulkConfirmOrderItemsAction(formData: FormData): Prom
             ...(shouldCharge ? { supplierPaymentStatus: "PENDING" } : {}),
           },
         });
+        confirmedSupplierIds.add(preferred.supplierId);
 
         if (shouldCharge) {
           await tx.supplierLedgerEntry.create({
@@ -1010,9 +1083,17 @@ export async function adminBulkConfirmOrderItemsAction(formData: FormData): Prom
     redirect(`${returnTo}?error=No+se+pudo+confirmar+los+productos`);
   }
 
+  const fechaGuardada =
+    !pideFecha || !fechaFabricacion || confirmedSupplierIds.size === 0
+      ? true
+      : await guardarFechaFabricacion(orderId, [...confirmedSupplierIds], fechaFabricacion);
+
   revalidatePath("/admin/ordenes");
   revalidatePath("/admin/produccion");
   revalidatePath(`/admin/ordenes/${orderId}`);
+  if (!fechaGuardada) {
+    redirect(`${returnTo}?${new URLSearchParams({ error: FECHA_FABRICACION_NO_GUARDADA }).toString()}`);
+  }
   const okMsg = skipped > 0 ? `Confirmados ${confirmed}, omitidos ${skipped}` : `Confirmados ${confirmed} productos`;
   redirect(`${returnTo}?ok=${encodeURIComponent(okMsg)}`);
 }

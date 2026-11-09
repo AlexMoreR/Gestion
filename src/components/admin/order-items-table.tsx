@@ -30,8 +30,11 @@ import {
   EmbalajeYaSubido,
   OrderItemManager,
   tieneEmbalajeCompleto,
+  type OfDeProveedora,
   type OrderItemManagerData,
 } from "@/components/admin/order-item-manager";
+import { FechaFabricacionField, fechaFabricacionValida } from "@/components/admin/fecha-fabricacion-field";
+import { displayCode } from "@/lib/code-display";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { splitDispatchSelection } from "@/lib/order-dispatch";
 import {
@@ -62,12 +65,24 @@ type OrderItemsTableProps = {
   carriers: CarrierOption[];
   defaultAddress: string;
   shipmentDefaults?: ShipmentDefaults;
+  /** OF que ya existen en la orden, por supplierId. */
+  ofsPorProveedora: Record<string, OfDeProveedora>;
+  /** Venta: confirmar fabricación pide la fecha. Compra: no. */
+  pideFechaFabricacion: boolean;
 };
 
-function BulkSubmitButton({ label, pendingLabel }: { label: string; pendingLabel: string }) {
+function BulkSubmitButton({
+  label,
+  pendingLabel,
+  disabled = false,
+}: {
+  label: string;
+  pendingLabel: string;
+  disabled?: boolean;
+}) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" className="w-full" disabled={pending}>
+    <Button type="submit" className="w-full" disabled={pending || disabled}>
       {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
       {pending ? pendingLabel : label}
     </Button>
@@ -83,6 +98,8 @@ export function OrderItemsTable({
   carriers,
   defaultAddress,
   shipmentDefaults,
+  ofsPorProveedora,
+  pideFechaFabricacion,
 }: OrderItemsTableProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [modal, setModal] = useState<null | "fabricar" | "recoger" | "despachar">(null);
@@ -177,6 +194,24 @@ export function OrderItemsTable({
     dispatchItems.map((item) => ({ orderItemId: item.id, cost: Number(itemCosts[item.id] || 0) || 0 })),
   );
 
+  // "Confirmar N": a qué OF va cada producto de fabricación (misma proveedora que usa el servidor)
+  // y cuáles se omiten por no tener proveedora propia. La fecha se aplica a todas esas OF.
+  const [fechaLote, setFechaLote] = useState("");
+  const fabricarSinConfirmar = selectedItems.filter((item) => !item.isConfirmed && item.requiresManufacturing);
+  const gruposLote = Array.from(
+    fabricarSinConfirmar
+      .filter((item) => item.loteSupplier)
+      .reduce((grupos, item) => {
+        const supplier = item.loteSupplier!;
+        const grupo = grupos.get(supplier.id) ?? { supplier, nombres: [] as string[] };
+        grupo.nombres.push(item.productName);
+        return grupos.set(supplier.id, grupo);
+      }, new Map<string, { supplier: { id: string; name: string }; nombres: string[] }>())
+      .values(),
+  );
+  const omitidosLote = fabricarSinConfirmar.filter((item) => !item.loteSupplier).map((item) => item.productName);
+  const loteNecesitaFecha = pideFechaFabricacion && gruposLote.length > 0;
+
   const stageLabel: Record<Stage, string> = {
     fabricar: "Confirmar",
     recoger: "Recoger",
@@ -264,6 +299,8 @@ export function OrderItemsTable({
                 carriers={carriers}
                 defaultAddress={defaultAddress}
                 shipmentDefaults={shipmentDefaults}
+                ofsPorProveedora={ofsPorProveedora}
+                pideFechaFabricacion={pideFechaFabricacion}
                 selected={selected.has(item.id)}
                 onToggleSelected={() => toggle(item.id)}
               />
@@ -274,7 +311,7 @@ export function OrderItemsTable({
 
       {/* Modal: Confirmar en lote */}
       <Dialog open={modal === "fabricar"} onOpenChange={(open) => (open ? null : setModal(null))}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-h-[88vh] max-w-md overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Confirmar {count} productos</DialogTitle>
             <DialogDescription>
@@ -282,10 +319,45 @@ export function OrderItemsTable({
               Los de stock se descuentan del inventario. Podrás ajustar el detalle luego en cada producto.
             </DialogDescription>
           </DialogHeader>
-          <form action={adminBulkConfirmOrderItemsAction}>
+          <form action={adminBulkConfirmOrderItemsAction} className="space-y-3">
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="orderItemIds" value={selectedIdsJson} />
-            <BulkSubmitButton label="Confirmar productos" pendingLabel="Confirmando..." />
+            {loteNecesitaFecha ? (
+              <div className="space-y-3 rounded-xl border border-border bg-muted/40 p-3">
+                <FechaFabricacionField value={fechaLote} onChange={setFechaLote} />
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-foreground">La fecha se aplica a:</p>
+                  <ul className="space-y-0.5 text-xs text-muted-foreground">
+                    {gruposLote.map((grupo) => {
+                      const of = ofsPorProveedora[grupo.supplier.id];
+                      return (
+                        <li key={grupo.supplier.id} className="break-words">
+                          <span className="font-medium text-foreground">
+                            {of ? displayCode(of.code) : "OF nueva"} · {grupo.supplier.name}
+                          </span>
+                          : {grupo.nombres.join(", ")}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {gruposLote.some((grupo) => ofsPorProveedora[grupo.supplier.id]) ? (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      En una OF que ya existe, la fecha nueva cambia para todos sus productos.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+            {omitidosLote.length > 0 ? (
+              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-700 dark:text-amber-400">
+                Sin proveedora propia, se omite: {omitidosLote.join(", ")}
+              </p>
+            ) : null}
+            <BulkSubmitButton
+              label="Confirmar productos"
+              pendingLabel="Confirmando..."
+              disabled={loteNecesitaFecha && !fechaFabricacionValida(fechaLote)}
+            />
           </form>
         </DialogContent>
       </Dialog>
