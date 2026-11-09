@@ -12,6 +12,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { buildProductionJobCode, parseProductionJobCodeNumber } from "@/lib/orders";
 import { splitOrderItemQuantities } from "@/lib/order-partial-delivery";
+import { bloqueaDeshacerFabricacion } from "@/lib/order-dispatch";
 import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
 import { SUPPLIER_LEDGER_LOG_FIELDS, snapshotForLog } from "@/lib/activity-log-snapshot";
 import { anularVarias, bloqueoPorAbonos } from "@/lib/anulaciones";
@@ -1294,7 +1295,12 @@ export async function adminUndoConfirmOrderItemAction(formData: FormData): Promi
   }
 
   // El pago ya realizado o el recogido (foto) deben deshacerse antes que la fabricacion.
-  if (orderItem.supplierPaymentStatus === "PAID" || orderItem.photos.length > 0) {
+  if (
+    bloqueaDeshacerFabricacion({
+      supplierPaymentStatus: orderItem.supplierPaymentStatus,
+      photoCount: orderItem.photos.length,
+    })
+  ) {
     redirect(`${returnTo}?error=Deshaz+primero+el+recogido+del+producto`);
   }
 
@@ -1321,6 +1327,8 @@ export async function adminUndoConfirmOrderItemAction(formData: FormData): Promi
           producto: snapshotForLog(orderItem, ORDER_ITEM_LOG_FIELDS),
           produccionesBorradas: jobs.map((job) => snapshotForLog(job, PRODUCTION_JOB_LOG_FIELDS)),
           cargosProveedoraBorrados: charges.map((row) => snapshotForLog(row, SUPPLIER_LEDGER_LOG_FIELDS)),
+          fotosBorradas: orderItem.photos.map((photo) => photo.name ?? photo.id),
+          cantidadFotosBorradas: orderItem.photos.length,
         },
       });
 
@@ -1342,7 +1350,8 @@ export async function adminUndoConfirmOrderItemAction(formData: FormData): Promi
       // 2) Anular el cargo (saldo) al proveedor generado al confirmar.
       await anularVarias(tx, "SupplierLedgerEntry", charges, { ...anulacion, codigo: (row) => (row.code as string | null) ?? orderItem.order.code });
 
-      // 3) Limpiar el proveedor/costo confirmado y el estado de pago.
+      // 3) Limpiar el proveedor/costo confirmado, el estado de pago y las fotos (pieza de $0 sin Recogido).
+      await tx.orderItemPhoto.deleteMany({ where: { orderItemId: orderItem.id } });
       await tx.orderItem.update({
         where: { id: orderItem.id },
         data: {

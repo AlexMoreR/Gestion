@@ -122,6 +122,15 @@ export function dispatchBlocker(
   return null;
 }
 
+// Deshacer la fabricación se bloquea si el producto está pagado o Recogido (misma regla de la
+// pantalla: estado de pago + foto). Una pieza de $0 de un combo no tiene estado de pago.
+export function bloqueaDeshacerFabricacion(item: {
+  supplierPaymentStatus: string | null;
+  photoCount: number;
+}): boolean {
+  return item.supplierPaymentStatus === "PAID" || (item.supplierPaymentStatus !== null && item.photoCount > 0);
+}
+
 // Revisión de órdenes afectadas (solo lectura, script ordenes:revisar-despachos):
 // - "despachada_incompleta": Despachada o Cerrada con productos sin despacho activo.
 // - "recogido_sin_salir": un producto ya salió y otro Recogido sigue sin despachar.

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  bloqueaDeshacerFabricacion,
   confirmationKey,
   dispatchBlocker,
   dispatchGaps,
@@ -149,6 +150,26 @@ describe("dispatchBlocker", () => {
   it("stock sin confirmar no sale; en una compra todo sale", () => {
     expect(dispatchBlocker({ ...base, fulfillmentMode: "STOCK", confirmedAt: null }, false)).toMatch(/stock/);
     expect(dispatchBlocker({ ...base, photoCount: 0 }, true)).toBeNull();
+  });
+});
+
+describe("bloqueaDeshacerFabricacion", () => {
+  it("pagado bloquea, con o sin fotos", () => {
+    expect(bloqueaDeshacerFabricacion({ supplierPaymentStatus: "PAID", photoCount: 0 })).toBe(true);
+    expect(bloqueaDeshacerFabricacion({ supplierPaymentStatus: "PAID", photoCount: 2 })).toBe(true);
+  });
+
+  it("pieza de $0 (estado null) con fotos no bloquea", () => {
+    expect(bloqueaDeshacerFabricacion({ supplierPaymentStatus: null, photoCount: 1 })).toBe(false);
+  });
+
+  it("estado no nulo con fotos bloquea", () => {
+    expect(bloqueaDeshacerFabricacion({ supplierPaymentStatus: "PENDING", photoCount: 1 })).toBe(true);
+  });
+
+  it("sin fotos y sin pagar no bloquea", () => {
+    expect(bloqueaDeshacerFabricacion({ supplierPaymentStatus: "PENDING", photoCount: 0 })).toBe(false);
+    expect(bloqueaDeshacerFabricacion({ supplierPaymentStatus: null, photoCount: 0 })).toBe(false);
   });
 });
 
