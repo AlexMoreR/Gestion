@@ -15,6 +15,7 @@ type QuoteRow = {
   id: string;
   code: string;
   clientName: string;
+  advisorName: string;
   itemsCount: number;
   total: number;
   status: "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED";

@@ -43,6 +43,7 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
       orderBy: { createdAt: "desc" },
       include: {
         client: true,
+        createdBy: { select: { name: true, email: true } },
         items: {
           include: { product: { select: COMBO_CHECK_PRODUCT_SELECT } },
         },
@@ -125,6 +126,7 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
           id: quote.id,
           code: quote.code,
           clientName: quote.client.name || quote.client.email,
+          advisorName: quote.createdBy.name || quote.createdBy.email,
           itemsCount: quote.items.length,
           total: Number(quote.total),
           status: quote.status,

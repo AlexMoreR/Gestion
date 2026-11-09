@@ -91,7 +91,7 @@ Lista de ventas (código `SAL-...`): cobrar abonos, ver recibo, crear la orden y
 ## /admin/cotizaciones
 Lista de cotizaciones (código `COT-...`): crear, editar, abrir el enlace público y pasarlas a venta.
 
-**Qué se ve:** tarjetas Cotizaciones / Valor total / Aceptadas / Valor aceptado. Tabla con columnas Cotizacion, Cliente, Estado, Total, Fecha y menú "⋯". Buscador "Buscar por código o cliente". Filtro por estado (menú "Filtrar por estado" con casillas Revisión, Enviada, Aceptada, Rechazada, Expirada; por defecto Revisión, Enviada y Expirada).
+**Qué se ve:** franja con íconos Cotizaciones / Valor total / Aceptadas / Valor aceptado. Tabla con columnas Cotizacion, Cliente, Asesora (quien creó la cotización), Estado, Total, Fecha y menú "⋯". Buscador "Buscar por código o cliente". Filtro por estado (menú "Filtrar por estado" con casillas Revisión, Enviada, Aceptada, Rechazada, Expirada; por defecto Revisión, Enviada y Expirada).
 
 **Botones y acciones:**
 - **Nueva cotizacion**: abre el asistente de 3 pasos:

@@ -9,6 +9,7 @@ import {
   ArrowUpRight,
   ChevronDown,
   BadgeDollarSign,
+  CheckCircle2,
   Coins,
   Edit3,
   FileText,
@@ -28,8 +29,8 @@ import { pagoTotalIncompleto, saleFromQuoteMissing, type SalePaymentMethod } fro
 import { SaleOriginBadge } from "@/modules/ventas/presentation/sale-origin-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
+import { StatList } from "@/components/ui/stat-list";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-field";
@@ -64,6 +65,7 @@ type QuoteRow = {
   id: string;
   code: string;
   clientName: string;
+  advisorName: string;
   itemsCount: number;
   total: number;
   status: QuoteStatus;
@@ -1206,6 +1208,11 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
         cell: ({ row }) => <span className="text-sm text-foreground">{row.original.clientName}</span>,
       },
       {
+        accessorKey: "advisorName",
+        header: "Asesora",
+        cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.advisorName}</span>,
+      },
+      {
         id: "estado",
         accessorFn: (row) => statusLabel(row.status),
         header: "Estado",
@@ -1252,32 +1259,14 @@ export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableP
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-border bg-card/95 py-2">
-          <CardContent className="space-y-0.5">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Cotizaciones</p>
-            <p className="text-lg font-semibold text-foreground">{stats.count}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border bg-card/95 py-2">
-          <CardContent className="space-y-0.5">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Valor total</p>
-            <p className="text-lg font-semibold text-foreground">{formatMoney(stats.total, currency)}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border bg-card/95 py-2">
-          <CardContent className="space-y-0.5">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Aceptadas</p>
-            <p className="text-lg font-semibold text-foreground">{stats.acceptedCount}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border bg-card/95 py-2">
-          <CardContent className="space-y-0.5">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Valor aceptado</p>
-            <p className="text-lg font-semibold text-foreground">{formatMoney(stats.acceptedTotal, currency)}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <StatList
+        items={[
+          { label: "Cotizaciones", value: String(stats.count), icon: FileText },
+          { label: "Valor total", value: formatMoney(stats.total, currency), icon: BadgeDollarSign },
+          { label: "Aceptadas", value: String(stats.acceptedCount), icon: CheckCircle2 },
+          { label: "Valor aceptado", value: formatMoney(stats.acceptedTotal, currency), icon: Coins, tone: "success" },
+        ]}
+      />
 
       <DataTable
         data={tableData}
