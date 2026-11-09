@@ -340,7 +340,7 @@ export function SuppliersDataTable({
         <Table className="min-w-[880px] [&_td]:py-1.5">
           <TableHeader>
             <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
-              <TableHead className="normal-case tracking-normal">
+              <TableHead>
                 <HeaderLabel
                   active={sortKey === "proveedor"}
                   direction={sortDirection}
@@ -350,7 +350,7 @@ export function SuppliersDataTable({
                   Proveedor
                 </HeaderLabel>
               </TableHead>
-              <TableHead className="normal-case tracking-normal">
+              <TableHead>
                 <HeaderLabel
                   active={sortKey === "correo"}
                   direction={sortDirection}
@@ -360,7 +360,7 @@ export function SuppliersDataTable({
                   Correo
                 </HeaderLabel>
               </TableHead>
-              <TableHead className="normal-case tracking-normal">
+              <TableHead>
                 <HeaderLabel
                   active={sortKey === "telefono"}
                   direction={sortDirection}
@@ -370,7 +370,7 @@ export function SuppliersDataTable({
                   Telefono
                 </HeaderLabel>
               </TableHead>
-              <TableHead className="normal-case tracking-normal">
+              <TableHead>
                 <HeaderLabel
                   active={sortKey === "productos"}
                   direction={sortDirection}
@@ -380,7 +380,7 @@ export function SuppliersDataTable({
                   Productos
                 </HeaderLabel>
               </TableHead>
-              <TableHead className="normal-case tracking-normal">
+              <TableHead>
                 <HeaderLabel
                   active={sortKey === "saldo"}
                   direction={sortDirection}
@@ -390,7 +390,7 @@ export function SuppliersDataTable({
                   Saldo
                 </HeaderLabel>
               </TableHead>
-              <TableHead className="w-px normal-case tracking-normal">
+              <TableHead className="w-px tracking-normal">
                 <span className="sr-only">Acciones</span>
               </TableHead>
             </TableRow>

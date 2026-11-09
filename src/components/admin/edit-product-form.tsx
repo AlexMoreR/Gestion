@@ -868,7 +868,7 @@ export function EditProductForm({
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-[var(--line)]">
                     <table className="w-full text-sm">
-                      <thead className="bg-slate-50/70 text-xs uppercase tracking-wide text-slate-500">
+                      <thead className="bg-slate-50/70 text-xs text-slate-500">
                         <tr>
                           <th className="px-3 py-2 text-left">Fecha</th>
                           <th className="px-3 py-2 text-left">Cant</th>

@@ -1269,7 +1269,7 @@ export function QuoteWizardModal({
 
                 <div className="hidden overflow-hidden rounded-xl border border-border bg-card shadow-sm lg:block">
                   <table className="w-full text-sm">
-                    <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
+                    <thead className="bg-muted/60 text-xs text-muted-foreground">
                       <tr>
                         <th className="px-3 py-2 text-left">Producto</th>
                         <th className="px-3 py-2 text-left">Descripcion</th>
@@ -1613,7 +1613,7 @@ export function QuoteWizardModal({
                     <p className="text-sm font-semibold text-foreground">Productos</p>
                   </div>
                   <table className="w-full text-sm">
-                    <thead className="bg-card text-xs uppercase tracking-wide text-muted-foreground">
+                    <thead className="bg-card text-xs text-muted-foreground">
                       <tr>
                         <th className="px-3 py-2 text-left">Producto</th>
                         <th className="px-3 py-2 text-left">Descripcion</th>

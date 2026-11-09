@@ -588,7 +588,7 @@ export function ProductsDataTable({
         <Table className="min-w-[980px]">
           <TableHeader data-fit-header>
             <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
-              <TableHead className="normal-case tracking-normal">
+              <TableHead>
                 <HeaderLabel
                   active={sortKey === "producto"}
                   direction={sortDirection}
@@ -598,7 +598,7 @@ export function ProductsDataTable({
                   Producto
                 </HeaderLabel>
               </TableHead>
-              <TableHead className="normal-case tracking-normal">
+              <TableHead>
                 <HeaderLabel
                   active={sortKey === "categoria"}
                   direction={sortDirection}
@@ -608,7 +608,7 @@ export function ProductsDataTable({
                   Categoria
                 </HeaderLabel>
               </TableHead>
-              <TableHead className="normal-case tracking-normal">
+              <TableHead>
                 <HeaderLabel
                   active={sortKey === "costo"}
                   direction={sortDirection}
@@ -618,7 +618,7 @@ export function ProductsDataTable({
                   Costo
                 </HeaderLabel>
               </TableHead>
-              <TableHead className="normal-case tracking-normal">
+              <TableHead>
                 <HeaderLabel
                   active={sortKey === "detal"}
                   direction={sortDirection}
@@ -628,7 +628,7 @@ export function ProductsDataTable({
                   {priceMode === "mayor" ? "Precio mayor" : "Precio"}
                 </HeaderLabel>
               </TableHead>
-              <TableHead className="normal-case tracking-normal">
+              <TableHead>
                 <HeaderLabel
                   active={sortKey === "margen"}
                   direction={sortDirection}
@@ -638,7 +638,7 @@ export function ProductsDataTable({
                   Margen
                 </HeaderLabel>
               </TableHead>
-              <TableHead className="normal-case tracking-normal">
+              <TableHead>
                 <span className="sr-only">Acciones</span>
               </TableHead>
             </TableRow>

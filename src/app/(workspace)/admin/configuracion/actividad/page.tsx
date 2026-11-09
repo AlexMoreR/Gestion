@@ -239,12 +239,12 @@ export default async function AdminConfiguracionActividadPage({ searchParams }: 
             <Table className="min-w-[860px]">
               <TableHeader>
                 <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
-                  <TableHead className="normal-case">Fecha</TableHead>
-                  <TableHead className="normal-case">Empleado</TableHead>
-                  <TableHead className="normal-case">Accion</TableHead>
-                  <TableHead className="normal-case">Modulo</TableHead>
-                  <TableHead className="normal-case">Origen</TableHead>
-                  <TableHead className="normal-case">Detalle</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Empleado</TableHead>
+                  <TableHead>Accion</TableHead>
+                  <TableHead>Modulo</TableHead>
+                  <TableHead>Origen</TableHead>
+                  <TableHead>Detalle</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

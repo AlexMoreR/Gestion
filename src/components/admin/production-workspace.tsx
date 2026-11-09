@@ -102,7 +102,7 @@ export function ProductionWorkspace({ jobs, stats }: ProductionWorkspaceProps) {
               <TableHead className="h-9 w-28 py-2 pr-2">Trabajo</TableHead>
               <TableHead className="h-9 w-28 px-2 py-2">Orden</TableHead>
               <TableHead className="h-9 py-2">Producto</TableHead>
-              <TableHead className="h-9 py-2">CANT</TableHead>
+              <TableHead className="h-9 py-2">Cant</TableHead>
               <TableHead className="h-9 py-2">Responsable</TableHead>
               <TableHead className="h-9 py-2">Vencimiento</TableHead>
               <TableHead className="h-9 py-2">Estado</TableHead>

@@ -155,11 +155,11 @@ export function UsersDataTable({ users, moduleOptions }: UsersDataTableProps) {
       <Table className="min-w-[760px]">
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className="normal-case tracking-normal">Usuario</TableHead>
-            <TableHead className="normal-case tracking-normal">Alta</TableHead>
-            <TableHead className="normal-case tracking-normal">Rol actual</TableHead>
-            <TableHead className="normal-case tracking-normal">Rol</TableHead>
-            <TableHead className="text-right normal-case tracking-normal">Accion</TableHead>
+            <TableHead>Usuario</TableHead>
+            <TableHead>Alta</TableHead>
+            <TableHead>Rol actual</TableHead>
+            <TableHead>Rol</TableHead>
+            <TableHead className="text-right tracking-normal">Accion</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

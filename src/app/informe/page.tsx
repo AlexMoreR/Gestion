@@ -130,7 +130,7 @@ function ProductTable({
       ) : (
         <table className="mt-3 w-full text-sm">
           <thead>
-            <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr className="text-left text-xs text-slate-500">
               <th className="py-1 font-medium">Producto</th>
               <th className="py-1 text-right font-medium">Uds.</th>
               <th className="py-1 text-right font-medium">Ventas</th>

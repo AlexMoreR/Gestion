@@ -456,7 +456,7 @@ export function PurchaseDirectDialog({
         {/* Lineas agregadas */}
         <div className="overflow-hidden rounded-xl border border-border bg-card">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
+                  <thead className="bg-muted/60 text-xs text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2 text-left">Producto</th>
                       <th className="px-3 py-2 text-right">Cant</th>

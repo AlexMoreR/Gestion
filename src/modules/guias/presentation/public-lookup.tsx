@@ -199,7 +199,7 @@ function EventRows({ rows, size = "sm" }: { rows: EventRow[]; size?: "sm" | "md"
       </ul>
       <table className={cn("hidden w-full table-fixed border-collapse sm:table", text)}>
         <thead>
-          <tr className="bg-[#42066E] text-left text-[10.5px] font-bold uppercase tracking-[0.05em] text-white">
+          <tr className="bg-[#42066E] text-left text-[10.5px] font-bold text-white">
             <th className="w-[24%] px-3 py-1.5">Fecha</th>
             <th className="w-[24%] px-3 py-1.5">Estado</th>
             <th className="px-3 py-1.5">Observación</th>
