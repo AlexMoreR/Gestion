@@ -26,6 +26,8 @@ const { createPrismaAsesorRepository } = await import("@/modules/asesor/infrastr
 const { getMonthlyCommissionsUseCase } = await import("@/modules/asesor/application/use-cases");
 const { createPrismaInventoryRepository } = await import("@/modules/inventory/infrastructure/prisma-inventory-repository");
 const { listDevolucionFilas } = await import("@/lib/order-returns-report.server");
+const exportRoute = await import("@/app/(workspace)/admin/ordenes/devoluciones/export/route");
+const page = await import("@/app/(workspace)/admin/ordenes/devoluciones/page");
 const { sumarDias } = await import("@/lib/delivery-tracking");
 const { todayInColombia } = await import("@/lib/colombia-time");
 const hoy = todayInColombia();
@@ -274,5 +276,24 @@ describe("devoluciones sin plata (base real)", () => {
     const falta = (await listDevolucionFilas()).filter((f) => f.faltaRegistrar);
     expect(falta).toHaveLength(1);
     expect(falta[0]).toMatchObject({ orderId: enCamino.orderId, transportadora: "Envíos Ya", proveedoras: ["Rosa"], perdida: 20000 });
+  });
+
+  it("9. permiso: sin sesión, la página va a /unauthorized y el CSV da 401; con Órdenes baja el CSV", async () => {
+    const admin = sesion.user;
+    const url = "http://local/admin/ordenes/devoluciones/export?abiertas=1";
+    try {
+      sesion.user = null;
+      expect((await exportRoute.GET(new Request(url))).status).toBe(401);
+      await expect(page.default({ searchParams: Promise.resolve({}) })).rejects.toThrow("/unauthorized");
+    } finally {
+      sesion.user = admin;
+    }
+    const res = await exportRoute.GET(new Request(url));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Disposition")).toBe('attachment; filename="devoluciones.csv"');
+    const csv = await res.text();
+    expect(csv).toContain("Fecha;Orden;Estado;Producto;Proveedora;Transportadora;Motivo;Dónde está;Qué sigue;Pérdida");
+    expect(csv).toContain("Devuelta – falta registrar");
+    expect(csv).toContain(";;;;;;;;Total;");
   });
 });
