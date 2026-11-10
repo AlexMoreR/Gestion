@@ -21,7 +21,7 @@ export type ConfirmOrderItemSupplierInput = {
 
 export type ConfirmOrderItemSupplierResult =
   | { ok: true; orderId: string }
-  | { ok: false; motivo: "item_no_encontrado" | "orden_cerrada" | "proveedor_no_pertenece" };
+  | { ok: false; motivo: "item_no_encontrado" | "orden_cancelada" | "orden_cerrada" | "proveedor_no_pertenece" };
 
 // Debe correr dentro de una transaccion (tx): si devuelve ok:false no escribio nada.
 export async function confirmOrderItemSupplier(
@@ -41,7 +41,10 @@ export async function confirmOrderItemSupplier(
     return { ok: false, motivo: "item_no_encontrado" };
   }
 
-  if (orderItem.order.status === "CANCELLED" || orderItem.order.status === "COMPLETED") {
+  if (orderItem.order.status === "CANCELLED") {
+    return { ok: false, motivo: "orden_cancelada" };
+  }
+  if (orderItem.order.status === "COMPLETED") {
     return { ok: false, motivo: "orden_cerrada" };
   }
 

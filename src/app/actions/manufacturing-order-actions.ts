@@ -10,6 +10,7 @@ import { displayCode } from "@/lib/code-display";
 import { colombiaDateTimeInput, parseColombiaDateTime } from "@/lib/colombia-time";
 import { resumenCambioFechaOf } from "@/lib/delivery-tracking";
 import { validarFotosEmbalaje, type EmbalajeTipo } from "@/lib/embalaje-fotos";
+import { ORDER_CANCELLED_BLOCK } from "@/lib/order-cancellation";
 import { prisma } from "@/lib/prisma";
 import { hasUploadedFile, saveShipmentPhoto } from "@/lib/upload-photo";
 
@@ -132,10 +133,16 @@ export async function adminMarkManufacturingReceivedAction(formData: FormData): 
   const returnTo = getReturnTo(formData);
   const id = String(formData.get("manufacturingOrderId") ?? "").trim();
   const of = id
-    ? await prisma.manufacturingOrder.findUnique({ where: { id }, select: { code: true, orderId: true } })
+    ? await prisma.manufacturingOrder.findUnique({
+        where: { id },
+        select: { code: true, orderId: true, order: { select: { status: true } } },
+      })
     : null;
   if (!of) {
     redirectWith(returnTo, "error", "Orden de fabricación inválida");
+  }
+  if (of.order.status === "CANCELLED") {
+    redirectWith(returnTo, "error", ORDER_CANCELLED_BLOCK);
   }
 
   const receivedAt = new Date();
@@ -215,9 +222,16 @@ export async function markReadyForDispatchAction(formData: FormData): Promise<vo
 
   const of = await prisma.manufacturingOrder.findUnique({
     where: { shareToken: token },
-    select: { code: true, orderId: true, supplierId: true, supplier: { select: { name: true, displayName: true } } },
+    select: {
+      code: true,
+      orderId: true,
+      supplierId: true,
+      order: { select: { status: true } },
+      supplier: { select: { name: true, displayName: true } },
+    },
   });
   if (!of) redirectWith(returnTo, "error", "Este enlace no es válido");
+  if (of.order.status === "CANCELLED") redirectWith(returnTo, "error", ORDER_CANCELLED_BLOCK);
   // Mismo filtro con que la página arma la lista de productos de la OF.
   const item =
     orderItemId && orderItemId.length <= 100

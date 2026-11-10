@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { closedOrderMessage } from "@/lib/order-cancellation";
 import { buildProductionJobCode, parseProductionJobCodeNumber } from "@/lib/orders";
 import { syncOrderStatusAfterProduction } from "@/app/actions/orders-actions";
 import { isRetiredUser } from "@/modules/equipo/infrastructure/prisma-team-repository";
@@ -133,7 +134,7 @@ export async function adminCreateProductionJobAction(formData: FormData): Promis
   }
 
   if (order.status === "CANCELLED" || order.status === "COMPLETED" || order.status === "DISPATCHED") {
-    redirect(`${returnTo}?error=La+orden+no+acepta+produccion`);
+    redirect(`${returnTo}?error=${encodeURIComponent(closedOrderMessage(order.status, "La orden no acepta produccion"))}`);
   }
 
   if (parsed.data.orderItemId) {

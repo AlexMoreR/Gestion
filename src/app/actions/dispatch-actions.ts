@@ -11,6 +11,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { closedOrderMessage } from "@/lib/order-cancellation";
 import { parseColombiaDateTime } from "@/lib/colombia-time";
 import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
 import { resumenCambioFechaDespacho } from "@/lib/delivery-tracking";
@@ -791,7 +792,7 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
   }
 
   if (order.status === "CANCELLED" || order.status === "COMPLETED") {
-    redirect(`${returnTo}?error=La+orden+no+acepta+despachos`);
+    redirect(`${returnTo}?error=${encodeURIComponent(closedOrderMessage(order.status, "La orden no acepta despachos"))}`);
   }
 
   const item = order.items.find((entry) => entry.id === parsed.data.orderItemId);
@@ -1008,7 +1009,7 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
     redirect(`${returnTo}?error=Orden+no+encontrada`);
   }
   if (order.status === "CANCELLED" || order.status === "COMPLETED") {
-    redirect(`${returnTo}?error=La+orden+no+acepta+despachos`);
+    redirect(`${returnTo}?error=${encodeURIComponent(closedOrderMessage(order.status, "La orden no acepta despachos"))}`);
   }
 
   const selectedItems = order.items.filter((item) => ids.includes(item.id));

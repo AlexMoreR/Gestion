@@ -2,7 +2,7 @@
 
 import { hasAnyModuleAccess } from "@/lib/admin-module-access";
 
-import { Prisma } from "@prisma/client";
+import { Prisma, type OrderStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -29,7 +29,17 @@ import { imagenDeColores } from "@/lib/vista-color.server";
 import { stockToRestore } from "@/lib/order-stock-restore";
 import { prisma } from "@/lib/prisma";
 import { parseOrderNoteText } from "@/lib/order-notes";
-import { cancelBlock, cancelNote, cancelReasonLabel, openManufacturingOrders, parseCancelInput } from "@/lib/order-cancellation";
+import {
+  cancelBlock,
+  cancelNote,
+  cancelReasonLabel,
+  estadoAlReactivar,
+  openManufacturingOrders,
+  parseCancelInput,
+  parseReactivateInput,
+  reactivateStockNote,
+  stockToRetake,
+} from "@/lib/order-cancellation";
 import { missingDispatchItems } from "@/lib/order-dispatch";
 import { createSaleOrder, type CreateSaleOrderResult } from "@/lib/sale-order";
 import { isRetiredUser } from "@/modules/equipo/infrastructure/prisma-team-repository";
@@ -810,6 +820,99 @@ export async function adminCancelOrderAction(formData: FormData): Promise<void> 
   }
   revalidatePath(`${returnTo}`);
   redirect(`${returnTo}?ok=Orden+cancelada`);
+}
+
+// Reactivar una orden de venta cancelada (nov-2026): vuelve al estado de antes de la última cancelación y saca
+// otra vez del stock lo que la cancelación repuso. No toca la venta, los abonos ni Balances.
+export async function adminReactivateOrderAction(formData: FormData): Promise<void> {
+  const changedById = await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/ordenes");
+
+  const orderId = String(formData.get("orderId") || "").trim();
+  if (!orderId) {
+    redirect(`${returnTo}?error=Orden+invalida`);
+  }
+  const parsed = parseReactivateInput(formData);
+  if (!parsed.ok) {
+    redirect(`${returnTo}?error=${encodeURIComponent(parsed.error)}`);
+  }
+  const motivo = parsed.motivo;
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      type: true,
+      status: true,
+      code: true,
+      sale: { select: { status: true } },
+      history: { select: { fromStatus: true, toStatus: true, createdAt: true } },
+    },
+  });
+  if (!order) {
+    redirect(`${returnTo}?error=Orden+no+encontrada`);
+  }
+  if (order.type !== "SALE" || order.status !== "CANCELLED") {
+    redirect(`${returnTo}?error=${encodeURIComponent("Solo se reactiva una orden de venta cancelada.")}`);
+  }
+  if (!order.sale || order.sale.status === "CANCELLED") {
+    redirect(`${returnTo}?error=${encodeURIComponent("La venta está cancelada: la orden no se puede reactivar.")}`);
+  }
+
+  const toStatus = estadoAlReactivar(order.history) as OrderStatus;
+  const retakeNotes = [`Reversa por cancelacion de orden ${order.code}`, reactivateStockNote(order.code)];
+
+  const retaken = await prisma.$transaction(async (tx) => {
+    // El estado se cambia solo si sigue CANCELLED: dos clics a la vez no sacan el stock dos veces.
+    const updated = await tx.order.updateMany({
+      where: { id: order.id, status: "CANCELLED" },
+      data: { status: toStatus },
+    });
+    if (updated.count === 0) return null;
+
+    await tx.orderStatusHistory.create({
+      data: { orderId: order.id, fromStatus: "CANCELLED", toStatus, note: `Reactivada. Motivo: ${motivo}`, changedById },
+    });
+
+    const movements = await tx.inventoryMovement.findMany({
+      where: { note: { in: retakeNotes } },
+      select: { productId: true, change: true, note: true },
+    });
+    const retake = stockToRetake(movements, order.code);
+    if (retake.size > 0) {
+      await tx.inventoryMovement.createMany({
+        data: Array.from(retake.entries()).map(([productId, quantity]) => ({
+          productId,
+          type: "OUT" as const,
+          change: -quantity,
+          note: reactivateStockNote(order.code),
+          createdById: changedById,
+        })),
+      });
+    }
+    return retake;
+  });
+
+  if (!retaken) {
+    redirect(`${returnTo}?error=${encodeURIComponent("La orden ya no está cancelada.")}`);
+  }
+
+  await logActivity({
+    action: "UPDATE",
+    entityType: "ORDER",
+    entityId: order.id,
+    entityCode: order.code,
+    summary: `Reactivó la orden ${order.code}. Motivo: ${motivo}`,
+    before: { status: "CANCELLED" },
+    after: { status: toStatus, motivo, stockSacado: Object.fromEntries(retaken) },
+  });
+
+  revalidatePath("/admin/ordenes");
+  if (retaken.size > 0) {
+    revalidatePath("/admin/inventario");
+  }
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?ok=Orden+reactivada`);
 }
 
 export async function adminMoveOrderToReadyForDispatchAction(orderId: string): Promise<void> {

@@ -5,8 +5,14 @@ import {
   cancelBlock,
   cancelNote,
   hasPayments,
+  closedOrderMessage,
+  estadoAlReactivar,
   openManufacturingOrders,
+  ORDER_CANCELLED_BLOCK,
   parseCancelInput,
+  parseReactivateInput,
+  stockToRetake,
+  ultimaCancelacion,
 } from "../src/lib/order-cancellation";
 
 function form(fields: Record<string, string>): FormData {
@@ -82,5 +88,80 @@ describe("hasPayments", () => {
   it("falso sin abonos ni anticipo, o sin venta", () => {
     expect(hasPayments({ salePayments: [], downPaymentAmount: "0" })).toBe(false);
     expect(hasPayments(null)).toBe(false);
+  });
+});
+
+describe("parseReactivateInput", () => {
+  it("rechaza vacío o menos de 3 letras", () => {
+    expect(parseReactivateInput(form({})).ok).toBe(false);
+    expect(parseReactivateInput(form({ reactivateReason: "  " })).ok).toBe(false);
+    expect(parseReactivateInput(form({ reactivateReason: "no" })).ok).toBe(false);
+  });
+  it("acepta «Se equivocó» y quita espacios", () => {
+    expect(parseReactivateInput(form({ reactivateReason: "  Se equivocó " }))).toEqual({ ok: true, motivo: "Se equivocó" });
+  });
+  it("rechaza más de 200 letras", () => {
+    expect(parseReactivateInput(form({ reactivateReason: "a".repeat(201) })).ok).toBe(false);
+  });
+});
+
+describe("estadoAlReactivar", () => {
+  const h = (fromStatus: string | null, toStatus: string, dia: number) => ({
+    fromStatus,
+    toStatus,
+    createdAt: new Date(Date.UTC(2026, 10, dia, 15)),
+  });
+  it("sin historial vuelve a RELEASED", () => {
+    expect(estadoAlReactivar([])).toBe("RELEASED");
+  });
+  it("vuelve al estado de antes de la última cancelación, venga como venga el orden", () => {
+    const historial = [
+      h(null, "DRAFT", 1),
+      h("DRAFT", "CANCELLED", 2),
+      h("CANCELLED", "DRAFT", 3),
+      h("DRAFT", "IN_PRODUCTION", 4),
+      h("IN_PRODUCTION", "CANCELLED", 5),
+    ];
+    expect(estadoAlReactivar(historial)).toBe("IN_PRODUCTION");
+    expect(estadoAlReactivar([...historial].reverse())).toBe("IN_PRODUCTION");
+  });
+  it("sin fromStatus o con CANCELLED vuelve a RELEASED", () => {
+    expect(estadoAlReactivar([h(null, "CANCELLED", 1)])).toBe("RELEASED");
+    expect(estadoAlReactivar([h("CANCELLED", "CANCELLED", 1)])).toBe("RELEASED");
+  });
+  it("ultimaCancelacion da la entrada más nueva a CANCELLED", () => {
+    const historial = [
+      { ...h("DRAFT", "CANCELLED", 2), note: "vieja" },
+      { ...h("RELEASED", "CANCELLED", 6), note: "nueva" },
+      { ...h("CANCELLED", "RELEASED", 4), note: null },
+    ];
+    expect(ultimaCancelacion(historial)?.note).toBe("nueva");
+    expect(ultimaCancelacion([])).toBeNull();
+  });
+});
+
+describe("stockToRetake", () => {
+  const reversa = (productId: string, change: number, code = "ORD-00010") => ({
+    productId,
+    change,
+    note: `Reversa por cancelacion de orden ${code}`,
+  });
+  const reactiva = (productId: string, change: number) => ({ productId, change, note: "Reactivación de orden ORD-00010" });
+  it("saca lo que entró al cancelar, solo de esa orden", () => {
+    const res = stockToRetake([reversa("a", 2), reversa("b", 1), reversa("a", 5, "ORD-00011")], "ORD-00010");
+    expect([...res]).toEqual([["a", 2], ["b", 1]]);
+  });
+  it("con varias cancelaciones no resta dos veces", () => {
+    const res = stockToRetake([reversa("a", 2), reactiva("a", -2), reversa("a", 2)], "ORD-00010");
+    expect([...res]).toEqual([["a", 2]]);
+    expect(stockToRetake([reversa("a", 2), reactiva("a", -2)], "ORD-00010").size).toBe(0);
+  });
+});
+
+describe("closedOrderMessage", () => {
+  it("cancelada da el mensaje nuevo; cerrada, el de siempre", () => {
+    expect(closedOrderMessage("CANCELLED", "La orden no admite cambios")).toBe(ORDER_CANCELLED_BLOCK);
+    expect(ORDER_CANCELLED_BLOCK).toBe("La orden está cancelada: reactívala primero");
+    expect(closedOrderMessage("COMPLETED", "La orden no admite cambios")).toBe("La orden no admite cambios");
   });
 });

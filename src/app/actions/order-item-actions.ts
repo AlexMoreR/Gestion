@@ -10,6 +10,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { closedOrderMessage, ORDER_CANCELLED_BLOCK } from "@/lib/order-cancellation";
 import { buildProductionJobCode, parseProductionJobCodeNumber } from "@/lib/orders";
 import { splitOrderItemQuantities } from "@/lib/order-partial-delivery";
 import { bloqueaDeshacerFabricacion } from "@/lib/order-dispatch";
@@ -60,6 +61,7 @@ const confirmOrderItemSchema = z.object({
 // Mismos mensajes de siempre del boton "Fabricar".
 const CONFIRM_ITEM_ERRORS: Record<Extract<ConfirmOrderItemSupplierResult, { ok: false }>["motivo"], string> = {
   item_no_encontrado: "Item+no+encontrado",
+  orden_cancelada: encodeURIComponent(ORDER_CANCELLED_BLOCK),
   orden_cerrada: "La+orden+no+admite+cambios",
   proveedor_no_pertenece: "El+proveedor+no+pertenece+al+producto",
 };
@@ -610,7 +612,7 @@ export async function adminConfirmStockOrderItemAction(formData: FormData): Prom
   }
 
   if (orderItem.order.status === "CANCELLED" || orderItem.order.status === "COMPLETED") {
-    redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
+    redirect(`${returnTo}?error=${encodeURIComponent(closedOrderMessage(orderItem.order.status, "La orden no admite cambios"))}`);
   }
 
   if (orderItem.confirmedAt !== null) {
@@ -689,7 +691,7 @@ export async function adminUploadOrderItemPhotosAction(formData: FormData): Prom
   }
 
   if (orderItem.order.status === "CANCELLED" || orderItem.order.status === "COMPLETED") {
-    redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
+    redirect(`${returnTo}?error=${encodeURIComponent(closedOrderMessage(orderItem.order.status, "La orden no admite cambios"))}`);
   }
 
   const files = formData
@@ -748,7 +750,7 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
   }
 
   if (orderItem.order.status === "CANCELLED" || orderItem.order.status === "COMPLETED") {
-    redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
+    redirect(`${returnTo}?error=${encodeURIComponent(closedOrderMessage(orderItem.order.status, "La orden no admite cambios"))}`);
   }
 
   // En una compra el item ya viene comprado (puede no tener proveedor ni foto), y
@@ -924,7 +926,7 @@ export async function adminBulkConfirmOrderItemsAction(formData: FormData): Prom
   const orderId = items[0].order.id;
   const orderStatus = items[0].order.status;
   if (orderStatus === "CANCELLED" || orderStatus === "COMPLETED") {
-    redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
+    redirect(`${returnTo}?error=${encodeURIComponent(closedOrderMessage(orderStatus, "La orden no admite cambios"))}`);
   }
 
   // Con productos de fabricación la fecha es obligatoria y se exige antes de confirmar nada.
@@ -1130,7 +1132,7 @@ export async function adminBulkPickupOrderItemsAction(formData: FormData): Promi
   const orderId = items[0].order.id;
   const orderStatus = items[0].order.status;
   if (orderStatus === "CANCELLED" || orderStatus === "COMPLETED") {
-    redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
+    redirect(`${returnTo}?error=${encodeURIComponent(closedOrderMessage(orderStatus, "La orden no admite cambios"))}`);
   }
 
   const notConfirmed = items.some((item) => !item.confirmedSupplierId || item.purchaseCost === null);
@@ -1241,7 +1243,7 @@ export async function adminUndoConfirmOrderItemAction(formData: FormData): Promi
   }
 
   if (orderItem.order.status === "CANCELLED" || orderItem.order.status === "COMPLETED") {
-    redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
+    redirect(`${returnTo}?error=${encodeURIComponent(closedOrderMessage(orderItem.order.status, "La orden no admite cambios"))}`);
   }
 
   // Con una devolución abierta no se limpia el costo ni se suma inventario: cambiaría costo y ganancia.
@@ -1436,7 +1438,7 @@ export async function adminUndoPickupOrderItemAction(formData: FormData): Promis
   }
 
   if (orderItem.order.status === "CANCELLED" || orderItem.order.status === "COMPLETED") {
-    redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
+    redirect(`${returnTo}?error=${encodeURIComponent(closedOrderMessage(orderItem.order.status, "La orden no admite cambios"))}`);
   }
 
   // Con una devolución abierta no se limpia el costo ni se suma inventario: cambiaría costo y ganancia.
@@ -1587,7 +1589,7 @@ export async function adminDeleteOrderItemPhotoAction(formData: FormData): Promi
   }
 
   if (photo.orderItem.order.status === "CANCELLED" || photo.orderItem.order.status === "COMPLETED") {
-    redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
+    redirect(`${returnTo}?error=${encodeURIComponent(closedOrderMessage(photo.orderItem.order.status, "La orden no admite cambios"))}`);
   }
 
   await prisma.orderItemPhoto.delete({ where: { id: photo.id } });
@@ -1638,7 +1640,7 @@ export async function adminSplitOrderItemAction(formData: FormData): Promise<voi
     redirect(`${returnTo}?error=Producto+no+encontrado`);
   }
   if (item.order.status === "CANCELLED" || item.order.status === "COMPLETED") {
-    redirect(`${returnTo}?error=La+orden+no+admite+cambios`);
+    redirect(`${returnTo}?error=${encodeURIComponent(closedOrderMessage(item.order.status, "La orden no admite cambios"))}`);
   }
   if (item.dispatchItems.length > 0) {
     redirect(`${returnTo}?error=Deshaz+primero+el+despacho+del+producto`);

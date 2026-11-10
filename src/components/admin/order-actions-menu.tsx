@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, MoreHorizontal, PackageCheck, Pencil } from "lucide-react";
-import { adminCancelOrderAction, adminUpdateOrderStatusAction } from "@/app/actions/orders-actions";
+import { AlertTriangle, MoreHorizontal, PackageCheck, Pencil, RotateCcw } from "lucide-react";
+import {
+  adminCancelOrderAction,
+  adminReactivateOrderAction,
+  adminUpdateOrderStatusAction,
+} from "@/app/actions/orders-actions";
 import { adminUpdateOrderItemsFulfillmentAction } from "@/app/actions/order-item-actions";
 import { Button } from "@/components/ui/button";
 import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-field";
@@ -15,6 +19,8 @@ import {
   CANCEL_OTHER_MAX,
   CANCEL_OTHER_MIN,
   CANCEL_REASONS,
+  REACTIVATE_MAX,
+  REACTIVATE_MIN,
 } from "@/lib/order-cancellation";
 import {
   Dialog,
@@ -85,6 +91,10 @@ export function OrderActionsMenu({
   const canCancel = status !== "CANCELLED" && (isPurchase || status !== "COMPLETED");
   const [editOpen, setEditOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  // Reactivar: solo una orden de venta cancelada (el servidor revisa además que la venta no esté cancelada).
+  const canReactivate = status === "CANCELLED" && !isPurchase;
+  const [reactivateOpen, setReactivateOpen] = useState(false);
+  const [reactivateReason, setReactivateReason] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [cancelReasonText, setCancelReasonText] = useState("");
   const cancelReady =
@@ -138,6 +148,12 @@ export function OrderActionsMenu({
               className="text-destructive focus:text-destructive"
             >
               Cancelar
+            </DropdownMenuItem>
+          ) : null}
+          {canReactivate ? (
+            <DropdownMenuItem onSelect={() => setReactivateOpen(true)}>
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Reactivar
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>
@@ -245,6 +261,47 @@ export function OrderActionsMenu({
               </Button>
               <Button type="submit" variant="destructive" disabled={!cancelReady}>
                 Cancelar orden
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reactivateOpen} onOpenChange={setReactivateOpen}>
+        <DialogContent className="max-h-[88vh] max-w-md overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Reactivar orden</DialogTitle>
+          </DialogHeader>
+          <form action={adminReactivateOrderAction} className="space-y-3">
+            <input type="hidden" name="returnTo" value={returnTo} />
+            <input type="hidden" name="orderId" value={orderId} />
+            <div className="space-y-1.5">
+              <label htmlFor="order-reactivate-reason" className="text-sm font-medium text-foreground">
+                Motivo
+              </label>
+              <Input
+                id="order-reactivate-reason"
+                name="reactivateReason"
+                value={reactivateReason}
+                onChange={(event) => setReactivateReason(event.target.value)}
+                required
+                minLength={REACTIVATE_MIN}
+                maxLength={REACTIVATE_MAX}
+                placeholder={`Mínimo ${REACTIVATE_MIN} letras`}
+                className="h-8 text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                La orden vuelve al estado que tenía antes de cancelarse. Si al cancelar se devolvieron piezas al
+                inventario, se vuelven a sacar. La venta y los cobros no cambian.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setReactivateOpen(false)}>
+                Volver
+              </Button>
+              <Button type="submit" disabled={reactivateReason.trim().length < REACTIVATE_MIN}>
+                <RotateCcw className="mr-1.5 h-4 w-4" />
+                Reactivar orden
               </Button>
             </DialogFooter>
           </form>

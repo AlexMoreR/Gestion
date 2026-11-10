@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AddShippingLegDialog } from "@/components/admin/add-shipping-leg-dialog";
 import { OrderActionsMenu } from "@/components/admin/order-actions-menu";
-import { cancelBlock, hasPayments, openManufacturingOrders } from "@/lib/order-cancellation";
+import { cancelBlock, hasPayments, openManufacturingOrders, ultimaCancelacion } from "@/lib/order-cancellation";
 import { OrderClientCard } from "@/components/admin/order-client-card";
 import { OrderHistoryTabs } from "@/components/admin/order-history-tabs";
 import { EmbalajeFotosCard, gruposEmbalaje } from "@/components/admin/embalaje-fotos-card";
@@ -897,6 +897,10 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     });
   }
 
+  // Orden cancelada: franja roja con la última cancelación y sin botones de Fabricar, Recoger ni Despachar.
+  const isCancelled = order.status === "CANCELLED";
+  const cancellation = isCancelled ? ultimaCancelacion(order.history) : null;
+
   return (
     <section className="w-full space-y-5">
       <QueryFeedbackToast
@@ -987,6 +991,29 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           ) : null}
         </div>
       </div>
+
+      {isCancelled ? (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="min-w-0 space-y-0.5">
+            <p className="font-semibold">Cancelada</p>
+            {cancellation ? (
+              <>
+                {cancellation.note ? <p className="break-words">{cancellation.note}</p> : null}
+                <p className="text-xs">
+                  {cancellation.changedBy.name || cancellation.changedBy.email} · {shortColombiaDate(cancellation.createdAt)}
+                </p>
+              </>
+            ) : null}
+            {!isPurchase ? (
+              <p className="text-xs">Para seguir con ella, usa Reactivar en el menú de la orden.</p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {moneyWarning ? (
         <div
@@ -1084,43 +1111,46 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             shipmentDefaults={shipmentDefaults}
             ofsPorProveedora={ofsPorProveedora}
             pideFechaFabricacion={!isPurchase}
+            locked={isCancelled}
           />
         </div>
 
         <div className="space-y-4">
-          <OrderStepper
-            step1Done={step1Done}
-            step2Done={step2Done}
-            step3Done={step3Done}
-            step4Done={step4Done}
-            returnState={returnDisplay ? displayState : null}
-            dispatch={{
-              orderId: order.id,
-              returnTo,
-              carriers,
-              accounts,
-              defaultAddress: order.client?.address ?? "",
-              canDispatch,
-              allItemsConfirmed,
-              allItemsPaymentSet,
-              allItemsHavePhotos,
-            }}
-            delivery={{
-              dispatchId: deliveryDispatchId,
-              returnTo,
-              defaultInstagram: order.client?.instagram ?? "",
-              defaultTiktok: order.client?.tiktok ?? "",
-              info: {
-                orderCode: displayCode(order.code),
-                saleCode: order.sale ? displayCode(order.sale.code) : null,
-                clientName: order.client?.name || order.client?.email || null,
-                city: order.client?.city ?? null,
-                carrierName: deliveryDispatch?.carrierName ?? null,
-                trackingNumber: deliveryDispatch?.trackingNumber ?? null,
-                isContraentrega: salePaymentMethod === "CONTRAENTREGA",
-              },
-            }}
-          />
+          {isCancelled ? null : (
+            <OrderStepper
+              step1Done={step1Done}
+              step2Done={step2Done}
+              step3Done={step3Done}
+              step4Done={step4Done}
+              returnState={returnDisplay ? displayState : null}
+              dispatch={{
+                orderId: order.id,
+                returnTo,
+                carriers,
+                accounts,
+                defaultAddress: order.client?.address ?? "",
+                canDispatch,
+                allItemsConfirmed,
+                allItemsPaymentSet,
+                allItemsHavePhotos,
+              }}
+              delivery={{
+                dispatchId: deliveryDispatchId,
+                returnTo,
+                defaultInstagram: order.client?.instagram ?? "",
+                defaultTiktok: order.client?.tiktok ?? "",
+                info: {
+                  orderCode: displayCode(order.code),
+                  saleCode: order.sale ? displayCode(order.sale.code) : null,
+                  clientName: order.client?.name || order.client?.email || null,
+                  city: order.client?.city ?? null,
+                  carrierName: deliveryDispatch?.carrierName ?? null,
+                  trackingNumber: deliveryDispatch?.trackingNumber ?? null,
+                  isContraentrega: salePaymentMethod === "CONTRAENTREGA",
+                },
+              }}
+            />
+          )}
 
           {shippingLegCards.length > 0 ? (
             <Card className="border-border bg-card/95">

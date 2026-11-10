@@ -69,6 +69,8 @@ type OrderItemsTableProps = {
   ofsPorProveedora: Record<string, OfDeProveedora>;
   /** Venta: confirmar fabricación pide la fecha. Compra: no. */
   pideFechaFabricacion: boolean;
+  /** Orden cancelada: sin selección ni botones de acción. */
+  locked?: boolean;
 };
 
 function BulkSubmitButton({
@@ -100,6 +102,7 @@ export function OrderItemsTable({
   shipmentDefaults,
   ofsPorProveedora,
   pideFechaFabricacion,
+  locked = false,
 }: OrderItemsTableProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [modal, setModal] = useState<null | "fabricar" | "recoger" | "despachar">(null);
@@ -110,8 +113,8 @@ export function OrderItemsTable({
   const isDispatchShipping = dispatchDeliveryType === "SHIPPING";
 
   const selectableIds = useMemo(
-    () => items.filter((item) => !item.isDespachado).map((item) => item.id),
-    [items],
+    () => (locked ? [] : items.filter((item) => !item.isDespachado).map((item) => item.id)),
+    [items, locked],
   );
 
   // Cambiar la selección cierra cualquier modal que haya quedado abierto (p. ej. tras despachar).
@@ -303,6 +306,7 @@ export function OrderItemsTable({
                 pideFechaFabricacion={pideFechaFabricacion}
                 selected={selected.has(item.id)}
                 onToggleSelected={() => toggle(item.id)}
+                locked={locked}
               />
             ))}
           </TableBody>

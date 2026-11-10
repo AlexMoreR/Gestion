@@ -163,6 +163,8 @@ type OrderItemManagerProps = {
   shipmentDefaults?: ShipmentDefaults;
   selected: boolean;
   onToggleSelected: () => void;
+  /** Orden cancelada: sin botones de acción (el servidor también lo rechaza). */
+  locked?: boolean;
 };
 
 function DispatchSubmitButton({ editing }: { editing: boolean }) {
@@ -274,6 +276,7 @@ export function OrderItemManager({
   shipmentDefaults,
   selected,
   onToggleSelected,
+  locked = false,
 }: OrderItemManagerProps) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -325,7 +328,7 @@ export function OrderItemManager({
           type="checkbox"
           checked={selected}
           onChange={onToggleSelected}
-          disabled={item.isDespachado}
+          disabled={item.isDespachado || locked}
           className="h-4 w-4 rounded border-input accent-[var(--primary)] disabled:opacity-40"
           aria-label={`Seleccionar ${item.productName}`}
         />
@@ -337,7 +340,7 @@ export function OrderItemManager({
           {item.stockCostSource && item.purchaseCost !== null ? (
             <> · Costo {formatMoney(item.purchaseCost, currency)} c/u ({item.stockCostSource})</>
           ) : null}
-          {item.quantity > 1 && !item.isDespachado && !item.hasProductionJob && (
+          {!locked && item.quantity > 1 && !item.isDespachado && !item.hasProductionJob && (
             <button
               type="button"
               onClick={() => setSplitOpen(true)}
@@ -350,7 +353,7 @@ export function OrderItemManager({
         {item.color || item.canChangeColor ? (
           <p className="text-xs text-muted-foreground">
             Color: {item.color || "sin color"}
-            {item.canChangeColor ? (
+            {item.canChangeColor && !locked ? (
               <button
                 type="button"
                 onClick={() => setColorOpen(true)}
@@ -361,7 +364,7 @@ export function OrderItemManager({
             ) : null}
           </p>
         ) : null}
-        {item.canChangeColor ? (
+        {item.canChangeColor && !locked ? (
           <p className="text-xs text-muted-foreground">
             Imagen: {item.imagenManual ? "subida a mano" : "del catálogo"}
             <button
@@ -392,8 +395,9 @@ export function OrderItemManager({
           <button
             type="button"
             onClick={() => setReverseDeliveryOpen(true)}
+            disabled={locked}
             title="Entregado - Click para reversar la entrega"
-            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-medium text-emerald-600 transition hover:bg-emerald-500/25 dark:text-emerald-400"
+            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-medium text-emerald-600 transition disabled:pointer-events-none hover:bg-emerald-500/25 dark:text-emerald-400"
           >
             Entregado
             <RotateCcw className="h-3 w-3" />
@@ -402,8 +406,9 @@ export function OrderItemManager({
           <button
             type="button"
             onClick={() => setUndoOpen(true)}
+            disabled={locked}
             title="Despachado - Click para deshacer"
-            className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/15 px-2.5 py-0.5 text-xs font-medium text-violet-600 transition hover:bg-violet-500/25 dark:text-violet-400"
+            className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/15 px-2.5 py-0.5 text-xs font-medium text-violet-600 transition disabled:pointer-events-none hover:bg-violet-500/25 dark:text-violet-400"
           >
             Despachado
             <RotateCcw className="h-3 w-3" />
@@ -412,8 +417,9 @@ export function OrderItemManager({
           <button
             type="button"
             onClick={() => setUndoPickupOpen(true)}
+            disabled={locked}
             title="Recogido - Click para deshacer"
-            className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/15 px-2.5 py-0.5 text-xs font-medium text-blue-600 transition hover:bg-blue-500/25 dark:text-blue-400"
+            className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/15 px-2.5 py-0.5 text-xs font-medium text-blue-600 transition disabled:pointer-events-none hover:bg-blue-500/25 dark:text-blue-400"
           >
             Recogido
             <RotateCcw className="h-3 w-3" />
@@ -422,8 +428,9 @@ export function OrderItemManager({
           <button
             type="button"
             onClick={() => setUndoConfirmOpen(true)}
+            disabled={locked}
             title="Fabricando - Click para deshacer"
-            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-medium text-emerald-600 transition hover:bg-emerald-500/25 dark:text-emerald-400"
+            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-medium text-emerald-600 transition disabled:pointer-events-none hover:bg-emerald-500/25 dark:text-emerald-400"
           >
             Fabricando
             <RotateCcw className="h-3 w-3" />
@@ -435,7 +442,9 @@ export function OrderItemManager({
         )}
       </TableCell>
       <TableCell className="text-right">
-        {item.isDeliveryReversed ? (
+        {locked ? (
+          <span className="text-xs text-muted-foreground">—</span>
+        ) : item.isDeliveryReversed ? (
           <form action={adminRedeliverItemAction} className="inline">
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="orderItemId" value={item.id} />
