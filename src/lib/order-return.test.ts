@@ -11,6 +11,13 @@ import {
   parseOrderReturnInput,
   perdidaDevolucion,
   puedeVolverAEnviado,
+  despachosFaltaRegistrar,
+  devolucionesCsv,
+  filtrarDevoluciones,
+  opcionesDeFiltros,
+  parseFiltrosDevolucion,
+  resumenDevoluciones,
+  type DevolucionFila,
 } from "./order-return";
 import { getOrderDisplayState } from "./orders";
 
@@ -331,5 +338,89 @@ describe("parseOrderReturnEdit y cambiosDeDevolucion", () => {
     const antes = { reason: "NO_LO_QUISO", reasonText: null, comment: null, location: "BODEGA", nextStep: "POR_DEFINIR", returnFreight: "30000.00" };
     expect(cambiosDeDevolucion(antes, r.value)).toEqual({ before: { dondeEsta: "En bodega" }, after: { dondeEsta: "En tránsito" } });
     expect(cambiosDeDevolucion({ ...antes, location: "EN_TRANSITO" }, r.value)).toBeNull();
+  });
+});
+
+function fila(overrides: Partial<DevolucionFila>): DevolucionFila {
+  return {
+    id: "r1",
+    orderId: "o1",
+    orderCode: "ORD-00010",
+    fecha: new Date("2026-11-05T00:00:00.000Z"),
+    faltaRegistrar: false,
+    abierta: true,
+    productos: [{ nombre: "Silla Zeus", cantidad: 1 }],
+    proveedoras: ["Laura"],
+    transportadora: "Envía",
+    motivo: "El cliente no lo quiso",
+    dondeEsta: "En bodega",
+    queSigue: "Reenviar",
+    perdida: 30000,
+    ...overrides,
+  };
+}
+
+describe("vista de devoluciones", () => {
+  const filas = [
+    fila({}),
+    fila({ id: "r2", orderCode: "ORD-00011", abierta: false, productos: [{ nombre: "Silla Zeus", cantidad: 2 }, { nombre: "Camilla", cantidad: 1 }], proveedoras: ["Laura", "Sofía"], motivo: "Producto en mal estado", perdida: 12500.5 }),
+    // Momento real: 1-dic 03:00Z = 30-nov 22:00 en Colombia → cuenta en noviembre.
+    fila({ id: "falta:d9", orderCode: "ORD-00012", fecha: new Date("2026-12-01T03:00:00.000Z"), faltaRegistrar: true, transportadora: "sin dato", motivo: "Falta registrar", proveedoras: ["sin dato"], perdida: 0 }),
+    fila({ id: "r4", orderCode: "ORD-00013", fecha: new Date("2026-10-31T00:00:00.000Z"), transportadora: "Coordinadora" }),
+  ];
+
+  it("lee los filtros de la URL y descarta un mes inválido", () => {
+    expect(parseFiltrosDevolucion({ mes: "2026-13", abiertas: "1", motivo: " Otro " })).toEqual({
+      mes: null, abiertas: true, motivo: "Otro", producto: null, proveedora: null, transportadora: null,
+    });
+    expect(parseFiltrosDevolucion({ mes: "2026-11" }).mes).toBe("2026-11");
+  });
+
+  it("filtra por mes en hora de Colombia, abiertas, motivo, producto, proveedora y transportadora", () => {
+    const base = parseFiltrosDevolucion({});
+    expect(filtrarDevoluciones(filas, base)).toHaveLength(4);
+    expect(filtrarDevoluciones(filas, { ...base, mes: "2026-11" }).map((r) => r.id).sort()).toEqual(["falta:d9", "r1", "r2"]);
+    expect(filtrarDevoluciones(filas, { ...base, abiertas: true }).map((r) => r.id)).not.toContain("r2");
+    expect(filtrarDevoluciones(filas, { ...base, motivo: "Producto en mal estado" }).map((r) => r.id)).toEqual(["r2"]);
+    expect(filtrarDevoluciones(filas, { ...base, producto: "Camilla" }).map((r) => r.id)).toEqual(["r2"]);
+    expect(filtrarDevoluciones(filas, { ...base, proveedora: "Sofía" }).map((r) => r.id)).toEqual(["r2"]);
+    expect(filtrarDevoluciones(filas, { ...base, transportadora: "Coordinadora" }).map((r) => r.id)).toEqual(["r4"]);
+    // Más reciente primero.
+    expect(filtrarDevoluciones(filas, base)[0].id).toBe("falta:d9");
+  });
+
+  it("resume: conteo, pérdida total y agrupaciones (producto en unidades)", () => {
+    const r = resumenDevoluciones(filas);
+    expect(r.cantidad).toBe(4);
+    expect(r.abiertas).toBe(3);
+    expect(r.perdidaTotal).toBe(72500.5);
+    expect(r.porProducto).toEqual([{ clave: "Silla Zeus", cantidad: 5 }, { clave: "Camilla", cantidad: 1 }]);
+    expect(r.porMotivo[0]).toEqual({ clave: "El cliente no lo quiso", cantidad: 2 });
+    expect(r.porProveedora).toContainEqual({ clave: "Laura", cantidad: 3 });
+    expect(r.porTransportadora).toContainEqual({ clave: "Envía", cantidad: 2 });
+    expect(resumenDevoluciones([])).toMatchObject({ cantidad: 0, perdidaTotal: 0, porMotivo: [] });
+    expect(opcionesDeFiltros(filas).transportadoras).toEqual(["Coordinadora", "Envía", "sin dato"]);
+  });
+
+  it("arma el CSV con BOM, ';', códigos sin ceros, estado y total; protege fórmulas", () => {
+    const csv = devolucionesCsv([fila({ motivo: "=HACK()", productos: [{ nombre: "Silla; negra", cantidad: 1 }] }), filas[2]]);
+    expect(csv.startsWith("\ufeffFecha;Orden;Estado;Producto;")).toBe(true);
+    const lines = csv.trim().split("\r\n");
+    expect(lines[1]).toBe(`2026-11-05;ORD-10;Abierta;"Silla; negra × 1";Laura;Envía;'=HACK();En bodega;Reenviar;30000`);
+    expect(lines[2]).toContain("2026-11-30;ORD-12;Devuelta – falta registrar;");
+    expect(lines[3]).toBe(";;;;;;;;Total;30000");
+  });
+
+  it("despachos que faltan por registrar", () => {
+    expect(
+      despachosFaltaRegistrar({
+        despachos: [
+          { id: "d1", status: "RETURNED", orderItemIds: ["a"] },
+          { id: "d2", status: "RETURNED", orderItemIds: ["b"] },
+          { id: "d3", status: "SHIPPED", orderItemIds: ["c"] },
+        ],
+        despachosConDevolucion: ["d2"],
+      }),
+    ).toEqual(["d1"]);
   });
 });

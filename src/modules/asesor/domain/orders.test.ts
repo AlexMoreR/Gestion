@@ -123,4 +123,21 @@ describe("pedidos_abiertos", () => {
     expect(result.sin_ciudad).toBe(1);
     expect(result.pedidos[1]).toMatchObject({ estado: "sin orden (falta crear la orden)", orden: null });
   });
+
+  it("agrega la devolución al estado en palabras, sin costos", () => {
+    const pedidos = listOpenOrders([
+      order({ code: 1, status: "DISPATCHED", devolucion: "DEVUELTA" }),
+      order({ code: 2, status: "DISPATCHED", devolucion: "PARCIAL" }),
+      order({ code: 3, status: "DISPATCHED", devolucion: "FALTA_REGISTRAR" }),
+      order({ code: 4, status: "DISPATCHED", devolucion: null }),
+    ]).pedidos;
+    const estados = Object.fromEntries(pedidos.map((p) => [p.venta, p.estado]));
+    expect(estados).toEqual({
+      "SAL-00001": "despachado · devuelta",
+      "SAL-00002": "despachado · devolución parcial",
+      "SAL-00003": "despachado · devuelta, falta registrar",
+      "SAL-00004": "despachado",
+    });
+    expect(JSON.stringify(pedidos)).not.toMatch(/costo|flete|perdida/i);
+  });
 });

@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { colombiaDayRange, dbWindow, inColombiaPeriod } from "@/lib/colombia-time";
 import { storedCodeCandidates } from "@/lib/code-display";
 import { prisma } from "@/lib/prisma";
+import { estaAbierta, estadoDevolucionDeOrden } from "@/lib/order-return";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import type {
   DayRange,
@@ -598,9 +599,16 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
                 orderBy: { createdAt: "asc" },
                 select: { code: true, supplier: { select: { name: true } } },
               },
+              returns: {
+                where: { annulledAt: null },
+                select: { dispatchId: true, closedAt: true, annulledAt: true, items: { select: { orderItemId: true, quantity: true } } },
+              },
               dispatches: {
                 orderBy: { createdAt: "asc" },
                 select: {
+                  id: true,
+                  status: true,
+                  items: { select: { orderItemId: true } },
                   code: true,
                   carrierName: true,
                   carrierSupplier: { select: { name: true } },
@@ -641,6 +649,14 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
             shippedAt: dispatch.shippedAt,
             deliveredAt: dispatch.deliveredAt,
           })),
+          devolucion: order
+            ? estadoDevolucionDeOrden({
+                orderItems: orderItems.map((item) => ({ id: item.id, quantity: item.quantity })),
+                devueltasAbiertas: order.returns.filter(estaAbierta).flatMap((r) => r.items),
+                despachos: order.dispatches.map((d) => ({ id: d.id, status: d.status, orderItemIds: d.items.map((i) => i.orderItemId) })),
+                despachosConDevolucion: order.returns.flatMap((r) => (r.dispatchId ? [r.dispatchId] : [])),
+              })
+            : null,
         };
       });
     },

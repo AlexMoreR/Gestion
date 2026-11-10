@@ -7,6 +7,7 @@ import { comboStock } from "@/lib/combo";
 import { prisma } from "@/lib/prisma";
 import { formatNoteDate } from "@/lib/order-notes";
 import { countReversedItems } from "@/lib/order-item-reversal";
+import { estaAbierta, estadoDevolucionDeOrden } from "@/lib/order-return";
 import { seguimientoDeOrden } from "@/lib/delivery-tracking";
 import { createPrismaInventoryRepository } from "@/modules/inventory/infrastructure/prisma-inventory-repository";
 import { getPublicAssetUrl } from "@/lib/site";
@@ -47,10 +48,19 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
           select: { text: true, createdAt: true, createdBy: { select: { name: true, email: true } } },
         },
         // Para los chips de entrega y fabricación (seguimientoDeOrden).
-        dispatches: { select: { status: true, estimatedDeliveryAt: true, deliveredAt: true } },
+        dispatches: {
+          select: { id: true, status: true, estimatedDeliveryAt: true, deliveredAt: true, items: { select: { orderItemId: true } } },
+        },
+        // Para la etiqueta de devolución (la misma del detalle).
+        returns: {
+          where: { annulledAt: null },
+          select: { dispatchId: true, closedAt: true, annulledAt: true, items: { select: { orderItemId: true, quantity: true } } },
+        },
         manufacturingOrders: { select: { supplierId: true, estimatedDeliveryAt: true, receivedAt: true } },
         items: {
           select: {
+            id: true,
+            quantity: true,
             confirmedSupplierId: true,
             fulfillmentMode: true,
             dispatchItems: { select: { dispatch: { select: { status: true } } } },
@@ -208,6 +218,14 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
           }
         : null,
       reversedItems: countReversedItems(reversedLinesByOrder.get(order.id) ?? []),
+      devolucion: isPurchase
+        ? null
+        : estadoDevolucionDeOrden({
+            orderItems: order.items.map((item) => ({ id: item.id, quantity: item.quantity })),
+            devueltasAbiertas: order.returns.filter(estaAbierta).flatMap((r) => r.items),
+            despachos: order.dispatches.map((d) => ({ id: d.id, status: d.status, orderItemIds: d.items.map((i) => i.orderItemId) })),
+            despachosConDevolucion: order.returns.flatMap((r) => (r.dispatchId ? [r.dispatchId] : [])),
+          }),
       // Las compras no llevan chips de entrega ni fabricación.
       seguimiento: isPurchase
         ? null
@@ -227,6 +245,9 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
     };
   });
 
+  // «Devueltas (N)»: órdenes de la lista con etiqueta de devolución (las canceladas no la muestran).
+  const returnedCount = rows.filter((row) => row.devolucion && row.status !== "CANCELLED").length;
+
   return (
     <section className="w-full space-y-4">
       <QueryFeedbackToast
@@ -239,6 +260,7 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
       <OrdersWorkspace
         currency={currency}
         stats={stats}
+        returnedCount={returnedCount}
         orders={rows}
         purchaseProducts={[
           ...productStocks.map((stock) => ({

@@ -1,6 +1,8 @@
 // Devoluciones de productos de una orden. Puro (sin base) para probarlo y usarlo en el cliente.
 // Registrar, anular y escribir en la base es de otras partes; aquí solo se decide.
-import { todayInColombia } from "./colombia-time";
+import { colombiaDayKey, colombiaMonthKey, todayInColombia } from "./colombia-time";
+import { displayCode } from "./code-display";
+import { csvCell } from "../modules/ventas/domain/withholding";
 import { roundMoney } from "./pricing";
 
 export const RETURN_REASONS = [
@@ -297,16 +299,26 @@ export function estadoDevolucionDeOrden(input: {
   const cubiertas = input.orderItems.reduce((sum, item) => sum + Math.min(devueltas.get(item.id) ?? 0, item.quantity), 0);
   if (cubiertas > 0) return cubiertas >= total ? "DEVUELTA" : "PARCIAL";
 
+  return despachosFaltaRegistrar(input).length > 0 ? "FALTA_REGISTRAR" : null;
+}
+
+// Despachos RETURNED sin devolución registrada (sin anular) cuyos productos no volvieron a salir en otro despacho
+// vivo. Lo usan la etiqueta de la orden y la vista de devoluciones («Devuelta – falta registrar»).
+export function despachosFaltaRegistrar(input: {
+  despachos: { id: string; status: DispatchStatusKey | string; orderItemIds: string[] }[];
+  despachosConDevolucion: string[];
+}): string[] {
   const conDevolucion = new Set(input.despachosConDevolucion);
   const vivos = input.despachos.filter((d) => d.status !== "CANCELLED" && d.status !== "RETURNED");
   const salieronOtraVez = new Set(vivos.flatMap((d) => d.orderItemIds));
-  const falta = input.despachos.some(
-    (d) =>
-      d.status === "RETURNED" &&
-      !conDevolucion.has(d.id) &&
-      (d.orderItemIds.length === 0 ? vivos.length === 0 : d.orderItemIds.some((id) => !salieronOtraVez.has(id))),
-  );
-  return falta ? "FALTA_REGISTRAR" : null;
+  return input.despachos
+    .filter(
+      (d) =>
+        d.status === "RETURNED" &&
+        !conDevolucion.has(d.id) &&
+        (d.orderItemIds.length === 0 ? vivos.length === 0 : d.orderItemIds.some((id) => !salieronOtraVez.has(id))),
+    )
+    .map((d) => d.id);
 }
 
 // Unidades que aún se pueden devolver de un despacho: lo que salió menos lo devuelto en devoluciones abiertas.
@@ -412,4 +424,134 @@ export function mensajeDevolucionAsesora(input: {
     `Dónde está: ${input.dondeEsta}`,
     `Qué sigue: ${input.queSigue}`,
   ].join("\n");
+}
+
+// ---- Vista «Devoluciones» (/admin/ordenes/devoluciones): filas, filtros, resumen y CSV. Puro. ----
+
+export const SIN_DATO = "sin dato";
+export const FALTA_REGISTRAR_LABEL = "Devuelta – falta registrar";
+
+// Una fila por devolución (sin anular) o por despacho «Devuelto» sin registro (faltaRegistrar).
+export type DevolucionFila = {
+  id: string;
+  orderId: string;
+  orderCode: string;
+  fecha: Date; // returnDate (fecha escrita) o, si falta registrar, la última actualización del despacho
+  faltaRegistrar: boolean;
+  abierta: boolean;
+  productos: { nombre: string; cantidad: number }[];
+  proveedoras: string[];
+  transportadora: string;
+  motivo: string; // etiqueta
+  dondeEsta: string;
+  queSigue: string;
+  perdida: number;
+};
+
+export type FiltrosDevolucion = {
+  mes: string | null; // AAAA-MM; null = todos los meses
+  abiertas: boolean;
+  motivo: string | null;
+  producto: string | null;
+  proveedora: string | null;
+  transportadora: string | null;
+};
+
+const param = (value: string | string[] | undefined): string | null => {
+  const v = (Array.isArray(value) ? value[0] : value)?.trim();
+  return v ? v.slice(0, 200) : null;
+};
+
+export function parseFiltrosDevolucion(params: Record<string, string | string[] | undefined>): FiltrosDevolucion {
+  const mes = param(params.mes);
+  return {
+    mes: mes && /^\d{4}-(0[1-9]|1[0-2])$/.test(mes) ? mes : null,
+    abiertas: param(params.abiertas) === "1",
+    motivo: param(params.motivo),
+    producto: param(params.producto),
+    proveedora: param(params.proveedora),
+    transportadora: param(params.transportadora),
+  };
+}
+
+export function filtrarDevoluciones(filas: DevolucionFila[], f: FiltrosDevolucion): DevolucionFila[] {
+  return filas
+    .filter(
+      (r) =>
+        (!f.mes || colombiaMonthKey(r.fecha) === f.mes) &&
+        (!f.abiertas || r.abierta) &&
+        (!f.motivo || r.motivo === f.motivo) &&
+        (!f.producto || r.productos.some((p) => p.nombre === f.producto)) &&
+        (!f.proveedora || r.proveedoras.includes(f.proveedora)) &&
+        (!f.transportadora || r.transportadora === f.transportadora),
+    )
+    .sort((a, b) => b.fecha.getTime() - a.fecha.getTime() || b.orderCode.localeCompare(a.orderCode));
+}
+
+export type ConteoDevolucion = { clave: string; cantidad: number };
+
+const ordenar = (map: Map<string, number>): ConteoDevolucion[] =>
+  [...map.entries()].map(([clave, cantidad]) => ({ clave, cantidad })).sort((a, b) => b.cantidad - a.cantidad || a.clave.localeCompare(b.clave, "es"));
+
+// Conteo, pérdida informativa total y agrupaciones. Por producto cuenta unidades; lo demás, devoluciones.
+export function resumenDevoluciones(filas: DevolucionFila[]) {
+  const porMotivo = new Map<string, number>();
+  const porProducto = new Map<string, number>();
+  const porProveedora = new Map<string, number>();
+  const porTransportadora = new Map<string, number>();
+  const sumar = (map: Map<string, number>, clave: string, n = 1) => map.set(clave, (map.get(clave) ?? 0) + n);
+  for (const r of filas) {
+    sumar(porMotivo, r.motivo);
+    for (const p of r.productos) sumar(porProducto, p.nombre, p.cantidad);
+    for (const proveedora of new Set(r.proveedoras)) sumar(porProveedora, proveedora);
+    sumar(porTransportadora, r.transportadora);
+  }
+  return {
+    cantidad: filas.length,
+    abiertas: filas.filter((r) => r.abierta).length,
+    perdidaTotal: roundMoney(filas.reduce((sum, r) => sum + r.perdida, 0)),
+    porMotivo: ordenar(porMotivo),
+    porProducto: ordenar(porProducto),
+    porProveedora: ordenar(porProveedora),
+    porTransportadora: ordenar(porTransportadora),
+  };
+}
+
+// Opciones de los filtros (de todas las filas, sin filtrar).
+export function opcionesDeFiltros(filas: DevolucionFila[]) {
+  const unicos = (values: string[]) => [...new Set(values)].sort((a, b) => a.localeCompare(b, "es"));
+  return {
+    motivos: unicos(filas.map((r) => r.motivo)),
+    productos: unicos(filas.flatMap((r) => r.productos.map((p) => p.nombre))),
+    proveedoras: unicos(filas.flatMap((r) => r.proveedoras)),
+    transportadoras: unicos(filas.map((r) => r.transportadora)),
+  };
+}
+
+export const productosDeFila = (r: DevolucionFila) => r.productos.map((p) => `${p.nombre} × ${p.cantidad}`).join(", ");
+export const estadoDeFila = (r: DevolucionFila) => (r.faltaRegistrar ? FALTA_REGISTRAR_LABEL : r.abierta ? "Abierta" : "Cerrada");
+
+// CSV (";" y BOM, como el de retenciones) con lo mismo que la tabla.
+export function devolucionesCsv(filas: DevolucionFila[]): string {
+  const header = ["Fecha", "Orden", "Estado", "Producto", "Proveedora", "Transportadora", "Motivo", "Dónde está", "Qué sigue", "Pérdida"];
+  const lines = filas.map((r) =>
+    [
+      colombiaDayKey(r.fecha),
+      displayCode(r.orderCode),
+      estadoDeFila(r),
+      productosDeFila(r),
+      r.proveedoras.join(", "),
+      r.transportadora,
+      r.motivo,
+      r.dondeEsta,
+      r.queSigue,
+      String(roundMoney(r.perdida)),
+    ]
+      .map(csvCell)
+      .join(";"),
+  );
+  const total = roundMoney(filas.reduce((sum, r) => sum + r.perdida, 0));
+  lines.push(["", "", "", "", "", "", "", "", "Total", String(total)].map(csvCell).join(";"));
+  const bom = "\ufeff";
+  return `${bom}${[header.map(csvCell).join(";"), ...lines].join("\r\n")}\r\n`;
 }

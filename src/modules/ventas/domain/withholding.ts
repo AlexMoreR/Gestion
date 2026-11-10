@@ -155,7 +155,7 @@ export function buildWithholdingReport(month: string, rows: WithholdingRow[]): W
   };
 }
 
-function csvCell(value: string): string {
+export function csvCell(value: string): string {
   // Evita que Excel interprete el texto como formula.
   const safe = /^[=+\-@]/.test(value) ? `'${value}` : value;
   return /[",;\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;

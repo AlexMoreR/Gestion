@@ -3,8 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpRight, CheckCircle2, ClipboardList, Clock, Factory, MoreHorizontal, Pencil, ShoppingCart, StickyNote, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowUpRight, CheckCircle2, Undo2, ClipboardList, Clock, Factory, MoreHorizontal, Pencil, ShoppingCart, StickyNote, X } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { StatList } from "@/components/ui/stat-list";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -52,6 +52,8 @@ type OrderRow = {
   lastNote: { text: string; by: string; date: string } | null;
   // Productos con la entrega deshecha (solo cambia la etiqueta de una orden completada).
   reversedItems: number;
+  // Etiqueta de devolución (estadoDevolucionDeOrden); null en las compras o sin devolución.
+  devolucion: "DEVUELTA" | "PARCIAL" | "FALTA_REGISTRAR" | null;
   // Peor estado de entrega y de fabricación; null en las compras.
   seguimiento: SeguimientoOrden | null;
 };
@@ -110,6 +112,7 @@ function todayLocalDay(): string {
 
 type OrdersWorkspaceProps = {
   orders: OrderRow[];
+  returnedCount: number;
   currency: SupportedCurrencyCode;
   stats: {
     ordersCount: number;
@@ -128,15 +131,16 @@ type OrdersWorkspaceProps = {
 };
 
 function StatusBadge({ order }: { order: OrderRow }) {
-  const partial =
-    order.status === "COMPLETED" && order.reversedItems > 0
-      ? getOrderDisplayState(order.status, null, order.reversedItems)
+  // Devolución y entrega parcial: mismo estado que el detalle. Lo demás sigue con la etiqueta de siempre.
+  const special =
+    (order.devolucion && order.status !== "CANCELLED") || (order.status === "COMPLETED" && order.reversedItems > 0)
+      ? getOrderDisplayState(order.status, null, order.reversedItems, order.devolucion)
       : null;
   return (
     <span
-      className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${partial?.className ?? getOrderStatusBadgeClassName(order.status)}`}
+      className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${special?.className ?? getOrderStatusBadgeClassName(order.status)}`}
     >
-      {partial?.label ?? getOrderStatusLabel(order.status)}
+      {special?.label ?? getOrderStatusLabel(order.status)}
     </span>
   );
 }
@@ -230,6 +234,7 @@ function RowActions({ order }: { order: OrderRow }) {
 
 export function OrdersWorkspace({
   orders,
+  returnedCount,
   currency,
   stats,
   purchaseProducts,
@@ -411,7 +416,11 @@ export function OrdersWorkspace({
         <div className="min-w-0 flex-1">
           <OperationsTabs />
         </div>
-        <div className="-mb-px shrink-0 pb-1.5">
+        <div className="-mb-px flex shrink-0 items-center gap-1.5 pb-1.5">
+          <Link href="/admin/ordenes/devoluciones?abiertas=1" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            <Undo2 className="h-4 w-4" />
+            Devueltas ({returnedCount})
+          </Link>
           <PurchaseDirectDialog
             products={purchaseProducts}
             suppliersByProduct={purchaseSuppliersByProduct}

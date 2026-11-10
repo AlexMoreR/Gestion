@@ -17,6 +17,13 @@ const STATUS_WORDS: Record<string, string> = {
   CANCELLED: "cancelado",
 };
 
+// Devolución (mismo cálculo que la etiqueta de la orden): se agrega al estado en palabras.
+const RETURN_WORDS: Record<string, string> = {
+  DEVUELTA: "devuelta",
+  PARCIAL: "devolución parcial",
+  FALTA_REGISTRAR: "devuelta, falta registrar",
+};
+
 const day = (date: Date | null | undefined) => (date ? bogotaDay(date) : null);
 
 // Estado del pedido con su fecha: la ultima vez que la orden paso a ese estado en el historial.
@@ -36,7 +43,9 @@ export function describeOrderStatus(order: OrderTracking, ledger: SaleLedger) {
     const shipped = order.dispatches.flatMap((dispatch) => (dispatch.shippedAt ? [dispatch.shippedAt] : []));
     fecha = shipped.sort((left, right) => right.getTime() - left.getTime())[0] ?? null;
   }
-  return { estado: STATUS_WORDS[status] ?? status, fecha_estado: day(fecha) };
+  const estado = STATUS_WORDS[status] ?? status;
+  const devolucion = order.devolucion && status !== "CANCELLED" ? RETURN_WORDS[order.devolucion] : null;
+  return { estado: devolucion ? `${estado} · ${devolucion}` : estado, fecha_estado: day(fecha) };
 }
 
 // Abierto = no entregado ni cancelado.
