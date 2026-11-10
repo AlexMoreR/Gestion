@@ -273,7 +273,7 @@ export function OrdersWorkspace({
     : filtered;
 
   const dateFilter = (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5 sm:ml-auto">
       <label className="flex w-full items-center gap-1.5 text-xs text-muted-foreground sm:w-auto">
         <span className="shrink-0">Seguimiento</span>
         <select
@@ -320,6 +320,15 @@ export function OrdersWorkspace({
           <X className="h-3.5 w-3.5" />
         </Button>
       ) : null}
+      <div className="ml-auto">
+        <PurchaseDirectDialog
+          products={purchaseProducts}
+          suppliersByProduct={purchaseSuppliersByProduct}
+          comboComponents={purchaseComboComponents}
+          suppliers={purchaseSuppliers}
+          currency={currency}
+        />
+      </div>
     </div>
   );
 
@@ -421,13 +430,6 @@ export function OrdersWorkspace({
             <Undo2 className="h-4 w-4" />
             Devueltas ({returnedCount})
           </Link>
-          <PurchaseDirectDialog
-            products={purchaseProducts}
-            suppliersByProduct={purchaseSuppliersByProduct}
-            comboComponents={purchaseComboComponents}
-            suppliers={purchaseSuppliers}
-            currency={currency}
-          />
         </div>
       </div>
 
@@ -450,6 +452,7 @@ export function OrdersWorkspace({
         minWidth="min-w-[1180px]"
         toolbar={dateFilter}
         searchFirst
+        searchGrow
         renderMobileCard={renderMobileCard}
       />
     </section>

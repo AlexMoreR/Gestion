@@ -46,6 +46,8 @@ export type DataTableProps<TData> = {
   toolbar?: React.ReactNode;
   /** Si es true, el buscador se muestra antes de la toolbar. Por defecto false. */
   searchFirst?: boolean;
+  /** Si es true, la barra ocupa todo el ancho y el buscador se estira al espacio que sobre. */
+  searchGrow?: boolean;
   onRowClick?: (row: TData) => void;
   /** Clase de ancho minimo de la tabla (scroll horizontal). */
   minWidth?: string;
@@ -90,6 +92,7 @@ export function DataTable<TData>({
   paginate = true,
   toolbar,
   searchFirst = false,
+  searchGrow = false,
   onRowClick,
   minWidth = "min-w-[760px]",
   renderMobileCard,
@@ -179,10 +182,16 @@ export function DataTable<TData>({
               {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
             </div>
           ) : null}
-          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto lg:justify-end">
+          <div
+            className={
+              searchGrow
+                ? "flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
+                : "flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto lg:justify-end"
+            }
+          >
             {searchFirst ? null : toolbar}
             {searchable ? (
-              <div className="relative w-full sm:max-w-sm">
+              <div className={searchGrow ? "relative w-full sm:w-auto sm:min-w-64 sm:flex-1" : "relative w-full sm:max-w-sm"}>
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={globalFilter}
