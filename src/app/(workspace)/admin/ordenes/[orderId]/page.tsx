@@ -17,6 +17,7 @@ import { OrderReturnDialog, type ReturnDispatchOption } from "@/components/admin
 import {
   estaAbierta,
   estadoDevolucionDeOrden,
+  mensajeDevolucionAsesora,
   pendientesPorDevolver,
   perdidaDevolucion,
   returnLocationLabel,
@@ -131,7 +132,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                 shareToken: true,
                 notes: true,
                 createdAt: true,
-                createdBy: { select: { name: true, email: true } },
+                // Asesora de la venta (aviso de devolución): quien hizo la cotización, nunca quien creó la orden.
+                createdBy: { select: { name: true, email: true, phone: true, teamMember: { select: { phone: true } } } },
               },
             },
           },
@@ -249,6 +251,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             files: { select: { id: true, url: true, name: true }, orderBy: { createdAt: "asc" } },
             createdBy: { select: { name: true, email: true } },
             carrierSupplier: { select: { name: true } },
+            sellerNotifiedBy: { select: { name: true, email: true } },
           },
           orderBy: { createdAt: "desc" },
         },
@@ -437,6 +440,23 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               })
             : null,
         ].filter((option): option is ReturnDispatchOption => option !== null);
+  // Historial de cada devolución: entradas de la bitácora de la orden marcadas con su id (after.devolucion).
+  const returnLogs =
+    order.returns.length > 0
+      ? await prisma.activityLog.findMany({
+          where: {
+            entityType: "ORDER",
+            entityId: order.id,
+            OR: order.returns.map((r) => ({ after: { path: ["devolucion"], equals: r.id } })),
+          },
+          select: { id: true, actorName: true, summary: true, createdAt: true, after: true },
+          orderBy: { createdAt: "asc" },
+          take: 200,
+        })
+      : [];
+  const seller = order.sale?.quote?.createdBy ?? null;
+  const sellerName = seller ? seller.name || seller.email : null;
+  const sellerWhatsApp = seller ? whatsAppDigits(seller.phone || seller.teamMember?.phone) : "";
   const returnViews = order.returns.map((r) => {
     const dispatch = r.dispatchId ? order.dispatches.find((d) => d.id === r.dispatchId) ?? null : null;
     const loss = perdidaDevolucion({
@@ -449,13 +469,56 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       devueltas: r.items,
       returnFreight: r.returnFreight,
     });
+    const motive = r.reason === "OTRO" && r.reasonText ? `Otro: ${r.reasonText}` : returnReasonLabel(r.reason);
+    const products = r.items.map((i) => `${i.orderItem.product.name} × ${i.quantity}`);
+    const open = estaAbierta(r);
     return {
       id: r.id,
-      state: r.annulledAt ? "Anulada" : r.closedAt ? "Cerrada" : "Abierta",
+      open,
+      state: r.annulledAt ? `Anulada: ${r.annulReason ?? "sin motivo"}` : r.closedAt ? `Cerrada · ${formatNoteDate(r.closedAt)}` : "Abierta",
+      edit: {
+        reason: r.reason,
+        reasonText: r.reasonText ?? "",
+        location: r.location,
+        nextStep: r.nextStep,
+        comment: r.comment ?? "",
+        freight: r.returnFreight === null ? "" : String(Math.round(Number(r.returnFreight))),
+      },
+      annulEffect:
+        dispatch?.status === "RETURNED" && r.dispatchStatusBefore === "SHIPPED"
+          ? "El despacho y la guía vuelven a «En camino»."
+          : dispatch?.status === "DELIVERED" &&
+              dispatch.items.some((i) => i.deliveryReversedAt && r.items.some((ri) => ri.orderItemId === i.orderItemId))
+            ? "Los productos que esta devolución dejó como no entregados vuelven a Entregado (queda una reversa)."
+            : null,
+      sellerNotified: r.sellerNotifiedAt
+        ? `${r.sellerNotifiedBy?.name || r.sellerNotifiedBy?.email || "Sin nombre"} · ${formatNoteDate(r.sellerNotifiedAt)}`
+        : null,
+      // Aviso a la asesora: solo en abiertas sin avisar y si la venta tiene asesora.
+      seller:
+        open && !r.sellerNotifiedAt && sellerName
+          ? {
+              name: sellerName,
+              whatsApp: sellerWhatsApp,
+              message: mensajeDevolucionAsesora({
+                asesora: sellerName,
+                orden: displayCode(order.code),
+                venta: order.sale ? displayCode(order.sale.code) : null,
+                cliente: order.client?.name || order.client?.email || "Sin dato",
+                productos: products,
+                motivo: motive,
+                dondeEsta: returnLocationLabel(r.location),
+                queSigue: returnNextStepLabel(r.nextStep),
+              }),
+            }
+          : null,
+      history: returnLogs
+        .filter((log) => (log.after as { devolucion?: unknown } | null)?.devolucion === r.id)
+        .map((log) => ({ id: log.id, text: log.summary, by: log.actorName, date: formatNoteDate(log.createdAt) })),
       date: shortColombiaDate(r.returnDate),
       dispatchCode: dispatch ? displayCode(dispatch.code) : null,
-      motive: r.reason === "OTRO" && r.reasonText ? `Otro: ${r.reasonText}` : returnReasonLabel(r.reason),
-      products: r.items.map((i) => `${i.orderItem.product.name} × ${i.quantity}`),
+      motive,
+      products,
       carrier: [r.carrierSupplier?.name, r.carrierName].filter(Boolean).join(" · ") || null,
       location: returnLocationLabel(r.location),
       nextStep: returnNextStepLabel(r.nextStep),
@@ -1179,7 +1242,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             )}
           />
 
-          <OrderReturnCard returns={returnViews} />
+          <OrderReturnCard orderId={order.id} returns={returnViews} />
 
           <OrderReversalsCard
             reversals={order.reversals.map((reversal) => ({

@@ -66,18 +66,15 @@ function text(formData: FormData, name: string): string {
   return typeof raw === "string" ? raw.trim() : "";
 }
 
-// Campos: returnDate (AAAA-MM-DD), returnReason, returnReasonText (con OTRO), returnComment, returnLocation,
-// returnNextStep, returnFreight (opcional), returnCarrierSupplierId / returnCarrierName (opcionales) y
-// returnQty:<orderItemId> por producto (las vacías o en 0 no cuentan). `hoy` solo para pruebas.
-export function parseOrderReturnInput(formData: FormData, hoy: string = todayInColombia()): OrderReturnInputResult {
-  const dateRaw = text(formData, "returnDate");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateRaw)) return { ok: false, error: "Escribe la fecha de la devolución." };
-  const returnDate = new Date(`${dateRaw}T00:00:00.000Z`);
-  if (Number.isNaN(returnDate.getTime()) || returnDate.toISOString().slice(0, 10) !== dateRaw) {
-    return { ok: false, error: "La fecha no es válida." };
-  }
-  if (dateRaw > hoy) return { ok: false, error: "La fecha no puede ser futura." };
+export type OrderReturnEdit = Pick<
+  OrderReturnInput,
+  "reason" | "reasonText" | "comment" | "location" | "nextStep" | "returnFreight"
+>;
+export type OrderReturnEditResult = { ok: true; value: OrderReturnEdit } | { ok: false; error: string };
 
+// «Editar» y registro comparten esto: motivo, dónde está, qué sigue, comentario y flete (sin fecha, productos,
+// despacho ni transportadora, que no se editan).
+export function parseOrderReturnEdit(formData: FormData): OrderReturnEditResult {
   const reason = text(formData, "returnReason");
   if (!reason) return { ok: false, error: "Elige el motivo." };
   if (!RETURN_REASONS.some((r) => r.key === reason)) return { ok: false, error: "Ese motivo no está en la lista." };
@@ -108,6 +105,34 @@ export function parseOrderReturnInput(formData: FormData, hoy: string = todayInC
     returnFreight = roundMoney(value);
   }
 
+  return {
+    ok: true,
+    value: {
+      reason: reason as ReturnReasonKey,
+      reasonText: reason === "OTRO" ? otherText : null,
+      comment: comment || null,
+      location: location as ReturnLocationKey,
+      nextStep: nextStep as ReturnNextStepKey,
+      returnFreight,
+    },
+  };
+}
+
+// Campos: returnDate (AAAA-MM-DD), returnReason, returnReasonText (con OTRO), returnComment, returnLocation,
+// returnNextStep, returnFreight (opcional), returnCarrierSupplierId / returnCarrierName (opcionales) y
+// returnQty:<orderItemId> por producto (las vacías o en 0 no cuentan). `hoy` solo para pruebas.
+export function parseOrderReturnInput(formData: FormData, hoy: string = todayInColombia()): OrderReturnInputResult {
+  const dateRaw = text(formData, "returnDate");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateRaw)) return { ok: false, error: "Escribe la fecha de la devolución." };
+  const returnDate = new Date(`${dateRaw}T00:00:00.000Z`);
+  if (Number.isNaN(returnDate.getTime()) || returnDate.toISOString().slice(0, 10) !== dateRaw) {
+    return { ok: false, error: "La fecha no es válida." };
+  }
+  if (dateRaw > hoy) return { ok: false, error: "La fecha no puede ser futura." };
+
+  const details = parseOrderReturnEdit(formData);
+  if (!details.ok) return details;
+
   const carrierName = text(formData, "returnCarrierName");
   if (carrierName.length > RETURN_CARRIER_MAX) {
     return { ok: false, error: `La transportadora no puede pasar de ${RETURN_CARRIER_MAX} letras.` };
@@ -131,12 +156,7 @@ export function parseOrderReturnInput(formData: FormData, hoy: string = todayInC
     ok: true,
     value: {
       returnDate,
-      reason: reason as ReturnReasonKey,
-      reasonText: reason === "OTRO" ? otherText : null,
-      comment: comment || null,
-      location: location as ReturnLocationKey,
-      nextStep: nextStep as ReturnNextStepKey,
-      returnFreight,
+      ...details.value,
       carrierSupplierId: text(formData, "returnCarrierSupplierId") || null,
       carrierName: carrierName || null,
       items,
@@ -295,4 +315,101 @@ export function pendientesPorDevolver(salieron: ReturnLine[], devueltasAntes: Re
   return [...sumByItem(salieron)]
     .map(([orderItemId, quantity]) => ({ orderItemId, quantity: quantity - (antes.get(orderItemId) ?? 0) }))
     .filter((line) => line.quantity > 0);
+}
+
+// Antes y después de «Editar», solo con lo que cambió (para la bitácora). null = no cambió nada.
+export function cambiosDeDevolucion(
+  antes: { reason: string; reasonText: string | null; comment: string | null; location: string; nextStep: string; returnFreight: Money },
+  despues: OrderReturnEdit,
+): { before: Record<string, string | number | null>; after: Record<string, string | number | null> } | null {
+  const motivo = (reason: string, reasonText: string | null) =>
+    reason === "OTRO" && reasonText ? `Otro: ${reasonText}` : returnReasonLabel(reason);
+  const flete = (value: Money) => (value === null || value === undefined ? null : roundMoney(toNumber(value)));
+  const campos: [string, string | number | null, string | number | null][] = [
+    ["motivo", motivo(antes.reason, antes.reasonText), motivo(despues.reason, despues.reasonText)],
+    ["dondeEsta", returnLocationLabel(antes.location), returnLocationLabel(despues.location)],
+    ["queSigue", returnNextStepLabel(antes.nextStep), returnNextStepLabel(despues.nextStep)],
+    ["comentario", antes.comment || null, despues.comment || null],
+    ["fleteVuelta", flete(antes.returnFreight), flete(despues.returnFreight)],
+  ];
+  const before: Record<string, string | number | null> = {};
+  const after: Record<string, string | number | null> = {};
+  for (const [campo, viejo, nuevo] of campos) {
+    if (viejo === nuevo) continue;
+    before[campo] = viejo;
+    after[campo] = nuevo;
+  }
+  return Object.keys(after).length > 0 ? { before, after } : null;
+}
+
+export const ANNUL_REASON_MIN = 3;
+export const ANNUL_REASON_MAX = 300;
+
+export type AnnulEffect =
+  | { tipo: "SOLO_ANULAR" }
+  | { tipo: "VOLVER_A_ENVIADO" }
+  // orderItemIds: líneas que esta devolución marcó como no entregadas y siguen así; sinTocar: líneas reversadas
+  // después a mano (otra reversa), que no se tocan.
+  | { tipo: "LIMPIAR_ENTREGA"; orderItemIds: string[]; sinTocar: string[] };
+export type AnnulEffectResult = { ok: true; efecto: AnnulEffect } | { ok: false; error: string };
+
+// Qué hace anular una devolución. Solo se anulan las abiertas.
+// `reversadas`: líneas de esta devolución que hoy están como no entregadas en su despacho; `deEstaDevolucion` =
+// la última reversa de esa línea la creó esta devolución.
+export function efectoDeAnular(input: {
+  devolucion: { closedAt: Date | null; annulledAt: Date | null; dispatchStatusBefore: DispatchStatusKey | null };
+  dispatchStatus: DispatchStatusKey | null;
+  orderItemIds: string[];
+  otrosDespachos: { code: string; status: DispatchStatusKey; orderItemIds: string[] }[];
+  reversadas: { orderItemId: string; deEstaDevolucion: boolean }[];
+}): AnnulEffectResult {
+  if (input.devolucion.annulledAt) return { ok: false, error: "Esta devolución ya está anulada." };
+  if (input.devolucion.closedAt) return { ok: false, error: "Esta devolución está cerrada: no se puede anular." };
+
+  if (input.dispatchStatus === "RETURNED" && input.devolucion.dispatchStatusBefore === "SHIPPED") {
+    if (puedeVolverAEnviado(input)) return { ok: true, efecto: { tipo: "VOLVER_A_ENVIADO" } };
+    const ids = new Set(input.orderItemIds);
+    const otro = input.otrosDespachos.find(
+      (d) => d.status !== "CANCELLED" && d.status !== "RETURNED" && d.orderItemIds.some((id) => ids.has(id)),
+    );
+    return {
+      ok: false,
+      error: `No se puede anular: esos productos ya salieron en otro despacho${otro ? ` (${otro.code})` : ""}. Cancélalo o ajústalo primero.`,
+    };
+  }
+
+  if (input.dispatchStatus === "DELIVERED" && input.reversadas.length > 0) {
+    return {
+      ok: true,
+      efecto: {
+        tipo: "LIMPIAR_ENTREGA",
+        orderItemIds: input.reversadas.filter((r) => r.deEstaDevolucion).map((r) => r.orderItemId),
+        sinTocar: input.reversadas.filter((r) => !r.deEstaDevolucion).map((r) => r.orderItemId),
+      },
+    };
+  }
+  // RETURNED de antes, sin despacho o el despacho ya cambió: solo queda la anulación.
+  return { ok: true, efecto: { tipo: "SOLO_ANULAR" } };
+}
+
+// Mensaje de WhatsApp para la asesora de la venta. Nunca lleva costos, fletes ni precios.
+export function mensajeDevolucionAsesora(input: {
+  asesora: string;
+  orden: string;
+  venta: string | null;
+  cliente: string;
+  productos: string[];
+  motivo: string;
+  dondeEsta: string;
+  queSigue: string;
+}): string {
+  return [
+    `Hola ${input.asesora}, te aviso de una devolución.`,
+    `Orden: ${input.orden}${input.venta ? ` · Venta: ${input.venta}` : ""}`,
+    `Cliente: ${input.cliente}`,
+    `Productos: ${input.productos.join(", ")}`,
+    `Motivo: ${input.motivo}`,
+    `Dónde está: ${input.dondeEsta}`,
+    `Qué sigue: ${input.queSigue}`,
+  ].join("\n");
 }

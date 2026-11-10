@@ -1,10 +1,24 @@
-import { FileText, PackageX } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileText, MessageCircle, PackageX } from "lucide-react";
+import { adminCloseOrderReturnAction, adminMarkReturnSellerNotifiedAction } from "@/app/actions/order-return-actions";
+import { OrderReturnAnnulDialog, OrderReturnEditDialog, type ReturnEditValues } from "@/components/admin/order-return-dialog";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 export type OrderReturnView = {
   id: string;
-  // "Abierta", "Cerrada" o "Anulada".
+  // Abierta = sin cerrar ni anular: la única con botones.
+  open: boolean;
+  // "Abierta", "Cerrada · fecha" o "Anulada: motivo".
   state: string;
+  edit: ReturnEditValues;
+  // Qué pasa al anular (despacho a En camino, productos a Entregado), o null si solo se anula.
+  annulEffect: string | null;
+  // "Persona · fecha" de quien avisó a la asesora, o null.
+  sellerNotified: string | null;
+  // Aviso pendiente a la asesora (abierta y sin avisar). whatsApp vacío = sin celular.
+  seller: { name: string; whatsApp: string; message: string } | null;
+  // Bitácora de esta devolución (más vieja primero).
+  history: { id: string; text: string; by: string; date: string }[];
   date: string;
   dispatchCode: string | null;
   motive: string;
@@ -23,8 +37,8 @@ export type OrderReturnView = {
   createdAt: string;
 };
 
-// Devoluciones de la orden (más nueva primero). Solo lectura: no toca dinero, inventario ni estados.
-export function OrderReturnCard({ returns }: { returns: OrderReturnView[] }) {
+// Devoluciones de la orden (más nueva primero). Las abiertas se editan, cierran o anulan; nada toca dinero ni inventario.
+export function OrderReturnCard({ orderId, returns }: { orderId: string; returns: OrderReturnView[] }) {
   if (returns.length === 0) return null;
   return (
     <Card className="border-border bg-card/95">
@@ -41,7 +55,7 @@ export function OrderReturnCard({ returns }: { returns: OrderReturnView[] }) {
                   {item.date}
                   {item.dispatchCode ? ` · ${item.dispatchCode}` : " · Sin despacho"}
                 </p>
-                <span className="text-xs text-muted-foreground">{item.state}</span>
+                <span className="break-words text-xs text-muted-foreground">{item.state}</span>
               </div>
               <p className="break-words text-sm text-foreground">{item.motive}</p>
               <ul className="list-disc pl-4 text-sm text-foreground">
@@ -97,6 +111,69 @@ export function OrderReturnCard({ returns }: { returns: OrderReturnView[] }) {
               <p className="text-xs text-muted-foreground">
                 {item.by} · {item.createdAt}
               </p>
+
+              {item.seller ? (
+                <div className="space-y-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 dark:border-amber-700 dark:bg-amber-950/40">
+                  <p className="flex items-start gap-1.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      Falta avisar a la asesora: {item.seller.name}
+                      {item.seller.whatsApp ? "" : " (sin celular)"}
+                    </span>
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {item.seller.whatsApp ? (
+                      <a
+                        href={`https://wa.me/${item.seller.whatsApp}?text=${encodeURIComponent(item.seller.message)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" /> Avisar a {item.seller.name} por WhatsApp
+                      </a>
+                    ) : null}
+                    <form action={adminMarkReturnSellerNotifiedAction}>
+                      <input type="hidden" name="orderId" value={orderId} />
+                      <input type="hidden" name="returnId" value={item.id} />
+                      <Button type="submit" variant="outline" size="sm">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Ya avisé
+                      </Button>
+                    </form>
+                  </div>
+                </div>
+              ) : null}
+              {item.sellerNotified ? (
+                <p className="text-xs text-emerald-700 dark:text-emerald-400">Asesora avisada: {item.sellerNotified}</p>
+              ) : null}
+
+              {item.open ? (
+                <div className="flex flex-wrap gap-2">
+                  <OrderReturnEditDialog orderId={orderId} returnId={item.id} values={item.edit} />
+                  <form action={adminCloseOrderReturnAction}>
+                    <input type="hidden" name="orderId" value={orderId} />
+                    <input type="hidden" name="returnId" value={item.id} />
+                    <Button type="submit" variant="outline" size="sm">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Cerrar devolución
+                    </Button>
+                  </form>
+                  <OrderReturnAnnulDialog orderId={orderId} returnId={item.id} effect={item.annulEffect} />
+                </div>
+              ) : null}
+
+              {item.history.length > 0 ? (
+                <div className="space-y-0.5 border-t border-border pt-1.5">
+                  <p className="text-xs font-medium text-foreground">Historial</p>
+                  <ul className="space-y-0.5 text-xs text-muted-foreground">
+                    {item.history.map((entry) => (
+                      <li key={entry.id} className="break-words">
+                        {entry.date} · {entry.by}: {entry.text}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>

@@ -2,14 +2,20 @@
 
 import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { AlertTriangle, Loader2, PackageX } from "lucide-react";
-import { adminRegisterOrderReturnAction } from "@/app/actions/order-return-actions";
+import { AlertTriangle, Ban, Loader2, PackageX, Pencil } from "lucide-react";
+import {
+  adminAnnulOrderReturnAction,
+  adminEditOrderReturnAction,
+  adminRegisterOrderReturnAction,
+} from "@/app/actions/order-return-actions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  ANNUL_REASON_MAX,
+  ANNUL_REASON_MIN,
   efectoDeRegistrar,
   RETURN_COMMENT_MAX,
   RETURN_LOCATIONS,
@@ -42,14 +48,31 @@ export type ReturnDispatchOption = {
   lines: { orderItemId: string; name: string; max: number }[];
 };
 
-function SubmitButton({ disabled }: { disabled: boolean }) {
+function SubmitButton({
+  disabled,
+  label = "Guardar devolución",
+  variant = "default",
+}: {
+  disabled: boolean;
+  label?: string;
+  variant?: "default" | "destructive";
+}) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" className="w-full" disabled={pending || disabled}>
+    <Button type="submit" variant={variant} className="w-full" disabled={pending || disabled}>
       {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-      {pending ? "Guardando..." : "Guardar devolución"}
+      {pending ? "Guardando..." : label}
     </Button>
   );
+}
+
+function checkFileList(list: FileList | null): string {
+  const files = Array.from(list ?? []);
+  const total = files.reduce((sum, file) => sum + file.size, 0);
+  if (files.length > MAX_FILES) return `Máximo ${MAX_FILES} archivos.`;
+  if (files.some((file) => file.size > MAX_FILE_BYTES)) return "Cada archivo debe pesar menos de 12 MB.";
+  if (total > MAX_TOTAL_BYTES) return "Entre todos pasan de 15 MB: quita alguno o usa fotos más livianas.";
+  return "";
 }
 
 // «Registrar devolución» del detalle de la orden. Solo registra: no toca dinero ni inventario.
@@ -93,14 +116,7 @@ export function OrderReturnDialog({
     if (!option) return;
     setQty(Object.fromEntries(option.lines.map((line) => [line.orderItemId, String(line.max)])));
   };
-  const checkFiles = (list: FileList | null) => {
-    const files = Array.from(list ?? []);
-    const total = files.reduce((sum, file) => sum + file.size, 0);
-    if (files.length > MAX_FILES) setFileError(`Máximo ${MAX_FILES} archivos.`);
-    else if (files.some((file) => file.size > MAX_FILE_BYTES)) setFileError("Cada archivo debe pesar menos de 12 MB.");
-    else if (total > MAX_TOTAL_BYTES) setFileError("Entre todos pasan de 15 MB: quita alguno o usa fotos más livianas.");
-    else setFileError("");
-  };
+  const checkFiles = (list: FileList | null) => setFileError(checkFileList(list));
 
   return (
     <>
@@ -281,6 +297,175 @@ export function OrderReturnDialog({
             </div>
 
             <SubmitButton disabled={!option || nuevas.length === 0 || !efecto?.ok || Boolean(fileError)} />
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+export type ReturnEditValues = {
+  reason: string;
+  reasonText: string;
+  location: string;
+  nextStep: string;
+  comment: string;
+  freight: string;
+};
+
+// «Editar» de una devolución abierta: motivo, dónde está, qué sigue, comentario, flete y agregar evidencias.
+export function OrderReturnEditDialog({ orderId, returnId, values }: { orderId: string; returnId: string; values: ReturnEditValues }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState(values.reason);
+  const [freight, setFreight] = useState(values.freight);
+  const [fileError, setFileError] = useState("");
+  const id = (name: string) => `${name}-${returnId}`;
+
+  return (
+    <>
+      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Pencil className="h-3.5 w-3.5" />
+        Editar
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[88vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar devolución</DialogTitle>
+            <DialogDescription>
+              La fecha, los productos y el despacho no se editan: para eso se anula y se registra de nuevo.
+            </DialogDescription>
+          </DialogHeader>
+          <form action={adminEditOrderReturnAction} className="space-y-3">
+            <input type="hidden" name="orderId" value={orderId} />
+            <input type="hidden" name="returnId" value={returnId} />
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <label className={LABEL_CLASS} htmlFor={id("returnLocation")}>Dónde está</label>
+                <select id={id("returnLocation")} name="returnLocation" required defaultValue={values.location} className={FIELD_CLASS}>
+                  {RETURN_LOCATIONS.map((l) => (
+                    <option key={l.key} value={l.key}>{l.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className={LABEL_CLASS} htmlFor={id("returnNextStep")}>Qué sigue</label>
+                <select id={id("returnNextStep")} name="returnNextStep" required defaultValue={values.nextStep} className={FIELD_CLASS}>
+                  {RETURN_NEXT_STEPS.map((s) => (
+                    <option key={s.key} value={s.key}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <label className={LABEL_CLASS} htmlFor={id("returnReason")}>Motivo</label>
+                <select
+                  id={id("returnReason")}
+                  name="returnReason"
+                  required
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  className={FIELD_CLASS}
+                >
+                  {RETURN_REASONS.map((r) => (
+                    <option key={r.key} value={r.key}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
+              {reason === "OTRO" ? (
+                <div className="space-y-1">
+                  <label className={LABEL_CLASS} htmlFor={id("returnReasonText")}>¿Cuál?</label>
+                  <Input
+                    id={id("returnReasonText")}
+                    name="returnReasonText"
+                    required
+                    minLength={3}
+                    maxLength={RETURN_OTHER_MAX}
+                    defaultValue={values.reasonText}
+                    className="h-8 text-sm"
+                  />
+                </div>
+              ) : null}
+            </div>
+
+            <div className="space-y-1">
+              <label className={LABEL_CLASS}>Flete de vuelta (informativo)</label>
+              <MoneyInput name="returnFreight" value={freight} onValueChange={setFreight} />
+              <p className="text-xs text-muted-foreground">No descuenta nada. Si se paga, regístralo aparte.</p>
+            </div>
+
+            <div className="space-y-1">
+              <label className={LABEL_CLASS} htmlFor={id("returnComment")}>Comentario</label>
+              <Textarea id={id("returnComment")} name="returnComment" maxLength={RETURN_COMMENT_MAX} rows={2} defaultValue={values.comment} />
+            </div>
+
+            <div className="space-y-1">
+              <label className={LABEL_CLASS} htmlFor={id("returnFiles")}>Agregar fotos o PDF</label>
+              <Input
+                id={id("returnFiles")}
+                name="returnFiles"
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                onChange={(event) => setFileError(checkFileList(event.target.files))}
+                className="text-sm"
+              />
+              <p className={fileError ? "text-xs text-rose-600" : "text-xs text-muted-foreground"}>
+                {fileError || `Se suman a los que ya tiene. JPG, PNG, WEBP o PDF, hasta ${MAX_FILES} de 12 MB.`}
+              </p>
+            </div>
+
+            <SubmitButton disabled={Boolean(fileError)} label="Guardar cambios" />
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// «Anular» con motivo obligatorio. La devolución no se borra; `effect` dice qué pasa con el despacho o la entrega.
+export function OrderReturnAnnulDialog({ orderId, returnId, effect }: { orderId: string; returnId: string; effect: string | null }) {
+  const [open, setOpen] = useState(false);
+  const [motive, setMotive] = useState("");
+  const id = `annulReason-${returnId}`;
+  return (
+    <>
+      <Button type="button" variant="destructive" size="sm" onClick={() => setOpen(true)}>
+        <Ban className="h-3.5 w-3.5" />
+        Anular
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Anular devolución</DialogTitle>
+            <DialogDescription>Queda guardada como anulada, con su motivo. No cambia dinero, inventario ni la orden.</DialogDescription>
+          </DialogHeader>
+          <form action={adminAnnulOrderReturnAction} className="space-y-3">
+            <input type="hidden" name="orderId" value={orderId} />
+            <input type="hidden" name="returnId" value={returnId} />
+            {effect ? (
+              <p className="flex items-start gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-800 dark:text-amber-300">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {effect}
+              </p>
+            ) : null}
+            <div className="space-y-1">
+              <label className={LABEL_CLASS} htmlFor={id}>Motivo de la anulación</label>
+              <Textarea
+                id={id}
+                name="annulReason"
+                required
+                minLength={ANNUL_REASON_MIN}
+                maxLength={ANNUL_REASON_MAX}
+                rows={2}
+                value={motive}
+                onChange={(event) => setMotive(event.target.value)}
+                placeholder="Ej. Se registró en la orden equivocada"
+              />
+            </div>
+            <SubmitButton disabled={motive.trim().length < ANNUL_REASON_MIN} label="Anular devolución" variant="destructive" />
           </form>
         </DialogContent>
       </Dialog>

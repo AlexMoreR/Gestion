@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  cambiosDeDevolucion,
+  efectoDeAnular,
   efectoDeRegistrar,
+  mensajeDevolucionAsesora,
+  parseOrderReturnEdit,
   estaAbierta,
   estadoDevolucionDeOrden,
   pendientesPorDevolver,
@@ -235,5 +239,97 @@ describe("pendientesPorDevolver", () => {
         [{ orderItemId: "a", quantity: 1 }, { orderItemId: "b", quantity: 1 }],
       ),
     ).toEqual([{ orderItemId: "a", quantity: 1 }]);
+  });
+});
+
+describe("efectoDeAnular", () => {
+  const abierta = { closedAt: null, annulledAt: null, dispatchStatusBefore: "SHIPPED" as const };
+  const base = { devolucion: abierta, dispatchStatus: "RETURNED" as const, orderItemIds: ["a"], otrosDespachos: [], reversadas: [] };
+
+  it("el despacho que esta devolución pasó a Devuelto vuelve a En camino", () => {
+    expect(efectoDeAnular(base)).toEqual({ ok: true, efecto: { tipo: "VOLVER_A_ENVIADO" } });
+  });
+  it("con otro despacho vivo de esos productos se rechaza con su código", () => {
+    const r = efectoDeAnular({ ...base, otrosDespachos: [{ code: "DES-12", status: "SHIPPED", orderItemIds: ["a"] }] });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toBe("No se puede anular: esos productos ya salieron en otro despacho (DES-12). Cancélalo o ajústalo primero.");
+  });
+  it("un despacho cancelado o devuelto no bloquea", () => {
+    const r = efectoDeAnular({ ...base, otrosDespachos: [{ code: "DES-12", status: "CANCELLED", orderItemIds: ["a"] }] });
+    expect(r).toEqual({ ok: true, efecto: { tipo: "VOLVER_A_ENVIADO" } });
+  });
+  it("si estaba entregado limpia las líneas que marcó esta devolución y deja las de otra reversa", () => {
+    const r = efectoDeAnular({
+      ...base,
+      devolucion: { ...abierta, dispatchStatusBefore: "DELIVERED" },
+      dispatchStatus: "DELIVERED",
+      orderItemIds: ["a", "b"],
+      reversadas: [
+        { orderItemId: "a", deEstaDevolucion: true },
+        { orderItemId: "b", deEstaDevolucion: false },
+      ],
+    });
+    expect(r).toEqual({ ok: true, efecto: { tipo: "LIMPIAR_ENTREGA", orderItemIds: ["a"], sinTocar: ["b"] } });
+  });
+  it("si el despacho ya estaba Devuelto de antes, solo se anula", () => {
+    const r = efectoDeAnular({ ...base, devolucion: { ...abierta, dispatchStatusBefore: "RETURNED" } });
+    expect(r).toEqual({ ok: true, efecto: { tipo: "SOLO_ANULAR" } });
+  });
+  it("una anulada o cerrada se rechaza", () => {
+    expect(efectoDeAnular({ ...base, devolucion: { ...abierta, annulledAt: new Date() } }).ok).toBe(false);
+    expect(efectoDeAnular({ ...base, devolucion: { ...abierta, closedAt: new Date() } }).ok).toBe(false);
+  });
+});
+
+describe("cerrar una devolución", () => {
+  it("cerrada ya no cuenta como abierta y no se puede anular", () => {
+    const cerrada = { closedAt: new Date("2026-11-08T15:00:00Z"), annulledAt: null, dispatchStatusBefore: "SHIPPED" as const };
+    expect(estaAbierta(cerrada)).toBe(false);
+    const r = efectoDeAnular({ devolucion: cerrada, dispatchStatus: "RETURNED", orderItemIds: ["a"], otrosDespachos: [], reversadas: [] });
+    expect(r.ok).toBe(false);
+    expect(
+      estadoDevolucionDeOrden({ orderItems: [{ id: "a", quantity: 1 }], devueltasAbiertas: [], despachos: [], despachosConDevolucion: [] }),
+    ).toBeNull();
+  });
+});
+
+describe("mensajeDevolucionAsesora", () => {
+  it("trae orden, cliente, productos y motivo, sin costos aunque se le pase el flete", () => {
+    const input = {
+      asesora: "Ingrid",
+      orden: "ORD-95",
+      venta: "SAL-40",
+      cliente: "Ana Pérez",
+      productos: ["Camilla × 1"],
+      motivo: "El cliente no lo quiso",
+      dondeEsta: "En bodega",
+      queSigue: "Reenviar",
+      returnFreight: 45000,
+    } as Parameters<typeof mensajeDevolucionAsesora>[0];
+    const text = mensajeDevolucionAsesora(input);
+    for (const part of ["ORD-95", "SAL-40", "Ana Pérez", "Camilla × 1", "El cliente no lo quiso", "En bodega", "Reenviar"]) {
+      expect(text).toContain(part);
+    }
+    expect(text).not.toContain("$");
+    expect(text).not.toContain("45");
+  });
+});
+
+describe("parseOrderReturnEdit y cambiosDeDevolucion", () => {
+  const EDIT = { returnReason: "NO_LO_QUISO", returnLocation: "BODEGA", returnNextStep: "POR_DEFINIR" };
+  it("Otro sin texto se rechaza", () => {
+    expect(parseOrderReturnEdit(form({ ...EDIT, returnReason: "OTRO" })).ok).toBe(false);
+  });
+  it("flete negativo o mayor al tope se rechaza", () => {
+    expect(parseOrderReturnEdit(form({ ...EDIT, returnFreight: "-1" })).ok).toBe(false);
+    expect(parseOrderReturnEdit(form({ ...EDIT, returnFreight: "20000001" })).ok).toBe(false);
+  });
+  it("el antes y el después solo trae lo que cambió", () => {
+    const r = parseOrderReturnEdit(form({ ...EDIT, returnLocation: "EN_TRANSITO", returnFreight: "30000" }));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const antes = { reason: "NO_LO_QUISO", reasonText: null, comment: null, location: "BODEGA", nextStep: "POR_DEFINIR", returnFreight: "30000.00" };
+    expect(cambiosDeDevolucion(antes, r.value)).toEqual({ before: { dondeEsta: "En bodega" }, after: { dondeEsta: "En tránsito" } });
+    expect(cambiosDeDevolucion({ ...antes, location: "EN_TRANSITO" }, r.value)).toBeNull();
   });
 });
