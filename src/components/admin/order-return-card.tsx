@@ -1,7 +1,11 @@
 import { AlertTriangle, CheckCircle2, FileText, MessageCircle, PackageX } from "lucide-react";
 import { adminCloseOrderReturnAction, adminMarkReturnSellerNotifiedAction } from "@/app/actions/order-return-actions";
-import { OrderReturnAnnulDialog, OrderReturnEditDialog, type ReturnEditValues } from "@/components/admin/order-return-dialog";
-import { Button } from "@/components/ui/button";
+import {
+  OrderReturnAnnulDialog,
+  OrderReturnEditDialog,
+  ReturnFormButton,
+  type ReturnEditValues,
+} from "@/components/admin/order-return-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 
 export type OrderReturnView = {
@@ -135,10 +139,10 @@ export function OrderReturnCard({ orderId, returns }: { orderId: string; returns
                     <form action={adminMarkReturnSellerNotifiedAction}>
                       <input type="hidden" name="orderId" value={orderId} />
                       <input type="hidden" name="returnId" value={item.id} />
-                      <Button type="submit" variant="outline" size="sm">
+                      <ReturnFormButton>
                         <CheckCircle2 className="h-3.5 w-3.5" />
                         Ya avisé
-                      </Button>
+                      </ReturnFormButton>
                     </form>
                   </div>
                 </div>
@@ -153,10 +157,10 @@ export function OrderReturnCard({ orderId, returns }: { orderId: string; returns
                   <form action={adminCloseOrderReturnAction}>
                     <input type="hidden" name="orderId" value={orderId} />
                     <input type="hidden" name="returnId" value={item.id} />
-                    <Button type="submit" variant="outline" size="sm">
+                    <ReturnFormButton confirmText="¿Cerrar esta devolución? Ya no se podrá editar ni anular.">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       Cerrar devolución
-                    </Button>
+                    </ReturnFormButton>
                   </form>
                   <OrderReturnAnnulDialog orderId={orderId} returnId={item.id} effect={item.annulEffect} />
                 </div>

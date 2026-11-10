@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { AlertTriangle, Ban, Loader2, PackageX, Pencil } from "lucide-react";
 import {
@@ -301,6 +301,26 @@ export function OrderReturnDialog({
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// Botón de los formularios de un clic de la tarjeta («Cerrar devolución», «Ya avisé»): se apaga mientras guarda
+// y, con `confirmText`, pide confirmación antes de enviar.
+export function ReturnFormButton({ children, confirmText }: { children: ReactNode; confirmText?: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button
+      type="submit"
+      variant="outline"
+      size="sm"
+      disabled={pending}
+      onClick={(event) => {
+        if (confirmText && !window.confirm(confirmText)) event.preventDefault();
+      }}
+    >
+      {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+      {pending ? "Guardando..." : children}
+    </Button>
   );
 }
 
