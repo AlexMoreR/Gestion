@@ -177,6 +177,7 @@ export type OrderTracking = {
     shippingAddress: string | null;
     shippedAt: Date | null;
     deliveredAt: Date | null;
-  }[];  // Etiqueta de devolución de la orden (estadoDevolucionDeOrden); sin dato = ninguna.
+  }[];
+  // Etiqueta de devolución de la orden (estadoDevolucionDeOrden); sin dato = ninguna.
   devolucion?: "DEVUELTA" | "PARCIAL" | "FALTA_REGISTRAR" | null;
 };
