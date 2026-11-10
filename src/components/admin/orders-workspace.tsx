@@ -3,10 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpRight, MoreHorizontal, Pencil, ShoppingCart, StickyNote, X } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, ClipboardList, Clock, Factory, MoreHorizontal, Pencil, ShoppingCart, StickyNote, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
+import { StatList } from "@/components/ui/stat-list";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -422,32 +422,14 @@ export function OrdersWorkspace({
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-border bg-card/95">
-          <CardContent className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Ordenes</p>
-            <p className="text-2xl font-semibold text-foreground">{stats.ordersCount}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border bg-card/95">
-          <CardContent className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Activas</p>
-            <p className="text-2xl font-semibold text-foreground">{stats.activeCount}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border bg-card/95">
-          <CardContent className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Produccion</p>
-            <p className="text-2xl font-semibold text-foreground">{stats.productionCount}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border bg-card/95">
-          <CardContent className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Cerradas</p>
-            <p className="text-2xl font-semibold text-foreground">{stats.completedCount}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <StatList
+        items={[
+          { label: "Ordenes", value: String(stats.ordersCount), icon: ClipboardList },
+          { label: "Activas", value: String(stats.activeCount), icon: Clock },
+          { label: "Produccion", value: String(stats.productionCount), icon: Factory },
+          { label: "Cerradas", value: String(stats.completedCount), icon: CheckCircle2 },
+        ]}
+      />
 
       <DataTable
         data={tableData}

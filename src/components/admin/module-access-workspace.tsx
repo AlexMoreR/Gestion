@@ -152,17 +152,17 @@ export function ModuleAccessWorkspace({ roles, modules }: ModuleAccessWorkspaceP
 
       {currentRole ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#11182752] px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#11182752] p-4"
           role="dialog"
           aria-modal="true"
           aria-label={`Permisos del rol ${roleLabel[currentRole.role]}`}
           onClick={() => setActiveRole(null)}
         >
           <Card
-            className="w-full max-w-2xl space-y-4 rounded-xl p-5"
+            className="flex max-h-full w-full max-w-4xl flex-col rounded-xl p-5"
             onClick={(event) => event.stopPropagation()}
           >
-            <CardContent>
+            <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-slate-900">
@@ -194,47 +194,49 @@ export function ModuleAccessWorkspace({ roles, modules }: ModuleAccessWorkspaceP
                 </div>
               ) : null}
 
-              <form action={adminUpdateUserModuleAccessAction} className="space-y-4">
+              <form action={adminUpdateUserModuleAccessAction} className="flex min-h-0 flex-1 flex-col gap-4">
                 <input type="hidden" name="role" value={currentRole.role} />
 
-                {groupedModules.map(([group, groupModules]) => (
-                  <div key={group} className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{group}</p>
-                    <div className="grid gap-2">
-                      {groupModules.map((moduleItem) => {
-                        const ModuleIcon = moduleIconMap[moduleItem.key];
-                        const isChecked =
-                          currentRole.modules.includes(moduleItem.key) ||
-                          (currentRole.role === "ADMIN" && moduleItem.key === "config_permissions");
-                        const isDisabled =
-                          currentRole.role === "ADMIN" && moduleItem.key === "config_permissions";
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+                  {groupedModules.map(([group, groupModules]) => (
+                    <div key={group} className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{group}</p>
+                      <div className="grid gap-2 md:grid-cols-2">
+                        {groupModules.map((moduleItem) => {
+                          const ModuleIcon = moduleIconMap[moduleItem.key];
+                          const isChecked =
+                            currentRole.modules.includes(moduleItem.key) ||
+                            (currentRole.role === "ADMIN" && moduleItem.key === "config_permissions");
+                          const isDisabled =
+                            currentRole.role === "ADMIN" && moduleItem.key === "config_permissions";
 
-                        return (
-                          <label
-                            key={moduleItem.key}
-                            className="flex items-start gap-3 rounded-lg border border-[var(--line)] bg-slate-50/60 px-3 py-3"
-                          >
-                            <input
-                              type="checkbox"
-                              name="modules"
-                              value={moduleItem.key}
-                              defaultChecked={isChecked}
-                              disabled={isDisabled}
-                              className="mt-1 h-4 w-4 rounded border-[var(--line)] text-[var(--primary)]"
-                            />
-                            <span className="space-y-0.5">
-                              <span className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                                <ModuleIcon className="h-4 w-4 text-slate-500" />
-                                {moduleItem.label}
+                          return (
+                            <label
+                              key={moduleItem.key}
+                              className="flex items-start gap-3 rounded-lg border border-[var(--line)] bg-slate-50/60 px-3 py-2"
+                            >
+                              <input
+                                type="checkbox"
+                                name="modules"
+                                value={moduleItem.key}
+                                defaultChecked={isChecked}
+                                disabled={isDisabled}
+                                className="mt-1 h-4 w-4 rounded border-[var(--line)] text-[var(--primary)]"
+                              />
+                              <span className="space-y-0.5">
+                                <span className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                                  <ModuleIcon className="h-4 w-4 text-slate-500" />
+                                  {moduleItem.label}
+                                </span>
+                                <span className="block text-xs text-slate-600">{moduleItem.description}</span>
                               </span>
-                              <span className="block text-xs text-slate-600">{moduleItem.description}</span>
-                            </span>
-                          </label>
-                        );
-                      })}
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
 
                 <div className="flex items-center justify-end gap-2">
                   <Button
