@@ -1,11 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { MoreHorizontal, PackageCheck, Pencil } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, MoreHorizontal, PackageCheck, Pencil } from "lucide-react";
 import { adminCancelOrderAction, adminUpdateOrderStatusAction } from "@/app/actions/orders-actions";
 import { adminUpdateOrderItemsFulfillmentAction } from "@/app/actions/order-item-actions";
 import { Button } from "@/components/ui/button";
 import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-field";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  CANCEL_BLOCK_DISPATCH,
+  CANCEL_NOTES_MAX,
+  CANCEL_OTHER_MAX,
+  CANCEL_OTHER_MIN,
+  CANCEL_REASONS,
+} from "@/lib/order-cancellation";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +57,10 @@ type OrderActionsMenuProps = {
   items: OrderEditItem[];
   // Fecha actual de la orden (YYYY-MM-DD) para precargar el campo de edicion.
   orderDate: string;
+  // Cuadro "Cancelar orden": OF sin recibir (no se cancelan solas), despacho vivo (bloquea) y cobros (aviso).
+  openOfs?: { code: string; supplierName: string; products: string; href: string }[];
+  hasActiveDispatch?: boolean;
+  hasPayments?: boolean;
 };
 
 const STATUS_ACTIONS: Partial<Record<OrderStatus, { status: OrderStatus; label: string }>> = {
@@ -56,11 +70,27 @@ const STATUS_ACTIONS: Partial<Record<OrderStatus, { status: OrderStatus; label: 
   DISPATCHED: { status: "COMPLETED", label: "Cerrar orden" },
 };
 
-export function OrderActionsMenu({ orderId, status, isPurchase = false, returnTo, items, orderDate }: OrderActionsMenuProps) {
+export function OrderActionsMenu({
+  orderId,
+  status,
+  isPurchase = false,
+  returnTo,
+  items,
+  orderDate,
+  openOfs = [],
+  hasActiveDispatch = false,
+  hasPayments = false,
+}: OrderActionsMenuProps) {
   const statusAction = STATUS_ACTIONS[status];
   const canCancel = status !== "CANCELLED" && (isPurchase || status !== "COMPLETED");
   const [editOpen, setEditOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelReasonText, setCancelReasonText] = useState("");
+  const cancelReady =
+    !hasActiveDispatch &&
+    cancelReason !== "" &&
+    (cancelReason !== "OTRO" || cancelReasonText.trim().length >= CANCEL_OTHER_MIN);
   // Modo elegido por producto dentro del modal (controlado).
   const [modes, setModes] = useState<Record<string, "STOCK" | "MANUFACTURE">>({});
   // Fecha de la orden dentro del modal (controlada).
@@ -122,28 +152,97 @@ export function OrderActionsMenu({ orderId, status, isPurchase = false, returnTo
             <input type="hidden" name="returnTo" value={returnTo} />
             <input type="hidden" name="orderId" value={orderId} />
             <div className="space-y-1.5">
-              <label htmlFor="order-cancel-note" className="text-sm font-medium text-foreground">
+              <label htmlFor="order-cancel-reason" className="text-sm font-medium text-foreground">
                 Motivo
               </label>
-              <textarea
-                id="order-cancel-note"
-                name="note"
+              <select
+                id="order-cancel-reason"
+                name="cancelReason"
                 required
-                rows={3}
-                placeholder="Por qué se cancela"
-                className="w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                value={cancelReason}
+                onChange={(event) => setCancelReason(event.target.value)}
+                className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+              >
+                <option value="" disabled>
+                  Elige el motivo
+                </option>
+                {CANCEL_REASONS.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {cancelReason === "OTRO" ? (
+              <div className="space-y-1.5">
+                <label htmlFor="order-cancel-reason-text" className="text-sm font-medium text-foreground">
+                  ¿Cuál es el motivo?
+                </label>
+                <Input
+                  id="order-cancel-reason-text"
+                  name="cancelReasonText"
+                  value={cancelReasonText}
+                  onChange={(event) => setCancelReasonText(event.target.value)}
+                  required
+                  minLength={CANCEL_OTHER_MIN}
+                  maxLength={CANCEL_OTHER_MAX}
+                  placeholder={`Mínimo ${CANCEL_OTHER_MIN} letras`}
+                />
+              </div>
+            ) : null}
+            <div className="space-y-1.5">
+              <label htmlFor="order-cancel-notes" className="text-sm font-medium text-foreground">
+                Notas
+              </label>
+              <Textarea
+                id="order-cancel-notes"
+                name="cancelNotes"
+                rows={2}
+                maxLength={CANCEL_NOTES_MAX}
+                placeholder="Opcional"
               />
               <p className="text-xs text-muted-foreground">
                 {isPurchase
                   ? "La compra queda anulada con sus pagos visibles. El stock no cambia."
-                  : "El motivo queda en el historial de la orden."}
+                  : "El motivo y las notas quedan en el historial de la orden."}
               </p>
             </div>
+            {hasActiveDispatch ? (
+              <p className="flex items-start gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  {CANCEL_BLOCK_DISPATCH} (botón junto a este menú; si aún no salió, cancela el despacho primero).
+                </span>
+              </p>
+            ) : null}
+            {hasPayments ? (
+              <p className="flex items-start gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-800 dark:text-amber-300">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>Esta venta tiene cobros registrados: revísalos a mano; cancelar no cambia la plata.</span>
+              </p>
+            ) : null}
+            {openOfs.length > 0 ? (
+              <div className="space-y-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-800 dark:text-amber-300">
+                <p className="font-medium">
+                  OF sin recibir: no se cancelan solas. Avísale a la proveedora a mano.
+                </p>
+                <ul className="space-y-1">
+                  {openOfs.map((of) => (
+                    <li key={of.code} className="break-words">
+                      <Link href={of.href} target="_blank" rel="noreferrer" className="font-medium underline">
+                        {of.code}
+                      </Link>{" "}
+                      · {of.supplierName} · {of.products}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setCancelOpen(false)}>
                 Volver
               </Button>
-              <Button type="submit" variant="destructive">
+              <Button type="submit" variant="destructive" disabled={!cancelReady}>
                 Cancelar orden
               </Button>
             </DialogFooter>

@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AddShippingLegDialog } from "@/components/admin/add-shipping-leg-dialog";
 import { OrderActionsMenu } from "@/components/admin/order-actions-menu";
+import { cancelBlock, hasPayments, openManufacturingOrders } from "@/lib/order-cancellation";
 import { OrderClientCard } from "@/components/admin/order-client-card";
 import { OrderHistoryTabs } from "@/components/admin/order-history-tabs";
 import { EmbalajeFotosCard, gruposEmbalaje } from "@/components/admin/embalaje-fotos-card";
@@ -764,6 +765,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
 
   // Ordenes de fabricacion (OF) por proveedora: solo en ordenes de venta.
   let manufacturingCards: ManufacturingCard[] = [];
+  // OF sin recibir para el cuadro "Cancelar orden" (no se cancelan solas).
+  let cancelOpenOfs: { code: string; supplierName: string; products: string; href: string }[] = [];
   // OF que ya existen, por proveedora: el cuadro de confirmar compra precarga su fecha y avisa.
   const ofsPorProveedora: Record<string, OfDeProveedora> = {};
   let brandName = "";
@@ -804,6 +807,17 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     const ordenCombo = Boolean(logCreadaSola) || itemsParaPlan(quoteItems).some(esComboCamillas);
     brandName = systemBrandName;
     const suggestedAddress = suggestDeliveryAddress(order.client);
+
+    cancelOpenOfs = openManufacturingOrders(manufacturingOrders).map((of) => {
+      const ofItems = manufacturingItems.filter((item) => item.confirmedSupplierId === of.supplierId);
+      const ofSupplier = ofItems[0]?.confirmedSupplier ?? null;
+      return {
+        code: displayCode(of.code),
+        supplierName: ofSupplier?.displayName || ofSupplier?.name || "Proveedora",
+        products: ofItems.map((item) => `${item.product.name} x${item.quantity}`).join(", "),
+        href: `/fabricacion/${of.shareToken}`,
+      };
+    });
 
     manufacturingCards = manufacturingOrders.map((manufacturingOrder) => {
       const supplierItems = manufacturingItems.filter(
@@ -952,6 +966,9 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             isPurchase={order.type === "PURCHASE"}
             returnTo={returnTo}
             orderDate={toDateInputValue(order.createdAt)}
+            openOfs={cancelOpenOfs}
+            hasActiveDispatch={Boolean(cancelBlock(order.dispatches))}
+            hasPayments={hasPayments(order.sale)}
             items={order.items.map((item) => ({
               id: item.id,
               name: item.product.name,

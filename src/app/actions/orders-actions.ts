@@ -29,6 +29,7 @@ import { imagenDeColores } from "@/lib/vista-color.server";
 import { stockToRestore } from "@/lib/order-stock-restore";
 import { prisma } from "@/lib/prisma";
 import { parseOrderNoteText } from "@/lib/order-notes";
+import { cancelBlock, cancelNote, cancelReasonLabel, openManufacturingOrders, parseCancelInput } from "@/lib/order-cancellation";
 import { missingDispatchItems } from "@/lib/order-dispatch";
 import { createSaleOrder, type CreateSaleOrderResult } from "@/lib/sale-order";
 import { isRetiredUser } from "@/modules/equipo/infrastructure/prisma-team-repository";
@@ -706,14 +707,15 @@ export async function adminCancelOrderAction(formData: FormData): Promise<void> 
   const returnTo = getReturnTo(formData, "/admin/ordenes");
 
   const orderId = String(formData.get("orderId") || "").trim();
-  const note = String(formData.get("note") || "").trim();
-
   if (!orderId) {
     redirect(`${returnTo}?error=Orden+invalida`);
   }
-  if (!note) {
-    redirect(`${returnTo}?error=${encodeURIComponent("Escribe el motivo para anular la orden.")}`);
+  const parsedCancel = parseCancelInput(formData);
+  if (!parsedCancel.ok) {
+    redirect(`${returnTo}?error=${encodeURIComponent(parsedCancel.error)}`);
   }
+  const cancel = parsedCancel.value;
+  const note = cancelNote(cancel);
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -737,6 +739,18 @@ export async function adminCancelOrderAction(formData: FormData): Promise<void> 
   if (order.status === "CANCELLED" || (order.status === "COMPLETED" && order.type !== "PURCHASE")) {
     redirect(`${returnTo}?error=La+orden+no+puede+cancelarse`);
   }
+
+  // Con un despacho vivo no se cancela (se revisa aquí, no solo en la pantalla). Las OF abiertas
+  // no se cancelan solas: solo quedan anotadas en la bitácora.
+  const [dispatches, manufacturingOrders] = await Promise.all([
+    prisma.dispatch.findMany({ where: { orderId: order.id }, select: { status: true } }),
+    prisma.manufacturingOrder.findMany({ where: { orderId: order.id }, select: { code: true, receivedAt: true } }),
+  ]);
+  const blocked = cancelBlock(dispatches);
+  if (blocked) {
+    redirect(`${returnTo}?error=${encodeURIComponent(blocked)}`);
+  }
+  const ofsAbiertas = openManufacturingOrders(manufacturingOrders).map((of) => of.code);
 
   // Repone el inventario de los items "por stock" que ya se habian confirmado
   // (su salida OUT se registro al confirmar). Los no confirmados nunca tocaron
@@ -779,9 +793,15 @@ export async function adminCancelOrderAction(formData: FormData): Promise<void> 
     entityType: order.type === "PURCHASE" ? "PURCHASE" : "ORDER",
     entityId: order.id,
     entityCode: order.purchaseCode ?? order.code,
-    summary: `Canceló la orden ${order.code}${order.purchaseCode ? ` (compra ${order.purchaseCode})` : ""}. Motivo: ${note}`,
+    summary: `Canceló la orden ${order.code}${order.purchaseCode ? ` (compra ${order.purchaseCode})` : ""}. ${note}`,
     before: { status: order.status, orderCode: order.code },
-    after: { status: "CANCELLED", motivo: note },
+    after: {
+      status: "CANCELLED",
+      motivo: cancelReasonLabel(cancel.reason) + (cancel.reasonText ? ` — ${cancel.reasonText}` : ""),
+      motivoClave: cancel.reason,
+      notas: cancel.notas,
+      ofsAbiertas,
+    },
   });
 
   revalidatePath("/admin/ordenes");
