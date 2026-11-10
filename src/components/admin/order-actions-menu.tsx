@@ -144,7 +144,7 @@ export function OrderActionsMenu({
       </DropdownMenu>
 
       <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-h-[88vh] max-w-md overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Cancelar orden</DialogTitle>
           </DialogHeader>
@@ -161,7 +161,7 @@ export function OrderActionsMenu({
                 required
                 value={cancelReason}
                 onChange={(event) => setCancelReason(event.target.value)}
-                className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
               >
                 <option value="" disabled>
                   Elige el motivo
@@ -187,6 +187,7 @@ export function OrderActionsMenu({
                   minLength={CANCEL_OTHER_MIN}
                   maxLength={CANCEL_OTHER_MAX}
                   placeholder={`Mínimo ${CANCEL_OTHER_MIN} letras`}
+                  className="h-8 text-sm"
                 />
               </div>
             ) : null}
