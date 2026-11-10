@@ -130,4 +130,13 @@ describe("pideFotoLlegada", () => {
     expect(pideFotoLlegada("DANADO")).toBe(true);
     for (const reason of ["NO_LLEGO", "RECHAZADO", "OTRO"]) expect(pideFotoLlegada(reason)).toBe(false);
   });
+  it("devoluciones abiertas también avisan; sin ellas el texto no cambia", () => {
+    expect(reversalMoneyWarning({ paymentMethod: "CONTRAENTREGA", orderStatus: "COMPLETED", reversedItems: 0, openReturns: 1 })).toBe(
+      "Esta venta ya cuenta en Balances y tiene 1 devolución(es) abierta(s). El dinero, los fletes y las comisiones no se recalculan solos: administración decide",
+    );
+    expect(reversalMoneyWarning({ paymentMethod: "CONTRAENTREGA", orderStatus: "COMPLETED", reversedItems: 2, openReturns: 1 })).toBe(
+      "Esta venta ya cuenta en Balances y tiene 2 producto(s) reversado(s) y 1 devolución(es) abierta(s). El dinero, los fletes y las comisiones no se recalculan solos: administración decide",
+    );
+    expect(reversalMoneyWarning({ paymentMethod: "ANTICIPO_50_50", orderStatus: "COMPLETED", reversedItems: 0, openReturns: 1 })).toBeNull();
+  });
 });

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
+import { sniffReceiptMime } from "@/modules/expenses/domain/receipt-check";
 
 // Foto de una guia Magilus (entrega o novedad). Mismo limite y formatos que las fotos de
 // despacho (saveTrackingPhoto / saveDeliveryPhoto en dispatch-actions.ts), pero mas estricto:
@@ -35,10 +36,28 @@ async function savePhoto(file: File, folder: "shipments"): Promise<{ url: string
     throw new Error("La foto no es compatible. Usa JPG, PNG o WEBP.");
   }
 
-  const input = Buffer.from(await file.arrayBuffer());
-  let output: Buffer;
+  return writeUpload(folder, "jpg", await toJpeg(Buffer.from(await file.arrayBuffer())));
+}
+
+// Evidencia de una devolución (foto o PDF). El tipo sale de los bytes, no del nombre ni del navegador.
+// Las fotos se reducen como las de la guía; el PDF se guarda tal cual.
+export async function validateReturnEvidence(file: File): Promise<{ bytes: Buffer; pdf: boolean }> {
+  if (!hasUploadedFile(file)) throw new Error("No se pudo leer el archivo.");
+  if (file.size > PHOTO_MAX_BYTES) throw new Error("Un archivo supera el límite de 12 MB.");
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const mime = sniffReceiptMime(bytes);
+  if (!mime) throw new Error("Un archivo no es compatible. Usa JPG, PNG, WEBP o PDF.");
+  return { bytes, pdf: mime === "application/pdf" };
+}
+
+export async function saveReturnEvidence(evidence: { bytes: Buffer; pdf: boolean }): Promise<{ url: string }> {
+  if (evidence.pdf) return writeUpload("returns", "pdf", evidence.bytes);
+  return writeUpload("returns", "jpg", await toJpeg(evidence.bytes));
+}
+
+async function toJpeg(input: Buffer): Promise<Buffer> {
   try {
-    output = await sharp(input)
+    return await sharp(input)
       .rotate()
       .resize({ width: PHOTO_MAX_SIDE, height: PHOTO_MAX_SIDE, fit: "inside", withoutEnlargement: true })
       .jpeg({ quality: 80 })
@@ -46,16 +65,18 @@ async function savePhoto(file: File, folder: "shipments"): Promise<{ url: string
   } catch {
     throw new Error("La foto no se pudo procesar. Toma otra e intenta de nuevo.");
   }
+}
 
+async function writeUpload(folder: "shipments" | "returns", extension: "jpg" | "pdf", output: Buffer): Promise<{ url: string }> {
   const uploadDir = path.join(process.cwd(), "public", "uploads", folder);
-  const fileName = `${randomUUID()}.jpg`;
+  const fileName = `${randomUUID()}.${extension}`;
   try {
     await mkdir(uploadDir, { recursive: true });
     await writeFile(path.join(uploadDir, fileName), output);
   } catch (error) {
     // El error del disco trae la ruta del servidor: no se muestra (la página de la proveedora es pública).
-    console.error("No se pudo guardar la foto:", error);
-    throw new Error("No se pudo guardar la foto. Intenta de nuevo.");
+    console.error("No se pudo guardar el archivo:", error);
+    throw new Error(folder === "returns" ? "No se pudo guardar el archivo. Intenta de nuevo." : "No se pudo guardar la foto. Intenta de nuevo.");
   }
   return { url: `/uploads/${folder}/${fileName}` };
 }

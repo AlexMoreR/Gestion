@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   efectoDeRegistrar,
   estaAbierta,
+  estadoDevolucionDeOrden,
+  pendientesPorDevolver,
   parseOrderReturnInput,
   perdidaDevolucion,
   puedeVolverAEnviado,
@@ -177,5 +179,61 @@ describe("getOrderDisplayState con devolución", () => {
     expect(getOrderDisplayState("COMPLETED", entregado, 1).label).toBe("Entregado parcial – 1 sin entregar");
     expect(getOrderDisplayState("COMPLETED", entregado, 0, null).label).toBe("Cerrado – Entregado");
     expect(getOrderDisplayState("CANCELLED", null, 0, "DEVUELTA").label).toBe("Cancelada");
+  });
+});
+
+describe("estadoDevolucionDeOrden", () => {
+  const items = [
+    { id: "a", quantity: 2 },
+    { id: "b", quantity: 1 },
+  ];
+  const sinNada = { orderItems: items, devueltasAbiertas: [], despachos: [], despachosConDevolucion: [] };
+  it("sin devoluciones ni despachos devueltos → null", () => {
+    expect(estadoDevolucionDeOrden(sinNada)).toBeNull();
+  });
+  it("cubre todas las unidades → DEVUELTA", () => {
+    expect(
+      estadoDevolucionDeOrden({ ...sinNada, devueltasAbiertas: [{ orderItemId: "a", quantity: 2 }, { orderItemId: "b", quantity: 1 }] }),
+    ).toBe("DEVUELTA");
+  });
+  it("cubre una parte → PARCIAL", () => {
+    expect(estadoDevolucionDeOrden({ ...sinNada, devueltasAbiertas: [{ orderItemId: "a", quantity: 1 }] })).toBe("PARCIAL");
+  });
+  it("despacho RETURNED sin devolución registrada → FALTA_REGISTRAR", () => {
+    const despachos = [{ id: "d1", status: "RETURNED", orderItemIds: ["a", "b"] }];
+    expect(estadoDevolucionDeOrden({ ...sinNada, despachos })).toBe("FALTA_REGISTRAR");
+    expect(estadoDevolucionDeOrden({ ...sinNada, despachos, despachosConDevolucion: ["d1"] })).toBeNull();
+  });
+  it("los productos volvieron a salir → null", () => {
+    const despachos = [
+      { id: "d1", status: "RETURNED", orderItemIds: ["a"] },
+      { id: "d2", status: "SHIPPED", orderItemIds: ["a", "b"] },
+    ];
+    expect(estadoDevolucionDeOrden({ ...sinNada, despachos })).toBeNull();
+  });
+  it("despacho viejo sin productos: cuenta solo si no hay despacho vivo", () => {
+    expect(estadoDevolucionDeOrden({ ...sinNada, despachos: [{ id: "d1", status: "RETURNED", orderItemIds: [] }] })).toBe(
+      "FALTA_REGISTRAR",
+    );
+    expect(
+      estadoDevolucionDeOrden({
+        ...sinNada,
+        despachos: [
+          { id: "d1", status: "RETURNED", orderItemIds: [] },
+          { id: "d2", status: "DELIVERED", orderItemIds: [] },
+        ],
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("pendientesPorDevolver", () => {
+  it("resta lo devuelto antes y quita lo que ya volvió completo", () => {
+    expect(
+      pendientesPorDevolver(
+        [{ orderItemId: "a", quantity: 2 }, { orderItemId: "b", quantity: 1 }],
+        [{ orderItemId: "a", quantity: 1 }, { orderItemId: "b", quantity: 1 }],
+      ),
+    ).toEqual([{ orderItemId: "a", quantity: 1 }]);
   });
 });

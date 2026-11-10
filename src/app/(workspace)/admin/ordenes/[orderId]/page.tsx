@@ -12,6 +12,18 @@ import { DispatchEstimateCard, type CambioFechaView } from "@/components/admin/d
 import { colombiaDateTimeInput, todayInColombia } from "@/lib/colombia-time";
 import { estadoDeEntrega, PREFIJO_CAMBIO_FECHA } from "@/lib/delivery-tracking";
 import { OrderReversalsCard } from "@/components/admin/order-reversals-card";
+import { OrderReturnCard } from "@/components/admin/order-return-card";
+import { OrderReturnDialog, type ReturnDispatchOption } from "@/components/admin/order-return-dialog";
+import {
+  estaAbierta,
+  estadoDevolucionDeOrden,
+  pendientesPorDevolver,
+  perdidaDevolucion,
+  returnLocationLabel,
+  returnNextStepLabel,
+  returnReasonLabel,
+  type DispatchStatusKey,
+} from "@/lib/order-return";
 import { OrderItemsTable } from "@/components/admin/order-items-table";
 import type { OfDeProveedora } from "@/components/admin/order-item-manager";
 import { OrderStepper } from "@/components/admin/order-stepper";
@@ -29,6 +41,7 @@ import { formatNoteDate } from "@/lib/order-notes";
 import { confirmationKey, dispatchToDeliver, isOrderDeliveryDone, pendingItemsLabel } from "@/lib/order-dispatch";
 import { countReversedItems, itemDeliveryState, reversalMoneyWarning, reversalReasonLabel } from "@/lib/order-item-reversal";
 import {
+  getDispatchStatusLabel,
   getFulfillmentModeLabel,
   getOrderDisplayState,
   getOrderStatusLabel,
@@ -230,6 +243,15 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           },
           orderBy: { createdAt: "desc" },
         },
+        returns: {
+          include: {
+            items: { select: { orderItemId: true, quantity: true, orderItem: { select: { product: { select: { name: true } } } } } },
+            files: { select: { id: true, url: true, name: true }, orderBy: { createdAt: "asc" } },
+            createdBy: { select: { name: true, email: true } },
+            carrierSupplier: { select: { name: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        },
       },
     }),
     getSystemCurrency(),
@@ -342,17 +364,110 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       })),
     ),
   );
+  // Devoluciones: abiertas = sin cerrar ni anular; las anuladas no cuentan para nada.
+  const openReturns = order.returns.filter(estaAbierta);
+  const returnDisplay = estadoDevolucionDeOrden({
+    orderItems: order.items.map((item) => ({ id: item.id, quantity: item.quantity })),
+    devueltasAbiertas: openReturns.flatMap((r) => r.items),
+    despachos: order.dispatches.map((d) => ({ id: d.id, status: d.status, orderItemIds: d.items.map((i) => i.orderItemId) })),
+    despachosConDevolucion: order.returns.flatMap((r) => (r.annulledAt === null && r.dispatchId ? [r.dispatchId] : [])),
+  });
   const displayState = getOrderDisplayState(
     order.status,
     latestDispatch
       ? { deliveryType: latestDispatch.deliveryType, status: latestDispatch.status }
       : null,
     reversedItems,
+    returnDisplay,
   );
   const moneyWarning = reversalMoneyWarning({
     paymentMethod: order.sale?.paymentMethod,
     orderStatus: order.status,
     reversedItems,
+    openReturns: openReturns.length,
+  });
+  // «Registrar devolución»: despachos que ya salieron y aún tienen unidades por devolver.
+  const itemNameById = new Map(order.items.map((item) => [item.id, item.product.name]));
+  const orderLines = order.items.map((item) => ({ orderItemId: item.id, quantity: item.quantity }));
+  const returnOption = (input: {
+    id: string;
+    dispatchId: string | null;
+    label: string;
+    status: DispatchStatusKey | null;
+    carrierSupplierId: string | null;
+    carrierName: string | null;
+    salieron: { orderItemId: string; quantity: number }[];
+  }): ReturnDispatchOption | null => {
+    const devueltasAntes = openReturns.filter((r) => r.dispatchId === input.dispatchId).flatMap((r) => r.items);
+    const lines = pendientesPorDevolver(input.salieron, devueltasAntes).map((line) => ({
+      orderItemId: line.orderItemId,
+      name: itemNameById.get(line.orderItemId) ?? "Producto",
+      max: line.quantity,
+    }));
+    return lines.length > 0 ? { ...input, devueltasAntes, lines } : null;
+  };
+  const liveDispatches = order.dispatches.some((d) => d.status !== "CANCELLED" && d.status !== "RETURNED");
+  const returnOptions: ReturnDispatchOption[] =
+    order.type !== "SALE" || order.status === "CANCELLED"
+      ? []
+      : [
+          ...order.dispatches
+            .filter((d) => d.status === "SHIPPED" || d.status === "DELIVERED" || d.status === "RETURNED")
+            .map((d) =>
+              returnOption({
+                id: d.id,
+                dispatchId: d.id,
+                label: `${displayCode(d.code)} · ${getDispatchStatusLabel(d.status)}`,
+                status: d.status,
+                carrierSupplierId: d.carrierSupplierId,
+                carrierName: d.carrierName,
+                salieron: d.items.length > 0 ? d.items.map((i) => ({ orderItemId: i.orderItemId, quantity: i.quantity })) : orderLines,
+              }),
+            ),
+          // Sin despacho: solo una orden que ya salió y sin despachos vivos (mismo criterio del servidor).
+          (order.status === "DISPATCHED" || order.status === "COMPLETED") && !liveDispatches
+            ? returnOption({
+                id: "SIN_DESPACHO",
+                dispatchId: null,
+                label: "Sin despacho",
+                status: null,
+                carrierSupplierId: null,
+                carrierName: null,
+                salieron: orderLines,
+              })
+            : null,
+        ].filter((option): option is ReturnDispatchOption => option !== null);
+  const returnViews = order.returns.map((r) => {
+    const dispatch = r.dispatchId ? order.dispatches.find((d) => d.id === r.dispatchId) ?? null : null;
+    const loss = perdidaDevolucion({
+      despacho: dispatch
+        ? {
+            shippingCost: dispatch.shippingCost,
+            lineas: dispatch.items.map((i) => ({ orderItemId: i.orderItemId, quantity: i.quantity, shippingCost: i.shippingCost })),
+          }
+        : null,
+      devueltas: r.items,
+      returnFreight: r.returnFreight,
+    });
+    return {
+      id: r.id,
+      state: r.annulledAt ? "Anulada" : r.closedAt ? "Cerrada" : "Abierta",
+      date: shortColombiaDate(r.returnDate),
+      dispatchCode: dispatch ? displayCode(dispatch.code) : null,
+      motive: r.reason === "OTRO" && r.reasonText ? `Otro: ${r.reasonText}` : returnReasonLabel(r.reason),
+      products: r.items.map((i) => `${i.orderItem.product.name} × ${i.quantity}`),
+      carrier: [r.carrierSupplier?.name, r.carrierName].filter(Boolean).join(" · ") || null,
+      location: returnLocationLabel(r.location),
+      nextStep: returnNextStepLabel(r.nextStep),
+      comment: r.comment,
+      files: r.files.map((f) => ({ ...f, pdf: f.url.toLowerCase().endsWith(".pdf") })),
+      lossIda: formatMoney(loss.ida, currency),
+      lossIdaNote: loss.etiquetaIda,
+      lossVuelta: formatMoney(loss.vuelta, currency),
+      lossTotal: formatMoney(loss.total, currency),
+      by: r.createdBy.name || r.createdBy.email,
+      createdAt: formatNoteDate(r.createdAt),
+    };
   });
 
   const isItemConfirmed = itemIsConfirmed;
@@ -764,7 +879,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           ) : null}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Badge className={displayState.className} variant="outline">
             {displayState.label}
           </Badge>
@@ -782,6 +897,14 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               fulfillmentMode: item.fulfillmentMode,
             }))}
           />
+          {returnOptions.length > 0 ? (
+            <OrderReturnDialog
+              orderId={order.id}
+              options={returnOptions}
+              carriers={carriers.map((carrier) => ({ id: carrier.id, name: carrier.name }))}
+              today={todayInColombia()}
+            />
+          ) : null}
         </div>
       </div>
 
@@ -890,6 +1013,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             step2Done={step2Done}
             step3Done={step3Done}
             step4Done={step4Done}
+            returnState={returnDisplay ? displayState : null}
             dispatch={{
               orderId: order.id,
               returnTo,
@@ -1054,6 +1178,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               ),
             )}
           />
+
+          <OrderReturnCard returns={returnViews} />
 
           <OrderReversalsCard
             reversals={order.reversals.map((reversal) => ({

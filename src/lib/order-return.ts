@@ -260,3 +260,39 @@ export function perdidaDevolucion(input: {
   ida = roundMoney(ida);
   return { ida, idaSinRepartir, etiquetaIda: idaSinRepartir ? "sin repartir" : null, vuelta, total: roundMoney(ida + vuelta) };
 }
+
+// Etiqueta de devolución de la orden (getOrderDisplayState). Puro.
+// - DEVUELTA: las devoluciones abiertas cubren todas las unidades de la orden.
+// - PARCIAL: cubren solo una parte.
+// - FALTA_REGISTRAR: un despacho RETURNED sin devolución registrada (sin anular) cuyos productos no volvieron
+//   a salir en otro despacho vivo. Un despacho viejo sin productos ligados cuenta si no hay ningún despacho vivo.
+export function estadoDevolucionDeOrden(input: {
+  orderItems: { id: string; quantity: number }[];
+  devueltasAbiertas: ReturnLine[];
+  despachos: { id: string; status: DispatchStatusKey | string; orderItemIds: string[] }[];
+  despachosConDevolucion: string[];
+}): "DEVUELTA" | "PARCIAL" | "FALTA_REGISTRAR" | null {
+  const devueltas = sumByItem(input.devueltasAbiertas);
+  const total = input.orderItems.reduce((sum, item) => sum + item.quantity, 0);
+  const cubiertas = input.orderItems.reduce((sum, item) => sum + Math.min(devueltas.get(item.id) ?? 0, item.quantity), 0);
+  if (cubiertas > 0) return cubiertas >= total ? "DEVUELTA" : "PARCIAL";
+
+  const conDevolucion = new Set(input.despachosConDevolucion);
+  const vivos = input.despachos.filter((d) => d.status !== "CANCELLED" && d.status !== "RETURNED");
+  const salieronOtraVez = new Set(vivos.flatMap((d) => d.orderItemIds));
+  const falta = input.despachos.some(
+    (d) =>
+      d.status === "RETURNED" &&
+      !conDevolucion.has(d.id) &&
+      (d.orderItemIds.length === 0 ? vivos.length === 0 : d.orderItemIds.some((id) => !salieronOtraVez.has(id))),
+  );
+  return falta ? "FALTA_REGISTRAR" : null;
+}
+
+// Unidades que aún se pueden devolver de un despacho: lo que salió menos lo devuelto en devoluciones abiertas.
+export function pendientesPorDevolver(salieron: ReturnLine[], devueltasAntes: ReturnLine[]): ReturnLine[] {
+  const antes = sumByItem(devueltasAntes);
+  return [...sumByItem(salieron)]
+    .map(([orderItemId, quantity]) => ({ orderItemId, quantity: quantity - (antes.get(orderItemId) ?? 0) }))
+    .filter((line) => line.quantity > 0);
+}

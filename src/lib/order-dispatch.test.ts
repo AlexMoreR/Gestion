@@ -11,6 +11,7 @@ import {
   missingDispatchItems,
   pendingItemsLabel,
   splitDispatchSelection,
+  parseAllowedTransitions,
 } from "./order-dispatch";
 
 const item = (id: string, name: string, ready: boolean, dispatched = false) => ({ id, name, ready, dispatched });
@@ -220,5 +221,14 @@ describe("confirmationKey", () => {
     const antes = [row("a", true), row("b", true)];
     const despues = [row("a", true, true), row("b", true, true, true)];
     expect(confirmationKey(despues)).toBe(confirmationKey(antes));
+  });
+});
+
+describe("parseAllowedTransitions", () => {
+  it("En camino puede pasar a Entregado o Devuelto; Entregado y Cancelado no cambian", () => {
+    expect(parseAllowedTransitions("SHIPPED")).toEqual(["DELIVERED", "RETURNED"]);
+    expect(parseAllowedTransitions("RETURNED")).toEqual(["PACKING", "CANCELLED"]);
+    expect(parseAllowedTransitions("DELIVERED")).toEqual([]);
+    expect(parseAllowedTransitions("CANCELLED")).toEqual([]);
   });
 });

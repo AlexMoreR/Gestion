@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+import { Check, PackageX } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { OrderDeliveryManager } from "@/components/admin/order-delivery-manager";
 import type { DeliveryConfirmInfo } from "@/components/admin/delivery-confirm-dialog";
@@ -42,6 +42,8 @@ type OrderStepperProps = {
   step4Done: boolean;
   dispatch: DispatchData;
   delivery: DeliveryData;
+  // Etiqueta de devolución de la orden (getOrderDisplayState con devolución); null = sin paso «Devuelta».
+  returnState?: { label: string; className: string } | null;
 };
 
 const STEPS = [
@@ -73,6 +75,7 @@ export function OrderStepper({
   step3Done,
   step4Done,
   delivery,
+  returnState = null,
 }: OrderStepperProps) {
   const done = [step1Done, step2Done, step3Done, step4Done];
   const current = !step1Done ? 1 : !step2Done ? 2 : !step3Done ? 3 : !step4Done ? 4 : 0;
@@ -115,6 +118,19 @@ export function OrderStepper({
               </div>
             );
           })}
+          {returnState ? (
+            <div className="ml-2 flex flex-col items-center gap-1.5">
+              <div
+                className={cn(
+                  "inline-flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold",
+                  returnState.className,
+                )}
+              >
+                <PackageX className="h-4 w-4" />
+              </div>
+              <span className="max-w-[5.5rem] text-center text-xs font-medium leading-tight text-foreground">{returnState.label}</span>
+            </div>
+          ) : null}
         </div>
 
         {allDone ? (

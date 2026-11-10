@@ -165,3 +165,22 @@ export function dispatchGaps(input: {
 export function confirmationKey(items: { id: string; isConfirmed: boolean }[]): string {
   return items.filter((item) => item.isConfirmed).map((item) => item.id).join(",");
 }
+
+// Cambios de estado permitidos de un despacho (Despachos y «Registrar devolución» usan la misma regla).
+export function parseAllowedTransitions(status: string): string[] {
+  switch (status) {
+    case "PENDING":
+      return ["PACKING", "CANCELLED"];
+    case "PACKING":
+      return ["SHIPPED", "CANCELLED"];
+    case "SHIPPED":
+      return ["DELIVERED", "RETURNED"];
+    case "RETURNED":
+      return ["PACKING", "CANCELLED"];
+    case "DELIVERED":
+    case "CANCELLED":
+      return [];
+    default:
+      return [];
+  }
+}

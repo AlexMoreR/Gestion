@@ -21,7 +21,7 @@ import { SHIPPING_COST_LOG_FIELDS, SUPPLIER_LEDGER_LOG_FIELDS, snapshotForLog } 
 import { anularConMotivo, anularVarias, pagosPrimero } from "@/lib/anulaciones";
 import { buildDispatchCode, parseDispatchCodeNumber } from "@/lib/orders";
 import { isOrderFullyDelivered } from "@/lib/order-partial-delivery";
-import { dispatchBlocker, dispatchResultMessage, missingDispatchItems } from "@/lib/order-dispatch";
+import { dispatchBlocker, dispatchResultMessage, missingDispatchItems, parseAllowedTransitions } from "@/lib/order-dispatch";
 import { DELIVERY_NOT_CONFIRMED_ERROR, isDeliveryConfirmed } from "@/lib/delivery-confirmation";
 import { parseWeightKg } from "@/modules/guias/domain/weight";
 import { hasUploadedFile, saveShipmentPhoto } from "@/lib/upload-photo";
@@ -388,24 +388,6 @@ function getReturnTo(formData: FormData, fallback: string): string {
 
   const value = raw.trim();
   return value || fallback;
-}
-
-function parseAllowedTransitions(status: string): string[] {
-  switch (status) {
-    case "PENDING":
-      return ["PACKING", "CANCELLED"];
-    case "PACKING":
-      return ["SHIPPED", "CANCELLED"];
-    case "SHIPPED":
-      return ["DELIVERED", "RETURNED"];
-    case "RETURNED":
-      return ["PACKING", "CANCELLED"];
-    case "DELIVERED":
-    case "CANCELLED":
-      return [];
-    default:
-      return [];
-  }
 }
 
 async function getNextDispatchCode(tx: Prisma.TransactionClient): Promise<string> {

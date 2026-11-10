@@ -99,15 +99,21 @@ export function countReversedItems(
   return items.size;
 }
 
-// Aviso para administración: contraentrega ya contada en Balances (orden COMPLETED) con productos reversados.
-// Solo informa; reversar no recalcula dinero, fletes ni comisiones.
+// Aviso para administración: contraentrega ya contada en Balances (orden COMPLETED) con productos reversados
+// o con devoluciones abiertas (`openReturns`). Solo informa; no recalcula dinero, fletes ni comisiones.
 export function reversalMoneyWarning(input: {
   paymentMethod: string | null | undefined;
   orderStatus: string;
   reversedItems: number;
+  openReturns?: number;
 }): string | null {
-  if (input.paymentMethod !== "CONTRAENTREGA" || input.orderStatus !== "COMPLETED" || input.reversedItems <= 0) {
+  const openReturns = input.openReturns ?? 0;
+  if (input.paymentMethod !== "CONTRAENTREGA" || input.orderStatus !== "COMPLETED" || (input.reversedItems <= 0 && openReturns <= 0)) {
     return null;
   }
-  return `Esta venta ya cuenta en Balances y tiene ${input.reversedItems} producto(s) reversado(s). El dinero, los fletes y las comisiones no se recalculan solos: administración decide`;
+  const parts = [
+    input.reversedItems > 0 ? `${input.reversedItems} producto(s) reversado(s)` : "",
+    openReturns > 0 ? `${openReturns} devolución(es) abierta(s)` : "",
+  ].filter(Boolean);
+  return `Esta venta ya cuenta en Balances y tiene ${parts.join(" y ")}. El dinero, los fletes y las comisiones no se recalculan solos: administración decide`;
 }
