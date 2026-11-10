@@ -3,22 +3,23 @@
 import { useEffect } from "react";
 import Script from "next/script";
 
-// Etiqueta de Google (Analytics vía Tag Manager) que dio Google para magilus.com. Solo en páginas públicas.
+// Etiqueta de Google Analytics (gtag.js) de magilus.com, flujo "Magilus web". Solo en páginas públicas.
+const GA_ID = "G-6Y4MX98MTJ";
+
 export function GoogleTag() {
   return (
     <>
+      <Script
+        id="google-tag-js"
+        src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+        strategy="afterInteractive"
+      />
       <Script id="google-tag-init" strategy="afterInteractive">
         {`window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
-// Sin este evento el contenedor de Tag Manager carga pero no dispara "Todas las páginas".
-window.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });`}
+gtag('config', '${GA_ID}');`}
       </Script>
-      <Script
-        id="google-tag-js"
-        src="https://www.googletagmanager.com/gtm.js?id=GTM-KN87Z2HC"
-        strategy="afterInteractive"
-      />
     </>
   );
 }
