@@ -7,16 +7,18 @@ import Script from "next/script";
 export function GoogleTag() {
   return (
     <>
+      <Script id="google-tag-init" strategy="afterInteractive">
+        {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+// Sin este evento el contenedor de Tag Manager carga pero no dispara "Todas las páginas".
+window.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });`}
+      </Script>
       <Script
         id="google-tag-js"
         src="https://www.googletagmanager.com/gtm.js?id=GTM-KN87Z2HC"
         strategy="afterInteractive"
       />
-      <Script id="google-tag-init" strategy="afterInteractive">
-        {`window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());`}
-      </Script>
     </>
   );
 }
