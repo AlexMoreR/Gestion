@@ -14,6 +14,7 @@ import {
   listDepartmentOptions,
 } from "@/modules/transporte/infrastructure/transporte-repository";
 import { ServiceLookup } from "@/modules/transporte/presentation/service-lookup";
+import { GoogleTag } from "@/components/store/google-tag";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +72,7 @@ export default async function ServicioTransportePage({ searchParams }: PageProps
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <GoogleTag />
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-4 md:px-6">
           <Image

@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { Navbar } from "@/components/navbar";
 import { SiteFooter } from "@/components/site-footer";
 import { FloatingWhatsAppButton } from "@/components/store/floating-whatsapp-button";
+import { GoogleTag } from "@/components/store/google-tag";
 import { cn } from "@/lib/utils";
 import { getAdminModuleAccess } from "@/lib/admin-module-access";
 import { WEB_ORIGIN_TAG } from "@/lib/site";
@@ -36,6 +37,7 @@ export default async function StorefrontLayout({
 
   return (
     <>
+      <GoogleTag />
       <Navbar
         initialUser={session?.user ?? null}
         brandName={brandName}
