@@ -33,7 +33,7 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
   const repository = createPrismaInventoryRepository();
-  const [orders, currency, productStocks, bundleProducts, productSupplierRows, allSuppliers] =
+  const [orders, currency, productStocks, bundleProducts, productSupplierRows, allSuppliers, cancelledCount] =
     await Promise.all([
     prisma.order.findMany({
       orderBy: { createdAt: "desc" },
@@ -109,6 +109,8 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
+    // «Canceladas (N)»: todas las órdenes de venta canceladas, igual que la vista /admin/ordenes/canceladas.
+    prisma.order.count({ where: { type: "SALE", status: "CANCELLED" } }),
   ]);
 
   // Productos con la entrega deshecha por orden (etiqueta "Entregado parcial"); solo las líneas reversadas.
@@ -261,6 +263,7 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
         currency={currency}
         stats={stats}
         returnedCount={returnedCount}
+        cancelledCount={cancelledCount}
         orders={rows}
         purchaseProducts={[
           ...productStocks.map((stock) => ({

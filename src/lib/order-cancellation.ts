@@ -1,5 +1,7 @@
 // Cancelar una orden con motivo de lista (nov-2026). Puro (sin base) para probarlo y usarlo en el cliente.
 
+import { colombiaMonthKey } from "./colombia-time";
+
 export const CANCEL_REASONS = [
   { key: "CLIENTA_CANCELO", label: "La clienta decidió cancelar" },
   { key: "NO_CONTESTO", label: "La clienta no contestó" },
@@ -133,4 +135,90 @@ export function stockToRetake(
 
 export function reactivateStockNote(orderCode: string): string {
   return `Reactivación de orden ${orderCode}`;
+}
+
+// --- Vista «Canceladas» (parte 3) ---
+
+export const CANCEL_SIN_DATO = "SIN_DATO";
+
+export type MotivoCancelacion = {
+  clave: CancelReasonKey | typeof CANCEL_SIN_DATO;
+  etiqueta: string;
+  texto: string | null;
+  notas: string | null;
+};
+
+const SIN_MOTIVO: MotivoCancelacion = { clave: CANCEL_SIN_DATO, etiqueta: "Sin dato", texto: null, notas: null };
+
+function str(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+// Lee la nota que escribe cancelNote ("Motivo: <etiqueta>[ — texto]. Notas: …"). Solo reconoce etiquetas de la lista.
+function motivoDeNota(note: string | null | undefined): MotivoCancelacion | null {
+  if (!note?.startsWith("Motivo: ")) return null;
+  const resto = note.slice("Motivo: ".length);
+  const corte = resto.indexOf(". Notas: ");
+  const motivo = (corte >= 0 ? resto.slice(0, corte) : resto).replace(/\.$/, "");
+  const notas = corte >= 0 ? str(resto.slice(corte + ". Notas: ".length)) : null;
+  const reason = CANCEL_REASONS.find((r) => motivo === r.label || motivo.startsWith(`${r.label} — `));
+  if (!reason) return null;
+  const texto = str(motivo.slice(reason.label.length).replace(/^ — /, ""));
+  return { clave: reason.key, etiqueta: reason.label, texto, notas };
+}
+
+// Motivo de la última cancelación: primero la nota del historial; si falta, el `after` de la bitácora; si no, «Sin dato».
+export function motivoDeCancelacion(historialNote: string | null | undefined, logAfter: unknown): MotivoCancelacion {
+  const deNota = motivoDeNota(historialNote);
+  if (deNota) return deNota;
+  const after = logAfter && typeof logAfter === "object" ? (logAfter as Record<string, unknown>) : null;
+  const reason = CANCEL_REASONS.find((r) => r.key === after?.motivoClave);
+  if (!reason || !after) return SIN_MOTIVO;
+  const motivo = str(after.motivo);
+  const texto = motivo?.startsWith(`${reason.label} — `) ? str(motivo.slice(reason.label.length + 3)) : null;
+  return { clave: reason.key, etiqueta: reason.label, texto, notas: str(after.notas) };
+}
+
+export type CanceladaFila = {
+  orderId: string;
+  orderCode: string;
+  saleCode: string | null;
+  clienta: string;
+  productos: string;
+  asesora: string;
+  motivo: MotivoCancelacion;
+  canceladoPor: string;
+  fecha: Date;
+  tieneCobros: boolean;
+};
+
+export type FiltrosCanceladas = { mes: string | null; motivo: string | null };
+
+export function parseFiltrosCanceladas(params: Record<string, string | string[] | undefined>): FiltrosCanceladas {
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)?.trim() || null;
+  const mes = one(params.mes);
+  const motivo = one(params.motivo);
+  return {
+    mes: mes && /^\d{4}-(0[1-9]|1[0-2])$/.test(mes) ? mes : null,
+    motivo: motivo && (motivo === CANCEL_SIN_DATO || CANCEL_REASONS.some((r) => r.key === motivo)) ? motivo : null,
+  };
+}
+
+// Mes = el de la cancelación en hora Colombia. La más reciente primero.
+export function filtrarCanceladas(filas: CanceladaFila[], f: FiltrosCanceladas): CanceladaFila[] {
+  return filas
+    .filter((r) => (!f.mes || colombiaMonthKey(r.fecha) === f.mes) && (!f.motivo || r.motivo.clave === f.motivo))
+    .sort((a, b) => b.fecha.getTime() - a.fecha.getTime() || b.orderCode.localeCompare(a.orderCode));
+}
+
+export function resumenCanceladas(filas: CanceladaFila[]) {
+  const porMotivo = new Map<string, number>();
+  for (const fila of filas) porMotivo.set(fila.motivo.etiqueta, (porMotivo.get(fila.motivo.etiqueta) ?? 0) + 1);
+  return {
+    cantidad: filas.length,
+    conCobros: filas.filter((f) => f.tieneCobros).length,
+    porMotivo: [...porMotivo]
+      .map(([etiqueta, cantidad]) => ({ etiqueta, cantidad }))
+      .sort((a, b) => b.cantidad - a.cantidad || a.etiqueta.localeCompare(b.etiqueta)),
+  };
 }

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpRight, CheckCircle2, Undo2, ClipboardList, Clock, Factory, MoreHorizontal, Pencil, ShoppingCart, StickyNote, X } from "lucide-react";
+import { ArrowUpRight, Ban, CheckCircle2, Undo2, ClipboardList, Clock, Factory, MoreHorizontal, Pencil, ShoppingCart, StickyNote, X } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { StatList } from "@/components/ui/stat-list";
@@ -113,6 +113,7 @@ function todayLocalDay(): string {
 type OrdersWorkspaceProps = {
   orders: OrderRow[];
   returnedCount: number;
+  cancelledCount: number;
   currency: SupportedCurrencyCode;
   stats: {
     ordersCount: number;
@@ -235,6 +236,7 @@ function RowActions({ order }: { order: OrderRow }) {
 export function OrdersWorkspace({
   orders,
   returnedCount,
+  cancelledCount,
   currency,
   stats,
   purchaseProducts,
@@ -420,6 +422,10 @@ export function OrdersWorkspace({
           <Link href="/admin/ordenes/devoluciones?abiertas=1" className={buttonVariants({ variant: "outline", size: "sm" })}>
             <Undo2 className="h-4 w-4" />
             Devueltas ({returnedCount})
+          </Link>
+          <Link href="/admin/ordenes/canceladas" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            <Ban className="h-4 w-4" />
+            Canceladas ({cancelledCount})
           </Link>
           <PurchaseDirectDialog
             products={purchaseProducts}

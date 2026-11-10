@@ -127,6 +127,7 @@ Lista de órdenes de venta y de compra a proveedor.
 En Estado, una orden de venta con devolución dice lo mismo que el detalle: "Devuelta" (violeta; las devoluciones abiertas cubren todo), "Devolución parcial" (ámbar) o "Devuelta – falta registrar" (ámbar; un despacho Devuelto sin devolución registrada).
 **Botones y acciones:**
 - **Devueltas (N)** (junto a **Nuevo**): N = órdenes de la lista con "Devuelta", "Devolución parcial" o "Devuelta – falta registrar". Abre `/admin/ordenes/devoluciones` con "Solo abiertas" marcado.
+- **Canceladas (N)** (al lado de **Devueltas (N)**): N = todas las órdenes de venta canceladas (las reactivadas ya no cuentan). Abre `/admin/ordenes/canceladas`. En la lista, esas filas dicen "Cancelada" en Estado.
 - **Nuevo**: abre el modal "Comprar" (compra directa a proveedor). Pide la fecha y luego **Agregar producto**: buscador "Buscar codigo o producto", Proveedor, Cantidad, **Pendientes por fabricar** (por defecto 0: de la cantidad, cuántas aún no fabrica la proveedora; se cobran completas pero no entran al inventario), Costo unitario, Color, Descripción y foto. Muestra el "Total compra". **Registrar compra** guarda la compra y **Cancelar** cierra.
 - Menú de fila (tres puntos):
   - **Abrir**: abre el detalle de la orden.
@@ -142,6 +143,13 @@ Todas las devoluciones (sin las anuladas) y los despachos "Devuelto" sin devoluc
 - **Filtrar**: aplica los filtros (quedan en la dirección de la página).
 - **Quitar filtros**: vuelve a ver todo.
 - **Descargar Excel (CSV)**: baja lo mismo que la tabla, con los filtros puestos (columnas Fecha, Orden, Estado, Producto, Proveedora, Transportadora, Motivo, Dónde está, Qué sigue, Pérdida y fila Total).
+
+## /admin/ordenes/canceladas
+Las órdenes de venta canceladas (las compras anuladas no salen; una orden reactivada deja de salir). Solo se puede leer: no cambia dinero, stock ni estados. Mismo permiso que Órdenes. Se llega con **Canceladas (N)** de `/admin/ordenes`; arriba, "← Órdenes" vuelve. Cancelar y **Reactivar** siguen en el detalle de cada orden.
+**Qué se ve:** título "Canceladas". Filtros: Mes (vacío = todos los meses; corta por la fecha de la cancelación en hora de Colombia) y "Todos los motivos" (los de la lista de cancelar y "Sin dato"). Tarjetas "Canceladas" (cuántas), "Con cobros" (con abonos o anticipo: "revisar a mano") y "Por motivo". Tabla: Cancelada el (fecha y hora de Colombia), Orden (ORD sin ceros con enlace al detalle; debajo la SAL y, si la venta tiene abonos o anticipo, "Tiene cobros: revisar a mano" en ámbar), Clienta, Productos, Asesora (quien creó la cotización), Motivo (etiqueta y texto; debajo "Notas: …") y Canceló (quién). El motivo sale del historial de la orden; si falta, de la bitácora; si tampoco, "Sin dato" (las canceladas viejas). Sin filas dice "Ninguna orden cancelada con esos filtros. Prueba con «Quitar filtros»." o, si no hay ninguna, "Aún no hay órdenes de venta canceladas. Se cancelan en el detalle de la orden con «Cancelar»."
+**Botones y acciones:**
+- **Filtrar**: aplica los filtros (quedan en la dirección de la página, `?mes=AAAA-MM&motivo=<clave>`).
+- **Quitar filtros**: vuelve a `/admin/ordenes/canceladas` con todo.
 
 ## /admin/ordenes/[orderId]
 Detalle de una orden. Aquí se fabrica, se recoge, se despacha y se entrega cada producto.

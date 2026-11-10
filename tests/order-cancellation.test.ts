@@ -13,6 +13,11 @@ import {
   parseReactivateInput,
   stockToRetake,
   ultimaCancelacion,
+  motivoDeCancelacion,
+  filtrarCanceladas,
+  resumenCanceladas,
+  parseFiltrosCanceladas,
+  type CanceladaFila,
 } from "../src/lib/order-cancellation";
 
 function form(fields: Record<string, string>): FormData {
@@ -163,5 +168,75 @@ describe("closedOrderMessage", () => {
     expect(closedOrderMessage("CANCELLED", "La orden no admite cambios")).toBe(ORDER_CANCELLED_BLOCK);
     expect(ORDER_CANCELLED_BLOCK).toBe("La orden está cancelada: reactívala primero");
     expect(closedOrderMessage("COMPLETED", "La orden no admite cambios")).toBe("La orden no admite cambios");
+  });
+});
+
+describe("motivoDeCancelacion", () => {
+  it("lee la nota del historial (etiqueta, texto y notas)", () => {
+    const note = cancelNote({ reason: "OTRO", reasonText: "Se mudó. Lejos", notas: "Llamar el lunes" });
+    expect(motivoDeCancelacion(note, null)).toEqual({ clave: "OTRO", etiqueta: "Otro", texto: "Se mudó. Lejos", notas: "Llamar el lunes" });
+    expect(motivoDeCancelacion(cancelNote({ reason: "NO_CONTESTO", reasonText: null, notas: null }), null)).toEqual({
+      clave: "NO_CONTESTO",
+      etiqueta: "La clienta no contestó",
+      texto: null,
+      notas: null,
+    });
+  });
+
+  it("sin nota reconocible usa la bitácora", () => {
+    const after = { status: "CANCELLED", motivo: "Otro — Duplicada", motivoClave: "OTRO", notas: "Ver ORD-2" };
+    expect(motivoDeCancelacion(null, after)).toEqual({ clave: "OTRO", etiqueta: "Otro", texto: "Duplicada", notas: "Ver ORD-2" });
+    expect(motivoDeCancelacion("Cancelada a mano", after).clave).toBe("OTRO");
+  });
+
+  it("sin ninguno de los dos: Sin dato", () => {
+    expect(motivoDeCancelacion(null, null)).toEqual({ clave: "SIN_DATO", etiqueta: "Sin dato", texto: null, notas: null });
+    expect(motivoDeCancelacion("Motivo: Algo raro.", { status: "CANCELLED" }).clave).toBe("SIN_DATO");
+  });
+});
+
+describe("filtrarCanceladas y resumenCanceladas", () => {
+  const fila = (orderCode: string, fecha: string, clave: string, tieneCobros = false): CanceladaFila => ({
+    orderId: orderCode,
+    orderCode,
+    saleCode: null,
+    clienta: "Ana",
+    productos: "1 × Silla",
+    asesora: "Ingrid",
+    motivo: motivoDeCancelacion(null, clave === "SIN_DATO" ? null : { motivoClave: clave }),
+    canceladoPor: "Admin",
+    fecha: new Date(fecha),
+    tieneCobros,
+  });
+  // 1-nov 03:00Z = 31-oct 22:00 en Colombia; 1-nov 05:00Z = 1-nov 00:00 en Colombia.
+  const filas = [
+    fila("ORD-00001", "2026-11-01T03:00:00Z", "NO_CONTESTO", true),
+    fila("ORD-00002", "2026-11-01T05:00:00Z", "NO_CONTESTO"),
+    fila("ORD-00003", "2026-11-05T15:00:00Z", "SIN_DATO", true),
+  ];
+
+  it("filtra por mes de Colombia y por motivo, la más reciente primero", () => {
+    expect(filtrarCanceladas(filas, { mes: "2026-10", motivo: null }).map((f) => f.orderCode)).toEqual(["ORD-00001"]);
+    expect(filtrarCanceladas(filas, { mes: "2026-11", motivo: null }).map((f) => f.orderCode)).toEqual(["ORD-00003", "ORD-00002"]);
+    expect(filtrarCanceladas(filas, { mes: null, motivo: "NO_CONTESTO" }).map((f) => f.orderCode)).toEqual(["ORD-00002", "ORD-00001"]);
+    expect(filtrarCanceladas(filas, { mes: null, motivo: "SIN_DATO" }).map((f) => f.orderCode)).toEqual(["ORD-00003"]);
+  });
+
+  it("resume cantidad, con cobros y por motivo", () => {
+    expect(resumenCanceladas(filas)).toEqual({
+      cantidad: 3,
+      conCobros: 2,
+      porMotivo: [
+        { etiqueta: "La clienta no contestó", cantidad: 2 },
+        { etiqueta: "Sin dato", cantidad: 1 },
+      ],
+    });
+    expect(resumenCanceladas([])).toEqual({ cantidad: 0, conCobros: 0, porMotivo: [] });
+  });
+
+  it("parseFiltrosCanceladas descarta valores raros", () => {
+    expect(parseFiltrosCanceladas({ mes: "2026-11", motivo: "OTRO" })).toEqual({ mes: "2026-11", motivo: "OTRO" });
+    expect(parseFiltrosCanceladas({ mes: "2026-13", motivo: "X" })).toEqual({ mes: null, motivo: null });
+    expect(parseFiltrosCanceladas({ mes: ["2026-10", "x"], motivo: "SIN_DATO" })).toEqual({ mes: "2026-10", motivo: "SIN_DATO" });
   });
 });
