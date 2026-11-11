@@ -14,17 +14,12 @@ import {
   toComboCheckProduct,
 } from "@/modules/ventas/domain/payment-method";
 import { itemsParaPlan, necesitaAlertaCombo } from "@/modules/ventas/domain/combo-camillas";
-import { parseOriginFilter } from "@/modules/ventas/domain/sale-origin";
+import { badgeOriginDetail, parseOriginFilter } from "@/modules/ventas/domain/sale-origin";
 import { SaleOriginFilterBar } from "@/modules/ventas/presentation/sale-origin-filter-bar";
 import { paymentMethodLabel } from "@/modules/ventas/domain/withholding";
 import { countReversedItems, reversalMoneyWarning } from "@/lib/order-item-reversal";
 
 type SaleWithDiscountFields = {
-  grossTotal?: unknown;
-  discountAmount?: unknown;
-  quote: {
-    total: unknown;
-  };
   salePayments?: Array<{
     id?: unknown;
     amount: unknown;
@@ -121,7 +116,6 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
         email: true,
         document: true,
         phone: true,
-        address: true,
       },
       take: 400,
     }),
@@ -193,7 +187,6 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
           email: client.email,
           document: client.document ?? "",
           phone: client.phone ?? "",
-          address: client.address ?? "",
         }))}
         products={products.map((product) => ({
           id: product.id,
@@ -212,14 +205,12 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
             code: component.child.code,
             quantity: component.quantity,
             retailPrice: Number(component.child.price),
-            thumbnailUrl: getPublicAssetUrl(component.child.thumbnailUrl),
             stock: stockOf(component.childId),
             alternates: component.alternates.map((alt) => ({
               productId: alt.productId,
               name: alt.product.name,
               code: alt.product.code,
               retailPrice: Number(alt.product.price),
-              thumbnailUrl: getPublicAssetUrl(alt.product.thumbnailUrl),
               stock: stockOf(alt.productId),
             })),
           })),
@@ -230,8 +221,6 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
           quoteCode: sale.quote.code,
           clientName: sale.client.name || sale.client.email,
           total: Number(sale.total),
-          grossTotal: Number((sale as SaleWithDiscountFields).grossTotal ?? sale.quote.total),
-          discountAmount: Number((sale as SaleWithDiscountFields).discountAmount ?? 0),
           downPaymentAmount: Array.isArray((sale as SaleWithDiscountFields).salePayments)
             ? (sale as SaleWithDiscountFields).salePayments!.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0)
             : Number(sale.downPaymentAmount),
@@ -275,7 +264,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
             sale.order?.status !== "CANCELLED",
           salePaymentMethod: sale.paymentMethod ?? null,
           saleOrigin: sale.origin ?? null,
-          saleOriginDetail: sale.originDetail ?? null,
+          saleOriginDetail: badgeOriginDetail(sale.originDetail),
           hasCamillaCombo: sale.quote.items.some((item) => isCamillaComboProduct(toComboCheckProduct(item.product))),
           // Calculada al vuelo, no se guarda: desaparece sola cuando la venta ya tiene orden.
           alertaCombo: necesitaAlertaCombo({

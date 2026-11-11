@@ -27,27 +27,19 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
-  const [suppliers, currency, accounts] = await Promise.all([
+  const [suppliers, currency] = await Promise.all([
     prisma.supplier.findMany({
       orderBy: { name: "asc" },
       include: {
         _count: { select: { products: true } },
+        // Solo para el saldo: el detalle de la cuenta se ve en /admin/proveedores/[id]/cuenta.
         ledgerEntries: {
           orderBy: { createdAt: "desc" },
-          include: {
-            createdBy: { select: { name: true, email: true } },
-            account: { select: { name: true } },
-            order: { select: { id: true, code: true, saleId: true } },
-          },
+          select: { type: true, amount: true, orderId: true },
         },
       },
     }),
     getSystemCurrency(),
-    prisma.account.findMany({
-      where: { isActive: true, type: { not: "OWNER" } },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
   ]);
 
   // Asegura un token de link publico para cada proveedor (se genera una sola vez).
@@ -75,24 +67,10 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
 
       <SuppliersWorkspace
         currency={currency}
-        accounts={accounts}
         suppliers={suppliers.map((supplier) => {
-          const debt = summarizeSupplierDebt(
+          const balance = summarizeSupplierDebt(
             supplier.ledgerEntries.map((entry) => ({ ...entry, amount: Number(entry.amount) })),
-          );
-          const balance = debt.balance;
-
-          // Ordenes asociadas a este proveedor con su saldo pendiente (cargos - pagos).
-          const orderById = new Map(
-            supplier.ledgerEntries.flatMap((entry) => (entry.order ? [[entry.order.id, entry.order] as const] : [])),
-          );
-          const orders = debt.orders
-            .flatMap((order) => {
-              const info = orderById.get(order.orderId);
-              return info ? [{ orderId: info.id, code: info.code, saleId: info.saleId, pending: order.pending }] : [];
-            })
-            .filter((order) => order.pending > 0.0001)
-            .sort((a, b) => a.code.localeCompare(b.code, "es", { numeric: true }));
+          ).balance;
 
           return {
             id: supplier.id,
@@ -105,18 +83,6 @@ export default async function AdminProveedoresPage({ searchParams }: PageProps) 
             shareToken: supplier.shareToken,
             productsCount: supplier._count.products,
             balance,
-            orders,
-            ledger: supplier.ledgerEntries.map((entry) => ({
-              id: entry.id,
-              type: entry.type,
-              amount: Number(entry.amount),
-              note: entry.note,
-              createdAt: (entry.paymentDate ?? entry.createdAt).toISOString(),
-              createdByName: entry.createdBy.name ?? entry.createdBy.email,
-              accountName: entry.account?.name ?? null,
-              orderCode: entry.order?.code ?? null,
-              receiptUrl: entry.receiptUrl ?? null,
-            })),
           };
         })}
       />

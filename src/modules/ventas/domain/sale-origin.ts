@@ -300,3 +300,15 @@ export function adKeyFromDetail(detail: unknown): { key: string; adTitle: string
   }
   return { key: adId ?? adTitle!, adTitle, adId };
 }
+
+// Solo las llaves que lee SaleOriginBadge: el detalle completo (ctwaClid, ids del CRM...) no viaja al navegador.
+export function badgeOriginDetail(detail: unknown): Record<string, unknown> | null {
+  if (!detail || typeof detail !== "object" || Array.isArray(detail)) {
+    return null;
+  }
+  const record = detail as Record<string, unknown>;
+  const picked = Object.fromEntries(
+    (["adTitle", "adId", "mkCuenta", "linea"] as const).filter((key) => key in record).map((key) => [key, record[key]]),
+  );
+  return Object.keys(picked).length > 0 ? picked : null;
+}

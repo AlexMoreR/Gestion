@@ -12,7 +12,6 @@ export type ProductWorkspaceRow = {
   seoDescription: string | null;
   categoryId: string | null;
   categoryName: string | null;
-  supplierId: string | null;
   supplierName: string | null;
   suppliers: Array<{
     supplierId: string;
@@ -39,6 +38,9 @@ export type ProductWorkspaceRow = {
   wholesalePrice: number;
 };
 
+// Lo que usa el modal de edicion (sin los campos que solo muestra la tabla de Productos).
+export type EditableProduct = Omit<ProductWorkspaceRow, "thumbnailUrl" | "categoryName" | "supplierName">;
+
 export type ProductWorkspaceOption = {
   id: string;
   name: string;
@@ -55,7 +57,6 @@ export type ProductWorkspaceData = {
   products: ProductWorkspaceRow[];
   categories: ProductWorkspaceOption[];
   suppliers: ProductWorkspaceOption[];
-  bundleProducts: BundleProductOption[];
 };
 
 /**
@@ -87,15 +88,6 @@ export async function getProductWorkspaceData(): Promise<ProductWorkspaceData> {
     prisma.supplier.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
   ]);
 
-  const bundleProducts: BundleProductOption[] = products
-    .filter((product) => !product.isBundle)
-    .map((product) => ({
-      id: product.id,
-      name: product.name,
-      code: product.code,
-      price: Number(product.price),
-    }));
-
   return {
     products: products.map((product) => ({
       id: product.id,
@@ -106,7 +98,6 @@ export async function getProductWorkspaceData(): Promise<ProductWorkspaceData> {
       seoDescription: product.seoDescription,
       categoryId: product.categoryId,
       categoryName: product.category?.name ?? null,
-      supplierId: product.suppliers[0]?.supplier.id ?? null,
       supplierName: product.suppliers[0]?.supplier.name ?? null,
       suppliers: product.suppliers.map((supplier) => ({
         supplierId: supplier.supplierId,
@@ -134,6 +125,5 @@ export async function getProductWorkspaceData(): Promise<ProductWorkspaceData> {
     })),
     categories: categories.map((category) => ({ id: category.id, name: category.name })),
     suppliers: suppliers.map((supplier) => ({ id: supplier.id, name: supplier.name })),
-    bundleProducts,
   };
 }

@@ -22,6 +22,12 @@ type DispatchRow = DispatchReviewData & {
   deliveryInfo: DeliveryConfirmInfo;
 };
 
+// El boton de revisar es de cliente: solo le llega lo que muestra (deliveryInfo ya va al dialogo de entrega).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function reviewData({ orderId, deliveryInfo, ...review }: DispatchRow): DispatchReviewData {
+  return review;
+}
+
 type PaidNotDispatchedRow = {
   saleId: string;
   saleCode: string;
@@ -270,7 +276,7 @@ export function DispatchesWorkspace({ dispatches, currency, paidNotDispatched, s
                   <TableCell className="text-xs text-muted-foreground">{dispatch.createdAt}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-2">
-                      <DispatchReviewButton dispatch={dispatch} currency={currency} />
+                      <DispatchReviewButton dispatch={reviewData(dispatch)} currency={currency} />
                       <DispatchActions dispatch={dispatch} />
                     </div>
                   </TableCell>

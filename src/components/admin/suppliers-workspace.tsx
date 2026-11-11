@@ -13,31 +13,7 @@ import { type SupportedCurrencyCode } from "@/lib/currency";
 import { DispatchWarningField } from "@/modules/guias/presentation/dispatch-warning-field";
 import { Button } from "../ui/button";
 
-type LedgerEntry = {
-  id: string;
-  type: "CHARGE" | "PAYMENT";
-  amount: number;
-  note: string | null;
-  createdAt: string;
-  createdByName: string | null;
-  accountName: string | null;
-  orderCode: string | null;
-  receiptUrl: string | null;
-};
-
-type AccountOption = {
-  id: string;
-  name: string;
-};
-
 type SupplierType = "MANUFACTURER" | "SHIPPING";
-
-type SupplierOrderOption = {
-  orderId: string;
-  code: string;
-  saleId: string | null;
-  pending: number;
-};
 
 type SupplierRow = {
   id: string;
@@ -50,14 +26,11 @@ type SupplierRow = {
   shareToken: string | null;
   productsCount: number;
   balance: number;
-  orders: SupplierOrderOption[];
-  ledger: LedgerEntry[];
 };
 
 type SuppliersWorkspaceProps = {
   suppliers: SupplierRow[];
   currency: SupportedCurrencyCode;
-  accounts: AccountOption[];
 };
 
 export function SuppliersWorkspace({ suppliers, currency }: SuppliersWorkspaceProps) {

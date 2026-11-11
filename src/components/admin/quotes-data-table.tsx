@@ -66,7 +66,6 @@ type QuoteRow = {
   code: string;
   clientName: string;
   advisorName: string;
-  itemsCount: number;
   total: number;
   status: QuoteStatus;
   createdAt: string;

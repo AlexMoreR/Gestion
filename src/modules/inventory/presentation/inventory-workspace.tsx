@@ -30,8 +30,8 @@ import { ProductEditModal } from "@/components/admin/product-edit-modal";
 import { ProductCostModal } from "@/components/admin/product-cost-modal";
 import type {
   BundleProductOption,
+  EditableProduct,
   ProductWorkspaceOption,
-  ProductWorkspaceRow,
 } from "@/lib/admin-product-workspace";
 
 type InventoryWorkspaceProps = {
@@ -41,10 +41,9 @@ type InventoryWorkspaceProps = {
   suppliersByProduct: Record<string, { id: string; name: string; cost: number | null }[]>;
   suppliers: { id: string; name: string }[];
   currency: SupportedCurrencyCode;
-  editableProducts: ProductWorkspaceRow[];
+  editableProducts: EditableProduct[];
   categories: ProductWorkspaceOption[];
   editableSuppliers: ProductWorkspaceOption[];
-  bundleProducts: BundleProductOption[];
 };
 
 type TabKey = "stock" | "movimientos";
@@ -59,7 +58,6 @@ export function InventoryWorkspace({
   editableProducts,
   categories,
   editableSuppliers,
-  bundleProducts,
 }: InventoryWorkspaceProps) {
   const [tab, setTab] = React.useState<TabKey>("stock");
   const [movementModal, setMovementModal] = React.useState<{ open: boolean; productId: string | null }>({
@@ -72,6 +70,15 @@ export function InventoryWorkspace({
   const [editProductId, setEditProductId] = React.useState<string | null>(null);
   // Modal de costo/rentabilidad que se abre al hacer clic en un producto del stock.
   const [costProductId, setCostProductId] = React.useState<string | null>(null);
+
+  // Piezas posibles de un combo: se arman aqui para no mandar la lista de productos dos veces.
+  const bundleProducts = React.useMemo<BundleProductOption[]>(
+    () =>
+      editableProducts
+        .filter((product) => !product.isBundle)
+        .map((product) => ({ id: product.id, name: product.name, code: product.code, price: product.price })),
+    [editableProducts],
+  );
 
   const editProduct = React.useMemo(
     () => editableProducts.find((product) => product.id === editProductId) ?? null,

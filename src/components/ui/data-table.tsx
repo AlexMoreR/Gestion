@@ -107,12 +107,14 @@ export function DataTable<TData>({
   const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize });
   const [dateFrom, setDateFrom] = React.useState(initialDateFrom);
   const [dateTo, setDateTo] = React.useState(initialDateTo);
+  // La letra se ve al instante; filtrar la tabla va justo detrás sin trabar el teclado.
+  const deferredFilter = React.useDeferredValue(globalFilter);
 
   // Notifica el texto de busqueda hacia afuera para que el contenedor pueda, por
   // ejemplo, ignorar sus filtros propios (mes/estado) mientras hay una busqueda.
   React.useEffect(() => {
-    onSearchChange?.(globalFilter);
-  }, [globalFilter, onSearchChange]);
+    onSearchChange?.(deferredFilter);
+  }, [deferredFilter, onSearchChange]);
 
   const dateFiltered = React.useMemo(() => {
     if (!getRowDate || (!dateFrom && !dateTo)) {
@@ -137,7 +139,7 @@ export function DataTable<TData>({
   const table = useReactTable({
     data: dateFiltered,
     columns,
-    state: { sorting, globalFilter, pagination },
+    state: { sorting, globalFilter: deferredFilter, pagination },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     onPaginationChange: setPagination,

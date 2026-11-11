@@ -78,10 +78,11 @@ export default async function AdminInventoryPage({ searchParams }: PageProps) {
         suppliersByProduct={suppliersByProduct}
         suppliers={suppliers}
         currency={currency}
-        editableProducts={productData.products}
+        // El modal de edicion no usa la foto, la categoria ni el proveedor de la tabla de Productos.
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        editableProducts={productData.products.map(({ thumbnailUrl, categoryName, supplierName, ...product }) => product)}
         categories={productData.categories}
         editableSuppliers={productData.suppliers}
-        bundleProducts={productData.bundleProducts}
       />
     </section>
   );

@@ -13,7 +13,8 @@ export type InventoryMovement = {
   createdAt: Date;
 };
 
-export type InventoryMovementRow = InventoryMovement & {
+// Fila de la tabla de Movimientos: sin productId ni createdAt, que la pantalla no usa (viajan al navegador).
+export type InventoryMovementRow = Omit<InventoryMovement, "productId" | "createdAt"> & {
   productName: string;
   productCode: string | null;
   // Código de la orden (ORD-...) asociada al código de compra (COM-...), si existe.

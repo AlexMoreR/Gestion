@@ -68,6 +68,8 @@ model User {
   asistenciaAnuladas       AsistenciaMarca[]     @relation("AsistenciaMarcaAnuladaPor")
   cartaColores             CartaColor[]          @relation("CartaColorCreadoPor")
   embalajeFotos            EmbalajeFoto[]        @relation("EmbalajeFotoSubidoPor")
+
+  @@index([role, createdAt])
 }
 
 enum ActivityAction {
@@ -97,6 +99,7 @@ model ActivityLog {
   @@index([entityCode, createdAt])
   @@index([entityType, createdAt])
   @@index([createdAt])
+  @@index([entityId])
 }
 
 model Product {
@@ -367,6 +370,7 @@ model Quote {
 
   @@index([clientId, createdAt])
   @@index([createdById, createdAt])
+  @@index([createdAt])
 }
 
 // Origen de la venta (decision de Alexander, 7-oct-2026). Sale de la linea de WhatsApp del chat
@@ -435,6 +439,7 @@ model Sale {
   @@index([clientId, createdAt])
   @@index([createdById, createdAt])
   @@index([origin])
+  @@index([createdAt])
 }
 
 model ShippingCost {
@@ -668,6 +673,9 @@ model Order {
   @@index([assignedToId, createdAt])
   @@index([quoteId, createdAt])
   @@index([supplierId, createdAt])
+  @@index([createdAt])
+  // Ya existe en la base (migración 20260626140000_order_purchase_code); solo se declara aquí.
+  @@index([purchaseCode])
 }
 
 model OrderItem {
@@ -766,6 +774,7 @@ model ProductionJob {
   @@index([orderId])
   @@index([orderItemId])
   @@index([assignedToId, createdAt])
+  @@index([createdAt])
 }
 
 model Dispatch {
@@ -810,6 +819,7 @@ model Dispatch {
   @@index([orderId])
   @@index([createdById, createdAt])
   @@index([carrierSupplierId])
+  @@index([createdAt])
 }
 
 model DispatchItem {

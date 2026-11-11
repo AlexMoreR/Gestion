@@ -59,11 +59,6 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
     prisma.product.findMany({
       orderBy: { createdAt: "desc" },
       include: {
-        suppliers: {
-          include: {
-            supplier: true,
-          },
-        },
         bundleComponents: {
           orderBy: { sortOrder: "asc" },
           include: {
@@ -179,10 +174,6 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
         wholesalePrice: Number(product.wholesalePrice),
         minWholesaleQty: product.minWholesaleQty,
         thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
-        suppliers: product.suppliers.map((row) => ({
-          id: row.supplierId,
-          name: row.supplier.name,
-        })),
         isBundle: product.isBundle,
         partes: partesById.get(product.id) ?? [],
         components: product.bundleComponents.map((component) => ({
@@ -191,14 +182,12 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
           code: component.child.code,
           quantity: component.quantity,
           retailPrice: Number(component.child.price),
-          thumbnailUrl: getPublicAssetUrl(component.child.thumbnailUrl),
           stock: stockOf(component.childId),
           alternates: component.alternates.map((alt) => ({
             productId: alt.productId,
             name: alt.product.name,
             code: alt.product.code,
             retailPrice: Number(alt.product.price),
-            thumbnailUrl: getPublicAssetUrl(alt.product.thumbnailUrl),
             stock: stockOf(alt.productId),
           })),
         })),

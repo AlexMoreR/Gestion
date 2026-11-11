@@ -14,6 +14,7 @@ import {
   isCamillaComboProduct,
   toComboCheckProduct,
 } from "@/modules/ventas/domain/payment-method";
+import { badgeOriginDetail } from "@/modules/ventas/domain/sale-origin";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -70,11 +71,6 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
     prisma.product.findMany({
       orderBy: { createdAt: "desc" },
       include: {
-        suppliers: {
-          include: {
-            supplier: true,
-          },
-        },
         bundleComponents: {
           orderBy: { sortOrder: "asc" },
           include: {
@@ -127,7 +123,6 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
           code: quote.code,
           clientName: quote.client.name || quote.client.email,
           advisorName: quote.createdBy.name || quote.createdBy.email,
-          itemsCount: quote.items.length,
           total: Number(quote.total),
           status: quote.status,
           createdAt: quote.createdAt.toLocaleDateString("es-CO"),
@@ -135,7 +130,7 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
           shareToken: quote.shareToken,
           hasSale: Boolean(quote.sale),
           origin: quote.origin ?? null,
-          originDetail: quote.originDetail ?? null,
+          originDetail: badgeOriginDetail(quote.originDetail),
           hasCamillaCombo: quote.items.some((item) => isCamillaComboProduct(toComboCheckProduct(item.product))),
           // Casilla «Cliente aprobó colores»: si alguna línea trae color por parte (el servidor revisa de nuevo).
           hasColorParts: quote.items.some((item) => parseQuoteItemMeta(item.notes).partes.length > 0),
@@ -160,10 +155,6 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
           wholesalePrice: Number(product.wholesalePrice),
           minWholesaleQty: product.minWholesaleQty,
           thumbnailUrl: getPublicAssetUrl(product.thumbnailUrl),
-          suppliers: product.suppliers.map((row) => ({
-            id: row.supplierId,
-            name: row.supplier.name,
-          })),
           isBundle: product.isBundle,
           partes: partesById.get(product.id) ?? [],
           components: product.bundleComponents.map((component) => ({
@@ -172,14 +163,12 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
             code: component.child.code,
             quantity: component.quantity,
             retailPrice: Number(component.child.price),
-            thumbnailUrl: getPublicAssetUrl(component.child.thumbnailUrl),
             stock: stockOf(component.childId),
             alternates: component.alternates.map((alt) => ({
               productId: alt.productId,
               name: alt.product.name,
               code: alt.product.code,
               retailPrice: Number(alt.product.price),
-              thumbnailUrl: getPublicAssetUrl(alt.product.thumbnailUrl),
               stock: stockOf(alt.productId),
             })),
           })),

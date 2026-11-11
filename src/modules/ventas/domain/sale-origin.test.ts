@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   adKeyFromDetail,
   backfillFallbackOrigin,
+  badgeOriginDetail,
   buildOriginDetail,
   effectiveOrigin,
   isProbableDirectSale,
@@ -174,5 +175,17 @@ describe("anuncio", () => {
   it("resumen para el MCP", () => {
     expect(originDetailSummary({ adTitle: "Combo", linea: "Ventas 1" })).toMatchObject({ anuncio: "Combo", linea: "Ventas 1", cuenta_mk: null });
     expect(originDetailSummary({})).toBeNull();
+  });
+
+  it("detalle para el badge: solo lo que se muestra", () => {
+    expect(badgeOriginDetail({ adId: "1", adTitle: "Combo", linea: "Ventas 1", ctwaClid: "x", crmContactId: "y" })).toEqual({
+      adId: "1",
+      adTitle: "Combo",
+      linea: "Ventas 1",
+    });
+    expect(badgeOriginDetail({ mkCuenta: "MK-1", via: "cotizacion" })).toEqual({ mkCuenta: "MK-1" });
+    expect(badgeOriginDetail({ via: "cotizacion" })).toBeNull();
+    expect(badgeOriginDetail(null)).toBeNull();
+    expect(badgeOriginDetail(["a"])).toBeNull();
   });
 });

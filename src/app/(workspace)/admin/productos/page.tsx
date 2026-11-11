@@ -33,7 +33,7 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
   const [
-    { products, categories, suppliers, bundleProducts },
+    { products, categories, suppliers },
     systemCurrency,
     minRetailMarginPct,
     minWholesaleMarginPct,
@@ -90,7 +90,6 @@ export default async function AdminProductosPage({ searchParams }: PageProps) {
         minRetailMarginPct={minRetailMarginPct}
         minWholesaleMarginPct={minWholesaleMarginPct}
         okMessage={okMessage}
-        bundleProducts={bundleProducts}
         categories={categories}
         suppliers={suppliers}
         products={products}

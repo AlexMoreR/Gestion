@@ -27,7 +27,6 @@ type ProductsWorkspaceProps = {
   products: ProductWorkspaceRow[];
   categories: CategoryOption[];
   suppliers: SupplierOption[];
-  bundleProducts: BundleProductOption[];
   currency: SupportedCurrencyCode;
   minRetailMarginPct?: number;
   minWholesaleMarginPct?: number;
@@ -38,7 +37,6 @@ export function ProductsWorkspace({
   products,
   categories,
   suppliers,
-  bundleProducts,
   currency,
   minRetailMarginPct,
   minWholesaleMarginPct,
@@ -46,6 +44,15 @@ export function ProductsWorkspace({
 }: ProductsWorkspaceProps) {
   const [modal, setModal] = useState<"edit" | "new" | null>(null);
   const [activeProductId, setActiveProductId] = useState<string | null>(null);
+
+  // Piezas posibles de un combo: se arman aqui para no mandar la lista de productos dos veces.
+  const bundleProducts = useMemo<BundleProductOption[]>(
+    () =>
+      products
+        .filter((product) => !product.isBundle)
+        .map((product) => ({ id: product.id, name: product.name, code: product.code, price: product.price })),
+    [products],
+  );
 
   const activeProduct = useMemo(
     () => products.find((product) => product.id === activeProductId) ?? null,

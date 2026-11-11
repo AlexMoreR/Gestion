@@ -64,11 +64,6 @@ export type QuoteWizardClient = {
   city: string;
 };
 
-type ProductSupplierOption = {
-  id: string;
-  name: string;
-};
-
 export type QuoteWizardProduct = {
   id: string;
   name: string;
@@ -78,7 +73,6 @@ export type QuoteWizardProduct = {
   wholesalePrice: number;
   minWholesaleQty: number;
   thumbnailUrl?: string | null;
-  suppliers: ProductSupplierOption[];
   isBundle?: boolean;
   components?: ComboComponent[];
   // Partes de color ya resueltas (propias o de la categoría). Vacío = selector de color de siempre.

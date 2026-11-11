@@ -667,10 +667,11 @@ async function prepararFotosEmbalaje(
   const fotos: { tipo: EmbalajeTipo; url: string }[] = [];
   let photoError: string | null = null;
   try {
-    for (const archivo of archivos) {
-      const { url } = await saveShipmentPhoto(archivo.file);
-      fotos.push({ tipo: archivo.tipo, url });
-    }
+    // Las fotos de celular se reducen a la vez (sharp usa varios hilos); el orden se conserva.
+    const guardadas = await Promise.all(
+      archivos.map(async (archivo) => ({ tipo: archivo.tipo, url: (await saveShipmentPhoto(archivo.file)).url })),
+    );
+    fotos.push(...guardadas);
   } catch (error) {
     photoError = error instanceof Error ? error.message : "No se pudo guardar la foto del embalaje.";
   }

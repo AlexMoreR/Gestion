@@ -32,7 +32,7 @@ import { OrderStepper } from "@/components/admin/order-stepper";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
-import { hasAdminModuleAccess, hasAnyModuleAccess } from "@/lib/admin-module-access";
+import { getAdminModuleAccess } from "@/lib/admin-module-access";
 import { formatMoney } from "@/lib/currency";
 import { resolveDispatchLegs, sumShippingLegs } from "@/lib/dispatch-shipping-legs";
 import { computeStockExitCost } from "@/lib/stock-exit-cost";
@@ -109,8 +109,9 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     redirect("/unauthorized");
   }
 
-  const canAccess = await hasAdminModuleAccess(session.user.id, session.user.role, "orders");
-  if (!canAccess) {
+  // Un solo mapa de permisos para «orders», «sales» y «quotes» (mismo criterio que hasAdminModuleAccess).
+  const moduleAccess = await getAdminModuleAccess(session.user.id, session.user.role);
+  if (!moduleAccess.orders) {
     redirect("/unauthorized");
   }
 
@@ -142,7 +143,6 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         client: true,
         supplier: true,
         createdBy: true,
-        assignedTo: true,
         items: {
           include: {
             product: {
@@ -179,28 +179,12 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               where: { type: "PAYMENT" },
               select: { amount: true },
             },
-            productionJobs: {
-              include: {
-                assignedTo: true,
-                createdBy: true,
-              },
-              orderBy: { createdAt: "desc" },
-            },
+            // Solo se cuentan: sin responsables ni producto (eran consultas de más).
+            productionJobs: { select: { id: true } },
           },
           orderBy: { createdAt: "asc" },
         },
-        productionJobs: {
-          include: {
-            assignedTo: true,
-            createdBy: true,
-            orderItem: {
-              include: {
-                product: true,
-              },
-            },
-          },
-          orderBy: { createdAt: "desc" },
-        },
+        productionJobs: { select: { id: true } },
         dispatches: {
           include: {
             shipment: {
@@ -216,16 +200,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               orderBy: { position: "asc" },
               include: { supplierPayment: { select: { receiptUrl: true, account: { select: { name: true } } } } },
             },
-            createdBy: true,
-            items: {
-              include: {
-                orderItem: {
-                  include: {
-                    product: true,
-                  },
-                },
-              },
-            },
+            items: true,
           },
           orderBy: { createdAt: "desc" },
         },
@@ -275,6 +250,113 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     notFound();
   }
 
+  const isPurchase = order.type === "PURCHASE";
+  // Cambiar color: solo en una venta (y su orden) no cancelada.
+  const canChangeColor =
+    !isPurchase && Boolean(order.sale) && order.sale?.status !== "CANCELLED" && order.status !== "CANCELLED";
+  // Ordenes de fabricacion (OF) por proveedora: solo en ordenes de venta.
+  const manufacturingItems = isPurchase ? [] : order.items.filter(isManufacturingItem);
+  const manufacturingSupplierIds = manufacturingItems.map((item) => item.confirmedSupplierId ?? "");
+  // Subtotales por proveedora: el costo de la OF cuando aun no hay cargos en su cuenta.
+  const lineSubtotalsBySupplier = new Map<string, Array<number | null>>();
+  for (const item of manufacturingItems) {
+    const supplierId = item.confirmedSupplierId ?? "";
+    const subtotal = item.purchaseCost == null ? null : Number(item.purchaseCost) * item.quantity;
+    lineSubtotalsBySupplier.set(supplierId, [...(lineSubtotalsBySupplier.get(supplierId) ?? []), subtotal]);
+  }
+  // Lineas de la cotizacion: las usan «Cambiar color» y el aviso del Combo Camillas (antes eran dos consultas).
+  const quoteItemsPromise =
+    !isPurchase && order.sale
+      ? prisma.quoteItem.findMany({
+          where: { quoteId: order.sale.quoteId },
+          select: {
+            id: true,
+            productId: true,
+            notes: true,
+            quantity: true,
+            product: { select: { name: true, isBundle: true, code: true } },
+          },
+        })
+      : Promise.resolve([]);
+
+  // Todo esto depende solo de la orden: se pide a la vez en lugar de uno tras otro.
+  const [returnLogs, stockExitCostEntries, partesDeItem, shipmentLookup, cambiosDeFecha, manufacturingData] =
+    await Promise.all([
+      // Historial de cada devolución: entradas de la bitácora de la orden marcadas con su id (after.devolucion).
+      order.returns.length > 0
+        ? prisma.activityLog.findMany({
+            where: {
+              entityType: "ORDER",
+              entityId: order.id,
+              OR: order.returns.map((r) => ({ after: { path: ["devolucion"], equals: r.id } })),
+            },
+            select: { id: true, actorName: true, summary: true, createdAt: true, after: true },
+            orderBy: { createdAt: "asc" },
+            take: 200,
+          })
+        : Promise.resolve([]),
+      // Pieza por stock sin confirmar: el costo que se va a usar (compra que la entró o catálogo).
+      Promise.all(
+        order.items
+          .filter((item) => !isPurchase && item.fulfillmentMode === "STOCK" && item.confirmedAt === null)
+          .map(async (item) => [item.id, await computeStockExitCost({ productId: item.productId, quantity: item.quantity })] as const),
+      ),
+      // Partes de color de cada producto (para «Cambiar color» por parte): las del combo o las del producto.
+      (async () => {
+        const result = new Map<string, ParteParaCotizar[]>();
+        if (!canChangeColor) return result;
+        const codigos = [...new Set(order.items.map((item) => parseQuoteItemMeta(item.notes).comboCode.trim()).filter(Boolean))];
+        const [quoteItems, combos] = await Promise.all([
+          quoteItemsPromise,
+          codigos.length
+            ? prisma.product.findMany({ where: { code: { in: codigos } }, select: { id: true, code: true } })
+            : Promise.resolve([]),
+        ]);
+        const cotizacion = quoteItems.map((q) => ({ id: q.id, productId: q.productId, notes: q.notes, productName: q.product.name, isBundle: q.product.isBundle }));
+        const idPorCodigo = new Map(combos.flatMap((c) => (c.code ? [[c.code, c.id] as const] : [])));
+        const duenios = new Map(
+          order.items.map((item) => [item.id, duenioDePartes(item, lineaFuente(item, cotizacion), idPorCodigo)] as const),
+        );
+        const partes = await partesPorProducto(prisma, [...duenios.values()]);
+        for (const [itemId, duenio] of duenios) result.set(itemId, partes.get(duenio) ?? []);
+        return result;
+      })(),
+      // Guia Magilus: datos sugeridos para el check "Crear guia Magilus" del modal de despacho.
+      isPurchase
+        ? Promise.resolve(null)
+        : resolveCityFromClient(order.client?.city, order.client?.department).then(async (destination) => ({
+            destination,
+            collect: await computeCollectSuggestion(order.saleId, destination?.id),
+          })),
+      // Historial de fechas (despachos y OF): bitácora con el prefijo, más nuevo primero, por código.
+      prisma.activityLog.findMany({
+        where: { entityType: "ORDER", entityId: order.id, summary: { startsWith: PREFIJO_CAMBIO_FECHA } },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, entityCode: true, summary: true, actorName: true, createdAt: true },
+      }),
+      isPurchase
+        ? Promise.resolve(null)
+        : Promise.all([
+            // Avisos de cambio de color de cada OF (nov-2026): los sin ver y, si no hay, el último visto.
+            ensureManufacturingOrders(order.id, manufacturingSupplierIds).then(async (manufacturingOrders) => ({
+              manufacturingOrders,
+              avisosColor: await prisma.avisoColorOF.findMany({
+                where: { manufacturingOrderId: { in: manufacturingOrders.map((of) => of.id) } },
+                orderBy: { createdAt: "asc" },
+                select: { id: true, manufacturingOrderId: true, producto: true, colorViejo: true, colorNuevo: true, createdAt: true, vistoEn: true },
+              }),
+            })),
+            getSystemBrandName(),
+            getManufacturingPayments(order.id, manufacturingSupplierIds, lineSubtotalsBySupplier),
+            prisma.activityLog.findFirst({
+              where: { entityType: "ORDER", entityId: order.id, summary: { startsWith: ORDEN_COMBO_CREADA_SOLA } },
+              select: { id: true },
+            }),
+            quoteItemsPromise,
+            getComboCamillasSupplierId(),
+          ]),
+    ]);
+
   const returnTo = `/admin/ordenes/${order.id}`;
   // Costo total de compra de la orden. Para stock usa el costo real de inventario
   // (costo + envio/flete del producto); para fabricacion, el costo confirmado.
@@ -303,7 +385,6 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   // En una compra el item ya viene comprado (se confirma al registrarla, aunque
   // no tenga proveedor); en una venta hay que confirmar proveedor + costo. Para
   // stock basta con que se haya confirmado (descontado del inventario).
-  const isPurchase = order.type === "PURCHASE";
   const itemIsConfirmed = (item: (typeof order.items)[number]) =>
     isPurchase || !needsSupplierFlow(item)
       ? item.confirmedAt !== null
@@ -441,20 +522,6 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
               })
             : null,
         ].filter((option): option is ReturnDispatchOption => option !== null);
-  // Historial de cada devolución: entradas de la bitácora de la orden marcadas con su id (after.devolucion).
-  const returnLogs =
-    order.returns.length > 0
-      ? await prisma.activityLog.findMany({
-          where: {
-            entityType: "ORDER",
-            entityId: order.id,
-            OR: order.returns.map((r) => ({ after: { path: ["devolucion"], equals: r.id } })),
-          },
-          select: { id: true, actorName: true, summary: true, createdAt: true, after: true },
-          orderBy: { createdAt: "asc" },
-          take: 200,
-        })
-      : [];
   const seller = order.sale?.quote?.createdBy ?? null;
   const sellerName = seller ? seller.name || seller.email : null;
   const sellerWhatsApp = seller ? whatsAppDigits(seller.phone || seller.teamMember?.phone) : "";
@@ -554,37 +621,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     despachar: pendingDespachar,
   });
 
-  // Pieza por stock sin confirmar: el costo que se va a usar (compra que la entró o catálogo).
-  const stockExitCostById = new Map(
-    await Promise.all(
-      order.items
-        .filter((item) => !isPurchase && item.fulfillmentMode === "STOCK" && item.confirmedAt === null)
-        .map(async (item) => [item.id, await computeStockExitCost({ productId: item.productId, quantity: item.quantity })] as const),
-    ),
-  );
-
-  // Cambiar color: solo en una venta (y su orden) no cancelada.
-  const canChangeColor =
-    !isPurchase && Boolean(order.sale) && order.sale?.status !== "CANCELLED" && order.status !== "CANCELLED";
-  // Partes de color de cada producto (para «Cambiar color» por parte): las del combo o las del producto.
-  const partesDeItem = new Map<string, ParteParaCotizar[]>();
-  if (canChangeColor && order.sale) {
-    const quoteItems = await prisma.quoteItem.findMany({
-      where: { quoteId: order.sale.quoteId },
-      select: { id: true, productId: true, notes: true, product: { select: { name: true, isBundle: true } } },
-    });
-    const cotizacion = quoteItems.map((q) => ({ id: q.id, productId: q.productId, notes: q.notes, productName: q.product.name, isBundle: q.product.isBundle }));
-    const codigos = [...new Set(order.items.map((item) => parseQuoteItemMeta(item.notes).comboCode.trim()).filter(Boolean))];
-    const combos = codigos.length
-      ? await prisma.product.findMany({ where: { code: { in: codigos } }, select: { id: true, code: true } })
-      : [];
-    const idPorCodigo = new Map(combos.flatMap((c) => (c.code ? [[c.code, c.id] as const] : [])));
-    const duenios = new Map(
-      order.items.map((item) => [item.id, duenioDePartes(item, lineaFuente(item, cotizacion), idPorCodigo)] as const),
-    );
-    const partes = await partesPorProducto(prisma, [...duenios.values()]);
-    for (const [itemId, duenio] of duenios) partesDeItem.set(itemId, partes.get(duenio) ?? []);
-  }
+  const stockExitCostById = new Map(stockExitCostEntries);
   const orderItemsData = order.items.map((item) => {
     const itemDispatch = dispatchByItemId.get(item.id);
     // Proveedores efectivos: los del producto o, si es un combo (sin proveedor
@@ -674,11 +711,9 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     };
   });
 
-  // Guia Magilus: datos sugeridos para el check "Crear guia Magilus" del modal de despacho.
   let shipmentDefaults: ShipmentDefaults | undefined;
-  if (!isPurchase) {
-    const destination = await resolveCityFromClient(order.client?.city, order.client?.department);
-    const collect = await computeCollectSuggestion(order.saleId, destination?.id);
+  if (shipmentLookup) {
+    const { destination, collect } = shipmentLookup;
     shipmentDefaults = {
       destination,
       saleBalance: collect.saleBalance,
@@ -693,9 +728,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   const comboCheckProducts = order.items.map((item) => toComboCheckProduct(item.product));
   const comboWarning = contraentregaComboWarning(salePaymentMethod, comboCheckProducts);
   // El cambio de forma de pago usa la accion de ventas: solo se ofrece a quien tiene ese permiso.
-  const canChangePaymentMethod =
-    !isPurchase && Boolean(order.sale) && (await hasAnyModuleAccess(session.user.id, session.user.role, ["sales", "quotes"]));
-  const canEditQuote = !isPurchase && (await hasAdminModuleAccess(session.user.id, session.user.role, "quotes"));
+  const canChangePaymentMethod = !isPurchase && Boolean(order.sale) && (moduleAccess.sales || moduleAccess.quotes);
+  const canEditQuote = !isPurchase && moduleAccess.quotes;
   const saleQuote = order.sale?.quote ?? null;
   const shippingDispatches = order.dispatches.filter(
     (dispatch) => dispatch.deliveryType === "SHIPPING" && dispatch.status !== "CANCELLED",
@@ -735,12 +769,6 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     })
     .filter((card) => card.legs.length > 0);
 
-  // Historial de fechas (despachos y OF): bitácora con el prefijo, más nuevo primero, por código.
-  const cambiosDeFecha = await prisma.activityLog.findMany({
-    where: { entityType: "ORDER", entityId: order.id, summary: { startsWith: PREFIJO_CAMBIO_FECHA } },
-    orderBy: { createdAt: "desc" },
-    select: { id: true, entityCode: true, summary: true, actorName: true, createdAt: true },
-  });
   const historialDe = (code: string): CambioFechaView[] =>
     cambiosDeFecha
       .filter((cambio) => cambio.entityCode === code)
@@ -763,46 +791,15 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       historial: historialDe(dispatch.code),
     }));
 
-  // Ordenes de fabricacion (OF) por proveedora: solo en ordenes de venta.
   let manufacturingCards: ManufacturingCard[] = [];
   // OF sin recibir para el cuadro "Cancelar orden" (no se cancelan solas).
   let cancelOpenOfs: { code: string; supplierName: string; products: string; href: string }[] = [];
   // OF que ya existen, por proveedora: el cuadro de confirmar compra precarga su fecha y avisa.
   const ofsPorProveedora: Record<string, OfDeProveedora> = {};
   let brandName = "";
-  if (!isPurchase) {
-    const manufacturingItems = order.items.filter(isManufacturingItem);
-    const manufacturingSupplierIds = manufacturingItems.map((item) => item.confirmedSupplierId ?? "");
-    // Subtotales por proveedora: el costo de la OF cuando aun no hay cargos en su cuenta.
-    const lineSubtotalsBySupplier = new Map<string, Array<number | null>>();
-    for (const item of manufacturingItems) {
-      const supplierId = item.confirmedSupplierId ?? "";
-      const subtotal = item.purchaseCost == null ? null : Number(item.purchaseCost) * item.quantity;
-      lineSubtotalsBySupplier.set(supplierId, [...(lineSubtotalsBySupplier.get(supplierId) ?? []), subtotal]);
-    }
-    const [manufacturingOrders, systemBrandName, manufacturingPayments, logCreadaSola, quoteItems, comboSupplierId] =
-      await Promise.all([
-        ensureManufacturingOrders(order.id, manufacturingSupplierIds),
-        getSystemBrandName(),
-        getManufacturingPayments(order.id, manufacturingSupplierIds, lineSubtotalsBySupplier),
-        prisma.activityLog.findFirst({
-          where: { entityType: "ORDER", entityId: order.id, summary: { startsWith: ORDEN_COMBO_CREADA_SOLA } },
-          select: { id: true },
-        }),
-        order.saleId
-          ? prisma.quoteItem.findMany({
-              where: { quote: { sale: { id: order.saleId } } },
-              select: { quantity: true, notes: true, product: { select: { code: true } } },
-            })
-          : Promise.resolve([]),
-        getComboCamillasSupplierId(),
-      ]);
-    // Avisos de cambio de color de cada OF (nov-2026): los sin ver y, si no hay, el último visto.
-    const avisosColor = await prisma.avisoColorOF.findMany({
-      where: { manufacturingOrderId: { in: manufacturingOrders.map((of) => of.id) } },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, manufacturingOrderId: true, producto: true, colorViejo: true, colorNuevo: true, createdAt: true, vistoEn: true },
-    });
+  if (manufacturingData) {
+    const [{ manufacturingOrders, avisosColor }, systemBrandName, manufacturingPayments, logCreadaSola, quoteItems, comboSupplierId] =
+      manufacturingData;
     // Combo Camillas: aviso para mandarle el link a Laura (nunca se le manda solo).
     const ordenCombo = Boolean(logCreadaSola) || itemsParaPlan(quoteItems).some(esComboCamillas);
     brandName = systemBrandName;

@@ -33,7 +33,6 @@ export type DispatchReviewData = {
   shippingAddress: string | null;
   notes: string | null;
   createdAt: string;
-  packedAt: string | null;
   shippedAt: string | null;
   deliveredAt: string | null;
   shippingReceiptUrl: string | null;

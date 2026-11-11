@@ -96,13 +96,11 @@ export function createPrismaInventoryRepository(): InventoryRepository {
         take: 500,
         select: {
           id: true,
-          productId: true,
           type: true,
           change: true,
           note: true,
           purchaseCode: true,
           movementDate: true,
-          createdAt: true,
           product: { select: { name: true, code: true } },
         },
       });
@@ -123,13 +121,11 @@ export function createPrismaInventoryRepository(): InventoryRepository {
 
       return rows.map((row) => ({
         id: row.id,
-        productId: row.productId,
         type: row.type as InventoryMovementType,
         change: row.change,
         note: row.note,
         purchaseCode: row.purchaseCode,
         movementDate: row.movementDate,
-        createdAt: row.createdAt,
         productName: row.product.name,
         productCode: row.product.code,
         // Compras: ORD- desde el código de compra. Salidas por venta: ORD- desde la nota.

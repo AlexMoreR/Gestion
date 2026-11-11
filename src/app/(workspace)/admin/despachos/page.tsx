@@ -189,7 +189,6 @@ export default async function AdminDespachosPage({ searchParams }: PageProps) {
           })),
           shippingAddress: dispatch.shippingAddress,
           notes: dispatch.notes,
-          packedAt: dispatch.packedAt?.toLocaleDateString("es-CO") ?? null,
           shippedAt: dispatch.shippedAt?.toLocaleDateString("es-CO") ?? null,
           deliveredAt: dispatch.deliveredAt?.toLocaleDateString("es-CO") ?? null,
           shippingReceiptUrl: dispatch.shippingReceiptUrl ? getPublicAssetUrl(dispatch.shippingReceiptUrl) : null,

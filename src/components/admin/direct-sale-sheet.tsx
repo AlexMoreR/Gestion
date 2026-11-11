@@ -48,7 +48,6 @@ export type DirectSaleClient = {
   email: string;
   document: string;
   phone: string;
-  address: string;
 };
 
 type AccountType = "CASH" | "BANK" | "WALLET" | "OTHER" | "OWNER";

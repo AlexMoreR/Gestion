@@ -15,7 +15,8 @@ if (!pool) {
     connectionString,
     // Mantiene viva la conexion TCP para que el servidor no la cierre por inactividad.
     keepAlive: true,
-    max: 5,
+    // Una pantalla lanza varias consultas a la vez y el menú precarga otras; Postgres admite 100 (hoy ~16 en uso).
+    max: 10,
     // Recicla conexiones ociosas antes de que el servidor remoto las mate.
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,

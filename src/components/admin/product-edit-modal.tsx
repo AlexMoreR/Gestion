@@ -10,11 +10,11 @@ import type { ProductPurchaseRow } from "@/lib/product-purchase-history";
 import type {
   BundleProductOption,
   ProductWorkspaceOption,
-  ProductWorkspaceRow,
+  EditableProduct,
 } from "@/lib/admin-product-workspace";
 
 type ProductEditModalProps = {
-  product: ProductWorkspaceRow | null;
+  product: EditableProduct | null;
   categories: ProductWorkspaceOption[];
   suppliers: ProductWorkspaceOption[];
   bundleProducts: BundleProductOption[];

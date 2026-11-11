@@ -18,8 +18,6 @@ type SaleRow = {
   quoteCode: string;
   clientName: string;
   total: number;
-  grossTotal: number;
-  discountAmount: number;
   downPaymentAmount: number;
   remainingBalance: number;
   status: SaleStatus;
