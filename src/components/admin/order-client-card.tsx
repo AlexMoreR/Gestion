@@ -3,7 +3,6 @@ import { ArrowUpRight, Edit3, MessageCircle } from "lucide-react";
 import { CarrierMessageButton } from "@/components/admin/carrier-message-button";
 import { OrderClientAccordion } from "@/components/admin/order-client-accordion";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { displayCode } from "@/lib/code-display";
 import { whatsAppDigits, type OrderDeliveryInfo } from "@/lib/order-delivery-info";
 
@@ -21,6 +20,11 @@ type OrderClientCardProps = {
     by: string;
   } | null;
   canEditQuote: boolean;
+  /** Línea 1: código, venta y estado (izquierda) y el menú ⋯ (derecha, después de los botones). */
+  title: React.ReactNode;
+  menu: React.ReactNode;
+  /** Línea 2, después de la ciudad: forma de pago y origen en texto pequeño. */
+  summaryExtra: React.ReactNode;
 };
 
 function SinDato() {
@@ -31,15 +35,24 @@ function Heading({ children }: { children: React.ReactNode }) {
   return <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{children}</p>;
 }
 
-// Franja de la ficha de la orden: a quién llamar, a dónde va y de qué cotización salió.
-export function OrderClientCard({ name, phone, instagram, delivery, quote, canEditQuote }: OrderClientCardProps) {
+// Encabezado de la orden de venta: a quién llamar, a dónde va y de qué cotización salió.
+export function OrderClientCard({
+  name,
+  phone,
+  instagram,
+  delivery,
+  quote,
+  canEditQuote,
+  title,
+  menu,
+  summaryExtra,
+}: OrderClientCardProps) {
   const whatsApp = whatsAppDigits(phone);
   const instagramHandle = instagram?.trim().replace(/^@+/, "");
 
   return (
-    <Card className="border-border bg-card/95">
-      <CardContent className="text-sm">
         <OrderClientAccordion
+          title={title}
           summary={
             <>
               <span className="sr-only">Cliente y entrega: </span>
@@ -48,6 +61,7 @@ export function OrderClientCard({ name, phone, instagram, delivery, quote, canEd
               {phone?.trim() || <SinDato />}
               {" · "}
               {delivery.pickup ? "Recoge en bodega" : delivery.city ?? <SinDato />}
+              {summaryExtra}
             </>
           }
           actions={
@@ -80,13 +94,14 @@ export function OrderClientCard({ name, phone, instagram, delivery, quote, canEd
                   <ArrowUpRight /> Ver cotización
                 </Link>
               ) : null}
+              {menu}
             </>
           }
         >
           <div className="grid gap-4 md:grid-cols-3 md:gap-0 md:divide-x md:divide-border">
             <div className="min-w-0 space-y-1 md:pr-4">
               <Heading>Cliente</Heading>
-              <p className="break-words font-medium text-foreground">{name?.trim() || <SinDato />}</p>
+              {/* El nombre ya va en la línea de arriba: aquí no se repite. */}
               <p className="text-foreground">{phone?.trim() || <SinDato />}</p>
               {instagramHandle ? <p className="break-words text-muted-foreground">@{instagramHandle}</p> : null}
             </div>
@@ -145,7 +160,5 @@ export function OrderClientCard({ name, phone, instagram, delivery, quote, canEd
             </div>
           </div>
         </OrderClientAccordion>
-      </CardContent>
-    </Card>
   );
 }

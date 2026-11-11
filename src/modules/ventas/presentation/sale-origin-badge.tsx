@@ -7,10 +7,13 @@ export function SaleOriginBadge({
   origin,
   detail,
   prefix,
+  plain = false,
 }: {
   origin: string | null | undefined;
   detail?: unknown;
   prefix?: string;
+  /** Solo el texto, sin el recuadro de color (encabezado de la orden). */
+  plain?: boolean;
 }) {
   const code = effectiveOrigin(origin);
   const ad = adKeyFromDetail(detail);
@@ -25,7 +28,11 @@ export function SaleOriginBadge({
   return (
     <span
       title={title}
-      className={`inline-flex whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${SALE_ORIGIN_BADGE[code]}`}
+      className={
+        plain
+          ? "whitespace-nowrap"
+          : `inline-flex whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${SALE_ORIGIN_BADGE[code]}`
+      }
     >
       {prefix ? `${prefix}${SALE_ORIGIN_LABEL[code]}` : SALE_ORIGIN_LABEL[code]}
     </span>

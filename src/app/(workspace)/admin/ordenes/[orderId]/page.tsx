@@ -70,12 +70,10 @@ import {
   contraentregaComboWarning,
   isCamillaComboProduct,
   toComboCheckProduct,
-  PAYMENT_METHOD_BADGE,
   PAYMENT_METHOD_LABEL,
   PAYMENT_METHOD_SHORT_LABEL,
 } from "@/modules/ventas/domain/payment-method";
 import { SaleOriginBadge } from "@/modules/ventas/presentation/sale-origin-badge";
-import { ChangePaymentMethodButton } from "@/modules/ventas/presentation/change-payment-method-button";
 import {
   esComboCamillas,
   esLaura,
@@ -933,6 +931,60 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   const isCancelled = order.status === "CANCELLED";
   const cancellation = isCancelled ? ultimaCancelacion(order.history) : null;
 
+
+  // Encabezado: etiqueta de estado y menú ⋯ (con Devolver si aplica), en compras y en ventas.
+  const estadoBadge = (
+    <Badge className={displayState.className} variant="outline">
+      {displayState.label}
+    </Badge>
+  );
+  const ordenMenu = (
+    <>
+      <OrderActionsMenu
+        orderId={order.id}
+        status={order.status}
+        isPurchase={order.type === "PURCHASE"}
+        returnTo={returnTo}
+        orderDate={toDateInputValue(order.createdAt)}
+        openOfs={cancelOpenOfs}
+        hasActiveDispatch={Boolean(cancelBlock(order.dispatches))}
+        hasPayments={hasPayments(order.sale)}
+        paymentMethod={
+          canChangePaymentMethod && order.sale
+            ? {
+                saleId: order.sale.id,
+                saleCode: displayCode(order.sale.code),
+                returnTo: `/admin/ordenes/${order.id}`,
+                defaultValue: salePaymentMethod,
+                hasCamillaCombo: comboCheckProducts.some(isCamillaComboProduct),
+              }
+            : null
+        }
+        items={order.items.map((item, index) => ({
+          id: item.id,
+          name: item.product.name,
+          code: item.product.code,
+          quantity: item.quantity,
+          fulfillmentMode: item.fulfillmentMode,
+          color: orderItemsData[index].color,
+          canChangeColor: orderItemsData[index].canChangeColor,
+          imagenManual: orderItemsData[index].imagenManual,
+          imagenCatalogo: orderItemsData[index].productImageUrl,
+          partesDef: orderItemsData[index].partesDef,
+          partesElegidas: orderItemsData[index].partesElegidas,
+        }))}
+      />
+      {returnOptions.length > 0 ? (
+        <OrderReturnDialog
+          orderId={order.id}
+          options={returnOptions}
+          carriers={carriers.map((carrier) => ({ id: carrier.id, name: carrier.name }))}
+          today={todayInColombia()}
+        />
+      ) : null}
+    </>
+  );
+
   return (
     <section className="w-full space-y-5">
       <QueryFeedbackToast
@@ -942,93 +994,73 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         errorTitle="No se pudo actualizar"
       />
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">{displayCode(order.code)}</h1>
-          {order.type === "PURCHASE" ? (
+      {isPurchase ? (
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-semibold tracking-tight text-foreground">{displayCode(order.code)}</h1>
+              {estadoBadge}
+            </div>
             <p className="text-sm text-muted-foreground">
               Compra{order.supplier ? ` a ${order.supplier.name}` : " a proveedor"}
               {order.createdBy ? ` · ${order.createdBy.name || order.createdBy.email}` : ""}
             </p>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Venta{" "}
-              <Link
-                href={order.sale ? `/admin/ventas?q=${encodeURIComponent(order.sale.code)}` : "/admin/ventas"}
-                className="font-medium text-foreground hover:underline"
-              >
-                {displayCode(order.sale?.code)}
-              </Link>{" "}
-              - Cliente {order.client?.name || order.client?.email}
-            </p>
-          )}
-          {!isPurchase ? (
-            <div className="flex flex-wrap items-center gap-2">
-              {salePaymentMethod ? (
-                <Badge
-                  variant="outline"
-                  className={PAYMENT_METHOD_BADGE[salePaymentMethod]}
-                  title={PAYMENT_METHOD_LABEL[salePaymentMethod]}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">{ordenMenu}</div>
+        </div>
+      ) : (
+        <OrderClientCard
+          title={
+            <>
+              <h1 className="text-xl font-semibold tracking-tight text-foreground">
+                {displayCode(order.code)}
+                <span className="text-muted-foreground"> · </span>
+                <Link
+                  href={order.sale ? `/admin/ventas?q=${encodeURIComponent(order.sale.code)}` : "/admin/ventas"}
+                  className="hover:underline"
                 >
-                  Pago: {PAYMENT_METHOD_SHORT_LABEL[salePaymentMethod]}
-                </Badge>
+                  {displayCode(order.sale?.code)}
+                </Link>
+              </h1>
+              {estadoBadge}
+            </>
+          }
+          menu={ordenMenu}
+          summaryExtra={
+            <>
+              {" · "}
+              {salePaymentMethod ? (
+                <span title={PAYMENT_METHOD_LABEL[salePaymentMethod]}>Pago {PAYMENT_METHOD_SHORT_LABEL[salePaymentMethod]}</span>
               ) : (
-                <Badge variant="outline" className="border-border bg-muted text-muted-foreground">
-                  Forma de pago sin definir
-                </Badge>
+                <span className="text-amber-700 dark:text-amber-400">Forma de pago sin definir</span>
               )}
-              {canChangePaymentMethod && order.sale ? (
-                <ChangePaymentMethodButton
-                  saleId={order.sale.id}
-                  saleCode={displayCode(order.sale.code)}
-                  returnTo={`/admin/ordenes/${order.id}`}
-                  defaultValue={salePaymentMethod}
-                  hasCamillaCombo={comboCheckProducts.some(isCamillaComboProduct)}
-                />
-              ) : null}
-              <SaleOriginBadge prefix="Origen: " origin={order.sale?.origin} detail={order.sale?.originDetail} />
-              {comboWarning ? <span className="text-xs text-amber-700 dark:text-amber-400">{comboWarning}</span> : null}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge className={displayState.className} variant="outline">
-            {displayState.label}
-          </Badge>
-          <OrderActionsMenu
-            orderId={order.id}
-            status={order.status}
-            isPurchase={order.type === "PURCHASE"}
-            returnTo={returnTo}
-            orderDate={toDateInputValue(order.createdAt)}
-            openOfs={cancelOpenOfs}
-            hasActiveDispatch={Boolean(cancelBlock(order.dispatches))}
-            hasPayments={hasPayments(order.sale)}
-            items={order.items.map((item, index) => ({
-              id: item.id,
-              name: item.product.name,
-              code: item.product.code,
-              quantity: item.quantity,
-              fulfillmentMode: item.fulfillmentMode,
-              color: orderItemsData[index].color,
-              canChangeColor: orderItemsData[index].canChangeColor,
-              imagenManual: orderItemsData[index].imagenManual,
-              imagenCatalogo: orderItemsData[index].productImageUrl,
-              partesDef: orderItemsData[index].partesDef,
-              partesElegidas: orderItemsData[index].partesElegidas,
-            }))}
-          />
-          {returnOptions.length > 0 ? (
-            <OrderReturnDialog
-              orderId={order.id}
-              options={returnOptions}
-              carriers={carriers.map((carrier) => ({ id: carrier.id, name: carrier.name }))}
-              today={todayInColombia()}
-            />
-          ) : null}
-        </div>
-      </div>
+              {" · "}
+              <SaleOriginBadge plain prefix="Origen " origin={order.sale?.origin} detail={order.sale?.originDetail} />
+              {comboWarning ? <span className="text-amber-700 dark:text-amber-400"> · {comboWarning}</span> : null}
+            </>
+          }
+          name={order.client?.name}
+          phone={order.client?.phone}
+          instagram={order.client?.instagram}
+          delivery={buildOrderDeliveryInfo(order.client, order.dispatches, {
+            orderCode: order.code,
+            saleCode: order.sale?.code,
+          })}
+          quote={
+            saleQuote
+              ? {
+                  id: saleQuote.id,
+                  code: saleQuote.code,
+                  shareToken: saleQuote.shareToken,
+                  notes: saleQuote.notes,
+                  date: shortColombiaDate(saleQuote.createdAt),
+                  by: saleQuote.createdBy.name || saleQuote.createdBy.email,
+                }
+              : null
+          }
+          canEditQuote={canEditQuote}
+        />
+      )}
 
       {isCancelled ? (
         <div
@@ -1061,31 +1093,6 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           {moneyWarning}
         </div>
-      ) : null}
-
-      {!isPurchase ? (
-        <OrderClientCard
-          name={order.client?.name}
-          phone={order.client?.phone}
-          instagram={order.client?.instagram}
-          delivery={buildOrderDeliveryInfo(order.client, order.dispatches, {
-            orderCode: order.code,
-            saleCode: order.sale?.code,
-          })}
-          quote={
-            saleQuote
-              ? {
-                  id: saleQuote.id,
-                  code: saleQuote.code,
-                  shareToken: saleQuote.shareToken,
-                  notes: saleQuote.notes,
-                  date: shortColombiaDate(saleQuote.createdAt),
-                  by: saleQuote.createdBy.name || saleQuote.createdBy.email,
-                }
-              : null
-          }
-          canEditQuote={canEditQuote}
-        />
       ) : null}
 
       <StatList items={headerStats} />

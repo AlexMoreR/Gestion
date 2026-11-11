@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, MoreHorizontal, PackageCheck, Pencil, RotateCcw } from "lucide-react";
+import { AlertTriangle, MoreHorizontal, PackageCheck, Pencil, RotateCcw, Wallet } from "lucide-react";
 import {
   adminCancelOrderAction,
   adminReactivateOrderAction,
@@ -14,6 +14,10 @@ import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-fi
 import { ChangeItemColorDialog } from "@/components/admin/change-item-color-dialog";
 import { ChangeItemImageDialog } from "@/components/admin/change-item-image-dialog";
 import type { ParteElegida, ParteParaCotizar } from "@/lib/product-parts";
+import {
+  ChangePaymentMethodDialog,
+  type ChangePaymentMethodProps,
+} from "@/modules/ventas/presentation/change-payment-method-button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -77,6 +81,8 @@ type OrderActionsMenuProps = {
   openOfs?: { code: string; supplierName: string; products: string; href: string }[];
   hasActiveDispatch?: boolean;
   hasPayments?: boolean;
+  // "Cambiar forma de pago" (solo en ventas y con permiso de Ventas o Cotizaciones).
+  paymentMethod?: ChangePaymentMethodProps | null;
 };
 
 const STATUS_ACTIONS: Partial<Record<OrderStatus, { status: OrderStatus; label: string }>> = {
@@ -96,7 +102,9 @@ export function OrderActionsMenu({
   openOfs = [],
   hasActiveDispatch = false,
   hasPayments = false,
+  paymentMethod = null,
 }: OrderActionsMenuProps) {
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const statusAction = STATUS_ACTIONS[status];
   const canCancel = status !== "CANCELLED" && (isPurchase || status !== "COMPLETED");
   const [editOpen, setEditOpen] = useState(false);
@@ -149,6 +157,12 @@ export function OrderActionsMenu({
             <Pencil className="mr-2 h-4 w-4" />
             Editar orden
           </DropdownMenuItem>
+          {paymentMethod ? (
+            <DropdownMenuItem onSelect={() => setPaymentOpen(true)}>
+              <Wallet className="mr-2 h-4 w-4" />
+              Cambiar forma de pago
+            </DropdownMenuItem>
+          ) : null}
           {statusAction ? (
             <form action={adminUpdateOrderStatusAction}>
               <input type="hidden" name="returnTo" value={returnTo} />
@@ -178,6 +192,10 @@ export function OrderActionsMenu({
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {paymentMethod ? (
+        <ChangePaymentMethodDialog {...paymentMethod} open={paymentOpen} onOpenChange={setPaymentOpen} />
+      ) : null}
 
       <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
         <DialogContent className="max-h-[88vh] max-w-md overflow-y-auto">

@@ -7,13 +7,15 @@ import { cn } from "@/lib/utils";
 const STORAGE_KEY = "orden-cliente-abierto";
 
 type OrderClientAccordionProps = {
+  /** Línea 1, a la izquierda: código, venta y estado. */
+  title: React.ReactNode;
   summary: React.ReactNode;
   actions: React.ReactNode;
   children: React.ReactNode;
 };
 
-// Los botones van fuera del <button> que pliega: funcionan sin abrirlo.
-export function OrderClientAccordion({ summary, actions, children }: OrderClientAccordionProps) {
+// Encabezado de la orden en dos líneas. Los botones van fuera del <button> que pliega: funcionan sin abrirlo.
+export function OrderClientAccordion({ title, summary, actions, children }: OrderClientAccordionProps) {
   const [open, setOpen] = React.useState(false);
   const panelId = React.useId();
 
@@ -37,25 +39,26 @@ export function OrderClientAccordion({ summary, actions, children }: OrderClient
   };
 
   return (
-    <>
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-4">
-        <button
-          type="button"
-          onClick={toggle}
-          aria-expanded={open}
-          aria-controls={panelId}
-          className="flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-md text-left outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <ChevronDown
-            className={cn(
-              "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none",
-              open && "rotate-180",
-            )}
-          />
-          <span className="min-w-0 truncate">{summary}</span>
-        </button>
-        <div className="flex flex-wrap items-center gap-2 lg:shrink-0">{actions}</div>
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">{title}</div>
+        <div className="flex flex-wrap items-center gap-2">{actions}</div>
       </div>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        aria-controls={panelId}
+        className="mt-1 flex min-w-0 max-w-full items-start gap-1.5 rounded-md text-left text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <ChevronDown
+          className={cn(
+            "mt-px h-3.5 w-3.5 shrink-0 transition-transform duration-200 motion-reduce:transition-none",
+            open && "rotate-180",
+          )}
+        />
+        <span className="min-w-0 break-words">{summary}</span>
+      </button>
       <div
         id={panelId}
         inert={!open}
@@ -65,9 +68,11 @@ export function OrderClientAccordion({ summary, actions, children }: OrderClient
         )}
       >
         <div className="min-h-0 overflow-hidden">
-          <div className="pt-4">{children}</div>
+          <div className="pt-2">
+            <div className="rounded-xl border border-border bg-card/95 p-4 text-sm">{children}</div>
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
