@@ -13,7 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { closedOrderMessage, ORDER_CANCELLED_BLOCK } from "@/lib/order-cancellation";
 import { buildProductionJobCode, parseProductionJobCodeNumber } from "@/lib/orders";
 import { splitOrderItemQuantities } from "@/lib/order-partial-delivery";
-import { bloqueaDeshacerFabricacion } from "@/lib/order-dispatch";
+import { bloqueaDeshacerFabricacion, marcarPagadaAlRecoger } from "@/lib/order-dispatch";
 import { getActivityActor, logActivity, logActivityTx } from "@/lib/activity-log";
 import { SUPPLIER_LEDGER_LOG_FIELDS, snapshotForLog } from "@/lib/activity-log-snapshot";
 import { anularVarias, bloqueoPorAbonos } from "@/lib/anulaciones";
@@ -841,6 +841,8 @@ export async function adminDispatchItemAction(formData: FormData): Promise<void>
             supplierReceiptName: receipt?.name ?? orderItem.supplierReceiptName ?? null,
           },
         });
+      } else if (!skipSupplierFlow && marcarPagadaAlRecoger(orderItem)) {
+        await tx.orderItem.update({ where: { id: orderItem.id }, data: { supplierPaymentStatus: "PAID" } });
       }
 
       await tx.productionJob.updateMany({
@@ -1153,6 +1155,9 @@ export async function adminBulkPickupOrderItemsAction(formData: FormData): Promi
 
         // El cargo (saldo) al proveedor ya se genero al confirmar (Fabricar);
         // recoger solo adjunta la foto y cierra la produccion.
+        if (marcarPagadaAlRecoger(item)) {
+          await tx.orderItem.update({ where: { id: item.id }, data: { supplierPaymentStatus: "PAID" } });
+        }
 
         await tx.productionJob.updateMany({
           where: {

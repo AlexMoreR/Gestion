@@ -20,8 +20,6 @@ import {
 } from "@/app/actions/dispatch-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChangeItemColorDialog } from "@/components/admin/change-item-color-dialog";
-import { ChangeItemImageDialog } from "@/components/admin/change-item-image-dialog";
 import type { ParteElegida, ParteParaCotizar } from "@/lib/product-parts";
 import { ProductThumb } from "@/components/admin/product-thumb";
 import { ReversalReasonFields } from "@/components/admin/reversal-reason-fields";
@@ -287,8 +285,6 @@ export function OrderItemManager({
   const [reverseDeliveryOpen, setReverseDeliveryOpen] = useState(false);
   const [reverseDeliveryReady, setReverseDeliveryReady] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
-  const [colorOpen, setColorOpen] = useState(false);
-  const [imagenOpen, setImagenOpen] = useState(false);
   const [undoPickupOpen, setUndoPickupOpen] = useState(false);
   const [undoConfirmOpen, setUndoConfirmOpen] = useState(false);
   const [dispatchDeliveryType, setDispatchDeliveryType] = useState<"COUNTER" | "PICKUP" | "SHIPPING">("SHIPPING");
@@ -350,30 +346,13 @@ export function OrderItemManager({
             </button>
           )}
         </p>
+        {/* Color e imagen solo como texto: se cambian en "Editar orden" (menú ⋯). */}
         {item.color || item.canChangeColor ? (
-          <p className="text-xs text-muted-foreground">
-            Color: {item.color || "sin color"}
-            {item.canChangeColor && !locked ? (
-              <button
-                type="button"
-                onClick={() => setColorOpen(true)}
-                className="ml-2 underline hover:text-foreground"
-              >
-                Cambiar color
-              </button>
-            ) : null}
-          </p>
+          <p className="text-xs text-muted-foreground">Color: {item.color || "sin color"}</p>
         ) : null}
-        {item.canChangeColor && !locked ? (
+        {item.canChangeColor ? (
           <p className="text-xs text-muted-foreground">
             Imagen: {item.imagenManual ? "subida a mano" : "del catálogo"}
-            <button
-              type="button"
-              onClick={() => setImagenOpen(true)}
-              className="ml-2 underline hover:text-foreground"
-            >
-              Cambiar imagen
-            </button>
           </p>
         ) : null}
         <Badge
@@ -1049,29 +1028,6 @@ export function OrderItemManager({
         </DialogContent>
       </Dialog>
 
-      {item.canChangeColor ? (
-        <ChangeItemColorDialog
-          key={item.color}
-          open={colorOpen}
-          onOpenChange={setColorOpen}
-          orderItemId={item.id}
-          productName={item.productName}
-          currentColor={item.color}
-          partes={item.partesDef}
-          partesElegidas={item.partesElegidas}
-        />
-      ) : null}
-      {item.canChangeColor ? (
-        <ChangeItemImageDialog
-          key={item.imagenManual ?? "catalogo"}
-          open={imagenOpen}
-          onOpenChange={setImagenOpen}
-          orderItemId={item.id}
-          productName={item.productName}
-          imagenActual={item.imagenManual ?? item.productImageUrl}
-          imagenManual={item.imagenManual}
-        />
-      ) : null}
       <Dialog open={splitOpen} onOpenChange={(value) => (value ? null : setSplitOpen(false))}>
         <DialogContent className="max-w-md">
           <DialogHeader>

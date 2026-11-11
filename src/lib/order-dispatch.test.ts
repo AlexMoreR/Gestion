@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   bloqueaDeshacerFabricacion,
+  marcarPagadaAlRecoger,
   confirmationKey,
   dispatchBlocker,
   dispatchGaps,
@@ -230,5 +231,14 @@ describe("parseAllowedTransitions", () => {
     expect(parseAllowedTransitions("RETURNED")).toEqual(["PACKING", "CANCELLED"]);
     expect(parseAllowedTransitions("DELIVERED")).toEqual([]);
     expect(parseAllowedTransitions("CANCELLED")).toEqual([]);
+  });
+});
+
+describe("marcarPagadaAlRecoger", () => {
+  it("solo la pieza de $0 sin estado de pago (combo con el costo en otra pieza)", () => {
+    expect(marcarPagadaAlRecoger({ supplierPaymentStatus: null, purchaseCost: "0.00", quantity: 1 })).toBe(true);
+    expect(marcarPagadaAlRecoger({ supplierPaymentStatus: "PENDING", purchaseCost: "580000.00", quantity: 1 })).toBe(false);
+    expect(marcarPagadaAlRecoger({ supplierPaymentStatus: null, purchaseCost: "580000.00", quantity: 1 })).toBe(false);
+    expect(marcarPagadaAlRecoger({ supplierPaymentStatus: "PENDING", purchaseCost: "0.00", quantity: 1 })).toBe(false);
   });
 });

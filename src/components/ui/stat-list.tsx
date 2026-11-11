@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +14,8 @@ export type StatItem = {
   // Si se entrega, la celda es un botón (por ejemplo para filtrar); active la marca como elegida.
   onClick?: () => void;
   active?: boolean;
+  // Si se entrega, la celda es un enlace (por ejemplo al desglose).
+  href?: string;
 };
 
 // Color del valor: solo verde/rojo aportan significado; el resto queda neutro.
@@ -44,21 +47,17 @@ export function StatList({ items, className }: { items: StatItem[]; className?: 
     >
       {items.map((item) => {
         const Icon = item.icon;
-        const Cell = item.onClick ? "button" : "div";
-        return (
-          <Cell
-            key={item.label}
-            {...(item.onClick ? { type: "button" as const, onClick: item.onClick, "aria-pressed": Boolean(item.active) } : {})}
-            className={cn(
-              "flex items-center justify-between gap-3 px-4 py-3 text-left md:flex-1",
-              item.onClick && "cursor-pointer transition-colors hover:bg-muted/60",
-              item.active && "bg-muted",
-            )}
-          >
+        const cellClass = cn(
+          "flex items-center justify-between gap-3 px-4 py-3 text-left md:flex-1",
+          (item.onClick || item.href) && "cursor-pointer transition-colors hover:bg-muted/60",
+          item.active && "bg-muted",
+        );
+        const content = (
+          <>
             <div className="flex min-w-0 items-center gap-2.5">
               <Icon className={cn("h-4 w-4 shrink-0", iconToneClass(item.tone))} />
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">{item.label}</p>
+                <p className="text-sm font-medium leading-tight text-foreground">{item.label}</p>
                 {item.helper ? (
                   <p className="text-[11px] text-muted-foreground">{item.helper}</p>
                 ) : null}
@@ -67,6 +66,23 @@ export function StatList({ items, className }: { items: StatItem[]; className?: 
             <span className={cn("shrink-0 text-sm font-semibold", valueToneClass(item.tone))}>
               {item.value}
             </span>
+          </>
+        );
+        if (item.href) {
+          return (
+            <Link key={item.label} href={item.href} className={cellClass}>
+              {content}
+            </Link>
+          );
+        }
+        const Cell = item.onClick ? "button" : "div";
+        return (
+          <Cell
+            key={item.label}
+            {...(item.onClick ? { type: "button" as const, onClick: item.onClick, "aria-pressed": Boolean(item.active) } : {})}
+            className={cellClass}
+          >
+            {content}
           </Cell>
         );
       })}

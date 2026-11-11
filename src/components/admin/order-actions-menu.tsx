@@ -11,6 +11,9 @@ import {
 import { adminUpdateOrderItemsFulfillmentAction } from "@/app/actions/order-item-actions";
 import { Button } from "@/components/ui/button";
 import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-field";
+import { ChangeItemColorDialog } from "@/components/admin/change-item-color-dialog";
+import { ChangeItemImageDialog } from "@/components/admin/change-item-image-dialog";
+import type { ParteElegida, ParteParaCotizar } from "@/lib/product-parts";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -52,6 +55,13 @@ type OrderEditItem = {
   code: string | null;
   quantity: number;
   fulfillmentMode: "STOCK" | "MANUFACTURE" | "MIXED";
+  /** Color e imagen de la línea: se cambian desde este cuadro (cada uno se guarda con su propio botón). */
+  color?: string;
+  canChangeColor?: boolean;
+  imagenManual?: string | null;
+  imagenCatalogo?: string | null;
+  partesDef?: ParteParaCotizar[];
+  partesElegidas?: ParteElegida[];
 };
 
 type OrderActionsMenuProps = {
@@ -105,6 +115,16 @@ export function OrderActionsMenu({
   const [modes, setModes] = useState<Record<string, "STOCK" | "MANUFACTURE">>({});
   // Fecha de la orden dentro del modal (controlada).
   const [date, setDate] = useState(orderDate);
+  // Producto cuyo cuadro de color o de imagen está abierto (encima de "Editar orden").
+  // Se guarda el valor al abrir: al guardarse uno nuevo el cuadro se cierra solo.
+  const [colorAbierto, setColorAbierto] = useState<{ id: string; color: string } | null>(null);
+  const [imagenAbierta, setImagenAbierta] = useState<{ id: string; imagen: string | null } | null>(null);
+  const colorItem = items.find((item) => item.id === colorAbierto?.id && (item.color ?? "") === colorAbierto.color);
+  const imagenItem = items.find(
+    (item) => item.id === imagenAbierta?.id && (item.imagenManual ?? null) === imagenAbierta.imagen,
+  );
+  const selectClass =
+    "h-9 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
 
   const openEdit = () => {
     setModes(
@@ -309,7 +329,7 @@ export function OrderActionsMenu({
       </Dialog>
 
       <Dialog open={editOpen} onOpenChange={(open) => (open ? null : setEditOpen(false))}>
-        <DialogContent className="max-h-[88vh] max-w-lg overflow-y-auto">
+        <DialogContent className="max-h-[88vh] max-w-2xl overflow-x-hidden overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar orden</DialogTitle>
           </DialogHeader>
@@ -331,22 +351,70 @@ export function OrderActionsMenu({
                 className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
               />
               <p className="text-xs text-muted-foreground">
-                Tambien actualiza la fecha de los cobros de la venta para que concuerden.
+                También actualiza la fecha de los cobros de la venta para que concuerden.
               </p>
               <MotivoRetroactivoField fecha={date} fechaOriginal={orderDate} className="mt-2" />
             </div>
+
+            {items.length > 1 ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <label htmlFor="order-edit-all" className="text-sm font-medium text-foreground">
+                  Cambiar todos a:
+                </label>
+                <select
+                  id="order-edit-all"
+                  value=""
+                  onChange={(event) => {
+                    if (!event.target.value) return;
+                    const mode = event.target.value === "MANUFACTURE" ? "MANUFACTURE" : "STOCK";
+                    setModes(Object.fromEntries(items.map((item) => [item.id, mode])));
+                  }}
+                  className={`${selectClass} w-full sm:w-auto`}
+                >
+                  <option value="">Elegir estado</option>
+                  <option value="STOCK">Stock</option>
+                  <option value="MANUFACTURE">Fabricación</option>
+                </select>
+              </div>
+            ) : null}
 
             <div className="space-y-2">
               {items.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-border p-2.5"
+                  className="flex flex-col gap-2 rounded-lg border border-border p-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                 >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="break-words text-sm font-medium text-foreground">{item.name}</p>
+                    <p className="text-xs text-muted-foreground">
                       {item.code ? `${item.code} · ` : ""}x{item.quantity}
                     </p>
+                    {item.color || item.canChangeColor ? (
+                      <p className="break-words text-xs text-muted-foreground">
+                        Color: {item.color || "sin color"}
+                        {item.canChangeColor ? (
+                          <button
+                            type="button"
+                            onClick={() => setColorAbierto({ id: item.id, color: item.color ?? "" })}
+                            className="ml-2 underline hover:text-foreground"
+                          >
+                            Cambiar color
+                          </button>
+                        ) : null}
+                      </p>
+                    ) : null}
+                    {item.canChangeColor ? (
+                      <p className="text-xs text-muted-foreground">
+                        Imagen: {item.imagenManual ? "subida a mano" : "del catálogo"}
+                        <button
+                          type="button"
+                          onClick={() => setImagenAbierta({ id: item.id, imagen: item.imagenManual ?? null })}
+                          className="ml-2 underline hover:text-foreground"
+                        >
+                          Cambiar imagen
+                        </button>
+                      </p>
+                    ) : null}
                   </div>
                   <input type="hidden" name="orderItemId" value={item.id} />
                   <select
@@ -358,7 +426,8 @@ export function OrderActionsMenu({
                         [item.id]: event.target.value === "MANUFACTURE" ? "MANUFACTURE" : "STOCK",
                       }))
                     }
-                    className="h-8 shrink-0 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                    aria-label={`Estado de ${item.name}`}
+                    className={`${selectClass} w-full shrink-0 sm:w-auto`}
                   >
                     <option value="STOCK">Stock</option>
                     <option value="MANUFACTURE">Fabricación</option>
@@ -377,6 +446,30 @@ export function OrderActionsMenu({
               </Button>
             </DialogFooter>
           </form>
+          {/* Fuera del <form> de arriba: cada uno guarda con su propio formulario. */}
+          {colorItem?.canChangeColor ? (
+            <ChangeItemColorDialog
+              key={colorItem.id}
+              open
+              onOpenChange={(open) => (open ? null : setColorAbierto(null))}
+              orderItemId={colorItem.id}
+              productName={colorItem.name}
+              currentColor={colorItem.color ?? ""}
+              partes={colorItem.partesDef}
+              partesElegidas={colorItem.partesElegidas}
+            />
+          ) : null}
+          {imagenItem?.canChangeColor ? (
+            <ChangeItemImageDialog
+              key={imagenItem.id}
+              open
+              onOpenChange={(open) => (open ? null : setImagenAbierta(null))}
+              orderItemId={imagenItem.id}
+              productName={imagenItem.name}
+              imagenActual={imagenItem.imagenManual ?? imagenItem.imagenCatalogo ?? null}
+              imagenManual={imagenItem.imagenManual ?? null}
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
     </>

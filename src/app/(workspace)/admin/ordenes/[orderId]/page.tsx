@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, BadgeDollarSign, CalendarClock, TrendingUp, Wallet } from "lucide-react";
+import { StatList, type StatItem } from "@/components/ui/stat-list";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AddShippingLegDialog } from "@/components/admin/add-shipping-leg-dialog";
@@ -11,7 +12,7 @@ import { EmbalajeFotosCard, gruposEmbalaje } from "@/components/admin/embalaje-f
 import { OrderNotesCard } from "@/components/admin/order-notes-card";
 import { DispatchEstimateCard, type CambioFechaView } from "@/components/admin/dispatch-estimate-card";
 import { colombiaDateTimeInput, todayInColombia } from "@/lib/colombia-time";
-import { estadoDeEntrega, PREFIJO_CAMBIO_FECHA } from "@/lib/delivery-tracking";
+import { estadoDeEntrega, peorDe, PREFIJO_CAMBIO_FECHA } from "@/lib/delivery-tracking";
 import { OrderReversalsCard } from "@/components/admin/order-reversals-card";
 import { OrderReturnCard } from "@/components/admin/order-return-card";
 import { OrderReturnDialog, type ReturnDispatchOption } from "@/components/admin/order-return-dialog";
@@ -791,6 +792,40 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       historial: historialDe(dispatch.code),
     }));
 
+  // Franja de arriba (mismo diseño que Cotizaciones): Total, Saldo por cobrar, Valor ganado (solo admin) y Entrega prometida.
+  const entregaPrometida = peorDe(
+    dispatchEstimates.flatMap((d) => (d.estado && d.estado.tipo !== "SIN_FECHA" ? [d.estado] : [])),
+  )?.peor;
+  const saldoPorCobrar = shipmentLookup?.collect.saleBalance ?? 0;
+  const headerStats: StatItem[] = [
+    { label: "Total", value: formatMoney(Number(order.total), currency), icon: BadgeDollarSign },
+    ...(order.sale
+      ? [
+          saldoPorCobrar > 0
+            ? { label: "Saldo por cobrar", value: formatMoney(saldoPorCobrar, currency), icon: Wallet }
+            : { label: "Saldo por cobrar", value: "Pagado", icon: Wallet, tone: "success" as const },
+        ]
+      : []),
+    ...(!isPurchase && session.user.role === "ADMIN"
+      ? [
+          {
+            label: "Valor ganado",
+            value: formatMoney(earnedValue, currency),
+            icon: TrendingUp,
+            tone: "success" as const,
+            helper: "Ver desglose →",
+            href: `/admin/ordenes/${order.id}/ganancia`,
+          },
+        ]
+      : []),
+    {
+      label: "Entrega prometida",
+      value: entregaPrometida ? entregaPrometida.etiqueta : "Sin fecha",
+      icon: CalendarClock,
+      tone: entregaPrometida?.tipo === "ATRASADO" ? ("danger" as const) : undefined,
+    },
+  ];
+
   let manufacturingCards: ManufacturingCard[] = [];
   // OF sin recibir para el cuadro "Cancelar orden" (no se cancelan solas).
   let cancelOpenOfs: { code: string; supplierName: string; products: string; href: string }[] = [];
@@ -970,12 +1005,18 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             openOfs={cancelOpenOfs}
             hasActiveDispatch={Boolean(cancelBlock(order.dispatches))}
             hasPayments={hasPayments(order.sale)}
-            items={order.items.map((item) => ({
+            items={order.items.map((item, index) => ({
               id: item.id,
               name: item.product.name,
               code: item.product.code,
               quantity: item.quantity,
               fulfillmentMode: item.fulfillmentMode,
+              color: orderItemsData[index].color,
+              canChangeColor: orderItemsData[index].canChangeColor,
+              imagenManual: orderItemsData[index].imagenManual,
+              imagenCatalogo: orderItemsData[index].productImageUrl,
+              partesDef: orderItemsData[index].partesDef,
+              partesElegidas: orderItemsData[index].partesElegidas,
             }))}
           />
           {returnOptions.length > 0 ? (
@@ -1047,40 +1088,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         />
       ) : null}
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-border bg-card/95 py-2">
-          <CardContent className="space-y-0.5">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Total</p>
-            <p className="text-lg font-semibold text-foreground">{formatMoney(Number(order.total), currency)}</p>
-          </CardContent>
-        </Card>
-        {!isPurchase && (
-          <Link
-            href={`/admin/ordenes/${order.id}/ganancia`}
-            className="rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Card className="h-full cursor-pointer border-border bg-card/95 py-2 transition-colors hover:border-emerald-500/40 hover:bg-emerald-500/5">
-              <CardContent className="space-y-0.5">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Valor ganado</p>
-                <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">{formatMoney(earnedValue, currency)}</p>
-                <p className="text-[10px] text-muted-foreground">Ver desglose →</p>
-              </CardContent>
-            </Card>
-          </Link>
-        )}
-        <Card className="border-border bg-card/95 py-2">
-          <CardContent className="space-y-0.5">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Produccion</p>
-            <p className="text-lg font-semibold text-foreground">{order.productionJobs.length}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border bg-card/95 py-2">
-          <CardContent className="space-y-0.5">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Despachos</p>
-            <p className="text-lg font-semibold text-foreground">{order.dispatches.length}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <StatList items={headerStats} />
 
       <div className="grid gap-4 xl:grid-cols-[1.4fr_0.9fr]">
         <div className="space-y-3">

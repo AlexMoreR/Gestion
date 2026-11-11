@@ -122,6 +122,16 @@ export function dispatchBlocker(
   return null;
 }
 
+// Al recoger, una pieza de $0 (ej. combo con el costo en otra pieza) no tiene cargo ni estado de pago:
+// se marca pagada para que quede Recogida. No crea movimientos de plata.
+export function marcarPagadaAlRecoger(item: {
+  supplierPaymentStatus: string | null;
+  purchaseCost: unknown;
+  quantity: number;
+}): boolean {
+  return item.supplierPaymentStatus === null && Number(item.purchaseCost) * item.quantity === 0;
+}
+
 // Deshacer la fabricación se bloquea si el producto está pagado o Recogido (misma regla de la
 // pantalla: estado de pago + foto). Una pieza de $0 de un combo no tiene estado de pago.
 export function bloqueaDeshacerFabricacion(item: {
