@@ -12,6 +12,8 @@ import { seguimientoDeOrden } from "@/lib/delivery-tracking";
 import { createPrismaInventoryRepository } from "@/modules/inventory/infrastructure/prisma-inventory-repository";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
+import { responsableDeEtapa } from "@/lib/order-list-view";
+import { listAssignableStaff } from "@/modules/equipo/infrastructure/prisma-team-repository";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -33,7 +35,7 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
   const repository = createPrismaInventoryRepository();
-  const [orders, currency, productStocks, bundleProducts, productSupplierRows, allSuppliers] =
+  const [orders, currency, productStocks, bundleProducts, productSupplierRows, allSuppliers, staff] =
     await Promise.all([
     prisma.order.findMany({
       orderBy: { createdAt: "desc" },
@@ -49,14 +51,25 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
         },
         // Para los chips de entrega y fabricación (seguimientoDeOrden).
         dispatches: {
-          select: { id: true, status: true, estimatedDeliveryAt: true, deliveredAt: true, items: { select: { orderItemId: true } } },
+          select: {
+            id: true,
+            status: true,
+            estimatedDeliveryAt: true,
+            deliveredAt: true,
+            items: { select: { orderItemId: true } },
+            // Responsable en la lista: la transportadora del despacho en camino.
+            carrierName: true,
+            carrierSupplier: { select: { name: true } },
+          },
         },
         // Para la etiqueta de devolución (la misma del detalle).
         returns: {
           where: { annulledAt: null },
           select: { dispatchId: true, closedAt: true, annulledAt: true, items: { select: { orderItemId: true, quantity: true } } },
         },
-        manufacturingOrders: { select: { supplierId: true, estimatedDeliveryAt: true, receivedAt: true } },
+        manufacturingOrders: {
+          select: { supplierId: true, estimatedDeliveryAt: true, receivedAt: true, supplier: { select: { name: true } } },
+        },
         items: {
           select: {
             id: true,
@@ -109,6 +122,8 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
+    // Personas para asignar la orden desde la fila (sin las que ya salieron del equipo).
+    listAssignableStaff(),
   ]);
 
   // Productos con la entrega deshecha por orden (etiqueta "Entregado parcial"); solo las líneas reversadas.
@@ -203,6 +218,27 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
         ? order.createdBy?.name || order.createdBy?.email || "—"
         : order.client?.name || order.client?.email || "—",
       assignedToName: order.assignedTo?.name ?? order.assignedTo?.email ?? null,
+      responsable: isPurchase
+        ? null
+        : responsableDeEtapa({
+            status: order.status,
+            asignada: order.assignedTo?.name ?? order.assignedTo?.email ?? null,
+            proveedoras: [
+              ...new Set(order.manufacturingOrders.filter((of) => !of.receivedAt).map((of) => of.supplier.name)),
+            ],
+            transportadoras: [
+              ...new Set(
+                order.dispatches
+                  .filter((d) => d.status === "PENDING" || d.status === "PACKING" || d.status === "SHIPPED")
+                  .flatMap((d) => {
+                    const nombre = d.carrierSupplier?.name ?? d.carrierName;
+                    return nombre ? [nombre] : [];
+                  }),
+              ),
+            ],
+          }),
+      // Botón de la fila: con productos de fabricación sin confirmar la siguiente acción es "Fabricar".
+      porFabricar: order.items.some((item) => item.fulfillmentMode !== "STOCK" && !item.confirmedSupplierId),
       total: Number(order.total),
       status: order.status,
       createdAt: orderDate.toLocaleDateString("es-CO"),
@@ -261,6 +297,7 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
         currency={currency}
         stats={stats}
         returnedCount={returnedCount}
+        staff={staff}
         orders={rows}
         purchaseProducts={[
           ...productStocks.map((stock) => ({

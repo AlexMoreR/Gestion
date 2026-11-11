@@ -141,7 +141,7 @@ const despachoVivo = (status: string) => status !== "CANCELLED" && status !== "R
 const esDeFabricacion = (item: { confirmedSupplierId: string | null; fulfillmentMode: string }) =>
   Boolean(item.confirmedSupplierId) && item.fulfillmentMode !== "STOCK";
 
-function peorDe(estados: EstadoEntrega[]): SeguimientoParte | null {
+export function peorDe(estados: EstadoEntrega[]): SeguimientoParte | null {
   if (estados.length === 0) return null;
   const peor = estados.reduce((a, b) => {
     const ga = GRAVEDAD.indexOf(a.tipo);

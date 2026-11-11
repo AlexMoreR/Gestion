@@ -10,6 +10,9 @@ export type StatItem = {
   tone?: StatTone;
   // Texto secundario opcional (ej. "12% de margen"); se muestra pequeno bajo la etiqueta y baja de linea si no cabe.
   helper?: string;
+  // Si se entrega, la celda es un botón (por ejemplo para filtrar); active la marca como elegida.
+  onClick?: () => void;
+  active?: boolean;
 };
 
 // Color del valor: solo verde/rojo aportan significado; el resto queda neutro.
@@ -41,8 +44,17 @@ export function StatList({ items, className }: { items: StatItem[]; className?: 
     >
       {items.map((item) => {
         const Icon = item.icon;
+        const Cell = item.onClick ? "button" : "div";
         return (
-          <div key={item.label} className="flex items-center justify-between gap-3 px-4 py-3 md:flex-1">
+          <Cell
+            key={item.label}
+            {...(item.onClick ? { type: "button" as const, onClick: item.onClick, "aria-pressed": Boolean(item.active) } : {})}
+            className={cn(
+              "flex items-center justify-between gap-3 px-4 py-3 text-left md:flex-1",
+              item.onClick && "cursor-pointer transition-colors hover:bg-muted/60",
+              item.active && "bg-muted",
+            )}
+          >
             <div className="flex min-w-0 items-center gap-2.5">
               <Icon className={cn("h-4 w-4 shrink-0", iconToneClass(item.tone))} />
               <div className="min-w-0">
@@ -55,7 +67,7 @@ export function StatList({ items, className }: { items: StatItem[]; className?: 
             <span className={cn("shrink-0 text-sm font-semibold", valueToneClass(item.tone))}>
               {item.value}
             </span>
-          </div>
+          </Cell>
         );
       })}
     </div>

@@ -172,6 +172,19 @@ export async function isRetiredUser(userId: string): Promise<boolean> {
   }
 }
 
+// Personas a las que se les puede asignar una orden: ADMIN/EMPLEADO que no han salido del equipo.
+export async function listAssignableStaff(): Promise<{ id: string; name: string }[]> {
+  const users = await prisma.user.findMany({
+    where: { role: { in: ["ADMIN", "EMPLEADO"] } },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, email: true, teamMember: { select: { endDate: true } } },
+  });
+  const hoy = todayInBogota();
+  return users
+    .filter((user) => !user.teamMember || teamStatus({ endDate: toDay(user.teamMember.endDate) }, hoy) !== "RETIRADO")
+    .map((user) => ({ id: user.id, name: user.name?.trim() || user.email }));
+}
+
 // Fichas del equipo listas para la nomina, comisiones y asignaciones. Si la tabla todavia no
 // existe o falla la lectura, devuelve [] para no tumbar la nomina (queda como antes).
 export async function loadTeamMembers(repository: TeamRepository = createPrismaTeamRepository()): Promise<TeamMember[]> {

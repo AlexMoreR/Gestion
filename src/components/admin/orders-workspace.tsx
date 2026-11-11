@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpRight, CheckCircle2, Undo2, ClipboardList, Clock, Factory, MoreHorizontal, Pencil, ShoppingCart, StickyNote, X } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CalendarClock, Factory, MessageSquareText, MoreHorizontal, PackageCheck, Pencil, ShoppingCart, Undo2, X } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { StatList } from "@/components/ui/stat-list";
@@ -25,6 +25,17 @@ import { displayCode } from "@/lib/code-display";
 import { formatNoteCount } from "@/lib/order-notes";
 import type { SeguimientoOrden, TipoEstadoEntrega } from "@/lib/delivery-tracking";
 import { DeliveryStateChip } from "@/components/admin/delivery-state-chip";
+import { adminAssignOrderAction } from "@/app/actions/orders-actions";
+import {
+  alertasDeOrden,
+  coincideVista,
+  compararPorUrgencia,
+  nombrePropio,
+  ordenCerrada,
+  siguienteAccion,
+  type ResponsableEtapa,
+  type VistaOrdenes,
+} from "@/lib/order-list-view";
 
 type PurchaseProductOption = {
   id: string;
@@ -56,6 +67,10 @@ type OrderRow = {
   devolucion: "DEVUELTA" | "PARCIAL" | "FALTA_REGISTRAR" | null;
   // Peor estado de entrega y de fabricación; null en las compras.
   seguimiento: SeguimientoOrden | null;
+  // Quién debe mover la orden según la etapa (responsableDeEtapa); null = nadie.
+  responsable: ResponsableEtapa | null;
+  // Tiene productos de fabricación sin confirmar (la siguiente acción es "Fabricar").
+  porFabricar: boolean;
 };
 
 const SEGUIMIENTO_OPCIONES: { value: TipoEstadoEntrega; label: string }[] = [
@@ -73,18 +88,83 @@ function coincideSeguimiento(order: OrderRow, tipo: TipoEstadoEntrega): boolean 
   return s?.entrega?.peor.tipo === tipo || s?.fabricacion?.peor.tipo === tipo;
 }
 
-// Chips «Entrega: …» y «Fabricación: …»; sin ninguno, «—».
-function SeguimientoChips({ order }: { order: OrderRow }) {
-  const entrega = order.seguimiento?.entrega?.peor;
-  const fabricacion = order.seguimiento?.fabricacion?.peor;
-  if (!entrega && !fabricacion) return <span className="text-sm text-muted-foreground">—</span>;
+// Una sola etiqueta, la más urgente («Entrega: …» o «Fabricación: …»); las demás al pasar el mouse.
+function AlertaChip({ order }: { order: OrderRow }) {
+  const alertas = alertasDeOrden(order.seguimiento);
+  if (alertas.length === 0) return <span className="text-sm text-muted-foreground">—</span>;
+  const chip = (alerta: (typeof alertas)[number]) => (
+    <DeliveryStateChip estado={{ ...alerta.estado, etiqueta: `${alerta.parte}: ${alerta.estado.etiqueta}` }} />
+  );
+  if (alertas.length === 1) return chip(alertas[0]);
   return (
-    <div className="flex flex-wrap gap-1">
-      {entrega ? <DeliveryStateChip estado={{ ...entrega, etiqueta: `Entrega: ${entrega.etiqueta}` }} /> : null}
-      {fabricacion ? (
-        <DeliveryStateChip estado={{ ...fabricacion, etiqueta: `Fabricación: ${fabricacion.etiqueta}` }} />
-      ) : null}
-    </div>
+    <Popover>
+      <PopoverTrigger
+        openOnHover
+        delay={150}
+        aria-label={`Ver las ${alertas.length} alertas de ${displayCode(order.code)}`}
+        className="inline-flex items-center gap-1 rounded-md text-left"
+      >
+        {chip(alertas[0])}
+        <span className="text-[11px] font-medium text-muted-foreground">+{alertas.length - 1}</span>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="gap-1.5">
+        {alertas.map((alerta, index) => (
+          <div key={index}>{chip(alerta)}</div>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// Quién debe mover la orden; sin nadie, «Sin asignar» en rojo y se asigna eligiendo a la persona.
+function ResponsableCell({ order, staff }: { order: OrderRow; staff: { id: string; name: string }[] }) {
+  if (order.kind === "purchase" || ordenCerrada(order.status)) {
+    return <span className="text-sm text-muted-foreground">—</span>;
+  }
+  if (order.responsable) {
+    return (
+      <div className="leading-tight">
+        <p className="text-sm text-foreground">{order.responsable.nombre}</p>
+        {order.responsable.rol !== "Asignada" ? (
+          <p className="text-[11px] text-muted-foreground">{order.responsable.rol}</p>
+        ) : null}
+      </div>
+    );
+  }
+  return (
+    <form action={adminAssignOrderAction}>
+      <input type="hidden" name="orderId" value={order.id} />
+      <input type="hidden" name="returnTo" value="/admin/ordenes" />
+      <select
+        name="assignedToId"
+        defaultValue=""
+        aria-label={`Asignar responsable de ${displayCode(order.code)}`}
+        onChange={(event) => {
+          if (event.currentTarget.value) event.currentTarget.form?.requestSubmit();
+        }}
+        className="h-7 max-w-32 rounded-md border border-red-500/40 bg-red-500/10 px-1.5 text-xs font-medium text-red-600 outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 dark:text-red-400"
+      >
+        <option value="" disabled>
+          Sin asignar
+        </option>
+        {staff.map((person) => (
+          <option key={person.id} value={person.id}>
+            {person.name}
+          </option>
+        ))}
+      </select>
+    </form>
+  );
+}
+
+// Botón con lo siguiente que hay que hacer; abre el detalle, donde se hace la acción.
+function NextActionButton({ order }: { order: OrderRow }) {
+  const label = siguienteAccion(order);
+  if (!label) return null;
+  return (
+    <Link href={`/admin/ordenes/${order.id}`} className={`${buttonVariants({ variant: "outline", size: "sm" })} whitespace-nowrap px-2 text-xs`}>
+      {label}
+    </Link>
   );
 }
 
@@ -105,11 +185,6 @@ function currentMonthRange(): { from: string; to: string } {
   return { from: fmt(first), to: fmt(last) };
 }
 
-// Dia de hoy (hora local).
-function todayLocalDay(): string {
-  return localDay(new Date().toISOString());
-}
-
 type OrdersWorkspaceProps = {
   orders: OrderRow[];
   returnedCount: number;
@@ -128,6 +203,7 @@ type OrdersWorkspaceProps = {
     { childId: string; name: string; code: string | null; quantity: number; thumbnailUrl: string }[]
   >;
   purchaseSuppliers: { id: string; name: string }[];
+  staff: { id: string; name: string }[];
 };
 
 function StatusBadge({ order }: { order: OrderRow }) {
@@ -154,18 +230,15 @@ function NoteIndicator({ order }: { order: OrderRow }) {
       <PopoverTrigger
         openOnHover
         delay={150}
-        aria-label={`Última nota de ${displayCode(order.code)} (${order.notesCount} ${order.notesCount === 1 ? "nota" : "notas"})`}
-        className="relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+        aria-label={`Notas internas de ${displayCode(order.code)} (${order.notesCount} ${order.notesCount === 1 ? "nota" : "notas"})`}
+        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-primary hover:bg-muted"
       >
-        <StickyNote className="h-4 w-4" />
-        <span
-          aria-hidden
-          className="absolute -top-1 -right-1.5 flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-4 text-primary-foreground"
-        >
-          {formatNoteCount(order.notesCount)}
-        </span>
+        <MessageSquareText className="h-4 w-4" />
       </PopoverTrigger>
       <PopoverContent align="start" className="gap-1">
+        <p className="text-xs font-semibold text-foreground">
+          Notas internas ({formatNoteCount(order.notesCount)}) · última:
+        </p>
         <p className="whitespace-pre-wrap break-words text-sm text-foreground">{note.text}</p>
         <p className="text-xs text-muted-foreground">
           {note.by} · {note.date}
@@ -241,36 +314,37 @@ export function OrdersWorkspace({
   purchaseSuppliersByProduct,
   purchaseComboComponents,
   purchaseSuppliers,
+  staff,
 }: OrdersWorkspaceProps) {
   const defaultRange = React.useMemo(() => currentMonthRange(), []);
   const [fromDate, setFromDate] = React.useState(defaultRange.from);
   const [toDate, setToDate] = React.useState(defaultRange.to);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [seguimiento, setSeguimiento] = React.useState<TipoEstadoEntrega | "">("");
-  const todayDay = React.useMemo(() => todayLocalDay(), []);
+  // Tarjeta elegida arriba (Atrasadas, Listas...): filtra la tabla; otra vez la misma la quita.
+  const [vista, setVista] = React.useState<VistaOrdenes | null>(null);
 
+  // Las ordenes abiertas salen siempre, sea cual sea el rango; el rango solo filtra las cerradas/canceladas.
   const filtered = orders.filter((order) => {
-    // Con filtro de seguimiento se ignora el rango de fechas (igual que al buscar), para no esconder atrasos viejos.
-    if (seguimiento) return coincideSeguimiento(order, seguimiento);
-    // Las ordenes activas (no cerradas ni canceladas) se "arrastran" al mes
-    // actual: se filtran por hoy (no por su fecha real), asi las que siguen en
-    // produccion/proceso quedan visibles hasta cerrarse. Las cerradas/canceladas
-    // usan su fecha real.
-    const isActive = order.status !== "COMPLETED" && order.status !== "CANCELLED";
-    const day = isActive ? todayDay : localDay(order.orderDateISO);
+    if (!ordenCerrada(order.status)) return true;
+    const day = localDay(order.orderDateISO);
     if (fromDate && day < fromDate) return false;
     if (toDate && day > toDate) return false;
     return true;
   });
 
-  // Al buscar, la busqueda abarca TODAS las ordenes (el filtro de fechas solo
-  // aplica por defecto, cuando no hay texto de busqueda).
-  // El filtro de seguimiento se sigue aplicando aunque se busque.
-  const tableData = searchQuery.trim()
-    ? seguimiento
-      ? orders.filter((order) => coincideSeguimiento(order, seguimiento))
-      : orders
-    : filtered;
+  // Al buscar, con Seguimiento o con una tarjeta se ven TODAS las ordenes (sin el rango de fechas);
+  // los filtros se suman. Por defecto van por urgencia; las columnas se pueden seguir ordenando.
+  let visibles = searchQuery.trim() || seguimiento || vista ? orders : filtered;
+  if (seguimiento) visibles = visibles.filter((order) => coincideSeguimiento(order, seguimiento));
+  if (vista) visibles = visibles.filter((order) => coincideVista(order, vista));
+  const tableData = [...visibles].sort(compararPorUrgencia);
+
+  const cuentas = React.useMemo(() => {
+    const contar = (v: VistaOrdenes) => orders.filter((order) => coincideVista(order, v)).length;
+    return { ATRASADAS: contar("ATRASADAS"), LISTAS: contar("LISTAS"), VENCEN: contar("VENCEN"), PRODUCCION: contar("PRODUCCION") };
+  }, [orders]);
+  const elegir = (v: VistaOrdenes) => setVista((actual) => (actual === v ? null : v));
 
   const dateFilter = (
     <div className="flex flex-wrap items-center gap-1.5 sm:ml-auto">
@@ -289,8 +363,8 @@ export function OrdersWorkspace({
           ))}
         </select>
       </label>
-      {/* Con seguimiento el rango no aplica: se oculta para que no parezca que falló. */}
-      {seguimiento ? (
+      {/* Con seguimiento o una tarjeta el rango no aplica: se oculta para que no parezca que falló. */}
+      {seguimiento || vista ? (
         <span className="text-xs text-muted-foreground">Todas las fechas</span>
       ) : (
         <DateRangePicker
@@ -305,7 +379,7 @@ export function OrdersWorkspace({
           placeholder="Rango de fechas"
         />
       )}
-      {!seguimiento && (fromDate || toDate) ? (
+      {!seguimiento && !vista && (fromDate || toDate) ? (
         <Button
           type="button"
           variant="ghost"
@@ -341,26 +415,29 @@ export function OrdersWorkspace({
       cell: ({ row }) => <NoteIndicator order={row.original} />,
     },
     {
-      accessorKey: "code",
+      // Orden y venta en la misma celda (el buscador encuentra las dos).
+      id: "code",
+      accessorFn: (order) => `${order.code} ${order.saleCode}`,
       header: "Orden",
-      cell: ({ row }) => <span className="text-sm font-semibold text-foreground">{displayCode(row.original.code)}</span>,
-    },
-    {
-      accessorKey: "saleCode",
-      header: "Venta",
-      cell: ({ row }) => <span className="text-sm text-foreground">{displayCode(row.original.saleCode)}</span>,
+      cell: ({ row }) => (
+        <div className="leading-tight">
+          <p className="whitespace-nowrap text-sm font-semibold text-foreground">{displayCode(row.original.code)}</p>
+          <p className="text-xs text-muted-foreground">{displayCode(row.original.saleCode)}</p>
+        </div>
+      ),
     },
     {
       accessorKey: "clientName",
       header: "Cliente",
-      cell: ({ row }) => <span className="text-sm text-foreground">{row.original.clientName}</span>,
+      cell: ({ row }) => (
+        <span className="block min-w-32 text-sm text-foreground">{nombrePropio(row.original.clientName)}</span>
+      ),
     },
     {
-      accessorKey: "assignedToName",
+      id: "responsable",
+      accessorFn: (order) => order.responsable?.nombre ?? "",
       header: "Responsable",
-      cell: ({ row }) => (
-        <span className="text-sm text-foreground">{row.original.assignedToName ?? "Sin asignar"}</span>
-      ),
+      cell: ({ row }) => <ResponsableCell order={row.original} staff={staff} />,
     },
     {
       accessorKey: "status",
@@ -371,7 +448,7 @@ export function OrdersWorkspace({
       id: "seguimiento",
       header: "Entrega y fabricación",
       enableSorting: false,
-      cell: ({ row }) => <SeguimientoChips order={row.original} />,
+      cell: ({ row }) => <AlertaChip order={row.original} />,
     },
     {
       accessorKey: "total",
@@ -389,32 +466,34 @@ export function OrdersWorkspace({
       id: "acciones",
       header: "",
       cell: ({ row }) => (
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-1">
+          <NextActionButton order={row.original} />
           <RowActions order={row.original} />
         </div>
       ),
     },
   ];
 
+  // Celular: cliente, estado, alerta, total y el botón de la siguiente acción.
   const renderMobileCard = (order: OrderRow) => (
-    <article className="space-y-2.5 rounded-xl border border-border bg-card p-3">
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between gap-2">
-          <p className="flex items-center gap-1 text-sm font-semibold text-foreground">
-            {displayCode(order.code)}
+    <article className="space-y-2 rounded-xl border border-border bg-card p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-foreground">{nombrePropio(order.clientName)}</p>
+          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+            {displayCode(order.code)} · {displayCode(order.saleCode)}
             <NoteIndicator order={order} />
           </p>
-          <StatusBadge order={order} />
         </div>
-        <p className="text-sm text-foreground">{displayCode(order.saleCode)}</p>
-        <p className="text-sm text-foreground">{order.clientName}</p>
-        <p className="text-xs text-muted-foreground">{order.assignedToName ?? "Sin asignar"}</p>
-        <SeguimientoChips order={order} />
-        <p className="text-sm font-semibold text-foreground">{formatMoney(order.total, currency)}</p>
-        <p className="text-xs text-muted-foreground">{order.createdAt}</p>
+        <StatusBadge order={order} />
       </div>
-      <div className="flex items-center justify-end">
-        <RowActions order={order} />
+      <AlertaChip order={order} />
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-foreground">{formatMoney(order.total, currency)}</p>
+        <div className="flex items-center gap-1">
+          <NextActionButton order={order} />
+          <RowActions order={order} />
+        </div>
       </div>
     </article>
   );
@@ -433,23 +512,35 @@ export function OrdersWorkspace({
         </div>
       </div>
 
-      <StatList
-        items={[
-          { label: "Ordenes", value: String(stats.ordersCount), icon: ClipboardList },
-          { label: "Activas", value: String(stats.activeCount), icon: Clock },
-          { label: "Produccion", value: String(stats.productionCount), icon: Factory },
-          { label: "Cerradas", value: String(stats.completedCount), icon: CheckCircle2 },
-        ]}
-      />
+      <div className="space-y-1.5">
+        <StatList
+          items={[
+            { label: "Atrasadas", value: String(cuentas.ATRASADAS), icon: AlertTriangle, tone: "danger", onClick: () => elegir("ATRASADAS"), active: vista === "ATRASADAS" },
+            { label: "Listas para despacho", value: String(cuentas.LISTAS), icon: PackageCheck, onClick: () => elegir("LISTAS"), active: vista === "LISTAS" },
+            { label: "Vencen hoy o mañana", value: String(cuentas.VENCEN), icon: CalendarClock, onClick: () => elegir("VENCEN"), active: vista === "VENCEN" },
+            { label: "En producción", value: String(cuentas.PRODUCCION), icon: Factory, onClick: () => elegir("PRODUCCION"), active: vista === "PRODUCCION" },
+          ]}
+        />
+        <p className="flex flex-wrap items-center gap-x-2 px-1 text-xs text-muted-foreground">
+          <span>
+            {stats.ordersCount} órdenes en la lista · {stats.completedCount} cerradas
+          </span>
+          {vista ? (
+            <button type="button" onClick={() => setVista(null)} className="font-medium text-primary hover:underline">
+              Ver todas
+            </button>
+          ) : null}
+        </p>
+      </div>
 
       <DataTable
         data={tableData}
         columns={columns}
         searchPlaceholder="Buscar orden, venta, cliente o nota"
         onSearchChange={setSearchQuery}
-        emptyMessage={seguimiento ? "Ninguna orden con ese seguimiento." : "Aun no hay ordenes."}
+        emptyMessage={vista ? "Ninguna orden en esa tarjeta." : seguimiento ? "Ninguna orden con ese seguimiento." : "Aun no hay ordenes."}
         pageSize={12}
-        minWidth="min-w-[1180px]"
+        minWidth="min-w-[980px]"
         toolbar={dateFilter}
         searchFirst
         searchGrow
