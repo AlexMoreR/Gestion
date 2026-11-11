@@ -24,6 +24,7 @@ import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
 import { TeamSwitcher } from "@/components/team-switcher";
 import type { AdminModuleKey } from "@/lib/admin-module-access";
+import { agruparMenu } from "@/lib/sidebar-groups";
 import {
   Sidebar,
   SidebarContent,
@@ -103,7 +104,7 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
 
     if (canSeeConfig) {
       navMain.push({
-        title: "Configuracion",
+        title: "Configuración",
         url: "/admin/configuracion",
         icon: Settings,
         isActive: pathname.startsWith("/admin/configuracion"),
@@ -123,7 +124,7 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
 
     if (adminModuleAccess.categories) {
       navMain.push({
-        title: "Categorias",
+        title: "Categorías",
         url: "/admin/categorias",
         icon: Tag,
         isActive: pathname.startsWith("/admin/categorias"),
@@ -198,7 +199,7 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
 
     if (operationsItems.length > 0) {
       navMain.push({
-        title: "Ordenes",
+        title: "Órdenes",
         url: operationsItems[0].url,
         icon: ClipboardList,
         isActive: isAdminOrdersRoute || isAdminProductionRoute || isAdminDispatchesRoute,
@@ -299,13 +300,32 @@ export function AppSidebar({ pathname, brandName, adminModuleAccess, user, ...pr
     adminModuleAccess.config_business ||
     adminModuleAccess.config_permissions;
 
+  // Dashboard solo se marca si ninguna otra opción lo está (antes salía marcado también en Gastos, Transporte...).
+  navMain[0].isActive =
+    pathname === dashboardHref ||
+    (pathname.startsWith(`${dashboardHref}/`) && !navMain.slice(1).some((item) => item.isActive));
+
+  // Grupos del menú (orden pedido por el dueño, nov-2026). Solo agrupa lo que este usuario ya ve.
+  const sections = agruparMenu(navMain, [
+    { urls: [dashboardHref] },
+    { title: "Ventas", icon: BadgeDollarSign, urls: ["/admin/cotizaciones", "/admin/ventas", "/admin/clientes"] },
+    {
+      title: "Operación",
+      icon: ClipboardList,
+      urls: ["/admin/ordenes", "/admin/produccion", "/admin/despachos", "/admin/transporte", "/admin/inventario", "/admin/proveedores"],
+    },
+    { title: "Catálogo", icon: Package, urls: ["/admin/productos", "/admin/categorias", "/admin/dudas"] },
+    { title: "Finanzas", icon: Landmark, urls: ["/admin/balances", "/admin/gastos", "/admin/comisiones"] },
+    { title: "Ajustes", icon: Settings, urls: ["/admin/equipo", "/admin/marketplace", "/admin/configuracion"] },
+  ]);
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="p-1.5">
         <TeamSwitcher teams={teams} />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navMain} />
+        <NavMain sections={sections} storageKey={`menu-grupos-abiertos:${user.email ?? ""}`} />
       </SidebarContent>
       <SidebarFooter className="p-1.5">
         <NavUser
