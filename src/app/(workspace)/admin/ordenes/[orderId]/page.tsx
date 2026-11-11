@@ -15,7 +15,7 @@ import { colombiaDateTimeInput, todayInColombia } from "@/lib/colombia-time";
 import { estadoDeEntrega, peorDe, PREFIJO_CAMBIO_FECHA } from "@/lib/delivery-tracking";
 import { OrderReversalsCard } from "@/components/admin/order-reversals-card";
 import { OrderReturnCard } from "@/components/admin/order-return-card";
-import { OrderReturnDialog, type ReturnDispatchOption } from "@/components/admin/order-return-dialog";
+import { type ReturnDispatchOption } from "@/components/admin/order-return-dialog";
 import {
   estaAbierta,
   estadoDevolucionDeOrden,
@@ -973,15 +973,17 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           partesDef: orderItemsData[index].partesDef,
           partesElegidas: orderItemsData[index].partesElegidas,
         }))}
+        returnDialog={
+          returnOptions.length > 0
+            ? {
+                orderId: order.id,
+                options: returnOptions,
+                carriers: carriers.map((carrier) => ({ id: carrier.id, name: carrier.name })),
+                today: todayInColombia(),
+              }
+            : null
+        }
       />
-      {returnOptions.length > 0 ? (
-        <OrderReturnDialog
-          orderId={order.id}
-          options={returnOptions}
-          carriers={carriers.map((carrier) => ({ id: carrier.id, name: carrier.name }))}
-          today={todayInColombia()}
-        />
-      ) : null}
     </>
   );
 

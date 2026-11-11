@@ -75,19 +75,30 @@ function checkFileList(list: FileList | null): string {
   return "";
 }
 
+export type OrderReturnDialogProps = {
+  orderId: string;
+  options: ReturnDispatchOption[];
+  carriers: { id: string; name: string }[];
+  today: string;
+};
+
 // «Registrar devolución» del detalle de la orden. Solo registra: no toca dinero ni inventario.
 export function OrderReturnDialog({
   orderId,
   options,
   carriers,
   today,
-}: {
-  orderId: string;
-  options: ReturnDispatchOption[];
-  carriers: { id: string; name: string }[];
-  today: string;
+  open: openProp,
+  onOpenChange,
+}: OrderReturnDialogProps & {
+  /** Abierto desde fuera (menú ⋯ de la orden): sin botón propio. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const controlled = openProp !== undefined;
+  const open = controlled ? openProp : openState;
+  const setOpen = (value: boolean) => (controlled ? onOpenChange?.(value) : setOpenState(value));
   const [dispatchId, setDispatchId] = useState(options.length === 1 ? options[0].id : "");
   const [qty, setQty] = useState<Record<string, string>>({});
   const [reason, setReason] = useState("");
@@ -120,10 +131,12 @@ export function OrderReturnDialog({
 
   return (
     <>
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
-        <PackageX className="h-3.5 w-3.5" />
-        Registrar devolución
-      </Button>
+      {controlled ? null : (
+        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+          <PackageX className="h-3.5 w-3.5" />
+          Registrar devolución
+        </Button>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[88vh] max-w-lg overflow-y-auto">
           <DialogHeader>

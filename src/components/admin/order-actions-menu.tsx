@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, MoreHorizontal, PackageCheck, Pencil, RotateCcw, Wallet } from "lucide-react";
+import { AlertTriangle, MoreHorizontal, PackageCheck, PackageX, Pencil, RotateCcw, Wallet } from "lucide-react";
+import { OrderReturnDialog, type OrderReturnDialogProps } from "@/components/admin/order-return-dialog";
 import {
   adminCancelOrderAction,
   adminReactivateOrderAction,
@@ -83,6 +84,8 @@ type OrderActionsMenuProps = {
   hasPayments?: boolean;
   // "Cambiar forma de pago" (solo en ventas y con permiso de Ventas o Cotizaciones).
   paymentMethod?: ChangePaymentMethodProps | null;
+  // "Registrar devolución" (solo si la orden tiene algo por devolver).
+  returnDialog?: OrderReturnDialogProps | null;
 };
 
 const STATUS_ACTIONS: Partial<Record<OrderStatus, { status: OrderStatus; label: string }>> = {
@@ -103,8 +106,10 @@ export function OrderActionsMenu({
   hasActiveDispatch = false,
   hasPayments = false,
   paymentMethod = null,
+  returnDialog = null,
 }: OrderActionsMenuProps) {
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [returnOpen, setReturnOpen] = useState(false);
   const statusAction = STATUS_ACTIONS[status];
   const canCancel = status !== "CANCELLED" && (isPurchase || status !== "COMPLETED");
   const [editOpen, setEditOpen] = useState(false);
@@ -163,6 +168,12 @@ export function OrderActionsMenu({
               Cambiar forma de pago
             </DropdownMenuItem>
           ) : null}
+          {returnDialog ? (
+            <DropdownMenuItem onSelect={() => setReturnOpen(true)}>
+              <PackageX className="mr-2 h-4 w-4" />
+              Registrar devolución
+            </DropdownMenuItem>
+          ) : null}
           {statusAction ? (
             <form action={adminUpdateOrderStatusAction}>
               <input type="hidden" name="returnTo" value={returnTo} />
@@ -196,6 +207,7 @@ export function OrderActionsMenu({
       {paymentMethod ? (
         <ChangePaymentMethodDialog {...paymentMethod} open={paymentOpen} onOpenChange={setPaymentOpen} />
       ) : null}
+      {returnDialog ? <OrderReturnDialog {...returnDialog} open={returnOpen} onOpenChange={setReturnOpen} /> : null}
 
       <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
         <DialogContent className="max-h-[88vh] max-w-md overflow-y-auto">
@@ -266,7 +278,7 @@ export function OrderActionsMenu({
               <p className="flex items-start gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>
-                  {CANCEL_BLOCK_DISPATCH} (botón junto a este menú; si aún no salió, cancela el despacho primero).
+                  {CANCEL_BLOCK_DISPATCH} (en este mismo menú; si aún no salió, cancela el despacho primero).
                 </span>
               </p>
             ) : null}
