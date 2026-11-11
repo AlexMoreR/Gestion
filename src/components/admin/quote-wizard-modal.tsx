@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState, useTransition, type FocusEvent } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition, type FocusEvent, type MouseEvent, type RefObject } from "react";
+import { useFormStatus } from "react-dom";
 import {
   AlignLeft,
   Boxes,
@@ -167,6 +168,38 @@ const centrarCampoEnCelular = (event: FocusEvent<HTMLElement>) => {
   }, 300);
 };
 
+// Va dentro del <form>: mientras se guarda dice "Generando..." y queda bloqueado (no se crean dos).
+function QuoteSubmitButton({
+  label,
+  pendingLabel,
+  disabled,
+  sendingRef,
+  onClick,
+}: {
+  label: string;
+  pendingLabel: string;
+  disabled: boolean;
+  sendingRef: RefObject<boolean>;
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+}) {
+  const { pending } = useFormStatus();
+  // Al terminar (también con error) se puede volver a intentar.
+  useEffect(() => {
+    if (!pending) sendingRef.current = false;
+  }, [pending, sendingRef]);
+  return (
+    <Button
+      type="button"
+      size="lg"
+      onClick={onClick}
+      className="h-11 flex-1 sm:h-9 sm:w-auto sm:flex-none"
+      disabled={disabled || pending}
+    >
+      {pending ? pendingLabel : label}
+    </Button>
+  );
+}
+
 export function QuoteWizardModal({
   open,
   onClose,
@@ -253,7 +286,10 @@ export function QuoteWizardModal({
   const [draftImageUrl, setDraftImageUrl] = useState("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [productFormError, setProductFormError] = useState("");
-  const [isManualQuoteSubmit, setIsManualQuoteSubmit] = useState(false);
+  // Refs y no estado: requestSubmit() corre onSubmit en el mismo clic, antes de que React pinte el estado nuevo
+  // (con estado, el primer clic en "Generar cotizacion" no enviaba). sendingQuoteRef evita guardar dos veces.
+  const manualQuoteSubmitRef = useRef(false);
+  const sendingQuoteRef = useRef(false);
   // Debajo de 1024 px las lineas se ven como tarjetas; el selector de colores va solo en la vista activa.
   const vistaTarjetas = useIsMobile(1024);
   // Linea (uid) o combo (comboKey) que se esta editando en el panel; null = agregando.
@@ -1012,11 +1048,12 @@ export function QuoteWizardModal({
             action={action}
             className="flex min-h-0 flex-1 flex-col space-y-4 sm:block"
             onSubmit={(event) => {
-              if (step !== 3 || !isManualQuoteSubmit) {
+              if (step !== 3 || !manualQuoteSubmitRef.current || sendingQuoteRef.current) {
                 event.preventDefault();
                 return;
               }
-              setIsManualQuoteSubmit(false);
+              manualQuoteSubmitRef.current = false;
+              sendingQuoteRef.current = true;
             }}
           >
             <input type="hidden" name="returnTo" value={returnTo} />
@@ -1517,7 +1554,7 @@ export function QuoteWizardModal({
                     type="button"
                     size="lg"
                     onClick={() => {
-                      setIsManualQuoteSubmit(false);
+                      manualQuoteSubmitRef.current = false;
                       setStep(2);
                     }}
                     className="h-11 w-full sm:h-9 sm:w-auto"
@@ -1755,21 +1792,19 @@ export function QuoteWizardModal({
                   <Button type="button" variant="outline" size="lg" className="h-11 flex-1 sm:h-9 sm:flex-none" onClick={() => setStep(2)}>
                     Atras
                   </Button>
-                  <Button
-                    type="button"
-                    size="lg"
+                  <QuoteSubmitButton
+                    label={submitLabel}
+                    pendingLabel={isEdit ? "Guardando..." : "Generando..."}
+                    sendingRef={sendingQuoteRef}
                     onClick={(event) => {
                       // Combos y productos con partes no se guardan sin color (misma regla del paso a venta).
                       setRevisarColores(true);
                       if (faltanColoresLista.length > 0) return;
-                      setIsManualQuoteSubmit(true);
+                      manualQuoteSubmitRef.current = true;
                       event.currentTarget.form?.requestSubmit();
                     }}
-                    className="h-11 flex-1 sm:h-9 sm:w-auto sm:flex-none"
                     disabled={!isClientResolved || lines.length === 0}
-                  >
-                    {submitLabel}
-                  </Button>
+                  />
                 </div>
                 </div>
               </div>
