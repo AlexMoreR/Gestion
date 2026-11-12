@@ -15,6 +15,7 @@ import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { displayCode } from "@/lib/code-display";
 import { mensajeCambioColorOF } from "@/lib/color-change";
+import { AVISO_PRODUCTO_CANCELADO, textoAvisoOF } from "@/lib/sale-item-cancel";
 import type { EstadoEntrega } from "@/lib/delivery-tracking";
 import type { ManufacturingPaymentSummary } from "@/lib/manufacturing-orders";
 
@@ -184,18 +185,21 @@ export function OrderManufacturingTab({ cards, currency, returnTo, brandName }: 
                     <p className="flex items-start gap-1.5 text-xs font-medium text-amber-800 dark:text-amber-300">
                       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                       <span>
-                        Cambio de color sin ver ({aviso.fecha}): {aviso.producto} {aviso.colorViejo} → {aviso.colorNuevo}
+                        {aviso.colorNuevo === AVISO_PRODUCTO_CANCELADO ? "Producto cancelado, sin ver" : "Cambio de color sin ver"} ({aviso.fecha}): {textoAvisoOF(aviso)}
                       </span>
                     </p>
                     <a
                       href={`https://wa.me/${card.supplierWhatsApp}?text=${encodeURIComponent(
-                        mensajeCambioColorOF({ code: card.code, ...aviso, url: card.url }),
+                        aviso.colorNuevo === AVISO_PRODUCTO_CANCELADO
+                          ? `${displayCode(card.code)}: ${textoAvisoOF(aviso)}
+${card.url}`
+                          : mensajeCambioColorOF({ code: card.code, ...aviso, url: card.url }),
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 text-xs font-semibold text-white hover:bg-emerald-700"
                     >
-                      <MessageCircle className="h-3.5 w-3.5" /> Avisar cambio de color por WhatsApp
+                      <MessageCircle className="h-3.5 w-3.5" /> {aviso.colorNuevo === AVISO_PRODUCTO_CANCELADO ? "Avisar por WhatsApp" : "Avisar cambio de color por WhatsApp"}
                     </a>
                   </div>
                 ))}

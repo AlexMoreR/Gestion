@@ -4,7 +4,7 @@ import { lineasSinColor } from "./quote-item-meta";
 
 // Una cotización con venta no puede cambiar sus líneas: antes se borraban y se rehacían.
 export const COTIZACION_CON_VENTA_LINEAS =
-  "Esta cotización ya tiene venta: sus productos no se pueden cambiar. Puedes editar las notas y el estado.";
+  "Esta cotización ya tiene venta: sus productos no se pueden cambiar, pero puedes agregar productos nuevos. Para quitar uno, cancélalo desde la orden (menú ⋯ → Editar orden → Cancelar producto).";
 
 type Linea = {
   productId: string;
@@ -46,6 +46,22 @@ export function mismasLineas(a: Linea[], b: Linea[]): boolean {
   const ka = a.map(clave).sort();
   const kb = b.map(clave).sort();
   return ka.every((k, i) => k === kb[i]);
+}
+
+/**
+ * Cotización con venta: las líneas que ya tenía quedan iguales y solo se pueden sumar otras.
+ * Devuelve las nuevas (las que sobran después de emparejar cada línea vieja con una igual) o
+ * null si alguna línea vieja cambió o se quitó.
+ */
+export function lineasAgregadas<T extends Linea>(existentes: Linea[], nuevas: T[]): T[] | null {
+  const pendientes = nuevas.map((linea) => ({ linea, clave: clave(linea), usada: false }));
+  for (const vieja of existentes) {
+    const k = clave(vieja);
+    const par = pendientes.find((p) => !p.usada && p.clave === k);
+    if (!par) return null;
+    par.usada = true;
+  }
+  return pendientes.filter((p) => !p.usada).map((p) => p.linea);
 }
 
 // Reparte un monto (descuento o costo adicional del combo) entre las lineas en

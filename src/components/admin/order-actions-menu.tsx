@@ -7,8 +7,10 @@ import { OrderReturnDialog, type OrderReturnDialogProps } from "@/components/adm
 import {
   adminCancelOrderAction,
   adminReactivateOrderAction,
+  adminCancelSaleItemAction,
   adminUpdateOrderStatusAction,
 } from "@/app/actions/orders-actions";
+import { useFormStatus } from "react-dom";
 import { adminUpdateOrderItemsFulfillmentAction } from "@/app/actions/order-item-actions";
 import { Button } from "@/components/ui/button";
 import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-field";
@@ -67,7 +69,18 @@ type OrderEditItem = {
   imagenCatalogo?: string | null;
   partesDef?: ParteParaCotizar[];
   partesElegidas?: ParteElegida[];
+  /** Venta abierta: se puede cancelar este producto (el servidor revisa lo demás). */
+  canCancel?: boolean;
 };
+
+function CancelItemSubmit({ disabled }: { disabled: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="destructive" disabled={pending || disabled}>
+      {pending ? "Cancelando..." : "Cancelar producto"}
+    </Button>
+  );
+}
 
 type OrderActionsMenuProps = {
   orderId: string;
@@ -110,6 +123,9 @@ export function OrderActionsMenu({
 }: OrderActionsMenuProps) {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
+  // Producto a cancelar (cuadro encima de "Editar orden").
+  const [cancelItem, setCancelItem] = useState<OrderEditItem | null>(null);
+  const [cancelItemReason, setCancelItemReason] = useState("");
   const statusAction = STATUS_ACTIONS[status];
   const canCancel = status !== "CANCELLED" && (isPurchase || status !== "COMPLETED");
   const [editOpen, setEditOpen] = useState(false);
@@ -433,6 +449,20 @@ export function OrderActionsMenu({
                         ) : null}
                       </p>
                     ) : null}
+                    {item.canCancel ? (
+                      <p className="text-xs">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCancelItemReason("");
+                            setCancelItem(item);
+                          }}
+                          className="text-destructive underline hover:opacity-80"
+                        >
+                          Cancelar producto
+                        </button>
+                      </p>
+                    ) : null}
                     {item.canChangeColor ? (
                       <p className="text-xs text-muted-foreground">
                         Imagen: {item.imagenManual ? "subida a mano" : "del catálogo"}
@@ -477,6 +507,47 @@ export function OrderActionsMenu({
             </DialogFooter>
           </form>
           {/* Fuera del <form> de arriba: cada uno guarda con su propio formulario. */}
+          <Dialog open={cancelItem !== null} onOpenChange={(open) => (open ? null : setCancelItem(null))}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Cancelar producto</DialogTitle>
+              </DialogHeader>
+              <form action={adminCancelSaleItemAction} className="space-y-3">
+                <input type="hidden" name="orderItemId" value={cancelItem?.id ?? ""} />
+                <p className="text-sm text-foreground">
+                  <span className="font-medium">{cancelItem?.name}</span>
+                  {cancelItem ? ` · x${cancelItem.quantity}` : ""}
+                </p>
+                <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+                  <li>Sale de la orden y queda «Cancelado» (tachado) en la cotización y la factura. Si es parte de un combo, se cancela el combo completo.</li>
+                  <li>El total de la venta baja lo que valía. Balances y la comisión se recalculan solos.</li>
+                  <li>Si ya estaba confirmado: el de stock vuelve al inventario; el de fabricación se le quita a la proveedora y su OF muestra el aviso.</li>
+                  <li>Los abonos no se tocan: si la clienta pagó de más, queda «saldo a favor».</li>
+                </ul>
+                <div className="space-y-1.5">
+                  <label htmlFor="cancel-item-reason" className="text-sm font-medium text-foreground">
+                    Motivo
+                  </label>
+                  <Textarea
+                    id="cancel-item-reason"
+                    name="motivo"
+                    rows={2}
+                    maxLength={300}
+                    value={cancelItemReason}
+                    onChange={(event) => setCancelItemReason(event.target.value)}
+                    placeholder="Ej.: la clienta ya no lo quiere y lo cambia por otro"
+                    required
+                  />
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setCancelItem(null)}>
+                    Volver
+                  </Button>
+                  <CancelItemSubmit disabled={cancelItemReason.trim().length < 3} />
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
           {colorItem?.canChangeColor ? (
             <ChangeItemColorDialog
               key={colorItem.id}

@@ -5,7 +5,8 @@ import { hasAnyModuleAccess } from "@/lib/admin-module-access";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { COTIZACION_CON_VENTA_LINEAS, errorAlGuardarLineas, mismasLineas } from "@/lib/quote-lines";
+import { COTIZACION_CON_VENTA_LINEAS, errorAlGuardarLineas, lineasAgregadas, mismasLineas } from "@/lib/quote-lines";
+import { agregarLineasAVenta } from "@/lib/sale-add-lines.server";
 import { partesPorProducto } from "@/lib/product-parts.server";
 import { displayCode } from "@/lib/code-display";
 import { Prisma } from "@prisma/client";
@@ -582,11 +583,86 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
   // Con venta, las líneas quedan fijas (las notas y el estado sí cambian).
   const quoteWithSale = await prisma.quote.findUnique({
     where: { id: parsed.data.quoteId },
-    select: { sale: { select: { id: true } }, items: true },
+    select: {
+      code: true,
+      sale: {
+        select: {
+          id: true,
+          code: true,
+          status: true,
+          total: true,
+          subtotal: true,
+          downPaymentAmount: true,
+          order: { select: { id: true, code: true, status: true, subtotal: true } },
+        },
+      },
+      items: true,
+    },
   });
   const linesLocked = Boolean(quoteWithSale?.sale);
-  // El servidor no confía en la pantalla: color y descuento se revisan antes de escribir nada.
-  if (!linesLocked) {
+
+  // Línea como se guarda (la imagen con colores se pasa aparte: no cuenta para comparar líneas).
+  const normalizar = (item: (typeof parsed.data.items)[number], imagenColoresUrl: string) => {
+    const product = productMap.get(item.productId);
+    if (!product) {
+      throw new Error("Producto invalido");
+    }
+    const supplierId = item.supplierId?.trim() ? item.supplierId.trim() : null;
+    if (supplierId) {
+      const allowed = product.suppliers.some((relation) => relation.supplierId === supplierId);
+      if (!allowed) {
+        throw new Error("Proveedor invalido para producto");
+      }
+    }
+    const lineTotal = calculateQuoteLineTotal(item.quantity, item.unitPrice, item.additionalCost ?? 0, item.discount ?? 0);
+    const notes = stringifyQuoteItemMeta({
+      color: item.color ?? "",
+      description: item.notes ?? "",
+      additionalCost: item.additionalCost ?? 0,
+      discount: item.discount ?? 0,
+      imageUrl: item.imageUrl ?? "",
+      comboKey: item.comboKey ?? "",
+      comboName: item.comboName ?? "",
+      comboCode: item.comboCode ?? "",
+      comboQuantity: item.comboQuantity ?? 0,
+      colorCodigo: item.colorCodigo ?? "",
+      colorMaterial: item.colorMaterial ?? "",
+      colorFotoUrl: item.colorFotoUrl ?? "",
+      partes: item.partes,
+      imagenColoresUrl,
+    });
+    return {
+      productId: item.productId,
+      supplierId,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      fulfillmentMode: item.fulfillmentMode,
+      lineTotal,
+      notes,
+    };
+  };
+
+  // Con venta, las líneas que ya tenía quedan iguales y solo se pueden sumar otras (nov-2026).
+  let indicesNuevos: number[] = [];
+  if (linesLocked) {
+    const previas = parsed.data.items.map((item) => normalizar(item, ""));
+    const nuevas = lineasAgregadas(quoteWithSale!.items, previas);
+    if (!nuevas) {
+      redirect(`${returnTo}?${new URLSearchParams({ error: COTIZACION_CON_VENTA_LINEAS }).toString()}`);
+    }
+    indicesNuevos = nuevas.map((linea) => previas.indexOf(linea));
+    const sale = quoteWithSale!.sale!;
+    const ordenCerrada = sale.order?.status === "COMPLETED" || sale.order?.status === "CANCELLED";
+    if (indicesNuevos.length > 0 && (sale.status === "CANCELLED" || ordenCerrada)) {
+      redirect(
+        `${returnTo}?${new URLSearchParams({ error: "La venta está cancelada o su orden ya se cerró: no se le pueden agregar productos." }).toString()}`,
+      );
+    }
+  }
+  // El servidor no confía en la pantalla: color y descuento se revisan antes de escribir nada
+  // (con venta, solo en las líneas nuevas).
+  const aRevisar = linesLocked ? indicesNuevos : parsed.data.items.map((_, index) => index);
+  if (aRevisar.length > 0) {
     const comboCodes = [...new Set(parsed.data.items.map((item) => item.comboCode?.trim() ?? "").filter(Boolean))];
     const combos = comboCodes.length
       ? await prisma.product.findMany({ where: { code: { in: comboCodes } }, select: { id: true, code: true, name: true } })
@@ -601,7 +677,8 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
       duenios.flatMap((duenio) => (duenio ? [duenio.id] : [])),
     );
     const error = errorAlGuardarLineas(
-      parsed.data.items.map((item, index) => {
+      aRevisar.map((index) => {
+        const item = parsed.data.items[index];
         const duenio = duenios[index];
         return {
           etiqueta: displayCode(item.comboCode || duenio?.code || "") || item.comboName || duenio?.name || "Producto",
@@ -667,72 +744,49 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
     redirect(`${returnTo}?error=Fecha+de+cotizacion+invalida`);
   }
 
-  // La imagen con colores solo se rehace si las líneas se van a guardar.
-  const imagenes = linesLocked ? parsed.data.items.map(() => "") : await imagenesDeLineas(parsed.data.items);
-
-  const normalizedItems = parsed.data.items.map((item, index) => {
-    const product = productMap.get(item.productId);
-    if (!product) {
-      throw new Error("Producto invalido");
-    }
-    const supplierId = item.supplierId?.trim() ? item.supplierId.trim() : null;
-    if (supplierId) {
-      const allowed = product.suppliers.some((relation) => relation.supplierId === supplierId);
-      if (!allowed) {
-        throw new Error("Proveedor invalido para producto");
-      }
-    }
-    const lineTotal = calculateQuoteLineTotal(
-      item.quantity,
-      item.unitPrice,
-      item.additionalCost ?? 0,
-      item.discount ?? 0,
-    );
-    const notes = stringifyQuoteItemMeta({
-      color: item.color ?? "",
-      description: item.notes ?? "",
-      additionalCost: item.additionalCost ?? 0,
-      discount: item.discount ?? 0,
-      imageUrl: item.imageUrl ?? "",
-      comboKey: item.comboKey ?? "",
-      comboName: item.comboName ?? "",
-      comboCode: item.comboCode ?? "",
-      comboQuantity: item.comboQuantity ?? 0,
-      colorCodigo: item.colorCodigo ?? "",
-      colorMaterial: item.colorMaterial ?? "",
-      colorFotoUrl: item.colorFotoUrl ?? "",
-      partes: item.partes,
-      imagenColoresUrl: imagenes[index],
-    });
-    return {
-      productId: item.productId,
-      supplierId,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      fulfillmentMode: item.fulfillmentMode,
-      lineTotal,
-      notes,
-    };
+  // La imagen con colores solo se rehace en las líneas que se van a guardar (con venta, las nuevas).
+  const aImagen = linesLocked ? indicesNuevos : parsed.data.items.map((_, index) => index);
+  const imagenesHechas = aImagen.length > 0 ? await imagenesDeLineas(aImagen.map((index) => parsed.data.items[index])) : [];
+  const imagenes = parsed.data.items.map((_, index) => {
+    const posicion = aImagen.indexOf(index);
+    return posicion >= 0 ? (imagenesHechas[posicion] ?? "") : "";
   });
+
+  const normalizedItems = parsed.data.items.map((item, index) => normalizar(item, imagenes[index]));
 
   const subtotal = Number(normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2));
   const total = subtotal;
 
-  if (linesLocked && !mismasLineas(quoteWithSale!.items, normalizedItems)) {
+  if (linesLocked && indicesNuevos.length === 0 && !mismasLineas(quoteWithSale!.items, normalizedItems)) {
     redirect(`${returnTo}?${new URLSearchParams({ error: COTIZACION_CON_VENTA_LINEAS }).toString()}`);
   }
 
   const beforeQuote = await quoteForLog(prisma, parsed.data.quoteId);
+  const datosCotizacion = {
+    clientId: resolvedClientId,
+    status: parsed.data.status,
+    notes: parsed.data.notes || null,
+    validUntil: validUntilDate,
+    ...(createdAtDate ? { createdAt: createdAtDate } : {}),
+  };
+  if (linesLocked && indicesNuevos.length > 0) {
+    const agregado = await agregarLineasAVenta({
+      quoteId: parsed.data.quoteId,
+      quoteCode: quoteWithSale!.code,
+      sale: quoteWithSale!.sale!,
+      lineas: indicesNuevos.map((index) => normalizedItems[index]),
+      datosCotizacion,
+    });
+    revalidatePath("/admin/cotizaciones");
+    revalidatePath("/admin/ventas");
+    revalidatePath("/admin/ordenes");
+    revalidatePath(returnTo);
+    redirect(`/admin/cotizaciones?${new URLSearchParams({ ok: agregado }).toString()}`);
+  }
   const updatedQuote = await prisma.quote.update({
     where: { id: parsed.data.quoteId },
     data: linesLocked
-      ? {
-          clientId: resolvedClientId,
-          status: parsed.data.status,
-          notes: parsed.data.notes || null,
-          validUntil: validUntilDate,
-          ...(createdAtDate ? { createdAt: createdAtDate } : {}),
-        }
+      ? datosCotizacion
       : {
       clientId: resolvedClientId,
       status: parsed.data.status,

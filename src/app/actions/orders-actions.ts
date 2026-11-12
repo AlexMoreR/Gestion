@@ -42,6 +42,15 @@ import {
 } from "@/lib/order-cancellation";
 import { missingDispatchItems } from "@/lib/order-dispatch";
 import { createSaleOrder, type CreateSaleOrderResult } from "@/lib/sale-order";
+import { anularVarias, bloqueoPorAbonos } from "@/lib/anulaciones";
+import {
+  AVISO_PRODUCTO_CANCELADO,
+  bloqueoCancelarProducto,
+  montoACancelar,
+  parseCancelItemReason,
+  saldoAFavor,
+} from "@/lib/sale-item-cancel";
+import { saleStatusForPaid } from "@/modules/ventas/domain/sale-paid-status";
 import { isRetiredUser } from "@/modules/equipo/infrastructure/prisma-team-repository";
 
 // Mismos mensajes de siempre del formulario de ventas.
@@ -945,4 +954,249 @@ export async function adminMoveOrderToCompletedAction(orderId: string): Promise<
   formData.set("status", "COMPLETED");
   formData.set("returnTo", `/admin/ordenes/${orderId}`);
   await adminUpdateOrderStatusAction(formData);
+}
+
+class CancelItemBlockedError extends Error {}
+
+const formatCop = (valor: number) => `$${Math.round(valor).toLocaleString("es-CO")}`;
+
+// Cancela un producto de una venta (nov-2026; un combo, todas sus piezas). La línea no se borra sin
+// copia: la de la cotización y la de la orden quedan en RegistroAnulado con el motivo. Si estaba
+// confirmada, se deshace sola (stock vuelve al inventario; fabricación sin recibir anula su cargo con la
+// proveedora y su producción, y la OF muestra el aviso). Baja el total de la cotización, la venta y la
+// orden; los abonos no se tocan (si sobra plata queda «saldo a favor»). Reglas en src/lib/sale-item-cancel.ts.
+export async function adminCancelSaleItemAction(formData: FormData): Promise<void> {
+  const createdById = await requireAdminSession();
+  const orderItemId = String(formData.get("orderItemId") ?? "").trim();
+  const item = orderItemId
+    ? await prisma.orderItem.findUnique({ where: { id: orderItemId }, select: { orderId: true } })
+    : null;
+  if (!item) redirect("/admin/ordenes?error=Producto+no+encontrado");
+  const back = orderDetailPath(item.orderId);
+  const motivo = parseCancelItemReason(formData.get("motivo"));
+  if (!motivo.ok) redirect(`${back}?error=${encodeURIComponent(motivo.error)}`);
+
+  const actor = await getActivityActor();
+  type Resultado =
+    | { error: string }
+    | { error: null; producto: string; monto: number; aFavor: number; proveedoras: string[] };
+  let result: Resultado;
+  try {
+    result = await prisma.$transaction(async (tx): Promise<Resultado> => {
+      const order = await tx.order.findUnique({
+        where: { id: item.orderId },
+        select: {
+          id: true,
+          code: true,
+          type: true,
+          status: true,
+          subtotal: true,
+          sale: {
+            select: { id: true, code: true, status: true, quoteId: true, total: true, subtotal: true, downPaymentAmount: true },
+          },
+          items: {
+            include: {
+              product: { select: { name: true } },
+              _count: { select: { photos: true, dispatchItems: true, reversals: true, returnItems: true } },
+            },
+          },
+          manufacturingOrders: {
+            select: { id: true, supplierId: true, receivedAt: true, supplier: { select: { name: true, displayName: true } } },
+          },
+          returns: { where: { closedAt: null, annulledAt: null }, select: { id: true } },
+        },
+      });
+      if (!order) return { error: "Orden no encontrada." };
+      const quoteItems = order.sale
+        ? await tx.quoteItem.findMany({
+            where: { quoteId: order.sale.quoteId },
+            include: { product: { select: { name: true, isBundle: true } } },
+          })
+        : [];
+      const lines = linesToRecolor(
+        orderItemId,
+        quoteItems.map((q) => ({ id: q.id, notes: q.notes, productName: q.product.name, isBundle: q.product.isBundle })),
+        order.items,
+      );
+      const piezas = order.items.filter((o) => lines?.orderItemIds.includes(o.id));
+      const lineasCotizacion = quoteItems.filter((q) => lines?.quoteItemIds.includes(q.id));
+      const recibidas = new Set(order.manufacturingOrders.filter((of) => of.receivedAt).map((of) => of.supplierId));
+      const bloqueo = bloqueoCancelarProducto({
+        esVenta: order.type === "SALE",
+        ordenEstado: order.status,
+        ventaEstado: order.sale?.status ?? null,
+        devolucionAbierta: order.returns.length > 0,
+        piezasOrden: order.items.length,
+        piezas: piezas.map((o) => ({
+          fulfillmentMode: o.fulfillmentMode,
+          despachos: o._count.dispatchItems,
+          devolucionesOReversas: o._count.reversals + o._count.returnItems,
+          fotos: o._count.photos,
+          supplierPaymentStatus: o.supplierPaymentStatus,
+          ofRecibida: Boolean(o.confirmedSupplierId && recibidas.has(o.confirmedSupplierId)),
+        })),
+      });
+      if (bloqueo || !order.sale) return { error: bloqueo ?? "Solo se cancelan productos de una orden de venta." };
+      const sale = order.sale;
+      const ids = piezas.map((o) => o.id);
+      const pagosProveedora = await tx.supplierLedgerEntry.count({ where: { orderItemId: { in: ids }, type: "PAYMENT" } });
+      if (pagosProveedora > 0) return { error: "Ya se le pagó a la proveedora por este producto: anula ese pago primero." };
+
+      const meta = parseQuoteItemMeta(lineasCotizacion[0]?.notes ?? piezas[0].notes);
+      const producto = meta.comboName || lineasCotizacion[0]?.product.name || piezas[0].product.name;
+      const monto = montoACancelar(lineasCotizacion, piezas);
+      const nuevoTotal = Math.max(Math.round((Number(sale.total) - monto) * 100) / 100, 0);
+      const pagado = Number(sale.downPaymentAmount);
+      const anulacion = {
+        motivo: `Canceló ${producto} de ${order.code}: ${motivo.value}`,
+        usuarioId: actor.id,
+        usuarioNombre: actor.name,
+      };
+      // OF a avisar: las de las piezas de fabricación confirmadas (antes de deshacer la confirmación).
+      const ofIds = ofsConCambioDeColor(piezas, order.manufacturingOrders);
+
+      // 1) Deshacer lo confirmado: stock vuelve al inventario; fabricación anula su producción y su cargo.
+      for (const pieza of piezas) {
+        if (pieza.fulfillmentMode === "STOCK") {
+          if (pieza.confirmedAt) {
+            await tx.inventoryMovement.create({
+              data: {
+                productId: pieza.productId,
+                type: "IN",
+                change: pieza.quantity,
+                note: `Producto cancelado en ${order.code}: vuelve al inventario`,
+                createdById,
+              },
+            });
+          }
+          continue;
+        }
+        const charges = await tx.supplierLedgerEntry.findMany({
+          where: { orderItemId: pieza.id, type: "CHARGE", dispatchId: null, inventoryMovementId: null },
+        });
+        const settled = await tx.supplierLedgerEntry.count({
+          where: { type: "PAYMENT", settlesEntryId: { in: charges.map((row) => row.id) } },
+        });
+        const blocked = bloqueoPorAbonos(settled);
+        if (blocked) throw new CancelItemBlockedError(blocked);
+        await anularVarias(tx, "ProductionJob", await tx.productionJob.findMany({ where: { orderItemId: pieza.id } }), anulacion);
+        await anularVarias(tx, "SupplierLedgerEntry", charges, {
+          ...anulacion,
+          codigo: (row) => (row.code as string | null) ?? order.code,
+        });
+      }
+
+      // 2) La línea de la orden y la de la cotización quedan copiadas con el motivo (y se quitan).
+      await anularVarias(
+        tx,
+        "OrderItem",
+        piezas.map(({ product, _count, ...fila }) => {
+          void _count;
+          return { ...fila, productName: product.name };
+        }),
+        { ...anulacion, codigo: () => order.code },
+      );
+      await anularVarias(
+        tx,
+        "QuoteItem",
+        lineasCotizacion.map(({ product, ...fila }) => ({ ...fila, productName: product.name, saleCode: sale.code })),
+        { ...anulacion, codigo: () => sale.code },
+      );
+
+      // 3) Totales: cotización, venta y orden bajan lo que valía el producto; el estado sale de lo pagado.
+      if (lineasCotizacion.length > 0) {
+        await tx.quote.update({
+          where: { id: sale.quoteId },
+          data: { subtotal: { decrement: monto }, total: { decrement: monto } },
+        });
+      }
+      await tx.sale.update({
+        where: { id: sale.id },
+        data: {
+          total: new Prisma.Decimal(nuevoTotal),
+          subtotal: new Prisma.Decimal(Math.max(Number(sale.subtotal) - monto, 0)),
+          status: saleStatusForPaid(pagado, nuevoTotal, sale.status),
+        },
+      });
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          total: new Prisma.Decimal(nuevoTotal),
+          subtotal: new Prisma.Decimal(Math.max(Number(order.subtotal) - monto, 0)),
+        },
+      });
+
+      // 4) Estado de la orden: sin producción vuelve a Liberada; si lo que queda ya está hecho, Lista para despacho.
+      if (order.status === "IN_PRODUCTION" && (await tx.productionJob.count({ where: { orderId: order.id } })) === 0) {
+        await tx.order.update({ where: { id: order.id }, data: { status: "RELEASED" } });
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId: order.id,
+            fromStatus: "IN_PRODUCTION",
+            toStatus: "RELEASED",
+            note: `Producto cancelado: ${producto}`,
+            changedById: createdById,
+          },
+        });
+      } else {
+        await syncOrderStatusAfterProduction(tx, order.id, createdById);
+      }
+
+      // 5) Aviso a la proveedora en su OF, nota de la orden y bitácora.
+      if (ofIds.length > 0) {
+        await tx.avisoColorOF.createMany({
+          data: ofIds.map((manufacturingOrderId) => ({
+            manufacturingOrderId,
+            producto,
+            colorViejo: meta.color.trim() || "sin color",
+            colorNuevo: AVISO_PRODUCTO_CANCELADO,
+            creadoPorId: actor.id,
+          })),
+        });
+      }
+      const aFavor = saldoAFavor(pagado, nuevoTotal);
+      const text = `Canceló ${producto} (${formatCop(monto)}). Motivo: ${motivo.value}. Total de la venta: ${formatCop(nuevoTotal)}${
+        aFavor > 0 ? ` · saldo a favor de la clienta: ${formatCop(aFavor)}` : ""
+      }`;
+      await tx.orderNote.create({ data: { orderId: order.id, text, createdById: actor.id } });
+      await logActivityTx(tx, actor, {
+        action: "UPDATE",
+        entityType: "ORDER",
+        entityId: order.id,
+        entityCode: order.code,
+        summary: `${text} (${sale.code})`,
+        before: {
+          ventaTotal: Number(sale.total),
+          ventaEstado: sale.status,
+          orderItemIds: ids,
+          quoteItemIds: lineasCotizacion.map((q) => q.id),
+        },
+        after: { ventaTotal: nuevoTotal, monto, motivo: motivo.value, avisoOFs: ofIds },
+      });
+      const proveedoras = order.manufacturingOrders
+        .filter((of) => ofIds.includes(of.id))
+        .map((of) => of.supplier.displayName || of.supplier.name);
+      return { error: null, producto, monto, aFavor, proveedoras };
+    });
+  } catch (error) {
+    if (error instanceof CancelItemBlockedError) redirect(`${back}?error=${encodeURIComponent(error.message)}`);
+    console.error("Failed to cancel sale item:", error);
+    redirect(`${back}?error=No+se+pudo+cancelar+el+producto`);
+  }
+  if (result.error !== null) redirect(`${back}?error=${encodeURIComponent(result.error)}`);
+
+  const ok = [
+    `${result.producto} cancelado. La venta bajó ${formatCop(result.monto)}`,
+    result.aFavor > 0 ? `La clienta queda con ${formatCop(result.aFavor)} a favor` : "",
+    result.proveedoras.length ? `Avísale a ${result.proveedoras.join(" y ")} en la pestaña Fabricación` : "",
+  ]
+    .filter(Boolean)
+    .join(". ");
+  revalidatePath("/admin/ordenes");
+  revalidatePath("/admin/cotizaciones");
+  revalidatePath("/admin/ventas");
+  revalidatePath("/admin/inventario");
+  revalidatePath("/admin/proveedores");
+  revalidatePath(back);
+  redirect(`${back}?ok=${encodeURIComponent(ok)}`);
 }

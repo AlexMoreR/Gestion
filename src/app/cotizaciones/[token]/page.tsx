@@ -45,6 +45,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ProductosCancelados } from "@/components/productos-cancelados";
+import { canceladasDeVenta } from "@/lib/lineas-canceladas.server";
 
 type PageProps = {
   params: Promise<{ token: string }>;
@@ -136,6 +138,9 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
   ]);
 
   if (!quote) notFound();
+  const canceladas = await canceladasDeVenta(
+    (await prisma.sale.findUnique({ where: { quoteId: quote.id }, select: { code: true } }))?.code,
+  );
 
   const hasCamillaCombo = quote.items.some((item) => isCamillaComboProduct(toComboCheckProduct(item.product)));
 
@@ -418,6 +423,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
               </TableBody>
             </Table>
       </div>
+      <ProductosCancelados lineas={canceladas} currency={currency} publico />
 
       {/* ─── OBSERVATIONS (table, mismo diseño que productos) ────────── */}
       <h2 className={isPdf ? "text-center text-[13px] font-bold uppercase tracking-widest text-slate-900" : "text-center text-base font-bold uppercase tracking-widest text-slate-900"}>

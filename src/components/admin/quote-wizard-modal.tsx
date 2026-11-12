@@ -260,6 +260,10 @@ export function QuoteWizardModal({
       comboQuantity: item.comboQuantity ?? 0,
     })),
   );
+  // Con venta, los productos que ya tenía quedan fijos (solo se agregan nuevos; quitar = cancelar desde la orden).
+  const [lineasFijas] = useState(() => new Set(tieneVenta ? lines.map((line) => line.uid) : []));
+  const esFija = (uid: string) => lineasFijas.has(uid);
+  const comboFijo = (comboKey: string) => lines.some((line) => line.comboKey === comboKey && esFija(line.uid));
   const [isResolvingClient, startResolvingClient] = useTransition();
 
   const [openProductModal, setOpenProductModal] = useState(false);
@@ -955,7 +959,7 @@ export function QuoteWizardModal({
             total={group.total}
             currency={currency}
             onEdit={
-              editable && !tieneVenta
+              editable && !comboFijo(group.key)
                 ? () =>
                     abrirEdicion(
                       lines.filter((line) => line.comboKey === group.key),
@@ -964,10 +968,10 @@ export function QuoteWizardModal({
                     )
                 : undefined
             }
-            onRemove={editable ? () => removeCombo(group.key) : undefined}
+            onRemove={editable && !comboFijo(group.key) ? () => removeCombo(group.key) : undefined}
             removeLabel="Quitar combo"
           >
-            {editable && vistaTarjetas && partesDef.length > 0 ? (
+            {editable && !comboFijo(group.key) && vistaTarjetas && partesDef.length > 0 ? (
               <PartesColorSelector
                 idPrefix={`combo-${group.key}`}
                 vistaProductId={duenioDeLinea(group.firstLine)?.id}
@@ -996,13 +1000,13 @@ export function QuoteWizardModal({
           total={line.quantity * line.unitPrice}
           currency={currency}
           onEdit={
-            editable && !tieneVenta
+            editable && !esFija(line.uid)
               ? () => abrirEdicion([line], product?.name || "Producto", product?.code || "")
               : undefined
           }
-          onRemove={editable ? () => removeLine(line.uid) : undefined}
+          onRemove={editable && !esFija(line.uid) ? () => removeLine(line.uid) : undefined}
         >
-          {editable && vistaTarjetas && partesDef.length > 0 ? (
+          {editable && !esFija(line.uid) && vistaTarjetas && partesDef.length > 0 ? (
             <PartesColorSelector
               idPrefix={`linea-${line.uid}`}
               vistaProductId={line.productId}
@@ -1278,6 +1282,8 @@ export function QuoteWizardModal({
                     type="checkbox"
                     className="h-4 w-4 accent-[var(--primary)]"
                     checked={wholesaleMode}
+                    // Con venta cambiaría el precio de los productos que ya estaban.
+                    disabled={tieneVenta}
                     onChange={(event) => applyWholesaleMode(event.target.checked)}
                   />
                   <span className="font-medium text-foreground">Precios al por mayor</span>
@@ -1360,7 +1366,7 @@ export function QuoteWizardModal({
                               </td>
                               <td className="px-3 py-2">
                                 <div className="flex items-center gap-1.5">
-                                  {!tieneVenta ? (
+                                  {!comboFijo(group.key) ? (
                                     <Button
                                       type="button"
                                       variant="outline"
@@ -1378,19 +1384,21 @@ export function QuoteWizardModal({
                                       <Pencil className="h-4 w-4" />
                                     </Button>
                                   ) : null}
-                                  <Button
-                                    type="button"
-                                    variant="destructive"
-                                    size="icon"
-                                    onClick={() => removeCombo(group.key)}
-                                    aria-label="Quitar combo"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                                  {!comboFijo(group.key) ? (
+                                    <Button
+                                      type="button"
+                                      variant="destructive"
+                                      size="icon"
+                                      onClick={() => removeCombo(group.key)}
+                                      aria-label="Quitar combo"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  ) : null}
                                 </div>
                               </td>
                             </tr>
-                            {!vistaTarjetas && partesDeLinea(group.firstLine).length > 0 ? (
+                            {!vistaTarjetas && !comboFijo(group.key) && partesDeLinea(group.firstLine).length > 0 ? (
                               <tr className="bg-muted/30">
                                 <td colSpan={7} className="px-3 pb-3 pt-1">
                                   <PartesColorSelector
@@ -1447,7 +1455,7 @@ export function QuoteWizardModal({
                                   </td>
                                   <td className="px-3 py-2">
                                     <div className="flex items-center gap-1.5">
-                                      {!tieneVenta ? (
+                                      {!esFija(line.uid) ? (
                                         <Button
                                           type="button"
                                           variant="outline"
@@ -1461,19 +1469,21 @@ export function QuoteWizardModal({
                                           <Pencil className="h-4 w-4" />
                                         </Button>
                                       ) : null}
-                                      <Button
-                                        type="button"
-                                        variant="destructive"
-                                        size="icon"
-                                        onClick={() => removeLine(line.uid)}
-                                        aria-label="Quitar producto"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
+                                      {!esFija(line.uid) ? (
+                                        <Button
+                                          type="button"
+                                          variant="destructive"
+                                          size="icon"
+                                          onClick={() => removeLine(line.uid)}
+                                          aria-label="Quitar producto"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      ) : null}
                                     </div>
                                   </td>
                                 </tr>
-                                {!vistaTarjetas && partesDef.length > 0 ? (
+                                {!vistaTarjetas && !esFija(line.uid) && partesDef.length > 0 ? (
                                   <tr className="bg-muted/30">
                                     <td colSpan={7} className="px-3 pb-3 pt-1">
                                       <PartesColorSelector

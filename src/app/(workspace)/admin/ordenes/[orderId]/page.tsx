@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { AlertTriangle, BadgeDollarSign, CalendarClock, TrendingUp, Wallet } from "lucide-react";
 import { StatList, type StatItem } from "@/components/ui/stat-list";
+import { ProductosCancelados } from "@/components/productos-cancelados";
+import { canceladasDeVenta } from "@/lib/lineas-canceladas.server";
+import { saldoAFavor } from "@/lib/sale-item-cancel";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AddShippingLegDialog } from "@/components/admin/add-shipping-leg-dialog";
@@ -250,6 +253,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   }
 
   const isPurchase = order.type === "PURCHASE";
+  // Productos cancelados de la venta (se muestran tachados bajo la tabla); se pide a la vez que lo demás.
+  const canceladasPromise = canceladasDeVenta(order.sale?.code);
   // Cambiar color: solo en una venta (y su orden) no cancelada.
   const canChangeColor =
     !isPurchase && Boolean(order.sale) && order.sale?.status !== "CANCELLED" && order.status !== "CANCELLED";
@@ -357,6 +362,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     ]);
 
   const returnTo = `/admin/ordenes/${order.id}`;
+  const canceladas = await canceladasPromise;
   // Costo total de compra de la orden. Para stock usa el costo real de inventario
   // (costo + envio/flete del producto); para fabricacion, el costo confirmado.
   const totalPurchaseCost = order.items.reduce((sum, item) => {
@@ -795,13 +801,17 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
     dispatchEstimates.flatMap((d) => (d.estado && d.estado.tipo !== "SIN_FECHA" ? [d.estado] : [])),
   )?.peor;
   const saldoPorCobrar = shipmentLookup?.collect.saleBalance ?? 0;
+  // Tras cancelar un producto la clienta puede haber pagado de más: queda a favor (los abonos no se tocan).
+  const aFavor = order.sale ? saldoAFavor(Number(order.sale.downPaymentAmount), Number(order.sale.total)) : 0;
   const headerStats: StatItem[] = [
     { label: "Total", value: formatMoney(Number(order.total), currency), icon: BadgeDollarSign },
     ...(order.sale
       ? [
-          saldoPorCobrar > 0
-            ? { label: "Saldo por cobrar", value: formatMoney(saldoPorCobrar, currency), icon: Wallet }
-            : { label: "Saldo por cobrar", value: "Pagado", icon: Wallet, tone: "success" as const },
+          aFavor > 0
+            ? { label: "Saldo a favor de la clienta", value: formatMoney(aFavor, currency), icon: Wallet, tone: "danger" as const }
+            : saldoPorCobrar > 0
+              ? { label: "Saldo por cobrar", value: formatMoney(saldoPorCobrar, currency), icon: Wallet }
+              : { label: "Saldo por cobrar", value: "Pagado", icon: Wallet, tone: "success" as const },
         ]
       : []),
     ...(!isPurchase && session.user.role === "ADMIN"
@@ -972,6 +982,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           imagenCatalogo: orderItemsData[index].productImageUrl,
           partesDef: orderItemsData[index].partesDef,
           partesElegidas: orderItemsData[index].partesElegidas,
+          canCancel: canChangeColor && order.status !== "COMPLETED" && order.items.length > 1,
         }))}
         returnDialog={
           returnOptions.length > 0
@@ -1127,6 +1138,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
             pideFechaFabricacion={!isPurchase}
             locked={isCancelled}
           />
+          <ProductosCancelados lineas={canceladas} currency={currency} />
         </div>
 
         <div className="space-y-4">

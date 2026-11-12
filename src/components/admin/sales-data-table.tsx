@@ -26,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { useFormStatus } from "react-dom";
+import { saldoAFavor } from "@/lib/sale-item-cancel";
 import {
   adminAddSalePaymentAction,
   adminVoidSalePaymentAction,
@@ -212,10 +213,21 @@ function StatusBadge({ status }: { status: SaleStatus }) {
 
 // Recaudo completo y entrega pendiente: la venta ya cuenta en Balances (salvo
 // contraentrega) y solo falta entregarla.
-function SaleStatusCell({ sale }: { sale: Pick<SaleRow, "status" | "pendingDelivery" | "alertaCombo" | "alertaReversa"> }) {
+function SaleStatusCell({
+  sale,
+}: {
+  sale: Pick<SaleRow, "status" | "pendingDelivery" | "alertaCombo" | "alertaReversa" | "total" | "downPaymentAmount">;
+}) {
+  // Tras cancelar un producto la clienta puede haber pagado de más: queda a favor (los abonos no se tocan).
+  const aFavor = saldoAFavor(sale.downPaymentAmount, sale.total);
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
       <StatusBadge status={sale.status} />
+      {aFavor > 0 && sale.status !== "CANCELLED" ? (
+        <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+          A favor de la clienta: ${Math.round(aFavor).toLocaleString("es-CO")}
+        </span>
+      ) : null}
       {sale.pendingDelivery ? (
         <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
           <Truck className="h-3.5 w-3.5" />

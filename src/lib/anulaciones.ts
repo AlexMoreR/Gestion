@@ -11,7 +11,9 @@ export type TablaAnulable =
   | "DispatchItem"
   | "ProductionJob"
   | "Order"
-  | "Sale";
+  | "Sale"
+  | "QuoteItem"
+  | "OrderItem";
 
 export type AnularInput = {
   tabla: TablaAnulable;
@@ -43,6 +45,8 @@ const ENTIDAD: Record<TablaAnulable, { entityType: string; nombre: string }> = {
   ProductionJob: { entityType: "ORDER", nombre: "un trabajo de producción" },
   Order: { entityType: "ORDER", nombre: "una orden" },
   Sale: { entityType: "SALE", nombre: "una venta" },
+  QuoteItem: { entityType: "QUOTE", nombre: "un producto de la cotización" },
+  OrderItem: { entityType: "ORDER", nombre: "un producto de la orden" },
 };
 
 /**
@@ -107,6 +111,8 @@ export async function anularConMotivo(tx: Prisma.TransactionClient, input: Anula
   else if (input.tabla === "DispatchItem") await tx.dispatchItem.delete(where);
   else if (input.tabla === "ProductionJob") await tx.productionJob.delete(where);
   else if (input.tabla === "Order") await tx.order.delete(where);
+  else if (input.tabla === "QuoteItem") await tx.quoteItem.delete(where);
+  else if (input.tabla === "OrderItem") await tx.orderItem.delete(where);
   else await tx.sale.delete(where);
 
   const { entityType } = ENTIDAD[input.tabla];
@@ -142,7 +148,7 @@ export async function anularVarias(
 ): Promise<void> {
   const { codigo, ...resto } = comun;
   for (const fila of filas) {
-    const monto = fila.amount ?? fila.total ?? 0;
+    const monto = fila.amount ?? fila.total ?? fila.lineTotal ?? 0;
     await anularConMotivo(tx, {
       ...resto,
       tabla,

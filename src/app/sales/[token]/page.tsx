@@ -28,6 +28,8 @@ import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { prisma } from "@/lib/prisma";
 import { paymentMethodLabel } from "@/modules/ventas/domain/withholding";
+import { ProductosCancelados } from "@/components/productos-cancelados";
+import { canceladasDeVenta } from "@/lib/lineas-canceladas.server";
 
 // Datos privados por enlace secreto: que Google no la indexe ni herede el canonical "/".
 export const metadata: Metadata = {
@@ -229,6 +231,7 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
   if (!sale) {
     notFound();
   }
+  const canceladas = await canceladasDeVenta(sale.code);
 
   const receiptUrl = sale.paymentReceiptUrl ? getPublicAssetUrl(sale.paymentReceiptUrl) : "";
   const issuedDate = sale.createdAt.toLocaleDateString("es-CO", { dateStyle: "long" });
@@ -361,6 +364,7 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
               </TableBody>
             </Table>
           </div>
+          <ProductosCancelados lineas={canceladas} currency={currency} publico />
 
           {/* ─── DETALLES DE ABONO ─── */}
           {receiptsLedger.length > 0 ? (
@@ -543,6 +547,7 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
                 </TableBody>
               </Table>
             </div>
+            <ProductosCancelados lineas={canceladas} currency={currency} publico />
           </section>
 
           <section className="space-y-3">

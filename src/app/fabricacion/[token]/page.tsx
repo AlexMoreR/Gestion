@@ -6,6 +6,7 @@ import { markColorNoticeSeenAction, markReadyForDispatchAction } from "@/app/act
 import { colombiaDayKey, colombiaTimeOfDay } from "@/lib/colombia-time";
 import { EMBALAJE_MAX_FOTOS } from "@/lib/embalaje-fotos";
 import { fechaAviso } from "@/lib/color-change";
+import { AVISO_PRODUCTO_CANCELADO, textoAvisoOF } from "@/lib/sale-item-cancel";
 import { displayCode } from "@/lib/code-display";
 import { formatMoney } from "@/lib/currency";
 import { colorLabel } from "@/lib/quote-item-meta";
@@ -170,7 +171,7 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
             <p className="flex items-start gap-2 text-base font-bold text-amber-900">
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
               <span>
-                Color cambiado el {fechaAviso(aviso.createdAt)}: {aviso.producto} {aviso.colorViejo} → {aviso.colorNuevo}
+                {aviso.colorNuevo === AVISO_PRODUCTO_CANCELADO ? "Aviso del" : "Color cambiado el"} {fechaAviso(aviso.createdAt)}: {textoAvisoOF(aviso)}
               </span>
             </p>
             <form action={markColorNoticeSeenAction} className="print:hidden">
