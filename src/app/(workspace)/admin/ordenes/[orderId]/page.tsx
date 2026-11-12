@@ -735,6 +735,9 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   // El cambio de forma de pago usa la accion de ventas: solo se ofrece a quien tiene ese permiso.
   const canChangePaymentMethod = !isPurchase && Boolean(order.sale) && (moduleAccess.sales || moduleAccess.quotes);
   const canEditQuote = !isPurchase && moduleAccess.quotes;
+  // «Cambiar producto»: venta no cancelada y orden sin entregar (aunque esté cancelada: se reactiva en el mismo paso).
+  const canSwap =
+    canEditQuote && Boolean(order.sale) && order.sale?.status !== "CANCELLED" && order.status !== "COMPLETED";
   const saleQuote = order.sale?.quote ?? null;
   const shippingDispatches = order.dispatches.filter(
     (dispatch) => dispatch.deliveryType === "SHIPPING" && dispatch.status !== "CANCELLED",
@@ -951,6 +954,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   const ordenMenu = (
     <>
       <OrderActionsMenu
+        abrirEditar={query.editar === "1"}
         orderId={order.id}
         status={order.status}
         isPurchase={order.type === "PURCHASE"}
@@ -983,6 +987,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           partesDef: orderItemsData[index].partesDef,
           partesElegidas: orderItemsData[index].partesElegidas,
           canCancel: canChangeColor && order.status !== "COMPLETED",
+          swapHref: canSwap && order.sale ? `/admin/cotizaciones/${order.sale.quoteId}?cambiar=${item.id}` : undefined,
         }))}
         returnDialog={
           returnOptions.length > 0

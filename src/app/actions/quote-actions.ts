@@ -7,6 +7,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { COTIZACION_CON_VENTA_LINEAS, errorAlGuardarLineas, lineasAgregadas, mismasLineas } from "@/lib/quote-lines";
 import { agregarLineasAVenta } from "@/lib/sale-add-lines.server";
+import { faltaEnCambio } from "@/lib/sale-item-cancel";
+import { CancelItemBlockedError, cambiarProductoDeVenta, ofsDelProducto } from "@/lib/sale-item-swap.server";
 import { partesPorProducto } from "@/lib/product-parts.server";
 import { displayCode } from "@/lib/code-display";
 import { Prisma } from "@prisma/client";
@@ -536,7 +538,7 @@ export async function adminUpdateQuoteMetaAction(formData: FormData): Promise<vo
 }
 
 export async function adminUpdateQuoteFullAction(formData: FormData): Promise<void> {
-  await requireAdminSession();
+  const userId = await requireAdminSession();
   await assertQuoteOwnership(String(formData.get("quoteId") ?? "").trim());
   const returnTo = getReturnTo(formData);
 
@@ -600,6 +602,12 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
     },
   });
   const linesLocked = Boolean(quoteWithSale?.sale);
+  // «Cambiar producto» (nov-2026): el producto de la orden que se cambia por las líneas nuevas.
+  const cambiarOrderItemId = String(formData.get("cambiarOrderItemId") ?? "").trim();
+  const reactivarCambio = formData.get("reactivarCambio") === "1";
+  if (cambiarOrderItemId && !linesLocked) {
+    redirect(`${returnTo}?${new URLSearchParams({ error: "Esta cotización no tiene venta: no hay producto que cambiar." }).toString()}`);
+  }
 
   // Línea como se guarda (la imagen con colores se pasa aparte: no cuenta para comparar líneas).
   const normalizar = (item: (typeof parsed.data.items)[number], imagenColoresUrl: string) => {
@@ -657,13 +665,27 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
         ? null
         : sale.status === "CANCELLED"
           ? "La venta está cancelada: no se le pueden agregar productos."
-          : sale.order?.status === "CANCELLED"
-            ? `La orden ${displayCode(sale.order.code)} está cancelada. Para cambiarle el producto, reactívala primero (orden → menú ⋯ → Reactivar), agrega aquí el nuevo y después cancela el viejo desde la orden.`
+          : sale.order?.status === "CANCELLED" && !(cambiarOrderItemId && reactivarCambio)
+            ? `La orden ${displayCode(sale.order.code)} está cancelada. Para cambiarle el producto usa «Cambiar producto» en la orden (menú ⋯ → Editar orden).`
             : sale.order?.status === "COMPLETED"
               ? `La orden ${displayCode(sale.order.code)} ya se entregó: no se le pueden agregar productos.`
               : null;
     if (errorAgregar) {
       redirect(`${returnTo}?${new URLSearchParams({ error: errorAgregar }).toString()}`);
+    }
+    if (cambiarOrderItemId) {
+      // El servidor no confía en la pantalla: motivo, producto nuevo y las dos casillas.
+      const falta = faltaEnCambio({
+        motivo: String(formData.get("motivoCambio") ?? ""),
+        lineasNuevas: indicesNuevos.length,
+        tieneOF: (await ofsDelProducto(cambiarOrderItemId)).length > 0,
+        aceptaOF: formData.get("aceptaOFCambio") === "1",
+        ordenCancelada: sale.order?.status === "CANCELLED",
+        reactivar: reactivarCambio,
+      });
+      if (falta) {
+        redirect(`${returnTo}?${new URLSearchParams({ error: falta }).toString()}`);
+      }
     }
   }
   // El servidor no confía en la pantalla: color y descuento se revisan antes de escribir nada
@@ -776,6 +798,36 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
     validUntil: validUntilDate,
     ...(createdAtDate ? { createdAt: createdAtDate } : {}),
   };
+  if (cambiarOrderItemId) {
+    let mensaje: { ok: string } | { error: string };
+    try {
+      mensaje = {
+        ok: await cambiarProductoDeVenta({
+          agregar: {
+            quoteId: parsed.data.quoteId,
+            quoteCode: quoteWithSale!.code,
+            lineas: indicesNuevos.map((index) => normalizedItems[index]),
+            datosCotizacion,
+          },
+          saleId: quoteWithSale!.sale!.id,
+          orderItemId: cambiarOrderItemId,
+          motivo: String(formData.get("motivoCambio") ?? "").trim(),
+          reactivar: reactivarCambio,
+          createdById: userId,
+        }),
+      };
+    } catch (error) {
+      if (!(error instanceof CancelItemBlockedError)) console.error("Failed to swap sale item:", error);
+      mensaje = { error: error instanceof CancelItemBlockedError ? error.message : "No se pudo cambiar el producto." };
+    }
+    revalidatePath("/admin/cotizaciones");
+    revalidatePath("/admin/ventas");
+    revalidatePath("/admin/ordenes");
+    revalidatePath("/admin/inventario");
+    revalidatePath("/admin/proveedores");
+    revalidatePath(returnTo);
+    redirect(`${returnTo}?${new URLSearchParams(mensaje).toString()}`);
+  }
   if (linesLocked && indicesNuevos.length > 0) {
     const agregado = await agregarLineasAVenta({
       quoteId: parsed.data.quoteId,

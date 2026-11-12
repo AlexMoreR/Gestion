@@ -24,6 +24,7 @@ import {
   User,
   Wallet,
   X,
+  ArrowLeftRight,
 } from "lucide-react";
 import { useFormStatus } from "react-dom";
 import { saldoAFavor } from "@/lib/sale-item-cancel";
@@ -335,6 +336,15 @@ function RowActions({
             Ver recibo
           </Link>
         </DropdownMenuItem>
+        {sale.hasOrder && sale.orderId && !isCancelled ? (
+          // «Cambiar producto» se hace en la orden: menú ⋯ → Editar orden → Cambiar producto.
+          <DropdownMenuItem asChild>
+            <Link href={`/admin/ordenes/${sale.orderId}?editar=1`}>
+              <ArrowLeftRight className="mr-2 h-4 w-4" />
+              Cambiar producto
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
         {sale.hasOrder && sale.orderId ? (
           <DropdownMenuItem asChild>
             <Link href={`/admin/ordenes/${sale.orderId}`}>

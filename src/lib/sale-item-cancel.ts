@@ -41,14 +41,16 @@ export function bloqueoCancelarProducto(input: {
   /** Cuántas piezas tiene la orden y cuántas caen en este producto (un combo, todas las suyas). */
   piezasOrden: number;
   piezas: PiezaACancelar[];
+  /** En «Cambiar producto» el nuevo ya se agregó: que sea el único no bloquea. */
+  enCambio?: boolean;
 }): string | null {
   if (!input.esVenta || input.ventaEstado === null) return "Solo se cancelan productos de una orden de venta.";
   if (input.ordenEstado === "CANCELLED" || input.ventaEstado === "CANCELLED") return "La venta está cancelada.";
   if (input.ordenEstado === "COMPLETED") return "La orden ya está cerrada (entregada): no se cancelan productos.";
   if (input.devolucionAbierta) return "La orden tiene una devolución abierta: ciérrala o anúlala primero.";
   if (input.piezas.length === 0) return "Producto no encontrado.";
-  if (input.piezas.length >= input.piezasOrden) {
-    return "Es lo único que tiene la orden. Si lo cambia por otro: primero agrega el nuevo en la cotización (Editar → Agregar producto) y después cancela este. Si ya no quiere nada, usa Cancelar en el menú ⋯ de la orden.";
+  if (!input.enCambio && input.piezas.length >= input.piezasOrden) {
+    return "Es lo único que tiene la orden. Si lo cambia por otro, usa «Cambiar producto». Si ya no quiere nada, usa Cancelar en el menú ⋯ de la orden.";
   }
   for (const pieza of input.piezas) {
     if (pieza.despachos > 0) return "Ya salió en un despacho: primero deshaz el despacho.";
@@ -80,4 +82,25 @@ export const AVISO_PRODUCTO_CANCELADO = "__CANCELADO__";
 export function textoAvisoOF(aviso: { producto: string; colorViejo: string; colorNuevo: string }): string {
   if (aviso.colorNuevo === AVISO_PRODUCTO_CANCELADO) return `Producto cancelado: ${aviso.producto}. Ya no se fabrica.`;
   return `${aviso.producto} ${aviso.colorViejo} → ${aviso.colorNuevo}`;
+}
+
+/**
+ * «Cambiar producto» (nov-2026): qué falta para poder guardar, o null. La usan la pantalla (botón
+ * desactivado) y el servidor (no confía en la pantalla).
+ */
+export function faltaEnCambio(input: {
+  motivo: string;
+  lineasNuevas: number;
+  /** El producto viejo ya está en una OF con la proveedora. */
+  tieneOF: boolean;
+  aceptaOF: boolean;
+  ordenCancelada: boolean;
+  reactivar: boolean;
+}): string | null {
+  if (input.lineasNuevas === 0) return "Agrega el producto nuevo.";
+  const motivo = parseCancelItemReason(input.motivo);
+  if (!motivo.ok) return motivo.error;
+  if (input.tieneOF && !input.aceptaOF) return "Marca que entiendes que la OF mostrará el producto cancelado.";
+  if (input.ordenCancelada && !input.reactivar) return "La orden está cancelada: marca «Reactivar la orden» para cambiar el producto.";
+  return null;
 }

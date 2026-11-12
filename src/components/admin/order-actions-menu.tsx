@@ -71,6 +71,8 @@ type OrderEditItem = {
   partesElegidas?: ParteElegida[];
   /** Venta abierta: se puede cancelar este producto (el servidor revisa lo demás). */
   canCancel?: boolean;
+  /** «Cambiar producto»: abre el editor de la cotización en modo cambio. */
+  swapHref?: string;
 };
 
 function CancelItemSubmit({ disabled }: { disabled: boolean }) {
@@ -99,6 +101,8 @@ type OrderActionsMenuProps = {
   paymentMethod?: ChangePaymentMethodProps | null;
   // "Registrar devolución" (solo si la orden tiene algo por devolver).
   returnDialog?: OrderReturnDialogProps | null;
+  // ?editar=1 (enlace «Cambiar producto» de Ventas): «Editar orden» abre sola.
+  abrirEditar?: boolean;
 };
 
 const STATUS_ACTIONS: Partial<Record<OrderStatus, { status: OrderStatus; label: string }>> = {
@@ -120,6 +124,7 @@ export function OrderActionsMenu({
   hasPayments = false,
   paymentMethod = null,
   returnDialog = null,
+  abrirEditar = false,
 }: OrderActionsMenuProps) {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
@@ -128,7 +133,7 @@ export function OrderActionsMenu({
   const [cancelItemReason, setCancelItemReason] = useState("");
   const statusAction = STATUS_ACTIONS[status];
   const canCancel = status !== "CANCELLED" && (isPurchase || status !== "COMPLETED");
-  const [editOpen, setEditOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(abrirEditar);
   const [cancelOpen, setCancelOpen] = useState(false);
   // Reactivar: solo una orden de venta cancelada (el servidor revisa además que la venta no esté cancelada).
   const canReactivate = status === "CANCELLED" && !isPurchase;
@@ -141,7 +146,11 @@ export function OrderActionsMenu({
     cancelReason !== "" &&
     (cancelReason !== "OTRO" || cancelReasonText.trim().length >= CANCEL_OTHER_MIN);
   // Modo elegido por producto dentro del modal (controlado).
-  const [modes, setModes] = useState<Record<string, "STOCK" | "MANUFACTURE">>({});
+  const modosIniciales = () =>
+    Object.fromEntries(
+      items.map((item) => [item.id, item.fulfillmentMode === "MANUFACTURE" ? "MANUFACTURE" : "STOCK"]),
+    ) as Record<string, "STOCK" | "MANUFACTURE">;
+  const [modes, setModes] = useState(modosIniciales);
   // Fecha de la orden dentro del modal (controlada).
   const [date, setDate] = useState(orderDate);
   // Producto cuyo cuadro de color o de imagen está abierto (encima de "Editar orden").
@@ -156,11 +165,7 @@ export function OrderActionsMenu({
     "h-9 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
 
   const openEdit = () => {
-    setModes(
-      Object.fromEntries(
-        items.map((item) => [item.id, item.fulfillmentMode === "MANUFACTURE" ? "MANUFACTURE" : "STOCK"]),
-      ),
-    );
+    setModes(modosIniciales());
     setDate(orderDate);
     setEditOpen(true);
   };
@@ -449,18 +454,25 @@ export function OrderActionsMenu({
                         ) : null}
                       </p>
                     ) : null}
-                    {item.canCancel ? (
-                      <p className="text-xs">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCancelItemReason("");
-                            setCancelItem(item);
-                          }}
-                          className="text-destructive underline hover:opacity-80"
-                        >
-                          Cancelar producto
-                        </button>
+                    {item.swapHref || item.canCancel ? (
+                      <p className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                        {item.swapHref ? (
+                          <Link href={item.swapHref} className="text-foreground underline hover:opacity-80">
+                            Cambiar producto
+                          </Link>
+                        ) : null}
+                        {item.canCancel ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCancelItemReason("");
+                              setCancelItem(item);
+                            }}
+                            className="text-destructive underline hover:opacity-80"
+                          >
+                            Cancelar producto
+                          </button>
+                        ) : null}
                       </p>
                     ) : null}
                     {item.canChangeColor ? (

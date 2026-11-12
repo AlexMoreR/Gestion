@@ -33,6 +33,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { todayInColombia } from "@/lib/colombia-time";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { ProductThumb } from "@/components/admin/product-thumb";
 import { expandComboLines, faltanPiezasCombo, pickComboPieces, type ComboComponent } from "@/lib/combo";
 import type { SupportedCurrencyCode } from "@/lib/currency";
@@ -52,6 +53,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { imageVariantUrl } from "@/lib/image-variants";
 import { Button } from "../ui/button";
 import { displayCode } from "@/lib/code-display";
+import { CANCEL_ITEM_REASON_MAX, faltaEnCambio } from "@/lib/sale-item-cancel";
 
 export type QuoteWizardClient = {
   id: string;
@@ -128,6 +130,17 @@ export type QuoteWizardInitialLine = {
   comboQuantity?: number;
 };
 
+// «Cambiar producto» (nov-2026): el producto de la orden que se cambia por lo que se agregue aquí.
+export type CambioDeProducto = {
+  orderItemId: string;
+  producto: string;
+  orderId: string;
+  orderCode: string;
+  ordenCancelada: boolean;
+  /** OF con la proveedora donde ya está el producto viejo. */
+  ofs: { code: string; proveedora: string }[];
+};
+
 type QuoteWizardModalProps = {
   open: boolean;
   onClose: () => void;
@@ -147,6 +160,7 @@ type QuoteWizardModalProps = {
   initialNotes?: string;
   // Con venta creada las lineas no se cambian (el servidor lo rechaza igual).
   tieneVenta?: boolean;
+  cambio?: CambioDeProducto | null;
 };
 
 const todayLocal = () => todayInColombia();
@@ -217,6 +231,7 @@ export function QuoteWizardModal({
   initialValidUntil = "",
   initialNotes = "",
   tieneVenta = false,
+  cambio = null,
 }: QuoteWizardModalProps) {
   const isEdit = mode === "edit";
 
@@ -264,6 +279,19 @@ export function QuoteWizardModal({
   const [lineasFijas] = useState(() => new Set(tieneVenta ? lines.map((line) => line.uid) : []));
   const esFija = (uid: string) => lineasFijas.has(uid);
   const comboFijo = (comboKey: string) => lines.some((line) => line.comboKey === comboKey && esFija(line.uid));
+  const [motivoCambio, setMotivoCambio] = useState("");
+  const [aceptaOFCambio, setAceptaOFCambio] = useState(false);
+  const [reactivarCambio, setReactivarCambio] = useState(false);
+  const faltaCambio = cambio
+    ? faltaEnCambio({
+        motivo: motivoCambio,
+        lineasNuevas: lines.filter((line) => !esFija(line.uid)).length,
+        tieneOF: cambio.ofs.length > 0,
+        aceptaOF: aceptaOFCambio,
+        ordenCancelada: cambio.ordenCancelada,
+        reactivar: reactivarCambio,
+      })
+    : null;
   const [isResolvingClient, startResolvingClient] = useTransition();
 
   const [openProductModal, setOpenProductModal] = useState(false);
@@ -923,8 +951,12 @@ export function QuoteWizardModal({
   );
 
   const action = isEdit ? adminUpdateQuoteFullAction : adminCreateQuoteAction;
-  const title = isEdit ? `Editar cotizacion ${displayCode(quoteCode)}` : "Nueva cotizacion";
-  const submitLabel = isEdit ? "Guardar cambios" : "Generar cotizacion";
+  const title = cambio
+    ? `Cambiar producto · ${cambio.orderCode}`
+    : isEdit
+      ? `Editar cotizacion ${displayCode(quoteCode)}`
+      : "Nueva cotizacion";
+  const submitLabel = cambio ? "Cambiar producto" : isEdit ? "Guardar cambios" : "Generar cotizacion";
 
   const sinProductos = (
     <div className="flex flex-col items-center gap-3 text-center text-sm text-muted-foreground">
@@ -1079,6 +1111,57 @@ export function QuoteWizardModal({
                 <input type="hidden" name="validUntil" value={validUntil} />
                 <input type="hidden" name="notes" value={notes} />
               </>
+            ) : null}
+            {cambio ? (
+              <div className="space-y-2 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/5 p-3 text-sm">
+                <input type="hidden" name="cambiarOrderItemId" value={cambio.orderItemId} />
+                <p className="break-words font-medium text-foreground">Cambiando: {cambio.producto}</p>
+                <p className="text-xs text-muted-foreground">
+                  Agrega el producto nuevo (Agregar producto) y escribe el motivo. Al guardar se cancela el viejo y el total se
+                  recalcula; los abonos no se tocan.
+                </p>
+                <label htmlFor="cambio-motivo" className="block text-xs font-medium text-foreground">
+                  Motivo del cambio
+                </label>
+                <Textarea
+                  id="cambio-motivo"
+                  name="motivoCambio"
+                  rows={2}
+                  maxLength={CANCEL_ITEM_REASON_MAX}
+                  value={motivoCambio}
+                  onChange={(event) => setMotivoCambio(event.target.value)}
+                  placeholder="Ej.: la clienta pidió otro combo"
+                />
+                {cambio.ofs.length > 0 ? (
+                  <label className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+                    <input
+                      type="checkbox"
+                      name="aceptaOFCambio"
+                      value="1"
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--primary)]"
+                      checked={aceptaOFCambio}
+                      onChange={(event) => setAceptaOFCambio(event.target.checked)}
+                    />
+                    <span>
+                      Ya está en {cambio.ofs.map((of) => `${displayCode(of.code)} de ${of.proveedora}`).join(", ")}. Entiendo: la OF
+                      mostrará que se canceló.
+                    </span>
+                  </label>
+                ) : null}
+                {cambio.ordenCancelada ? (
+                  <label className="flex items-start gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-foreground">
+                    <input
+                      type="checkbox"
+                      name="reactivarCambio"
+                      value="1"
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--primary)]"
+                      checked={reactivarCambio}
+                      onChange={(event) => setReactivarCambio(event.target.checked)}
+                    />
+                    <span>Reactivar la orden {cambio.orderCode} en este mismo paso</span>
+                  </label>
+                ) : null}
+              </div>
             ) : null}
 
             <div>
@@ -1289,7 +1372,7 @@ export function QuoteWizardModal({
                   <span className="font-medium text-foreground">Precios al por mayor</span>
                 </label>
 
-                {tieneVenta ? (
+                {tieneVenta && !cambio ? (
                   <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-600 dark:text-amber-400">
                     {COTIZACION_CON_VENTA_LINEAS}
                   </p>
@@ -1797,6 +1880,11 @@ export function QuoteWizardModal({
                     Falta escoger el color: {faltanColoresLista.join(", ")}
                   </p>
                 ) : null}
+                {faltaCambio ? (
+                  <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+                    {faltaCambio}
+                  </p>
+                ) : null}
 
                 <div className="flex gap-2 sm:justify-between">
                   <Button type="button" variant="outline" size="lg" className="h-11 flex-1 sm:h-9 sm:flex-none" onClick={() => setStep(2)}>
@@ -1813,7 +1901,7 @@ export function QuoteWizardModal({
                       manualQuoteSubmitRef.current = true;
                       event.currentTarget.form?.requestSubmit();
                     }}
-                    disabled={!isClientResolved || lines.length === 0}
+                    disabled={!isClientResolved || lines.length === 0 || Boolean(faltaCambio)}
                   />
                 </div>
                 </div>

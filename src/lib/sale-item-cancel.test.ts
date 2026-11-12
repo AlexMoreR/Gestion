@@ -3,6 +3,7 @@ import { lineasAgregadas } from "./quote-lines";
 import {
   AVISO_PRODUCTO_CANCELADO,
   bloqueoCancelarProducto,
+  faltaEnCambio,
   montoACancelar,
   saldoAFavor,
   textoAvisoOF,
@@ -35,6 +36,24 @@ describe("bloqueoCancelarProducto", () => {
     expect(bloqueoCancelarProducto({ ...base, piezasOrden: 1, piezas: [pieza()] })).toMatch(/Cancelar/);
     expect(bloqueoCancelarProducto({ ...base, ordenEstado: "COMPLETED", piezas: [pieza()] })).toMatch(/cerrada/);
     expect(bloqueoCancelarProducto({ ...base, ventaEstado: "CANCELLED", piezas: [pieza()] })).toMatch(/cancelada/);
+  });
+  it("en un cambio, ser el único no bloquea (lo demás sí)", () => {
+    expect(bloqueoCancelarProducto({ ...base, piezasOrden: 1, piezas: [pieza()], enCambio: true })).toBeNull();
+    expect(bloqueoCancelarProducto({ ...base, piezasOrden: 1, piezas: [pieza({ despachos: 1 })], enCambio: true })).toMatch(/despacho/);
+  });
+});
+
+describe("faltaEnCambio", () => {
+  const ok = { motivo: "Pidió otro combo", lineasNuevas: 1, tieneOF: false, aceptaOF: false, ordenCancelada: false, reactivar: false };
+  it("con todo listo, nada falta", () => {
+    expect(faltaEnCambio(ok)).toBeNull();
+    expect(faltaEnCambio({ ...ok, tieneOF: true, aceptaOF: true, ordenCancelada: true, reactivar: true })).toBeNull();
+  });
+  it("pide producto nuevo, motivo de 3 letras y las dos casillas", () => {
+    expect(faltaEnCambio({ ...ok, lineasNuevas: 0 })).toMatch(/producto nuevo/);
+    expect(faltaEnCambio({ ...ok, motivo: " no " })).toMatch(/mínimo 3/);
+    expect(faltaEnCambio({ ...ok, tieneOF: true })).toMatch(/OF/);
+    expect(faltaEnCambio({ ...ok, ordenCancelada: true })).toMatch(/Reactivar/);
   });
 });
 

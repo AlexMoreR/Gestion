@@ -7,6 +7,7 @@ import {
   type QuoteWizardProduct,
   type QuoteWizardInitialLine,
   type QuoteStatus,
+  type CambioDeProducto,
 } from "@/components/admin/quote-wizard-modal";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 
@@ -18,6 +19,7 @@ type EditQuoteData = {
   createdAt: string;
   notes: string;
   tieneVenta: boolean;
+  cambio: CambioDeProducto | null;
   client: QuoteWizardClient;
   items: QuoteWizardInitialLine[];
 };
@@ -35,8 +37,10 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
   // Al cerrar volvemos al listado. No desmontamos el modal aqui (no usamos un
   // estado `open` local) para que el modal siga visible durante la navegacion y
   // no se vea el destello en blanco de esta ruta (que solo contiene el modal).
+  // En «Cambiar producto» se vuelve a la orden (y allá sale el resultado).
+  const volverA = quote.cambio ? `/admin/ordenes/${quote.cambio.orderId}` : "/admin/cotizaciones";
   const close = () => {
-    router.push("/admin/cotizaciones");
+    router.push(volverA);
   };
 
   return (
@@ -47,7 +51,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
       currency={currency}
       clients={clients}
       products={products}
-      returnTo="/admin/cotizaciones"
+      returnTo={volverA}
       quoteId={quote.id}
       quoteCode={quote.code}
       initialClient={quote.client}
@@ -57,6 +61,7 @@ export function EditQuoteWorkspace({ quote, clients, products, currency }: EditQ
       initialValidUntil={quote.validUntil}
       initialNotes={quote.notes}
       tieneVenta={quote.tieneVenta}
+      cambio={quote.cambio}
     />
   );
 }

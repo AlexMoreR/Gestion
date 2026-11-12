@@ -2,18 +2,22 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { EditQuoteWorkspace } from "@/components/admin/edit-quote-workspace";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
+import { displayCode } from "@/lib/code-display";
 import { comboStock } from "@/lib/combo";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 import { partesPorProducto } from "@/lib/product-parts.server";
+import { ofsDelProducto } from "@/lib/sale-item-swap.server";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 
 type PageProps = {
   params: Promise<{ quoteId: string }>;
+  // ?cambiar=<orderItemId>: «Cambiar producto» desde la orden.
+  searchParams: Promise<{ cambiar?: string | string[] }>;
 };
 
-export default async function AdminCotizacionDetallePage({ params }: PageProps) {
+export default async function AdminCotizacionDetallePage({ params, searchParams }: PageProps) {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/unauthorized");
@@ -25,6 +29,8 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
   }
 
   const { quoteId } = await params;
+  const { cambiar } = await searchParams;
+  const cambiarId = typeof cambiar === "string" ? cambiar.trim() : "";
 
   const [quote, clients, products, currency, stockRows] = await Promise.all([
     prisma.quote.findUnique({
@@ -98,6 +104,25 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
     notFound();
   }
 
+  // Modo cambio: el producto de la orden de esta venta que se va a cambiar (otro id se ignora).
+  const itemACambiar =
+    cambiarId && quote.sale
+      ? await prisma.orderItem.findFirst({
+          where: { id: cambiarId, order: { saleId: quote.sale.id, type: "SALE" } },
+          select: { id: true, notes: true, product: { select: { name: true } }, order: { select: { id: true, code: true, status: true } } },
+        })
+      : null;
+  const cambio = itemACambiar
+    ? {
+        orderItemId: itemACambiar.id,
+        producto: parseQuoteItemMeta(itemACambiar.notes).comboName || itemACambiar.product.name,
+        orderId: itemACambiar.order.id,
+        orderCode: displayCode(itemACambiar.order.code),
+        ordenCancelada: itemACambiar.order.status === "CANCELLED",
+        ofs: await ofsDelProducto(itemACambiar.id),
+      }
+    : null;
+
   const validUntilValue = quote.validUntil
     ? new Date(quote.validUntil.getTime() - quote.validUntil.getTimezoneOffset() * 60000)
         .toISOString()
@@ -120,6 +145,7 @@ export default async function AdminCotizacionDetallePage({ params }: PageProps) 
         createdAt: createdAtValue,
         notes: quote.notes ?? "",
         tieneVenta: Boolean(quote.sale),
+        cambio,
         client: {
           id: quote.client.id,
           name: quote.client.name || quote.client.email,
