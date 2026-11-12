@@ -48,7 +48,7 @@ export function bloqueoCancelarProducto(input: {
   if (input.devolucionAbierta) return "La orden tiene una devolución abierta: ciérrala o anúlala primero.";
   if (input.piezas.length === 0) return "Producto no encontrado.";
   if (input.piezas.length >= input.piezasOrden) {
-    return "Es todo lo que queda en la orden: usa Cancelar en el menú ⋯ de la orden.";
+    return "Es lo único que tiene la orden. Si lo cambia por otro: primero agrega el nuevo en la cotización (Editar → Agregar producto) y después cancela este. Si ya no quiere nada, usa Cancelar en el menú ⋯ de la orden.";
   }
   for (const pieza of input.piezas) {
     if (pieza.despachos > 0) return "Ya salió en un despacho: primero deshaz el despacho.";

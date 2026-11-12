@@ -982,7 +982,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           imagenCatalogo: orderItemsData[index].productImageUrl,
           partesDef: orderItemsData[index].partesDef,
           partesElegidas: orderItemsData[index].partesElegidas,
-          canCancel: canChangeColor && order.status !== "COMPLETED" && order.items.length > 1,
+          canCancel: canChangeColor && order.status !== "COMPLETED",
         }))}
         returnDialog={
           returnOptions.length > 0

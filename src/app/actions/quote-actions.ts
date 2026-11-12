@@ -652,11 +652,18 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
     }
     indicesNuevos = nuevas.map((linea) => previas.indexOf(linea));
     const sale = quoteWithSale!.sale!;
-    const ordenCerrada = sale.order?.status === "COMPLETED" || sale.order?.status === "CANCELLED";
-    if (indicesNuevos.length > 0 && (sale.status === "CANCELLED" || ordenCerrada)) {
-      redirect(
-        `${returnTo}?${new URLSearchParams({ error: "La venta está cancelada o su orden ya se cerró: no se le pueden agregar productos." }).toString()}`,
-      );
+    const errorAgregar =
+      indicesNuevos.length === 0
+        ? null
+        : sale.status === "CANCELLED"
+          ? "La venta está cancelada: no se le pueden agregar productos."
+          : sale.order?.status === "CANCELLED"
+            ? `La orden ${displayCode(sale.order.code)} está cancelada. Para cambiarle el producto, reactívala primero (orden → menú ⋯ → Reactivar), agrega aquí el nuevo y después cancela el viejo desde la orden.`
+            : sale.order?.status === "COMPLETED"
+              ? `La orden ${displayCode(sale.order.code)} ya se entregó: no se le pueden agregar productos.`
+              : null;
+    if (errorAgregar) {
+      redirect(`${returnTo}?${new URLSearchParams({ error: errorAgregar }).toString()}`);
     }
   }
   // El servidor no confía en la pantalla: color y descuento se revisan antes de escribir nada
