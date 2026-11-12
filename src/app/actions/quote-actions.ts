@@ -605,6 +605,13 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
   // «Cambiar producto» (nov-2026): el producto de la orden que se cambia por las líneas nuevas.
   const cambiarOrderItemId = String(formData.get("cambiarOrderItemId") ?? "").trim();
   const reactivarCambio = formData.get("reactivarCambio") === "1";
+  if (cambiarOrderItemId) {
+    // Cancela y reactiva en la orden: pide también el permiso de Órdenes, como «Cancelar producto» y «Reactivar».
+    const session = await auth();
+    if (!session?.user?.id || !(await hasAnyModuleAccess(session.user.id, session.user.role, ["orders"]))) {
+      redirect("/unauthorized");
+    }
+  }
   if (cambiarOrderItemId && !linesLocked) {
     redirect(`${returnTo}?${new URLSearchParams({ error: "Esta cotización no tiene venta: no hay producto que cambiar." }).toString()}`);
   }
