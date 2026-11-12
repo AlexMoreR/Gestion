@@ -665,7 +665,7 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
         ? null
         : sale.status === "CANCELLED"
           ? "La venta está cancelada: no se le pueden agregar productos."
-          : sale.order?.status === "CANCELLED" && !(cambiarOrderItemId && reactivarCambio)
+          : sale.order?.status === "CANCELLED" && !cambiarOrderItemId
             ? `La orden ${displayCode(sale.order.code)} está cancelada. Para cambiarle el producto usa «Cambiar producto» en la orden (menú ⋯ → Editar orden).`
             : sale.order?.status === "COMPLETED"
               ? `La orden ${displayCode(sale.order.code)} ya se entregó: no se le pueden agregar productos.`
