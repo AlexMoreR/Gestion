@@ -237,8 +237,6 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
               ),
             ],
           }),
-      // Botón de la fila: con productos de fabricación sin confirmar la siguiente acción es "Fabricar".
-      porFabricar: order.items.some((item) => item.fulfillmentMode !== "STOCK" && !item.confirmedSupplierId),
       total: Number(order.total),
       status: order.status,
       createdAt: orderDate.toLocaleDateString("es-CO"),

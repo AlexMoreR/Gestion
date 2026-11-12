@@ -32,7 +32,6 @@ import {
   compararPorUrgencia,
   nombrePropio,
   ordenCerrada,
-  siguienteAccion,
   type ResponsableEtapa,
   type VistaOrdenes,
 } from "@/lib/order-list-view";
@@ -69,8 +68,6 @@ type OrderRow = {
   seguimiento: SeguimientoOrden | null;
   // Quién debe mover la orden según la etapa (responsableDeEtapa); null = nadie.
   responsable: ResponsableEtapa | null;
-  // Tiene productos de fabricación sin confirmar (la siguiente acción es "Fabricar").
-  porFabricar: boolean;
 };
 
 const SEGUIMIENTO_OPCIONES: { value: TipoEstadoEntrega; label: string }[] = [
@@ -154,17 +151,6 @@ function ResponsableCell({ order, staff }: { order: OrderRow; staff: { id: strin
         ))}
       </select>
     </form>
-  );
-}
-
-// Botón con lo siguiente que hay que hacer; abre el detalle, donde se hace la acción.
-function NextActionButton({ order }: { order: OrderRow }) {
-  const label = siguienteAccion(order);
-  if (!label) return null;
-  return (
-    <Link href={`/admin/ordenes/${order.id}`} className={`${buttonVariants({ variant: "outline", size: "sm" })} whitespace-nowrap px-2 text-xs`}>
-      {label}
-    </Link>
   );
 }
 
@@ -467,14 +453,13 @@ export function OrdersWorkspace({
       header: "",
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-1">
-          <NextActionButton order={row.original} />
           <RowActions order={row.original} />
         </div>
       ),
     },
   ];
 
-  // Celular: cliente, estado, alerta, total y el botón de la siguiente acción.
+  // Celular: cliente, estado, alerta, total y el menú.
   const renderMobileCard = (order: OrderRow) => (
     <article className="space-y-2 rounded-xl border border-border bg-card p-3">
       <div className="flex items-start justify-between gap-2">
@@ -491,7 +476,6 @@ export function OrdersWorkspace({
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-semibold text-foreground">{formatMoney(order.total, currency)}</p>
         <div className="flex items-center gap-1">
-          <NextActionButton order={order} />
           <RowActions order={order} />
         </div>
       </div>

@@ -75,27 +75,6 @@ export function compararPorUrgencia(a: OrdenLista, b: OrdenLista): number {
   return b.orderDateISO.localeCompare(a.orderDateISO);
 }
 
-// Botón de la fila: lo siguiente que hay que hacer (se hace en el detalle de la orden).
-export function siguienteAccion(orden: {
-  kind: "order" | "purchase";
-  status: string;
-  porFabricar: boolean;
-}): string | null {
-  if (orden.kind === "purchase") return null;
-  switch (orden.status) {
-    case "RELEASED":
-      return orden.porFabricar ? "Fabricar" : "Recoger";
-    case "IN_PRODUCTION":
-      return "Marcar recibido";
-    case "READY_FOR_DISPATCH":
-      return "Despachar";
-    case "DISPATCHED":
-      return "Registrar entrega";
-    default:
-      return null;
-  }
-}
-
 export type ResponsableEtapa = { nombre: string; rol: "Proveedora" | "Transportadora" | "Asignada" };
 
 // Quién debe mover la orden: en producción la proveedora de la OF abierta; despachada, la transportadora;

@@ -7,7 +7,6 @@ import {
   compararPorUrgencia,
   nombrePropio,
   responsableDeEtapa,
-  siguienteAccion,
 } from "./order-list-view";
 
 const estado = (tipo: EstadoEntrega["tipo"], diasRestantes: number | null, atrasoHoras = 0): EstadoEntrega => ({
@@ -61,13 +60,7 @@ describe("tarjetas", () => {
   });
 });
 
-describe("siguiente acción y responsable", () => {
-  it("botón según el estado; las compras y las cerradas no llevan", () => {
-    expect(siguienteAccion({ kind: "order", status: "READY_FOR_DISPATCH", porFabricar: false })).toBe("Despachar");
-    expect(siguienteAccion({ kind: "order", status: "RELEASED", porFabricar: true })).toBe("Fabricar");
-    expect(siguienteAccion({ kind: "order", status: "COMPLETED", porFabricar: false })).toBeNull();
-    expect(siguienteAccion({ kind: "purchase", status: "RELEASED", porFabricar: false })).toBeNull();
-  });
+describe("responsable", () => {
   it("en producción responde la proveedora; si no hay nadie, null", () => {
     const base = { asignada: null, proveedoras: ["Laura"], transportadoras: [] };
     expect(responsableDeEtapa({ ...base, status: "IN_PRODUCTION" })).toEqual({ nombre: "Laura", rol: "Proveedora" });
