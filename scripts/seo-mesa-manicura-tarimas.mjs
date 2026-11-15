@@ -2,8 +2,11 @@
 // manicura y tarimas de pedicure). Solo los campos `seoTitle` y `seoDescription`: nunca nombre,
 // enlace (slug), descripción, logo ni productos.
 //
-// Parte 1: solo la tabla y la regla pura (sin conexión a la base). La parte 2 agrega main(), que por
-// defecto SOLO SIMULA y escribe unicamente con --aplicar --tarjeta T-xxx (transaccion + firma).
+// Por defecto SOLO SIMULA. Escribe unicamente con --aplicar --tarjeta T-xxx (transaccion + firma en
+// ActivityLog). Se puede correr dos veces: si ya tiene los textos nuevos, esa categoría se salta.
+import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+import { exigirTarjeta, firmar } from "./firma.mjs";
 
 // Tabla fija. El título va SIN " | Magilus": lo pega src/app/layout.tsx.
 export const TEXTOS_SEO = [
@@ -57,4 +60,59 @@ export function lineasDelPlan({ cambios, saltados }, aplicar) {
     ]),
     ...saltados.map((s) => `  ${s.slug}: se salta, ${s.motivo}`),
   ];
+}
+
+async function main() {
+  const aplicar = process.argv.includes("--aplicar");
+  const tarjeta = exigirTarjeta(process.argv); // antes de conectarse a la base
+
+  if (!process.env.DATABASE_URL) {
+    try {
+      const env = readFileSync(new URL("../.env", import.meta.url), "utf8");
+      const match = env.match(/^DATABASE_URL\s*=\s*"?([^"\r\n]+)"?/m);
+      if (match) process.env.DATABASE_URL = match[1];
+    } catch {
+      // sin .env: se confia en el entorno
+    }
+  }
+  const [{ PrismaClient }, { PrismaPg }, { Pool }] = await Promise.all([
+    import("@prisma/client"),
+    import("@prisma/adapter-pg"),
+    import("pg"),
+  ]);
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg(new Pool({ connectionString: process.env.DATABASE_URL })),
+  });
+
+  try {
+    const categorias = await prisma.category.findMany({
+      where: { slug: { in: TEXTOS_SEO.map((t) => t.slug) } },
+      select: { id: true, slug: true, seoTitle: true, seoDescription: true },
+    });
+    const plan = planearSeo(categorias);
+    for (const linea of lineasDelPlan(plan, aplicar)) console.log(linea);
+    if (!aplicar || plan.cambios.length === 0) return;
+
+    await prisma.$transaction(async (tx) => {
+      for (const c of plan.cambios) {
+        await tx.category.update({ where: { id: c.id }, data: c.despues });
+      }
+      await firmar(tx, {
+        script: "seo-mesa-manicura-tarimas",
+        tarjeta,
+        resumen: "SEO de categorías mesa-manicura y tarimas-pedicure: título y descripción nuevos",
+        after: { cambios: plan.cambios },
+      });
+    });
+    console.log(`Listo: ${plan.cambios.length} categoría(s) con textos nuevos.`);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
 }
