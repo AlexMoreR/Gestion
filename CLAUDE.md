@@ -395,7 +395,8 @@ Route handlers reales (`route.ts`):
   herramienta que escribe es `registrar_gasto` (anotada sin `readOnlyHint`; ver "Gastos por voz").
 - Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_abonos`, `ver_venta`, `listar_cotizaciones`,
   `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `equipo`, `saldos_de_cuentas`,
-  `listar_gastos`, `listar_retroactivos`, `deuda_con_proveedoras`, `buscar_pedido`, `pedidos_abiertos`, `listar_cobertura`, `historial_de_registro`, `registrar_gasto`, `registrar_pago_proveedora`, `cerrar_mes` y `que_es_esta_aplicacion`.
+  `listar_gastos`, `listar_retroactivos`, `deuda_con_proveedoras`, `buscar_pedido`, `pedidos_abiertos`, `listar_cobertura`, `historial_de_registro`, `registrar_gasto`, `registrar_pago_proveedora`, `cerrar_mes`, `ver_whatsapp_de_la_pagina`, `cambiar_whatsapp_de_la_pagina` y `que_es_esta_aplicacion`.
+- `ver_whatsapp_de_la_pagina` (solo lectura) da el número de WhatsApp de la página y su enlace wa.me; `cambiar_whatsapp_de_la_pagina` (nov-2026, escribe) lo cambia en dos pasos como `registrar_gasto` (`confirmado=false` solo muestra antes/nuevo; `confirmado=true` guarda con `setSystemWhatsAppPhone`, refresca la tienda y anota en `ActivityLog` con origin MCP). Número inválido → error sin guardar. Lógica en `src/modules/asesor/application/site-whatsapp.ts`.
 - `deuda_con_proveedoras` (oct-2026, solo lectura): `proveedora` (nombre, sin tildes) y `desde`/`hasta` (fecha de
   la OF) opcionales → por orden: OF, orden, venta, cliente, productos con color, `costo_acordado`, `pagos[]`
   (fecha, cuenta, monto) y `falta`; por proveedora `debemos_total` = cargos − abonos (el saldo de la lista
