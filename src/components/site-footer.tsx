@@ -9,7 +9,7 @@ type SiteFooterProps = {
   logoPath: string;
   whatsAppHref: string; // URL completa de WhatsApp
   phoneDisplay: string;
-  phoneHref: string; // ej. +573046481994
+  phoneHref: string; // ej. +57 seguido del celular
 };
 
 const SOCIAL_LINKS = [

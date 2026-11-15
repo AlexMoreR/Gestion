@@ -2,30 +2,27 @@ import { describe, expect, it } from "vitest";
 import { buildWhatsAppBuyMessage, buildWhatsAppQuoteMessage, SALES_LINE_WHATSAPP, WEB_ORIGIN_TAG } from "./site";
 
 describe("buildWhatsAppBuyMessage", () => {
-  it("dice que viene de magilus.com, con codigo, precio y enlace de la ficha", () => {
-    expect(
-      buildWhatsAppBuyMessage("Magilus", "CAMILLA CURVA LASHISTA", "CAV014", {
-        pageUrl: "https://magilus.com/camilla/camilla-curva-lashista-cav14",
-        priceLabel: "$1.099.000",
-      }),
-    ).toBe(
-      "Hola *Magilus*, vengo de magilus.com y quiero comprar:\n" +
-        "*CAV014* CAMILLA CURVA LASHISTA ($1.099.000)\n" +
-        "https://magilus.com/camilla/camilla-curva-lashista-cav14",
+  it("mensaje corto con nombre en mayuscula inicial y codigo", () => {
+    expect(buildWhatsAppBuyMessage("Magilus", "CAMILLA HIDRAULICA", "CAV016")).toBe(
+      "Hola, vengo de magilus.com 👋\nMe interesa la *Camilla Hidraulica* (CAV016)",
     );
   });
 
-  it("sin precio ni enlace sigue sirviendo (y sin codigo solo el nombre)", () => {
+  it("sin codigo solo el nombre, sin espacios dobles", () => {
     expect(buildWhatsAppBuyMessage("Magilus", "SILLA  ROYAL", null)).toBe(
-      "Hola *Magilus*, vengo de magilus.com y quiero comprar:\nSILLA ROYAL",
+      "Hola, vengo de magilus.com 👋\nMe interesa la *Silla Royal*",
     );
   });
 
-  it("conserva 'quiero comprar:' y el codigo en negrita (compatibilidad con el CRM)", () => {
-    const text = buildWhatsAppBuyMessage("Magilus", "COMBO", "CMB007");
-    expect(text).toContain("quiero comprar:");
-    expect(text).toContain("*CMB007*");
-    expect(text).toContain(WEB_ORIGIN_TAG);
+  it("no lleva precio ni enlace y siempre dice que viene de la pagina (medicion del CRM)", () => {
+    for (const text of [
+      buildWhatsAppBuyMessage("Magilus", "COMBO", "CMB007"),
+      buildWhatsAppBuyMessage("Magilus", "silla barbera", undefined),
+    ]) {
+      expect(text).not.toContain("$");
+      expect(text).not.toContain("http");
+      expect(text).toContain(WEB_ORIGIN_TAG);
+    }
   });
 });
 

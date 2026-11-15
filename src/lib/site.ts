@@ -82,40 +82,27 @@ export function getPublicAssetUrl(path = ""): string {
   return getSiteUrl(relativePath);
 }
 
-export function buildWhatsAppHref(message: string): string {
-  return `https://wa.me/${siteConfig.phoneHref.replace("+", "")}?text=${encodeURIComponent(message)}`;
-}
-
-export function buildWhatsAppCatalogHref(brandName: string): string {
-  return buildWhatsAppHref(`Hola ${brandName}, quiero cotizar mobiliario profesional`);
-}
-
 // Marca fija en el primer mensaje de los chats que vienen de la tienda web: el CRM y las
 // asesoras cuentan las ventas por SEO buscando este texto. No cambiar sin avisar al CRM.
 export const WEB_ORIGIN_TAG = "magilus.com";
 
-// Mensaje de "Comprar por WhatsApp":
-//   Hola *Marca*, vengo de magilus.com y quiero comprar:
-//   *CODIGO* Producto ($precio)
-//   https://magilus.com/<categoria>/<producto>
-// (los * son negrita en WhatsApp). Si el producto no tiene codigo, solo el nombre; precio y
-// enlace solo si se pasan.
+// Mensaje de "Comprar por WhatsApp" (corto, sin precio ni enlace):
+//   Hola, vengo de magilus.com 👋
+//   Me interesa la *Camilla Hidraulica* (CAV016)
+// El nombre va con mayuscula inicial por palabra, tal como esta guardado (sin agregar tildes).
+// brandName se conserva en la firma para no cambiar a quien llama.
 export function buildWhatsAppBuyMessage(
-  brandName: string,
+  _brandName: string,
   productName: string,
   productCode?: string | null,
-  origin?: { pageUrl?: string | null; priceLabel?: string | null },
 ): string {
   const code = productCode?.trim();
-  const name = productName.replace(/\s+/g, " ").trim();
-  const price = origin?.priceLabel?.trim();
-  const pageUrl = origin?.pageUrl?.trim();
-  const reference = `${code ? `*${code}* ${name}` : name}${price ? ` (${price})` : ""}`;
-  const lines = [`Hola *${brandName}*, vengo de ${WEB_ORIGIN_TAG} y quiero comprar:`, reference];
-  if (pageUrl) {
-    lines.push(pageUrl);
-  }
-  return lines.join("\n");
+  const name = productName
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
+    .replace(/(^|\s)(\S)/g, (_, space: string, letter: string) => space + letter.toUpperCase());
+  return `Hola, vengo de ${WEB_ORIGIN_TAG} 👋\nMe interesa la *${name}*${code ? ` (${code})` : ""}`;
 }
 
 // Mensaje de "Cotiza aquí" y botones generales de la tienda:
@@ -124,14 +111,6 @@ export function buildWhatsAppBuyMessage(
 export function buildWhatsAppQuoteMessage(brandName: string, pageLabel?: string | null): string {
   const label = pageLabel?.replace(/\s+/g, " ").trim();
   return `Hola ${brandName}, vengo de ${WEB_ORIGIN_TAG}${label ? ` (${label})` : ""} y quiero cotizar mobiliario profesional`;
-}
-
-export function buildWhatsAppProductHref(
-  productName: string,
-  brandName: string = siteConfig.name,
-  productCode?: string | null,
-): string {
-  return buildWhatsAppHref(buildWhatsAppBuyMessage(brandName, productName, productCode));
 }
 
 export function sanitizeDescription(value: string | null | undefined, fallback: string): string {

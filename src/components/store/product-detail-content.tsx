@@ -144,12 +144,9 @@ export async function ProductDetailContent({
     isBundle: product.isBundle,
   });
   const leadText = landing.description || fallbackDescription;
-  // El mensaje dice que viene de magilus.com, con precio y enlace de la ficha (mide ventas por SEO).
+  // El mensaje dice que viene de magilus.com (mide ventas por SEO), sin precio ni enlace.
   const whatsAppHref = await buildSystemWhatsAppHref(
-    buildWhatsAppBuyMessage(brandName, product.name, product.code, {
-      pageUrl: getSiteUrl(canonicalPath),
-      priceLabel,
-    }),
+    buildWhatsAppBuyMessage(brandName, product.name, product.code),
   );
   // JSON-LD Product: precio real y sin reseñas ni calificaciones (aggregateRating/review).
   const productSchema = {
