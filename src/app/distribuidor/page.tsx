@@ -3,9 +3,7 @@ import Image from "next/image";
 import { Store } from "lucide-react";
 import { FloatingWhatsAppButton } from "@/components/store/floating-whatsapp-button";
 import { WholesaleCatalog, type WholesaleProduct } from "@/components/store/wholesale-catalog";
-import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
-import { compactPriceLabel } from "@/lib/seo-metadata";
 import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl } from "@/lib/site";
 import {
   buildStorefrontQuoteWhatsAppHref,
@@ -49,7 +47,7 @@ export default async function WholesalePublicPage() {
     getSystemStorefrontLogoPath(),
   ]);
 
-  // Mismo mensaje que "Comprar por WhatsApp" de la ficha, con el precio por mayor y la cantidad minima.
+  // Mismo mensaje corto que "Comprar por WhatsApp" de la ficha.
   const products: WholesaleProduct[] = await Promise.all(
     rows.map(async (product) => ({
       id: product.id,
@@ -60,9 +58,7 @@ export default async function WholesalePublicPage() {
       wholesalePrice: Number(product.wholesalePrice),
       minWholesaleQty: product.minWholesaleQty,
       whatsAppHref: await buildSystemWhatsAppHref(
-        buildWhatsAppBuyMessage(brandName, product.name, product.code, {
-          priceLabel: `${compactPriceLabel(formatMoney(String(product.wholesalePrice), currency))} x mayor, desde ${product.minWholesaleQty} und.`,
-        }),
+        buildWhatsAppBuyMessage(brandName, product.name, product.code),
       ),
     })),
   );

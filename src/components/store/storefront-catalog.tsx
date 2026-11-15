@@ -366,10 +366,7 @@ export async function StorefrontCatalog({
           pagedProducts.map(async (product) => [
             product.id,
             await buildSystemWhatsAppHref(
-              buildWhatsAppBuyMessage(brandName, product.name, product.code, {
-                pageUrl: getSiteUrl(buildProductPath(product)),
-                priceLabel: compactPriceLabel(formatMoney(String(getCurrentStorePrice(product, now)), systemCurrency)),
-              }),
+              buildWhatsAppBuyMessage(brandName, product.name, product.code),
             ),
           ] as const),
         )
