@@ -65,11 +65,19 @@ import {
 import { createPrismaMonthCloseDeps } from "@/modules/balances/infrastructure/prisma-month-close";
 import { buildCoverageReport } from "@/modules/transporte/domain/coverage-report";
 import { listCoverageRows } from "@/modules/transporte/infrastructure/transporte-repository";
+import { revalidatePath } from "next/cache";
+import { logActivityAs } from "@/lib/activity-log";
+import {
+  getSystemWhatsAppPhoneDisplay,
+  getSystemWhatsAppPhoneHref,
+  setSystemWhatsAppPhone,
+} from "@/lib/system-settings";
+import { changeSiteWhatsApp, type SiteWhatsAppDeps } from "../../application/site-whatsapp";
 import type { McpServerDefinition, McpToolDefinition, McpToolResult } from "./protocol";
 
 // Casi todas las herramientas son de SOLO LECTURA: solo llaman casos de uso de consulta.
-// Solo escriben registrar_gasto, registrar_pago_proveedora y cerrar_mes: guardan despues de que el
-// dueno diga "si" (en gastos la foto del soporte es opcional y no se revisa).
+// Solo escriben registrar_gasto, registrar_pago_proveedora, cerrar_mes y cambiar_whatsapp_de_la_pagina:
+// guardan despues de que el dueno diga "si" (en gastos la foto del soporte es opcional y no se revisa).
 const READ_ONLY_ANNOTATIONS = {
   readOnlyHint: true,
   destructiveHint: false,
@@ -166,6 +174,29 @@ function loadPayrollBoard(deps: AsesorDependencies, mes: number, anio: number) {
     anio,
   );
 }
+
+// Une "cambiar el WhatsApp de la pagina" con los ajustes, la cache de Next y la bitacora.
+function createSiteWhatsAppDeps(): SiteWhatsAppDeps {
+  return {
+    current: () => getSystemWhatsAppPhoneDisplay(),
+    save: (phone) => setSystemWhatsAppPhone(phone),
+    // Lo mismo que adminUpdateWhatsAppPhoneAction: el layout cubre la tienda y todas sus paginas.
+    refresh: () => {
+      revalidatePath("/", "layout");
+      revalidatePath("/admin/cotizaciones");
+    },
+    async log(summary) {
+      // La conexion del MCP no sabe quien habla: queda a nombre del dueno, como los gastos.
+      const actor = await createVoiceExpenseDeps().resolveActor();
+      if (actor) {
+        await logActivityAs(actor, { action: "UPDATE", entityType: "SETTING", entityId: "whatsAppPhone", summary, origin: "MCP" });
+      }
+    },
+  };
+}
+
+const WHATSAPP_USO =
+  "Es el numero al que llegan los clientes de magilus.com (todos los botones de WhatsApp de la tienda) y tambien el contacto que sale en el enlace de cotizacion, en /fabricacion y en las guias.";
 
 export const asesorTools: McpToolDefinition[] = [
   defineTool({
@@ -720,6 +751,39 @@ export const asesorTools: McpToolDefinition[] = [
     },
   }),
   defineTool({
+    name: "ver_whatsapp_de_la_pagina",
+    title: "Ver el WhatsApp de la página",
+    description: `Numero de WhatsApp que usa hoy la pagina y su enlace wa.me. ${WHATSAPP_USO} Para cambiarlo: cambiar_whatsapp_de_la_pagina.`,
+    schema: z.object({}),
+    handler: async () => ({
+      numero: await getSystemWhatsAppPhoneDisplay(),
+      enlace: `https://wa.me/${await getSystemWhatsAppPhoneHref()}`,
+      uso: WHATSAPP_USO,
+    }),
+  }),
+  defineTool({
+    name: "cambiar_whatsapp_de_la_pagina",
+    title: "Cambiar el WhatsApp de la página",
+    description: `Cambia el numero de WhatsApp de la pagina (el mismo ajuste de /admin/configuracion/negocio → Guardar WhatsApp). ${WHATSAPP_USO} Cambia a que linea llegan TODOS los clientes de la pagina: hazlo solo si el dueno lo pide. SIEMPRE en dos pasos: (1) llama con confirmado=false (por defecto): NO guarda nada, valida el numero y devuelve el de antes y el nuevo; repiteselo al dueno y pregunta '¿Lo cambio?'. (2) SOLO si el dueno dice 'si', llama UNA SOLA VEZ con el mismo numero y confirmado=true: queda guardado, la tienda se refresca y se anota en la bitacora. Un numero invalido se rechaza y no se guarda nada.`,
+    schema: z.object({
+      numero: z.string().max(40).describe("Numero nuevo con indicativo, ej. +57 316 983 1667. Solo digitos, espacios, +, ( ) y guiones; 7 a 15 digitos."),
+      confirmado: z
+        .boolean()
+        .default(false)
+        .describe("false = solo mostrar el antes y el nuevo. true = el dueno ya dijo 'si': guardar el numero."),
+    }),
+    writes: true,
+    handler: async (args) => {
+      const change = await changeSiteWhatsApp(createSiteWhatsAppDeps(), args.numero, args.confirmado);
+      return {
+        ...change,
+        siguiente_paso: change.guardado
+          ? "Ya quedo guardado (no lo repitas). Dile al dueno el numero de antes y el nuevo; puede verificarlo con ver_whatsapp_de_la_pagina."
+          : "Repite al dueno el numero de antes y el nuevo y pregunta '¿Lo cambio?'. Si dice si, llama UNA SOLA VEZ mas con el mismo numero y confirmado=true.",
+      };
+    },
+  }),
+  defineTool({
     name: "que_es_esta_aplicacion",
     title: "Qué es esta aplicación",
     description:
@@ -751,6 +815,6 @@ export const asesorMcpServer: McpServerDefinition = {
   name: "gestion-magilus",
   version: "1.2.0",
   instructions:
-    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos, pagos a proveedoras y el cierre de mes: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), saldos de cuentas, gastos del mes con la ganancia real (listar_gastos) cuanto se le debe a cada proveedora orden por orden (deuda_con_proveedoras), pedidos por clienta o ciudad con su estado (buscar_pedido, pedidos_abiertos) y la cobertura de envios por departamento y municipio (listar_cobertura). Para entender el sistema completo usa primero que_es_esta_aplicacion. Todas las herramientas son de lectura salvo registrar_gasto, registrar_pago_proveedora y cerrar_mes (cierre de mes: el dueno dicta el saldo real de cada cuenta y se crea un ajuste por cuenta), las unicas que escriben: antes de guardar SIEMPRE repite el resumen al dueno y espera su 'si' (primero con confirmado=false, luego confirmado=true, UNA sola vez: dos llamadas de registrar_gasto crean dos gastos). Un pago a una proveedora por su orden de fabricacion (OF) va con registrar_pago_proveedora, nunca como gasto (contaria el costo dos veces). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
+    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos, pagos a proveedoras y el cierre de mes: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), saldos de cuentas, gastos del mes con la ganancia real (listar_gastos) cuanto se le debe a cada proveedora orden por orden (deuda_con_proveedoras), pedidos por clienta o ciudad con su estado (buscar_pedido, pedidos_abiertos) y la cobertura de envios por departamento y municipio (listar_cobertura). Para entender el sistema completo usa primero que_es_esta_aplicacion. El WhatsApp de la pagina (al que llegan los clientes de magilus.com) se lee con ver_whatsapp_de_la_pagina. Todas las herramientas son de lectura salvo registrar_gasto, registrar_pago_proveedora, cerrar_mes (cierre de mes: el dueno dicta el saldo real de cada cuenta y se crea un ajuste por cuenta) y cambiar_whatsapp_de_la_pagina (cambia a que linea llegan los clientes de la pagina; solo si el dueno lo pide), las unicas que escriben: antes de guardar SIEMPRE repite el resumen al dueno y espera su 'si' (primero con confirmado=false, luego confirmado=true, UNA sola vez: dos llamadas de registrar_gasto crean dos gastos). Un pago a una proveedora por su orden de fabricacion (OF) va con registrar_pago_proveedora, nunca como gasto (contaria el costo dos veces). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
   tools: asesorTools,
 };

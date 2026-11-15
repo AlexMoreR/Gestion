@@ -2,6 +2,7 @@ import { cache } from "react";
 import { DEFAULT_SYSTEM_CURRENCY, isSupportedCurrency, type SupportedCurrencyCode } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { buildWhatsAppQuoteMessage, siteConfig } from "@/lib/site";
+import { normalizeWhatsAppPhone } from "@/lib/whatsapp-phone";
 
 const CURRENCY_SETTING_KEY = "currency";
 const PRIMARY_COLOR_SETTING_KEY = "primaryColor";
@@ -186,24 +187,6 @@ export async function setSystemBrandName(brandName: string): Promise<void> {
   }
 
   await setAppSettingValue(BRAND_NAME_SETTING_KEY, normalized);
-}
-
-function normalizeWhatsAppPhone(value: string | null | undefined): string | null {
-  const normalized = value?.trim();
-  if (!normalized) {
-    return null;
-  }
-
-  if (!/^[+\d\s()-]+$/.test(normalized)) {
-    return null;
-  }
-
-  const digits = normalized.replace(/\D/g, "");
-  if (digits.length < 7 || digits.length > 15) {
-    return null;
-  }
-
-  return normalized;
 }
 
 function normalizeWhatsAppPhoneDigits(value: string | null | undefined): string | null {
