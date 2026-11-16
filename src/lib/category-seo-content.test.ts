@@ -37,5 +37,6 @@ describe("textos SEO de /esmalteros", () => {
   it("otras categorías no tienen texto fijo", () => {
     expect(getCategorySeoContent("mesa-manicura")).toBeNull();
     expect(getCategorySeoContent(undefined)).toBeNull();
+    expect(getCategorySeoContent("__proto__")).toBeNull();
   });
 });

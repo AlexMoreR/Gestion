@@ -42,7 +42,8 @@ const CATEGORY_SEO_CONTENT: Record<string, CategorySeoContent> = {
 };
 
 export function getCategorySeoContent(slug: string | null | undefined): CategorySeoContent | null {
-  return (slug && CATEGORY_SEO_CONTENT[slug.trim()]) || null;
+  const key = slug?.trim() ?? "";
+  return Object.hasOwn(CATEGORY_SEO_CONTENT, key) ? CATEGORY_SEO_CONTENT[key] : null;
 }
 
 export function categorySeoParagraphText(paragraph: CategorySeoSegment[]): string {
