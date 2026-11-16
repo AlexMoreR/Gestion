@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Shield, ShoppingCart, Star, Truck } from "lucide-react";
+import { getCategorySeoContent } from "@/lib/category-seo-content";
 import { CatalogPagination } from "@/components/store/catalog-pagination";
 import { CategoriesCarousel } from "@/components/store/categories-carousel";
 import { GuaranteeBadge } from "@/components/store/guarantee-badge";
@@ -136,7 +137,11 @@ export async function generateStorefrontMetadata({
   const minPriceLabel = storePrices.length > 0 ? toPriceLabel(Math.min(...storePrices)) : null;
   const maxPriceLabel = storePrices.length > 0 ? toPriceLabel(Math.max(...storePrices)) : null;
 
-  const title = normalizedQuery
+  // Texto SEO fijo en el código (ej. /esmalteros): gana sobre lo escrito en /admin/categorias.
+  const fixedSeo = category && !normalizedQuery ? getCategorySeoContent(category.slug) : null;
+  const title = fixedSeo
+    ? { absolute: fixedSeo.title }
+    : normalizedQuery
     ? `Resultados para ${normalizedQuery}`
     : category
       ? categorySeoTitle || {
@@ -145,7 +150,9 @@ export async function generateStorefrontMetadata({
       : {
           absolute: buildHomeSeoTitle(brandName),
         };
-  const description = normalizedQuery
+  const description = fixedSeo
+    ? fixedSeo.description
+    : normalizedQuery
     ? `Explora en ${brandName} resultados para ${normalizedQuery} en sillas, estaciones y mobiliario profesional para salón y barbería.`
     : category
       ? category.seoDescription?.trim() ||
@@ -348,13 +355,18 @@ export async function StorefrontCatalog({
     cover: getPublicAssetUrl(item.logoUrl || item.products[0]?.thumbnailUrl || "/file.svg"),
   }));
 
-  const pageHeading = category
+  const fixedSeo = category && !normalizedQuery ? getCategorySeoContent(category.slug) : null;
+  const pageHeading = fixedSeo
+    ? fixedSeo.h1
+    : category
     ? category.name
     : storefrontHeroTitle;
   const pageIntro = category
     ? category.description?.trim() || autoCategoryDescription
     : storefrontHeroDescription;
-  const collectionDescription = category
+  const collectionDescription = fixedSeo
+    ? fixedSeo.description
+    : category
     ? category.description?.trim() || autoCategoryDescription
     : "Catálogo de sillas, estaciones y mobiliario profesional premium para salón de belleza, barbería y espacios de alto nivel.";
   const baseUrl = category ? `/${category.slug}` : "/";
@@ -452,9 +464,32 @@ export async function StorefrontCatalog({
                     <h1 className="mx-auto w-full max-w-none text-[1.18rem] font-semibold leading-[0.98] tracking-tight md:mx-0 md:max-w-xl md:text-[3rem] md:leading-[0.94]">
                       {pageHeading}
                     </h1>
-                    <p className="mx-auto w-full max-w-none text-[13px] leading-[1.45] text-slate-600 md:mx-0 md:max-w-lg md:text-base md:leading-6">
-                      {pageIntro}
-                    </p>
+                    {fixedSeo ? (
+                      fixedSeo.paragraphs.map((paragraph, paragraphIndex) => (
+                        <p
+                          key={paragraphIndex}
+                          className="mx-auto w-full max-w-none text-[13px] leading-[1.45] text-slate-600 md:mx-0 md:max-w-lg md:text-base md:leading-6"
+                        >
+                          {paragraph.map((segment, segmentIndex) =>
+                            typeof segment === "string" ? (
+                              segment
+                            ) : (
+                              <Link
+                                key={segmentIndex}
+                                href={segment.href}
+                                className="font-semibold text-[var(--primary-strong)] underline underline-offset-2"
+                              >
+                                {segment.text}
+                              </Link>
+                            ),
+                          )}
+                        </p>
+                      ))
+                    ) : (
+                      <p className="mx-auto w-full max-w-none text-[13px] leading-[1.45] text-slate-600 md:mx-0 md:max-w-lg md:text-base md:leading-6">
+                        {pageIntro}
+                      </p>
+                    )}
                     {!category ? (
                       <div className="hidden flex-wrap items-center gap-2 pt-0.5 text-xs text-slate-200 md:flex">
                       <Link
@@ -604,7 +639,7 @@ export async function StorefrontCatalog({
                     <div className="relative">
                       <img
                         src={imageVariantUrl(getPublicAssetUrl(product.thumbnailUrl), "thumb")}
-                        alt={product.name}
+                        alt={fixedSeo ? `${product.name} – ${fixedSeo.altSuffix}` : product.name}
                         className="h-40 w-full bg-card object-contain p-2 transition duration-500 group-hover:scale-[1.02] md:h-52"
                         // La primera fila se ve al abrir; el resto carga al bajar.
                         loading={index < 4 ? "eager" : "lazy"}
@@ -700,7 +735,7 @@ export async function StorefrontCatalog({
             buildHref={buildPageHref}
           />
           {category || normalizedQuery ? categoriesSection() : null}
-          {!normalizedQuery && category ? (
+          {!normalizedQuery && category && !fixedSeo ? (
             <div className="rounded-2xl border border-[var(--line)] bg-card px-4 py-4 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--primary-strong)]">
                 {category.name}
