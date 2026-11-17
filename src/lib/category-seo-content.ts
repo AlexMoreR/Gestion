@@ -39,6 +39,26 @@ const CATEGORY_SEO_CONTENT: Record<string, CategorySeoContent> = {
     ],
     altSuffix: "organizador de esmaltes para salón de uñas",
   },
+  "lavacabezas-fibra-de-vidrio": {
+    title: "Lavacabezas en fibra de vidrio | Fabricantes | Magilus",
+    description:
+      "Lavacabezas en fibra de vidrio para peluquería y barbería: Milenio, Italo Eco, Fredy, Ponti y más. Fabricantes de mobiliario en Cali y Bogotá.",
+    h1: "Lavacabezas en fibra de vidrio para peluquería",
+    paragraphs: [
+      [
+        "En Magilus somos fabricantes de lavacabezas en fibra de vidrio para peluquerías, barberías y salones de belleza. Un buen lavacabezas para peluquería le da comodidad a tu clienta mientras le lavas el cabello, te deja trabajar en una postura más cómoda y hace que el puesto de lavado se vea limpio y profesional. La fibra de vidrio es liviana, resistente y fácil de limpiar todos los días.",
+      ],
+      [
+        "Tenemos varios modelos para escoger: el Milenio, en versión Corazón y Master, ideal para salones que empiezan; el Italo Eco; el Fredy, también con brazo de platina; el Ponti con brazos redondeados; el lavacabezas capitoneado en negro, y el lavacabezas con poceta de vidrio, para un puesto de lavado más elegante. Cada lavacabezas en fibra de vidrio se fabrica en nuestros talleres de Cali y Bogotá, y te ayudamos a escoger el color que combine con tu salón.",
+      ],
+      [
+        "Si estás buscando lavacabezas Cali o en cualquier ciudad de Colombia, cuéntanos cómo es tu espacio y cuántos puestos de lavado necesitas. Si prefieres una poceta más pesada y brillante, mira también nuestros ",
+        { text: "lavacabezas en porcelana", href: "/lavacabezas-en-porcelana" },
+        ". Escríbenos por WhatsApp y te asesoramos.",
+      ],
+    ],
+    altSuffix: "lavacabezas para peluquería",
+  },
 };
 
 export function getCategorySeoContent(slug: string | null | undefined): CategorySeoContent | null {
