@@ -75,3 +75,40 @@ describe("textos SEO de /lavacabezas-fibra-de-vidrio", () => {
     expect(all).not.toMatch(/\$|precio|gratis|garantía|descuento/);
   });
 });
+
+describe("textos SEO de /combo-de-camillas", () => {
+  const seo = getCategorySeoContent("combo-de-camillas")!;
+  const body = seo.paragraphs.map(categorySeoParagraphText).join(" ");
+  const hrefs = seo.paragraphs.flat().flatMap((s) => (typeof s === "string" ? [] : [s.href]));
+
+  it("título de máximo 60 caracteres que termina en la marca", () => {
+    expect(seo.title).toBe("Combo de camillas para spa y pestañas | Magilus");
+    expect(seo.title.length).toBeLessThanOrEqual(60);
+    expect(seo.title.endsWith("| Magilus")).toBe(true);
+  });
+
+  it("descripción de máximo 155 caracteres con las búsquedas y las sedes", () => {
+    expect(seo.description.length).toBeLessThanOrEqual(155);
+    for (const word of ["combo de camillas", "spa", "pestañas", "Cali y Bogotá"]) {
+      expect(seo.description.toLowerCase()).toContain(word.toLowerCase());
+    }
+  });
+
+  it("texto de 150 a 250 palabras con las búsquedas, el enlace y el cierre", () => {
+    const words = body.split(/\s+/).filter(Boolean).length;
+    expect(words).toBeGreaterThanOrEqual(150);
+    expect(words).toBeLessThanOrEqual(250);
+    for (const word of ["combo de camillas", "combo camilla", "camilla con silla y carrito", "camilla lashista"]) {
+      expect(body.toLowerCase()).toContain(word);
+    }
+    expect(hrefs).toEqual(["/camilla"]);
+    expect(seo.h1).toBe("Combos de camillas para spa, masaje y pestañas");
+    expect(seo.altSuffix).toBe("combo de camilla para spa");
+    expect(body.endsWith("Escríbenos por WhatsApp y te asesoramos.")).toBe(true);
+  });
+
+  it("sin precios, envío gratis, contraentrega, garantías ni descuentos", () => {
+    const all = [seo.title, seo.description, seo.h1, body, seo.altSuffix].join(" ");
+    expect(all).not.toMatch(/\$|precio|gratis|contraentrega|garant[ií]a|descuento/i);
+  });
+});

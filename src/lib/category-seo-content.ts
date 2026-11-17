@@ -59,6 +59,26 @@ const CATEGORY_SEO_CONTENT: Record<string, CategorySeoContent> = {
     ],
     altSuffix: "lavacabezas para peluquería",
   },
+  "combo-de-camillas": {
+    title: "Combo de camillas para spa y pestañas | Magilus",
+    description:
+      "Combo de camillas para spa, masaje y pestañas: camilla con silla auxiliar, carrito y escalera. Fabricantes en Cali y Bogotá. Escríbenos por WhatsApp.",
+    h1: "Combos de camillas para spa, masaje y pestañas",
+    paragraphs: [
+      [
+        "En Magilus somos fabricantes de camillas y armamos cada combo de camillas para que montes tu cabina de spa, masaje, estética o pestañas de una sola vez. Un combo camilla junta las piezas que usas todos los días, del mismo color y acabado, y le da a tu espacio una imagen ordenada y profesional desde el primer día.",
+      ],
+      [
+        "Tenemos varios modelos. El Combo Camilla Diván trae camilla fija, silla auxiliar giratoria, escalerilla de dos pasos y carrito auxiliar de tres niveles. El Combo Camilla Tres Cuerpos suma camilla de tres cuerpos, silla auxiliar, escalera de un paso y carrito auxiliar. El combo de camilla 3 cuerpos + silla + carrito + escalera es la camilla con silla y carrito más completa para empezar a trabajar. El Combo Camilla Premium lleva camilla de tres cuerpos, silla flor con base araña, carrito auxiliar y escalera de dos pasos. Y el Combo Camilla Lashista, pensado como camilla lashista para extensiones de pestañas, trae camilla, silla auxiliar y carrito.",
+      ],
+      [
+        "Todos se fabrican en Cali y Bogotá. Si solo necesitas la camilla, mira nuestras ",
+        { text: "camillas sueltas", href: "/camilla" },
+        ". Escríbenos por WhatsApp y te asesoramos.",
+      ],
+    ],
+    altSuffix: "combo de camilla para spa",
+  },
 };
 
 export function getCategorySeoContent(slug: string | null | undefined): CategorySeoContent | null {
