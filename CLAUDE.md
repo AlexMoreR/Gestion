@@ -638,6 +638,13 @@ asesoras. Instalación: `scripts/precios-vigentes/README.md`.
   migración de datos inserta su propia fila en `ActivityLog` con origin 'MIGRACION'. Los scripts usan
   `scripts/firma.mjs`: `exigirTarjeta()` antes de conectarse (con `--aplicar` y sin `--tarjeta T-xxx` se niega) y
   `firmar(db, ...)` al escribir (origin "SCRIPT", la tarjeta y el commit de `GIT_COMMIT` o `git rev-parse HEAD`).
+- **SEO de fichas y categorías: va FIJO EN CÓDIGO, no en scripts de base de datos (18-nov-2026).** Título, descripción,
+  H1, párrafo y ALT de una ficha van en `src/lib/product-seo-content.ts`, y los de una categoría en
+  `src/lib/category-seo-content.ts` (mismo patrón que CAV11, MMV10, esmalteros y lavacabezas). Así salen solos al
+  subir el código y no queda ningún paso manual. Un script que escribe en la base (como `seo-camilla-curva-lashista`)
+  NO se aplica solo al subir: quedó "subido pero no aplicado" y hubo que correrlo a mano con `--aplicar --tarjeta`.
+  Solo se usa script de base si el dato NO puede ir en código; en ese caso la tarjeta no se cierra hasta correrlo en
+  producción y confirmar la ficha en magilus.com, y su detalle lo dice.
 - **Manual de pantallas (regla para el Coordinador y los agentes):** toda tarjeta que cambie una pantalla de
   Gestión (un botón, una pestaña o una ruta) actualiza también `docs/asesor/pantallas.md` con la ruta y el texto
   exacto del botón. Si no, Claude dará indicaciones viejas. Cada carpeta con `page.tsx` bajo
