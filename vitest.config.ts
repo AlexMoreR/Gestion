@@ -5,6 +5,6 @@ import { configDefaults, defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: [...configDefaults.include, "tests/**/*.test.ts"],
-    exclude: [...configDefaults.exclude, "tests/db/**/*.db.test.ts", "scripts/revisor/**", "scripts/corregir-nombres-productos.test.mjs", "scripts/camilla-al-inicio-nombres.test.mjs", "scripts/seo-mesa-manicura-tarimas.test.mjs"],
+    exclude: [...configDefaults.exclude, "tests/db/**/*.db.test.ts", "scripts/revisor/**", "scripts/corregir-nombres-productos.test.mjs", "scripts/camilla-al-inicio-nombres.test.mjs", "scripts/seo-mesa-manicura-tarimas.test.mjs", "scripts/seo-camilla-curva-lashista.test.mjs"],
   },
 });
