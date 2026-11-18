@@ -24,7 +24,8 @@
     "aportes:arriendo": "vite-node --config scripts/vite-node.config.mjs scripts/aportes-dueno-arriendo.mjs --",
     "productos:corregir-nombres": "node scripts/corregir-nombres-productos.mjs",
     "productos:camilla-al-inicio": "node scripts/camilla-al-inicio-nombres.mjs",
-    "categorias:seo-manicura-tarimas": "node scripts/seo-mesa-manicura-tarimas.mjs"
+    "categorias:seo-manicura-tarimas": "node scripts/seo-mesa-manicura-tarimas.mjs",
+    "productos:seo-camilla-lashista": "node scripts/seo-camilla-curva-lashista.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
