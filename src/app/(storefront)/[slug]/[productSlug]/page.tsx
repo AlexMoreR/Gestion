@@ -9,6 +9,7 @@ import { separarImagenes } from "@/lib/product-fichas";
 import { getCurrentStorePrice } from "@/lib/product-promo";
 import { findRedirectTarget } from "@/lib/product-redirect";
 import { buildProductPath } from "@/lib/product-slugs";
+import { getProductSeoContent } from "@/lib/product-seo-content";
 import {
   buildProductFallbackDescription,
   buildProductSeoTitle,
@@ -53,7 +54,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const priceLabel = compactPriceLabel(formatMoney(String(getCurrentStorePrice(product)), currency));
   // Si el admin cargo seoDescription se respeta tal cual; si no, se recorta a ~155 car.
   // Sin descripcion: texto de respaldo con categoria, fabrica, precio y WhatsApp.
-  const seoDescription = product.seoDescription?.trim();
+  // Texto fijo en código para esta ficha (gana sobre lo del admin).
+  const fixedSeo = getProductSeoContent(product.slug);
+  const seoDescription = fixedSeo?.description ?? product.seoDescription?.trim();
   const description = seoDescription
     ? sanitizeDescription(seoDescription, "")
     : truncateMetaDescription(
@@ -72,7 +75,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const imageUrl = getPublicAssetUrl(product.thumbnailUrl);
   // Si hay seoTitle se respeta (el layout le agrega "| Marca"). Si no:
   // "<Nombre> | $<precio vigente> | Marca" (mismo precio que muestra la ficha).
-  const seoTitle = product.seoTitle?.trim();
+  const seoTitle = fixedSeo?.title ?? product.seoTitle?.trim();
   const fullTitle = seoTitle
     ? `${seoTitle} | ${brandName}`
     : buildProductSeoTitle({

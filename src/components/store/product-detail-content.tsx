@@ -11,6 +11,7 @@ import { formatMoney } from "@/lib/currency";
 import type { SupportedCurrencyCode } from "@/lib/currency";
 import { altFicha, soloFotos } from "@/lib/product-fichas";
 import { buildProductPath } from "@/lib/product-slugs";
+import { getProductSeoContent } from "@/lib/product-seo-content";
 import { imageVariantUrl } from "@/lib/image-variants";
 import {
   buildProductLandingData,
@@ -144,6 +145,8 @@ export async function ProductDetailContent({
     isBundle: product.isBundle,
   });
   const leadText = landing.description || fallbackDescription;
+  // Ficha con textos SEO fijos en código (H1 y párrafo propio con enlace a la categoría).
+  const fixedSeo = getProductSeoContent(product.slug);
   // El mensaje dice que viene de magilus.com (mide ventas por SEO), sin precio ni enlace.
   const whatsAppHref = await buildSystemWhatsAppHref(
     buildWhatsAppBuyMessage(brandName, product.name, product.code),
@@ -207,7 +210,7 @@ export async function ProductDetailContent({
             <p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--primary)]">{categoryName}</p>
           ) : null}
           <h1 className="mt-1.5 text-[28px] font-extrabold leading-tight tracking-tight text-balance text-foreground lg:text-4xl">
-            {landing.displayName}
+            {fixedSeo?.h1 ?? landing.displayName}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {product.code ? (
@@ -320,6 +323,24 @@ export async function ProductDetailContent({
           </div>
         </div>
       </div>
+
+      {fixedSeo ? (
+        <p className="mt-6 max-w-3xl text-[15.5px] leading-relaxed text-muted-foreground">
+          {fixedSeo.paragraph.map((segment, index) =>
+            typeof segment === "string" ? (
+              segment
+            ) : (
+              <Link
+                key={index}
+                href={segment.href}
+                className="font-semibold text-[var(--primary-strong)] underline underline-offset-2"
+              >
+                {segment.text}
+              </Link>
+            ),
+          )}
+        </p>
+      ) : null}
 
       {/* 2. Medidas y detalles + colores */}
       <div className="mt-6 grid gap-6 border-t border-[var(--line)] py-7 lg:grid-cols-2 lg:gap-7">
