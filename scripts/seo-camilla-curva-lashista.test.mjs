@@ -68,3 +68,10 @@ test("la simulación empieza por SIMULACION y aplicar por APLICAR", () => {
   assert.equal(lineas.filter((l) => l.includes(" → ")).length, 3);
   assert.match(lineasDelPlan(planearSeo(HOY), true)[0], /^APLICAR/);
 });
+
+test("un plan saltado imprime el motivo y SLUG es el enlace de la ficha", () => {
+  const ya = planearSeo(HOY).cambios[0].despues;
+  const lineas = lineasDelPlan(planearSeo({ id: "p1", slug: SLUG, ...ya }), false);
+  assert.ok(lineas.includes(`  ${SLUG}: se salta, ya tiene los textos nuevos`), lineas.join("\n"));
+  assert.equal(SLUG, "camilla-curva-lashista-cav14");
+});
