@@ -39,3 +39,40 @@ describe("getProductSeoContent", () => {
     expect(getProductSeoContent("constructor")).toBeNull();
   });
 });
+
+describe("getProductSeoContent — mesa MMV10", () => {
+  const seo = getProductSeoContent("mesa-manicura-mmv10")!;
+  const text = categorySeoParagraphText(seo.paragraph);
+
+  it("trae el título y la descripción fijos y deja el H1 de siempre", () => {
+    expect(seo.title).toBe("Mesa de manicura con doble esmaltero de fábrica");
+    expect(`${seo.title} | Magilus`.length).toBeLessThanOrEqual(60);
+    expect(seo.description).toBe(
+      "Mesa de manicura con doble esmaltero, hecha por Magilus en Cali y Bogotá para salones de uñas. Mira fotos, medidas y precio y cotiza por WhatsApp.",
+    );
+    expect(seo.description.length).toBeLessThanOrEqual(155);
+    expect(seo.h1).toBeUndefined();
+  });
+
+  it("párrafo de 120 a 200 palabras con las 3 frases y enlaces a /mesa-manicura y /esmalteros", () => {
+    const words = text.trim().split(/\s+/).length;
+    expect(words).toBeGreaterThanOrEqual(120);
+    expect(words).toBeLessThanOrEqual(200);
+    for (const phrase of ["mesa manicura", "mesa de manicura", "mesa para uñas"]) {
+      expect(text.toLowerCase()).toContain(phrase);
+    }
+    const links = seo.paragraph.filter((s) => typeof s !== "string").map((s) => s.href);
+    expect(links).toEqual(["/mesa-manicura", "/esmalteros"]);
+  });
+
+  it("sin precios, cifras, envío gratis, descuentos ni garantías", () => {
+    const all = `${seo.title} ${seo.description} ${text}`.toLowerCase();
+    for (const banned of ["$", "%", "gratis", "descuento", "garantía"]) expect(all).not.toContain(banned);
+    expect(all).not.toMatch(/\d/);
+    expect(seo.title).not.toContain("Magilus");
+  });
+
+  it("otra ficha de la misma categoría no trae textos fijos", () => {
+    expect(getProductSeoContent("mesa-manicura-mmv11")).toBeNull();
+  });
+});
