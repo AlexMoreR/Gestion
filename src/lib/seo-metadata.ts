@@ -201,6 +201,11 @@ export function sitemapProducts<T extends SitemapProductSource>(products: T[]): 
   );
 }
 
+/** Google guarda la categoria solo si esta activa y tiene productos visibles (misma regla del sitemap). */
+export function categoryIsIndexable(category: { isActive: boolean; activeProductCount: number }): boolean {
+  return category.isActive && category.activeProductCount > 0;
+}
+
 /** Solo categorias con al menos un producto visible en la tienda. */
 export function sitemapCategories<T extends SitemapCategorySource>(categories: T[]): T[] {
   return categories.filter((category) => category.activeProductCount > 0);

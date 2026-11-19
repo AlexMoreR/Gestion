@@ -5,6 +5,7 @@ import {
   buildHomeSeoTitle,
   buildProductFallbackDescription,
   buildProductSeoTitle,
+  categoryIsIndexable,
   compactPriceLabel,
   expandProductNameForSeo,
   sitemapCategories,
@@ -198,5 +199,11 @@ describe("sitemap", () => {
       { slug: "tapizados", updatedAt, activeProductCount: 0 },
     ]);
     expect(result.map((category) => category.slug)).toEqual(["camilla"]);
+  });
+
+  it("categoryIsIndexable: solo activa con productos visibles", () => {
+    expect(categoryIsIndexable({ isActive: true, activeProductCount: 3 })).toBe(true);
+    expect(categoryIsIndexable({ isActive: true, activeProductCount: 0 })).toBe(false);
+    expect(categoryIsIndexable({ isActive: false, activeProductCount: 5 })).toBe(false);
   });
 });

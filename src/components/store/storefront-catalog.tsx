@@ -18,6 +18,7 @@ import {
   buildCategorySeoDescription,
   buildCategorySeoTitle,
   buildHomeSeoTitle,
+  categoryIsIndexable,
   compactPriceLabel,
 } from "@/lib/seo-metadata";
 import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, siteConfig } from "@/lib/site";
@@ -98,9 +99,11 @@ export async function generateStorefrontMetadata({
           description: true,
           seoTitle: true,
           seoDescription: true,
+          isActive: true,
+          // Solo productos visibles: misma regla que el sitemap.
           _count: {
             select: {
-              products: true,
+              products: { where: { hiddenFromStore: false } },
             },
           },
           logoUrl: true,
@@ -204,7 +207,8 @@ export async function generateStorefrontMetadata({
       description,
       images: [socialImage],
     },
-    ...(normalizedQuery || (category && category._count.products === 0)
+    ...(normalizedQuery ||
+    (category && !categoryIsIndexable({ isActive: category.isActive, activeProductCount: category._count.products }))
       ? {
           robots: {
             index: false,
