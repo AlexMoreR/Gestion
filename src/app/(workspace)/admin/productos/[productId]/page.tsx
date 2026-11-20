@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { PackageSearch } from "lucide-react";
+import { Images, PackageSearch } from "lucide-react";
 import { auth } from "@/auth";
 import { DriveImportButton } from "@/components/admin/drive-import-button";
 import { EditProductForm } from "@/components/admin/edit-product-form";
@@ -17,6 +18,7 @@ import { getProductPurchaseHistory } from "@/lib/product-purchase-history";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { leerAcabadosHex, leerRecargos } from "@/lib/product-parts";
+import { esComboCamillas } from "@/modules/ventas/domain/combo-camillas";
 
 type PageProps = {
   params: Promise<{ productId: string }>;
@@ -92,7 +94,16 @@ export default async function AdminProductoDetallePage({ params, searchParams }:
             Visualiza y ajusta costo, sugerencia y precio final con el mismo flujo del formulario de creacion.
           </p>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {isAdmin && esComboCamillas({ codigo: product.code }) ? (
+            <Link
+              href={`/admin/productos/${product.id}/fotos-color`}
+              className="inline-flex items-center gap-1 text-sm font-medium text-[var(--primary)] underline-offset-4 hover:underline"
+            >
+              <Images className="h-3.5 w-3.5" />
+              Fotos por color
+            </Link>
+          ) : null}
           <DriveImportButton productId={product.id} />
         </div>
       </div>

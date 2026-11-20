@@ -394,7 +394,7 @@ Crea un producto ("Define costo, porcentaje y precio final comercial antes de gu
 ## /admin/productos/[productId]
 Ficha de edición de un producto.
 
-**Qué se ve:** título con el nombre; botón **Traer de Drive** (fotos de Drive para este producto). Sección "Fotos (n)" para ordenar (arrastrar o flechas; la portada va primera). Sección "Ficha técnica" (Imagen de la ficha, enlace o id de Drive opcional). Tarjeta "Partes de color" (solo Admin). Formulario por pasos **Producto**, **Precios y compra**, **Inventario**, **Actividad**. En Producto, igual que al crear más la casilla **Ocultar de la tienda principal**. Inventario: Stock minimo, Envio adicional (COP), Precio normal (COP), Oferta: precio (COP), Oferta desde/hasta y "Compras en inventario". Actividad: bitácora del producto.
+**Qué se ve:** título con el nombre; botón **Traer de Drive** (fotos de Drive para este producto). En el combo camilla (CMB005 / CAV-16) y solo para Admin, al lado el enlace **Fotos por color** (abre `/admin/productos/[productId]/fotos-color`). Sección "Fotos (n)" para ordenar (arrastrar o flechas; la portada va primera). Sección "Ficha técnica" (Imagen de la ficha, enlace o id de Drive opcional). Tarjeta "Partes de color" (solo Admin). Formulario por pasos **Producto**, **Precios y compra**, **Inventario**, **Actividad**. En Producto, igual que al crear más la casilla **Ocultar de la tienda principal**. Inventario: Stock minimo, Envio adicional (COP), Precio normal (COP), Oferta: precio (COP), Oferta desde/hasta y "Compras en inventario". Actividad: bitácora del producto.
 
 **Botones y acciones:**
 - **Guardar fotos** / **Deshacer cambios** (galería; al quitar una foto pregunta "¿Quitar esta foto del producto?" **Si, quitar** / **No**).
@@ -529,6 +529,19 @@ Máscaras de color de un producto (solo Admin). Se llega con el enlace **Máscar
 - **Tamaño (N px)**: grosor del pincel y del borrador.
 - **Ver máscara** / **Ver foto**: muestra la máscara sola en blanco y negro o vuelve a la foto.
 - **Guardar máscara**: guarda la máscara de la parte elegida (PNG en blanco y negro del tamaño de la portada, máximo 2000 px por lado). Si usaba las partes de la categoría pregunta "…¿Seguir?" antes. Mensajes: "Máscara de Tapizado guardada" o el error ("La máscara no tiene el tamaño de la foto de portada…").
+
+## /admin/productos/[productId]/fotos-color
+Fotos por color del combo camilla (solo Admin con permiso de Productos). Se llega con el enlace **Fotos por color** de la ficha del combo (CMB005 / CAV-16). No crea órdenes ni manda nada.
+
+**Qué se ve:** título "Fotos por color · <combo>" y enlace **Volver a la ficha**. Tarjeta "Partes del combo" con las piezas (ej. camilla diván, escalera de dos pasos, carrito auxiliar, butaco) y qué partes de color se eligen (ej. Tapizado, Estructura) o "Este combo no tiene partes de color: cada variante es un solo color." Tarjeta "Variantes de color (N)": una fila por variante con su foto y sus colores ("Tapizado: Negro · Estructura: Blanca" o "Palo de rosa"). Sin variantes: "Todavía no hay fotos por color. Usa «Agregar variante» para subir la primera." Si el producto no es el combo camilla: "Las fotos por color son solo del combo camilla." con **Ir a la ficha**.
+
+**Botones y acciones:**
+- **Agregar variante**: abre "Nueva variante": un desplegable por parte con los colores de la carta del CRM o los acabados (como en la cotización; «Por definir» no se puede guardar), o, sin partes, la caja **Color** para escribir o elegir un color de la carta. Campo "Foto (JPG, PNG o WEBP, máximo 12 MB)".
+- **Subir foto**: guarda la variante con su foto (mensaje "Foto guardada"; si ya había foto con esos mismos colores, "Foto cambiada"). **Cancelar** cierra sin guardar. Errores: "Elige una foto", "Elige el color de cada parte", "Elige o escribe el color", "La foto supera el límite de 12 MB.", "La foto no es compatible. Usa JPG, PNG o WEBP.".
+- **Cambiar foto** (en cada fila): elige otra foto para esa variante; los colores no cambian. Mensaje "Foto cambiada".
+- **Quitar** (en cada fila): pregunta "¿Quitar la foto de «…»?" y la borra (mensaje "Foto quitada"). Queda en la bitácora del producto.
+
+La foto solo se usará si los colores de la cotización son exactamente los mismos (sin importar tildes, mayúsculas ni el orden de las partes); "todo negro" nunca toma la foto de "negro con estructura blanca".
 
 ## /admin/productos/fichas
 "Fichas técnicas en lote": sube un CSV y las imágenes (cada una llamada como su driveFileId).

@@ -24,7 +24,14 @@ export async function saveShipmentPhoto(file: File): Promise<{ url: string }> {
   return savePhoto(file, "shipments");
 }
 
-async function savePhoto(file: File, folder: "shipments"): Promise<{ url: string }> {
+// Foto de una variante de color del combo camilla (/admin/productos/[id]/fotos-color).
+export async function saveComboColorPhoto(file: File): Promise<{ url: string }> {
+  return savePhoto(file, "combo-colores");
+}
+
+type PhotoFolder = "shipments" | "combo-colores";
+
+async function savePhoto(file: File, folder: PhotoFolder): Promise<{ url: string }> {
   if (!hasUploadedFile(file)) {
     throw new Error("No se pudo leer la foto.");
   }
@@ -67,7 +74,7 @@ async function toJpeg(input: Buffer): Promise<Buffer> {
   }
 }
 
-async function writeUpload(folder: "shipments" | "returns", extension: "jpg" | "pdf", output: Buffer): Promise<{ url: string }> {
+async function writeUpload(folder: PhotoFolder | "returns", extension: "jpg" | "pdf", output: Buffer): Promise<{ url: string }> {
   const uploadDir = path.join(process.cwd(), "public", "uploads", folder);
   const fileName = `${randomUUID()}.${extension}`;
   try {

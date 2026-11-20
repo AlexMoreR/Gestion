@@ -148,6 +148,7 @@ model Product {
   reviews            ProductReview[]
   lotUnits           CompraUnidad[]
   partesColor        ParteColor[]
+  fotosColor         ComboFotoColor[]
 }
 
 model ProductReview {
@@ -1589,6 +1590,22 @@ model CartaColor {
 enum ParteColorTipo {
   CARTA
   ACABADOS
+}
+
+// Foto real de cada variante de color del combo camilla (nov-2026). claveColor sale de claveColorCombo
+// (src/lib/combo-foto-color.ts); la foto solo se usa si la clave coincide exacta.
+model ComboFotoColor {
+  id               String   @id @default(cuid())
+  productId        String
+  claveColor       String
+  etiqueta         String
+  fotoUrl          String
+  // Sin llave foránea, como RegistroAnulado.
+  actualizadoPorId String?
+  updatedAt        DateTime @updatedAt
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, claveColor])
 }
 
 model ParteColor {
