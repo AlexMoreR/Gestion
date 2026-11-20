@@ -385,7 +385,7 @@ Catálogo: buscar, filtrar, crear, editar y borrar productos; importar/exportar 
 Crea un producto ("Define costo, porcentaje y precio final comercial antes de guardar el producto.").
 
 **Qué se ve:** formulario por pasos: **Producto**, **Precios y compra**, **Inventario**.
-- Producto: fotos, Nombre (se pone en mayúsculas), Codigo * (2–3 letras + 3 números, ej. CAM001), Categoria, Descripcion, campos SEO y la casilla de combo.
+- Producto: fotos, Nombre (se pone en mayúsculas), Codigo * (2–3 letras + 3 números, ej. CAM001), Categoria, Descripcion y la casilla de combo (el SEO va fijo en código o se edita después en Editar producto).
 - Precios y compra: costo, Precio final, % Detal; casilla **Habilitar venta por mayor** (Precio final mayor, % Mayor, Min. unidades mayor); proveedores (si es combo: "Este producto es un combo: los proveedores se toman de cada componente.").
 - Inventario: Stock minimo y Envio adicional (COP) ("Vacio = el de la categoria").
 

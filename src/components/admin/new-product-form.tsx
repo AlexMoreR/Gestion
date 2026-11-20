@@ -24,7 +24,6 @@ import {
   type BundleProductOption,
   type ProductComponentDraft,
 } from "@/components/admin/product-bundle-field";
-import { ProductSeoFields } from "@/components/admin/product-seo-fields";
 import { ProductSuppliersField, type ProductSupplierDraft } from "@/components/admin/product-suppliers-field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -66,8 +65,6 @@ type NewProductDraft = {
   name: string;
   code: string;
   description: string;
-  seoTitle: string;
-  seoDescription: string;
   baseCost: string;
   retailMarginPct: string;
   retailPriceInput: string;
@@ -103,8 +100,6 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [description, setDescription] = useState("");
-  const [seoTitle, setSeoTitle] = useState("");
-  const [seoDescription, setSeoDescription] = useState("");
   const [baseCost, setBaseCost] = useState("0");
   const [baseCostDirty, setBaseCostDirty] = useState(false);
   const [retailMarginPct, setRetailMarginPct] = useState("40");
@@ -172,8 +167,6 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
       setName(draft.name ?? "");
       setCode(draft.code ?? "");
       setDescription(draft.description ?? "");
-      setSeoTitle(draft.seoTitle ?? "");
-      setSeoDescription(draft.seoDescription ?? "");
       setBaseCost(draft.baseCost ?? "0");
       setRetailMarginPct(draft.retailMarginPct ?? "35");
       setRetailPriceInput(draft.retailPriceInput ?? "0");
@@ -216,8 +209,6 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
       name,
       code,
       description,
-      seoTitle,
-      seoDescription,
       baseCost,
       retailMarginPct,
       retailPriceInput,
@@ -237,8 +228,6 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
     name,
     code,
     description,
-    seoTitle,
-    seoDescription,
     baseCost,
     retailMarginPct,
     retailPriceInput,
@@ -570,12 +559,6 @@ export function NewProductForm({ categories, suppliers, currency, bundleProducts
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </label>
-                <ProductSeoFields
-                  seoTitle={seoTitle}
-                  seoDescription={seoDescription}
-                  onSeoTitleChange={setSeoTitle}
-                  onSeoDescriptionChange={setSeoDescription}
-                />
                 <ProductBundleField
                   isBundle={isBundle}
                   onToggle={setIsBundle}
