@@ -1,16 +1,43 @@
 // Aviso de la OF del Combo Camillas (nov-2026, parte 2): por cada orden, por qué la OF todavía
 // no se le puede mandar sola a la proveedora. Se calcula al vuelo (no se guarda); la regla es
-// planAvisoOF. Todavía no se manda nada a nadie.
+// planAvisoOF. planOFCombo lo usa el envío por WhatsApp (parte 3, enviar-of-proveedora.ts).
 import "server-only";
 import { claveColorCombo, etiquetaColorCombo, fotoExactaDelColor } from "@/lib/combo-foto-color";
 import { prisma } from "@/lib/prisma";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
-import { COMBO_CAMILLAS_CODES, codigoComboDeLinea, planAvisoOF, textoAvisoOF } from "../domain/combo-camillas";
+import {
+  type AvisoOFPlan,
+  COMBO_CAMILLAS_CODES,
+  codigoComboDeLinea,
+  planAvisoOF,
+  textoAvisoOF,
+} from "../domain/combo-camillas";
+
+export type PlanOFCombo = {
+  plan: AvisoOFPlan;
+  texto: string | null; // textoAvisoOF (null = no hay aviso)
+  foto: { fotoUrl: string } | null; // foto exacta del color
+  proveedora: { id: string; name: string; phone: string | null } | null;
+};
 
 /** orderId → texto del aviso. Las órdenes sin combo o listas para enviar no aparecen. */
 export async function avisosOFCombo(orderIds: string[]): Promise<Map<string, string>> {
   const avisos = new Map<string, string>();
-  if (orderIds.length === 0) return avisos;
+  for (const [orderId, { texto }] of await planesOFCombo(orderIds)) {
+    if (texto) avisos.set(orderId, texto);
+  }
+  return avisos;
+}
+
+/** Plan del aviso de la OF del combo de una orden (null = la orden no trae el combo). */
+export async function planOFCombo(orderId: string): Promise<PlanOFCombo | null> {
+  return (await planesOFCombo([orderId])).get(orderId) ?? null;
+}
+
+// Por orden, el plan de su primer combo con aviso (o el primero, si ninguno tiene aviso).
+async function planesOFCombo(orderIds: string[]): Promise<Map<string, PlanOFCombo>> {
+  const planes = new Map<string, PlanOFCombo>();
+  if (orderIds.length === 0) return planes;
 
   const [items, combos] = await Promise.all([
     prisma.orderItem.findMany({
@@ -42,7 +69,7 @@ export async function avisosOFCombo(orderIds: string[]): Promise<Map<string, str
   }
 
   for (const grupo of grupos.values()) {
-    if (avisos.has(grupo.orderId)) continue;
+    if (planes.get(grupo.orderId)?.texto) continue;
     // La proveedora es la confirmada en las piezas de fábrica; si hay más de una, no se adivina.
     const proveedoras = new Map(
       grupo.items
@@ -55,16 +82,16 @@ export async function avisosOFCombo(orderIds: string[]): Promise<Map<string, str
       return { color: meta.color, partes: meta.partes };
     });
     const fotos = combos.find((combo) => combo.code?.trim().toUpperCase() === grupo.codigo)?.fotosColor ?? [];
-    const texto = textoAvisoOF(
-      planAvisoOF({
-        modos: grupo.items.map((item) => item.fulfillmentMode),
-        proveedora,
-        telefono: proveedora?.phone,
-        foto: fotoExactaDelColor(fotos, claveColorCombo(colores)),
-        color: etiquetaColorCombo(colores[0]),
-      }),
-    );
-    if (texto) avisos.set(grupo.orderId, texto);
+    const foto = fotoExactaDelColor(fotos, claveColorCombo(colores));
+    const plan = planAvisoOF({
+      modos: grupo.items.map((item) => item.fulfillmentMode),
+      proveedora,
+      telefono: proveedora?.phone,
+      foto,
+      color: etiquetaColorCombo(colores[0]),
+    });
+    const texto = textoAvisoOF(plan);
+    if (texto || !planes.has(grupo.orderId)) planes.set(grupo.orderId, { plan, texto, foto, proveedora });
   }
-  return avisos;
+  return planes;
 }

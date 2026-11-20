@@ -1150,6 +1150,11 @@ model ManufacturingOrder {
   receivedAt      DateTime?
   deliveryAddress String?
   notes           String?
+  // Aviso por WhatsApp a la proveedora (nov-2026): ENVIANDO (candado) / ENVIADO / PRUEBA / ALERTA / FALLIDO.
+  // NULL = nunca se mandó; el envío solo toma la OF si sigue en NULL (nunca sale dos veces).
+  avisoProveedoraEstado  String?
+  avisoProveedoraEn      DateTime?
+  avisoProveedoraDestino String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)

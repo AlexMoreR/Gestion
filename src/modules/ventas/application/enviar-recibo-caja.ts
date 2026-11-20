@@ -45,15 +45,19 @@ export async function armarCuerpoRecibo(datos: ReciboCajaDatos): Promise<ReciboC
 
 /** Manda el cuerpo al CRM: 1 intento + reintentos a los 2, 8 y 30 s. True si el CRM respondió 2xx. */
 export async function postReciboAlCrm(cuerpo: ReciboCajaCuerpo, deps: EnvioDeps = {}): Promise<boolean> {
+  return postJsonAlCrm(reciboCajaUrl(deps.env ?? process.env), cuerpo, `Recibo de caja ${cuerpo.ventaCodigo}`, deps);
+}
+
+/** POST de JSON al CRM con la llave de la conexión y los mismos reintentos (lo usa también el aviso de la OF). */
+export async function postJsonAlCrm(url: string, cuerpo: unknown, etiqueta: string, deps: EnvioDeps = {}): Promise<boolean> {
   const env = deps.env ?? process.env;
   const llave = reciboCajaLlave(env);
   if (!llave) {
-    console.error("Recibo de caja: falta la llave CRM_API_KEY (o CATALOGO_API_KEY / MCP_API_KEY).");
+    console.error(`${etiqueta}: falta la llave CRM_API_KEY (o CATALOGO_API_KEY / MCP_API_KEY).`);
     return false;
   }
   const doFetch = deps.fetch ?? fetch;
   const esperar = deps.esperar ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
-  const url = reciboCajaUrl(env);
   const body = JSON.stringify(cuerpo);
   for (let intento = 0; intento <= ESPERAS_REINTENTO_MS.length; intento++) {
     if (intento > 0) await esperar(ESPERAS_REINTENTO_MS[intento - 1]);
@@ -66,9 +70,9 @@ export async function postReciboAlCrm(cuerpo: ReciboCajaCuerpo, deps: EnvioDeps 
         signal: AbortSignal.timeout(15_000),
       });
       if (res.ok) return true;
-      console.error(`Recibo de caja ${cuerpo.ventaCodigo}: el CRM respondió ${res.status} (intento ${intento + 1}).`);
+      console.error(`${etiqueta}: el CRM respondió ${res.status} (intento ${intento + 1}).`);
     } catch (error) {
-      console.error(`Recibo de caja ${cuerpo.ventaCodigo}: no se pudo llegar al CRM (intento ${intento + 1}).`, error instanceof Error ? error.message : error);
+      console.error(`${etiqueta}: no se pudo llegar al CRM (intento ${intento + 1}).`, error instanceof Error ? error.message : error);
     }
   }
   return false;

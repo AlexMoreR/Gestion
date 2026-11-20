@@ -3,6 +3,7 @@ import { DEFAULT_SYSTEM_CURRENCY, isSupportedCurrency, type SupportedCurrencyCod
 import { prisma } from "@/lib/prisma";
 import { buildWhatsAppQuoteMessage, siteConfig } from "@/lib/site";
 import { normalizeWhatsAppPhone } from "@/lib/whatsapp-phone";
+import { parseAvisoOFConfig, type AvisoOFConfig } from "@/modules/ventas/domain/aviso-of-proveedora";
 
 const CURRENCY_SETTING_KEY = "currency";
 const PRIMARY_COLOR_SETTING_KEY = "primaryColor";
@@ -396,5 +397,16 @@ export async function getComboCamillasSupplierId(): Promise<string | null> {
     return typeof supplierId === "string" && supplierId.trim() ? supplierId.trim() : null;
   } catch {
     return null;
+  }
+}
+
+// Interruptor del aviso de la OF por WhatsApp (AppSetting "avisoOFConfig" =
+// { "modo": "apagado"|"prueba"|"proveedoras", "numeroPrueba": "573196892277" }), guardado a mano.
+// Se lee en cada envío (sin caché): un cambio en la tabla vale al instante. Si no se puede leer → prueba.
+export async function getAvisoOFConfig(): Promise<AvisoOFConfig> {
+  try {
+    return parseAvisoOFConfig(await getAppSettingValue("avisoOFConfig"));
+  } catch {
+    return parseAvisoOFConfig(null);
   }
 }

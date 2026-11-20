@@ -155,6 +155,36 @@ export function destinationCityLabel(
   return label || null;
 }
 
+// WhatsApp de la OF para la proveedora (nov-2026, combo camilla parte 3). Solo recibe datos de la OF
+// y la ciudad de destino (destinationCityLabel): nunca le llegan nombre, teléfono ni dirección de la
+// clienta, ni precios, así que no los puede mostrar.
+export function mensajeOFProveedora(datos: {
+  proveedora: string;
+  ofCode: string;
+  orderCode: string;
+  lineas: Array<Pick<ManufacturingLine, "productName" | "partesTexto" | "color" | "quantity">>;
+  destino: string | null;
+  notas: string | null;
+  entrega: Date | null; // ManufacturingOrder.deliveryDate (fecha escrita)
+  enlace: string; // dirección completa de /fabricacion/<shareToken>
+}): string {
+  const lineas = datos.lineas.map((linea) => {
+    const color = linea.partesTexto || linea.color;
+    return `- ${linea.productName}${color ? ` · ${color}` : ""} · Cantidad: ${linea.quantity}`;
+  });
+  const [y, m, d] = datos.entrega ? colombiaDayKey(datos.entrega).split("-") : [];
+  return [
+    `Hola ${datos.proveedora.trim()}, te mando la orden ${displayCode(datos.ofCode)} (${displayCode(datos.orderCode)}) para fabricar:`,
+    ...lineas,
+    datos.destino ? `Destino: ${datos.destino}` : null,
+    datos.notas?.trim() ? `Notas: ${datos.notas.trim()}` : null,
+    datos.entrega ? `Entrega: ${d}/${m}/${y}` : null,
+    datos.enlace,
+  ]
+    .filter((linea): linea is string => Boolean(linea))
+    .join("\n");
+}
+
 // Cómo se le paga a la proveedora, según la forma de pago de la venta. Sin venta o sin definir: por confirmar.
 export function supplierPaymentLabel(paymentMethod: string | null | undefined): string {
   if (paymentMethod === "ANTICIPO_50_50" || paymentMethod === "PAGO_TOTAL") return "Pago: se te paga de una vez";

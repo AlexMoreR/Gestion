@@ -11,6 +11,8 @@ import { sumarDias } from "./delivery-tracking";
 import {
   destinationCityLabel,
   fijarFechaFabricacion,
+  mensajeOFProveedora,
+  toManufacturingLine,
   ofTodaDespachada,
   proveedorasDelLote,
   supplierPaymentLabel,
@@ -188,5 +190,71 @@ describe("fijarFechaFabricacion", () => {
     await expect(fijarFechaFabricacion("orden1", ["ana"], sumarDias(todayInColombia(), -1))).rejects.toThrow();
     expect(ofs).toHaveLength(0);
     expect(updates).toHaveLength(0);
+  });
+});
+
+describe("mensajeOFProveedora", () => {
+  // Una línea real de la OF (con costo) y una clienta con todos sus datos: solo debe salir la ciudad.
+  const clienta = {
+    name: "Marta Gómez",
+    phone: "3125550000",
+    address: "Cra 1 #2-3",
+    neighborhood: "Centro",
+    city: "Ocaña",
+    department: "Norte de Santander",
+  };
+  const linea = toManufacturingLine({
+    id: "i1",
+    quantity: 1,
+    purchaseCost: 580000,
+    notes: null,
+    product: { name: "Camilla diván", code: "CAV-16", thumbnailUrl: "", description: null },
+  });
+
+  it("arma el saludo, las partes, la cantidad, destino, notas, entrega y enlace", () => {
+    const texto = mensajeOFProveedora({
+      proveedora: "Laura",
+      ofCode: "OF-00035",
+      orderCode: "ORD-00120",
+      lineas: [
+        { ...linea, partesTexto: "Estructura: Negra · Tapizado: Negro" },
+        { ...linea, productName: "Butaco", color: "negro", quantity: 2 },
+      ],
+      destino: destinationCityLabel(clienta),
+      notas: " Sin brazos ",
+      entrega: new Date("2026-11-28T00:00:00.000Z"),
+      enlace: "https://magilus.com/fabricacion/tok123",
+    });
+    expect(texto).toBe(
+      [
+        "Hola Laura, te mando la orden OF-35 (ORD-120) para fabricar:",
+        "- Camilla diván · Estructura: Negra · Tapizado: Negro · Cantidad: 1",
+        "- Butaco · negro · Cantidad: 2",
+        "Destino: Ocaña, Norte de Santander",
+        "Notas: Sin brazos",
+        "Entrega: 28/11/2026",
+        "https://magilus.com/fabricacion/tok123",
+      ].join("\n"),
+    );
+    // Nunca datos de la clienta ni precios.
+    for (const prohibido of ["Marta", "3125550000", "Cra 1", "Centro", "580", "$"]) {
+      expect(texto).not.toContain(prohibido);
+    }
+  });
+
+  it("sin destino, notas ni fecha no deja líneas vacías", () => {
+    const texto = mensajeOFProveedora({
+      proveedora: "Laura",
+      ofCode: "OF-00001",
+      orderCode: "ORD-00002",
+      lineas: [linea],
+      destino: null,
+      notas: "  ",
+      entrega: null,
+      enlace: "https://magilus.com/fabricacion/x",
+    });
+    expect(texto).toBe(
+      "Hola Laura, te mando la orden OF-1 (ORD-2) para fabricar:\n- Camilla diván · Cantidad: 1\nhttps://magilus.com/fabricacion/x",
+    );
   });
 });
