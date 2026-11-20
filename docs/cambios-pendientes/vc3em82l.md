@@ -1,0 +1,3 @@
+## Reglas de negocio
+
+- `por_pagar_hoy`: en /admin/proveedores (solo ADMIN), la tarjeta "Por pagar hoy" lista las órdenes con saldo a proveedoras que ya toca pagar: venta 50/50, pago total o venta vieja sin forma de pago apenas la OF tiene cargo; contraentrega solo con la orden entregada (COMPLETED); compras y cargos de inventario o manuales por lo que falte. "Próximos": contraentregas sin entregar y órdenes canceladas con saldo. Parte del mismo saldo de la lista (`summarizeSupplierDebt`); regla en `src/lib/supplier-payables.ts` (`clasificarPorPagar`). Solo muestra: no manda WhatsApp ni avisos. "Registrar pago" abre la cuenta con `?pagar=` y el diálogo de pago ya puesto.

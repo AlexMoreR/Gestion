@@ -29,6 +29,8 @@ export default async function AdminSupplierLedgerPage({ params, searchParams }: 
   const query = await searchParams;
   const okMessage = typeof query.ok === "string" ? query.ok : "";
   const errorMessage = typeof query.error === "string" ? query.error : "";
+  // ?pagar=order:<id> | charge:<id>: abre el diálogo de pago con esa línea (atajo de "Por pagar hoy").
+  const payTarget = typeof query.pagar === "string" ? query.pagar : "";
 
   const [supplier, currency, accounts] = await Promise.all([
     prisma.supplier.findUnique({
@@ -207,6 +209,7 @@ export default async function AdminSupplierLedgerPage({ params, searchParams }: 
         accounts={accounts}
         currency={currency}
         returnTo={returnTo}
+        initialTarget={payTarget}
       />
     </section>
   );

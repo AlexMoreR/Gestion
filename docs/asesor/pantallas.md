@@ -313,8 +313,9 @@ Crear/editar cuentas de dinero y registrar movimientos manuales (entrada, salida
 
 ## /admin/proveedores
 Lista de proveedores (fábricas y transportadoras) con su saldo (lo que se les debe).
-**Qué se ve:** tabla con columnas Proveedor, Correo, Telefono, Productos, Saldo; buscador "Buscar por proveedor, correo o telefono". Clic en la fila abre `/admin/proveedores/<id>/cuenta`.
+**Qué se ve:** solo para ADMIN, arriba la tarjeta **Por pagar hoy**: una fila por orden con saldo (columnas Proveedora, OF, Orden/Venta, Productos, Costo, Pagado, Falta, Por qué), el total de cada proveedora y **Total a pagar hoy**. Regla: venta 50/50 o pago total (o venta vieja sin forma de pago) con saldo → hoy, porque la OF ya está confirmada; contraentrega → hoy solo con la orden entregada (COMPLETED); compras y cargos de inventario o manuales → hoy por lo que falte. Debajo, **Próximos** (contraentregas sin entregar y órdenes canceladas con saldo, "Orden cancelada: revisar") con **Total próximos**. Hoy + Próximos (menos los abonos sin orden o pagados de más, que se muestran aparte) = Saldo de la proveedora. No manda WhatsApp ni avisos. Luego la tabla con columnas Proveedor, Correo, Telefono, Productos, Saldo; buscador "Buscar por proveedor, correo o telefono". Clic en la fila abre `/admin/proveedores/<id>/cuenta`.
 **Botones y acciones:**
+- **Registrar pago** (en cada fila de Por pagar hoy y Próximos): abre `/admin/proveedores/<id>/cuenta?pagar=...` con el diálogo de pago abierto y esa OF o cargo como línea con su saldo; ahí se pone foto, cuenta y fecha y se pulsa **Registrar pago**.
 - **Nuevo proveedor**: modal (Proveedor, Nombre, Tipo de proveedor: Fabricante / Envios, Correo, Telefono) → **Guardar proveedor**.
 - Menú de fila (ícono "…", aria-label "Acciones de …"):
   - **Transacciones**: abre la cuenta del proveedor (`/admin/proveedores/<id>/cuenta`), donde se paga.
@@ -339,6 +340,7 @@ Cuenta corriente del proveedor: cargos (lo que le debemos) y abonos (pagos). Aqu
   - **Registro manual**: diálogo para anotar una deuda que no viene de una orden (comprobante opcional, Fecha del cargo, Monto, Nota "Detalle del cargo") → **Registrar cargo**.
 - Papelera de la fila (aria-label "Anular abono" / "Anular cargo"): abre "Anular abono" / "Anular cargo", pide **Motivo** y se confirma con **Anular abono** / **Anular cargo**. Queda una copia con el motivo. Un cargo con abonos no se anula ("Primero anula los abonos"). Los cargos de orden no se anulan aquí.
 - Lápiz junto al nombre: modal **Editar proveedor**.
+- `?pagar=order:<id>` o `?pagar=charge:<id>` en la dirección (lo pone **Registrar pago** de "Por pagar hoy"): abre de una el diálogo de pago con esa orden o cargo y su saldo. Si ya no tiene saldo, la cuenta se ve normal.
 
 ## /admin/gastos
 Gastos operativos (nómina, marketing, arriendo, etc.) por cuenta y categoría.

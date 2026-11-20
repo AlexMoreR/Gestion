@@ -61,6 +61,8 @@ type SupplierLedgerFormProps = {
   accounts: AccountOption[];
   currency: SupportedCurrencyCode;
   returnTo: string;
+  // "order:<id>" | "charge:<id>": abre el diálogo de pago con esa línea y su saldo. Si no existe, se ignora.
+  initialTarget?: string;
 };
 
 type PaymentLine = {
@@ -110,10 +112,19 @@ export function SupplierLedgerForm({
   accounts,
   currency,
   returnTo,
+  initialTarget,
 }: SupplierLedgerFormProps) {
-  const [movementOpen, setMovementOpen] = useState(false);
+  const initialPending = initialTarget
+    ? (orders.find((order) => `order:${order.orderId}` === initialTarget)?.pending ??
+      charges.find((charge) => `charge:${charge.chargeId}` === initialTarget)?.pending)
+    : undefined;
+  const [movementOpen, setMovementOpen] = useState(initialPending !== undefined);
   const [manualOpen, setManualOpen] = useState(false);
-  const [lines, setLines] = useState<PaymentLine[]>([]);
+  const [lines, setLines] = useState<PaymentLine[]>(() =>
+    initialTarget && initialPending !== undefined
+      ? [{ ...newLine(), target: initialTarget, amount: String(Math.round(initialPending)) }]
+      : [],
+  );
   const [lineDialogOpen, setLineDialogOpen] = useState(false);
   const [lineDraft, setLineDraft] = useState<LineDraft>({ id: null, target: "", amount: "" });
   const [ledgerReceiptName, setLedgerReceiptName] = useState("");
