@@ -44,8 +44,10 @@ import {
   CancelItemBlockedError,
   cancelarProductoTx,
   formatCop,
+  previsualizarCancelacion,
   reactivarOrdenTx,
   type ResultadoCancelar,
+  type VistaCancelar,
 } from "@/lib/sale-item-swap.server";
 import { isRetiredUser } from "@/modules/equipo/infrastructure/prisma-team-repository";
 
@@ -890,6 +892,17 @@ export async function adminMoveOrderToCompletedAction(orderId: string): Promise<
   await adminUpdateOrderStatusAction(formData);
 }
 
+// Vista previa de «Cancelar producto»: antes y después (total, saldo, deuda con la proveedora, inventario) sin guardar.
+export async function previsualizarCancelarProductoAction(
+  orderItemId: string,
+  soloPieza = false,
+): Promise<VistaCancelar | { error: string }> {
+  const createdById = await requireAdminSession();
+  const item = await prisma.orderItem.findUnique({ where: { id: orderItemId }, select: { orderId: true } });
+  if (!item) return { error: "Producto no encontrado." };
+  return previsualizarCancelacion(await getActivityActor(), { orderId: item.orderId, orderItemId, createdById, soloPieza });
+}
+
 // Cancela un producto de una venta (nov-2026; un combo, todas sus piezas). El trabajo lo hace
 // cancelarProductoTx (src/lib/sale-item-swap.server.ts); reglas en src/lib/sale-item-cancel.ts.
 export async function adminCancelSaleItemAction(formData: FormData): Promise<void> {
@@ -907,7 +920,13 @@ export async function adminCancelSaleItemAction(formData: FormData): Promise<voi
   let result: ResultadoCancelar;
   try {
     result = await prisma.$transaction((tx) =>
-      cancelarProductoTx(tx, actor, { orderId: item.orderId, orderItemId, motivo: motivo.value, createdById }),
+      cancelarProductoTx(tx, actor, {
+        orderId: item.orderId,
+        orderItemId,
+        motivo: motivo.value,
+        createdById,
+        soloPieza: formData.get("soloPieza") === "1",
+      }),
     );
   } catch (error) {
     if (error instanceof CancelItemBlockedError) redirect(`${back}?error=${encodeURIComponent(error.message)}`);

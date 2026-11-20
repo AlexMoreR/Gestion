@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, MoreHorizontal, PackageCheck, PackageX, Pencil, RotateCcw, Wallet } from "lucide-react";
 import { OrderReturnDialog, type OrderReturnDialogProps } from "@/components/admin/order-return-dialog";
@@ -8,9 +8,11 @@ import {
   adminCancelOrderAction,
   adminReactivateOrderAction,
   adminCancelSaleItemAction,
+  previsualizarCancelarProductoAction,
   adminUpdateOrderStatusAction,
 } from "@/app/actions/orders-actions";
 import { useFormStatus } from "react-dom";
+import type { VistaCancelar } from "@/lib/sale-item-swap.server";
 import { adminUpdateOrderItemsFulfillmentAction } from "@/app/actions/order-item-actions";
 import { Button } from "@/components/ui/button";
 import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-field";
@@ -78,6 +80,8 @@ type OrderEditItem = {
   cambioModo?: "A_STOCK" | "A_FABRICACION" | null;
 };
 
+const pesos = (v: number) => `$${Math.round(v).toLocaleString("es-CO")}`;
+
 function CancelItemSubmit({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
   return (
@@ -134,6 +138,26 @@ export function OrderActionsMenu({
   // Producto a cancelar (cuadro encima de "Editar orden").
   const [cancelItem, setCancelItem] = useState<OrderEditItem | null>(null);
   const [cancelItemReason, setCancelItemReason] = useState("");
+  // Antes y después de cancelarlo (se calcula al abrir el cuadro, sin guardar nada).
+  const [cancelVista, setCancelVista] = useState<VistaCancelar | { error: string } | null>(null);
+  // En un combo: cancelar solo esta pieza (por defecto) o el combo completo.
+  const [soloPieza, setSoloPieza] = useState(true);
+  const [esCombo, setEsCombo] = useState(false);
+  useEffect(() => {
+    if (!cancelItem) return;
+    let vivo = true;
+    setCancelVista(null);
+    previsualizarCancelarProductoAction(cancelItem.id, soloPieza)
+      .then((res) => {
+        if (!vivo) return;
+        setCancelVista(res);
+        if (!("error" in res)) setEsCombo(res.esCombo);
+      })
+      .catch(() => vivo && setCancelVista({ error: "No se pudo calcular el antes y el después." }));
+    return () => {
+      vivo = false;
+    };
+  }, [cancelItem, soloPieza]);
   // Producto confirmado que se pasa a Stock / Fabricación (cuadro encima de "Editar orden").
   const [modoItem, setModoItem] = useState<OrderEditItem | null>(null);
   const statusAction = STATUS_ACTIONS[status];
@@ -471,6 +495,8 @@ export function OrderActionsMenu({
                             type="button"
                             onClick={() => {
                               setCancelItemReason("");
+                              setSoloPieza(true);
+                              setEsCombo(false);
                               setCancelItem(item);
                             }}
                             className="text-destructive underline hover:opacity-80"
@@ -540,16 +566,62 @@ export function OrderActionsMenu({
               </DialogHeader>
               <form action={adminCancelSaleItemAction} className="space-y-3">
                 <input type="hidden" name="orderItemId" value={cancelItem?.id ?? ""} />
+                <input type="hidden" name="soloPieza" value={soloPieza ? "1" : "0"} />
                 <p className="text-sm text-foreground">
                   <span className="font-medium">{cancelItem?.name}</span>
                   {cancelItem ? ` · x${cancelItem.quantity}` : ""}
                 </p>
                 <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
-                  <li>Sale de la orden y queda «Cancelado» (tachado) en la cotización y la factura. Si es parte de un combo, se cancela el combo completo.</li>
+                  <li>Sale de la orden y queda «Cancelado» (tachado) en la cotización y la factura. En un combo eliges: solo esta pieza o todo el combo.</li>
                   <li>El total de la venta baja lo que valía. Balances y la comisión se recalculan solos.</li>
                   <li>Si ya estaba confirmado: el de stock vuelve al inventario; el de fabricación se le quita a la proveedora y su OF muestra el aviso.</li>
                   <li>Los abonos no se tocan: si la clienta pagó de más, queda «saldo a favor».</li>
                 </ul>
+                {esCombo ? (
+                  <div className="space-y-1 text-sm" role="radiogroup" aria-label="Qué se cancela">
+                    <label className="flex items-center gap-2">
+                      <input type="radio" name="alcance" checked={soloPieza} onChange={() => setSoloPieza(true)} />
+                      Solo esta pieza ({cancelItem?.name})
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="radio" name="alcance" checked={!soloPieza} onChange={() => setSoloPieza(false)} />
+                      Todo el combo
+                    </label>
+                  </div>
+                ) : null}
+                {cancelVista === null ? (
+                  <p className="text-xs text-muted-foreground">Calculando el antes y el después...</p>
+                ) : "error" in cancelVista ? (
+                  <p className="text-sm text-destructive">{cancelVista.error}</p>
+                ) : (
+                  <div className="space-y-1 rounded-lg border border-border p-2.5 text-sm">
+                    <p className="font-medium text-foreground">Antes → después</p>
+                    {[
+                      ["Total de la venta", cancelVista.totalAntes, cancelVista.totalDespues] as const,
+                      ["Saldo por cobrar", cancelVista.saldoAntes, cancelVista.saldoDespues] as const,
+                      ...cancelVista.proveedoras.map((p) => [`Deuda con ${p.nombre}`, p.deudaAntes, p.deudaDespues] as const),
+                    ].map(([label, antes, despues]) => (
+                      <p key={label} className="flex flex-wrap justify-between gap-x-3">
+                        <span className="text-muted-foreground">{label}</span>
+                        <span className="font-medium text-foreground">
+                          {pesos(antes)} → {pesos(despues)}
+                        </span>
+                      </p>
+                    ))}
+                    {cancelVista.inventario.map((x) => (
+                      <p key={x.nombre} className="flex flex-wrap justify-between gap-x-3 text-xs">
+                        <span className="text-muted-foreground">Inventario {x.nombre}</span>
+                        <span>
+                          {x.antes} → {x.despues}
+                        </span>
+                      </p>
+                    ))}
+                    <p className="text-xs text-muted-foreground">
+                      Pagado: {pesos(cancelVista.pagado)} (no cambia)
+                      {cancelVista.aFavor > 0 ? ` · queda a favor de la clienta: ${pesos(cancelVista.aFavor)}` : ""}
+                    </p>
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <label htmlFor="cancel-item-reason" className="text-sm font-medium text-foreground">
                     Motivo
@@ -569,7 +641,7 @@ export function OrderActionsMenu({
                   <Button type="button" variant="outline" onClick={() => setCancelItem(null)}>
                     Volver
                   </Button>
-                  <CancelItemSubmit disabled={cancelItemReason.trim().length < 3} />
+                  <CancelItemSubmit disabled={cancelItemReason.trim().length < 3 || cancelVista === null || "error" in cancelVista} />
                 </DialogFooter>
               </form>
             </DialogContent>

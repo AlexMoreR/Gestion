@@ -11,7 +11,7 @@ import { displayCode } from "@/lib/code-display";
 import { linesToRecolor, ofsConCambioDeColor } from "@/lib/color-change";
 import { estadoAlReactivar, reactivateStockNote, stockToRetake } from "@/lib/order-cancellation";
 import { prisma } from "@/lib/prisma";
-import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
+import { parseQuoteItemMeta, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
 import { agregarLineasTx, type DatosAgregar } from "@/lib/sale-add-lines.server";
 import {
   AVISO_PRODUCTO_CANCELADO,
@@ -30,7 +30,16 @@ export const formatCop = (valor: number) => `$${Math.round(valor).toLocaleString
 
 export type ResultadoCancelar =
   | { error: string }
-  | { error: null; producto: string; monto: number; nuevoTotal: number; aFavor: number; proveedoras: string[] };
+  | {
+      error: null;
+      producto: string;
+      monto: number;
+      nuevoTotal: number;
+      aFavor: number;
+      proveedoras: string[];
+      /** El producto era parte de un combo de varias piezas (se puede cancelar solo la pieza). */
+      esCombo: boolean;
+    };
 
 /**
  * Cancela un producto de una venta (un combo, todas sus piezas). La línea no se borra sin copia: la de la
@@ -38,6 +47,8 @@ export type ResultadoCancelar =
  * sola (stock vuelve al inventario; fabricación sin recibir anula su cargo con la proveedora y su
  * producción, y la OF muestra el aviso). Baja el total de la cotización, la venta y la orden; los abonos no
  * se tocan. Con `enCambio` no bloquea por ser el único producto y no deja nota ni bitácora propias.
+ * Con `soloPieza` (pieza de un combo) se cancela solo esa pieza: la línea del combo en la cotización se
+ * queda, baja lo que valía la pieza (su precio en la orden) y su descripción dice "Sin …".
  */
 export async function cancelarProductoTx(
   tx: Prisma.TransactionClient,
@@ -48,7 +59,8 @@ export async function cancelarProductoTx(
     motivo,
     createdById,
     enCambio = false,
-  }: { orderId: string; orderItemId: string; motivo: string; createdById: string; enCambio?: boolean },
+    soloPieza = false,
+  }: { orderId: string; orderItemId: string; motivo: string; createdById: string; enCambio?: boolean; soloPieza?: boolean },
 ): Promise<ResultadoCancelar> {
   const order = await tx.order.findUnique({
     where: { id: orderId },
@@ -85,8 +97,14 @@ export async function cancelarProductoTx(
     quoteItems.map((q) => ({ id: q.id, notes: q.notes, productName: q.product.name, isBundle: q.product.isBundle })),
     order.items,
   );
-  const piezas = order.items.filter((o) => lines?.orderItemIds.includes(o.id));
-  const lineasCotizacion = quoteItems.filter((q) => lines?.quoteItemIds.includes(q.id));
+  const grupo = order.items.filter((o) => lines?.orderItemIds.includes(o.id));
+  const lineasGrupo = quoteItems.filter((q) => lines?.quoteItemIds.includes(q.id));
+  const esCombo = grupo.length > 1;
+  // Solo esta pieza: la línea del combo en la cotización no se quita, se rebaja.
+  const parcial = soloPieza && esCombo;
+  const piezas = parcial ? grupo.filter((o) => o.id === orderItemId) : grupo;
+  const lineasCotizacion = parcial ? [] : lineasGrupo;
+  const lineaCombo = parcial ? (lineasGrupo.find((q) => q.product.isBundle) ?? lineasGrupo[0] ?? null) : null;
   const recibidas = new Set(order.manufacturingOrders.filter((of) => of.receivedAt).map((of) => of.supplierId));
   const bloqueo = bloqueoCancelarProducto({
     esVenta: order.type === "SALE",
@@ -111,7 +129,10 @@ export async function cancelarProductoTx(
   if (pagosProveedora > 0) return { error: "Ya se le pagó a la proveedora por este producto: anula ese pago primero." };
 
   const meta = parseQuoteItemMeta(lineasCotizacion[0]?.notes ?? piezas[0].notes);
-  const producto = meta.comboName || lineasCotizacion[0]?.product.name || piezas[0].product.name;
+  const nombreCombo = parseQuoteItemMeta(lineasGrupo[0]?.notes ?? null).comboName || lineasGrupo[0]?.product.name || "combo";
+  const producto = parcial
+    ? `${piezas[0].product.name} (del ${nombreCombo})`
+    : meta.comboName || lineasCotizacion[0]?.product.name || piezas[0].product.name;
   const monto = montoACancelar(lineasCotizacion, piezas);
   const nuevoTotal = Math.max(Math.round((Number(sale.total) - monto) * 100) / 100, 0);
   const pagado = Number(sale.downPaymentAmount);
@@ -171,8 +192,38 @@ export async function cancelarProductoTx(
     { ...anulacion, codigo: () => sale.code },
   );
 
+  // Solo una pieza: la línea del combo baja lo que valía la pieza y su descripción lo dice; la copia en
+  // Anulados (sin borrar la línea) es la que sale tachada en la cotización y la factura.
+  if (lineaCombo) {
+    const comboMeta = parseQuoteItemMeta(lineaCombo.notes);
+    const nuevaLinea = Math.max(Math.round((Number(lineaCombo.lineTotal) - monto) * 100) / 100, 0);
+    await tx.quoteItem.update({
+      where: { id: lineaCombo.id },
+      data: {
+        lineTotal: new Prisma.Decimal(nuevaLinea),
+        unitPrice: new Prisma.Decimal(Math.round((nuevaLinea / Math.max(lineaCombo.quantity, 1)) * 100) / 100),
+        notes: stringifyQuoteItemMeta({
+          ...comboMeta,
+          description: `${comboMeta.description || nombreCombo} · Sin ${piezas[0].product.name} (cancelado)`.slice(0, 1000),
+        }),
+      },
+    });
+    await tx.registroAnulado.create({
+      data: {
+        tabla: "QuoteItem",
+        registroId: lineaCombo.id,
+        codigo: sale.code,
+        monto,
+        datos: { id: piezas[0].id, productName: producto, quantity: piezas[0].quantity, notes: null, piezaDeCombo: lineaCombo.id },
+        motivo: anulacion.motivo,
+        origen: "PANTALLA",
+        anuladoPorId: actor.id,
+      },
+    });
+  }
+
   // 3) Totales: cotización, venta y orden bajan lo que valía el producto; el estado sale de lo pagado.
-  if (lineasCotizacion.length > 0) {
+  if (lineasCotizacion.length > 0 || lineaCombo) {
     await tx.quote.update({
       where: { id: sale.quoteId },
       data: { subtotal: { decrement: monto }, total: { decrement: monto } },
@@ -246,13 +297,96 @@ export async function cancelarProductoTx(
   const proveedoras = order.manufacturingOrders
     .filter((of) => ofIds.includes(of.id))
     .map((of) => of.supplier.displayName || of.supplier.name);
-  return { error: null, producto, monto, nuevoTotal, aFavor, proveedoras };
+  return { error: null, producto, monto, nuevoTotal, aFavor, proveedoras, esCombo };
 }
 
 /**
  * Reactiva una orden de venta cancelada: vuelve al estado de antes de la última cancelación y saca otra vez
  * del stock lo que la cancelación repuso. No toca la venta, los abonos ni Balances.
  */
+export type VistaCancelar = {
+  producto: string;
+  totalAntes: number;
+  totalDespues: number;
+  pagado: number;
+  saldoAntes: number;
+  saldoDespues: number;
+  aFavor: number;
+  esCombo: boolean;
+  proveedoras: { nombre: string; deudaAntes: number; deudaDespues: number }[];
+  inventario: { nombre: string; antes: number; despues: number }[];
+};
+
+/** Lleva la vista previa fuera de la transacción: al lanzarla, Prisma deshace todo lo escrito. */
+class VistaPrevia extends Error {
+  constructor(readonly resultado: VistaCancelar | { error: string }) {
+    super("vista previa");
+  }
+}
+
+async function fotoDeLaOrden(tx: Prisma.TransactionClient, orderId: string, productIds: string[], supplierIds: string[]) {
+  const [order, deudas, stock] = await Promise.all([
+    tx.order.findUnique({ where: { id: orderId }, select: { sale: { select: { total: true, downPaymentAmount: true } } } }),
+    tx.supplierLedgerEntry.groupBy({ by: ["supplierId", "type"], where: { supplierId: { in: supplierIds } }, _sum: { amount: true } }),
+    tx.inventoryMovement.groupBy({ by: ["productId"], where: { productId: { in: productIds } }, _sum: { change: true } }),
+  ]);
+  const deuda = (sid: string) =>
+    deudas.filter((d) => d.supplierId === sid).reduce((s, d) => s + (d.type === "CHARGE" ? 1 : -1) * Number(d._sum.amount ?? 0), 0);
+  return {
+    total: Number(order?.sale?.total ?? 0),
+    pagado: Number(order?.sale?.downPaymentAmount ?? 0),
+    deuda: new Map(supplierIds.map((sid) => [sid, deuda(sid)])),
+    stock: new Map(productIds.map((pid) => [pid, stock.find((x) => x.productId === pid)?._sum.change ?? 0])),
+  };
+}
+
+/**
+ * Antes y después de «Cancelar producto» sin guardar nada: corre la misma cancelarProductoTx dentro de una
+ * transacción, toma la foto y la deshace. Así la vista previa no puede diferir de lo que se guardaría.
+ */
+export async function previsualizarCancelacion(
+  actor: Actor,
+  input: { orderId: string; orderItemId: string; createdById: string; soloPieza?: boolean },
+): Promise<VistaCancelar | { error: string }> {
+  try {
+    await prisma.$transaction(async (tx) => {
+      const items = await tx.orderItem.findMany({ where: { orderId: input.orderId }, select: { productId: true, product: { select: { name: true } } } });
+      const cargos = await tx.supplierLedgerEntry.findMany({
+        where: { orderId: input.orderId },
+        select: { supplierId: true, supplier: { select: { name: true, displayName: true } } },
+        distinct: ["supplierId"],
+      });
+      const productIds = [...new Set(items.map((i) => i.productId))];
+      const supplierIds = cargos.map((c) => c.supplierId);
+      const antes = await fotoDeLaOrden(tx, input.orderId, productIds, supplierIds);
+      const r = await cancelarProductoTx(tx, actor, { ...input, motivo: "vista previa" });
+      if (r.error !== null) throw new VistaPrevia({ error: r.error });
+      const despues = await fotoDeLaOrden(tx, input.orderId, productIds, supplierIds);
+      throw new VistaPrevia({
+        producto: r.producto,
+        totalAntes: antes.total,
+        totalDespues: despues.total,
+        pagado: antes.pagado,
+        saldoAntes: Math.max(antes.total - antes.pagado, 0),
+        saldoDespues: Math.max(despues.total - despues.pagado, 0),
+        aFavor: r.aFavor,
+        esCombo: r.esCombo,
+        proveedoras: cargos
+          .map((c) => ({ nombre: c.supplier.displayName || c.supplier.name, deudaAntes: antes.deuda.get(c.supplierId) ?? 0, deudaDespues: despues.deuda.get(c.supplierId) ?? 0 }))
+          .filter((p) => p.deudaAntes !== p.deudaDespues),
+        inventario: productIds
+          .map((pid) => ({ nombre: items.find((i) => i.productId === pid)!.product.name, antes: antes.stock.get(pid) ?? 0, despues: despues.stock.get(pid) ?? 0 }))
+          .filter((x) => x.antes !== x.despues),
+      });
+    });
+  } catch (error) {
+    if (error instanceof VistaPrevia) return error.resultado;
+    if (error instanceof CancelItemBlockedError) return { error: error.message };
+    throw error;
+  }
+  return { error: "No se pudo calcular la vista previa." };
+}
+
 export async function reactivarOrdenTx(
   tx: Prisma.TransactionClient,
   actor: Actor,
