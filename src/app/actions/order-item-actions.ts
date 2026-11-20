@@ -26,6 +26,13 @@ import { displayCode } from "@/lib/code-display";
 import { fechaFabricacionDeDia, resumenCambioFechaOf } from "@/lib/delivery-tracking";
 import { ensureManufacturingOrders, fijarFechaFabricacion, proveedorasDelLote } from "@/lib/manufacturing-orders";
 import { parseCostoUnitario, parseMotivoCambio } from "@/lib/order-item-mode-change";
+import { colombiaDayKey } from "@/lib/colombia-time";
+import {
+  CONFIRMAR_FECHA_ABONOS_FIELD,
+  FALTA_CONFIRMAR_FECHA_ABONOS,
+  abonosQueCambian,
+  fechaDeOrdenCambio,
+} from "@/lib/order-date-edit";
 import {
   aplicarCambioModo,
   opcionesCambioModo,
@@ -404,8 +411,8 @@ export async function adminUpdateOrderItemsFulfillmentAction(formData: FormData)
     redirect(`${returnTo}?error=Datos+invalidos`);
   }
 
-  // Fecha de la orden (editable). Si viene, sobrescribe createdAt de la orden y
-  // alinea la fecha de los cobros (abonos) de la venta para que concuerden.
+  // Fecha de la orden (editable). Solo si la persona la cambió de verdad (otro día en hora Colombia)
+  // sobrescribe createdAt de la orden y alinea la fecha de los cobros (abonos) de la venta.
   const orderDateRaw =
     typeof formData.get("orderDate") === "string" ? (formData.get("orderDate") as string).trim() : "";
   let orderDate: Date | undefined;
@@ -429,10 +436,24 @@ export async function adminUpdateOrderItemsFulfillmentAction(formData: FormData)
   if (!order) {
     redirect(`${returnTo}?error=Orden+no+encontrada`);
   }
+  // Mismo día que ya tiene la orden = nadie tocó la fecha: no se mueve ninguna fecha (ni los abonos).
+  if (orderDate && !fechaDeOrdenCambio(orderDateRaw, order.createdAt)) {
+    orderDate = undefined;
+  }
+  // Si la fecha cambia y mueve abonos de día, la persona tiene que confirmarlo en el cuadro.
+  if (
+    orderDate &&
+    abonosQueCambian(
+      (order.sale?.salePayments ?? []).map((payment) => colombiaDayKey(payment.paymentDate ?? payment.createdAt)),
+      orderDateRaw,
+    ).length > 0 &&
+    formData.get(CONFIRMAR_FECHA_ABONOS_FIELD) !== "1"
+  ) {
+    redirect(`${returnTo}?${new URLSearchParams({ error: FALTA_CONFIRMAR_FECHA_ABONOS }).toString()}`);
+  }
 
   // Retroactivo: si el usuario cambia la fecha de la orden a un dia anterior a hoy, la nueva fecha
   // alinea los abonos de la venta: se exige motivo y se registra cada abono cuyo dia cambia.
-  // (Guardar el modal sin tocar la fecha no pide motivo, aunque re-alinee abonos como antes.)
   const orderDayChanged = orderDate ? esEdicionRetroactiva(orderDateRaw, order.createdAt) : false;
   const retroPayments = orderDayChanged
     ? (order.sale?.salePayments ?? []).filter((payment) =>

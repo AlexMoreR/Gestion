@@ -19,6 +19,7 @@ import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-fi
 import { ChangeItemColorDialog } from "@/components/admin/change-item-color-dialog";
 import { ChangeItemImageDialog } from "@/components/admin/change-item-image-dialog";
 import { ChangeItemModeDialog } from "@/components/admin/change-item-mode-dialog";
+import { CONFIRMAR_FECHA_ABONOS_FIELD, avisoFechaAbonos } from "@/lib/order-date-edit";
 import type { ParteElegida, ParteParaCotizar } from "@/lib/product-parts";
 import {
   ChangePaymentMethodDialog,
@@ -100,6 +101,8 @@ type OrderActionsMenuProps = {
   items: OrderEditItem[];
   // Fecha actual de la orden (YYYY-MM-DD) para precargar el campo de edicion.
   orderDate: string;
+  // Día (AAAA-MM-DD, hora Colombia) de cada abono de la venta: para avisar cuántos mueve la fecha nueva.
+  paymentDays?: string[];
   // Cuadro "Cancelar orden": OF sin recibir (no se cancelan solas), despacho vivo (bloquea) y cobros (aviso).
   openOfs?: { code: string; supplierName: string; products: string; href: string }[];
   hasActiveDispatch?: boolean;
@@ -126,6 +129,7 @@ export function OrderActionsMenu({
   returnTo,
   items,
   orderDate,
+  paymentDays = [],
   openOfs = [],
   hasActiveDispatch = false,
   hasPayments = false,
@@ -182,6 +186,10 @@ export function OrderActionsMenu({
   const [modes, setModes] = useState(modosIniciales);
   // Fecha de la orden dentro del modal (controlada).
   const [date, setDate] = useState(orderDate);
+  // Solo si la fecha cambió: aviso de los abonos que se mueven y la casilla para confirmarlo.
+  const fechaCambio = date !== orderDate;
+  const avisoAbonos = fechaCambio ? avisoFechaAbonos(paymentDays, date) : null;
+  const [confirmaAbonos, setConfirmaAbonos] = useState(false);
   // Producto cuyo cuadro de color o de imagen está abierto (encima de "Editar orden").
   // Se guarda el valor al abrir: al guardarse uno nuevo el cuadro se cierra solo.
   const [colorAbierto, setColorAbierto] = useState<{ id: string; color: string } | null>(null);
@@ -196,6 +204,7 @@ export function OrderActionsMenu({
   const openEdit = () => {
     setModes(modosIniciales());
     setDate(orderDate);
+    setConfirmaAbonos(false);
     setEditOpen(true);
   };
 
@@ -424,15 +433,38 @@ export function OrderActionsMenu({
               </label>
               <input
                 id="order-edit-date"
-                name="orderDate"
+                // Sin cambiar la fecha no se manda: así no se tocan las fechas de los abonos.
+                name={fechaCambio ? "orderDate" : undefined}
                 type="date"
                 value={date}
-                onChange={(event) => setDate(event.target.value)}
+                onChange={(event) => {
+                  setDate(event.target.value);
+                  setConfirmaAbonos(false);
+                }}
                 className="h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
               />
               <p className="text-xs text-muted-foreground">
-                También actualiza la fecha de los cobros de la venta para que concuerden.
+                Si la cambias, también cambia la fecha de los abonos de la venta.
               </p>
+              {avisoAbonos ? (
+                <div className="space-y-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-800 dark:text-amber-300">
+                  <p className="flex items-start gap-1.5 font-medium">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>{avisoAbonos}.</span>
+                  </p>
+                  <label className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      name={CONFIRMAR_FECHA_ABONOS_FIELD}
+                      value="1"
+                      checked={confirmaAbonos}
+                      onChange={(event) => setConfirmaAbonos(event.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>Sí, cambiar también la fecha de los abonos</span>
+                  </label>
+                </div>
+              ) : null}
               <MotivoRetroactivoField fecha={date} fechaOriginal={orderDate} className="mt-2" />
             </div>
 
@@ -552,7 +584,7 @@ export function OrderActionsMenu({
               <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit">
+              <Button type="submit" disabled={avisoAbonos !== null && !confirmaAbonos}>
                 <PackageCheck className="mr-1.5 h-4 w-4" />
                 Guardar cambios
               </Button>

@@ -15,7 +15,7 @@ import { OrderHistoryTabs } from "@/components/admin/order-history-tabs";
 import { EmbalajeFotosCard, gruposEmbalaje } from "@/components/admin/embalaje-fotos-card";
 import { OrderNotesCard } from "@/components/admin/order-notes-card";
 import { DispatchEstimateCard, type CambioFechaView } from "@/components/admin/dispatch-estimate-card";
-import { colombiaDateTimeInput, todayInColombia } from "@/lib/colombia-time";
+import { colombiaDateTimeInput, colombiaDayKey, todayInColombia } from "@/lib/colombia-time";
 import { estadoDeEntrega, peorDe, PREFIJO_CAMBIO_FECHA } from "@/lib/delivery-tracking";
 import { OrderReversalsCard } from "@/components/admin/order-reversals-card";
 import { OrderReturnCard } from "@/components/admin/order-return-card";
@@ -965,7 +965,10 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         status={order.status}
         isPurchase={order.type === "PURCHASE"}
         returnTo={returnTo}
-        orderDate={toDateInputValue(order.createdAt)}
+        orderDate={colombiaDayKey(order.createdAt)}
+        paymentDays={(order.sale?.salePayments ?? []).map((payment) =>
+          colombiaDayKey(payment.paymentDate ?? payment.createdAt),
+        )}
         openOfs={cancelOpenOfs}
         hasActiveDispatch={Boolean(cancelBlock(order.dispatches))}
         hasPayments={hasPayments(order.sale)}
