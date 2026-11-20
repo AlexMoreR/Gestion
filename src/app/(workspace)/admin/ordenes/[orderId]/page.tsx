@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AlertTriangle, BadgeDollarSign, CalendarClock, TrendingUp, Wallet } from "lucide-react";
 import { StatList, type StatItem } from "@/components/ui/stat-list";
 import { ProductosCancelados } from "@/components/productos-cancelados";
+import { direccionDeCambio } from "@/lib/order-item-mode-change";
 import { canceladasDeVenta } from "@/lib/lineas-canceladas.server";
 import { saldoAFavor } from "@/lib/sale-item-cancel";
 import { notFound, redirect } from "next/navigation";
@@ -988,6 +989,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           partesElegidas: orderItemsData[index].partesElegidas,
           canCancel: canChangeColor && order.status !== "COMPLETED",
           swapHref: canSwap && order.sale ? `/admin/cotizaciones/${order.sale.quoteId}?cambiar=${item.id}` : undefined,
+          cambioModo: canChangeColor ? direccionDeCambio(item) : null,
         }))}
         returnDialog={
           returnOptions.length > 0

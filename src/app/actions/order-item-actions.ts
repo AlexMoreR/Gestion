@@ -23,7 +23,17 @@ import { computeStockExitCost } from "@/lib/stock-exit-cost";
 import { confirmOrderItemSupplier, type ConfirmOrderItemSupplierResult } from "@/lib/order-item-confirm";
 import { displayCode } from "@/lib/code-display";
 import { fechaFabricacionDeDia, resumenCambioFechaOf } from "@/lib/delivery-tracking";
-import { fijarFechaFabricacion, proveedorasDelLote } from "@/lib/manufacturing-orders";
+import { ensureManufacturingOrders, fijarFechaFabricacion, proveedorasDelLote } from "@/lib/manufacturing-orders";
+import { parseCostoUnitario, parseMotivoCambio } from "@/lib/order-item-mode-change";
+import {
+  aplicarCambioModo,
+  opcionesCambioModo,
+  planCambioModo,
+  type EntradaCambio,
+  type OpcionesCambio,
+  type PlanCambio,
+  type VistaCambio,
+} from "@/lib/order-item-mode-change.server";
 import { withNegativeBalanceNotice } from "@/modules/balances/application/use-cases";
 import { createPrismaBalancesRepository } from "@/modules/balances/infrastructure/prisma-balances-repository";
 import {
@@ -291,6 +301,93 @@ export async function adminUpdateOrderItemFulfillmentAction(formData: FormData):
   redirect(`${returnTo}?ok=Modo+actualizado`);
 }
 
+// ── Cambiar Fabricación ↔ Stock un producto ya confirmado (T-846) ───────────────────────────────
+// Desde "Editar orden": opciones (compras o proveedoras), vista previa del antes/después y guardar.
+// Reglas en src/lib/order-item-mode-change(.server).ts. No toca venta, abonos, entrega ni despacho.
+
+function entradaCambio(formData: FormData): EntradaCambio {
+  const costos: Record<string, number> = {};
+  for (const [clave, valor] of formData.entries()) {
+    if (!clave.startsWith("costo_")) continue;
+    const costo = parseCostoUnitario(valor);
+    costos[clave.slice("costo_".length)] = costo ?? Number.NaN;
+  }
+  return {
+    orderItemId: String(formData.get("orderItemId") ?? "").trim(),
+    compraId: String(formData.get("compraId") ?? "").trim() || null,
+    supplierId: String(formData.get("supplierId") ?? "").trim() || null,
+    costos,
+  };
+}
+
+export async function opcionesCambioModoAction(orderItemId: string): Promise<OpcionesCambio | { error: string }> {
+  await requireAdminSession();
+  return prisma.$transaction((tx) => opcionesCambioModo(tx, orderItemId));
+}
+
+export async function previsualizarCambioModoAction(formData: FormData): Promise<VistaCambio | { error: string }> {
+  await requireAdminSession();
+  const plan = await prisma.$transaction((tx) => planCambioModo(tx, entradaCambio(formData)));
+  return "error" in plan ? plan : plan.vista;
+}
+
+export async function adminCambiarModoConfirmadoAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const returnTo = getReturnTo(formData, "/admin/ordenes");
+  const motivo = parseMotivoCambio(formData.get("motivo"));
+  if (!motivo.ok) redirect(`${returnTo}?${new URLSearchParams({ error: motivo.error })}`);
+  const actor = await getActivityActor();
+  const entrada = entradaCambio(formData);
+
+  let hecho: { error: string } | { text: string; plan: PlanCambio };
+  try {
+    hecho = await prisma.$transaction(async (tx) => {
+      const plan = await planCambioModo(tx, entrada);
+      if ("error" in plan) return plan;
+      const text = await aplicarCambioModo(tx, plan, actor, motivo.value);
+      await logActivityTx(tx, actor, {
+        action: "UPDATE",
+        entityType: "ORDER",
+        entityId: plan.orderId,
+        entityCode: plan.orderCode,
+        summary: text.slice(0, 500),
+        before: { piezas: plan.vista.piezas.map((p) => ({ id: p.id, costo: p.costoAntes, stock: p.stockAntes })) },
+        after: {
+          direccion: plan.direccion,
+          compra: plan.compraCode,
+          proveedora: plan.supplierId,
+          piezas: plan.vista.piezas.map((p) => ({ id: p.id, costo: p.costoDespues, stock: p.stockDespues })),
+          deuda: plan.vista.proveedoras,
+        },
+        ticket: "T-846",
+      });
+      return { text, plan };
+    });
+  } catch (error) {
+    console.error("Failed to change confirmed item mode:", error);
+    redirect(`${returnTo}?error=No+se+pudo+cambiar+el+producto`);
+  }
+  if ("error" in hecho) redirect(`${returnTo}?${new URLSearchParams({ error: hecho.error })}`);
+
+  // A fabricación en una orden que ya pasó producción: su OF queda creada y recibida (ya está hecha).
+  const { plan } = hecho;
+  if (plan.direccion === "A_FABRICACION" && plan.supplierId && ["READY_FOR_DISPATCH", "DISPATCHED", "COMPLETED"].includes(plan.orderStatus)) {
+    await ensureManufacturingOrders(plan.orderId, [plan.supplierId]);
+    await prisma.manufacturingOrder.updateMany({
+      where: { orderId: plan.orderId, supplierId: plan.supplierId, receivedAt: null },
+      data: { receivedAt: new Date() },
+    });
+  }
+
+  for (const ruta of ["/admin/ordenes", `/admin/ordenes/${plan.orderId}`, "/admin/inventario", "/admin/proveedores", "/admin/balances", "/admin/produccion"]) {
+    revalidatePath(ruta);
+  }
+  const ok = `${plan.vista.producto}: ${plan.direccion === "A_STOCK" ? "pasó a Stock" : "pasó a Fabricación"}. ${plan.vista.proveedoras
+    .map((p) => `Deuda con ${p.nombre}: $${Math.round(p.deudaDespues).toLocaleString("es-CO")}`)
+    .join(". ")}`;
+  redirect(`${returnTo}?${new URLSearchParams({ ok })}`);
+}
+
 // Edita en lote el modo (Stock/Fabricacion) de los productos de una orden, desde
 // el modal "Editar orden". Solo cambia la etiqueta; no mueve inventario.
 export async function adminUpdateOrderItemsFulfillmentAction(formData: FormData): Promise<void> {
@@ -374,7 +471,9 @@ export async function adminUpdateOrderItemsFulfillmentAction(formData: FormData)
     return current.fulfillmentMode !== nextMode;
   });
   if (blocked) {
-    redirect(`${returnTo}?error=Deshaz+la+confirmacion+de+los+productos+antes+de+cambiar+su+modo`);
+    redirect(
+      `${returnTo}?${new URLSearchParams({ error: "Ese producto ya está confirmado: usa «Pasar a stock» o «Pasar a fabricación» debajo de su nombre (muestra el antes y el después)." })}`,
+    );
   }
 
   await prisma.$transaction([

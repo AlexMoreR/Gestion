@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-field";
 import { ChangeItemColorDialog } from "@/components/admin/change-item-color-dialog";
 import { ChangeItemImageDialog } from "@/components/admin/change-item-image-dialog";
+import { ChangeItemModeDialog } from "@/components/admin/change-item-mode-dialog";
 import type { ParteElegida, ParteParaCotizar } from "@/lib/product-parts";
 import {
   ChangePaymentMethodDialog,
@@ -73,6 +74,8 @@ type OrderEditItem = {
   canCancel?: boolean;
   /** «Cambiar producto»: abre el editor de la cotización en modo cambio. */
   swapHref?: string;
+  /** Ya confirmado: se pasa a Stock o a Fabricación con su cuadro (antes y después), no con el selector. */
+  cambioModo?: "A_STOCK" | "A_FABRICACION" | null;
 };
 
 function CancelItemSubmit({ disabled }: { disabled: boolean }) {
@@ -131,6 +134,8 @@ export function OrderActionsMenu({
   // Producto a cancelar (cuadro encima de "Editar orden").
   const [cancelItem, setCancelItem] = useState<OrderEditItem | null>(null);
   const [cancelItemReason, setCancelItemReason] = useState("");
+  // Producto confirmado que se pasa a Stock / Fabricación (cuadro encima de "Editar orden").
+  const [modoItem, setModoItem] = useState<OrderEditItem | null>(null);
   const statusAction = STATUS_ACTIONS[status];
   const canCancel = status !== "CANCELLED" && (isPurchase || status !== "COMPLETED");
   const [editOpen, setEditOpen] = useState(abrirEditar);
@@ -475,6 +480,13 @@ export function OrderActionsMenu({
                         ) : null}
                       </p>
                     ) : null}
+                    {item.cambioModo ? (
+                      <p className="text-xs">
+                        <button type="button" onClick={() => setModoItem(item)} className="underline hover:text-foreground">
+                          {item.cambioModo === "A_STOCK" ? "Pasar a stock" : "Pasar a fabricación"}
+                        </button>
+                      </p>
+                    ) : null}
                     {item.canChangeColor ? (
                       <p className="text-xs text-muted-foreground">
                         Imagen: {item.imagenManual ? "subida a mano" : "del catálogo"}
@@ -492,12 +504,14 @@ export function OrderActionsMenu({
                   <select
                     name="fulfillmentMode"
                     value={modes[item.id] ?? "STOCK"}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      // Confirmado: el cambio necesita su cuadro (anula o crea el cargo y mueve el inventario).
+                      if (item.cambioModo) return setModoItem(item);
                       setModes((current) => ({
                         ...current,
                         [item.id]: event.target.value === "MANUFACTURE" ? "MANUFACTURE" : "STOCK",
-                      }))
-                    }
+                      }));
+                    }}
                     aria-label={`Estado de ${item.name}`}
                     className={`${selectClass} w-full shrink-0 sm:w-auto`}
                   >
@@ -560,6 +574,16 @@ export function OrderActionsMenu({
               </form>
             </DialogContent>
           </Dialog>
+          {modoItem ? (
+            <ChangeItemModeDialog
+              key={modoItem.id}
+              open
+              onOpenChange={(open) => (open ? null : setModoItem(null))}
+              orderItemId={modoItem.id}
+              productName={modoItem.name}
+              returnTo={returnTo}
+            />
+          ) : null}
           {colorItem?.canChangeColor ? (
             <ChangeItemColorDialog
               key={colorItem.id}
