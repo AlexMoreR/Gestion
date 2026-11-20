@@ -39,9 +39,28 @@ services:
       DUDAS_API_KEY: "${DUDAS_API_KEY}"
     networks:
       - minha_rede
+    # Despliegue sin caida (nov-2026): la nueva arranca al lado de la vieja y solo recibe trafico
+    # cuando el healthcheck pasa; al apagarse, la vieja sigue atendiendo 25 s para que Traefik
+    # (refresca cada 15 s) deje de mandarle pedidos. "$$" = "$" para el shell (compose lo escapa).
+    command: ["sh", "-c", "npx prisma migrate deploy || exit 1; node_modules/.bin/next start & pid=$$!; trap \"echo Apagando: 25 s para que Traefik deje de mandar trafico; sleep 25; kill -TERM $$pid\" TERM INT; wait $$pid; wait $$pid"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/robots.txt || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    stop_grace_period: 60s
     deploy:
       mode: replicated
       replicas: 1
+      update_config:
+        order: start-first
+        failure_action: rollback
+        monitor: 30s
+        parallelism: 1
+      rollback_config:
+        order: start-first
+        parallelism: 1
       placement:
         constraints:
           - node.role == manager

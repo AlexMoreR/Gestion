@@ -564,6 +564,7 @@ que **redespliega** el stack automáticamente. No hay que hacer nada manual.
 **Orquestación (`docker-compose.portainer.yml`, Docker Swarm + Traefik):**
 - Un servicio réplica en el nodo manager, detrás de **Traefik** (TLS Let's Encrypt) en
   `magilus.com` / `www.magilus.com`, puerto interno `3000`.
+- **Despliegue sin caída** (nov-2026): `update_config.order: start-first` + `failure_action: rollback` (y `rollback_config` start-first). La versión nueva arranca al lado de la vieja; Swarm solo le pasa el tráfico cuando su **healthcheck** (`wget` a `/robots.txt`, cada 5 s, `start_period` 120 s) da sano, y si no queda sana vuelve sola a la anterior. La vieja, al recibir la señal de apagado, sigue atendiendo **25 s** (el `command` del servicio atrapa `TERM`; `stop_grace_period` 60 s) porque Traefik refresca la lista de Swarm cada 15 s. Esto vive en la **especificación del servicio** (lo reusa cada webhook) y en el compose de Portainer; el `CMD` del Dockerfile queda para correr la imagen sola. Durante unos segundos corren dos versiones a la vez contra la misma base: las migraciones deben seguir siendo **solo aditivas** (la vieja sigue atendiendo con el esquema nuevo).
 - Volumen persistente **`magilus_uploads`** montado en `/app/public/uploads` (los archivos subidos no se
   pierden entre despliegues).
 - Variables de entorno del stack: `DATABASE_URL`, `AUTH_URL`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_APP_URL`,
