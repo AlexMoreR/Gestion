@@ -7,6 +7,7 @@ import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { separarImagenes } from "@/lib/product-fichas";
 import { getCurrentStorePrice } from "@/lib/product-promo";
+import { readableDescription } from "@/lib/product-landing";
 import { findRedirectTarget } from "@/lib/product-redirect";
 import { buildProductPath } from "@/lib/product-slugs";
 import { getProductSeoContent } from "@/lib/product-seo-content";
@@ -61,7 +62,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     ? sanitizeDescription(seoDescription, "")
     : truncateMetaDescription(
         sanitizeDescription(
-          product.description,
+          // Si viene en MAYUSCULAS sale en letra normal, igual que en la ficha visible.
+          readableDescription(product.description),
           buildProductFallbackDescription({
             name: product.name,
             categoryName: product.category?.name,

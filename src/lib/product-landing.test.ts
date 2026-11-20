@@ -14,6 +14,8 @@ import {
   WARRANTY_HYDRAULIC_TEXT,
   warrantyTextFor,
 } from "./product-landing";
+import { truncateMetaDescription } from "./seo-metadata";
+import { sanitizeDescription } from "./site";
 
 describe("hasHydraulicSystem", () => {
   it("categoria Sillas Hidráulicas (con y sin tilde)", () => {
@@ -252,5 +254,19 @@ describe("herrajes (4-nov-2026: pago completo, envío gratis desde 6)", () => {
     expect(combo.readyMade).toBe(false);
     expect(combo.cashOnDelivery).toBe(true);
     expect(combo.faq[1].answer).toContain("contraentrega");
+  });
+});
+
+describe("descripcion de Google/WhatsApp de la ficha", () => {
+  // Misma cadena que arma la meta description cuando la ficha no tiene texto SEO propio.
+  const metaDescription = (value: string) =>
+    truncateMetaDescription(sanitizeDescription(readableDescription(value), "respaldo"));
+
+  it("MAYUSCULAS salen en letra normal", () => {
+    expect(metaDescription("CAMILLA EN MADERA CON CAJONES")).toBe("Camilla en madera con cajones");
+  });
+
+  it("una descripcion ya en letra normal no cambia", () => {
+    expect(metaDescription("Camilla en madera con cajones")).toBe("Camilla en madera con cajones");
   });
 });

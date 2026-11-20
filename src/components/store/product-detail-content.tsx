@@ -19,6 +19,7 @@ import {
   HARDWARE_PAYMENT_LABEL,
   HARDWARE_SHIPPING_TEXT,
   productDisplayName,
+  readableDescription,
 } from "@/lib/product-landing";
 import { buildProductFallbackDescription, compactPriceLabel } from "@/lib/seo-metadata";
 import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, sanitizeDescription } from "@/lib/site";
@@ -135,7 +136,7 @@ export async function ProductDetailContent({
     priceLabel,
     brandName,
   });
-  const productDescription = sanitizeDescription(product.seoDescription || product.description, fallbackDescription);
+  const productDescription = sanitizeDescription(product.seoDescription || readableDescription(product.description), fallbackDescription);
   const landing = buildProductLandingData({
     name: product.name,
     code: product.code,
@@ -156,7 +157,7 @@ export async function ProductDetailContent({
     "@context": "https://schema.org",
     "@type": "Product",
     "@id": `${getSiteUrl(canonicalPath)}#product`,
-    name: product.name,
+    name: landing.displayName,
     description: productDescription,
     image: gallery.map((url) => getPublicAssetUrl(url)),
     sku: product.code ?? undefined,
