@@ -797,7 +797,11 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
   if (paymentIdForReceipt && !isWithholding) {
     dispararRecibo(() => enviarReciboCaja(sale.id, [paymentIdForReceipt], prismaReciboCajaPuertos));
   }
-  redirect(`${returnTo}?${new URLSearchParams({ ok: okMessage }).toString()}`);
+  // Si aún falta plata, la pantalla vuelve a abrir "Registrar abono" de esta venta para el siguiente pago.
+  const falta = Math.round((capital - newTotalPaid) * 100) / 100;
+  const params = new URLSearchParams({ ok: okMessage });
+  if (falta > 0.009) params.set("abono", sale.id);
+  redirect(`${returnTo}?${params.toString()}`);
 }
 
 const voidSalePaymentSchema = z.object({

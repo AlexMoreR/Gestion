@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
@@ -704,12 +705,15 @@ function AddSalePaymentSheet({
   accounts,
   open,
   onOpenChange,
+  initialAmount = "",
 }: {
   sale: SaleRow | null;
   currency: SupportedCurrencyCode;
   accounts: AccountOption[];
   open: boolean;
   onOpenChange: (value: boolean) => void;
+  /** Monto con el que abre (el saldo que falta, al volver a abrir después de guardar un abono). */
+  initialAmount?: string;
 }) {
   const inputClass =
     "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
@@ -727,8 +731,10 @@ function AddSalePaymentSheet({
       setAmount("");
       setPaymentDate(todayValue);
       setAccountId(defaultAccountId);
+    } else {
+      setAmount(initialAmount);
     }
-  }, [open, todayValue, defaultAccountId]);
+  }, [open, todayValue, defaultAccountId, initialAmount]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -756,6 +762,8 @@ function AddSalePaymentSheet({
 
         {sale ? (
           <form
+            // Formulario nuevo después de cada abono guardado (sin el comprobante del anterior).
+            key={`${sale.id}-${sale.salePayments.length}`}
             id="add-payment-form"
             action={adminAddSalePaymentAction}
             className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-6 pt-3"
@@ -997,6 +1005,29 @@ export function SalesDataTable({
 }: SalesDataTableProps) {
   const [selectedSale, setSelectedSale] = React.useState<SaleRow | null>(null);
   const [paymentSale, setPaymentSale] = React.useState<SaleRow | null>(null);
+  // Después de guardar un abono que deja saldo, la acción vuelve con ?abono=<venta>: se reabre el cuadro
+  // con los datos nuevos y el saldo que falta ya escrito, para subir el siguiente pago sin salir.
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const abonoSaleId = searchParams.get("abono");
+  const [abonoInicial, setAbonoInicial] = React.useState("");
+  React.useEffect(() => {
+    if (!abonoSaleId) return;
+    const venta = sales.find((s) => s.id === abonoSaleId);
+    if (!venta || venta.remainingBalance <= 0) return;
+    setAbonoInicial(String(Math.round(venta.remainingBalance)));
+    setPaymentSale(venta);
+  }, [abonoSaleId, sales]);
+  const cerrarAbono = () => {
+    setPaymentSale(null);
+    setAbonoInicial("");
+    if (abonoSaleId) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("abono");
+      router.replace(params.size ? `${pathname}?${params}` : pathname, { scroll: false });
+    }
+  };
   const [dateSale, setDateSale] = React.useState<SaleRow | null>(null);
   const [paymentMethodSale, setPaymentMethodSale] = React.useState<SaleRow | null>(null);
   // Anular (hard=false) o borrar definitivamente (hard=true): ambos piden motivo.
@@ -1149,10 +1180,9 @@ export function SalesDataTable({
         currency={currency}
         accounts={accounts}
         open={Boolean(paymentSale)}
+        initialAmount={abonoInicial}
         onOpenChange={(open) => {
-          if (!open) {
-            setPaymentSale(null);
-          }
+          if (!open) cerrarAbono();
         }}
       />
 
