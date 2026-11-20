@@ -210,3 +210,18 @@ export function categoryIsIndexable(category: { isActive: boolean; activeProduct
 export function sitemapCategories<T extends SitemapCategorySource>(categories: T[]): T[] {
   return categories.filter((category) => category.activeProductCount > 0);
 }
+
+export type BreadcrumbStep = { name: string; path: string };
+
+// JSON-LD BreadcrumbList (migas de pan para Google): un ListItem por paso, posición 1..n y URL absoluta.
+export function buildBreadcrumbList(origin: string, steps: BreadcrumbStep[]) {
+  return {
+    "@type": "BreadcrumbList",
+    itemListElement: steps.map((step, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: step.name,
+      item: new URL(step.path, origin).toString(),
+    })),
+  };
+}

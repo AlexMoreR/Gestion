@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildBreadcrumbList,
   buildCategorySeoDescription,
   buildCategorySeoTitle,
   buildHomeSeoTitle,
@@ -205,5 +206,41 @@ describe("sitemap", () => {
     expect(categoryIsIndexable({ isActive: true, activeProductCount: 3 })).toBe(true);
     expect(categoryIsIndexable({ isActive: true, activeProductCount: 0 })).toBe(false);
     expect(categoryIsIndexable({ isActive: false, activeProductCount: 5 })).toBe(false);
+  });
+});
+
+describe("buildBreadcrumbList", () => {
+  it("numera los pasos 1..n con URL absoluta", () => {
+    const list = buildBreadcrumbList("https://magilus.com/", [
+      { name: "Inicio", path: "/" },
+      { name: "Tarimas pedicure", path: "/tarimas-pedicure" },
+      { name: "Tarima pedicure Spa", path: "/tarimas-pedicure/tarima-spa" },
+    ]);
+    expect(list["@type"]).toBe("BreadcrumbList");
+    expect(list.itemListElement.map((item) => item.position)).toEqual([1, 2, 3]);
+    expect(list.itemListElement.map((item) => item.name)).toEqual(["Inicio", "Tarimas pedicure", "Tarima pedicure Spa"]);
+    expect(list.itemListElement.map((item) => item.item)).toEqual([
+      "https://magilus.com/",
+      "https://magilus.com/tarimas-pedicure",
+      "https://magilus.com/tarimas-pedicure/tarima-spa",
+    ]);
+    for (const item of list.itemListElement) {
+      expect(item["@type"]).toBe("ListItem");
+      expect(item.item.startsWith("https://")).toBe(true);
+    }
+  });
+
+  it("acepta una ruta de 2 pasos (producto sin categoría)", () => {
+    const list = buildBreadcrumbList("https://magilus.com/", [
+      { name: "Inicio", path: "/" },
+      { name: "Silla", path: "/producto/silla" },
+    ]);
+    expect(list.itemListElement).toHaveLength(2);
+    expect(list.itemListElement[1]).toEqual({
+      "@type": "ListItem",
+      position: 2,
+      name: "Silla",
+      item: "https://magilus.com/producto/silla",
+    });
   });
 });

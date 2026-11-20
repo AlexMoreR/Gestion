@@ -15,6 +15,7 @@ import { prisma } from "@/lib/prisma";
 import { HARDWARE_PAYMENT_LABEL, hasHydraulicSystem, isCamillasCombo, isReadyMadeHardware } from "@/lib/product-landing";
 import { buildProductPath } from "@/lib/product-slugs";
 import {
+  buildBreadcrumbList,
   buildCategorySeoDescription,
   buildCategorySeoTitle,
   buildHomeSeoTitle,
@@ -433,6 +434,15 @@ export async function StorefrontCatalog({
         name: category ? `${category.name} | ${brandName}` : `Catálogo de ${brandName}`,
         description: collectionDescription,
       },
+      // Migas de pan solo en una categoría (no en inicio ni búsquedas).
+      ...(category && !normalizedQuery
+        ? [
+            buildBreadcrumbList(getSiteUrl("/"), [
+              { name: "Inicio", path: "/" },
+              { name: category.name, path: `/${category.slug}` },
+            ]),
+          ]
+        : []),
     ],
   };
 

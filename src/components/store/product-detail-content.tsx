@@ -21,7 +21,7 @@ import {
   productDisplayName,
   readableDescription,
 } from "@/lib/product-landing";
-import { buildProductFallbackDescription, compactPriceLabel } from "@/lib/seo-metadata";
+import { buildBreadcrumbList, buildProductFallbackDescription, compactPriceLabel } from "@/lib/seo-metadata";
 import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, sanitizeDescription } from "@/lib/site";
 import { comboSavingsFromProduct, SHIPPING_CHECK_LABEL, SHIPPING_COVERAGE_PATH } from "@/lib/storefront-offer";
 import {
@@ -154,7 +154,6 @@ export async function ProductDetailContent({
   );
   // JSON-LD Product: precio real y sin reseñas ni calificaciones (aggregateRating/review).
   const productSchema = {
-    "@context": "https://schema.org",
     "@type": "Product",
     "@id": `${getSiteUrl(canonicalPath)}#product`,
     name: landing.displayName,
@@ -180,12 +179,19 @@ export async function ProductDetailContent({
       },
     },
   };
+  // Migas de pan para Google: los mismos nombres y enlaces de la ruta visible, más la ficha.
+  const breadcrumbSchema = buildBreadcrumbList(getSiteUrl("/"), [
+    { name: "Inicio", path: "/" },
+    ...(product.category ? [{ name: product.category.name, path: `/${product.category.slug}` }] : []),
+    { name: landing.displayName, path: canonicalPath },
+  ]);
+  const pageSchema = { "@context": "https://schema.org", "@graph": [productSchema, breadcrumbSchema] };
 
   return (
     <section className="app-page min-w-0">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pageSchema) }}
       />
 
       <nav aria-label="Ruta" className="mb-3 flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
