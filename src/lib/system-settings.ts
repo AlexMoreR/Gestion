@@ -401,7 +401,8 @@ export async function getComboCamillasSupplierId(): Promise<string | null> {
 }
 
 // Interruptor del aviso de la OF por WhatsApp (AppSetting "avisoOFConfig" =
-// { "modo": "apagado"|"prueba"|"proveedoras", "numeroPrueba": "573196892277" }), guardado a mano.
+// { "modo": "apagado"|"prueba"|"proveedoras", "numeroPrueba": "573196892277" }). Se cambia en
+// Configuración → Negocio, tarjeta «Aviso de OF a proveedoras» (adminUpdateAvisoOFConfigAction).
 // Se lee en cada envío (sin caché): un cambio en la tabla vale al instante. Si no se puede leer → prueba.
 export async function getAvisoOFConfig(): Promise<AvisoOFConfig> {
   try {
@@ -409,4 +410,8 @@ export async function getAvisoOFConfig(): Promise<AvisoOFConfig> {
   } catch {
     return parseAvisoOFConfig(null);
   }
+}
+
+export async function setAvisoOFConfig(config: AvisoOFConfig): Promise<void> {
+  await setAppSettingValue("avisoOFConfig", JSON.stringify(config));
 }

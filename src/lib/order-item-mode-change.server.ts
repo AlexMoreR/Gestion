@@ -390,8 +390,9 @@ export async function aplicarCambioModo(
   plan: PlanCambio,
   actor: { id: string; name?: string | null },
   motivo: string,
-): Promise<string> {
+): Promise<{ text: string; avisoIds: string[] }> {
   const { vista } = plan;
+  let avisoIds: string[] = [];
   const anulacion = {
     motivo: `Pasó a stock ${vista.producto} de ${plan.orderCode}: ${motivo}`,
     usuarioId: actor.id,
@@ -417,7 +418,7 @@ export async function aplicarCambioModo(
       });
     }
     if (plan.ofsAAvisar.length > 0) {
-      await tx.avisoColorOF.createMany({
+      const avisos = await tx.avisoColorOF.createManyAndReturn({
         data: plan.ofsAAvisar.map((manufacturingOrderId) => ({
           manufacturingOrderId,
           producto: vista.producto,
@@ -425,7 +426,9 @@ export async function aplicarCambioModo(
           colorNuevo: AVISO_PRODUCTO_CANCELADO,
           creadoPorId: actor.id,
         })),
+        select: { id: true },
       });
+      avisoIds = avisos.map((aviso) => aviso.id);
     }
     // Sin producción viva: en producción vuelve a Liberada (como al cancelar un producto).
     if (plan.orderStatus === "IN_PRODUCTION" && (await tx.productionJob.count({ where: { orderId: plan.orderId } })) === 0) {
@@ -494,5 +497,5 @@ export async function aplicarCambioModo(
   const deuda = vista.proveedoras.map((p) => `${p.nombre} ${pesos(p.deudaAntes)} → ${pesos(p.deudaDespues)}`).join("; ");
   const text = `${vista.direccion === "A_STOCK" ? "Pasó a stock" : "Pasó a fabricación"} ${vista.producto} (${vista.origen}). Motivo: ${motivo}. Deuda: ${deuda || "sin cambio"}. Costo de productos: ${pesos(vista.costoVentaAntes)} → ${pesos(vista.costoVentaDespues)}.`;
   await tx.orderNote.create({ data: { orderId: plan.orderId, text: text.slice(0, 1000), createdById: actor.id } });
-  return text;
+  return { text, avisoIds };
 }

@@ -9,8 +9,11 @@ import { destinationCityLabel, mensajeOFProveedora, toManufacturingLine } from "
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl, getSiteUrl } from "@/lib/site";
 import { getAvisoOFConfig } from "@/lib/system-settings";
+import { AVISO_PRODUCTO_CANCELADO, mensajeAvisoOF } from "@/lib/sale-item-cancel";
 import { planOFCombo } from "../application/aviso-of-combo";
-import type { AvisoOFPuertos } from "../application/enviar-of-proveedora";
+import { avisarCambioOFSiYaSeEnvio, type AvisoCambioPuertos, type AvisoOFPuertos } from "../application/enviar-of-proveedora";
+import { dispararRecibo } from "../application/enviar-recibo-caja";
+import { COMBO_CAMILLAS_CODES } from "../domain/combo-camillas";
 
 export function prismaAvisoOFPuertos(actorId: string): AvisoOFPuertos {
   return {
@@ -97,4 +100,81 @@ export function prismaAvisoOFPuertos(actorId: string): AvisoOFPuertos {
       });
     },
   };
+}
+
+// Parte 4: el cambio (AvisoColorOF) de una OF que ya le salió a la proveedora. Solo datos de la OF y
+// del cambio: nada de la clienta.
+export function prismaAvisoCambioOFPuertos(actorId: string): AvisoCambioPuertos {
+  return {
+    leerConfig: getAvisoOFConfig,
+
+    async cargar(avisoId) {
+      const aviso = await prisma.avisoColorOF.findUnique({
+        where: { id: avisoId },
+        select: {
+          producto: true,
+          colorViejo: true,
+          colorNuevo: true,
+          manufacturingOrder: {
+            select: { code: true, orderId: true, shareToken: true, avisoProveedoraEstado: true, supplier: { select: { phone: true } } },
+          },
+        },
+      });
+      if (!aviso) return null;
+      const of = aviso.manufacturingOrder;
+      // La foto solo aplica al cambio de color del combo: la exacta del color que quedó (planOFCombo).
+      let esCambioDeColor = false;
+      let imagenUrl: string | null = null;
+      if (aviso.colorNuevo !== AVISO_PRODUCTO_CANCELADO) {
+        const combos = await prisma.product.findMany({ where: { code: { in: [...COMBO_CAMILLAS_CODES] } }, select: { name: true } });
+        const nombre = aviso.producto.trim().toLowerCase();
+        esCambioDeColor = combos.some((combo) => combo.name.trim().toLowerCase() === nombre);
+        if (esCambioDeColor) {
+          const combo = await planOFCombo(of.orderId);
+          imagenUrl = combo?.foto?.fotoUrl ? getPublicAssetUrl(combo.foto.fotoUrl) : null;
+        }
+      }
+      return {
+        ofCode: of.code,
+        estadoOF: of.avisoProveedoraEstado,
+        telefonoProveedora: of.supplier.phone,
+        mensaje: mensajeAvisoOF({ code: of.code, ...aviso, url: getSiteUrl(`/fabricacion/${of.shareToken}`) }),
+        esCambioDeColor,
+        imagenUrl,
+      };
+    },
+
+    async tomar(avisoId) {
+      const { count } = await prisma.avisoColorOF.updateMany({
+        where: { id: avisoId, whatsappEstado: null },
+        data: { whatsappEstado: "ENVIANDO", whatsappEn: new Date() },
+      });
+      return count === 1;
+    },
+
+    async marcar(avisoId, estado, en) {
+      await prisma.avisoColorOF.update({ where: { id: avisoId }, data: { whatsappEstado: estado, whatsappEn: en } });
+    },
+
+    async bitacora({ avisoId, ofCode, estado, destino, en, detalle }) {
+      const [actor, aviso] = await Promise.all([
+        prisma.user.findUnique({ where: { id: actorId }, select: { id: true, name: true, email: true } }),
+        prisma.avisoColorOF.findUnique({ where: { id: avisoId }, select: { manufacturingOrder: { select: { orderId: true } } } }),
+      ]);
+      await logActivityAs(actor ?? { id: actorId }, {
+        action: "UPDATE",
+        entityType: "ORDER",
+        entityId: aviso?.manufacturingOrder.orderId ?? null,
+        entityCode: ofCode,
+        summary: `Aviso por WhatsApp del cambio en la ${displayCode(ofCode)}: ${estado} · a ${destino ?? "ningún número"} · ${todayInColombia(en)} ${colombiaTimeOfDay(en)} · ${detalle}`,
+      });
+    },
+  };
+}
+
+/** Las acciones lo llaman después de guardar: cada aviso en segundo plano (nunca rompe la acción). */
+export function dispararAvisosCambioOF(avisoIds: string[], actorId: string): void {
+  for (const avisoId of avisoIds) {
+    dispararRecibo(() => avisarCambioOFSiYaSeEnvio(avisoId, prismaAvisoCambioOFPuertos(actorId)));
+  }
 }

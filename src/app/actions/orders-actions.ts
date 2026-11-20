@@ -1,5 +1,6 @@
 "use server";
 
+import { dispararAvisosCambioOF } from "@/modules/ventas/infrastructure/prisma-aviso-of";
 import { hasAnyModuleAccess } from "@/lib/admin-module-access";
 
 import { Prisma } from "@prisma/client";
@@ -563,17 +564,19 @@ export async function adminChangeSaleItemColorAction(formData: FormData): Promis
     await tx.orderNote.create({ data: { orderId: order.id, text, createdById: actor.id } });
     // Aviso a cada proveedora con una OF que tenga alguna de estas líneas (se ve arriba en su OF).
     const ofIds = ofsConCambioDeColor(beforeOrder, order.manufacturingOrders);
-    if (ofIds.length > 0) {
-      await tx.avisoColorOF.createMany({
-        data: ofIds.map((manufacturingOrderId) => ({
-          manufacturingOrderId,
-          producto,
-          colorViejo: viejo,
-          colorNuevo: nuevo.value.color,
-          creadoPorId: actor.id,
-        })),
-      });
-    }
+    const avisos =
+      ofIds.length > 0
+        ? await tx.avisoColorOF.createManyAndReturn({
+            data: ofIds.map((manufacturingOrderId) => ({
+              manufacturingOrderId,
+              producto,
+              colorViejo: viejo,
+              colorNuevo: nuevo.value.color,
+              creadoPorId: actor.id,
+            })),
+            select: { id: true },
+          })
+        : [];
     await logActivityTx(tx, actor, {
       action: "UPDATE",
       entityType: "ORDER",
@@ -595,9 +598,10 @@ export async function adminChangeSaleItemColorAction(formData: FormData): Promis
     const proveedoras = order.manufacturingOrders
       .filter((of) => ofIds.includes(of.id))
       .map((of) => of.supplier.displayName || of.supplier.name);
-    return { error: null, proveedoras };
+    return { error: null, proveedoras, avisoIds: avisos.map((aviso) => aviso.id) };
   });
   if (result.error) redirect(`${back}?error=${encodeURIComponent(result.error)}`);
+  dispararAvisosCambioOF(result.avisoIds ?? [], actor.id);
   const ok = result.proveedoras.length
     ? `Color cambiado. Avísale a ${result.proveedoras.join(" y ")} en la pestaña Fabricación`
     : "Color cambiado";
@@ -934,6 +938,7 @@ export async function adminCancelSaleItemAction(formData: FormData): Promise<voi
     redirect(`${back}?error=No+se+pudo+cancelar+el+producto`);
   }
   if (result.error !== null) redirect(`${back}?error=${encodeURIComponent(result.error)}`);
+  dispararAvisosCambioOF(result.avisoIds, actor.id);
 
   const ok = [
     `${result.producto} cancelado. La venta bajó ${formatCop(result.monto)}`,

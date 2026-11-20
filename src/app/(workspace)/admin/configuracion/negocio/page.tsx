@@ -3,6 +3,7 @@ import Image from "next/image";
 import { Save } from "lucide-react";
 import { auth } from "@/auth";
 import {
+  adminUpdateAvisoOFConfigAction,
   adminUpdateBrandNameAction,
   adminUpdateCurrencyAction,
   adminUpdateDianUvtAction,
@@ -25,6 +26,7 @@ import { getPublicAssetUrl } from "@/lib/site";
 import { prisma } from "@/lib/prisma";
 import { colombiaMonthRange, todayInColombia } from "@/lib/colombia-time";
 import {
+  getAvisoOFConfig,
   getSystemBrandName,
   getSystemCurrency,
   getSystemDianUvt,
@@ -79,6 +81,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
     storefrontPromoItems,
     dianUvt,
     annualSalesAgg,
+    avisoOF,
   ] = await Promise.all([
     getSystemCurrency(),
     getSystemPrimaryColor(),
@@ -97,6 +100,7 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
         createdAt: { gte: currentYear.from, lt: currentYear.to },
       },
     }),
+    getAvisoOFConfig(),
   ]);
 
   return (
@@ -209,6 +213,36 @@ export default async function AdminConfiguracionNegocioPage({ searchParams }: Pa
             uvt={dianUvt}
             year={currentYear.year}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Aviso de OF a proveedoras</CardTitle>
+          <CardDescription>
+            WhatsApp de la OF del combo camilla (y de sus cambios) desde la línea Admin. En Prueba todo le llega al
+            número de prueba; en Proveedoras le llega a la proveedora.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={adminUpdateAvisoOFConfigAction} className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium">Envío</span>
+              <select name="modo" defaultValue={avisoOF.modo} className="field-select" required>
+                <option value="apagado">Apagado</option>
+                <option value="prueba">Prueba (número del dueño)</option>
+                <option value="proveedoras">Proveedoras</option>
+              </select>
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium">Número de prueba</span>
+              <Input name="numeroPrueba" defaultValue={avisoOF.numeroPrueba} inputMode="tel" placeholder="573196892277" required />
+            </label>
+            <Button type="submit">
+              <Save className="h-4 w-4" />
+              Guardar aviso de OF
+            </Button>
+          </form>
         </CardContent>
       </Card>
 

@@ -1,6 +1,8 @@
 // Cancelar un producto de una venta (nov-2026). Reglas puras: cuándo se deja, cuánto baja la venta y
 // el aviso a la proveedora. La escritura está en adminCancelSaleItemAction (orders-actions.ts).
 // Lo que se cancela no se borra sin copia: la línea queda en RegistroAnulado (anularVarias).
+import { displayCode } from "./code-display";
+import { mensajeCambioColorOF } from "./color-change";
 
 export const CANCEL_ITEM_REASON_MIN = 3;
 export const CANCEL_ITEM_REASON_MAX = 300;
@@ -82,6 +84,13 @@ export const AVISO_PRODUCTO_CANCELADO = "__CANCELADO__";
 export function textoAvisoOF(aviso: { producto: string; colorViejo: string; colorNuevo: string }): string {
   if (aviso.colorNuevo === AVISO_PRODUCTO_CANCELADO) return `Producto cancelado: ${aviso.producto}. Ya no se fabrica.`;
   return `${aviso.producto} ${aviso.colorViejo} → ${aviso.colorNuevo}`;
+}
+
+/** WhatsApp de un aviso para la proveedora: solo el cambio y el enlace de la OF (nunca la OF completa). */
+export function mensajeAvisoOF(aviso: { code: string; producto: string; colorViejo: string; colorNuevo: string; url: string }): string {
+  return aviso.colorNuevo === AVISO_PRODUCTO_CANCELADO
+    ? `${displayCode(aviso.code)}: ${textoAvisoOF(aviso)}\n${aviso.url}`
+    : mensajeCambioColorOF(aviso);
 }
 
 /**

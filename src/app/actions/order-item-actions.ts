@@ -1,5 +1,6 @@
 "use server";
 
+import { dispararAvisosCambioOF } from "@/modules/ventas/infrastructure/prisma-aviso-of";
 import { hasAnyModuleAccess } from "@/lib/admin-module-access";
 
 import { randomUUID } from "node:crypto";
@@ -339,12 +340,12 @@ export async function adminCambiarModoConfirmadoAction(formData: FormData): Prom
   const actor = await getActivityActor();
   const entrada = entradaCambio(formData);
 
-  let hecho: { error: string } | { text: string; plan: PlanCambio };
+  let hecho: { error: string } | { text: string; avisoIds: string[]; plan: PlanCambio };
   try {
     hecho = await prisma.$transaction(async (tx) => {
       const plan = await planCambioModo(tx, entrada);
       if ("error" in plan) return plan;
-      const text = await aplicarCambioModo(tx, plan, actor, motivo.value);
+      const { text, avisoIds } = await aplicarCambioModo(tx, plan, actor, motivo.value);
       await logActivityTx(tx, actor, {
         action: "UPDATE",
         entityType: "ORDER",
@@ -361,13 +362,14 @@ export async function adminCambiarModoConfirmadoAction(formData: FormData): Prom
         },
         ticket: "T-846",
       });
-      return { text, plan };
+      return { text, avisoIds, plan };
     });
   } catch (error) {
     console.error("Failed to change confirmed item mode:", error);
     redirect(`${returnTo}?error=No+se+pudo+cambiar+el+producto`);
   }
   if ("error" in hecho) redirect(`${returnTo}?${new URLSearchParams({ error: hecho.error })}`);
+  dispararAvisosCambioOF(hecho.avisoIds, actor.id);
 
   // A fabricación en una orden que ya pasó producción: su OF queda creada y recibida (ya está hecha).
   const { plan } = hecho;

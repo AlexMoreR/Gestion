@@ -39,6 +39,8 @@ export type ResultadoCancelar =
       proveedoras: string[];
       /** El producto era parte de un combo de varias piezas (se puede cancelar solo la pieza). */
       esCombo: boolean;
+      /** AvisoColorOF creados: se mandan por WhatsApp después de guardar (dispararAvisosCambioOF). */
+      avisoIds: string[];
     };
 
 /**
@@ -262,17 +264,19 @@ export async function cancelarProductoTx(
   }
 
   // 5) Aviso a la proveedora en su OF, nota de la orden y bitácora.
-  if (ofIds.length > 0) {
-    await tx.avisoColorOF.createMany({
-      data: ofIds.map((manufacturingOrderId) => ({
-        manufacturingOrderId,
-        producto,
-        colorViejo: meta.color.trim() || "sin color",
-        colorNuevo: AVISO_PRODUCTO_CANCELADO,
-        creadoPorId: actor.id,
-      })),
-    });
-  }
+  const avisos =
+    ofIds.length > 0
+      ? await tx.avisoColorOF.createManyAndReturn({
+          data: ofIds.map((manufacturingOrderId) => ({
+            manufacturingOrderId,
+            producto,
+            colorViejo: meta.color.trim() || "sin color",
+            colorNuevo: AVISO_PRODUCTO_CANCELADO,
+            creadoPorId: actor.id,
+          })),
+          select: { id: true },
+        })
+      : [];
   const aFavor = saldoAFavor(pagado, nuevoTotal);
   const text = `Canceló ${producto} (${formatCop(monto)}). Motivo: ${motivo}. Total de la venta: ${formatCop(nuevoTotal)}${
     aFavor > 0 ? ` · saldo a favor de la clienta: ${formatCop(aFavor)}` : ""
@@ -297,7 +301,7 @@ export async function cancelarProductoTx(
   const proveedoras = order.manufacturingOrders
     .filter((of) => ofIds.includes(of.id))
     .map((of) => of.supplier.displayName || of.supplier.name);
-  return { error: null, producto, monto, nuevoTotal, aFavor, proveedoras, esCombo };
+  return { error: null, producto, monto, nuevoTotal, aFavor, proveedoras, esCombo, avisoIds: avisos.map((aviso) => aviso.id) };
 }
 
 /**
@@ -496,7 +500,7 @@ export async function cambiarProductoDeVenta(input: {
   motivo: string;
   reactivar: boolean;
   createdById: string;
-}): Promise<string> {
+}): Promise<{ mensaje: string; avisoIds: string[] }> {
   const actor = await getActivityActor();
   return prisma.$transaction(async (tx) => {
     const item = await tx.orderItem.findUnique({
@@ -569,6 +573,7 @@ export async function cambiarProductoDeVenta(input: {
       },
     });
     const avisar = cancelado.proveedoras.length ? `. Avísale a ${cancelado.proveedoras.join(" y ")} en la pestaña Fabricación` : "";
-    return `Se cambió ${cancelado.producto} por ${nuevo} en ${displayCode(order.code)}. Total: ${formatCop(total)} · ${saldoTexto}${avisar}.`;
+    const mensaje = `Se cambió ${cancelado.producto} por ${nuevo} en ${displayCode(order.code)}. Total: ${formatCop(total)} · ${saldoTexto}${avisar}.`;
+    return { mensaje, avisoIds: cancelado.avisoIds };
   }, { timeout: 30_000 }); // tres pasos en una transacción: más que los 5 s de siempre
 }

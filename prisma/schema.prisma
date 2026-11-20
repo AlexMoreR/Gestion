@@ -1176,6 +1176,10 @@ model AvisoColorOF {
   creadoPorId          String?
   createdAt            DateTime           @default(now())
   vistoEn              DateTime?
+  // Aviso de este cambio por WhatsApp (nov-2026, parte 4), solo si la OF ya le había salido a la proveedora:
+  // ENVIANDO (candado) / ENVIADO / PRUEBA / ALERTA / FALLIDO. NULL = no se ha mandado.
+  whatsappEstado       String?
+  whatsappEn           DateTime?
   manufacturingOrder   ManufacturingOrder @relation(fields: [manufacturingOrderId], references: [id], onDelete: Cascade)
 
   @@index([manufacturingOrderId])

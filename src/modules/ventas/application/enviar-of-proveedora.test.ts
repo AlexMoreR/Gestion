@@ -1,7 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { AVISO_OF_NUMERO_PRUEBA, parseAvisoOFConfig, telefonoParaCrm, type AvisoOFConfig } from "../domain/aviso-of-proveedora";
 import type { AvisoOFPlan } from "../domain/combo-camillas";
-import { enviarOFProveedora, type AvisoOFDatos, type AvisoOFPuertos } from "./enviar-of-proveedora";
+import {
+  avisarCambioOFSiYaSeEnvio,
+  enviarOFProveedora,
+  type AvisoCambioDatos,
+  type AvisoCambioPuertos,
+  type AvisoOFDatos,
+  type AvisoOFPuertos,
+} from "./enviar-of-proveedora";
+import { AVISO_PRODUCTO_CANCELADO, mensajeAvisoOF } from "../../../lib/sale-item-cancel";
 
 const env = { CRM_API_KEY: "llave-de-prueba" };
 const sinEspera = async () => undefined;
@@ -178,5 +186,126 @@ describe("parseAvisoOFConfig y telefonoParaCrm", () => {
     expect(telefonoParaCrm("573001234567")).toBe("573001234567");
     expect(telefonoParaCrm("1234")).toBeNull();
     expect(telefonoParaCrm(null)).toBeNull();
+  });
+});
+
+// ── Parte 4: el cambio de una OF ya enviada ──
+function cambio(extra: Partial<AvisoCambioDatos> = {}): AvisoCambioDatos {
+  return {
+    ofCode: "OF-00035",
+    estadoOF: "ENVIADO",
+    telefonoProveedora: "300 123 4567",
+    mensaje: mensajeAvisoOF({
+      code: "OF-00035",
+      producto: "Combo Camilla Diván",
+      colorViejo: "negro",
+      colorNuevo: "blanco",
+      url: "https://magilus.com/fabricacion/abc",
+    }),
+    esCambioDeColor: true,
+    imagenUrl: "https://magilus.com/uploads/combo-blanco.webp",
+    ...extra,
+  };
+}
+
+// El candado se comporta como el updateMany "where whatsappEstado IS NULL".
+function puertosCambio(config: AvisoOFConfig, cargado: AvisoCambioDatos | null = cambio()) {
+  let estadoGuardado: string | null = null;
+  const bitacora: Array<{ estado: string; destino: string | null; detalle: string }> = [];
+  const puertos: AvisoCambioPuertos = {
+    leerConfig: async () => config,
+    cargar: async () => cargado,
+    tomar: async () => {
+      if (estadoGuardado !== null) return false;
+      estadoGuardado = "ENVIANDO";
+      return true;
+    },
+    marcar: async (_id, estado) => {
+      estadoGuardado = estado;
+    },
+    bitacora: async (entrada) => {
+      bitacora.push({ estado: entrada.estado, destino: entrada.destino, detalle: entrada.detalle });
+    },
+  };
+  return { puertos, bitacora, estado: () => estadoGuardado };
+}
+
+describe("avisarCambioOFSiYaSeEnvio", () => {
+  it("OF no enviada no manda nada", async () => {
+    for (const estadoOF of [null, "ENVIANDO", "ALERTA", "FALLIDO"]) {
+      const f = puertosCambio(proveedoras, cambio({ estadoOF }));
+      const fetch = fetchOk();
+      expect(await avisarCambioOFSiYaSeEnvio("a1", f.puertos, { fetch, env, esperar: sinEspera })).toBeNull();
+      expect(fetch).not.toHaveBeenCalled();
+      expect(f.estado()).toBeNull();
+      expect(f.bitacora).toHaveLength(0);
+    }
+  });
+
+  it("OF enviada manda un solo mensaje: el cambio con la foto del color nuevo, sin la OF completa", async () => {
+    const f = puertosCambio(proveedoras);
+    const fetch = fetchOk();
+    expect(await avisarCambioOFSiYaSeEnvio("a1", f.puertos, { fetch, env, esperar: sinEspera })).toBe("ENVIADO");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const enviado = cuerpo(fetch);
+    expect(enviado).toEqual({
+      linea: "Admin",
+      telefono: "573001234567",
+      texto: "Cambio de color en OF-35: Combo Camilla Diván pasa de negro a blanco\nhttps://magilus.com/fabricacion/abc",
+      imagenUrl: "https://magilus.com/uploads/combo-blanco.webp",
+    });
+    expect(enviado.texto).not.toContain("te mando la orden");
+    expect(f.estado()).toBe("ENVIADO");
+    expect(f.bitacora).toHaveLength(1);
+  });
+
+  it("el mismo aviso no sale dos veces", async () => {
+    const f = puertosCambio(proveedoras);
+    const fetch = fetchOk();
+    await avisarCambioOFSiYaSeEnvio("a1", f.puertos, { fetch, env, esperar: sinEspera });
+    expect(await avisarCambioOFSiYaSeEnvio("a1", f.puertos, { fetch, env, esperar: sinEspera })).toBeNull();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("apagado: no sale nada", async () => {
+    const f = puertosCambio({ modo: "apagado", numeroPrueba: AVISO_OF_NUMERO_PRUEBA });
+    const fetch = fetchOk();
+    expect(await avisarCambioOFSiYaSeEnvio("a1", f.puertos, { fetch, env, esperar: sinEspera })).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(f.estado()).toBeNull();
+  });
+
+  it("si la OF solo salió en prueba, el cambio va al número de prueba aunque esté en Proveedoras", async () => {
+    const f = puertosCambio(proveedoras, cambio({ estadoOF: "PRUEBA" }));
+    const fetch = fetchOk();
+    expect(await avisarCambioOFSiYaSeEnvio("a1", f.puertos, { fetch, env, esperar: sinEspera })).toBe("PRUEBA");
+    expect(cuerpo(fetch).telefono).toBe(AVISO_OF_NUMERO_PRUEBA);
+  });
+
+  it("color sin foto: el texto sale sin imagen y le llega la alerta al dueño", async () => {
+    const f = puertosCambio(proveedoras, cambio({ imagenUrl: null }));
+    const fetch = fetchOk();
+    expect(await avisarCambioOFSiYaSeEnvio("a1", f.puertos, { fetch, env, esperar: sinEspera })).toBe("ENVIADO");
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(cuerpo(fetch, 0)).toMatchObject({ telefono: "573001234567", imagenUrl: null });
+    expect(cuerpo(fetch, 1)).toMatchObject({ telefono: AVISO_OF_NUMERO_PRUEBA, imagenUrl: null });
+    expect(cuerpo(fetch, 1).texto).toMatch(/^El cambio de color de la OF-35 salió sin foto\./);
+    expect(f.bitacora[0].detalle).toContain("alerta al dueño");
+  });
+
+  it("producto cancelado: solo el texto, sin foto ni alerta", async () => {
+    const mensaje = mensajeAvisoOF({ code: "OF-00035", producto: "Combo Camilla Diván", colorViejo: "negro", colorNuevo: AVISO_PRODUCTO_CANCELADO, url: "https://magilus.com/fabricacion/abc" });
+    const f = puertosCambio(prueba, cambio({ mensaje, esCambioDeColor: false, imagenUrl: null }));
+    const fetch = fetchOk();
+    expect(await avisarCambioOFSiYaSeEnvio("a1", f.puertos, { fetch, env, esperar: sinEspera })).toBe("PRUEBA");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(cuerpo(fetch).texto).toBe("OF-35: Producto cancelado: Combo Camilla Diván. Ya no se fabrica.\nhttps://magilus.com/fabricacion/abc");
+  });
+
+  it("el CRM no responde: queda FALLIDO en la bitácora", async () => {
+    const f = puertosCambio(proveedoras);
+    const fetch = vi.fn(async () => new Response("", { status: 500 }));
+    expect(await avisarCambioOFSiYaSeEnvio("a1", f.puertos, { fetch, env, esperar: sinEspera })).toBe("FALLIDO");
+    expect(f.bitacora[0].estado).toBe("FALLIDO");
   });
 });

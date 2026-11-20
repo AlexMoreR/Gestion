@@ -434,6 +434,20 @@ quedó en negativo). Regla en `src/modules/balances/domain/negative-balance.ts`.
   comisiones. Reglas en `src/modules/ventas/domain/recibo-caja.ts`; prueba sin mandar:
   `npm run recibo:prueba -- --venta=SAL-123`.
 
+- `aviso_of_combo_camillas`: **cuándo sale**: apenas se crea sola la OF del Combo Camillas (primer abono),
+  Gestión le pide al CRM que la mande por WhatsApp desde la línea Admin; y si esa OF ya salió (ENVIADO, o
+  PRUEBA si fue al número del dueño), cada «Cambiar color», «Cancelar producto», «Cambiar producto» o
+  «Pasar a stock» que la toque sale en un **mensaje aparte** solo con el cambio (`avisarCambioOFSiYaSeEnvio`,
+  candado `AvisoColorOF.whatsappEstado`: nunca sale dos veces y nunca se reenvía la OF completa).
+  **Qué lleva**: código de la OF y de la orden, productos con color y cantidad, la foto exacta del color
+  (en un cambio de color, la del color nuevo), el enlace `/fabricacion/<token>` y la ciudad de destino.
+  **Qué nunca lleva**: nombre, teléfono, dirección ni plata de la clienta. Sin foto del color, la OF no sale
+  (alerta al dueño); un cambio de color sin foto sale solo con el texto y al dueño le llega «El cambio de
+  color de la OF-x salió sin foto». Interruptor en Configuración → Negocio, «Aviso de OF a proveedoras»:
+  Apagado (no sale nada), Prueba (todo al número de prueba, por defecto) o Proveedoras; si la OF solo salió
+  en prueba, sus cambios también van al número de prueba. Cada envío y cada cambio del interruptor quedan
+  en la bitácora. Lógica en `src/modules/ventas/application/enviar-of-proveedora.ts`.
+
 ## Qué NO tiene el sistema
 
 - El **origen** de las ventas anteriores a oct-2026 casi siempre es "Sin dato" (se puede rellenar con `npm run origen:rellenar`, que cruza el teléfono del cliente con el CRM).
@@ -452,6 +466,7 @@ quedó en negativo). Regla en `src/modules/balances/domain/negative-balance.ts`.
 
 ## Riesgos de operación
 
+- El **aviso de OF a proveedoras** (`aviso_of_combo_camillas`) en modo Proveedoras le escribe por WhatsApp a una proveedora real desde la línea Admin. El cargo a Laura sale de su costo en el catálogo: si ese costo está mal, la deuda con ella queda mal. Si el servidor se cae justo al mandar, el aviso queda en ENVIANDO y no se reintenta; si el CRM no lo recibe queda FALLIDO (se ve en la bitácora) y se avisa a mano desde la pestaña Fabricación.
 - El **recibo de caja** le llega por WhatsApp al cliente apenas el CRM salga de modo PRUEBA. Si el CRM está caído más de ~40 s, la llave no coincide o el contenedor se reinicia justo al guardar, el recibo no sale y no se reintenta solo (el abono queda "Recibo no enviado" o sin etiqueta). Para apagarlo: `RECIBO_CAJA_AVISO=off`.
 
 - La **llave del MCP en la ruta** (`/api/mcp/{llave}`) queda escrita en la URL: puede aparecer en logs de Traefik o del proxy y en la configuración del conector. Si se filtra, cambia `MCP_API_KEY` en Portainer y vuelve a desplegar.

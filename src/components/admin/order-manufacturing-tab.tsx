@@ -14,8 +14,7 @@ import { Input } from "@/components/ui/input";
 import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { displayCode } from "@/lib/code-display";
-import { mensajeCambioColorOF } from "@/lib/color-change";
-import { AVISO_PRODUCTO_CANCELADO, textoAvisoOF } from "@/lib/sale-item-cancel";
+import { AVISO_PRODUCTO_CANCELADO, mensajeAvisoOF, textoAvisoOF } from "@/lib/sale-item-cancel";
 import type { EstadoEntrega } from "@/lib/delivery-tracking";
 import type { ManufacturingPaymentSummary } from "@/lib/manufacturing-orders";
 
@@ -192,10 +191,7 @@ export function OrderManufacturingTab({ cards, currency, returnTo, brandName }: 
                     </p>
                     <a
                       href={`https://wa.me/${card.supplierWhatsApp}?text=${encodeURIComponent(
-                        aviso.colorNuevo === AVISO_PRODUCTO_CANCELADO
-                          ? `${displayCode(card.code)}: ${textoAvisoOF(aviso)}
-${card.url}`
-                          : mensajeCambioColorOF({ code: card.code, ...aviso, url: card.url }),
+                        mensajeAvisoOF({ code: card.code, ...aviso, url: card.url }),
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"

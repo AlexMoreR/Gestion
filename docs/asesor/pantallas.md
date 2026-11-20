@@ -455,6 +455,7 @@ Datos del negocio y de la tienda.
 **Qué se ve y botones:**
 - "Identidad": Nombre de la marca, Moneda activa, Número de WhatsApp y Color primario; cada campo se guarda con su botón de ícono (**Guardar marca**, **Guardar moneda**, **Guardar WhatsApp**, **Guardar color**).
 - "Topes tributarios (DIAN)": Valor de la UVT → **Guardar UVT**; medidores de los topes de IVA y renta sobre las ventas del año.
+- "Aviso de OF a proveedoras": selector "Envío" con **Apagado**, **Prueba (número del dueño)** y **Proveedoras**, y la caja "Número de prueba" → **Guardar aviso de OF**. Decide a quién le llega por WhatsApp la OF del combo camilla y sus cambios (en Prueba, todo al número de prueba).
 - "Portada del sitio": logo → **Guardar logo**; Título principal del home y Descripción principal del home → **Guardar portada**.
 - "Franja promocional": mensajes de la tienda; **Agregar texto**, papelera "Eliminar mensaje N" y el botón **Guardar franja promocional**.
 

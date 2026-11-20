@@ -1,5 +1,6 @@
 "use server";
 
+import { dispararAvisosCambioOF } from "@/modules/ventas/infrastructure/prisma-aviso-of";
 import { hasAnyModuleAccess } from "@/lib/admin-module-access";
 
 import { randomUUID } from "node:crypto";
@@ -808,21 +809,21 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
   if (cambiarOrderItemId) {
     let mensaje: { ok: string } | { error: string };
     try {
-      mensaje = {
-        ok: await cambiarProductoDeVenta({
-          agregar: {
-            quoteId: parsed.data.quoteId,
-            quoteCode: quoteWithSale!.code,
-            lineas: indicesNuevos.map((index) => normalizedItems[index]),
-            datosCotizacion,
-          },
-          saleId: quoteWithSale!.sale!.id,
-          orderItemId: cambiarOrderItemId,
-          motivo: String(formData.get("motivoCambio") ?? "").trim(),
-          reactivar: reactivarCambio,
-          createdById: userId,
-        }),
-      };
+      const cambio = await cambiarProductoDeVenta({
+        agregar: {
+          quoteId: parsed.data.quoteId,
+          quoteCode: quoteWithSale!.code,
+          lineas: indicesNuevos.map((index) => normalizedItems[index]),
+          datosCotizacion,
+        },
+        saleId: quoteWithSale!.sale!.id,
+        orderItemId: cambiarOrderItemId,
+        motivo: String(formData.get("motivoCambio") ?? "").trim(),
+        reactivar: reactivarCambio,
+        createdById: userId,
+      });
+      mensaje = { ok: cambio.mensaje };
+      dispararAvisosCambioOF(cambio.avisoIds, userId);
     } catch (error) {
       if (!(error instanceof CancelItemBlockedError)) console.error("Failed to swap sale item:", error);
       mensaje = { error: error instanceof CancelItemBlockedError ? error.message : "No se pudo cambiar el producto." };

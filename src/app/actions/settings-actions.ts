@@ -20,7 +20,11 @@ import {
   setSystemStorefrontLogoPath,
   setSystemStorefrontPromoItems,
   setSystemWhatsAppPhone,
+  getAvisoOFConfig,
+  setAvisoOFConfig,
 } from "@/lib/system-settings";
+import { logActivityAs } from "@/lib/activity-log";
+import { telefonoParaCrm, type AvisoOFModo } from "@/modules/ventas/domain/aviso-of-proveedora";
 
 const updateCurrencySchema = z.object({
   currency: z
@@ -224,6 +228,37 @@ export async function adminUpdateWhatsAppPhoneAction(formData: FormData): Promis
   revalidateBusinessSurfaces();
   revalidatePath("/admin/cotizaciones");
   redirect("/admin/configuracion/negocio?ok=WhatsApp+actualizado");
+}
+
+// Interruptor del aviso de la OF por WhatsApp a las proveedoras (combo camilla, nov-2026). Solo ADMIN;
+// el antes y el después quedan en la bitácora.
+const AVISO_OF_MODOS: Record<string, AvisoOFModo> = { apagado: "apagado", prueba: "prueba", proveedoras: "proveedoras" };
+
+export async function adminUpdateAvisoOFConfigAction(formData: FormData): Promise<void> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN" || !session.user.id) redirect("/unauthorized");
+
+  const modo = AVISO_OF_MODOS[String(formData.get("modo") ?? "")];
+  const numeroPrueba = telefonoParaCrm(String(formData.get("numeroPrueba") ?? ""));
+  if (!modo) redirect("/admin/configuracion/negocio?error=Elige+Apagado%2C+Prueba+o+Proveedoras");
+  if (!numeroPrueba) redirect("/admin/configuracion/negocio?error=El+n%C3%BAmero+de+prueba+no+sirve%3A+escribe+10+d%C3%ADgitos");
+
+  const antes = await getAvisoOFConfig();
+  const despues = { modo, numeroPrueba };
+  await setAvisoOFConfig(despues);
+  await logActivityAs(
+    { id: session.user.id, name: session.user.name, email: session.user.email },
+    {
+      action: "UPDATE",
+      entityType: "SETTING",
+      entityId: "avisoOFConfig",
+      summary: `Aviso de OF a proveedoras: ${antes.modo} (${antes.numeroPrueba}) → ${despues.modo} (${despues.numeroPrueba})`,
+      before: antes,
+      after: despues,
+    },
+  );
+  revalidatePath("/admin/configuracion/negocio");
+  redirect("/admin/configuracion/negocio?ok=Aviso+de+OF+guardado");
 }
 
 export async function adminUpdateStorefrontHeroAction(formData: FormData): Promise<void> {
