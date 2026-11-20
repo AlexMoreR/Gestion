@@ -3,13 +3,16 @@ import { computeItemUnitCost } from "../../../lib/order-item-cost";
 import { stringifyQuoteItemMeta } from "../../../lib/quote-item-meta";
 import { calculateSaleProfitSummary } from "../../balances/domain/calculations";
 import {
+  codigoComboDeLinea,
   codigosComboDeVenta,
   costosItemsCombo,
   esComboCamillas,
   itemsParaPlan,
   necesitaAlertaCombo,
+  planAvisoOF,
   planComboOrder,
   repartirCostoCombo,
+  textoAvisoOF,
   type ItemOrden,
   type LineaVenta,
 } from "./combo-camillas";
@@ -180,5 +183,67 @@ describe("combo como producto (venta directa)", () => {
       { orderItemId: "a", unitCost: 300000 },
       { orderItemId: "b", unitCost: 0 },
     ]);
+  });
+});
+
+describe("planAvisoOF: ¿se le puede mandar sola la OF a la proveedora?", () => {
+  const foto = { fotoUrl: "/uploads/combo-color/negro.webp" };
+  const base = {
+    modos: ["MANUFACTURE", "MANUFACTURE"],
+    proveedora: laura,
+    telefono: "+57 300 123 4567",
+    foto,
+    color: "Tapizado: Negro · Estructura: Blanca",
+  };
+
+  it("todo completo: enviar", () => {
+    expect(planAvisoOF(base)).toEqual({ accion: "enviar" });
+    expect(textoAvisoOF({ accion: "enviar" })).toBeNull();
+  });
+
+  it("sin la foto exacta: alerta con la etiqueta del color", () => {
+    const plan = planAvisoOF({ ...base, foto: null });
+    expect(plan).toEqual({ accion: "alerta", motivo: "falta_foto_color", color: "Tapizado: Negro · Estructura: Blanca" });
+    expect(textoAvisoOF(plan)).toBe(
+      "Falta la foto del combo color Tapizado: Negro · Estructura: Blanca: mándala a mano o súbela",
+    );
+  });
+
+  it("pieza MIXED o sin modo: modo_sin_definir (antes que lo demás)", () => {
+    expect(planAvisoOF({ ...base, modos: ["MANUFACTURE", "MIXED"], foto: null })).toEqual({
+      accion: "alerta",
+      motivo: "modo_sin_definir",
+    });
+    expect(planAvisoOF({ ...base, modos: [null] })).toMatchObject({ motivo: "modo_sin_definir" });
+    expect(planAvisoOF({ ...base, modos: [] })).toMatchObject({ motivo: "modo_sin_definir" });
+  });
+
+  it("todas las piezas de bodega: no hay nada que avisar", () => {
+    expect(planAvisoOF({ ...base, modos: ["STOCK", "STOCK"], proveedora: null, foto: null })).toEqual({ accion: "nada" });
+  });
+
+  it("sin proveedora confirmada: falta_proveedora", () => {
+    expect(planAvisoOF({ ...base, modos: ["STOCK", "MANUFACTURE"], proveedora: null })).toEqual({
+      accion: "alerta",
+      motivo: "falta_proveedora",
+    });
+  });
+
+  it("sin teléfono o con menos de 7 dígitos: falta_telefono_proveedora", () => {
+    expect(planAvisoOF({ ...base, telefono: null })).toMatchObject({ motivo: "falta_telefono_proveedora" });
+    expect(planAvisoOF({ ...base, telefono: "123-45" })).toMatchObject({ motivo: "falta_telefono_proveedora" });
+    expect(planAvisoOF({ ...base, telefono: "3001234" })).toEqual({ accion: "enviar" });
+  });
+});
+
+describe("codigoComboDeLinea", () => {
+  const combos = [{ code: "CMB005", name: "Combo Camillas" }];
+  it("reconoce las tres formas y deja fuera lo que no es del combo", () => {
+    const piezaA = stringifyQuoteItemMeta({ comboKey: "k1", comboName: "Combo Camillas", comboCode: "cmb005", comboQuantity: 1 });
+    expect(codigoComboDeLinea({ notes: piezaA, productCode: "CAM01" }, combos)).toBe("CMB005");
+    expect(codigoComboDeLinea({ notes: null, productCode: "CMB005" }, combos)).toBe("CMB005");
+    const piezaB = stringifyQuoteItemMeta({ description: "Camilla · Combo: Combo Camillas" });
+    expect(codigoComboDeLinea({ notes: piezaB, productCode: "CAM01" }, combos)).toBe("CMB005");
+    expect(codigoComboDeLinea({ notes: null, productCode: "SIL01" }, combos)).toBeNull();
   });
 });

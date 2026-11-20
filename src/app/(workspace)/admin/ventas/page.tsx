@@ -13,7 +13,8 @@ import {
   isCamillaComboProduct,
   toComboCheckProduct,
 } from "@/modules/ventas/domain/payment-method";
-import { itemsParaPlan, necesitaAlertaCombo } from "@/modules/ventas/domain/combo-camillas";
+import { avisosOFCombo } from "@/modules/ventas/application/aviso-of-combo";
+import { esComboCamillas, itemsParaPlan, necesitaAlertaCombo } from "@/modules/ventas/domain/combo-camillas";
 import { badgeOriginDetail, parseOriginFilter } from "@/modules/ventas/domain/sale-origin";
 import { SaleOriginFilterBar } from "@/modules/ventas/presentation/sale-origin-filter-bar";
 import { paymentMethodLabel } from "@/modules/ventas/domain/withholding";
@@ -139,6 +140,18 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
   const stockFor = (product: (typeof products)[number]): number =>
     product.isBundle ? comboStock(product.bundleComponents, stockOf) : stockOf(product.id);
 
+  // Combo con orden abierta: por qué su OF aún no se le puede mandar sola a Laura (al vuelo, no se guarda).
+  const avisosOFPromise = avisosOFCombo(
+    sales.flatMap((sale) =>
+      sale.order &&
+      sale.status !== "CANCELLED" &&
+      sale.order.status !== "COMPLETED" &&
+      sale.order.status !== "CANCELLED" &&
+      itemsParaPlan(sale.quote.items).some(esComboCamillas)
+        ? [sale.order.id]
+        : [],
+    ),
+  );
   // Contraentregas ya entregadas (cuentan en Balances) con productos reversados: solo para el aviso, no recalcula nada.
   const reversedLines = await prisma.dispatchItem.findMany({
     where: {
@@ -154,6 +167,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
     },
     select: { orderItemId: true, deliveryReversedAt: true, dispatch: { select: { orderId: true, status: true } } },
   });
+  const avisosOF = await avisosOFPromise;
   const reversedCountOf = (orderId: string) =>
     countReversedItems(
       reversedLines
@@ -272,6 +286,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
             tieneOrden: Boolean(sale.order),
             cancelada: sale.status === "CANCELLED",
           }),
+          alertaAvisoOF: sale.order ? (avisosOF.get(sale.order.id) ?? null) : null,
           alertaReversa: sale.order
             ? reversalMoneyWarning({
                 paymentMethod: sale.paymentMethod,

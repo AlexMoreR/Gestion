@@ -78,6 +78,7 @@ import {
   PAYMENT_METHOD_SHORT_LABEL,
 } from "@/modules/ventas/domain/payment-method";
 import { SaleOriginBadge } from "@/modules/ventas/presentation/sale-origin-badge";
+import { avisosOFCombo } from "@/modules/ventas/application/aviso-of-combo";
 import {
   esComboCamillas,
   esLaura,
@@ -849,6 +850,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       manufacturingData;
     // Combo Camillas: aviso para mandarle el link a Laura (nunca se le manda solo).
     const ordenCombo = Boolean(logCreadaSola) || itemsParaPlan(quoteItems).some(esComboCamillas);
+    // Por qué la OF del combo aún no se le puede mandar sola a Laura (al vuelo, no se guarda).
+    const avisoOF = ordenCombo ? ((await avisosOFCombo([order.id])).get(order.id) ?? null) : null;
     brandName = systemBrandName;
     const suggestedAddress = suggestDeliveryAddress(order.client);
 
@@ -879,6 +882,10 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         dia: manufacturingOrder.estimatedDeliveryAt ? todayInColombia(manufacturingOrder.estimatedDeliveryAt) : null,
       };
 
+      const creadaSolaParaLaura =
+        ordenCombo &&
+        supplier !== null &&
+        (supplier.id === comboSupplierId || (!comboSupplierId && esLaura(supplier)));
       return {
         id: manufacturingOrder.id,
         code: manufacturingOrder.code,
@@ -927,10 +934,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
         hasMissingCost: supplierItems.some((item) => item.purchaseCost == null),
         units: supplierItems.reduce((sum, item) => sum + item.quantity, 0),
         pago: manufacturingPayments.get(manufacturingOrder.supplierId) ?? null,
-        creadaSolaParaLaura:
-          ordenCombo &&
-          supplier !== null &&
-          (supplier.id === comboSupplierId || (!comboSupplierId && esLaura(supplier))),
+        creadaSolaParaLaura,
+        avisoOF: creadaSolaParaLaura ? avisoOF : null,
         lines: supplierItems.map((item) => ({
           id: item.id,
           name: item.product.name,

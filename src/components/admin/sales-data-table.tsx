@@ -136,6 +136,8 @@ type SaleRow = {
   hasCamillaCombo: boolean;
   // Combo Camillas (o sin productos) sin orden: no se pudo crear la orden sola.
   alertaCombo?: boolean;
+  // Combo con orden: por qué la OF aún no se le puede mandar sola a la proveedora.
+  alertaAvisoOF?: string | null;
   // Contraentrega ya contada en Balances con productos reversados (reversalMoneyWarning). Solo informa.
   alertaReversa?: string | null;
 };
@@ -218,7 +220,7 @@ function StatusBadge({ status }: { status: SaleStatus }) {
 function SaleStatusCell({
   sale,
 }: {
-  sale: Pick<SaleRow, "status" | "pendingDelivery" | "alertaCombo" | "alertaReversa" | "total" | "downPaymentAmount">;
+  sale: Pick<SaleRow, "status" | "pendingDelivery" | "alertaCombo" | "alertaAvisoOF" | "alertaReversa" | "total" | "downPaymentAmount">;
 }) {
   // Tras cancelar un producto la clienta puede haber pagado de más: queda a favor (los abonos no se tocan).
   const aFavor = saldoAFavor(sale.downPaymentAmount, sale.total);
@@ -240,6 +242,12 @@ function SaleStatusCell({
         <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:text-red-400">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
           Falta el producto: no se pudo crear la orden
+        </span>
+      ) : null}
+      {sale.alertaAvisoOF ? (
+        <span className="inline-flex max-w-xs items-start gap-1 whitespace-normal rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          {sale.alertaAvisoOF}
         </span>
       ) : null}
       {sale.alertaReversa ? (

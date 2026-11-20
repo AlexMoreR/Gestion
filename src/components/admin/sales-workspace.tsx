@@ -45,6 +45,7 @@ type SaleRow = {
   saleOriginDetail: unknown;
   hasCamillaCombo: boolean;
   alertaCombo?: boolean;
+  alertaAvisoOF?: string | null;
   alertaReversa?: string | null;
 };
 

@@ -180,3 +180,68 @@ export function costosItemsCombo(
 
   return [...resultado].map(([orderItemId, unitCost]) => ({ orderItemId, unitCost }));
 }
+
+// ---------------------------------------------------------------------------------------------
+// Aviso de la OF del combo (nov-2026, parte 2): ¿se le puede mandar sola la OF a la proveedora?
+// Todavía no se manda nada; solo decide y, si falta algo, dice qué. Nunca adivina.
+
+export type AvisoOFMotivo = "modo_sin_definir" | "falta_proveedora" | "falta_telefono_proveedora" | "falta_foto_color";
+
+export type AvisoOFPlan =
+  | { accion: "enviar" }
+  | { accion: "nada" } // todas las piezas salen de bodega: no hay nada que mandarle
+  | { accion: "alerta"; motivo: AvisoOFMotivo; color?: string };
+
+// Un teléfono sirve para WhatsApp con al menos 7 dígitos.
+export function telefonoSirve(telefono: string | null | undefined): boolean {
+  return (telefono ?? "").replace(/\D/g, "").length >= 7;
+}
+
+export function planAvisoOF(input: {
+  modos: Array<string | null | undefined>; // fulfillmentMode de cada pieza del combo
+  proveedora: Proveedora | null; // la confirmada en las piezas de fábrica (una sola)
+  telefono: string | null | undefined; // Supplier.phone
+  foto: { fotoUrl: string } | null; // fotoExactaDelColor
+  color: string; // etiqueta del color, para el aviso
+}): AvisoOFPlan {
+  // MIXED o sin modo: no dice si sale de bodega o de fábrica.
+  if (input.modos.length === 0 || input.modos.some((modo) => modo !== "STOCK" && modo !== "MANUFACTURE")) {
+    return { accion: "alerta", motivo: "modo_sin_definir" };
+  }
+  if (input.modos.every((modo) => modo === "STOCK")) return { accion: "nada" };
+  if (!input.proveedora) return { accion: "alerta", motivo: "falta_proveedora" };
+  if (!telefonoSirve(input.telefono)) return { accion: "alerta", motivo: "falta_telefono_proveedora" };
+  if (!input.foto?.fotoUrl) {
+    return { accion: "alerta", motivo: "falta_foto_color", color: input.color.trim() || "sin definir" };
+  }
+  return { accion: "enviar" };
+}
+
+// Texto corto del aviso para /admin/ventas y la tarjeta de la OF (null = no hay aviso).
+export function textoAvisoOF(plan: AvisoOFPlan): string | null {
+  if (plan.accion !== "alerta") return null;
+  switch (plan.motivo) {
+    case "falta_foto_color":
+      return `Falta la foto del combo color ${plan.color}: mándala a mano o súbela`;
+    case "modo_sin_definir":
+      return "Falta definir si el combo sale de bodega o de fábrica: mándala a mano o defínelo";
+    case "falta_proveedora":
+      return "Falta la proveedora del combo: mándala a mano o confírmala";
+    case "falta_telefono_proveedora":
+      return "Falta el teléfono de la proveedora: mándala a mano o agrégalo";
+  }
+}
+
+// Código del combo al que pertenece una línea de la orden (null = no es del combo). Mismas
+// tres formas que costosItemsCombo: A) pieza con comboCode en las notas, C) la línea es el
+// combo, B) pieza que la orden sacó del combo ("Combo: <nombre>" en la descripción).
+export function codigoComboDeLinea(
+  linea: { notes: string | null; productCode: string | null },
+  combos: Array<{ code: string | null; name: string }>,
+): string | null {
+  const meta = parseQuoteItemMeta(linea.notes);
+  if (meta.comboKey && esComboCamillas({ codigo: meta.comboCode })) return normalizeProductCode(meta.comboCode);
+  if (esComboCamillas({ codigo: linea.productCode })) return normalizeProductCode(linea.productCode);
+  const combo = combos.find((c) => esComboCamillas({ codigo: c.code }) && meta.description.endsWith(`Combo: ${c.name}`));
+  return combo ? normalizeProductCode(combo.code) : null;
+}

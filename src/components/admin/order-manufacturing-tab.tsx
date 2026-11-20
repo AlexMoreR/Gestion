@@ -47,6 +47,8 @@ export type ManufacturingCard = {
   pago: ManufacturingPaymentSummary | null;
   // Combo Camillas: la orden se creo sola con Laura; falta que la asesora le mande el link.
   creadaSolaParaLaura?: boolean;
+  // Combo: por qué la OF aún no se le puede mandar sola a Laura (null = nada que avisar).
+  avisoOF?: string | null;
   // Cambios de color que la proveedora aún no marca "Ya lo vi" en su OF (fecha dd/mm/aaaa).
   avisosSinVer: Array<{ id: string; producto: string; colorViejo: string; colorNuevo: string; fecha: string }>;
   // Fecha en que vio el último aviso (solo se muestra si no queda ninguno sin ver).
@@ -285,6 +287,12 @@ ${card.url}`
               {card.creadaSolaParaLaura ? (
                 <p className="w-full text-xs font-medium text-emerald-700 dark:text-emerald-400">
                   Orden creada sola para Laura. Envíale el link
+                </p>
+              ) : null}
+              {card.avisoOF ? (
+                <p className="flex w-full items-start gap-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  {card.avisoOF}
                 </p>
               ) : null}
               <a

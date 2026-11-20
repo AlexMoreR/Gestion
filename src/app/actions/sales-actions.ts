@@ -223,7 +223,7 @@ async function comboOrderOkSuffix(saleId: string | null, actorId: string): Promi
     if (!result.creada) return "";
     revalidatePath("/admin/ordenes");
     revalidatePath("/admin/produccion");
-    return " · orden de Laura creada";
+    return result.ofCode ? ` · orden de Laura y ${displayCode(result.ofCode)} creadas` : " · orden de Laura creada";
   } catch (error) {
     console.error("Combo Camillas: no se pudo crear la orden sola:", error);
     return "";
@@ -797,9 +797,12 @@ export async function adminAddSalePaymentAction(formData: FormData): Promise<voi
   if (paymentIdForReceipt && !isWithholding) {
     dispararRecibo(() => enviarReciboCaja(sale.id, [paymentIdForReceipt], prismaReciboCajaPuertos));
   }
+  // Combo Camillas: si la venta trae el combo y aún no tiene orden (venta guardada sin abono o
+  // contraentrega), el primer abono crea la orden, el cargo a Laura y la OF. Con orden: no hace nada.
+  const comboOk = await comboOrderOkSuffix(sale.id, createdById);
   // Si aún falta plata, la pantalla vuelve a abrir "Registrar abono" de esta venta para el siguiente pago.
   const falta = Math.round((capital - newTotalPaid) * 100) / 100;
-  const params = new URLSearchParams({ ok: okMessage });
+  const params = new URLSearchParams({ ok: `${okMessage}${comboOk}` });
   if (falta > 0.009) params.set("abono", sale.id);
   redirect(`${returnTo}?${params.toString()}`);
 }

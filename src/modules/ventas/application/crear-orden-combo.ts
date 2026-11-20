@@ -20,7 +20,8 @@ import {
 } from "../domain/combo-camillas";
 
 export type AutoCreateComboOrderResult =
-  | { creada: true; orderId: string; orderCode: string }
+  // conFabrica: alguna pieza quedó confirmada con la proveedora (si todas salen de bodega, no hay OF).
+  | { creada: true; orderId: string; orderCode: string; supplierId: string; conFabrica: boolean }
   | { creada: false; motivo: "nada" | "venta_no_encontrada" | ComboAlertaMotivo };
 
 export type PlanOrdenCombo = {
@@ -136,7 +137,10 @@ export async function crearOrdenCombo(saleId: string, actorId: string): Promise<
       orderBy: { id: "asc" },
       select: { id: true, quoteItemId: true, productId: true, quantity: true, notes: true, fulfillmentMode: true },
     });
-    for (const { orderItemId, unitCost } of costosItemsCombo(plan.unitCost, lineas, itemsOrden)) {
+    // Las piezas en STOCK no entran aca (costosItemsCombo las salta): siguen el camino de cualquier
+    // venta por stock (salen del inventario al confirmarlas en la orden), sin cargo a Laura ni OF.
+    const costos = costosItemsCombo(plan.unitCost, lineas, itemsOrden);
+    for (const { orderItemId, unitCost } of costos) {
       const confirmado = await confirmOrderItemSupplier(tx, {
         orderItemId,
         supplierId: plan.supplierId,
@@ -148,6 +152,12 @@ export async function crearOrdenCombo(saleId: string, actorId: string): Promise<
       if (!confirmado.ok) throw new Error(`Combo Camillas: no se pudo confirmar el item (${confirmado.motivo})`);
     }
 
-    return { creada: true, orderId: orden.orderId, orderCode: orden.orderCode };
+    return {
+      creada: true,
+      orderId: orden.orderId,
+      orderCode: orden.orderCode,
+      supplierId: plan.supplierId,
+      conFabrica: costos.length > 0,
+    };
   });
 }
