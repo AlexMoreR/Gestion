@@ -7,7 +7,7 @@ import {
   normalizeShipmentCodeInput,
   resolveShipmentByCode,
 } from "./codes";
-import { addBusinessDays, businessDaysFor, destinationTier, estimateDelivery, parseDateInput } from "./eta";
+import { addBusinessDays, businessDaysFor, destinationTier, estimateDelivery, isPastEstimate, parseDateInput } from "./eta";
 import {
   abbreviateName,
   evaluateLookupLimit,
@@ -275,5 +275,36 @@ describe("etapas", () => {
     expect(flowProgress("CREATED")).toBe(0);
     expect(flowProgress("DELIVERED")).toBe(1);
     expect(flowProgress("CANCELLED")).toBe(0);
+  });
+});
+
+describe("isPastEstimate", () => {
+  // 19-nov-2026 a las 10:00 en Colombia.
+  const now = new Date("2026-11-19T15:00:00Z");
+  const ayer = new Date("2026-11-18T12:00:00Z");
+  const hoy = new Date("2026-11-19T12:00:00Z");
+
+  it("marca vencida la guia en camino con fecha de ayer", () => {
+    expect(isPastEstimate(ayer, "IN_TRANSIT", now)).toBe(true);
+  });
+
+  it("no marca la fecha de hoy", () => {
+    expect(isPastEstimate(hoy, "IN_TRANSIT", now)).toBe(false);
+  });
+
+  it("no marca entregadas, canceladas ni devueltas", () => {
+    for (const status of ["DELIVERED", "CANCELLED", "RETURNED"]) {
+      expect(isPastEstimate(ayer, status, now)).toBe(false);
+    }
+  });
+
+  it("no marca sin fecha", () => {
+    expect(isPastEstimate(null, "CREATED", now)).toBe(false);
+  });
+
+  it("usa el dia de Colombia cerca de medianoche", () => {
+    // 19-nov 03:00 UTC todavia es 18-nov en Colombia: la del 18 aun no esta vencida.
+    expect(isPastEstimate(ayer, "IN_TRANSIT", new Date("2026-11-19T03:00:00Z"))).toBe(false);
+    expect(isPastEstimate(ayer, "IN_TRANSIT", new Date("2026-11-19T05:00:00Z"))).toBe(true);
   });
 });

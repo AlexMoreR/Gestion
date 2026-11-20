@@ -1,21 +1,22 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowUpRight, PackageSearch } from "lucide-react";
+import { PackageSearch } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { OperationsTabs } from "@/components/admin/operations-tabs";
+import { ShipmentsTable, type ShipmentTableRow } from "@/components/admin/shipments-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { displayCode } from "@/lib/code-display";
-import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
-import { getSystemCurrency } from "@/lib/system-settings";
+import { colombiaDayKey } from "@/lib/colombia-time";
 import {
   SHIPMENT_INCIDENT_LABEL,
   SHIPMENT_STATUS_BADGE,
   SHIPMENT_STATUS_LABEL,
 } from "@/modules/guias/domain/statuses";
+import { isPastEstimate } from "@/modules/guias/domain/eta";
 
 // Lista de guias Magilus: activas, con novedad y entregadas.
 
@@ -31,15 +32,9 @@ const FILTERS = [
 ] as const;
 type FilterKey = (typeof FILTERS)[number]["key"];
 
-const DAY_MS = 86_400_000;
-
 // Pagina de servidor dinamica: se lee la hora una vez por pedido.
 function currentTime() {
-  return Date.now();
-}
-
-function formatDay(date: Date | null): string {
-  return date ? date.toLocaleDateString("es-CO", { day: "2-digit", month: "short", timeZone: "UTC" }) : "—";
+  return new Date();
 }
 
 export default async function AdminGuiasPage({ searchParams }: PageProps) {
@@ -64,41 +59,52 @@ export default async function AdminGuiasPage({ searchParams }: PageProps) {
         ? {}
         : { status: { notIn: ["DELIVERED", "CANCELLED", "RETURNED"] } };
 
-  const [shipments, currency] = await Promise.all([
-    prisma.shipment.findMany({
-      where,
-      orderBy: { updatedAt: "desc" },
-      take: 300,
-      select: {
-        id: true,
-        code: true,
-        status: true,
-        createdAt: true,
-        estimatedDelivery: true,
-        amountToCollect: true,
-        collectOnDelivery: true,
-        destinationCity: { select: { name: true } },
-        currentCity: { select: { name: true } },
-        dispatch: {
-          select: {
-            code: true,
-            trackingNumber: true,
-            carrierName: true,
-            order: { select: { id: true, code: true, client: { select: { name: true, email: true } } } },
-          },
-        },
-        events: {
-          orderBy: { occurredAt: "desc" },
-          take: 1,
-          select: { kind: true, incident: true, occurredAt: true },
+  const shipments = await prisma.shipment.findMany({
+    where,
+    orderBy: { updatedAt: "desc" },
+    take: 300,
+    select: {
+      id: true,
+      code: true,
+      status: true,
+      estimatedDelivery: true,
+      destinationCity: { select: { name: true } },
+      currentCity: { select: { name: true } },
+      dispatch: {
+        select: {
+          code: true,
+          order: { select: { id: true, code: true, client: { select: { name: true, email: true } } } },
         },
       },
-    }),
-    getSystemCurrency(),
-  ]);
+      events: {
+        orderBy: { occurredAt: "desc" },
+        take: 1,
+        select: { kind: true, incident: true, occurredAt: true },
+      },
+    },
+  });
 
   const rows = filter === "novedad" ? shipments.filter((item) => item.events[0]?.kind === "INCIDENT") : shipments;
   const now = currentTime();
+  const tableRows: ShipmentTableRow[] = rows.map((row) => {
+    const client = row.dispatch.order.client;
+    const last = row.events[0];
+    return {
+      id: row.id,
+      code: row.code,
+      statusLabel: SHIPMENT_STATUS_LABEL[row.status],
+      statusBadge: SHIPMENT_STATUS_BADGE[row.status],
+      incidentLabel: last?.kind === "INCIDENT" && last.incident ? SHIPMENT_INCIDENT_LABEL[last.incident] : null,
+      client: client?.name || client?.email || "Cliente",
+      destination: row.destinationCity?.name ?? "Sin definir",
+      currentCity: row.currentCity?.name ?? "—",
+      // Se guarda a las 12:00 UTC: su dia de Colombia es el mismo dia escrito.
+      estimated: row.estimatedDelivery ? colombiaDayKey(row.estimatedDelivery) : null,
+      overdue: isPastEstimate(row.estimatedDelivery, row.status, now),
+      orderId: row.dispatch.order.id,
+      orderLabel: `${displayCode(row.dispatch.order.code)} · ${displayCode(row.dispatch.code)}`,
+    };
+  });
 
   return (
     <section className="w-full min-w-0 space-y-4">
@@ -134,53 +140,7 @@ export default async function AdminGuiasPage({ searchParams }: PageProps) {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
-          {rows.map((row) => {
-            const client = row.dispatch.order.client;
-            const last = row.events[0];
-            const days = Math.max(0, Math.floor((now - row.createdAt.getTime()) / DAY_MS));
-            return (
-              <Link
-                key={row.id}
-                href={`/admin/despachos/guias/${row.id}`}
-                className="flex w-full min-w-0 flex-col gap-2 rounded-xl border border-border bg-card/95 p-3 transition-colors hover:border-primary/40"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <span className="break-all font-semibold text-foreground">{row.code}</span>
-                    <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${SHIPMENT_STATUS_BADGE[row.status]}`}>
-                      {SHIPMENT_STATUS_LABEL[row.status]}
-                    </span>
-                    {last?.kind === "INCIDENT" && last.incident ? (
-                      <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
-                        {SHIPMENT_INCIDENT_LABEL[last.incident]}
-                      </span>
-                    ) : null}
-                  </div>
-                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                    {displayCode(row.dispatch.order.code)} · {displayCode(row.dispatch.code)}
-                    <ArrowUpRight className="h-3 w-3" />
-                  </span>
-                </div>
-                <p className="break-words text-sm text-foreground">
-                  {client?.name || client?.email || "Cliente"} → {row.destinationCity?.name ?? "Destino sin definir"}
-                </p>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                  <span>Va en: {row.currentCity?.name ?? "—"}</span>
-                  <span>Estimada: {formatDay(row.estimatedDelivery)}</span>
-                  <span>Hace {days} día(s)</span>
-                  <span>
-                    Cobro al recibir:{" "}
-                    {row.collectOnDelivery ? formatMoney(Number(row.amountToCollect), currency) : "Nada"}
-                  </span>
-                  <span className="min-w-0 [overflow-wrap:anywhere]">
-                    Proveedor (interno): {row.dispatch.carrierName ?? "—"} · guía {row.dispatch.trackingNumber?.trim() || "—"}
-                  </span>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+        <ShipmentsTable rows={tableRows} />
       )}
     </section>
   );

@@ -14,6 +14,7 @@ import {
 import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { stripCodeZeros } from "@/lib/code-display";
+import { cn } from "@/lib/utils";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Input } from "@/components/ui/input";
 import {
@@ -49,6 +50,8 @@ export type DataTableProps<TData> = {
   /** Si es true, la barra ocupa todo el ancho y el buscador se estira al espacio que sobre. */
   searchGrow?: boolean;
   onRowClick?: (row: TData) => void;
+  /** Clase extra por fila (p. ej. resaltar las atrasadas). */
+  getRowClassName?: (row: TData) => string | undefined;
   /** Clase de ancho minimo de la tabla (scroll horizontal). */
   minWidth?: string;
   /** Si se entrega, en movil se ocultan las filas y se renderiza esta tarjeta por fila. */
@@ -94,6 +97,7 @@ export function DataTable<TData>({
   searchFirst = false,
   searchGrow = false,
   onRowClick,
+  getRowClassName,
   minWidth = "min-w-[760px]",
   renderMobileCard,
   initialSorting = [],
@@ -297,7 +301,7 @@ export function DataTable<TData>({
                 <TableRow
                   key={row.id}
                   onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-                  className={onRowClick ? "cursor-pointer" : undefined}
+                  className={cn(onRowClick && "cursor-pointer", getRowClassName?.(row.original)) || undefined}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="py-1.5">

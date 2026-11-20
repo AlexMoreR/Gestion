@@ -244,9 +244,10 @@ Lista de despachos y de las ventas pagadas que aún no se han despachado.
 
 ## /admin/despachos/guias
 Lista de las guías Magilus (MG) que sigue el cliente.
-**Qué se ve:** el título "Guías Magilus" y los filtros **Activas**, **Con novedad**, **Entregadas** y **Todas**. Cada guía muestra su código, estado, la orden y el despacho, el destino, "Va en", "Estimada", "Cobro al recibir" y "Proveedor (interno)".
+**Qué se ve:** el título "Guías Magilus", los filtros **Activas**, **Con novedad**, **Entregadas** y **Todas**, y una tabla con una fila por guía y las columnas **Guía**, **Estado** (con la novedad si la hay), **Cliente**, **Destino**, **Va en**, **Fecha estimada** y **Orden / Despacho**. Primero van las de fecha estimada más vieja; las que no tienen fecha, al final. Las que ya pasaron su fecha estimada y no están entregadas, canceladas ni devueltas salen en rojo. En el celular la tabla se desliza de lado.
 **Botones y acciones:**
-- Al pulsar una guía se abre su detalle. Las guías se crean desde la orden: con el check del modal Despachar, o con el botón **Crear guía Magilus**.
+- Tocar el título de una columna ordena por ella; tocarlo otra vez invierte el orden.
+- El código MG abre el detalle de la guía y "Orden / Despacho" abre la orden. Las guías se crean desde la orden: con el check del modal Despachar, o con el botón **Crear guía Magilus**.
 
 ## /admin/despachos/guias/[shipmentId]
 Detalle de una guía Magilus.

@@ -2,6 +2,7 @@
 // Bogota 3 dias habiles, demas capitales de departamento 5, municipios 7.
 // Dias habiles = lunes a viernes (no descuenta festivos). Siempre se puede editar a mano.
 
+import { colombiaDayKey, todayInColombia } from "../../../lib/colombia-time";
 import { isDepartmentCapitalCode } from "../../transporte/domain/place-search";
 
 export const BOGOTA_CITY_CODE = "11001";
@@ -77,4 +78,17 @@ export function parseDateInput(value: string | null | undefined): Date | null {
 
 export function toDateInputValue(date: Date | null | undefined): string {
   return date ? date.toISOString().slice(0, 10) : "";
+}
+
+// Guia atrasada: su dia estimado (Colombia) ya paso y sigue en camino.
+// Entregada, cancelada o devuelta no cuenta como atrasada; sin fecha no hay con que comparar.
+export function isPastEstimate(
+  estimatedDelivery: Date | null | undefined,
+  status: string,
+  now: Date = new Date(),
+): boolean {
+  if (!estimatedDelivery || status === "DELIVERED" || status === "CANCELLED" || status === "RETURNED") {
+    return false;
+  }
+  return colombiaDayKey(estimatedDelivery) < todayInColombia(now);
 }
