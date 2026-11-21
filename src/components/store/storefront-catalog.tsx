@@ -23,6 +23,7 @@ import {
   compactPriceLabel,
 } from "@/lib/seo-metadata";
 import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, siteConfig } from "@/lib/site";
+import { enCacheDeTienda } from "@/lib/storefront-cache";
 import { COMBO_SAVINGS_COMPONENTS_SELECT, comboSavingsFromProduct } from "@/lib/storefront-offer";
 import { getActivePromo, getCurrentStorePrice, promoInfoText } from "@/lib/product-promo";
 import {
@@ -81,6 +82,128 @@ function formatCatalogPrice(value: number | string, currency: Parameters<typeof 
   return formatMoney(value, currency).replace(/([.,]00)(?!\d)/, "");
 }
 
+// Categoria para el titulo y la descripcion de Google; sus precios visibles solo si hacen falta.
+async function leerCategoriaSeo(categorySlug: string) {
+  const category = await prisma.category.findUnique({
+    where: { slug: categorySlug },
+    select: {
+      name: true,
+      slug: true,
+      description: true,
+      seoTitle: true,
+      seoDescription: true,
+      isActive: true,
+      // Solo productos visibles: misma regla que el sitemap.
+      _count: {
+        select: {
+          products: { where: { hiddenFromStore: false } },
+        },
+      },
+      logoUrl: true,
+      products: {
+        take: 1,
+        orderBy: { createdAt: "desc" },
+        select: {
+          thumbnailUrl: true,
+        },
+      },
+    },
+  });
+  const needsPriceRange = Boolean(
+    category && (!category.seoTitle?.trim() || !(category.seoDescription?.trim() || category.description?.trim())),
+  );
+  const visibleCategoryProducts = needsPriceRange
+    ? await prisma.product.findMany({
+        where: { hiddenFromStore: false, category: { is: { slug: categorySlug } } },
+        select: { price: true, regularPrice: true, promoPrice: true, promoStartsAt: true, promoEndsAt: true },
+      })
+    : [];
+  return { category, visibleCategoryProducts };
+}
+
+const leerCategoriaSeoEnCache = enCacheDeTienda(leerCategoriaSeo, "tienda-categoria-seo");
+
+// Si existe la categoria (la usan /[slug] y el ?category= viejo del inicio).
+export const buscarCategoriaDeTienda = enCacheDeTienda(
+  (where: { slug: string } | { id: string }) =>
+    prisma.category.findUnique({ where, select: { id: true, slug: true } }),
+  "tienda-categoria",
+);
+
+// Lo que el catalogo lee de la base. Sin busqueda va en la cache de 5 min (llave: categoria y
+// si es el catalogo completo; la pagina se corta despues). Las busquedas ?q= van directo.
+async function leerCatalogo(categorySlug: string, query: string, showFullCatalog: boolean) {
+  const [category, categoryNavItems, totalProducts, totalCategories] = await Promise.all([
+    categorySlug
+      ? prisma.category.findUnique({
+          where: { slug: categorySlug },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            description: true,
+            seoTitle: true,
+          },
+        })
+      : Promise.resolve(null),
+    prisma.category.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        logoUrl: true,
+        products: {
+          take: 1,
+          orderBy: { createdAt: "desc" },
+          select: {
+            thumbnailUrl: true,
+          },
+        },
+      },
+    }),
+    prisma.product.count({ where: { hiddenFromStore: false } }),
+    prisma.category.count({ where: { isActive: true } }),
+  ]);
+
+  // El grid completo (pesado) solo se renderiza en búsquedas, categorías o la página /catalogo.
+  // En el inicio basta con los destacados, evitando traer todo el catálogo y mejorando la carga.
+  const showCatalogGrid = Boolean(category || query || showFullCatalog);
+
+  const productsResult = await prisma.product.findMany({
+    where: {
+      // No mostrar en la tienda principal los productos marcados como ocultos.
+      hiddenFromStore: false,
+      ...(query
+        ? {
+            OR: [
+              { name: { contains: query, mode: "insensitive" as const } },
+              { code: { contains: query, mode: "insensitive" as const } },
+              { description: { contains: query, mode: "insensitive" as const } },
+              { category: { is: { name: { contains: query, mode: "insensitive" as const } } } },
+            ],
+          }
+        : {}),
+      ...(category ? { categoryId: category.id } : {}),
+    },
+    orderBy: { createdAt: "desc" },
+    ...(showCatalogGrid ? {} : { take: 5 }),
+    // Sin `images`: la cuadricula solo usa la miniatura (thumbnailUrl).
+    include: {
+      category: true,
+      bundleComponents: COMBO_SAVINGS_COMPONENTS_SELECT,
+    },
+  });
+
+  return { category, categoryNavItems, totalProducts, totalCategories, showCatalogGrid, productsResult };
+}
+
+const leerCatalogoEnCache = enCacheDeTienda(
+  (categorySlug: string, showFullCatalog: boolean) => leerCatalogo(categorySlug, "", showFullCatalog),
+  "tienda-catalogo",
+);
+
 export async function generateStorefrontMetadata({
   query = "",
   categorySlug,
@@ -91,48 +214,17 @@ export async function generateStorefrontMetadata({
   ]);
   const normalizedQuery = query.trim();
   const normalizedCategorySlug = categorySlug?.trim() ?? "";
-  const category = normalizedCategorySlug
-    ? await prisma.category.findUnique({
-        where: { slug: normalizedCategorySlug },
-        select: {
-          name: true,
-          slug: true,
-          description: true,
-          seoTitle: true,
-          seoDescription: true,
-          isActive: true,
-          // Solo productos visibles: misma regla que el sitemap.
-          _count: {
-            select: {
-              products: { where: { hiddenFromStore: false } },
-            },
-          },
-          logoUrl: true,
-          products: {
-            take: 1,
-            orderBy: { createdAt: "desc" },
-            select: {
-              thumbnailUrl: true,
-            },
-          },
-        },
-      })
-    : null;
+  const { category, visibleCategoryProducts: categoryProducts } = normalizedCategorySlug
+    ? await leerCategoriaSeoEnCache(normalizedCategorySlug)
+    : { category: null, visibleCategoryProducts: [] };
 
   // Categoria sin seoTitle o sin descripcion: se arman solos con el rango de precios actual
   // de la tienda (oferta vigente si la hay) de sus productos visibles.
   const categorySeoTitle = category?.seoTitle?.trim() ?? "";
   const categoryHasDescription = Boolean(category?.seoDescription?.trim() || category?.description?.trim());
   const needsPriceRange = Boolean(category && !normalizedQuery && (!categorySeoTitle || !categoryHasDescription));
-  const [currency, visibleCategoryProducts] = needsPriceRange
-    ? await Promise.all([
-        getSystemCurrency(),
-        prisma.product.findMany({
-          where: { hiddenFromStore: false, category: { is: { slug: normalizedCategorySlug } } },
-          select: { price: true, regularPrice: true, promoPrice: true, promoStartsAt: true, promoEndsAt: true },
-        }),
-      ])
-    : [null, []];
+  const currency = needsPriceRange ? await getSystemCurrency() : null;
+  const visibleCategoryProducts = needsPriceRange ? categoryProducts : [];
   const now = new Date();
   const storePrices = visibleCategoryProducts
     .map((product) => getCurrentStorePrice(product, now))
@@ -230,11 +322,8 @@ export async function StorefrontCatalog({
   const normalizedQuery = query.trim();
   const normalizedCategorySlug = categorySlug?.trim() ?? "";
   const [
-    category,
-    categoryNavItems,
+    { category, categoryNavItems, totalProducts, totalCategories, showCatalogGrid, productsResult },
     systemCurrency,
-    totalProducts,
-    totalCategories,
     brandName,
     whatsAppPhoneDisplay,
     storefrontLogoPath,
@@ -242,38 +331,10 @@ export async function StorefrontCatalog({
     storefrontHeroDescription,
     storefrontPromoItems,
   ] = await Promise.all([
-    normalizedCategorySlug
-      ? prisma.category.findUnique({
-          where: { slug: normalizedCategorySlug },
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          description: true,
-          seoTitle: true,
-        },
-      })
-      : Promise.resolve(null),
-    prisma.category.findMany({
-      where: { isActive: true },
-      orderBy: { name: "asc" },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        logoUrl: true,
-        products: {
-          take: 1,
-          orderBy: { createdAt: "desc" },
-          select: {
-            thumbnailUrl: true,
-          },
-        },
-      },
-    }),
+    normalizedQuery
+      ? leerCatalogo(normalizedCategorySlug, normalizedQuery, showFullCatalog)
+      : leerCatalogoEnCache(normalizedCategorySlug, showFullCatalog),
     getSystemCurrency(),
-    prisma.product.count({ where: { hiddenFromStore: false } }),
-    prisma.category.count({ where: { isActive: true } }),
     getSystemBrandName(),
     getSystemWhatsAppPhoneDisplay(),
     getSystemStorefrontLogoPath(),
@@ -281,35 +342,6 @@ export async function StorefrontCatalog({
     getSystemStorefrontHeroDescription(),
     getSystemStorefrontPromoItems(),
   ]);
-
-  // El grid completo (pesado) solo se renderiza en búsquedas, categorías o la página /catalogo.
-  // En el inicio basta con los destacados, evitando traer todo el catálogo y mejorando la carga.
-  const showCatalogGrid = Boolean(category || normalizedQuery || showFullCatalog);
-
-  const productsResult = await prisma.product.findMany({
-    where: {
-      // No mostrar en la tienda principal los productos marcados como ocultos.
-      hiddenFromStore: false,
-      ...(normalizedQuery
-        ? {
-            OR: [
-              { name: { contains: normalizedQuery, mode: "insensitive" as const } },
-              { code: { contains: normalizedQuery, mode: "insensitive" as const } },
-              { description: { contains: normalizedQuery, mode: "insensitive" as const } },
-              { category: { is: { name: { contains: normalizedQuery, mode: "insensitive" as const } } } },
-            ],
-          }
-        : {}),
-      ...(category ? { categoryId: category.id } : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    ...(showCatalogGrid ? {} : { take: 5 }),
-    // Sin `images`: la cuadricula solo usa la miniatura (thumbnailUrl).
-    include: {
-      category: true,
-      bundleComponents: COMBO_SAVINGS_COMPONENTS_SELECT,
-    },
-  });
 
   const products =
     category && !normalizedQuery

@@ -24,6 +24,14 @@ type PageProps = {
   params: Promise<{ slug: string; productSlug: string }>;
 };
 
+// Ficha en cache (ISR): se arma en su primera visita y se guarda 5 min; al editar se refresca
+// con refrescarTienda(). El build no arma ninguna (no necesita la base).
+export const revalidate = 300;
+
+export function generateStaticParams(): Array<{ slug: string; productSlug: string }> {
+  return [];
+}
+
 // Una sola consulta por visita: generateMetadata y la pagina comparten el resultado (React cache).
 const getProductBySlug = cache((productSlug: string) =>
   prisma.product.findUnique({

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { refrescarTienda } from "@/lib/storefront-cache";
 import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
 import { hasAnyModuleAccess } from "@/lib/admin-module-access";
@@ -108,6 +109,7 @@ async function crearFicha(input: {
 function revalidarProducto(productId: string, slug?: string | null, categorySlug?: string | null) {
   revalidatePath(`/admin/productos/${productId}`);
   if (slug && categorySlug) revalidatePath(`/${categorySlug}/${slug}`);
+  refrescarTienda();
 }
 
 // Ficha desde el admin del producto: archivo (obligatorio) + enlace/id de Drive (opcional).

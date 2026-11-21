@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { StorefrontCatalog, generateStorefrontMetadata } from "@/components/store/storefront-catalog";
-import { prisma } from "@/lib/prisma";
+import { buscarCategoriaDeTienda, StorefrontCatalog, generateStorefrontMetadata } from "@/components/store/storefront-catalog";
+
+// Lee ?page, asi que Next la arma en cada visita; sus datos salen de la cache de 5 min.
+export const revalidate = 300;
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -23,10 +25,7 @@ export default async function CategorySlugPage({ params, searchParams }: PagePro
   if (reservedSlugs.has(slug)) {
     notFound();
   }
-  const category = await prisma.category.findUnique({
-    where: { slug },
-    select: { id: true },
-  });
+  const category = await buscarCategoriaDeTienda({ slug });
 
   if (!category) {
     notFound();

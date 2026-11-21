@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { refrescarTienda } from "@/lib/storefront-cache";
 import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
 import { hasAnyModuleAccess } from "@/lib/admin-module-access";
@@ -91,7 +92,7 @@ export async function adminSaveProductGalleryAction(input: {
     summary: `Organizo las fotos de "${product.name}": ${parts.join(", ")}`,
   });
 
-  revalidatePath("/");
+  refrescarTienda();
   revalidatePath("/admin/productos");
   revalidatePath(`/admin/productos/${productId}`);
   return { ok: true, message: "Fotos guardadas" };
