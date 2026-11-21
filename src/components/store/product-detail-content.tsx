@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight, CreditCard, Factory, Palette, ShieldCheck, Star, Truck } from "lucide-react";
 import { adminDeleteProductReviewAction } from "@/app/actions/product-review-actions";
+import { FichasAdmin, SoloAdmin } from "@/components/store/product-admin-tools";
 import { ProductFaq } from "@/components/store/product-faq";
 import { ProductFichaTecnica } from "@/components/store/product-ficha-tecnica";
 import { ProductGallery } from "@/components/store/product-gallery";
@@ -67,7 +68,6 @@ type ProductDetailContentProps = {
   // Fichas tecnicas (ProductImage.tipo = "ficha"): van en "Medidas y detalles", nunca en la galeria.
   fichas?: Array<{ id: string; url: string }>;
   currency: SupportedCurrencyCode;
-  isAdmin?: boolean;
   relatedProducts: Array<{
     id: string;
     slug: string;
@@ -102,7 +102,6 @@ export async function ProductDetailContent({
   product,
   currency,
   relatedProducts,
-  isAdmin = false,
   fichas = [],
 }: ProductDetailContentProps) {
   const brandName = await getSystemBrandName();
@@ -186,6 +185,73 @@ export async function ProductDetailContent({
     { name: landing.displayName, path: canonicalPath },
   ]);
   const pageSchema = { "@context": "https://schema.org", "@graph": [productSchema, breadcrumbSchema] };
+
+  const reviewsSection = (
+    <div id="resenas" className="scroll-mt-24 space-y-4 border-t border-[var(--line)] py-7">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-[22px] font-extrabold tracking-tight text-foreground lg:text-[26px]">
+          Recomendaciones de clientes
+        </h2>
+        {reviewCount > 0 ? (
+          <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Stars value={roundedRating} />
+            {averageRating.toFixed(1)} ({reviewCount})
+          </span>
+        ) : null}
+      </div>
+
+      {reviewCount > 0 ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {reviews.map((review) => (
+            <div key={review.id} className="flex gap-3 rounded-2xl border border-[var(--line)] bg-card p-3 text-card-foreground">
+              {review.photoUrl ? (
+                <img
+                  src={getPublicAssetUrl(review.photoUrl)}
+                  alt={review.authorName ? `Foto de ${review.authorName}` : "Foto del cliente"}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-16 w-16 shrink-0 rounded-lg object-cover"
+                />
+              ) : null}
+              <div className="min-w-0 flex-1 space-y-1">
+                <span className="sr-only">Calificación {review.rating} de 5</span>
+                <Stars value={review.rating} size="h-3.5 w-3.5" />
+                <p className="text-sm leading-5">{review.comment}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    {review.authorName ? (
+                      <span className="font-semibold text-foreground">{review.authorName}</span>
+                    ) : null}
+                    {review.authorName ? " · " : null}
+                    {new Date(review.createdAt).toLocaleDateString("es-CO", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </p>
+                  <SoloAdmin>
+                    <form action={adminDeleteProductReviewAction}>
+                      <input type="hidden" name="reviewId" value={review.id} />
+                      <input type="hidden" name="returnTo" value={canonicalPath} />
+                      <button type="submit" className="text-xs font-medium text-red-500 hover:text-red-600">
+                        Eliminar
+                      </button>
+                    </form>
+                  </SoloAdmin>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">Aun no hay recomendaciones para este producto.</p>
+      )}
+
+      <SoloAdmin>
+        <ProductReviewForm productId={product.id} returnTo={canonicalPath} />
+      </SoloAdmin>
+    </div>
+  );
 
   return (
     <section className="app-page min-w-0">
@@ -382,7 +448,9 @@ export async function ProductDetailContent({
                 }))}
               />
             </div>
-          ) : null}
+          ) : (
+            <FichasAdmin productId={product.id} displayName={landing.displayName} />
+          )}
         </div>
         <div className="min-w-0">
           <h2 className="mb-3.5 text-[22px] font-extrabold tracking-tight text-foreground lg:text-[26px]">Colores</h2>
@@ -509,71 +577,8 @@ export async function ProductDetailContent({
         <ProductFaq items={landing.faq} />
       </div>
 
-      {/* Reseñas: solo reales (o el formulario para el admin) */}
-      {reviewCount > 0 || isAdmin ? (
-        <div id="resenas" className="scroll-mt-24 space-y-4 border-t border-[var(--line)] py-7">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-[22px] font-extrabold tracking-tight text-foreground lg:text-[26px]">
-              Recomendaciones de clientes
-            </h2>
-            {reviewCount > 0 ? (
-              <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Stars value={roundedRating} />
-                {averageRating.toFixed(1)} ({reviewCount})
-              </span>
-            ) : null}
-          </div>
-
-          {reviewCount > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {reviews.map((review) => (
-                <div key={review.id} className="flex gap-3 rounded-2xl border border-[var(--line)] bg-card p-3 text-card-foreground">
-                  {review.photoUrl ? (
-                    <img
-                      src={getPublicAssetUrl(review.photoUrl)}
-                      alt={review.authorName ? `Foto de ${review.authorName}` : "Foto del cliente"}
-                      loading="lazy"
-                      decoding="async"
-                      className="h-16 w-16 shrink-0 rounded-lg object-cover"
-                    />
-                  ) : null}
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <span className="sr-only">Calificación {review.rating} de 5</span>
-                    <Stars value={review.rating} size="h-3.5 w-3.5" />
-                    <p className="text-sm leading-5">{review.comment}</p>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs text-muted-foreground">
-                        {review.authorName ? (
-                          <span className="font-semibold text-foreground">{review.authorName}</span>
-                        ) : null}
-                        {review.authorName ? " · " : null}
-                        {new Date(review.createdAt).toLocaleDateString("es-CO", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </p>
-                      {isAdmin ? (
-                        <form action={adminDeleteProductReviewAction}>
-                          <input type="hidden" name="reviewId" value={review.id} />
-                          <input type="hidden" name="returnTo" value={canonicalPath} />
-                          <button type="submit" className="text-xs font-medium text-red-500 hover:text-red-600">
-                            Eliminar
-                          </button>
-                        </form>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Aun no hay recomendaciones para este producto.</p>
-          )}
-
-          {isAdmin ? <ProductReviewForm productId={product.id} returnTo={canonicalPath} /> : null}
-        </div>
-      ) : null}
+      {/* Reseñas: solo reales (o el formulario para el admin, que se decide en el navegador) */}
+      {reviewCount > 0 ? reviewsSection : <SoloAdmin>{reviewsSection}</SoloAdmin>}
 
       {/* 6. Relacionados */}
       {relatedProducts.length > 0 ? (

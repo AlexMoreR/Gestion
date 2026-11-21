@@ -7,10 +7,12 @@ import { hasAnyModuleAccess } from "@/lib/admin-module-access";
 import { FICHA_MAX_BYTES, FICHA_TIPOS_PERMITIDOS, guardarImagenFicha } from "@/lib/fichas-storage";
 import { createImageVariants } from "@/lib/image-variants.server";
 import { prisma } from "@/lib/prisma";
+import { getPublicAssetUrl } from "@/lib/site";
 import {
   leerCsvFichas,
   leerDriveFileId,
   planearImportacionFichas,
+  separarImagenes,
   siguienteOrden,
   SOLO_FICHAS,
   TIPO_FICHA,
@@ -27,6 +29,19 @@ export type FichaActionResult = { ok: boolean; message: string; estado?: "creada
 async function puedeEditarProductos(): Promise<boolean> {
   const session = await auth();
   return !!session?.user?.id && (await hasAnyModuleAccess(session.user.id, session.user.role, ["products"]));
+}
+
+// Fichas de un producto para la ficha publica, solo para el ADMIN (misma regla que tenia la pagina).
+// La pagina ya no lee la sesion en el servidor: las pide el navegador del admin (FichasAdmin).
+export async function adminFichasDeProductoAction(productId: string): Promise<Array<{ id: string; url: string }>> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN" || typeof productId !== "string" || !productId) return [];
+  const imagenes = await prisma.productImage.findMany({
+    where: { productId },
+    orderBy: { order: "asc" },
+    select: { id: true, url: true, tipo: true },
+  });
+  return separarImagenes(imagenes).fichas.map((ficha) => ({ id: ficha.id, url: getPublicAssetUrl(ficha.url) }));
 }
 
 function leerArchivo(value: FormDataEntryValue | null): File | null {

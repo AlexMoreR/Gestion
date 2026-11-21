@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { cache } from "react";
 import { notFound, permanentRedirect } from "next/navigation";
-import { auth } from "@/auth";
 import { ProductDetailContent } from "@/components/store/product-detail-content";
 import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
@@ -119,11 +118,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function CategoryProductPage({ params }: PageProps) {
   const { slug, productSlug } = await params;
-  const [product, currency, session] = await Promise.all([
-    getProductBySlug(productSlug),
-    getSystemCurrency(),
-    auth(),
-  ]);
+  const [product, currency] = await Promise.all([getProductBySlug(productSlug), getSystemCurrency()]);
 
   // Oculto en la tienda: 404 aunque llegue con su slug exacto (y nunca se redirige a el).
   if (product?.hiddenFromStore) {
@@ -158,11 +153,11 @@ export default async function CategoryProductPage({ params }: PageProps) {
     include: { category: true },
   });
 
-  const isAdmin = session?.user?.role === "ADMIN";
   const { fotos, fichas: todasLasFichas } = separarImagenes(product.images);
   // Las fichas traen marca de agua del proveedor: por ahora solo las ven los admin (decision 28-oct).
-  // FICHAS_EN_TIENDA=true las muestra a todos.
-  const fichas = isAdmin || process.env.FICHAS_EN_TIENDA === "true" ? todasLasFichas : [];
+  // FICHAS_EN_TIENDA=true las muestra a todos; si no, el HTML no lleva ninguna y el admin las pide
+  // desde el navegador (FichasAdmin), asi la pagina no depende de quien la mira.
+  const fichas = process.env.FICHAS_EN_TIENDA === "true" ? todasLasFichas : [];
 
   return (
     <ProductDetailContent
@@ -170,7 +165,6 @@ export default async function CategoryProductPage({ params }: PageProps) {
       fichas={fichas.map((ficha) => ({ id: ficha.id, url: ficha.url }))}
       currency={currency}
       relatedProducts={relatedProducts}
-      isAdmin={isAdmin}
     />
   );
 }
