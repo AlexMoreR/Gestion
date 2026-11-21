@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { Fragment } from "react";
+import { Fragment, useEffect, useState } from "react";
 import type { Role } from "@prisma/client";
 import { LayoutDashboard, LogOut, Menu, Settings, UserCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { getPublicAssetUrl } from "@/lib/site";
 import { NavbarSearch } from "@/components/navbar-search";
+import { getMyAdminModuleAccessAction } from "@/app/actions/admin-menu-actions";
 
 const roleLinks = {
   ADMIN: "/admin",
@@ -33,22 +34,38 @@ export function Navbar({
   initialUser,
   brandName,
   storefrontLogoPath,
-  adminModuleAccess,
   whatsAppHref,
 }: {
   initialUser: InitialUser | null;
   brandName: string;
   storefrontLogoPath: string;
-  adminModuleAccess?: {
-    config_users?: boolean;
-    config_business?: boolean;
-    config_permissions?: boolean;
-  };
   whatsAppHref: string;
 }) {
   const { data, status } = useSession();
   const user = data?.user ?? initialUser;
   const pathname = usePathname();
+  const userId = status === "authenticated" ? data?.user?.id : undefined;
+  // El menu admin se pide al servidor solo con sesion; mientras llega se ve como sin acceso.
+  // Se guarda con el usuario que lo pidio: si la sesion cambia, el de antes ya no vale.
+  const [menuAdmin, setMenuAdmin] = useState<{
+    userId: string;
+    access: Awaited<ReturnType<typeof getMyAdminModuleAccessAction>>;
+  } | null>(null);
+  useEffect(() => {
+    if (!userId) return;
+    let vigente = true;
+    getMyAdminModuleAccessAction()
+      .then((access) => {
+        if (vigente) setMenuAdmin({ userId, access });
+      })
+      .catch(() => {
+        // Si falla, el menu queda como sin acceso (sin "Configuracion").
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [userId]);
+  const adminModuleAccess = userId && menuAdmin?.userId === userId ? menuAdmin.access : null;
   if (pathname === "/login" || pathname === "/register") return null;
   const dashboardHref = user?.role ? roleLinks[user.role] : null;
   const initials = (user?.name ?? user?.email ?? "U").slice(0, 1).toUpperCase();

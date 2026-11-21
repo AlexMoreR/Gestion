@@ -8,7 +8,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 type ProvidersProps = {
   children: React.ReactNode;
-  session: Session | null;
+  // Sin sesion del servidor: SessionProvider la pide sola a /api/auth/session (asi la tienda puede ir en cache).
+  session?: Session | null;
 };
 
 export function Providers({ children, session }: ProvidersProps) {

@@ -1,11 +1,9 @@
 import type { ReactNode } from "react";
-import { auth } from "@/auth";
 import { Navbar } from "@/components/navbar";
 import { SiteFooter } from "@/components/site-footer";
 import { FloatingWhatsAppButton } from "@/components/store/floating-whatsapp-button";
 import { GoogleTag } from "@/components/store/google-tag";
 import { cn } from "@/lib/utils";
-import { getAdminModuleAccess } from "@/lib/admin-module-access";
 import { WEB_ORIGIN_TAG } from "@/lib/site";
 import {
   buildStorefrontQuoteWhatsAppHref,
@@ -20,12 +18,11 @@ export default async function StorefrontLayout({
 }: {
   children: ReactNode;
 }) {
-  const session = await auth();
-  const [brandName, storefrontLogoPath, adminModuleAccess, whatsAppPhoneDisplay, whatsAppPhoneHref] =
+  // Sin auth(): la sesion y el menu admin los pide el navegador (Navbar), asi la tienda puede ir en cache.
+  const [brandName, storefrontLogoPath, whatsAppPhoneDisplay, whatsAppPhoneHref] =
     await Promise.all([
       getSystemBrandName(),
       getSystemStorefrontLogoPath(),
-      getAdminModuleAccess(session?.user?.id, session?.user?.role),
       getSystemWhatsAppPhoneDisplay(),
       getSystemWhatsAppPhoneHref(),
     ]);
@@ -39,10 +36,9 @@ export default async function StorefrontLayout({
     <>
       <GoogleTag />
       <Navbar
-        initialUser={session?.user ?? null}
+        initialUser={null}
         brandName={brandName}
         storefrontLogoPath={storefrontLogoPath}
-        adminModuleAccess={adminModuleAccess}
         whatsAppHref={whatsAppHref}
       />
       <main

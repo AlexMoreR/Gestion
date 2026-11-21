@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { CSSProperties } from "react";
 import { Geist_Mono, Poppins } from "next/font/google";
-import { auth } from "@/auth";
 import { Providers } from "@/components/providers";
 import { buildHomeSeoTitle } from "@/lib/seo-metadata";
 import { getSiteUrl, siteConfig } from "@/lib/site";
@@ -111,7 +110,6 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await auth();
   const [primaryColor, primaryStrongColor] = await Promise.all([
     getSystemPrimaryColor(),
     getSystemPrimaryStrongColor(),
@@ -131,7 +129,7 @@ export default async function RootLayout({
       >
         {/* El tema (claro/oscuro) solo aplica dentro del sistema (workspace).
             El sitio publico siempre se ve en claro. */}
-        <Providers session={session}>{children}</Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
