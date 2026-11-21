@@ -18,7 +18,7 @@ export default async function StorefrontLayout({
 }: {
   children: ReactNode;
 }) {
-  // Sin auth(): la sesion y el menu admin los pide el navegador (Navbar), asi la tienda puede ir en cache.
+  // Sin leer la sesion en el servidor: la sesion y el menu admin los pide el navegador (Navbar), asi la tienda puede ir en cache.
   const [brandName, storefrontLogoPath, whatsAppPhoneDisplay, whatsAppPhoneHref] =
     await Promise.all([
       getSystemBrandName(),
