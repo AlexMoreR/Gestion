@@ -123,12 +123,20 @@ async function leerCategoriaSeo(categorySlug: string) {
 
 const leerCategoriaSeoEnCache = enCacheDeTienda(leerCategoriaSeo, "tienda-categoria-seo");
 
-// Si existe la categoria (la usan /[slug] y el ?category= viejo del inicio).
-export const buscarCategoriaDeTienda = enCacheDeTienda(
-  (where: { slug: string } | { id: string }) =>
-    prisma.category.findUnique({ where, select: { id: true, slug: true } }),
-  "tienda-categoria",
+// Si existe la categoria (la usan /[slug], su metadata y el ?category= viejo del inicio). Se guarda
+// UNA lista con todas y se busca en memoria: un slug o id inventado en la URL no crea otra entrada.
+const listarCategoriasEnCache = enCacheDeTienda(
+  () => prisma.category.findMany({ select: { id: true, slug: true } }),
+  "tienda-categorias",
 );
+
+export async function buscarCategoriaDeTienda(where: { slug: string } | { id: string }) {
+  const categorias = await listarCategoriasEnCache();
+  return (
+    categorias.find((categoria) => ("slug" in where ? categoria.slug === where.slug : categoria.id === where.id)) ??
+    null
+  );
+}
 
 // Lo que el catalogo lee de la base. Sin busqueda va en la cache de 5 min (llave: categoria y
 // si es el catalogo completo; la pagina se corta despues). Las busquedas ?q= van directo.
@@ -214,9 +222,11 @@ export async function generateStorefrontMetadata({
   ]);
   const normalizedQuery = query.trim();
   const normalizedCategorySlug = categorySlug?.trim() ?? "";
-  const { category, visibleCategoryProducts: categoryProducts } = normalizedCategorySlug
-    ? await leerCategoriaSeoEnCache(normalizedCategorySlug)
-    : { category: null, visibleCategoryProducts: [] };
+  // Solo se guarda en cache la SEO de una categoria que existe (no la de cualquier slug de la URL).
+  const { category, visibleCategoryProducts: categoryProducts } =
+    normalizedCategorySlug && (await buscarCategoriaDeTienda({ slug: normalizedCategorySlug }))
+      ? await leerCategoriaSeoEnCache(normalizedCategorySlug)
+      : { category: null, visibleCategoryProducts: [] };
 
   // Categoria sin seoTitle o sin descripcion: se arman solos con el rango de precios actual
   // de la tienda (oferta vigente si la hay) de sus productos visibles.
