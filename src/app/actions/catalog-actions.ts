@@ -6,7 +6,6 @@ import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
-import { refrescarTienda } from "@/lib/storefront-cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
@@ -196,7 +195,6 @@ export async function adminCreateCategoryAction(formData: FormData): Promise<voi
     summary: `Creó la categoría "${parsed.data.name}"`,
   });
 
-  refrescarTienda();
   revalidatePath(returnTo);
   revalidatePath("/admin/configuracion");
   revalidatePath("/admin/productos");
@@ -279,7 +277,7 @@ export async function adminUpdateCategoryAction(formData: FormData): Promise<voi
     summary: `Actualizó la categoría "${parsed.data.name}"`,
   });
 
-  refrescarTienda();
+  revalidatePath("/");
   revalidatePath(returnTo);
   revalidatePath("/admin/configuracion");
   revalidatePath("/admin/productos");
@@ -325,7 +323,7 @@ export async function adminDeleteCategoryAction(formData: FormData): Promise<voi
 
   await deleteCategoryLogoFile(existingCategory.logoUrl);
 
-  refrescarTienda();
+  revalidatePath("/");
   revalidatePath(returnTo);
   revalidatePath("/admin/configuracion");
   revalidatePath("/admin/productos");

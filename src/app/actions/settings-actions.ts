@@ -4,7 +4,6 @@ import { randomUUID } from "node:crypto";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { revalidatePath } from "next/cache";
-import { refrescarTienda } from "@/lib/storefront-cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
@@ -146,7 +145,7 @@ async function deleteStorefrontLogoFile(logoUrl: string | null | undefined): Pro
 }
 
 function revalidateBusinessSurfaces(): void {
-  refrescarTienda();
+  revalidatePath("/", "layout");
   revalidatePath("/");
   revalidatePath("/login");
   revalidatePath("/register");

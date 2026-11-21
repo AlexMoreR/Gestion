@@ -2,7 +2,6 @@ import { cache } from "react";
 import { DEFAULT_SYSTEM_CURRENCY, isSupportedCurrency, type SupportedCurrencyCode } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { buildWhatsAppQuoteMessage, siteConfig } from "@/lib/site";
-import { enCacheDeTienda } from "@/lib/storefront-cache";
 import { normalizeWhatsAppPhone } from "@/lib/whatsapp-phone";
 import { parseAvisoOFConfig, type AvisoOFConfig } from "@/modules/ventas/domain/aviso-of-proveedora";
 
@@ -87,10 +86,6 @@ export async function getAppSettingValue(key: string): Promise<string | null> {
   return typeof value === "string" ? value : null;
 }
 
-// Solo los ajustes que salen en la tienda (marca, logo, WhatsApp, textos, promos, color, moneda)
-// van en la caché de 5 min; se refresca al guardarlos (refrescarTienda). Los demás, directo.
-const getStorefrontSettingValue = enCacheDeTienda(getAppSettingValue, "ajuste-tienda");
-
 export async function setAppSettingValue(key: string, value: string): Promise<void> {
   await ensureAppSettingTable();
   await prisma.$executeRaw`
@@ -105,7 +100,7 @@ export async function setAppSettingValue(key: string, value: string): Promise<vo
 
 export const getSystemCurrency = cache(async (): Promise<SupportedCurrencyCode> => {
   try {
-    const value = await getStorefrontSettingValue(CURRENCY_SETTING_KEY);
+    const value = await getAppSettingValue(CURRENCY_SETTING_KEY);
     if (value && isSupportedCurrency(value)) {
       return value;
     }
@@ -157,7 +152,7 @@ function darkenHexColor(hex: string, amount = 0.14): string {
 
 export const getSystemPrimaryColor = cache(async (): Promise<string> => {
   try {
-    return normalizeHexColor(await getStorefrontSettingValue(PRIMARY_COLOR_SETTING_KEY)) ?? DEFAULT_SYSTEM_PRIMARY_COLOR;
+    return normalizeHexColor(await getAppSettingValue(PRIMARY_COLOR_SETTING_KEY)) ?? DEFAULT_SYSTEM_PRIMARY_COLOR;
   } catch {
     return DEFAULT_SYSTEM_PRIMARY_COLOR;
   }
@@ -179,7 +174,7 @@ export async function setSystemPrimaryColor(color: string): Promise<void> {
 
 export const getSystemBrandName = cache(async (): Promise<string> => {
   try {
-    const value = (await getStorefrontSettingValue(BRAND_NAME_SETTING_KEY))?.trim();
+    const value = (await getAppSettingValue(BRAND_NAME_SETTING_KEY))?.trim();
     return value || siteConfig.name;
   } catch {
     return siteConfig.name;
@@ -206,7 +201,7 @@ function normalizeWhatsAppPhoneDigits(value: string | null | undefined): string 
 
 export const getSystemWhatsAppPhoneDisplay = cache(async (): Promise<string> => {
   try {
-    return normalizeWhatsAppPhone(await getStorefrontSettingValue(WHATSAPP_PHONE_SETTING_KEY)) ?? DEFAULT_SYSTEM_WHATSAPP_PHONE;
+    return normalizeWhatsAppPhone(await getAppSettingValue(WHATSAPP_PHONE_SETTING_KEY)) ?? DEFAULT_SYSTEM_WHATSAPP_PHONE;
   } catch {
     return DEFAULT_SYSTEM_WHATSAPP_PHONE;
   }
@@ -239,7 +234,7 @@ export async function buildStorefrontQuoteWhatsAppHref(brandName: string, pageLa
 
 export const getSystemStorefrontLogoPath = cache(async (): Promise<string> => {
   try {
-    const value = (await getStorefrontSettingValue(STOREFRONT_LOGO_PATH_SETTING_KEY))?.trim();
+    const value = (await getAppSettingValue(STOREFRONT_LOGO_PATH_SETTING_KEY))?.trim();
     return value || DEFAULT_STOREFRONT_LOGO_PATH;
   } catch {
     return DEFAULT_STOREFRONT_LOGO_PATH;
@@ -257,7 +252,7 @@ export async function setSystemStorefrontLogoPath(logoPath: string): Promise<voi
 
 export const getSystemStorefrontHeroTitle = cache(async (): Promise<string> => {
   try {
-    const value = (await getStorefrontSettingValue(STOREFRONT_HERO_TITLE_SETTING_KEY))?.trim();
+    const value = (await getAppSettingValue(STOREFRONT_HERO_TITLE_SETTING_KEY))?.trim();
     return normalizePublicSpanishCopy(value || DEFAULT_STOREFRONT_HERO_TITLE);
   } catch {
     return DEFAULT_STOREFRONT_HERO_TITLE;
@@ -275,7 +270,7 @@ export async function setSystemStorefrontHeroTitle(title: string): Promise<void>
 
 export const getSystemStorefrontHeroDescription = cache(async (): Promise<string> => {
   try {
-    const value = (await getStorefrontSettingValue(STOREFRONT_HERO_DESCRIPTION_SETTING_KEY))?.trim();
+    const value = (await getAppSettingValue(STOREFRONT_HERO_DESCRIPTION_SETTING_KEY))?.trim();
     return normalizePublicSpanishCopy(value || DEFAULT_STOREFRONT_HERO_DESCRIPTION);
   } catch {
     return DEFAULT_STOREFRONT_HERO_DESCRIPTION;
@@ -293,7 +288,7 @@ export async function setSystemStorefrontHeroDescription(description: string): P
 
 export const getSystemStorefrontPromoItems = cache(async (): Promise<string[]> => {
   try {
-    const raw = await getStorefrontSettingValue(STOREFRONT_PROMO_ITEMS_SETTING_KEY);
+    const raw = await getAppSettingValue(STOREFRONT_PROMO_ITEMS_SETTING_KEY);
     if (!raw) {
       return [...DEFAULT_STOREFRONT_PROMO_ITEMS];
     }

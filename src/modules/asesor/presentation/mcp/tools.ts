@@ -66,7 +66,6 @@ import { createPrismaMonthCloseDeps } from "@/modules/balances/infrastructure/pr
 import { buildCoverageReport } from "@/modules/transporte/domain/coverage-report";
 import { listCoverageRows } from "@/modules/transporte/infrastructure/transporte-repository";
 import { revalidatePath } from "next/cache";
-import { refrescarTienda } from "@/lib/storefront-cache";
 import { logActivityAs } from "@/lib/activity-log";
 import {
   getSystemWhatsAppPhoneDisplay,
@@ -183,7 +182,7 @@ function createSiteWhatsAppDeps(): SiteWhatsAppDeps {
     save: (phone) => setSystemWhatsAppPhone(phone),
     // Lo mismo que adminUpdateWhatsAppPhoneAction: el layout cubre la tienda y todas sus paginas.
     refresh: () => {
-      refrescarTienda();
+      revalidatePath("/", "layout");
       revalidatePath("/admin/cotizaciones");
     },
     async log(summary) {

@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { refrescarTienda } from "@/lib/storefront-cache";
 import { auth } from "@/auth";
 import { logActivity } from "@/lib/activity-log";
 import { hasAnyModuleAccess } from "@/lib/admin-module-access";
@@ -39,7 +38,7 @@ async function afterImport(results: DriveImportResult[]): Promise<void> {
     });
   }
   if (added.length > 0) {
-    refrescarTienda();
+    revalidatePath("/");
     revalidatePath("/admin/productos");
     for (const result of added) revalidatePath(`/admin/productos/${result.productId}`);
   }

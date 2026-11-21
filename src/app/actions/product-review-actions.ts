@@ -6,7 +6,6 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { revalidatePath } from "next/cache";
-import { refrescarTienda } from "@/lib/storefront-cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
@@ -115,7 +114,6 @@ export async function adminCreateProductReviewAction(formData: FormData): Promis
     },
   });
 
-  refrescarTienda();
   revalidatePath(returnTo);
   redirectBack(returnTo, { ok: "Recomendacion agregada" });
 }
@@ -137,7 +135,6 @@ export async function adminDeleteProductReviewAction(formData: FormData): Promis
 
   await prisma.productReview.delete({ where: { id: reviewId } }).catch(() => null);
 
-  refrescarTienda();
   revalidatePath(returnTo);
   redirectBack(returnTo, { ok: "Recomendacion eliminada" });
 }
