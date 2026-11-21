@@ -146,6 +146,7 @@ export function FeaturedProductsCarousel({ products }: FeaturedProductsCarouselP
                     src={imageVariantUrl(product.thumbnailUrl, "thumb")}
                     alt={product.name}
                     loading={index === 0 ? "eager" : "lazy"}
+                    fetchPriority={index === 0 ? "high" : "auto"}
                     decoding="async"
                     className="relative z-10 h-28 w-full object-contain drop-shadow-[0_20px_28px_rgba(8,3,23,0.42)] transition duration-500 group-hover:scale-[1.05] group-hover:-rotate-1 md:h-44 md:max-w-[16rem] md:drop-shadow-[0_24px_34px_rgba(8,3,23,0.44)]"
                   />

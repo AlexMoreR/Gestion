@@ -657,6 +657,8 @@ export async function StorefrontCatalog({
                         className="h-40 w-full bg-card object-contain p-2 transition duration-500 group-hover:scale-[1.02] md:h-52"
                         // La primera fila se ve al abrir; el resto carga al bajar.
                         loading={index < 4 ? "eager" : "lazy"}
+                        // Las 2 primeras son las que se ven en el celular: que bajen primero (LCP).
+                        fetchPriority={index < 2 ? "high" : "auto"}
                         decoding="async"
                       />
                       <span className="absolute left-2 top-2 rounded-full border border-white/20 bg-slate-900/85 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
