@@ -7,6 +7,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { refrescarTienda } from "@/lib/storefront-cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/auth";
@@ -495,7 +496,7 @@ export async function adminCreateProductAction(formData: FormData): Promise<void
     summary: `Creó el producto "${parsed.data.name}"${parsed.data.code ? ` (${parsed.data.code})` : ""}`,
   });
 
-  revalidatePath("/");
+  refrescarTienda();
   revalidatePath("/admin/productos");
   redirect("/admin/productos?ok=Producto+creado");
 }
@@ -785,7 +786,7 @@ export async function adminUpdateProductAction(formData: FormData): Promise<void
         : `Actualizó el producto "${parsed.data.name}"`,
   });
 
-  revalidatePath("/");
+  refrescarTienda();
   revalidatePath("/admin/productos");
   revalidatePath(redirectBase);
   redirect("/admin/productos?ok=Producto+actualizado");
@@ -830,7 +831,7 @@ export async function adminDeleteProductAction(formData: FormData): Promise<void
       : `Eliminó el producto ${parsed.data.productId}`,
   });
 
-  revalidatePath("/");
+  refrescarTienda();
   revalidatePath("/admin/productos");
   redirect("/admin/productos?ok=Producto+eliminado");
 }
@@ -983,7 +984,7 @@ export async function adminImportProductsCsvAction(formData: FormData): Promise<
     }
   }
 
-  revalidatePath("/");
+  refrescarTienda();
   revalidatePath("/admin/productos");
 
   const codeErrorsSummary = codeErrors.length

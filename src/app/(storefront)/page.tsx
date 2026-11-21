@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { generateStorefrontMetadata, StorefrontCatalog } from "@/components/store/storefront-catalog";
-import { prisma } from "@/lib/prisma";
+import { buscarCategoriaDeTienda, generateStorefrontMetadata, StorefrontCatalog } from "@/components/store/storefront-catalog";
+
+// Lee ?q y ?page, asi que Next la arma en cada visita; sus datos salen de la cache de 5 min.
+export const revalidate = 300;
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -19,10 +21,7 @@ export default async function HomePage({ searchParams }: PageProps) {
   const legacyCategoryId = typeof params.category === "string" ? params.category.trim() : "";
 
   if (legacyCategoryId) {
-    const category = await prisma.category.findUnique({
-      where: { id: legacyCategoryId },
-      select: { slug: true },
-    });
+    const category = await buscarCategoriaDeTienda({ id: legacyCategoryId });
 
     if (category) {
       redirect(`/${category.slug}`);
