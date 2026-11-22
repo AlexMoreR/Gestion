@@ -10,7 +10,12 @@ vi.mock("next/navigation", () => ({
 }));
 // "server-only" es solo una marca de Next para no mandar el módulo al navegador.
 vi.mock("server-only", () => ({}));
-vi.mock("next/cache", () => ({ revalidatePath: () => undefined, revalidateTag: () => undefined }));
+vi.mock("next/cache", () => ({
+  revalidatePath: () => undefined,
+  revalidateTag: () => undefined,
+  // Sin caché en las pruebas: lee directo.
+  unstable_cache: <F>(fn: F) => fn,
+}));
 // El recibo de caja no sale a la red en las pruebas (el disparo fuera de petición sí se ejercita).
 process.env.RECIBO_CAJA_AVISO = "off";
 

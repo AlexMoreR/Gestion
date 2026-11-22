@@ -10,7 +10,12 @@ vi.mock("next/navigation", () => ({
   },
 }));
 vi.mock("server-only", () => ({}));
-vi.mock("next/cache", () => ({ revalidatePath: () => undefined, revalidateTag: () => undefined }));
+vi.mock("next/cache", () => ({
+  revalidatePath: () => undefined,
+  revalidateTag: () => undefined,
+  // Sin caché en las pruebas: lee directo.
+  unstable_cache: <F>(fn: F) => fn,
+}));
 process.env.RECIBO_CAJA_AVISO = "off";
 
 const { prisma } = await import("@/lib/prisma");

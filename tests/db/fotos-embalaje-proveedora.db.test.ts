@@ -11,7 +11,12 @@ vi.mock("server-only", () => ({}));
 // La acción de la proveedora no usa sesión; el despacho del admin (último caso) sí.
 const sesionAdmin: { user: { id: string; role: "ADMIN" } | null } = { user: null };
 vi.mock("@/auth", () => ({ auth: async () => (sesionAdmin.user ? { user: sesionAdmin.user } : null) }));
-vi.mock("next/cache", () => ({ revalidatePath: () => undefined, revalidateTag: () => undefined }));
+vi.mock("next/cache", () => ({
+  revalidatePath: () => undefined,
+  revalidateTag: () => undefined,
+  // Sin caché en las pruebas: lee directo.
+  unstable_cache: <F>(fn: F) => fn,
+}));
 
 const { prisma } = await import("@/lib/prisma");
 const { markReadyForDispatchAction } = await import("@/app/actions/manufacturing-order-actions");
