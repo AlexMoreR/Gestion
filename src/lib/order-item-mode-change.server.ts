@@ -14,6 +14,8 @@ import { buildProductionJobCode, parseProductionJobCodeNumber } from "@/lib/orde
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { AVISO_PRODUCTO_CANCELADO } from "@/lib/sale-item-cancel";
 import { displayCode } from "@/lib/code-display";
+import { marcarPagadaAlRecoger } from "@/lib/order-dispatch";
+import { SOLO_FOTOS } from "@/lib/product-fichas";
 import {
   bloqueoCambioModo,
   bloqueoPorPagosEnLaOrden,
@@ -21,6 +23,7 @@ import {
   direccionDeCambio,
   faltaStock,
   gananciaVenta,
+  naceRecogida,
   type DireccionCambio,
 } from "@/lib/order-item-mode-change";
 
@@ -393,6 +396,7 @@ export async function aplicarCambioModo(
 ): Promise<{ text: string; avisoIds: string[] }> {
   const { vista } = plan;
   let avisoIds: string[] = [];
+  let sinPortada = false;
   const anulacion = {
     motivo: `Pasó a stock ${vista.producto} de ${plan.orderCode}: ${motivo}`,
     usuarioId: actor.id,
@@ -441,11 +445,25 @@ export async function aplicarCambioModo(
     const yaHecha = YA_FABRICADA.has(plan.orderStatus);
     const ultimo = await tx.productionJob.findFirst({ select: { code: true }, orderBy: { code: "desc" } });
     let numero = ultimo ? parseProductionJobCodeNumber(ultimo.code) : 0;
+    // Lo que ya va despachado nace recogido (foto = portada del producto) para que la orden no vuelva a «Recoger».
+    const enDespacho = await tx.dispatchItem.findMany({
+      where: { orderItemId: { in: plan.nuevos.map((n) => n.id) } },
+      select: { orderItemId: true, dispatch: { select: { status: true } } },
+    });
+    const portadas = await tx.productImage.findMany({
+      where: { productId: { in: plan.nuevos.map((n) => n.productId) }, ...SOLO_FOTOS },
+      orderBy: { order: "asc" },
+      select: { productId: true, url: true },
+    });
     for (const n of plan.nuevos) {
       await tx.inventoryMovement.create({
         data: { productId: n.productId, type: "IN", change: n.cantidad, note: `Vuelve al inventario: ${plan.orderCode} pasó a fabricación`, createdById: actor.id },
       });
       const cargo = n.costo * n.cantidad;
+      const despachada = naceRecogida(enDespacho.filter((d) => d.orderItemId === n.id).map((d) => d.dispatch.status));
+      const portada = despachada ? portadas.find((p) => p.productId === n.productId) : undefined;
+      if (despachada && !portada) sinPortada = true;
+      const recogida = Boolean(portada);
       await tx.orderItem.update({
         where: { id: n.id },
         data: {
@@ -456,6 +474,14 @@ export async function aplicarCambioModo(
           supplierPaymentStatus: cargo > 0 ? "PENDING" : null,
         },
       });
+      if (portada) {
+        await tx.orderItemPhoto.create({
+          data: { orderItemId: n.id, url: portada.url, name: "Recogido automático: ya estaba despachado" },
+        });
+        if (marcarPagadaAlRecoger({ supplierPaymentStatus: cargo > 0 ? "PENDING" : null, purchaseCost: n.costo, quantity: n.cantidad })) {
+          await tx.orderItem.update({ where: { id: n.id }, data: { supplierPaymentStatus: "PAID" } });
+        }
+      }
       if (cargo > 0) {
         await tx.supplierLedgerEntry.create({
           data: {
@@ -476,11 +502,11 @@ export async function aplicarCambioModo(
           code: buildProductionJobCode(numero),
           orderId: plan.orderId,
           orderItemId: n.id,
-          // Si la orden ya pasó producción (o se entregó), el trabajo queda hecho.
-          status: yaHecha ? "DONE" : "IN_PROGRESS",
+          // Si la orden ya pasó producción (o se entregó) o la pieza nace recogida, el trabajo queda hecho.
+          status: yaHecha || recogida ? "DONE" : "IN_PROGRESS",
           quantity: n.cantidad,
           startedAt: new Date(),
-          completedAt: yaHecha ? new Date() : null,
+          completedAt: yaHecha || recogida ? new Date() : null,
           createdById: actor.id,
         },
       });
@@ -495,7 +521,8 @@ export async function aplicarCambioModo(
 
   const pesos = (v: number) => `$${Math.round(v).toLocaleString("es-CO")}`;
   const deuda = vista.proveedoras.map((p) => `${p.nombre} ${pesos(p.deudaAntes)} → ${pesos(p.deudaDespues)}`).join("; ");
-  const text = `${vista.direccion === "A_STOCK" ? "Pasó a stock" : "Pasó a fabricación"} ${vista.producto} (${vista.origen}). Motivo: ${motivo}. Deuda: ${deuda || "sin cambio"}. Costo de productos: ${pesos(vista.costoVentaAntes)} → ${pesos(vista.costoVentaDespues)}.`;
+  const aviso = sinPortada ? " Ojo: ya estaba despachado pero el producto no tiene foto de portada; queda pendiente de recoger." : "";
+  const text = `${vista.direccion === "A_STOCK" ? "Pasó a stock" : "Pasó a fabricación"} ${vista.producto} (${vista.origen}). Motivo: ${motivo}. Deuda: ${deuda || "sin cambio"}. Costo de productos: ${pesos(vista.costoVentaAntes)} → ${pesos(vista.costoVentaDespues)}.${aviso}`;
   await tx.orderNote.create({ data: { orderId: plan.orderId, text: text.slice(0, 1000), createdById: actor.id } });
   return { text, avisoIds };
 }

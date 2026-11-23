@@ -6,6 +6,7 @@ import {
   direccionDeCambio,
   faltaStock,
   gananciaVenta,
+  naceRecogida,
   parseCostoUnitario,
   parseMotivoCambio,
 } from "./order-item-mode-change";
@@ -56,5 +57,15 @@ describe("números", () => {
     const despues = costoTotal([100000, 45000, 235000, 200000].map((c) => ({ cantidad: 1, costoUnitario: c })));
     expect(despues).toBe(antes);
     expect(gananciaVenta(1169000, despues, 205400)).toBe(gananciaVenta(1169000, antes, 205400));
+  });
+});
+
+describe("naceRecogida", () => {
+  it("con un despacho activo nace recogida; cancelado, devuelto o sin despacho, no", () => {
+    expect(naceRecogida(["SHIPPED"])).toBe(true);
+    expect(naceRecogida(["CANCELLED", "DELIVERED"])).toBe(true);
+    expect(naceRecogida(["PENDING"])).toBe(true);
+    expect(naceRecogida(["CANCELLED", "RETURNED"])).toBe(false);
+    expect(naceRecogida([])).toBe(false);
   });
 });

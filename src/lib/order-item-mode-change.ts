@@ -77,3 +77,7 @@ export const costoTotal = (lineas: LineaCosto[]) =>
 /** Ganancia de la venta como en Balances: valor − costo de productos − fletes. */
 export const gananciaVenta = (valorVenta: number, costoProductos: number, fletes: number) =>
   Math.round((valorVenta - costoProductos - fletes) * 100) / 100;
+
+/** A_FABRICACION: la pieza que ya va en un despacho activo (ni cancelado ni devuelto) nace recogida. */
+export const naceRecogida = (estadosDespacho: string[]) =>
+  estadosDespacho.some((estado) => estado !== "CANCELLED" && estado !== "RETURNED");
