@@ -376,6 +376,18 @@ export function PurchaseDirectDialog({
     setLines((current) => current.filter((line) => line.uid !== uid));
   };
 
+  // Cantidad editable en la tabla (ej. bajar de 6 a 5 en "Editar compra"); mínimo 1.
+  const setLineQuantity = (uid: string, raw: string) => {
+    const quantity = Math.max(1, Math.trunc(Number(raw) || 0));
+    setLines((current) =>
+      current.map((line) =>
+        line.uid === uid
+          ? { ...line, quantity, pending: line.pending ? Math.min(line.pending, quantity) : line.pending }
+          : line,
+      ),
+    );
+  };
+
   const draftLineTotal = draftUnitCost * (Math.trunc(Number(draftQuantity) || 0) || 0);
   const linesTotal = lines.reduce((sum, line) => sum + line.unitCost * line.quantity, 0);
   const total = linesTotal;
@@ -454,7 +466,8 @@ export function PurchaseDirectDialog({
         }
       >
         {/* Lineas agregadas */}
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
+        {/* overflow-x-auto: en el celular la columna de quitar no se corta (se desliza). */}
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/60 text-xs text-muted-foreground">
                     <tr>
@@ -574,7 +587,18 @@ export function PurchaseDirectDialog({
                                 </div>
                               </div>
                             </td>
-                            <td className="px-3 py-2 text-right text-foreground">{line.quantity}</td>
+                            <td className="px-3 py-2 text-right text-foreground">
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                min={1}
+                                step={1}
+                                value={line.quantity}
+                                onChange={(event) => setLineQuantity(line.uid, event.target.value)}
+                                aria-label={`Cantidad de ${product?.name ?? "producto"}`}
+                                className="h-8 w-16 rounded-md border border-input bg-transparent px-2 text-right text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                              />
+                            </td>
                             <td className="px-3 py-2 text-right text-foreground">
                               {formatMoney(line.unitCost, currency)}
                             </td>

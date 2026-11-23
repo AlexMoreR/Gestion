@@ -211,7 +211,7 @@ Detalle de una orden. Aquí se fabrica, se recoge, se despacha y se entrega cada
 
 ## /admin/ordenes/[orderId]/editar-compra
 Edita una compra directa a proveedor. Si la orden es de venta, la página manda al detalle de la orden.
-**Qué se ve:** el mismo modal de compra, con el título "Editar compra <código>", la fecha y las líneas ya cargadas. Una compra por lote (con pendientes por fabricar) no se edita aquí: al guardar sale "Esta compra es por lote: se maneja en Inventario → Lotes".
+**Qué se ve:** el mismo modal de compra, con el título "Editar compra <código>", la fecha y las líneas ya cargadas. En cada producto (no en los combos) la columna **Cant** es una casilla para cambiar la cantidad (mínimo 1; ej. de 6 a 5): el "Total compra" se recalcula y, al guardar con **Registrar compra**, baja el cargo a la proveedora y saca del inventario la diferencia. En el celular la tabla se desliza de lado para ver la basura (**Quitar producto**). Una compra por lote (con pendientes por fabricar) no se edita aquí: al guardar sale "Esta compra es por lote: se maneja en Inventario → Lotes".
 **Botones y acciones:**
 - **Agregar producto**: agrega una línea a la compra.
 - **Registrar compra**: guarda los cambios.
