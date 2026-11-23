@@ -43,6 +43,20 @@ describe("buildAccountLedger", () => {
     expect(ledger.saldo_final).toBe(60_000);
   });
 
+  it("una fecha escrita (medianoche UTC) va en su día aunque otro momento real sea más tarde en UTC", () => {
+    const ledger = buildAccountLedger(
+      0,
+      [
+        row("2026-11-02T00:00:00Z", "entrada", 100), // 2-nov escrito a mano
+        row("2026-11-02T03:00:00Z", "entrada", 7), // 1-nov 10 p. m. en Colombia
+      ],
+      { desde: "2026-11-02" },
+    );
+    expect(ledger.saldo_inicial).toBe(7);
+    expect(ledger.total_entradas).toBe(100);
+    expect(ledger.saldo_final).toBe(107);
+  });
+
   it("ordena los movimientos por fecha", () => {
     const ledger = buildAccountLedger(0, [
       row("2026-11-03T15:00:00Z", "salida", 1),

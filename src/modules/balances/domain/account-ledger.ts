@@ -86,10 +86,10 @@ export function buildAccountLedger(
     throw new Error("'desde' no puede ser despues de 'hasta'.");
   }
 
-  // Orden estable: misma fecha conserva el orden en que llegaron.
+  // Primero por día de Colombia (una fecha escrita a medianoche UTC vale ese día), luego por hora y orden de llegada.
   const sorted = rows
     .map((row, index) => ({ row, index, day: colombiaDayKey(row.fecha) }))
-    .sort((a, b) => a.row.fecha.getTime() - b.row.fecha.getTime() || a.index - b.index);
+    .sort((a, b) => a.day.localeCompare(b.day) || a.row.fecha.getTime() - b.row.fecha.getTime() || a.index - b.index);
 
   let saldoInicial = saldoInicialCuenta;
   let saldo = saldoInicialCuenta;
