@@ -138,6 +138,20 @@ async function requireAdminSession(): Promise<string> {
   return session.user.id;
 }
 
+// Pasar a stock / a fabricación mueve deuda con proveedoras e inventario: solo dueño o administrador (rol ADMIN).
+async function requireOwnerAdmin(): Promise<string> {
+  const session = await auth();
+  if (
+    !session?.user?.id ||
+    session.user.role !== "ADMIN" ||
+    !(await hasAnyModuleAccess(session.user.id, session.user.role, ["orders"]))
+  ) {
+    redirect("/unauthorized");
+  }
+
+  return session.user.id;
+}
+
 function getReturnTo(formData: FormData, fallback: string): string {
   const raw = formData.get("returnTo");
   if (typeof raw !== "string") {
@@ -321,26 +335,29 @@ function entradaCambio(formData: FormData): EntradaCambio {
     costos[clave.slice("costo_".length)] = costo ?? Number.NaN;
   }
   return {
-    orderItemId: String(formData.get("orderItemId") ?? "").trim(),
+    orderItemId: String(formData.get("orderItemId") ?? "").trim() || null,
+    manufacturingOrderId: String(formData.get("manufacturingOrderId") ?? "").trim() || null,
     compraId: String(formData.get("compraId") ?? "").trim() || null,
     supplierId: String(formData.get("supplierId") ?? "").trim() || null,
     costos,
   };
 }
 
-export async function opcionesCambioModoAction(orderItemId: string): Promise<OpcionesCambio | { error: string }> {
-  await requireAdminSession();
-  return prisma.$transaction((tx) => opcionesCambioModo(tx, orderItemId));
+export async function opcionesCambioModoAction(
+  sel: { orderItemId: string } | { manufacturingOrderId: string },
+): Promise<OpcionesCambio | { error: string }> {
+  await requireOwnerAdmin();
+  return prisma.$transaction((tx) => opcionesCambioModo(tx, sel));
 }
 
 export async function previsualizarCambioModoAction(formData: FormData): Promise<VistaCambio | { error: string }> {
-  await requireAdminSession();
+  await requireOwnerAdmin();
   const plan = await prisma.$transaction((tx) => planCambioModo(tx, entradaCambio(formData)));
   return "error" in plan ? plan : plan.vista;
 }
 
 export async function adminCambiarModoConfirmadoAction(formData: FormData): Promise<void> {
-  await requireAdminSession();
+  await requireOwnerAdmin();
   const returnTo = getReturnTo(formData, "/admin/ordenes");
   const motivo = parseMotivoCambio(formData.get("motivo"));
   if (!motivo.ok) redirect(`${returnTo}?${new URLSearchParams({ error: motivo.error })}`);

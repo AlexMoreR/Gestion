@@ -1,0 +1,4 @@
+## Reglas de negocio
+
+- `pasar_a_stock_solo_admin`: «Pasar a stock / Pasar a fabricación» de un producto ya confirmado (T-846) solo lo puede hacer el dueño o un administrador (rol ADMIN); un EMPLEADO con el módulo Órdenes va a /unauthorized y no se guarda nada (`requireOwnerAdmin` en `src/app/actions/order-item-actions.ts`).
+- `pasar_a_stock_of_completa`: el cambio a stock acepta `manufacturingOrderId` en vez de `orderItemId`: toma todos los productos de esa orden en Fabricación con la proveedora de la OF y los pasa a stock de una vez (misma transacción, vista previa y bitácora). Necesita una compra de inventario que tenga todas esas piezas. Aún sin botón en pantalla (parte 2). Al pasar a stock el costo de la venta pasa a ser el de la compra elegida: si costó distinto que la OF, cambian la ganancia y la comisión de esa venta.
