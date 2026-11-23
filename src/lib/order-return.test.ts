@@ -188,7 +188,7 @@ describe("getOrderDisplayState con devolución", () => {
   });
   it("sin el parámetro o cancelada, igual que antes", () => {
     expect(getOrderDisplayState("COMPLETED", entregado, 1).label).toBe("Entregado parcial – 1 sin entregar");
-    expect(getOrderDisplayState("COMPLETED", entregado, 0, null).label).toBe("Cerrado – Entregado");
+    expect(getOrderDisplayState("COMPLETED", entregado, 0, null).label).toBe("Entregado");
     expect(getOrderDisplayState("CANCELLED", null, 0, "DEVUELTA").label).toBe("Cancelada");
   });
 });

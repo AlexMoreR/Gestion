@@ -160,7 +160,7 @@ const RETURN_DISPLAY: Record<OrderReturnDisplay, { label: string; className: str
  * Etiqueta y color del estado "real" de la orden de cara al usuario.
  * Distingue los dos cierres verdes que pidió el negocio:
  *   - "Cerrado – En envío": despachada por transportadora, aún no entregada.
- *   - "Cerrado – Entregado": el cliente ya recibió.
+ *   - "Entregado": el cliente ya recibió.
  * `delivery` es el despacho más reciente (o null si aún no se despacha).
  * `reversedItems`: productos con la entrega deshecha (countReversedItems). Solo cambia la etiqueta, nunca el estado.
  * `devolucion`: manda sobre los cierres (también en COMPLETED), salvo en una orden cancelada.
@@ -177,7 +177,7 @@ export function getOrderDisplayState(
     if (reversedItems > 0) {
       return { label: `Entregado parcial – ${reversedItems} sin entregar`, className: AMBER_BADGE };
     }
-    return { label: "Cerrado – Entregado", className: GREEN_BADGE };
+    return { label: "Entregado", className: GREEN_BADGE };
   }
 
   if (status === "DISPATCHED" && delivery) {

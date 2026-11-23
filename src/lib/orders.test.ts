@@ -7,11 +7,11 @@ describe("getOrderDisplayState", () => {
     expect(state.label).toBe("Entregado parcial – 1 sin entregar");
     expect(state.className).toContain("amber");
   });
-  it("COMPLETED sin reversas → Cerrado – Entregado", () => {
+  it("COMPLETED sin reversas → Entregado", () => {
     expect(getOrderDisplayState("COMPLETED", { deliveryType: "SHIPPING", status: "DELIVERED" }, 0).label).toBe(
-      "Cerrado – Entregado",
+      "Entregado",
     );
-    expect(getOrderDisplayState("COMPLETED", null).label).toBe("Cerrado – Entregado");
+    expect(getOrderDisplayState("COMPLETED", null).label).toBe("Entregado");
   });
   it("DISPATCHED por envío sigue igual que antes", () => {
     expect(getOrderDisplayState("DISPATCHED", { deliveryType: "SHIPPING", status: "SHIPPED" }, 2).label).toBe(
