@@ -109,7 +109,7 @@ const controlClassName =
 
 // Casillas de Cant y Costo unit. dentro de la tabla: ocupan su columna sin desbordarla.
 const tableInputClassName =
-  "h-8 w-full min-w-0 rounded-md border border-input bg-transparent px-1.5 text-right text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:px-2 sm:text-sm dark:bg-input/30";
+  "h-8 w-full min-w-0 rounded-md border border-input bg-transparent px-1.5 text-right [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:px-2 sm:text-sm dark:bg-input/30";
 
 function today(): string {
   return todayInColombia();
@@ -517,10 +517,10 @@ export function PurchaseDirectDialog({
                 <table className="w-full table-fixed text-xs sm:text-sm">
                   <colgroup>
                     <col />
-                    <col className="w-12 sm:w-20" />
-                    <col className="w-[5.5rem] sm:w-32" />
+                    <col className="w-10 sm:w-20" />
+                    <col className="w-[4.75rem] sm:w-32" />
                     <col className="w-[5.25rem] sm:w-32" />
-                    <col className="w-9 sm:w-12" />
+                    <col className="w-8 sm:w-12" />
                   </colgroup>
                   <thead className="bg-muted/60 text-xs text-muted-foreground">
                     <tr>
@@ -579,7 +579,7 @@ export function PurchaseDirectDialog({
                                   <Button
                                     type="button"
                                     variant="ghost"
-                                    size="icon"
+                                    size="icon-sm"
                                     onClick={() => removeLine(line.uid)}
                                     aria-label="Quitar combo"
                                   >
@@ -671,7 +671,7 @@ export function PurchaseDirectDialog({
                               <Button
                                 type="button"
                                 variant="ghost"
-                                size="icon"
+                                size="icon-sm"
                                 onClick={() => removeLine(line.uid)}
                                 aria-label="Quitar producto"
                               >
