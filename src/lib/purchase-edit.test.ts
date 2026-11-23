@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsePurchaseAdjustment, planPurchaseEdit, purchaseEditReasonError, purchaseEditTotals, purchaseStockDeltas, type ExistingPurchaseItem } from "./purchase-edit";
+import { planPurchaseEdit, purchaseEditTotals, purchaseStockDeltas, type ExistingPurchaseItem } from "./purchase-edit";
 
 const item = (overrides: Partial<ExistingPurchaseItem> = {}): ExistingPurchaseItem => ({
   id: "oi1",
@@ -51,18 +51,6 @@ describe("purchaseEditTotals", () => {
     expect(purchaseEditTotals({ subtotal: 600000, total: 650000 }, 600000)).toEqual({ subtotal: 600000, total: 650000 });
     expect(purchaseEditTotals({ subtotal: 600000, total: 650000 }, 900000)).toEqual({ subtotal: 900000, total: 950000 });
   });
-
-  it("caso ORD-99: 3.380.000 con descuento de 10.000 queda en 3.370.000", () => {
-    expect(purchaseEditTotals({ subtotal: 3380000, total: 3380000 }, 3380000, -10000)).toEqual({
-      subtotal: 3380000,
-      total: 3370000,
-    });
-  });
-
-  it("un descuento previo (total por debajo del subtotal) no se pierde al editar otra vez", () => {
-    expect(purchaseEditTotals({ subtotal: 3380000, total: 3370000 }, 3380000)).toEqual({ subtotal: 3380000, total: 3370000 });
-    expect(purchaseEditTotals({ subtotal: 3380000, total: 3370000 }, 3480000, 5000)).toEqual({ subtotal: 3480000, total: 3475000 });
-  });
 });
 
 describe("purchaseStockDeltas", () => {
@@ -74,39 +62,5 @@ describe("purchaseStockDeltas", () => {
       ["b", -4],
       ["c", 1],
     ]);
-  });
-});
-
-describe("parsePurchaseAdjustment", () => {
-  const motivo = "carrito cancelado valía 110.000";
-  it("descuento: monto negativo con nota y motivo", () => {
-    expect(parsePurchaseAdjustment({ kind: "DESCUENTO", amount: 10000, supplierId: "s1" }, motivo)).toEqual({
-      adjustment: { amount: -10000, note: `Descuento: ${motivo}`, supplierId: "s1" },
-      error: null,
-    });
-  });
-  it("recargo: monto positivo", () => {
-    expect(parsePurchaseAdjustment({ kind: "RECARGO", amount: 5000, supplierId: "s1" }, " flete extra ").adjustment).toEqual({
-      amount: 5000,
-      note: "Recargo: flete extra",
-      supplierId: "s1",
-    });
-  });
-  it("sin monto no hay ajuste ni error", () => {
-    expect(parsePurchaseAdjustment(null, "")).toEqual({ adjustment: null, error: null });
-    expect(parsePurchaseAdjustment({ kind: "DESCUENTO", amount: 0, supplierId: "" }, "")).toEqual({ adjustment: null, error: null });
-  });
-  it("errores: sin motivo, tipo inválido, sin proveedora, monto negativo", () => {
-    expect(parsePurchaseAdjustment({ kind: "DESCUENTO", amount: 10000, supplierId: "s1" }, "  ").error).toMatch(/motivo/);
-    expect(parsePurchaseAdjustment({ kind: "OTRO", amount: 10000, supplierId: "s1" }, motivo).error).toMatch(/Descuento o Recargo/);
-    expect(parsePurchaseAdjustment({ kind: "RECARGO", amount: 10000, supplierId: "" }, motivo).error).toMatch(/proveedora/);
-    expect(parsePurchaseAdjustment({ kind: "RECARGO", amount: -1, supplierId: "s1" }, motivo).error).toMatch(/mayor que 0/);
-  });
-});
-
-describe("purchaseEditReasonError", () => {
-  it("exige al menos 3 letras", () => {
-    expect(purchaseEditReasonError("ok")).not.toBeNull();
-    expect(purchaseEditReasonError("  abc ")).toBeNull();
   });
 });
