@@ -29,6 +29,7 @@ import {
   saleFromQuoteMissing,
 } from "@/modules/ventas/domain/payment-method";
 import { saleStatusForPaid } from "@/modules/ventas/domain/sale-paid-status";
+import { validarDescuentoVenta } from "@/modules/ventas/domain/sale-discount";
 import { CONSUMIDOR_FINAL_EMAIL } from "@/modules/ventas/domain/sale-origin";
 import { saleItemsErrorMessage } from "@/modules/ventas/domain/sale-items-check";
 import { autoCreateComboOrder } from "@/modules/ventas/application/auto-create-combo-order";
@@ -1742,4 +1743,113 @@ export async function adminUpdateSalePaymentMethodAction(formData: FormData): Pr
     revalidatePath(`/admin/ordenes/${sale.order.id}`);
   }
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Forma de pago actualizada" }).toString()}`);
+}
+
+// Descuento sobre una venta ya creada (p. ej. daño en el transporte al entregar): baja el total de la venta y de su
+// orden, recalcula el estado de pago con lo ya abonado y deja nota en la orden y bitácora. La cotización no se toca.
+export async function adminApplySaleDiscountAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const returnTo = getReturnTo(formData);
+
+  const saleIdValue = formData.get("saleId");
+  const saleId = typeof saleIdValue === "string" ? saleIdValue.trim() : "";
+  if (!saleId) {
+    redirectWithError(returnTo, "Venta invalida");
+  }
+  const montoValue = formData.get("amount");
+  const monto = typeof montoValue === "string" && montoValue.trim() ? Number(montoValue) : Number.NaN;
+  const motivoValue = formData.get("motivo");
+  const motivoTexto = typeof motivoValue === "string" ? motivoValue.slice(0, 300) : "";
+
+  const actor = await getActivityActor();
+  const cop = (valor: number) => `$${Math.round(valor).toLocaleString("es-CO")}`;
+  let error: string | null = null;
+  let invoiceToken = "";
+  let orderId: string | null = null;
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Candado sobre la venta: un segundo descuento al mismo tiempo espera a este.
+      await tx.$queryRaw`SELECT id FROM "Sale" WHERE id = ${saleId} FOR UPDATE`;
+      const sale = await tx.sale.findUnique({
+        where: { id: saleId },
+        select: {
+          id: true,
+          code: true,
+          status: true,
+          total: true,
+          grossTotal: true,
+          discountAmount: true,
+          invoiceToken: true,
+          salePayments: { select: { amount: true } },
+          order: { select: { id: true, status: true } },
+        },
+      });
+      if (!sale) {
+        error = "Venta no encontrada";
+        return;
+      }
+      const total = Number(sale.total);
+      const pagado = sale.salePayments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+      const check = validarDescuentoVenta({
+        monto,
+        motivo: motivoTexto,
+        total,
+        pagado,
+        ventaCancelada: sale.status === "CANCELLED",
+        ordenCancelada: sale.order?.status === "CANCELLED",
+      });
+      if (!check.ok) {
+        error = check.error;
+        return;
+      }
+      const descuentoAntes = Number(sale.discountAmount);
+      // Ventas viejas sin «total antes del descuento» (0): se toma el total actual más lo ya descontado.
+      const grossTotal = Number(sale.grossTotal) > 0 ? Number(sale.grossTotal) : total + descuentoAntes;
+      const nuevoEstado = saleStatusForPaid(pagado, check.nuevoTotal, sale.status);
+      await tx.sale.update({
+        where: { id: sale.id },
+        data: {
+          total: new Prisma.Decimal(check.nuevoTotal),
+          grossTotal: new Prisma.Decimal(grossTotal),
+          discountAmount: new Prisma.Decimal(descuentoAntes + check.monto),
+          status: nuevoEstado,
+        },
+      });
+      const texto = `Descuento de ${cop(check.monto)}: ${check.motivo}`;
+      if (sale.order) {
+        await tx.order.update({ where: { id: sale.order.id }, data: { total: { decrement: check.monto } } });
+        await tx.orderNote.create({ data: { orderId: sale.order.id, text: texto, createdById: actor.id } });
+      }
+      await logActivityTx(tx, actor, {
+        action: "UPDATE",
+        entityType: "SALE",
+        entityId: sale.id,
+        entityCode: sale.code,
+        summary: `${texto}. Total de la venta ${displayCode(sale.code)}: ${cop(total)} → ${cop(check.nuevoTotal)}`,
+        before: { ventaTotal: total, descuento: descuentoAntes, ventaEstado: sale.status },
+        after: {
+          ventaTotal: check.nuevoTotal,
+          descuento: descuentoAntes + check.monto,
+          ventaEstado: nuevoEstado,
+          motivo: check.motivo,
+        },
+      });
+      invoiceToken = sale.invoiceToken;
+      orderId = sale.order?.id ?? null;
+    });
+  } catch (failure) {
+    console.error("Failed to apply sale discount:", failure);
+    error = "No se pudo aplicar el descuento";
+  }
+  if (error) {
+    redirectWithError(returnTo, error);
+  }
+
+  revalidatePath("/admin/ventas");
+  revalidatePath("/admin/balances");
+  revalidatePath(`/sales/${invoiceToken}`);
+  if (orderId) {
+    revalidatePath(`/admin/ordenes/${orderId}`);
+  }
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Descuento aplicado" }).toString()}`);
 }

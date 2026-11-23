@@ -252,7 +252,8 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
   // El total se calcula sumando los productos mostrados para que siempre
   // coincida con la tabla, aunque la cotizacion se haya editado.
   const itemsTotal = itemsWithMeta.reduce((sum, item) => sum + Number(item.lineTotal), 0);
-  const capital = itemsTotal;
+  // El descuento de la venta (al pasar a venta o puesto después) se resta de los productos.
+  const capital = Math.max(itemsTotal - discountAmount, 0);
   const receiptSummary = extractSaleReceipts(saleWithDiscount);
   const downPayment = receiptSummary.length > 0
     ? receiptSummary.reduce((sum, receipt) => sum + receipt.amount, 0)
@@ -424,6 +425,12 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
 
           {/* ─── TOTALES (en fila) ─── */}
           <div className="flex border border-slate-300 text-[12px]">
+            {discountAmount > 0 ? (
+              <div className="flex-1 border-r border-slate-300 px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wide text-slate-500">Descuento</p>
+                <p className="font-semibold text-slate-900">-{formatMoney(discountAmount, currency)}</p>
+              </div>
+            ) : null}
             <div className="flex-1 px-3 py-2">
               <p className="text-[10px] uppercase tracking-wide text-slate-500">Abono</p>
               <p className="font-semibold text-slate-900">{formatMoney(downPayment, currency)}</p>
@@ -634,6 +641,12 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
                 </div>
                 {hasBalance ? (
                   <div className="grid gap-3 p-0 sm:grid-cols-3">
+                    {discountAmount > 0 ? (
+                      <div className="sm:col-span-3">
+                        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Descuento</p>
+                        <p className="mt-1 text-lg font-semibold text-foreground">-{formatMoney(discountAmount, currency)}</p>
+                      </div>
+                    ) : null}
                     <div>
                       <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Saldo pendiente</p>
                       <p className="mt-1 text-lg font-semibold text-foreground">{formatMoney(remainingBalance, currency)}</p>

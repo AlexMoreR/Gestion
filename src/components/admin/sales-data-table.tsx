@@ -26,6 +26,7 @@ import {
   Wallet,
   X,
   ArrowLeftRight,
+  BadgePercent,
 } from "lucide-react";
 import { useFormStatus } from "react-dom";
 import { saldoAFavor } from "@/lib/sale-item-cancel";
@@ -40,6 +41,7 @@ import {
 import type { SalePaymentMethod } from "@/modules/ventas/domain/payment-method";
 import { PaymentMethodBadge } from "@/modules/ventas/presentation/payment-method-badge";
 import { PaymentMethodField } from "@/modules/ventas/presentation/payment-method-field";
+import { SaleDiscountDialog } from "@/modules/ventas/presentation/sale-discount-button";
 import type { SaleOriginCode } from "@/modules/ventas/domain/sale-origin";
 import { SaleOriginBadge } from "@/modules/ventas/presentation/sale-origin-badge";
 import {
@@ -308,6 +310,7 @@ function RowActions({
   onAddPayment,
   onEditDate,
   onEditPaymentMethod,
+  onApplyDiscount,
   onCancel,
   onHardDelete,
 }: {
@@ -316,6 +319,7 @@ function RowActions({
   onAddPayment: () => void;
   onEditDate: () => void;
   onEditPaymentMethod: () => void;
+  onApplyDiscount: () => void;
   onCancel: () => void;
   /** Solo llega si quien mira tiene el permiso "Borrado definitivo". */
   onHardDelete?: () => void;
@@ -381,6 +385,10 @@ function RowActions({
         <DropdownMenuItem onClick={onEditPaymentMethod}>
           <Wallet className="mr-2 h-4 w-4" />
           Cambiar forma de pago
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onApplyDiscount} disabled={!canAddPayment}>
+          <BadgePercent className="mr-2 h-4 w-4" />
+          Aplicar descuento
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onViewReceipts} disabled={!hasReceipts}>
           <Eye className="mr-2 h-4 w-4" />
@@ -952,6 +960,7 @@ function SaleMobileCard({
   onAddPayment,
   onEditDate,
   onEditPaymentMethod,
+  onApplyDiscount,
   onCancel,
   onHardDelete,
 }: {
@@ -961,6 +970,7 @@ function SaleMobileCard({
   onAddPayment: () => void;
   onEditDate: () => void;
   onEditPaymentMethod: () => void;
+  onApplyDiscount: () => void;
   onCancel: () => void;
   onHardDelete?: () => void;
 }) {
@@ -989,6 +999,7 @@ function SaleMobileCard({
           onAddPayment={onAddPayment}
           onEditDate={onEditDate}
           onEditPaymentMethod={onEditPaymentMethod}
+          onApplyDiscount={onApplyDiscount}
           onCancel={onCancel}
           onHardDelete={onHardDelete}
         />
@@ -1038,6 +1049,7 @@ export function SalesDataTable({
   };
   const [dateSale, setDateSale] = React.useState<SaleRow | null>(null);
   const [paymentMethodSale, setPaymentMethodSale] = React.useState<SaleRow | null>(null);
+  const [discountSale, setDiscountSale] = React.useState<SaleRow | null>(null);
   // Anular (hard=false) o borrar definitivamente (hard=true): ambos piden motivo.
   const [removeSale, setRemoveSale] = React.useState<{ sale: SaleRow; hard: boolean } | null>(null);
 
@@ -1106,6 +1118,7 @@ export function SalesDataTable({
               onAddPayment={() => setPaymentSale(row.original)}
               onEditDate={() => setDateSale(row.original)}
               onEditPaymentMethod={() => setPaymentMethodSale(row.original)}
+              onApplyDiscount={() => setDiscountSale(row.original)}
               onCancel={() => setRemoveSale({ sale: row.original, hard: false })}
               onHardDelete={canHardDelete ? () => setRemoveSale({ sale: row.original, hard: true }) : undefined}
             />
@@ -1213,6 +1226,7 @@ export function SalesDataTable({
             onAddPayment={() => setPaymentSale(sale)}
             onEditDate={() => setDateSale(sale)}
             onEditPaymentMethod={() => setPaymentMethodSale(sale)}
+            onApplyDiscount={() => setDiscountSale(sale)}
             onCancel={() => setRemoveSale({ sale, hard: false })}
             onHardDelete={canHardDelete ? () => setRemoveSale({ sale, hard: true }) : undefined}
           />
@@ -1264,6 +1278,14 @@ export function SalesDataTable({
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <SaleDiscountDialog
+        key={discountSale?.id ?? "none"}
+        sale={discountSale}
+        currency={currency}
+        returnTo="/admin/ventas"
+        onClose={() => setDiscountSale(null)}
+      />
 
       <Dialog open={Boolean(paymentMethodSale)} onOpenChange={(open) => (open ? null : setPaymentMethodSale(null))}>
         <DialogContent className="max-w-md">
