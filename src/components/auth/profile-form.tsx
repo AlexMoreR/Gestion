@@ -86,23 +86,28 @@ export function ProfileForm({
         <Card className="space-y-4 p-5">
           <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
             <UserPen className="h-4 w-4 text-slate-500" />
-            Informacion personal
+            Información personal
           </div>
           <form action={profileAction} className="grid gap-3">
-            <div className="flex items-stretch gap-4">
+            {/* En el celular la foto va arriba y los datos debajo, a todo el ancho. */}
+            <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-stretch">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 aria-label="Cambiar foto"
                 title="Cambiar foto"
-                className="group relative w-28 shrink-0 self-stretch rounded-xl"
+                className="group relative h-24 w-24 shrink-0 rounded-xl sm:h-auto sm:w-28 sm:self-stretch"
               >
-                <Avatar className="h-full w-28 rounded-xl border border-[var(--line)]">
+                <Avatar className="h-full w-full rounded-xl border border-[var(--line)]">
                   <AvatarImage src={previewUrl ?? defaultImage} alt={defaultName || email} />
                   <AvatarFallback className="rounded-xl bg-slate-800 text-xl">{initials}</AvatarFallback>
                 </Avatar>
                 <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100">
                   <ImagePlus className="h-6 w-6" />
+                </span>
+                {/* En el celular no hay "hover": el icono queda a la vista. */}
+                <span className="absolute -bottom-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-[var(--line)] bg-card text-slate-600 shadow-sm sm:hidden">
+                  <ImagePlus className="h-3.5 w-3.5" />
                 </span>
               </button>
               <input
@@ -117,9 +122,9 @@ export function ProfileForm({
                   setPreviewUrl(file ? URL.createObjectURL(file) : null);
                 }}
               />
-              <div className="flex flex-1 flex-col gap-2">
+              <div className="flex w-full min-w-0 flex-1 flex-col gap-2">
                 <div className="flex items-start gap-1.5">
-                  <div className="flex w-fit flex-col">
+                  <div className="flex min-w-0 flex-1 flex-col sm:w-fit sm:flex-none">
                     <Input
                       name="name"
                       defaultValue={defaultName}
@@ -127,7 +132,7 @@ export function ProfileForm({
                       required
                       readOnly={!editingFields}
                       size={Math.max((defaultName || "Nombre completo").length, 8)}
-                      className={`h-auto w-auto min-w-0 rounded-md px-2 py-1 text-base font-medium dark:bg-transparent ${
+                      className={`h-auto w-full min-w-0 rounded-md sm:w-auto px-2 py-1 text-base font-medium dark:bg-transparent ${
                         editingFields
                           ? "border border-input bg-transparent"
                           : "cursor-default border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
@@ -141,7 +146,7 @@ export function ProfileForm({
                       required
                       readOnly={!editingFields}
                       size={Math.max((email || "correo@empresa.com").length, 12)}
-                      className={`h-auto w-auto min-w-0 rounded-md px-2 py-1 text-sm text-slate-600 dark:bg-transparent ${
+                      className={`h-auto w-full min-w-0 rounded-md sm:w-auto px-2 py-1 text-sm text-slate-600 dark:bg-transparent ${
                         editingFields
                           ? "border border-input bg-transparent"
                           : "cursor-default border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
@@ -160,7 +165,7 @@ export function ProfileForm({
                     {editingFields ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
                   </Button>
                 </div>
-                <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                <div className="flex w-fit items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
                   <ShieldCheck className="h-4 w-4 text-slate-500" />
                   <span>Rol: {role}</span>
                 </div>
@@ -186,7 +191,7 @@ export function ProfileForm({
               className="w-full sm:w-auto"
               onClick={() => setIsPasswordModalOpen(true)}
             >
-              Cambiar contrasena
+              Cambiar contraseña
             </Button>
           </div>
         </Card>
@@ -205,10 +210,10 @@ export function ProfileForm({
               <div>
                 <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
                   <KeyRound className="h-4 w-4 text-slate-500" />
-                  Cambiar contrasena
+                  Cambiar contraseña
                 </div>
                 <p className="mt-1 text-sm text-slate-600">
-                  Ingresa tu contrasena actual y define una nueva clave.
+                  Ingresa tu contraseña actual y define una nueva clave.
                 </p>
               </div>
               <Button
@@ -226,19 +231,19 @@ export function ProfileForm({
               <Input
                 type="password"
                 name="currentPassword"
-                placeholder="Contrasena actual"
+                placeholder="Contraseña actual"
                 required
               />
               <Input
                 type="password"
                 name="newPassword"
-                placeholder="Nueva contrasena"
+                placeholder="Nueva contraseña"
                 required
               />
               <Input
                 type="password"
                 name="confirmPassword"
-                placeholder="Confirmar nueva contrasena"
+                placeholder="Confirmar nueva contraseña"
                 required
               />
               <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
@@ -250,7 +255,7 @@ export function ProfileForm({
                   Cancelar
                 </Button>
                 <Button type="submit" className="w-full sm:w-auto" disabled={passwordPending}>
-                  {passwordPending ? "Actualizando..." : "Actualizar contrasena"}
+                  {passwordPending ? "Actualizando..." : "Actualizar contraseña"}
                 </Button>
               </div>
             </form>
