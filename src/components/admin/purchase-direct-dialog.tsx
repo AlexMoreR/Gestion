@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { AlignLeft, Boxes, ImagePlus, Loader2, Palette, Plus, RefreshCw, Search, ShoppingCart, Trash2 } from "lucide-react";
+import { AlignLeft, Boxes, ImagePlus, Loader2, Palette, Pencil, Plus, RefreshCw, Search, ShoppingCart, Trash2 } from "lucide-react";
 import {
   adminCreateDirectPurchaseAction,
   adminUpdateDirectPurchaseAction,
@@ -71,6 +71,10 @@ export type EditOrderData = {
   code: string;
   movementDate: string; // YYYY-MM-DD
   lines: PurchaseLine[];
+  // Lo que el total ya tiene encima de los productos (envío, descuentos y recargos previos).
+  extrasTotal: number;
+  // Cargos sin producto ya guardados (descuentos, recargos, envío), solo para ver.
+  adjustments: Array<{ id: string; amount: number; note: string; supplierName: string }>;
 };
 
 // Cargo por componente de un combo (cada item con su proveedor y costo).
@@ -103,6 +107,10 @@ export type PurchaseLine = {
 const controlClassName =
   "h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
 
+// Casillas de Cant y Costo unit. dentro de la tabla: ocupan su columna sin desbordarla.
+const tableInputClassName =
+  "h-8 w-full min-w-0 rounded-md border border-input bg-transparent px-1.5 text-right text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:px-2 sm:text-sm dark:bg-input/30";
+
 function today(): string {
   return todayInColombia();
 }
@@ -119,6 +127,11 @@ export function PurchaseDirectDialog({
   // En modo edicion el dialogo arranca abierto y con las lineas de la compra.
   const [open, setOpen] = React.useState(isEditing);
   const [lines, setLines] = React.useState<PurchaseLine[]>(editOrder?.lines ?? []);
+  // Edicion: motivo (obligatorio) y descuento/recargo sobre el total.
+  const [reason, setReason] = React.useState("");
+  const [adjKind, setAdjKind] = React.useState<"DESCUENTO" | "RECARGO">("DESCUENTO");
+  const [adjAmount, setAdjAmount] = React.useState("");
+  const [adjSupplierId, setAdjSupplierId] = React.useState("");
 
   // Modal de seleccion de producto (mismo flujo que cotizacion).
   const [openProductModal, setOpenProductModal] = React.useState(false);
@@ -388,9 +401,32 @@ export function PurchaseDirectDialog({
     );
   };
 
+  // Costo unitario editable en la tabla (ej. corregir un precio en "Editar compra"); mínimo 0.
+  const setLineCost = (uid: string, raw: string) => {
+    const unitCost = Math.max(0, Number(raw) || 0);
+    setLines((current) => current.map((line) => (line.uid === uid ? { ...line, unitCost } : line)));
+  };
+
+  // Proveedoras de la compra (para el descuento/recargo); si hay una sola, queda puesta.
+  const adjSuppliers = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const line of lines) {
+      if (line.supplierId) map.set(line.supplierId, line.supplierName || "Proveedora");
+      for (const component of line.components) {
+        if (component.supplierId) map.set(component.supplierId, component.supplierName || "Proveedora");
+      }
+    }
+    return Array.from(map, ([id, name]) => ({ id, name }));
+  }, [lines]);
+  const effectiveAdjSupplierId =
+    adjSuppliers.length === 1 ? adjSuppliers[0].id : adjSuppliers.some((s) => s.id === adjSupplierId) ? adjSupplierId : "";
+  const adjValue = Math.max(0, Number(adjAmount) || 0);
+  const adjSigned = adjKind === "DESCUENTO" ? -adjValue : adjValue;
+
   const draftLineTotal = draftUnitCost * (Math.trunc(Number(draftQuantity) || 0) || 0);
   const linesTotal = lines.reduce((sum, line) => sum + line.unitCost * line.quantity, 0);
-  const total = linesTotal;
+  // Al editar, el total suma lo que ya tenía encima (envío, ajustes previos) y el ajuste nuevo.
+  const total = isEditing ? linesTotal + (editOrder?.extrasTotal ?? 0) + adjSigned : linesTotal;
 
   const serializedItems = JSON.stringify(
     lines.map((line) =>
@@ -435,8 +471,11 @@ export function PurchaseDirectDialog({
       <TransactionModal
         open={open}
         onOpenChange={(value) => (value ? null : handleClose())}
-        title={isEditing ? `Editar compra ${displayCode(editOrder?.code) ?? ""}`.trim() : "Comprar"}
-        icon={<ShoppingCart className="h-4 w-4" />}
+        title={isEditing ? displayCode(editOrder?.code) ?? "" : "Comprar"}
+        icon={isEditing ? <Pencil className="h-4 w-4" /> : <ShoppingCart className="h-4 w-4" />}
+        // Editar: ventana más ancha y con menos margen para que la tabla quepa sin deslizar.
+        contentClassName={isEditing ? "w-[calc(100%-1rem)] max-w-5xl" : undefined}
+        bodyClassName={isEditing ? "px-3 sm:px-4" : undefined}
         headerExtra={
           <DatePicker
             name="movementDate"
@@ -450,6 +489,13 @@ export function PurchaseDirectDialog({
           <>
             <input type="hidden" name="returnTo" value="/admin/ordenes" />
             {editOrder ? <input type="hidden" name="orderId" value={editOrder.orderId} /> : null}
+            {editOrder && adjValue > 0 ? (
+              <input
+                type="hidden"
+                name="adjustment"
+                value={JSON.stringify({ kind: adjKind, amount: adjValue, supplierId: effectiveAdjSupplierId })}
+              />
+            ) : null}
             <input type="hidden" name="items" value={serializedItems} />
           </>
         }
@@ -465,17 +511,24 @@ export function PurchaseDirectDialog({
           </>
         }
       >
-        {/* Lineas agregadas */}
-        {/* overflow-x-auto: en el celular la columna de quitar no se corta (se desliza). */}
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
-                <table className="w-full text-sm">
+        {/* Lineas agregadas. Tabla de ancho fijo: no se desliza a los lados; el nombre
+            baja de línea y en el celular se ocultan las fotos para que todo quepa. */}
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+                <table className="w-full table-fixed text-xs sm:text-sm">
+                  <colgroup>
+                    <col />
+                    <col className="w-12 sm:w-20" />
+                    <col className="w-[5.5rem] sm:w-32" />
+                    <col className="w-[5.25rem] sm:w-32" />
+                    <col className="w-9 sm:w-12" />
+                  </colgroup>
                   <thead className="bg-muted/60 text-xs text-muted-foreground">
                     <tr>
-                      <th className="px-3 py-2 text-left">Producto</th>
-                      <th className="px-3 py-2 text-right">Cant</th>
-                      <th className="px-3 py-2 text-right">Costo unit.</th>
-                      <th className="px-3 py-2 text-right">Total</th>
-                      <th className="px-3 py-2" />
+                      <th className="px-1.5 py-2 text-left sm:px-3">Producto</th>
+                      <th className="px-1 py-2 text-right sm:px-3">Cant</th>
+                      <th className="px-1 py-2 text-right sm:px-3">Costo unit.</th>
+                      <th className="px-1 py-2 text-right sm:px-3">Total</th>
+                      <th className="px-1 py-2 sm:px-3" />
                     </tr>
                   </thead>
                   <tbody>
@@ -504,25 +557,25 @@ export function PurchaseDirectDialog({
                           return (
                             <React.Fragment key={line.uid}>
                               <tr className="border-t border-border bg-muted/30">
-                                <td className="px-3 py-2" colSpan={4}>
+                                <td className="px-1.5 py-2 sm:px-3" colSpan={4}>
                                   <div className="flex items-center gap-2">
                                     <ProductThumb
                                       src={product?.thumbnailUrl ?? ""}
                                       alt={product?.name ?? "Combo"}
-                                      className="h-9 w-9 shrink-0 rounded-md border border-border object-cover"
+                                      className="hidden h-9 w-9 shrink-0 rounded-md border border-border object-cover sm:block"
                                     />
                                     <div className="min-w-0">
-                                      <p className="truncate text-sm font-semibold text-foreground">
+                                      <p className="break-words text-sm font-semibold text-foreground">
                                         {product?.name ?? "Combo"}
                                       </p>
-                                      <p className="truncate text-xs text-muted-foreground">
+                                      <p className="break-words text-xs text-muted-foreground">
                                         {product?.code || "Sin codigo"}
                                         {line.pending ? ` · ${line.pending} pendientes por fabricar` : ""}
                                       </p>
                                     </div>
                                   </div>
                                 </td>
-                                <td className="px-3 py-2 text-right align-middle">
+                                <td className="px-0.5 py-2 text-right align-middle sm:px-3">
                                   <Button
                                     type="button"
                                     variant="ghost"
@@ -539,29 +592,29 @@ export function PurchaseDirectDialog({
                                 const units = component.quantity * line.quantity;
                                 return (
                                   <tr key={component.childId} className="border-t border-border/50">
-                                    <td className="px-3 py-1.5 pl-6 text-foreground">
+                                    <td className="px-1.5 py-1.5 pl-3 text-foreground sm:px-3 sm:pl-6">
                                       <div className="flex items-center gap-2">
                                         <ProductThumb
                                           src={child?.thumbnailUrl ?? ""}
                                           alt={component.name}
-                                          className="h-8 w-8 shrink-0 rounded-md border border-border object-cover"
+                                          className="hidden h-8 w-8 shrink-0 rounded-md border border-border object-cover sm:block"
                                         />
                                         <div className="min-w-0">
-                                          <p className="truncate text-sm text-foreground">{component.name}</p>
-                                          <p className="truncate text-xs text-muted-foreground">
+                                          <p className="break-words text-foreground">{component.name}</p>
+                                          <p className="break-words text-xs text-muted-foreground">
                                             {child?.code || "Sin codigo"}
                                           </p>
                                         </div>
                                       </div>
                                     </td>
-                                    <td className="px-3 py-1.5 text-right text-foreground">{units}</td>
-                                    <td className="px-3 py-1.5 text-right text-foreground">
+                                    <td className="px-1 py-1.5 text-right text-foreground sm:px-3">{units}</td>
+                                    <td className="px-1 py-1.5 text-right text-foreground sm:px-3">
                                       {formatMoney(component.cost, currency)}
                                     </td>
-                                    <td className="px-3 py-1.5 text-right font-medium text-foreground">
+                                    <td className="px-1 py-1.5 text-right font-medium text-foreground sm:px-3">
                                       {formatMoney(component.cost * line.quantity, currency)}
                                     </td>
-                                    <td className="px-3 py-1.5" />
+                                    <td className="px-1 py-1.5 sm:px-3" />
                                   </tr>
                                 );
                               })}
@@ -571,23 +624,23 @@ export function PurchaseDirectDialog({
 
                         return (
                           <tr key={line.uid} className="border-t border-border">
-                            <td className="px-3 py-2 text-foreground">
+                            <td className="px-1.5 py-2 text-foreground sm:px-3">
                               <div className="flex items-center gap-2">
                                 <ProductThumb
                                   src={product?.thumbnailUrl ?? ""}
                                   alt={product?.name ?? "Producto"}
-                                  className="h-9 w-9 shrink-0 rounded-md border border-border object-cover"
+                                  className="hidden h-9 w-9 shrink-0 rounded-md border border-border object-cover sm:block"
                                 />
                                 <div className="min-w-0">
-                                  <p className="truncate font-medium">{product?.name ?? "Producto"}</p>
-                                  <p className="truncate text-xs text-muted-foreground">
+                                  <p className="break-words font-medium">{product?.name ?? "Producto"}</p>
+                                  <p className="break-words text-xs text-muted-foreground">
                                     {product?.code || "Sin codigo"}
                                     {line.pending ? ` · ${line.pending} pendientes por fabricar` : ""}
                                   </p>
                                 </div>
                               </div>
                             </td>
-                            <td className="px-3 py-2 text-right text-foreground">
+                            <td className="px-1 py-2 text-right text-foreground sm:px-3">
                               <input
                                 type="number"
                                 inputMode="numeric"
@@ -596,16 +649,25 @@ export function PurchaseDirectDialog({
                                 value={line.quantity}
                                 onChange={(event) => setLineQuantity(line.uid, event.target.value)}
                                 aria-label={`Cantidad de ${product?.name ?? "producto"}`}
-                                className="h-8 w-16 rounded-md border border-input bg-transparent px-2 text-right text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                                className={tableInputClassName}
                               />
                             </td>
-                            <td className="px-3 py-2 text-right text-foreground">
-                              {formatMoney(line.unitCost, currency)}
+                            <td className="px-1 py-2 text-right text-foreground sm:px-3">
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                min={0}
+                                step="any"
+                                value={line.unitCost}
+                                onChange={(event) => setLineCost(line.uid, event.target.value)}
+                                aria-label={`Costo unitario de ${product?.name ?? "producto"}`}
+                                className={tableInputClassName}
+                              />
                             </td>
-                            <td className="px-3 py-2 text-right font-semibold text-foreground">
+                            <td className="break-words px-1 py-2 text-right font-semibold text-foreground sm:px-3">
                               {formatMoney(line.unitCost * line.quantity, currency)}
                             </td>
-                            <td className="px-3 py-2 text-right">
+                            <td className="px-0.5 py-2 text-right sm:px-3">
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -630,6 +692,68 @@ export function PurchaseDirectDialog({
                     <Plus className="h-4 w-4" />
                     Agregar producto
                   </Button>
+                </div>
+              ) : null}
+              {/* Edicion: descuento/recargo sobre el total y motivo (obligatorio). */}
+              {isEditing ? (
+                <div className="space-y-3 rounded-xl border border-border bg-card p-3">
+                  {editOrder && editOrder.adjustments.length > 0 ? (
+                    <ul className="space-y-1 text-xs text-muted-foreground">
+                      {editOrder.adjustments.map((entry) => (
+                        <li key={entry.id} className="flex justify-between gap-2">
+                          <span className="min-w-0 break-words">
+                            {entry.note || "Costo adicional"} · {entry.supplierName}
+                          </span>
+                          <span className="shrink-0 font-medium text-foreground">{formatMoney(entry.amount, currency)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    <select
+                      value={adjKind}
+                      onChange={(event) => setAdjKind(event.target.value === "RECARGO" ? "RECARGO" : "DESCUENTO")}
+                      aria-label="Descuento o recargo"
+                      className={cn(controlClassName, "appearance-none")}
+                    >
+                      <option value="DESCUENTO">Descuento (resta)</option>
+                      <option value="RECARGO">Recargo (suma)</option>
+                    </select>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      step="any"
+                      value={adjAmount}
+                      onChange={(event) => setAdjAmount(event.target.value)}
+                      placeholder="Monto"
+                      aria-label="Monto del descuento o recargo"
+                    />
+                    <select
+                      value={effectiveAdjSupplierId}
+                      onChange={(event) => setAdjSupplierId(event.target.value)}
+                      disabled={adjSuppliers.length <= 1}
+                      required={adjValue > 0}
+                      aria-label="Proveedora del descuento o recargo"
+                      className={cn(controlClassName, "col-span-2 appearance-none sm:col-span-1")}
+                    >
+                      {adjSuppliers.length !== 1 ? <option value="">Proveedora</option> : null}
+                      {adjSuppliers.map((supplier) => (
+                        <option key={supplier.id} value={supplier.id}>
+                          {supplier.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Input
+                    name="motivo"
+                    value={reason}
+                    onChange={(event) => setReason(event.target.value)}
+                    required
+                    minLength={3}
+                    placeholder="Motivo del cambio (obligatorio)"
+                    aria-label="Motivo del cambio"
+                  />
                 </div>
               ) : null}
 

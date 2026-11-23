@@ -65,13 +65,56 @@ export function planPurchaseEdit<L extends SubmittedPurchaseLine>(
 }
 
 // Nuevo subtotal/total de la orden: el total conserva lo que ya tenía encima del
-// subtotal (envío y otros costos adicionales), que el formulario de edición no trae.
+// subtotal (envío, costos adicionales y descuentos/recargos previos, que pueden dejarlo
+// negativo) y suma el ajuste nuevo de esta edición (negativo = descuento).
 export function purchaseEditTotals(
   previous: { subtotal: number; total: number },
   newSubtotal: number,
+  adjustment = 0,
 ): { subtotal: number; total: number } {
-  const extras = Math.max(0, previous.total - previous.subtotal);
-  return { subtotal: newSubtotal, total: newSubtotal + extras };
+  const extras = previous.total - previous.subtotal;
+  return { subtotal: newSubtotal, total: newSubtotal + extras + adjustment };
+}
+
+export const MIN_PURCHASE_EDIT_REASON = 3;
+
+// Motivo de la edición: obligatorio (mínimo 3 letras).
+export function purchaseEditReasonError(reason: string): string | null {
+  return reason.trim().length >= MIN_PURCHASE_EDIT_REASON
+    ? null
+    : "Escribe el motivo del cambio (mínimo 3 letras).";
+}
+
+export type PurchaseAdjustmentInput = { kind: string; amount: number; supplierId: string };
+export type PurchaseAdjustment = { amount: number; note: string; supplierId: string };
+
+// Descuento o recargo sobre el total de la compra: un cargo a la proveedora sin
+// producto, negativo si es descuento. Monto vacío o 0 = sin ajuste.
+export function parsePurchaseAdjustment(
+  input: PurchaseAdjustmentInput | null,
+  reason: string,
+): { adjustment: PurchaseAdjustment | null; error: string | null } {
+  if (!input || !(input.amount > 0)) {
+    if (input && input.amount < 0) return { adjustment: null, error: "El monto del ajuste debe ser mayor que 0." };
+    return { adjustment: null, error: null };
+  }
+  if (input.kind !== "DESCUENTO" && input.kind !== "RECARGO") {
+    return { adjustment: null, error: "Elige si es Descuento o Recargo." };
+  }
+  if (!Number.isFinite(input.amount)) return { adjustment: null, error: "Monto del ajuste inválido." };
+  if (!input.supplierId) return { adjustment: null, error: "Elige la proveedora del ajuste." };
+  const reasonError = purchaseEditReasonError(reason);
+  if (reasonError) return { adjustment: null, error: reasonError };
+  const amount = Math.round(input.amount * 100) / 100;
+  const isDiscount = input.kind === "DESCUENTO";
+  return {
+    adjustment: {
+      amount: isDiscount ? -amount : amount,
+      note: `${isDiscount ? "Descuento" : "Recargo"}: ${reason.trim()}`,
+      supplierId: input.supplierId,
+    },
+    error: null,
+  };
 }
 
 // Cuánto cambia el stock de cada producto: unidades nuevas de la compra menos las

@@ -15,6 +15,7 @@ import {
 } from "@/lib/anulaciones";
 import { fullCopyForLog } from "@/lib/activity-log-snapshot";
 import { prisma } from "@/lib/prisma";
+import { formatMoney } from "@/lib/currency";
 import {
   InventoryError,
   registerInventoryMovementUseCase,
@@ -36,10 +37,13 @@ import {
 } from "@/lib/orders";
 import { getProductPurchaseHistory, type ProductPurchaseRow } from "@/lib/product-purchase-history";
 import {
+  parsePurchaseAdjustment,
   planPurchaseEdit,
+  purchaseEditReasonError,
   purchaseEditTotals,
   purchaseStockDeltas,
   type ExistingPurchaseItem,
+  type PurchaseAdjustment,
 } from "@/lib/purchase-edit";
 import { lotUnitsForLine, splitPurchaseLine } from "@/modules/inventory/domain/purchase-lot";
 
@@ -525,7 +529,26 @@ async function runDirectPurchase(formData: FormData, editOrderId?: string): Prom
   };
 
   if (editOrderId) {
-    await runPurchaseEdit({ orderId: editOrderId, items, productInfoById, movementDate, rawDate, resolveSupplier, createdById, returnTo });
+    // Motivo (obligatorio) y descuento/recargo opcional sobre el total de la compra.
+    const reason = getStringField(formData, "motivo").trim();
+    let adjustmentInput: { kind: string; amount: number; supplierId: string } | null = null;
+    try {
+      const raw = JSON.parse(getStringField(formData, "adjustment") || "null") as Record<string, unknown> | null;
+      if (raw && typeof raw === "object") {
+        adjustmentInput = {
+          kind: typeof raw.kind === "string" ? raw.kind : "",
+          amount: Number(raw.amount) || 0,
+          supplierId: typeof raw.supplierId === "string" ? raw.supplierId.trim() : "",
+        };
+      }
+    } catch {
+      // ignore: sin ajuste.
+    }
+    const reasonError = purchaseEditReasonError(reason);
+    if (reasonError) redirectWithError(returnTo, reasonError);
+    const { adjustment, error: adjustmentError } = parsePurchaseAdjustment(adjustmentInput, reason);
+    if (adjustmentError) redirectWithError(returnTo, adjustmentError);
+    await runPurchaseEdit({ orderId: editOrderId, items, productInfoById, movementDate, rawDate, resolveSupplier, createdById, returnTo, reason, adjustment });
     return;
   }
   const purchaseCode = await getNextPurchaseCode();
@@ -806,6 +829,8 @@ type PurchaseEditInput = {
   resolveSupplier: (supplierId: string) => Promise<{ id: string; name: string } | null>;
   createdById: string;
   returnTo: string;
+  reason: string;
+  adjustment: PurchaseAdjustment | null;
 };
 
 // Foto de una compra para la bitácora (antes/después de editarla).
@@ -829,7 +854,14 @@ async function purchaseForLog(orderId: string) {
       },
     },
   });
-  return order ? fullCopyForLog(order) : null;
+  if (!order) return null;
+  // Descuentos, recargos y costos adicionales (cargos sin producto) de la compra.
+  const ajustes = await prisma.supplierLedgerEntry.findMany({
+    where: { orderId, type: "CHARGE", orderItemId: null },
+    orderBy: { createdAt: "asc" },
+    select: { supplierId: true, amount: true, note: true },
+  });
+  return fullCopyForLog({ ...order, ajustes });
 }
 
 // Edita una compra SOBRE LA MISMA ORDEN: conserva su numero ORD, el COM, el estado,
@@ -837,7 +869,7 @@ async function purchaseForLog(orderId: string) {
 // actualizan, las nuevas se crean y las quitadas se borran (no si tienen despacho o
 // pagos). El stock solo cambia por la diferencia de unidades; sin cambios, no se mueve.
 async function runPurchaseEdit(input: PurchaseEditInput): Promise<void> {
-  const { orderId, items, productInfoById, movementDate, rawDate, resolveSupplier, createdById, returnTo } = input;
+  const { orderId, items, productInfoById, movementDate, rawDate, resolveSupplier, createdById, returnTo, reason, adjustment } = input;
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -929,6 +961,10 @@ async function runPurchaseEdit(input: PurchaseEditInput): Promise<void> {
     }
   }
   const supplierOf = (supplierId: string) => supplierByLine.get(supplierId) ?? null;
+  const adjustmentSupplier = adjustment ? await resolveSupplier(adjustment.supplierId) : null;
+  if (adjustment && !adjustmentSupplier) {
+    redirectWithError(returnTo, "La proveedora del descuento o recargo no existe o está inactiva.");
+  }
   const notesOf = (item: { color: string; description: string }) =>
     [item.color ? `Color: ${item.color}` : "", item.description].filter(Boolean).join(" · ") || null;
   const dateChanged = rawDate !== "" && rawDate !== toDateInput(order.releasedAt ?? order.createdAt);
@@ -936,7 +972,7 @@ async function runPurchaseEdit(input: PurchaseEditInput): Promise<void> {
   const effectiveDate = dateChanged ? movementDate : (order.releasedAt ?? order.createdAt);
   let invSeq = await getNextInventoryChargeSeq();
   const actor = await getActivityActor();
-  const anulacion = { motivo: `Editó la compra ${purchaseCode}`, usuarioId: createdById, usuarioNombre: actor.name || actor.email };
+  const anulacion = { motivo: `Editó la compra ${purchaseCode}: ${reason}`, usuarioId: createdById, usuarioNombre: actor.name || actor.email };
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -1139,7 +1175,48 @@ async function runPurchaseEdit(input: PurchaseEditInput): Promise<void> {
 
       // 6) Totales (conservan envio y costos adicionales) y proveedor de la orden.
       const newSubtotal = finalItems.reduce((sum, item) => sum + Number(item.lineTotal), 0);
-      const totals = purchaseEditTotals({ subtotal: Number(order.subtotal), total: Number(order.total) }, newSubtotal);
+      const totals = purchaseEditTotals(
+        { subtotal: Number(order.subtotal), total: Number(order.total) },
+        newSubtotal,
+        adjustment?.amount ?? 0,
+      );
+      // Descuento/recargo: cargo sin producto ligado a la orden (como el envío). Solo a
+      // una proveedora de esta compra, y un descuento no deja la compra con saldo a favor.
+      if (adjustment && adjustmentSupplier) {
+        const orderSupplierIds = new Set<string>([
+          ...finalItems.map((item) => item.confirmedSupplierId).filter((id): id is string => Boolean(id)),
+          ...(await tx.supplierLedgerEntry.findMany({ where: { orderId, type: "CHARGE" }, select: { supplierId: true } })).map(
+            (charge) => charge.supplierId,
+          ),
+        ]);
+        if (!orderSupplierIds.has(adjustmentSupplier.id)) {
+          throw new PurchaseEditError(`${adjustmentSupplier.name} no es proveedora de esta compra.`);
+        }
+        if (adjustment.amount < 0) {
+          const [chargeAgg, payAgg] = await Promise.all([
+            tx.supplierLedgerEntry.aggregate({ _sum: { amount: true }, where: { orderId, supplierId: adjustmentSupplier.id, type: "CHARGE" } }),
+            tx.supplierLedgerEntry.aggregate({ _sum: { amount: true }, where: { orderId, supplierId: adjustmentSupplier.id, type: "PAYMENT" } }),
+          ]);
+          const falta = Number(chargeAgg._sum.amount ?? 0) - Number(payAgg._sum.amount ?? 0);
+          if (falta + adjustment.amount < -0.0001) {
+            throw new PurchaseEditError(
+              `El descuento es mayor que lo que falta pagarle a ${adjustmentSupplier.name} en esta compra (${formatMoney(falta, "COP")}).`,
+            );
+          }
+        }
+        await tx.supplierLedgerEntry.create({
+          data: {
+            supplierId: adjustmentSupplier.id,
+            code: buildInventoryChargeCode((invSeq += 1)),
+            type: "CHARGE",
+            amount: adjustment.amount,
+            note: adjustment.note,
+            paymentDate: effectiveDate,
+            orderId,
+            createdById,
+          },
+        });
+      }
       const extraCharges = await tx.supplierLedgerEntry.findMany({
         where: { orderId, type: "CHARGE", orderItemId: null },
         select: { supplierId: true },
@@ -1197,7 +1274,9 @@ async function runPurchaseEdit(input: PurchaseEditInput): Promise<void> {
     entityType: "PURCHASE",
     entityId: orderId,
     entityCode: purchaseCode,
-    summary: `Editó la compra ${purchaseCode} (${items.length} producto${items.length === 1 ? "" : "s"})`,
+    summary: `Editó la compra ${purchaseCode} (${items.length} producto${items.length === 1 ? "" : "s"})${
+      adjustment ? `, ${adjustment.note.split(":")[0].toLowerCase()} de ${Math.abs(adjustment.amount)}` : ""
+    }. Motivo: ${reason}`,
     before: beforePurchase,
     after: await purchaseForLog(orderId).catch(() => null),
   });
