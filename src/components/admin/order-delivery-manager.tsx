@@ -36,7 +36,7 @@ export function OrderDeliveryManager({
       </p>
 
       <div className="space-y-1">
-        <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+        <label className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
           Foto de la cliente que recibió
         </label>
         <Input
@@ -44,20 +44,20 @@ export function OrderDeliveryManager({
           name="deliveryPhoto"
           accept="image/*"
           capture="environment"
-          className="h-8 text-xs"
+          className="h-9 w-full min-w-0 text-xs"
         />
         <p className="text-xs text-muted-foreground">Opcional. Sirve como prueba de entrega.</p>
       </div>
 
       <div className="space-y-1">
-        <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+        <label className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
           Instagram del cliente
         </label>
         <Input name="instagram" defaultValue={defaultInstagram} placeholder="@usuario" />
       </div>
 
       <div className="space-y-1">
-        <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+        <label className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
           TikTok del cliente
         </label>
         <Input name="tiktok" defaultValue={defaultTiktok} placeholder="@usuario" />

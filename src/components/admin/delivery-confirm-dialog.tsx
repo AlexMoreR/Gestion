@@ -46,8 +46,8 @@ function ConfirmButton({ ready }: { ready: boolean }) {
 function InfoRow({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="flex justify-between gap-3 text-sm">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="text-right font-medium break-words text-foreground">{value || "sin dato"}</dd>
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 text-right font-medium break-words text-foreground">{value || "sin dato"}</dd>
     </div>
   );
 }
@@ -78,18 +78,18 @@ export function DeliveryConfirmDialog({
       </Button>
       {open ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#11182752] px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#11182752] px-3 sm:px-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="delivery-confirm-title"
           onClick={close}
         >
           <Card
-            className="flex max-h-[88vh] w-full max-w-lg flex-col gap-0 overflow-y-auto rounded-xl p-5"
+            className="flex max-h-[88vh] w-full min-w-0 max-w-lg flex-col gap-0 overflow-y-auto overflow-x-hidden rounded-xl p-4 sm:p-5"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-start justify-between gap-3">
-              <h2 id="delivery-confirm-title" className="text-lg font-semibold text-foreground">
+              <h2 id="delivery-confirm-title" className="min-w-0 text-base font-semibold text-foreground sm:text-lg">
                 ¿Confirmas que el cliente YA RECIBIÓ el pedido?
               </h2>
               <Button
@@ -104,7 +104,7 @@ export function DeliveryConfirmDialog({
               </Button>
             </div>
 
-            <form action={action} className="space-y-3">
+            <form action={action} className="min-w-0 space-y-3">
               {Object.entries(hiddenFields).map(([name, value]) => (
                 <input key={name} type="hidden" name={name} value={value} />
               ))}
