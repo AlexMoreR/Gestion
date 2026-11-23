@@ -14,6 +14,7 @@ Un incidente por bloque, el más nuevo arriba: qué pasó, por qué, cómo se ar
   `tablero/6b7cu3kd-editar-compra-diseno-limpio-costo-editab`); se trajo `main` y se re-aplicó T-875 deshaciendo
   la reversa. Antes de subir: `npx tsc --noEmit`, `npm test` (1460), `npm run test:db` (56, Postgres local),
   `npm run build` y la app arrancada con `npm run start` abriendo `/admin/ordenes` con sesión de admin.
-  Subido a `main` en `703f279`.
+  Subido a `main` en `703f279`; GitHub Actions en verde y producción arriba con el build de las 6:56 p. m.
+  (foto del build de `que_es_esta_aplicacion`).
 - **Qué cuidar:** quien construye una tarjeta debe correr también `npm run test:db` (con un Postgres
   desechable), no solo `npm test`: las pruebas de base solo corren en GitHub y ahí frenan el despliegue.
