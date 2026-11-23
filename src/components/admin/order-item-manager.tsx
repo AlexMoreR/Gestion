@@ -317,6 +317,13 @@ export function OrderItemManager({
     setOpen(true);
   };
 
+  // Al confirmar (compra o salida de stock) el cuadro se cierra: Recoger solo se abre con su botón.
+  const [estabaConfirmado, setEstabaConfirmado] = useState(item.isConfirmed);
+  if (estabaConfirmado !== item.isConfirmed) {
+    setEstabaConfirmado(item.isConfirmed);
+    if (item.isConfirmed) setOpen(false);
+  }
+
   return (
     <TableRow data-state={selected ? "selected" : undefined}>
       <TableCell className="w-8">
