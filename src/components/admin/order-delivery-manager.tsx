@@ -37,7 +37,7 @@ export function OrderDeliveryManager({
 
       <div className="space-y-1">
         <label className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
-          Foto de la cliente que recibió
+          Foto de la clienta que recibió (opcional)
         </label>
         <Input
           type="file"
@@ -46,7 +46,7 @@ export function OrderDeliveryManager({
           capture="environment"
           className="h-9 w-full min-w-0 text-xs"
         />
-        <p className="text-xs text-muted-foreground">Opcional. Sirve como prueba de entrega.</p>
+        <p className="text-xs text-muted-foreground">Si no la tienes, puedes registrar la entrega sin foto.</p>
       </div>
 
       <div className="space-y-1">

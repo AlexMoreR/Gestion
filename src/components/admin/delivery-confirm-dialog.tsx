@@ -45,7 +45,7 @@ function ConfirmButton({ ready }: { ready: boolean }) {
 
 function InfoRow({ label, value }: { label: string; value: string | null }) {
   return (
-    <div className="flex justify-between gap-3 text-sm">
+    <div className="flex justify-between gap-3 text-xs leading-5">
       <dt className="shrink-0 text-muted-foreground">{label}</dt>
       <dd className="min-w-0 text-right font-medium break-words text-foreground">{value || "sin dato"}</dd>
     </div>
@@ -109,7 +109,7 @@ export function DeliveryConfirmDialog({
                 <input key={name} type="hidden" name={name} value={value} />
               ))}
 
-              <dl className="space-y-1.5 rounded-lg border border-border bg-muted/40 p-3">
+              <dl className="space-y-0.5 rounded-lg border border-border bg-muted/40 px-3 py-2">
                 <InfoRow label="Orden" value={info.orderCode} />
                 <InfoRow label="Venta" value={info.saleCode} />
                 <InfoRow label="Cliente" value={info.clientName} />
