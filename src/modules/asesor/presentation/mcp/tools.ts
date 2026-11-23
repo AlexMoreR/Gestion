@@ -29,6 +29,8 @@ import { AsesorInputError, currentMonthInBogota } from "../../domain/calculation
 import { createPrismaAsesorRepository } from "../../infrastructure/prisma-asesor-repository";
 import { colombiaDayKey, todayInColombia } from "@/lib/colombia-time";
 import { getMoneyWithoutAccount } from "@/modules/balances/infrastructure/prisma-money-without-account";
+import { buildAccountLedger, findAccountByName } from "@/modules/balances/domain/account-ledger";
+import { getAccountLedgerRows, listLedgerAccounts } from "@/modules/balances/infrastructure/prisma-account-ledger";
 import { getCashPositionUseCase, getPayrollBoardUseCase } from "@/modules/nomina/application/use-cases";
 import { PAY_PERIOD_LABELS } from "@/modules/nomina/domain/payroll";
 import { createPrismaNominaRepository, loadFixedCommissionRates } from "@/modules/nomina/infrastructure/prisma-nomina-repository";
@@ -296,7 +298,7 @@ export const asesorTools: McpToolDefinition[] = [
     name: "saldos_de_cuentas",
     title: "Saldos de cuentas (dinero hoy)",
     description:
-      "Cuanto dinero hay HOY en cada cuenta del negocio (efectivo, bancos, billeteras) y el total disponible. Saldo = saldo inicial + pagos de clientes - pagos a proveedoras - fletes - gastos (incluida nomina) +/- movimientos manuales. Avisa cuantos pagos o fletes quedaron registrados SIN cuenta (no suman ni restan en ningun saldo, por eso el saldo puede no cuadrar con el banco). Las retenciones en la fuente no cuentan como 'sin cuenta': nunca entran a una cuenta. Valores en COP.",
+      "Cuanto dinero hay HOY en cada cuenta del negocio (efectivo, bancos, billeteras) y el total disponible. Saldo = saldo inicial + pagos de clientes - pagos a proveedoras - fletes - gastos (incluida nomina) +/- movimientos manuales. Avisa cuantos pagos o fletes quedaron registrados SIN cuenta (no suman ni restan en ningun saldo, por eso el saldo puede no cuadrar con el banco). Las retenciones en la fuente no cuentan como 'sin cuenta': nunca entran a una cuenta. El detalle de cada cuenta, movimiento por movimiento, se ve con movimientos_de_cuenta. Valores en COP.",
     schema: z.object({}),
     handler: async (_args, deps) => {
       const position = await getCashPositionUseCase(deps.balances, getMoneyWithoutAccount);
@@ -319,6 +321,48 @@ export const asesorTools: McpToolDefinition[] = [
         notas: [
           "Es el saldo de hoy segun lo registrado en la app; si hay registros sin cuenta, comparar con el extracto del banco.",
         ],
+      };
+    },
+  }),
+  defineTool({
+    name: "movimientos_de_cuenta",
+    title: "Movimientos de una cuenta",
+    description:
+      "SOLO LECTURA. Cada movimiento de una cuenta del negocio, del mas viejo al mas nuevo, con el saldo acumulado despues de cada uno: abono de cliente, pago a proveedora, flete, gasto, nomina y movimiento manual (traslado). Por linea: fecha (dia de Colombia), tipo, entrada, salida, saldo, referencia (SAL, ORD, OF o despacho), nota y quien lo registro. Suma lo mismo que saldos_de_cuentas; cuadra_con_saldos_de_cuentas dice si el saldo final (sin fechas) es igual al de esa herramienta. Con 'desde', saldo_inicial es lo acumulado antes de esa fecha. Maximo 500 lineas (las mas nuevas, cortado=true); los totales cuentan todo. Los registros SIN cuenta no salen aqui. Sirve para: ¿por que Nequi tiene ese saldo?, cuadrar con el extracto. Valores en COP.",
+    schema: z.object({
+      cuenta: z.string().min(1).max(80).describe("Nombre de la cuenta, sin importar tildes ni mayusculas (ej. nequi, 1-Bancolombia)."),
+      desde: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Usa AAAA-MM-DD").optional().describe("Fecha inicial inclusiva AAAA-MM-DD. Si se omite, desde el principio."),
+      hasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Usa AAAA-MM-DD").optional().describe("Fecha final inclusiva AAAA-MM-DD. Si se omite, hasta hoy."),
+    }),
+    handler: async (args, deps) => {
+      const accounts = await listLedgerAccounts();
+      const account = findAccountByName(accounts, args.cuenta);
+      if (!account) {
+        throw new AsesorInputError(
+          `No encontre una sola cuenta '${args.cuenta}'. Cuentas: ${accounts.map((item) => item.name).join(", ") || "ninguna"}.`,
+        );
+      }
+      if (args.desde && args.hasta && args.desde > args.hasta) {
+        throw new AsesorInputError("'desde' no puede ser despues de 'hasta'.");
+      }
+      const [rows, position] = await Promise.all([
+        getAccountLedgerRows(account.id),
+        getCashPositionUseCase(deps.balances, getMoneyWithoutAccount),
+      ]);
+      const ledger = buildAccountLedger(account.openingBalance, rows, { desde: args.desde, hasta: args.hasta });
+      const saldoTotal = args.desde || args.hasta ? buildAccountLedger(account.openingBalance, rows).saldo_final : ledger.saldo_final;
+      // Saldos de cuentas oculta las inactivas en cero: para ellas el saldo es 0.
+      const saldoDeSaldos = position.accounts.find((item) => item.id === account.id)?.balance ?? 0;
+      return {
+        moneda: "COP",
+        cuenta: account.name,
+        tipo: account.type,
+        activa: account.isActive,
+        desde: args.desde ?? null,
+        hasta: args.hasta ?? null,
+        ...ledger,
+        cuadra_con_saldos_de_cuentas: Math.round(saldoTotal) === saldoDeSaldos,
+        saldo_en_saldos_de_cuentas: saldoDeSaldos,
       };
     },
   }),
