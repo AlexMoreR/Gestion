@@ -65,7 +65,7 @@ export function ChangeItemModeDialog({
   useEffect(() => {
     if (!open) return;
     let vivo = true;
-    opcionesCambioModoAction(orderItemId)
+    opcionesCambioModoAction({ orderItemId })
       .then((res) => {
         if (!vivo) return;
         if ("error" in res) return setError(res.error);

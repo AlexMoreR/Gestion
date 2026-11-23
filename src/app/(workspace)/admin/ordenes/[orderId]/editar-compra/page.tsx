@@ -70,13 +70,6 @@ export default async function EditPurchasePage({ params }: PageProps) {
     redirect(`/admin/ordenes/${order.id}`);
   }
 
-  // Descuentos, recargos y costos adicionales ya cargados (cargos sin producto), solo para ver.
-  const adjustments = await prisma.supplierLedgerEntry.findMany({
-    where: { orderId: order.id, type: "CHARGE", orderItemId: null },
-    orderBy: { createdAt: "asc" },
-    select: { id: true, amount: true, note: true, supplier: { select: { name: true } } },
-  });
-
   // Reconstruye las lineas de la compra. Los combos quedaron guardados como sus
   // componentes (items sueltos), asi que se editan como productos individuales.
   const lines: PurchaseLine[] = order.items.map((item) => {
@@ -108,14 +101,6 @@ export default async function EditPurchasePage({ params }: PageProps) {
         code: displayCode(order.purchaseCode ?? order.code),
         movementDate: toDateInput(order.releasedAt ?? order.createdAt),
         lines,
-        // Lo que el total tiene encima de los productos (envío, descuentos y recargos previos).
-        extrasTotal: Number(order.total) - Number(order.subtotal),
-        adjustments: adjustments.map((entry) => ({
-          id: entry.id,
-          amount: Number(entry.amount),
-          note: entry.note ?? "",
-          supplierName: entry.supplier.name,
-        })),
       }}
     />
   );
