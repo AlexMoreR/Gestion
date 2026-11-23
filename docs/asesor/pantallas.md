@@ -212,10 +212,11 @@ Detalle de una orden. Aquí se fabrica, se recoge, se despacha y se entrega cada
 
 ## /admin/ordenes/[orderId]/editar-compra
 Edita una compra directa a proveedor. Si la orden es de venta, la página manda al detalle de la orden.
-**Qué se ve:** el mismo modal de compra, con el título "Editar compra <código>", la fecha y las líneas ya cargadas. En cada producto (no en los combos) la columna **Cant** es una casilla para cambiar la cantidad (mínimo 1; ej. de 6 a 5): el "Total compra" se recalcula y, al guardar con **Registrar compra**, baja el cargo a la proveedora y saca del inventario la diferencia. En el celular la tabla se desliza de lado para ver la basura (**Quitar producto**). Una compra por lote (con pendientes por fabricar) no se edita aquí: al guardar sale "Esta compra es por lote: se maneja en Inventario → Lotes".
+**Qué se ve:** el modal de compra, más ancho, con un lápiz, el código (ej. "COM-11") y la fecha arriba (sin el texto "Editar compra" ni el carrito), y las líneas ya cargadas. La tabla no se desliza de lado: el nombre del producto baja de línea si no cabe y en el celular no salen las fotos pequeñas. En cada producto (no en los combos) **Cant** (mínimo 1; ej. de 6 a 5) y **Costo unit.** son casillas: el Total de la línea y el "Total compra" se recalculan al momento y, al guardar, el cargo de esa línea a la proveedora queda en costo × cantidad (y del inventario sale o entra solo la diferencia de unidades). Debajo de la tabla: los descuentos, recargos y costos adicionales que ya tiene la compra (solo para ver), la línea **Descuento (resta) / Recargo (suma)** con "Monto" y la proveedora (si la compra tiene una sola, queda puesta) y el campo **Motivo del cambio (obligatorio)**, mínimo 3 letras: sin motivo no se guarda nada. El descuento queda en la cuenta de la proveedora como un cargo negativo con la nota "Descuento: <motivo>" (el recargo, positivo con "Recargo: <motivo>") y baja o sube el total de la orden y lo que se le debe; no deja un descuento mayor que lo que falta pagarle en esa compra. Un descuento puesto por error se corrige con un Recargo igual. La bitácora guarda el motivo y el antes y el después (líneas, total y ajustes). Una compra por lote (con pendientes por fabricar) no se edita aquí: al guardar sale "Esta compra es por lote: se maneja en Inventario → Lotes".
 **Botones y acciones:**
 - **Agregar producto**: agrega una línea a la compra.
-- **Registrar compra**: guarda los cambios.
+- **Quitar producto** (la caneca de cada línea): la saca de la compra.
+- **Registrar compra**: guarda los cambios (pide el Motivo).
 - **Cancelar**: cierra sin guardar.
 
 ## /admin/ordenes/[orderId]/ganancia
