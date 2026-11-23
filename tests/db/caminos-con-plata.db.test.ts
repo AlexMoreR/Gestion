@@ -256,6 +256,8 @@ describe("caminos con plata (base real)", () => {
     sinError(
       await llamar(inventory.adminUpdateDirectPurchaseAction, {
         orderId: compra.id,
+        // Desde T-875 editar una compra exige el motivo del cambio.
+        motivo: "Llegaron 2 más",
         items: [
           {
             orderItemId: ctx.purchaseItemId,
