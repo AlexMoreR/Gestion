@@ -3,7 +3,7 @@
 //           y les pone el costo de la compra elegida.
 //  A_FABRICACION: devuelve las piezas al inventario, les pone la proveedora y el costo escritos y crea el
 //           cargo (la deuda) y la producción; la OF sale sola en la orden.
-// Un combo cambia completo (todas sus piezas en ese modo). No toca la venta, los abonos, la entrega, el
+// Un combo cambia completo (todas sus piezas en ese modo); con manufacturingOrderId, toda la OF de una vez. No toca la venta, los abonos, la entrega, el
 // despacho ni los fletes. planCambioModo calcula el antes/después (vista previa) y lo mismo que se escribe.
 import "server-only";
 import type { Prisma } from "@prisma/client";
@@ -64,8 +64,10 @@ export type OpcionesCambio = {
   proveedoraSugerida: string | null;
 };
 
-export type EntradaCambio = {
-  orderItemId: string;
+/** Qué se cambia: un producto (o su combo) o toda una OF (sus productos en Fabricación con esa proveedora). */
+export type SeleccionCambio = { orderItemId?: string | null; manufacturingOrderId?: string | null };
+
+export type EntradaCambio = SeleccionCambio & {
   compraId?: string | null;
   supplierId?: string | null;
   /** A_FABRICACION: costo por unidad de cada pieza (id → pesos). */
@@ -74,11 +76,17 @@ export type EntradaCambio = {
 
 const nombreProveedora = (s: { name: string; displayName: string | null }) => s.displayName || s.name;
 
-async function cargar(db: Db, orderItemId: string) {
-  const item = await db.orderItem.findUnique({ where: { id: orderItemId }, select: { orderId: true } });
-  if (!item) return { error: "Producto no encontrado." } as const;
+async function cargar(db: Db, sel: SeleccionCambio) {
+  const of = sel.manufacturingOrderId
+    ? await db.manufacturingOrder.findUnique({ where: { id: sel.manufacturingOrderId }, select: { orderId: true, supplierId: true, code: true } })
+    : null;
+  if (sel.manufacturingOrderId && !of) return { error: "OF no encontrada." } as const;
+  const item =
+    !of && sel.orderItemId ? await db.orderItem.findUnique({ where: { id: sel.orderItemId }, select: { orderId: true } }) : null;
+  const orderId = of?.orderId ?? item?.orderId;
+  if (!orderId) return { error: "Producto no encontrado." } as const;
   const order = await db.order.findUnique({
-    where: { id: item.orderId },
+    where: { id: orderId },
     select: {
       id: true,
       code: true,
@@ -112,22 +120,32 @@ async function cargar(db: Db, orderItemId: string) {
     },
   });
   if (!order) return { error: "Orden no encontrada." } as const;
-  const clicked = order.items.find((o) => o.id === orderItemId);
-  const direccion = clicked ? direccionDeCambio(clicked) : null;
-  const quoteItems = order.sale
-    ? await db.quoteItem.findMany({
-        where: { quoteId: order.sale.quoteId },
-        select: { id: true, notes: true, product: { select: { name: true, isBundle: true } } },
-      })
-    : [];
-  const grupo = linesToRecolor(
-    orderItemId,
-    quoteItems.map((q) => ({ id: q.id, notes: q.notes, productName: q.product.name, isBundle: q.product.isBundle })),
-    order.items,
-  );
-  const piezas = direccion
-    ? order.items.filter((o) => grupo?.orderItemIds.includes(o.id) && direccionDeCambio(o) === direccion)
-    : [];
+  let clicked: (typeof order.items)[number] | undefined;
+  let direccion: DireccionCambio | null = null;
+  let piezas: typeof order.items = [];
+  if (of) {
+    // Toda la OF: las piezas confirmadas en Fabricación con su proveedora, en esa misma orden.
+    piezas = order.items.filter(
+      (o) => o.fulfillmentMode === "MANUFACTURE" && o.confirmedSupplierId === of.supplierId && direccionDeCambio(o) === "A_STOCK",
+    );
+    clicked = piezas[0];
+    direccion = clicked ? "A_STOCK" : null;
+  } else {
+    clicked = order.items.find((o) => o.id === sel.orderItemId);
+    direccion = clicked ? direccionDeCambio(clicked) : null;
+    const quoteItems = order.sale
+      ? await db.quoteItem.findMany({
+          where: { quoteId: order.sale.quoteId },
+          select: { id: true, notes: true, product: { select: { name: true, isBundle: true } } },
+        })
+      : [];
+    const grupo = linesToRecolor(
+      sel.orderItemId!,
+      quoteItems.map((q) => ({ id: q.id, notes: q.notes, productName: q.product.name, isBundle: q.product.isBundle })),
+      order.items,
+    );
+    piezas = direccion ? order.items.filter((o) => grupo?.orderItemIds.includes(o.id) && direccionDeCambio(o) === direccion) : [];
+  }
   const bloqueo = bloqueoCambioModo({
     esVenta: order.type === "SALE",
     ordenEstado: order.status,
@@ -136,7 +154,7 @@ async function cargar(db: Db, orderItemId: string) {
   });
   if (bloqueo || !direccion || !clicked) return { error: bloqueo ?? "Producto no encontrado." } as const;
   const meta = parseQuoteItemMeta(clicked.notes);
-  const producto = piezas.length > 1 && meta.comboName ? meta.comboName : clicked.product.name;
+  const producto = of ? displayCode(of.code) : piezas.length > 1 && meta.comboName ? meta.comboName : clicked.product.name;
   return { order, piezas, direccion, producto, meta } as const;
 }
 
@@ -186,8 +204,8 @@ async function comprasConPiezas(db: Db, piezas: Cargado["piezas"]) {
     .slice(0, 12);
 }
 
-export async function opcionesCambioModo(db: Db, orderItemId: string): Promise<OpcionesCambio | { error: string }> {
-  const base = await cargar(db, orderItemId);
+export async function opcionesCambioModo(db: Db, sel: SeleccionCambio): Promise<OpcionesCambio | { error: string }> {
+  const base = await cargar(db, sel);
   if ("error" in base) return { error: base.error as string };
   const { piezas, direccion, producto } = base;
   const compras = direccion === "A_STOCK" ? await comprasConPiezas(db, piezas) : [];
@@ -256,7 +274,7 @@ export type PlanCambio = {
 };
 
 export async function planCambioModo(db: Db, entrada: EntradaCambio): Promise<PlanCambio | { error: string }> {
-  const base = await cargar(db, entrada.orderItemId);
+  const base = await cargar(db, entrada);
   if ("error" in base) return { error: base.error as string };
   const { order, piezas, direccion, producto, meta } = base;
   const sale = order.sale!;
