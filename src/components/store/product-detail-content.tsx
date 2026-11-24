@@ -16,6 +16,7 @@ import { getProductSeoContent } from "@/lib/product-seo-content";
 import { imageVariantUrl } from "@/lib/image-variants";
 import {
   buildProductLandingData,
+  CASH_ON_DELIVERY_PRICE_NOTE,
   FACTORY_LOCATIONS,
   HARDWARE_PAYMENT_LABEL,
   HARDWARE_SHIPPING_TEXT,
@@ -323,6 +324,9 @@ export async function ProductDetailContent({
               <span className="text-sm text-muted-foreground">Precio directo de fábrica</span>
             )}
           </div>
+          {landing.cashOnDelivery ? (
+            <p className="mt-1.5 text-sm text-muted-foreground">{CASH_ON_DELIVERY_PRICE_NOTE}</p>
+          ) : null}
           {comboSavings != null ? (
             <p className="mt-2 inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
               Ahorras {formatMoney(String(comboSavings), currency)} frente a comprar por separado

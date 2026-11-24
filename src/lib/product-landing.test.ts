@@ -3,6 +3,7 @@ import {
   ASK_ADVISOR_LABEL,
   buildProductFaq,
   buildProductLandingData,
+  CASH_ON_DELIVERY_PRICE_NOTE,
   extractMeasureFromDescription,
   hasHydraulicSystem,
   isCamillasCombo,
@@ -197,9 +198,13 @@ describe("buildProductLandingData: contraentrega solo en el Combo Camillas", () 
     expect(text).toContain("1 año de garantía");
   });
 
+  it("la linea bajo el precio es exactamente la que pidio el dueño", () => {
+    expect(CASH_ON_DELIVERY_PRICE_NOTE).toBe("Contraentrega: el envío lo pagas tú.");
+  });
+
   it("los demas combos de camilla y un producto sin codigo: sin contraentrega", () => {
     for (const product of [
-      ...["CMB006", "CMB007", "CMB011", "CMB015", "CMB018", "CMB021"].map((code) => ({
+      ...["CMB006", "CMB007", "CMB011", "CMB015", "CMB018", "CMB021", "CMB022"].map((code) => ({
         ...base,
         code,
         name: "COMBO CAMILLA PORTATIL",
