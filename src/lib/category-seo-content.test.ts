@@ -35,7 +35,7 @@ describe("textos SEO de /esmalteros", () => {
   });
 
   it("otras categorías no tienen texto fijo", () => {
-    expect(getCategorySeoContent("mesa-manicura")).toBeNull();
+    expect(getCategorySeoContent("camilla")).toBeNull();
     expect(getCategorySeoContent(undefined)).toBeNull();
     expect(getCategorySeoContent("__proto__")).toBeNull();
   });
@@ -134,6 +134,36 @@ describe("textos SEO de /tarimas-pedicure", () => {
     expect(hrefs).toEqual(["/mesa-manicura", "/butacos-mani-y-pedy", "/esmalteros"]);
     expect(seo.h1).toBe("Tarimas para pedicure");
     expect(seo.altSuffix).toBe("tarima para pedicure");
+    expect(body.endsWith("Escríbenos por WhatsApp y te asesoramos.")).toBe(true);
+  });
+
+  it("sin precios, envío gratis ni descuentos", () => {
+    const all = [seo.title, seo.description, seo.h1, body, seo.altSuffix].join(" ").toLowerCase();
+    expect(all).not.toMatch(/\$|precio|gratis|descuento/);
+  });
+});
+
+describe("textos SEO de /mesa-manicura", () => {
+  const seo = getCategorySeoContent("mesa-manicura")!;
+  const body = seo.paragraphs.map(categorySeoParagraphText).join(" ");
+  const hrefs = seo.paragraphs.flat().flatMap((s) => (typeof s === "string" ? [] : [s.href]));
+
+  it("título y descripción dentro del largo de Google", () => {
+    expect(seo.title).toBe("Mesa de manicura de fábrica, envío a toda Colombia | Magilus");
+    expect(seo.title.startsWith("Mesa de manicura")).toBe(true);
+    expect(seo.title.length).toBeLessThanOrEqual(60);
+    expect(seo.description.length).toBeLessThanOrEqual(155);
+    expect(seo.h1).toBe("Mesas de manicura");
+  });
+
+  it("texto de 120 a 200 palabras con las búsquedas, los enlaces y el cierre", () => {
+    const words = body.split(/\s+/).filter(Boolean).length;
+    expect(words).toBeGreaterThanOrEqual(120);
+    expect(words).toBeLessThanOrEqual(200);
+    for (const word of ["mesa de manicura", "mesa manicura", "mesa para manicure", "mesa manicurista"]) {
+      expect(body.toLowerCase()).toContain(word);
+    }
+    expect(hrefs).toEqual(["/mesa-manicura/mesa-manicura-mmv10", "/esmalteros", "/tarimas-pedicure"]);
     expect(body.endsWith("Escríbenos por WhatsApp y te asesoramos.")).toBe(true);
   });
 
