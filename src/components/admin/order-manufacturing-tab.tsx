@@ -81,7 +81,7 @@ function CambiarAStockMenu({ label, onSelect }: { label: string; onSelect: () =>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onSelect={onSelect}>
-          <PackageCheck className="h-4 w-4" /> Cambiar a: salió del inventario
+          <PackageCheck className="mr-2 h-4 w-4" /> Cambiar a: salió del inventario
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
