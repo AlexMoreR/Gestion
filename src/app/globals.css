@@ -251,6 +251,12 @@ body:has([data-product-buy-bar]) [data-floating-whatsapp] {
   display: none;
 }
 
+/* Pagina de categoria: su propia burbuja (con el nombre de la categoria, dentro de <main>) reemplaza
+   a la general del layout, que va despues de <main>. */
+body:has([data-category-whatsapp]) main ~ [data-floating-whatsapp] {
+  display: none;
+}
+
 @media (max-width: 1023.98px) {
   body:has([data-product-buy-bar]) {
     padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));

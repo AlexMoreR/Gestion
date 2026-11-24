@@ -6,6 +6,7 @@ import { CatalogPagination } from "@/components/store/catalog-pagination";
 import { CategoriesCarousel } from "@/components/store/categories-carousel";
 import { GuaranteeBadge } from "@/components/store/guarantee-badge";
 import { FeaturedProductsCarousel } from "@/components/store/featured-products-carousel";
+import { FloatingWhatsAppButton } from "@/components/store/floating-whatsapp-button";
 import { WhatsAppIcon } from "@/components/store/whatsapp-icon";
 import { Card } from "@/components/ui/card";
 import { formatMoney } from "@/lib/currency";
@@ -836,6 +837,13 @@ export async function StorefrontCatalog({
               </div>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {/* En una categoria la burbuja dice de cual viene el cliente; globals.css esconde la general del layout. */}
+      {category ? (
+        <div data-category-whatsapp="">
+          <FloatingWhatsAppButton href={storefrontWhatsAppHref} />
         </div>
       ) : null}
     </section>
