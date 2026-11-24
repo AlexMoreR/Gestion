@@ -1,15 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, Check, Copy, ExternalLink, Factory, MessageCircle } from "lucide-react";
+import { AlertTriangle, Check, Copy, ExternalLink, Factory, MessageCircle, MoreHorizontal, PackageCheck } from "lucide-react";
 import {
   adminMarkManufacturingReceivedAction,
   adminUpdateManufacturingOrderAction,
 } from "@/app/actions/manufacturing-order-actions";
 import { CarrierMessageButton } from "@/components/admin/carrier-message-button";
+import { ChangeItemModeDialog } from "@/components/admin/change-item-mode-dialog";
 import { DeliveryStateChip } from "@/components/admin/delivery-state-chip";
 import { FechaHistorial, SaveDateButton, type CambioFechaView } from "@/components/admin/dispatch-estimate-card";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { ReceiptLightbox } from "@/components/ui/receipt-lightbox";
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
@@ -41,7 +43,8 @@ export type ManufacturingCard = {
   totalCost: number;
   hasMissingCost: boolean;
   units: number;
-  lines: Array<{ id: string; name: string; code: string | null; quantity: number }>;
+  // cambiable: confirmado en Fabricación, se puede pasar a "salió del inventario" (direccionDeCambio).
+  lines: Array<{ id: string; name: string; code: string | null; quantity: number; cambiable: boolean }>;
   // Lo pagado a la proveedora en esta orden (cuenta de Proveedores). null = sin datos.
   pago: ManufacturingPaymentSummary | null;
   // Combo Camillas: la orden se creo sola con Laura; falta que la asesora le mande el link.
@@ -59,7 +62,31 @@ type OrderManufacturingTabProps = {
   currency: SupportedCurrencyCode;
   returnTo: string;
   brandName: string;
+  // Solo ADMIN, venta y orden sin cancelar (la página aplica la misma regla que el servidor).
+  puedeCambiarAStock: boolean;
 };
+
+type CambioAbierto = { key: string; productName: string } & (
+  | { orderItemId: string; manufacturingOrderId?: undefined }
+  | { manufacturingOrderId: string; orderItemId?: undefined }
+);
+
+function CambiarAStockMenu({ label, onSelect }: { label: string; onSelect: () => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0" aria-label={label}>
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={onSelect}>
+          <PackageCheck className="h-4 w-4" /> Cambiar a: salió del inventario
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 function CopyLinkButton({ url }: { url: string }) {
   const [copied, setCopied] = React.useState(false);
@@ -131,7 +158,8 @@ function SupplierPayments({ pago, currency }: { pago: ManufacturingPaymentSummar
   );
 }
 
-export function OrderManufacturingTab({ cards, currency, returnTo, brandName }: OrderManufacturingTabProps) {
+export function OrderManufacturingTab({ cards, currency, returnTo, brandName, puedeCambiarAStock }: OrderManufacturingTabProps) {
+  const [cambio, setCambio] = React.useState<CambioAbierto | null>(null);
   if (cards.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
@@ -143,6 +171,18 @@ export function OrderManufacturingTab({ cards, currency, returnTo, brandName }: 
 
   return (
     <div className="space-y-3">
+      {cambio ? (
+        <ChangeItemModeDialog
+          key={cambio.key}
+          open
+          onOpenChange={(open) => (open ? null : setCambio(null))}
+          {...(cambio.manufacturingOrderId
+            ? { manufacturingOrderId: cambio.manufacturingOrderId }
+            : { orderItemId: cambio.orderItemId ?? "" })}
+          productName={cambio.productName}
+          returnTo={returnTo}
+        />
+      ) : null}
       {cards.map((card) => {
         const message = `Hola ${card.supplierName}, te compartimos la orden de fabricación *${displayCode(card.code)}* de ${brandName}:\n${card.url}`;
         const waHref = `https://wa.me/${card.supplierWhatsApp}?text=${encodeURIComponent(message)}`;
@@ -162,19 +202,43 @@ export function OrderManufacturingTab({ cards, currency, returnTo, brandName }: 
                   ) : null}
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm font-semibold text-foreground">{formatMoney(card.totalCost, currency)}</p>
-                <p className="text-[11px] text-muted-foreground">
-                  {card.units} und · {card.lines.length} producto{card.lines.length === 1 ? "" : "s"}
-                </p>
+              <div className="flex shrink-0 items-start gap-2">
+                <div className="text-right">
+                  {card.lines.length === 0 ? (
+                    <p className="text-xs font-medium text-muted-foreground">Sin productos: pasó a stock</p>
+                  ) : (
+                    <>
+                      <p className="text-sm font-semibold text-foreground">{formatMoney(card.totalCost, currency)}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {card.units} und · {card.lines.length} producto{card.lines.length === 1 ? "" : "s"}
+                      </p>
+                    </>
+                  )}
+                </div>
+                {puedeCambiarAStock && card.lines.some((line) => line.cambiable) ? (
+                  <CambiarAStockMenu
+                    label={`Acciones de ${displayCode(card.code)}`}
+                    onSelect={() =>
+                      setCambio({ key: `of-${card.id}`, manufacturingOrderId: card.id, productName: `Toda la ${displayCode(card.code)}` })
+                    }
+                  />
+                ) : null}
               </div>
             </div>
 
-            <ul className="space-y-0.5 text-xs text-muted-foreground">
+            <ul className="space-y-1 text-xs text-muted-foreground">
               {card.lines.map((line) => (
-                <li key={line.id} className="truncate">
-                  {line.quantity} × {line.name}
-                  {line.code ? <span className="text-muted-foreground/70"> · {line.code}</span> : null}
+                <li key={line.id} className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 truncate">
+                    {line.quantity} × {line.name}
+                    {line.code ? <span className="text-muted-foreground/70"> · {line.code}</span> : null}
+                  </span>
+                  {puedeCambiarAStock && line.cambiable ? (
+                    <CambiarAStockMenu
+                      label={`Acciones de ${line.name}`}
+                      onSelect={() => setCambio({ key: line.id, orderItemId: line.id, productName: line.name })}
+                    />
+                  ) : null}
                 </li>
               ))}
             </ul>

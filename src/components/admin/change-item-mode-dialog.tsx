@@ -44,15 +44,17 @@ export function ChangeItemModeDialog({
   open,
   onOpenChange,
   orderItemId,
+  manufacturingOrderId,
   productName,
   returnTo,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  orderItemId: string;
   productName: string;
   returnTo: string;
-}) {
+} & ({ orderItemId: string; manufacturingOrderId?: undefined } | { manufacturingOrderId: string; orderItemId?: undefined })) {
+  // Un producto (orderItemId) o toda una OF (manufacturingOrderId); el servidor arma las piezas.
+  const campo = manufacturingOrderId ? { name: "manufacturingOrderId", value: manufacturingOrderId } : { name: "orderItemId", value: orderItemId ?? "" };
   const [opciones, setOpciones] = useState<OpcionesCambio | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [compraId, setCompraId] = useState("");
@@ -65,7 +67,7 @@ export function ChangeItemModeDialog({
   useEffect(() => {
     if (!open) return;
     let vivo = true;
-    opcionesCambioModoAction({ orderItemId })
+    opcionesCambioModoAction(manufacturingOrderId ? { manufacturingOrderId } : { orderItemId: orderItemId ?? "" })
       .then((res) => {
         if (!vivo) return;
         if ("error" in res) return setError(res.error);
@@ -79,12 +81,12 @@ export function ChangeItemModeDialog({
     return () => {
       vivo = false;
     };
-  }, [open, orderItemId]);
+  }, [open, orderItemId, manufacturingOrderId]);
 
   const aStock = opciones?.direccion !== "A_FABRICACION";
   const datos = () => {
     const fd = new FormData();
-    fd.set("orderItemId", orderItemId);
+    fd.set(campo.name, campo.value);
     if (aStock) fd.set("compraId", compraId);
     else {
       fd.set("supplierId", supplierId);
@@ -133,7 +135,7 @@ export function ChangeItemModeDialog({
         {opciones ? (
           <form action={adminCambiarModoConfirmadoAction} className="space-y-3">
             <input type="hidden" name="returnTo" value={returnTo} />
-            <input type="hidden" name="orderItemId" value={orderItemId} />
+            <input type="hidden" name={campo.name} value={campo.value} />
             <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
               {aStock ? (
                 <>
