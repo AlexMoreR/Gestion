@@ -85,7 +85,7 @@ type ProductDetailContentProps = {
 };
 
 // Boton principal de compra (verde WhatsApp). data-cta mide la posicion del clic
-// ("principal" | "barra" | "cierre"); hoy no hay analitica cargada en la tienda.
+// ("principal" | "barra" | "cierre"); va en el evento clic_whatsapp de Analytics (google-tag.tsx).
 const WHATSAPP_CTA_CLASS =
   "inline-flex min-h-14 w-full items-center justify-center gap-2.5 rounded-2xl bg-[#25D366] px-5 text-[17px] font-extrabold text-[#0b3d22] shadow-[0_10px_24px_-12px_rgba(37,211,102,0.8)] transition hover:bg-[#1ebe5b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#25D366] active:scale-[0.985]";
 
