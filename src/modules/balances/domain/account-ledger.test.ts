@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAccountLedger, findAccountByName, type AccountLedgerInput } from "./account-ledger";
+import { buildAccountLedger, findAccountByName, summarizeUnaccounted, type AccountLedgerInput, type UnaccountedRow } from "./account-ledger";
 
 const row = (fecha: string, sentido: "entrada" | "salida", valor: number, extra: Partial<AccountLedgerInput> = {}): AccountLedgerInput => ({
   fecha: new Date(fecha),
@@ -102,5 +102,36 @@ describe("findAccountByName", () => {
     expect(findAccountByName(accounts, "1-bancolombia")?.name).toBe("1-Bancolombia");
     expect(findAccountByName(accounts, "bancolombia")).toBeNull();
     expect(findAccountByName(accounts, "davivienda")).toBeNull();
+  });
+});
+
+describe("summarizeUnaccounted", () => {
+  const sin = (tipo: UnaccountedRow["tipo"], fecha: string, valor: number): UnaccountedRow => ({
+    tipo,
+    fecha: new Date(fecha),
+    registradoEn: new Date("2026-11-20T20:30:00Z"),
+    quien: null,
+    venta: "SAL-12",
+    orden: null,
+    of: null,
+    despacho: null,
+    registradoPor: null,
+    valor,
+  });
+
+  it("la cantidad y el monto por tipo salen de las filas, ordenadas por fecha", () => {
+    const result = summarizeUnaccounted([
+      sin("flete", "2026-11-05T15:00:00Z", 200000),
+      sin("pago_proveedora", "2026-11-01T00:00:00Z", 185000),
+      sin("flete", "2026-11-02T15:00:00Z", 815000),
+    ]);
+    expect(result.cantidad).toBe(3);
+    expect(result.totales).toEqual([
+      { tipo: "abono de cliente", cantidad: 0, monto: 0 },
+      { tipo: "pago a proveedora", cantidad: 1, monto: 185000 },
+      { tipo: "flete", cantidad: 2, monto: 1015000 },
+    ]);
+    expect(result.registros.map((r) => r.fecha)).toEqual(["2026-11-01", "2026-11-02", "2026-11-05"]);
+    expect(result.registros[0]).toMatchObject({ proveedora: "sin dato", registrado_el: "2026-11-20 15:30", registrado_por: "sin dato" });
   });
 });

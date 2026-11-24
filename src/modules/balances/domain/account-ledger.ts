@@ -1,4 +1,4 @@
-import { colombiaDayKey } from "../../../lib/colombia-time";
+import { colombiaDayKey, colombiaTimeOfDay } from "../../../lib/colombia-time";
 
 // Movimientos de UNA cuenta con su saldo acumulado (herramienta MCP movimientos_de_cuenta).
 // Suma lo mismo que el saldo de "Dinero hoy" (listAccountBalances): abonos de clientes con
@@ -140,4 +140,57 @@ export function findAccountByName<T extends { name: string }>(accounts: T[], que
   if (exact) return exact;
   const partial = accounts.filter((account) => normalize(account.name).includes(wanted));
   return partial.length === 1 ? partial[0] : null;
+}
+
+// Registros guardados SIN cuenta (herramienta MCP registros_sin_cuenta). Mismos tipos que
+// sin_cuenta_asignada de saldos_de_cuentas; los totales por tipo salen de las mismas filas.
+
+export type UnaccountedKind = "abono" | "pago_proveedora" | "flete";
+
+export type UnaccountedRow = {
+  tipo: UnaccountedKind;
+  fecha: Date;
+  registradoEn: Date;
+  // Clienta (abono), proveedora (pago) o transportadora (flete).
+  quien: string | null;
+  venta: string | null;
+  orden: string | null;
+  of: string | null;
+  despacho: string | null;
+  registradoPor: string | null;
+  valor: number;
+};
+
+const UNACCOUNTED_LABELS: Record<UnaccountedKind, string> = {
+  abono: "abono de cliente",
+  pago_proveedora: "pago a proveedora",
+  flete: "flete",
+};
+
+export function summarizeUnaccounted(rows: UnaccountedRow[]) {
+  const totales = (Object.keys(UNACCOUNTED_LABELS) as UnaccountedKind[]).map((tipo) => {
+    const own = rows.filter((row) => row.tipo === tipo);
+    return {
+      tipo: UNACCOUNTED_LABELS[tipo],
+      cantidad: own.length,
+      // Redondeo igual que sin_cuenta_asignada (Math.round de la suma).
+      monto: Math.round(own.reduce((sum, row) => sum + row.valor, 0)),
+    };
+  });
+  const registros = rows
+    .map((row, index) => ({ row, index, day: colombiaDayKey(row.fecha) }))
+    .sort((a, b) => a.day.localeCompare(b.day) || a.row.fecha.getTime() - b.row.fecha.getTime() || a.index - b.index)
+    .map(({ row, day }) => ({
+      fecha: day,
+      registrado_el: `${colombiaDayKey(row.registradoEn)} ${colombiaTimeOfDay(row.registradoEn)}`,
+      tipo: UNACCOUNTED_LABELS[row.tipo],
+      [row.tipo === "abono" ? "clienta" : row.tipo === "flete" ? "transportadora" : "proveedora"]: row.quien ?? "sin dato",
+      venta: row.venta,
+      orden: row.orden,
+      of: row.of,
+      despacho: row.despacho,
+      registrado_por: row.registradoPor ?? "sin dato",
+      valor: row.valor,
+    }));
+  return { cantidad: rows.length, totales, registros };
 }

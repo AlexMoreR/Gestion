@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { UnaccountedRecord } from "../domain/money-alert";
+import { SHIPPING_COST_WITHOUT_ACCOUNT, SUPPLIER_PAYMENT_WITHOUT_ACCOUNT } from "./prisma-money-without-account";
 
 // Lo guardado SIN cuenta desde `since` (por createdAt = momento real del registro). Mismo criterio
 // que la "plata sin cuenta" de Balances (getMoneyWithoutAccount), pero con la venta o la proveedora.
@@ -11,14 +12,13 @@ export async function listUnaccountedSince(since: Date): Promise<UnaccountedReco
       orderBy: { createdAt: "asc" },
       select: { amount: true, isWithholding: true, sale: { select: { code: true } } },
     }),
-    // Un flete enlazado al pago al transportador ya resta del saldo por ese pago.
     prisma.shippingCost.findMany({
-      where: { accountId: null, supplierPaymentId: null, createdAt: { gte: since } },
+      where: { ...SHIPPING_COST_WITHOUT_ACCOUNT, createdAt: { gte: since } },
       orderBy: { createdAt: "asc" },
       select: { amount: true, sale: { select: { code: true } } },
     }),
     prisma.supplierLedgerEntry.findMany({
-      where: { accountId: null, type: "PAYMENT", createdAt: { gte: since } },
+      where: { ...SUPPLIER_PAYMENT_WITHOUT_ACCOUNT, createdAt: { gte: since } },
       orderBy: { createdAt: "asc" },
       select: { amount: true, supplier: { select: { name: true } } },
     }),

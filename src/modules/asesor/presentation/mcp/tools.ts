@@ -28,8 +28,8 @@ import {
 import { AsesorInputError, currentMonthInBogota } from "../../domain/calculations";
 import { createPrismaAsesorRepository } from "../../infrastructure/prisma-asesor-repository";
 import { colombiaDayKey, todayInColombia } from "@/lib/colombia-time";
-import { getMoneyWithoutAccount } from "@/modules/balances/infrastructure/prisma-money-without-account";
-import { buildAccountLedger, findAccountByName } from "@/modules/balances/domain/account-ledger";
+import { getMoneyWithoutAccount, listMoneyWithoutAccount } from "@/modules/balances/infrastructure/prisma-money-without-account";
+import { buildAccountLedger, findAccountByName, summarizeUnaccounted } from "@/modules/balances/domain/account-ledger";
 import { getAccountLedgerRows, listLedgerAccounts } from "@/modules/balances/infrastructure/prisma-account-ledger";
 import { getCashPositionUseCase, getPayrollBoardUseCase } from "@/modules/nomina/application/use-cases";
 import { PAY_PERIOD_LABELS } from "@/modules/nomina/domain/payroll";
@@ -298,7 +298,7 @@ export const asesorTools: McpToolDefinition[] = [
     name: "saldos_de_cuentas",
     title: "Saldos de cuentas (dinero hoy)",
     description:
-      "Cuanto dinero hay HOY en cada cuenta del negocio (efectivo, bancos, billeteras) y el total disponible. Saldo = saldo inicial + pagos de clientes - pagos a proveedoras - fletes - gastos (incluida nomina) +/- movimientos manuales. Avisa cuantos pagos o fletes quedaron registrados SIN cuenta (no suman ni restan en ningun saldo, por eso el saldo puede no cuadrar con el banco). Las retenciones en la fuente no cuentan como 'sin cuenta': nunca entran a una cuenta. El detalle de cada cuenta, movimiento por movimiento, se ve con movimientos_de_cuenta. Valores en COP.",
+      "Cuanto dinero hay HOY en cada cuenta del negocio (efectivo, bancos, billeteras) y el total disponible. Saldo = saldo inicial + pagos de clientes - pagos a proveedoras - fletes - gastos (incluida nomina) +/- movimientos manuales. Avisa cuantos pagos o fletes quedaron registrados SIN cuenta (no suman ni restan en ningun saldo, por eso el saldo puede no cuadrar con el banco). Las retenciones en la fuente no cuentan como 'sin cuenta': nunca entran a una cuenta. El detalle de cada cuenta, movimiento por movimiento, se ve con movimientos_de_cuenta; el detalle de lo que no tiene cuenta, registro por registro, se ve con registros_sin_cuenta. Valores en COP.",
     schema: z.object({}),
     handler: async (_args, deps) => {
       const position = await getCashPositionUseCase(deps.balances, getMoneyWithoutAccount);
@@ -365,6 +365,20 @@ export const asesorTools: McpToolDefinition[] = [
         saldo_en_saldos_de_cuentas: saldoDeSaldos,
       };
     },
+  }),
+  defineTool({
+    name: "registros_sin_cuenta",
+    title: "Registros sin cuenta",
+    description:
+      "SOLO LECTURA. Uno por uno, los registros de plata guardados SIN cuenta (los mismos que cuenta sin_cuenta_asignada de saldos_de_cuentas): abonos de clientes (sin retenciones en la fuente), pagos a proveedoras y fletes (sin los que ya quedaron unidos a un pago al transportador). Por registro: fecha (dia de Colombia), registrado_el (hora Colombia), tipo, la clienta, proveedora o transportadora, venta (SAL), orden (ORD), OF y despacho si existen, quien lo registro y el valor. Ordenados por fecha, con cantidad y monto por tipo. No cambia nada: la cuenta se pone desde la pantalla. Valores en COP.",
+    schema: z.object({}),
+    handler: async () => ({
+      moneda: "COP",
+      ...summarizeUnaccounted(await listMoneyWithoutAccount()),
+      notas: [
+        "Esta herramienta no cambia nada: la cuenta de cada registro se pone desde la pantalla de Gestión.",
+      ],
+    }),
   }),
   defineTool({
     name: "nomina_del_mes",
