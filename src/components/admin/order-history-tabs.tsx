@@ -51,7 +51,7 @@ type OrderHistoryTabsProps = {
   orderId: string;
   returnTo: string;
   // Ordenes de fabricacion por proveedora (solo ordenes de venta).
-  manufacturing?: { cards: ManufacturingCard[]; brandName: string };
+  manufacturing?: { cards: ManufacturingCard[]; brandName: string; puedeCambiarAStock: boolean };
 };
 
 export function OrderHistoryTabs({
@@ -81,6 +81,7 @@ export function OrderHistoryTabs({
             currency={currency}
             returnTo={returnTo}
             brandName={manufacturing.brandName}
+            puedeCambiarAStock={manufacturing.puedeCambiarAStock}
           />
         </TabsContent>
       ) : null}

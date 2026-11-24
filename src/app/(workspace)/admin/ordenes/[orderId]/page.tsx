@@ -941,6 +941,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           name: item.product.name,
           code: item.product.code,
           quantity: item.quantity,
+          cambiable: direccionDeCambio(item) === "A_STOCK",
         })),
       };
     });
@@ -1354,7 +1355,16 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
                 currency={currency}
                 orderId={order.id}
                 returnTo={returnTo}
-                manufacturing={isPurchase ? undefined : { cards: manufacturingCards, brandName }}
+                manufacturing={
+                  isPurchase
+                    ? undefined
+                    : {
+                        cards: manufacturingCards,
+                        brandName,
+                        // Misma regla que el servidor (requireOwnerAdmin): solo ADMIN, venta y orden sin cancelar.
+                        puedeCambiarAStock: canChangeColor && session.user.role === "ADMIN",
+                      }
+                }
                 history={order.history.map((item) => ({
                   id: item.id,
                   fromLabel: item.fromStatus ? getOrderStatusLabel(item.fromStatus) : "Nuevo",
