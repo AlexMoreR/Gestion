@@ -63,6 +63,9 @@ export function isCamillasCombo(product: { code?: string | null }): boolean {
   return CASH_ON_DELIVERY_CODES.includes(normalizeProductCode(product.code));
 }
 
+// Linea bajo el precio de la ficha con contraentrega (decision del dueño, 22-nov-2026): texto exacto.
+export const CASH_ON_DELIVERY_PRICE_NOTE = "Contraentrega: el envío lo pagas tú.";
+
 // El 6 va fijo (lo dijo el dueño), no sale de minWholesaleQty: el texto publico no cambia si editan ese minimo.
 export const HARDWARE_FREE_SHIPPING_TEXT = "Envío gratis desde 6 unidades";
 export const HARDWARE_PAYMENT_LABEL = "Pago completo";
