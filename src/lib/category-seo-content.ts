@@ -79,6 +79,30 @@ const CATEGORY_SEO_CONTENT: Record<string, CategorySeoContent> = {
     ],
     altSuffix: "combo de camilla para spa",
   },
+  "mesa-manicura": {
+    title: "Mesa de manicura con esmaltero y cajones | Magilus",
+    description:
+      "Mesa de manicura de fábrica en Cali y Bogotá, con esmaltero y cajones. Envío a toda Colombia y garantía de 1 año. Cotiza por WhatsApp.",
+    h1: "Mesas de manicura",
+    paragraphs: [
+      [
+        "En Magilus somos fabricantes de mesas de manicura para salones de uñas, spas y manicuristas independientes. Una buena mesa de manicura te deja trabajar cómoda, con los esmaltes, las limas y las herramientas a la mano, y le da a tu puesto una imagen ordenada y profesional frente a tu clienta.",
+      ],
+      [
+        "Tenemos varios modelos de mesa manicura: con esmaltero incorporado, para tener los colores a la vista, y con cajones para guardar lo que usas en el día. Cada mesa para manicure se fabrica en nuestros talleres de Cali y Bogotá, y te ayudamos a escoger el modelo y el color que combinen con tu salón. Si buscas una mesa manicurista resistente para atender todos los días, mira la ",
+        { text: "mesa de manicura MMV10", href: "/mesa-manicura/mesa-manicura-mmv10" },
+        ".",
+      ],
+      [
+        "Enviamos a toda Colombia y cada mesa tiene garantía de 1 año. Para completar tu puesto de trabajo, combínala con un ",
+        { text: "esmaltero", href: "/esmalteros" },
+        " y una ",
+        { text: "tarima de pedicure", href: "/tarimas-pedicure" },
+        " del mismo estilo. Escríbenos por WhatsApp y te asesoramos.",
+      ],
+    ],
+    altSuffix: "mesa de manicura para salón de uñas",
+  },
 };
 
 export function getCategorySeoContent(slug: string | null | undefined): CategorySeoContent | null {
