@@ -842,7 +842,7 @@ export async function StorefrontCatalog({
 
       {/* En una categoria la burbuja dice de cual viene el cliente; globals.css esconde la general del layout. */}
       {category ? (
-        <div data-category-whatsapp="">
+        <div data-category-whatsapp="" className="contents">
           <FloatingWhatsAppButton href={storefrontWhatsAppHref} />
         </div>
       ) : null}
