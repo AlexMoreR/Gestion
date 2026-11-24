@@ -1,10 +1,9 @@
 import Link from "next/link";
-import { ArrowUpRight, Edit3, MessageCircle } from "lucide-react";
-import { CarrierMessageButton } from "@/components/admin/carrier-message-button";
+import { ArrowUpRight, Edit3 } from "lucide-react";
 import { OrderClientAccordion } from "@/components/admin/order-client-accordion";
 import { buttonVariants } from "@/components/ui/button";
 import { displayCode } from "@/lib/code-display";
-import { whatsAppDigits, type OrderDeliveryInfo } from "@/lib/order-delivery-info";
+import type { OrderDeliveryInfo } from "@/lib/order-delivery-info";
 
 type OrderClientCardProps = {
   name: string | null | undefined;
@@ -47,7 +46,6 @@ export function OrderClientCard({
   menu,
   summaryExtra,
 }: OrderClientCardProps) {
-  const whatsApp = whatsAppDigits(phone);
   const instagramHandle = instagram?.trim().replace(/^@+/, "");
 
   return (
@@ -66,24 +64,6 @@ export function OrderClientCard({
           }
           actions={
             <>
-              {whatsApp ? (
-                <a
-                  href={`https://wa.me/${whatsApp}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex h-7 items-center gap-1 rounded-lg bg-emerald-600 px-2.5 text-xs font-semibold text-white hover:bg-emerald-700"
-                >
-                  <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
-                </a>
-              ) : null}
-              {!delivery.pickup ? (
-                <CarrierMessageButton
-                  message={delivery.copyText}
-                  disabled={!delivery.copyText}
-                  label="Copiar datos de envío"
-                  copiedMessage="Datos de envío copiados"
-                />
-              ) : null}
               {quote ? (
                 <Link
                   href={`/cotizaciones/${quote.shareToken}`}
