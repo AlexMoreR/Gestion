@@ -79,6 +79,30 @@ const CATEGORY_SEO_CONTENT: Record<string, CategorySeoContent> = {
     ],
     altSuffix: "combo de camilla para spa",
   },
+  "tarimas-pedicure": {
+    title: "Tarimas pedicure de fábrica, envío a toda Colombia | Magilus",
+    description:
+      "Tarimas para pedicure fabricadas por Magilus en Cali y Bogotá. Envío a toda Colombia y garantía de 1 año. Mira los modelos y cotiza por WhatsApp.",
+    h1: "Tarimas para pedicure",
+    paragraphs: [
+      [
+        "En Magilus somos fabricantes de tarimas para pedicure para salones de uñas, spas y manicuristas independientes. Una buena tarima para pedicure pone a tu clienta a una altura cómoda, deja sus pies al alcance de tus manos y te permite trabajar sin forzar la espalda. Además, le da al puesto de pedicure una imagen ordenada y profesional.",
+      ],
+      [
+        "Cada tarima de pedicure se fabrica en nuestros talleres de Cali y Bogotá, y te ayudamos a escoger el modelo y el color que combinen con tu salón. Si buscas una tarima pedicure spa, pensada para que tu clienta se relaje mientras la atiendes, cuéntanos cómo es tu espacio y te mostramos las opciones.",
+      ],
+      [
+        "Para completar el puesto de trabajo, mira también nuestras ",
+        { text: "mesas de manicura", href: "/mesa-manicura" },
+        ", los ",
+        { text: "butacos para mani y pedi", href: "/butacos-mani-y-pedy" },
+        " y los ",
+        { text: "esmalteros", href: "/esmalteros" },
+        ". Escríbenos por WhatsApp y te asesoramos.",
+      ],
+    ],
+    altSuffix: "tarima para pedicure",
+  },
 };
 
 export function getCategorySeoContent(slug: string | null | undefined): CategorySeoContent | null {

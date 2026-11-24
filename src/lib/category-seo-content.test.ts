@@ -112,3 +112,33 @@ describe("textos SEO de /combo-de-camillas", () => {
     expect(all).not.toMatch(/\$|precio|gratis|contraentrega|garant[ií]a|descuento/i);
   });
 });
+
+describe("textos SEO de /tarimas-pedicure", () => {
+  const seo = getCategorySeoContent("tarimas-pedicure")!;
+  const body = seo.paragraphs.map(categorySeoParagraphText).join(" ");
+  const hrefs = seo.paragraphs.flat().flatMap((s) => (typeof s === "string" ? [] : [s.href]));
+
+  it("título y descripción dentro del largo de Google", () => {
+    expect(seo.title).toBe("Tarimas pedicure de fábrica, envío a toda Colombia | Magilus");
+    expect(seo.title.length).toBeLessThanOrEqual(60);
+    expect(seo.description.length).toBeLessThanOrEqual(155);
+  });
+
+  it("texto de 120 a 180 palabras con las búsquedas, los enlaces y el cierre", () => {
+    const words = body.split(/\s+/).filter(Boolean).length;
+    expect(words).toBeGreaterThanOrEqual(120);
+    expect(words).toBeLessThanOrEqual(180);
+    for (const word of ["tarima para pedicure", "tarima de pedicure", "tarima pedicure spa"]) {
+      expect(body.toLowerCase()).toContain(word);
+    }
+    expect(hrefs).toEqual(["/mesa-manicura", "/butacos-mani-y-pedy", "/esmalteros"]);
+    expect(seo.h1).toBe("Tarimas para pedicure");
+    expect(seo.altSuffix).toBe("tarima para pedicure");
+    expect(body.endsWith("Escríbenos por WhatsApp y te asesoramos.")).toBe(true);
+  });
+
+  it("sin precios, envío gratis ni descuentos", () => {
+    const all = [seo.title, seo.description, seo.h1, body, seo.altSuffix].join(" ").toLowerCase();
+    expect(all).not.toMatch(/\$|precio|gratis|descuento/);
+  });
+});
