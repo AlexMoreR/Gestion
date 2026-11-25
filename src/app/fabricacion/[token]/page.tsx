@@ -198,8 +198,7 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
         ))}
 
         <p className="text-sm text-slate-600">
-          Para <span className="font-semibold text-slate-900">{supplierName}</span> · Pedido{" "}
-          {displayCode(manufacturingOrder.order.code)}
+          <span className="font-semibold text-slate-900">{supplierName}</span> · {displayCode(manufacturingOrder.order.code)}
         </p>
 
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
