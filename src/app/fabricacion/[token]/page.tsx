@@ -187,42 +187,40 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
           </section>
         ))}
 
-        <section className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">{displayCode(manufacturingOrder.code)}</h1>
-            <p className="text-sm text-slate-600">
-              Para <span className="font-semibold text-slate-900">{supplierName}</span> · Pedido{" "}
-              {displayCode(manufacturingOrder.order.code)}
-            </p>
-          </div>
-          <p className="text-xs text-slate-500">
-            Emitida el {formatCalendarDate(manufacturingOrder.createdAt)}
+        <section>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{displayCode(manufacturingOrder.code)}</h1>
+          <p className="text-sm text-slate-600">
+            Para <span className="font-semibold text-slate-900">{supplierName}</span> · Pedido{" "}
+            {displayCode(manufacturingOrder.order.code)}
           </p>
         </section>
 
-        <section className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {/* Entrega, destino y pago en una sola tarjeta compacta (etiqueta a la izquierda, dato a la derecha). */}
+        <section className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white px-4 text-sm">
+          <div className="flex items-center justify-between gap-3 py-2.5">
+            <span className="flex shrink-0 items-center gap-1.5 text-slate-500">
               <CalendarDays className="h-3.5 w-3.5" /> Fecha de entrega
-            </p>
-            <p className="mt-1 text-base font-semibold text-slate-900">
+            </span>
+            <span className="text-right font-semibold text-slate-900">
               {formatCalendarDate(manufacturingOrder.deliveryDate)}
-            </p>
+            </span>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div className="flex items-center justify-between gap-3 py-2.5">
+            <span className="flex shrink-0 items-center gap-1.5 text-slate-500">
               <MapPin className="h-3.5 w-3.5" /> Ciudad de destino
-            </p>
-            <p className="mt-1 text-base font-semibold text-slate-900">
+            </span>
+            <span className="text-right font-semibold text-slate-900">
               {destinationCityLabel(manufacturingOrder.order.client) ?? "Por confirmar"}
-            </p>
+            </span>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 sm:col-span-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total a pagar a la proveedora</p>
-            <p className="mt-1 text-xl font-bold text-slate-900">{formatMoney(totalCost, currency)}</p>
-            <p className="mt-1 text-sm font-semibold text-slate-700">
-              {supplierPaymentLabel(manufacturingOrder.order.sale?.paymentMethod)}
-            </p>
+          <div className="flex items-start justify-between gap-3 py-2.5">
+            <span className="shrink-0 text-slate-500">Total a pagar</span>
+            <span className="text-right">
+              <span className="block text-base font-bold text-slate-900">{formatMoney(totalCost, currency)}</span>
+              <span className="block text-xs font-semibold text-slate-600">
+                {supplierPaymentLabel(manufacturingOrder.order.sale?.paymentMethod)}
+              </span>
+            </span>
           </div>
         </section>
 
