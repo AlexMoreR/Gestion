@@ -202,18 +202,6 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
           {displayCode(manufacturingOrder.order.code)}
         </p>
 
-        <section className="rounded-xl border border-slate-200 bg-white px-4 text-sm">
-          <div className="flex items-start justify-between gap-3 py-2.5">
-            <span className="shrink-0 text-slate-500">Total a pagar</span>
-            <span className="text-right">
-              <span className="block text-base font-bold text-slate-900">{formatMoney(totalCost, currency)}</span>
-              <span className="block text-xs font-semibold text-slate-600">
-                {supplierPaymentLabel(manufacturingOrder.order.sale?.paymentMethod)}
-              </span>
-            </span>
-          </div>
-        </section>
-
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
           <div className="border-b border-slate-100 px-4 py-3">
             <h2 className="text-sm font-semibold text-slate-900">Productos a fabricar</h2>
@@ -422,6 +410,18 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
             <p className="mt-1 whitespace-pre-line text-sm text-slate-800">{manufacturingOrder.notes}</p>
           </section>
         ) : null}
+
+        <section className="rounded-xl border border-slate-200 bg-white px-4 text-sm">
+          <div className="flex items-start justify-between gap-3 py-2.5">
+            <span className="shrink-0 text-slate-500">Total a pagar</span>
+            <span className="text-right">
+              <span className="block text-base font-bold text-slate-900">{formatMoney(totalCost, currency)}</span>
+              <span className="block text-xs font-semibold text-slate-600">
+                {supplierPaymentLabel(manufacturingOrder.order.sale?.paymentMethod)}
+              </span>
+            </span>
+          </div>
+        </section>
 
         <p className="text-center text-xs text-slate-400">
           {brandName} · Dudas sobre esta orden: {whatsAppPhone}
