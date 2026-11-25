@@ -113,3 +113,26 @@ describe("getProductSeoContent — tarima TPV01", () => {
     expect(getProductSeoContent("tarima-spa")).toBeNull();
   });
 });
+
+describe("getProductSeoContent — camilla CAV16", () => {
+  const seo = getProductSeoContent("camilla-hidraulica-cav16")!;
+  const text = categorySeoParagraphText(seo.paragraph);
+
+  it("trae el título, la descripción y el H1 fijos, con tilde", () => {
+    expect(seo.title).toBe("Camilla hidráulica de 3 cuerpos para spa y estética");
+    expect(seo.h1).toBe("Camilla hidráulica de 3 cuerpos");
+    expect(seo.description.length).toBeLessThanOrEqual(155);
+  });
+
+  it("párrafo con 'camilla hidráulica' y enlaces a /camilla y a la CAV14", () => {
+    expect(text.toLowerCase()).toContain("camilla hidráulica");
+    const links = seo.paragraph.filter((s) => typeof s !== "string").map((s) => s.href);
+    expect(links).toEqual(["/camilla", "/camilla/camilla-curva-lashista-cav14"]);
+  });
+
+  it("sin precios, cifras de descuento, envío gratis ni garantías; título sin la marca", () => {
+    const all = `${seo.title} ${seo.description} ${seo.h1} ${text}`.toLowerCase();
+    for (const banned of ["$", "%", "gratis", "descuento", "garantía"]) expect(all).not.toContain(banned);
+    expect(seo.title).not.toContain("Magilus");
+  });
+});

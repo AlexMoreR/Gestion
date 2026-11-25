@@ -27,6 +27,19 @@ const PRODUCT_SEO_CONTENT: Record<string, ProductSeoContent> = {
       ". Escríbenos por WhatsApp y te asesoramos para escoger la camilla ideal para tu trabajo.",
     ],
   },
+  "camilla-hidraulica-cav16": {
+    title: "Camilla hidráulica de 3 cuerpos para spa y estética",
+    description:
+      "Camilla hidráulica de 3 cuerpos con espaldar y reposapiés ajustables, para spa, estética y pestañas. Mira fotos y medidas y cotiza por WhatsApp.",
+    h1: "Camilla hidráulica de 3 cuerpos",
+    paragraph: [
+      "La camilla hidráulica de 3 cuerpos de Magilus sube y baja con su sistema hidráulico, así trabajas a la altura correcta y cuidas tu espalda en cada sesión. Su espaldar y su reposapiés son ajustables, para acomodar a cada clienta según el tratamiento. Está tapizada en cuero sintético y se apoya en una base metálica resistente. Es una camilla hidráulica para spa y estética que sirve para faciales, extensiones de pestañas y depilación. Mira las fotos en esta página y compárala con nuestras ",
+      { text: "camillas para spa y masaje", href: "/camilla" },
+      ", o si te dedicas a las pestañas, con la ",
+      { text: "camilla curva para lashista", href: "/camilla/camilla-curva-lashista-cav14" },
+      ". Escríbenos por WhatsApp y una asesora te ayuda a elegir.",
+    ],
+  },
   "mesa-manicura-mmv10": {
     title: "Mesa de manicura con doble esmaltero de fábrica",
     description:
