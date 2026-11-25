@@ -112,7 +112,7 @@ export function MarketplaceDashboard({ days, desde, hasta, fetchDesde, now, stat
           <AlertsStrip alertas={stats.alertas} cuentas={stats.cuentas} now={now} />
           <TodayCards cards={today_.cards} />
 
-          <AccountsSection accounts={accounts} />
+          <AccountsSection accounts={accounts} days={Math.max(days, 30)} />
 
           <AdsSection
             // Si cambia el periodo (7/30/90) se reinician los filtros de fecha.

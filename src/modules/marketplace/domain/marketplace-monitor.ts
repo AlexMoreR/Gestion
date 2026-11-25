@@ -359,6 +359,11 @@ export type AccountView = {
   alertas: { tipo: AlertaTipo; etiqueta: string; mensaje: string }[]; // abiertas
   mensajesHoy: number | null;
   clientes7d: number | null;
+  // Totales del periodo pedido a NETMAGI (al menos 30 dias), como el panel de NETMAGI.
+  publicados: number;
+  entrantes: number;
+  respuestas: number;
+  renovadas: number;
   ubicacion: string;
   activa: boolean; // tuvo actividad reciente o publica
 };
@@ -384,6 +389,10 @@ export function buildAccountViews(cuentas: readonly CuentaRow[], publicador: Pub
         alertas: (byAccount.get(c.id) ?? []).map((alert) => ({ tipo: alert.tipo, etiqueta: ALERT_LABEL[alert.tipo], mensaje: alert.mensaje })),
         mensajesHoy: c.tieneHoy ? c.entrantes_hoy : null,
         clientes7d: c.tieneHoy ? c.clientes_7d : null,
+        publicados: c.publicados,
+        entrantes: c.entrantes,
+        respuestas: c.respuestas,
+        renovadas: c.renovadas,
         ubicacion: c.ubicacion,
         activa: publica || byAccount.has(c.id) || c.estado !== "sin_conexion" || c.entrantes_hoy > 0 || c.clientes_7d > 0 || c.publicados_7d > 0,
       };
