@@ -336,8 +336,11 @@ export function OrderItemManager({
           aria-label={`Seleccionar ${item.productName}`}
         />
       </TableCell>
-      <TableCell>
-        <p className="text-sm font-medium text-foreground">{item.productName}</p>
+      {/* w-full + max-w-0: la columna toma el espacio libre y el nombre va en un renglón con «…». */}
+      <TableCell className="w-full max-w-0">
+        <p className="truncate text-sm font-medium text-foreground" title={item.productName}>
+          {item.productName}
+        </p>
         <p className="text-xs text-muted-foreground">
           {item.productCode ? `${item.productCode} · ` : ""}x{item.quantity}
           {item.stockCostSource && item.purchaseCost !== null ? (
@@ -353,14 +356,9 @@ export function OrderItemManager({
             </button>
           )}
         </p>
-        {/* Color e imagen solo como texto: se cambian en "Editar orden" (menú ⋯). */}
+        {/* Color solo como texto: se cambia en "Editar orden" (menú ⋯), igual que la imagen. */}
         {item.color || item.canChangeColor ? (
           <p className="text-xs text-muted-foreground">Color: {item.color || "sin color"}</p>
-        ) : null}
-        {item.canChangeColor ? (
-          <p className="text-xs text-muted-foreground">
-            Imagen: {item.imagenManual ? "subida a mano" : "del catálogo"}
-          </p>
         ) : null}
         <Badge
           variant="outline"
