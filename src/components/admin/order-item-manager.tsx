@@ -360,6 +360,9 @@ export function OrderItemManager({
         {item.color || item.canChangeColor ? (
           <p className="text-xs text-muted-foreground">Color: {item.color || "sin color"}</p>
         ) : null}
+      </TableCell>
+      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+        <p>{formatMoney(item.unitPrice, currency)}</p>
         <Badge
           variant="outline"
           className={`mt-1 text-[10px] ${
@@ -370,9 +373,6 @@ export function OrderItemManager({
         >
           {item.fulfillmentLabel}
         </Badge>
-      </TableCell>
-      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-        {formatMoney(item.unitPrice, currency)}
       </TableCell>
       <TableCell>
         {item.isEntregado ? (
