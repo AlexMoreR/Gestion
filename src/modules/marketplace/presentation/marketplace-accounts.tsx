@@ -48,36 +48,15 @@ export function AccountsSection({ accounts }: { accounts: AccountView[] }) {
       ) : (
         <ul className="space-y-2">
           {visible.map((account) => (
-            <li key={account.id} className="grid gap-x-4 gap-y-2 rounded-lg border border-border/70 p-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)] md:items-center">
-              <div className="min-w-0">
-                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-foreground">
-                  <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", TONE_DOT[STATE_TONE[account.estado]])} aria-hidden />
-                  <span className="truncate">{account.nombre}</span>
-                  {account.alertas.map((alert) => (
-                    <span
-                      key={alert.tipo}
-                      title={alert.mensaje}
-                      className="rounded-full border border-red-500/50 bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:text-red-400"
-                    >
-                      {alert.etiqueta}
-                    </span>
-                  ))}
-                  {account.pausa ? (
-                    <span className="rounded-full border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">En pausa</span>
-                  ) : account.publica ? (
-                    <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">Publica</span>
-                  ) : null}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {account.estadoTexto} · último latido {account.latido}
-                </p>
-                {account.pausa ? <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">{account.pausa}</p> : null}
-              </div>
-              <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <li key={account.id} className="grid gap-x-4 gap-y-2 rounded-lg border border-border/70 p-3 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] md:items-center">
+              <p className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
+                <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", TONE_DOT[STATE_TONE[account.estado]])} aria-hidden />
+                <span className="truncate">{account.nombre}</span>
+              </p>
+              <dl className="grid grid-cols-3 gap-3">
                 <Metric label="Publicados hoy" value={orDash(account.publicadosHoy)} hint={account.publica && account.tope ? `/ ${account.tope}` : undefined} />
                 <Metric label="Mensajes hoy" value={orDash(account.mensajesHoy)} />
                 <Metric label="Clientes 7 días" value={orDash(account.clientes7d)} />
-                <Metric label="Ciudad" value={account.ubicacion || "—"} />
               </dl>
             </li>
           ))}
