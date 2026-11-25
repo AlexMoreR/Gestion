@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import { AlertTriangle, ArrowUpRight, CalendarClock, Factory, MessageSquareText, MoreHorizontal, PackageCheck, Pencil, ShoppingCart, Undo2, X } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -143,7 +144,7 @@ function NotesButton({ order }: { order: OrderRow }) {
   const count = order.notes.length;
   const code = displayCode(order.code);
   return (
-    <>
+    <span className="contents" onClick={(event) => event.stopPropagation()}>
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -194,7 +195,7 @@ function NotesButton({ order }: { order: OrderRow }) {
           </form>
         </DialogContent>
       </Dialog>
-    </>
+    </span>
   );
 }
 
@@ -202,7 +203,7 @@ function RowActions({ order }: { order: OrderRow }) {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
 
   return (
-    <>
+    <span className="contents" onClick={(event) => event.stopPropagation()}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones ${displayCode(order.code)}`}>
@@ -251,7 +252,7 @@ function RowActions({ order }: { order: OrderRow }) {
           onOpenChange={setDeleteOpen}
         />
       ) : null}
-    </>
+    </span>
   );
 }
 
@@ -355,6 +356,10 @@ export function OrdersWorkspace({
     </div>
   );
 
+  // Tocar la fila abre la orden (el globo de notas y el menú «⋯» no la abren).
+  const router = useRouter();
+  const abrir = (order: OrderRow) => router.push(`/admin/ordenes/${order.id}`);
+
   const columns: ColumnDef<OrderRow>[] = [
     {
       // Orden y venta en la misma celda; el buscador encuentra las dos y el texto de las notas.
@@ -408,7 +413,7 @@ export function OrdersWorkspace({
 
   // Celular: cliente, estado, alerta, total y el menú.
   const renderMobileCard = (order: OrderRow) => (
-    <article className="space-y-2 rounded-xl border border-border bg-card p-3">
+    <article className="cursor-pointer space-y-2 rounded-xl border border-border bg-card p-3" onClick={() => abrir(order)}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-foreground">{nombrePropio(order.clientName)}</p>
@@ -475,6 +480,7 @@ export function OrdersWorkspace({
         searchFirst
         searchGrow
         renderMobileCard={renderMobileCard}
+        onRowClick={abrir}
       />
     </section>
   );
