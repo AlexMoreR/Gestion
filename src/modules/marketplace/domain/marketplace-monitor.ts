@@ -403,7 +403,9 @@ export function buildAccountViews(cuentas: readonly CuentaRow[], publicador: Pub
 // Semaforo de una cuenta: rojo = posible bloqueo o caida (no sirve); amarillo = conectada pero fuera de Messenger,
 // en pausa o con otra alerta (no responde o no publica); verde = en vivo y respondiendo sin problemas.
 export function accountTone(account: Pick<AccountView, "estado" | "pausa" | "alertas">): Tone {
-  if (account.estado === "sin_conexion" || account.alertas.some((alert) => SEVERE_ALERTS.includes(alert.tipo))) return "bad";
+  // Una alerta de caida vieja no pinta rojo si la cuenta ya volvio a dar senal (NETMAGI tarda en cerrarla).
+  const severe = account.alertas.some((alert) => alert.tipo === "bloqueo" || (alert.tipo === "caida" && account.estado === "sin_conexion"));
+  if (account.estado === "sin_conexion" || severe) return "bad";
   if (account.estado === "fuera" || account.pausa || account.alertas.length > 0) return "warn";
   return "ok";
 }

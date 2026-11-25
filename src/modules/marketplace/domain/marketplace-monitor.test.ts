@@ -408,6 +408,8 @@ describe("alertas de cuentas (T-503)", () => {
     expect(accountTone({ estado: "fuera", pausa: "", alertas: [] })).toBe("warn");
     expect(accountTone({ estado: "en_vivo", pausa: "Pausada: 2 fallos", alertas: [] })).toBe("warn");
     expect(accountTone({ estado: "en_vivo", pausa: "", alertas: [] })).toBe("ok");
+    // Volvio a dar senal y NETMAGI aun no cierra la alerta de caida: no es rojo.
+    expect(accountTone({ estado: "en_vivo", pausa: "", alertas: [{ tipo: "caida", etiqueta: "", mensaje: "" }] })).toBe("warn");
   });
 
   it("el tope del dia suma el tope propio de cada cuenta (si lo tiene) y el general en las demas", () => {
