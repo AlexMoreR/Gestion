@@ -28,6 +28,7 @@ import {
   parsePaymentMethodInput,
   saleFromQuoteMissing,
 } from "@/modules/ventas/domain/payment-method";
+import { errorCambioCuentaAbono } from "@/lib/sale-payment-account";
 import { saleStatusForPaid } from "@/modules/ventas/domain/sale-paid-status";
 import { validarDescuentoVenta } from "@/modules/ventas/domain/sale-discount";
 import { CONSUMIDOR_FINAL_EMAIL } from "@/modules/ventas/domain/sale-origin";
@@ -877,6 +878,81 @@ export async function adminVoidSalePaymentAction(formData: FormData): Promise<vo
   revalidatePath("/admin/ventas/retenciones");
   revalidatePath(`/sales/${sale.invoiceToken}`);
   redirect(`${returnTo}?${new URLSearchParams({ ok: "Abono anulado" }).toString()}`);
+}
+
+const changeSalePaymentAccountSchema = z.object({
+  paymentId: z.string().trim().min(1, "Abono invalido"),
+  accountId: z.string().trim().min(1, "Elige una cuenta activa"),
+  motivo: z.string().trim().max(300, "El motivo puede tener máximo 300 caracteres"),
+});
+
+// Cambiar la cuenta de un abono: solo cambia accountId; los saldos salen de sumar abonos por cuenta.
+export async function adminChangeSalePaymentAccountAction(formData: FormData): Promise<void> {
+  await requireAdminSession();
+  const returnTo = getReturnTo(formData);
+
+  const parsed = changeSalePaymentAccountSchema.safeParse({
+    paymentId: formData.get("paymentId"),
+    accountId: formData.get("accountId"),
+    motivo: formData.get("motivo") ?? "",
+  });
+  if (!parsed.success) {
+    redirectWithError(returnTo, parsed.error.issues[0]?.message ?? "Abono invalido");
+  }
+
+  const [payment, cuentaNueva] = await Promise.all([
+    prisma.salePayment.findUnique({
+      where: { id: parsed.data.paymentId },
+      select: {
+        id: true,
+        amount: true,
+        accountId: true,
+        isWithholding: true,
+        account: { select: { name: true } },
+        sale: { select: { id: true, code: true, invoiceToken: true } },
+      },
+    }),
+    prisma.account.findUnique({
+      where: { id: parsed.data.accountId },
+      select: { id: true, name: true, isActive: true, type: true },
+    }),
+  ]);
+
+  const error = errorCambioCuentaAbono({ abono: payment, cuentaNueva, motivo: parsed.data.motivo });
+  if (error || !payment || !cuentaNueva) {
+    redirectWithError(returnTo, error ?? "No se encontró el abono");
+  }
+
+  const actor = await getActivityActor();
+  const cuentaVieja = payment.account?.name ?? "Sin cuenta";
+  const monto = Number(payment.amount).toLocaleString("es-CO");
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Solo si sigue en la cuenta que se leyó: dos cambios a la vez no se pisan.
+      const { count } = await tx.salePayment.updateMany({
+        where: { id: payment.id, accountId: payment.accountId },
+        data: { accountId: cuentaNueva.id },
+      });
+      if (count !== 1) throw new Error("El abono cambió mientras tanto");
+      await logActivityTx(tx, actor, {
+        action: "UPDATE",
+        entityType: "SALE",
+        entityId: payment.sale.id,
+        entityCode: payment.sale.code,
+        summary: `Cambió la cuenta del abono de $${monto} de ${displayCode(payment.sale.code)}: ${cuentaVieja} → ${cuentaNueva.name}. Motivo: ${parsed.data.motivo}`,
+        before: { paymentId: payment.id, accountId: payment.accountId, accountName: cuentaVieja },
+        after: { paymentId: payment.id, accountId: cuentaNueva.id, accountName: cuentaNueva.name, motivo: parsed.data.motivo },
+      });
+    });
+  } catch (err) {
+    console.error("Failed to change sale payment account:", err);
+    redirectWithError(returnTo, "No se pudo cambiar la cuenta del abono");
+  }
+
+  revalidatePath("/admin/ventas");
+  revalidatePath("/admin/balances");
+  revalidatePath(`/sales/${payment.sale.invoiceToken}`);
+  redirect(`${returnTo}?${new URLSearchParams({ ok: "Cuenta del abono cambiada" }).toString()}`);
 }
 
 const cancelSaleSchema = z.object({

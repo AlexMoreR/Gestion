@@ -36,6 +36,10 @@ type SaleRow = {
     receiptType: string | null;
     paidAt: string | null;
     reciboCajaEstado: string | null;
+    accountId: string | null;
+    accountName: string | null;
+    isWithholding: boolean;
+    mesCerrado: boolean;
   }>;
   hasOrder: boolean;
   orderId: string | null;

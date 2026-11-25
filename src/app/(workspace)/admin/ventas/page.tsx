@@ -5,6 +5,7 @@ import { QueryFeedbackToast } from "@/components/ui/query-feedback-toast";
 import { SalesWorkspace } from "@/components/admin/sales-workspace";
 import { canHardDelete, hasAdminModuleAccess } from "@/lib/admin-module-access";
 import { comboStock } from "@/lib/combo";
+import { colombiaMonthKey } from "@/lib/colombia-time";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
@@ -34,6 +35,8 @@ type SaleWithDiscountFields = {
     isWithholding?: boolean | null;
     withholdingCertificate?: string | null;
     reciboCajaEstado?: string | null;
+    accountId?: string | null;
+    account?: { name: string } | null;
   }>;
 };
 
@@ -89,6 +92,7 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
         order: true,
         salePayments: {
           orderBy: { sortOrder: "asc" },
+          include: { account: { select: { name: true } } },
         },
       },
       take: 200,
@@ -132,6 +136,15 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
       _sum: { change: true },
     }),
   ]);
+
+  // Meses con cierre con el banco (cerrar_mes deja la nota "Cierre de mes AAAA-MM: …"): avisa al cambiar la cuenta de un abono.
+  const cierres = await prisma.accountMovement.findMany({
+    where: { note: { startsWith: "Cierre de mes " } },
+    select: { note: true },
+    distinct: ["note"],
+  });
+  const mesesCerrados = new Set(cierres.map((row) => row.note?.slice("Cierre de mes ".length, "Cierre de mes ".length + 7)));
+  const mesCerradoDe = (fecha: unknown) => fecha instanceof Date && mesesCerrados.has(colombiaMonthKey(fecha));
 
   // Stock de productos normales; para combos, cuantos se pueden armar con sus
   // piezas (cada pieza suma sus alternas), ver comboStock.
@@ -267,6 +280,10 @@ export default async function AdminVentasPage({ searchParams }: PageProps) {
                 receiptType: typeof payment.receiptType === "string" && payment.receiptType.trim() ? payment.receiptType.trim() : null,
                 paidAt: formatPaymentDate(payment.paymentDate ?? payment.createdAt),
                 reciboCajaEstado: payment.reciboCajaEstado ?? null,
+                accountId: payment.accountId ?? null,
+                accountName: payment.account?.name ?? null,
+                isWithholding: Boolean(payment.isWithholding),
+                mesCerrado: mesCerradoDe(payment.paymentDate ?? payment.createdAt),
               }))
             : [],
           hasOrder: Boolean(sale.order),
