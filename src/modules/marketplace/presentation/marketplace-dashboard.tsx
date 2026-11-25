@@ -21,7 +21,7 @@ import { AdsSection, type ProductLink } from "./marketplace-ads";
 import { TrendChart } from "./marketplace-chart";
 import { DetailSection } from "./marketplace-detail";
 import { FormulaSection } from "./marketplace-formula";
-import { TodayCards, VerdictBanner } from "./marketplace-today";
+import { TodayCards } from "./marketplace-today";
 
 type Props = {
   days: number;
@@ -68,13 +68,8 @@ export function MarketplaceDashboard({ days, desde, hasta, fetchDesde, now, stat
 
   return (
     <section className="w-full space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-xl font-semibold tracking-tight text-foreground">Marketplace</h1>
-          <p className="max-w-2xl text-xs text-muted-foreground">
-            Hoy es {today} (hora Bogotá) · Datos de NETMAGI, sin nombres ni mensajes de clientes. Se actualiza solo cada 2 minutos.
-          </p>
-        </div>
+      <div className="flex flex-wrap items-start justify-end gap-3">
+        <h1 className="sr-only">Marketplace</h1>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -115,7 +110,6 @@ export function MarketplaceDashboard({ days, desde, hasta, fetchDesde, now, stat
           ) : null}
 
           <AlertsStrip alertas={stats.alertas} cuentas={stats.cuentas} now={now} />
-          <VerdictBanner verdict={today_.verdict} today={today} />
           <TodayCards cards={today_.cards} />
 
           <AccountsSection accounts={accounts} />

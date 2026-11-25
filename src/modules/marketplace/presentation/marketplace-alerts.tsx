@@ -1,6 +1,6 @@
 "use client";
 
-import { Siren } from "lucide-react";
+import { ChevronDown, Siren } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { agoText, ALERT_LABEL, openAlerts, SEVERE_ALERTS } from "@/modules/marketplace/domain/marketplace-monitor";
@@ -15,17 +15,23 @@ export function AlertsStrip({ alertas, cuentas, now }: { alertas: readonly Alert
   const severe = open.some((alert) => SEVERE_ALERTS.includes(alert.tipo));
   const sorted = [...open].sort((a, b) => Number(SEVERE_ALERTS.includes(b.tipo)) - Number(SEVERE_ALERTS.includes(a.tipo)) || a.abierta_en.localeCompare(b.abierta_en));
   return (
-    <div
+    <details
       role="alert"
       className={cn(
-        "rounded-xl border p-4",
+        "group rounded-xl border p-4",
         severe ? "border-red-500/50 bg-red-500/10" : "border-amber-500/50 bg-amber-500/10",
       )}
     >
-      <p className={cn("flex items-center gap-2 text-sm font-semibold", severe ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400")}>
+      <summary
+        className={cn(
+          "flex cursor-pointer list-none items-center gap-2 text-sm font-semibold [&::-webkit-details-marker]:hidden",
+          severe ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400",
+        )}
+      >
         <Siren className="h-4 w-4 shrink-0" aria-hidden />
         {open.length === 1 ? "1 cuenta con un problema abierto" : `${open.length} problemas abiertos en las cuentas`}
-      </p>
+        <ChevronDown className="ml-auto h-4 w-4 shrink-0 transition-transform group-open:rotate-180" aria-hidden />
+      </summary>
       <ul className="mt-2 space-y-1 text-sm text-foreground">
         {sorted.map((alert) => (
           <li key={alert.id} className="flex flex-wrap items-baseline gap-x-2">
@@ -47,6 +53,6 @@ export function AlertsStrip({ alertas, cuentas, now }: { alertas: readonly Alert
         ))}
       </ul>
       <p className="mt-2 text-[11px] text-muted-foreground">NETMAGI revisa las cuentas cada 5 minutos. Una alerta se cierra sola cuando el problema se arregla.</p>
-    </div>
+    </details>
   );
 }
