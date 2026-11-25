@@ -499,7 +499,7 @@ function SaleReceiptsSheet({
                         <p className="text-sm font-semibold text-foreground">{formatMoney(receipt.amount, currency)}</p>
                       </div>
                       {receipt.note ? <p className="mt-2 text-xs text-muted-foreground">{receipt.note}</p> : null}
-                      <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-2">
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-2">
                         <div className="min-w-0">
                           <p className="text-xs text-muted-foreground">
                             {receipt.receiptName || "Sin comprobante"}
@@ -508,7 +508,7 @@ function SaleReceiptsSheet({
                             <p className="text-xs text-muted-foreground">{getReceiptLabel(receipt.receiptType)}</p>
                           ) : null}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
                           {receipt.receiptUrl ? (
                             <button
                               type="button"
