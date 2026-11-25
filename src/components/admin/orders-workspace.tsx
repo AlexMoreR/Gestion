@@ -8,7 +8,10 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { StatList } from "@/components/ui/stat-list";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { SaveNoteButton } from "@/components/admin/order-notes-card";
+import { adminAddOrderNoteAction } from "@/app/actions/orders-actions";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +25,7 @@ import { PurchaseDeleteMenuItem, PurchaseDeleteDialog } from "@/components/admin
 import { formatMoney, type SupportedCurrencyCode } from "@/lib/currency";
 import { getOrderDisplayState, getOrderStatusBadgeClassName, getOrderStatusLabel } from "@/lib/orders";
 import { displayCode } from "@/lib/code-display";
-import { formatNoteCount } from "@/lib/order-notes";
+import { formatNoteCount, ORDER_NOTE_MAX } from "@/lib/order-notes";
 import type { SeguimientoOrden, TipoEstadoEntrega } from "@/lib/delivery-tracking";
 import {
   coincideVista,
@@ -55,8 +58,8 @@ type OrderRow = {
   createdAt: string;
   orderDateISO: string;
   notesText: string;
-  notesCount: number;
-  lastNote: { text: string; by: string; date: string } | null;
+  // Notas internas, la más nueva primero.
+  notes: { text: string; by: string; date: string }[];
   // Productos con la entrega deshecha (solo cambia la etiqueta de una orden completada).
   reversedItems: number;
   // Etiqueta de devolución (estadoDevolucionDeOrden); null en las compras o sin devolución.
@@ -134,30 +137,65 @@ function StatusBadge({ order }: { order: OrderRow }) {
   );
 }
 
-// Ícono de nota: al pasar el mouse o tocarlo muestra la última nota de la orden.
-function NoteIndicator({ order }: { order: OrderRow }) {
-  const note = order.lastNote;
-  if (!note) return null;
+// Globo junto al código: abre todas las notas internas de la orden y deja agregar otra.
+function NotesButton({ order }: { order: OrderRow }) {
+  const [open, setOpen] = React.useState(false);
+  const count = order.notes.length;
+  const code = displayCode(order.code);
   return (
-    <Popover>
-      <PopoverTrigger
-        openOnHover
-        delay={150}
-        aria-label={`Notas internas de ${displayCode(order.code)} (${order.notesCount} ${order.notesCount === 1 ? "nota" : "notas"})`}
-        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-primary hover:bg-muted"
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={count ? `Notas internas de ${code} (${count})` : `Agregar nota a ${code}`}
+        title={count ? `${count} ${count === 1 ? "nota" : "notas"}` : "Agregar nota"}
+        className={`relative inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md hover:bg-muted ${
+          count ? "text-primary" : "text-muted-foreground/40 hover:text-muted-foreground"
+        }`}
       >
         <MessageSquareText className="h-4 w-4" />
-      </PopoverTrigger>
-      <PopoverContent align="start" className="gap-1">
-        <p className="text-xs font-semibold text-foreground">
-          Notas internas ({formatNoteCount(order.notesCount)}) · última:
-        </p>
-        <p className="whitespace-pre-wrap break-words text-sm text-foreground">{note.text}</p>
-        <p className="text-xs text-muted-foreground">
-          {note.by} · {note.date}
-        </p>
-      </PopoverContent>
-    </Popover>
+        {count ? (
+          <span className="absolute -top-1 -right-1 min-w-3.5 rounded-full bg-primary px-1 text-center text-[9px] leading-3.5 font-semibold text-primary-foreground">
+            {formatNoteCount(count)}
+          </span>
+        ) : null}
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[88vh] max-w-md overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Notas de {code}</DialogTitle>
+            <DialogDescription>Solo la ve el equipo: no le sale a la clienta ni a la proveedora.</DialogDescription>
+          </DialogHeader>
+          {count ? (
+            <ul className="space-y-2">
+              {order.notes.map((note, index) => (
+                <li key={index} className="rounded-lg border border-border p-2.5">
+                  <p className="whitespace-pre-wrap break-words text-sm text-foreground">{note.text}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {note.by} · {note.date}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-muted-foreground">Aún no hay notas en esta orden.</p>
+          )}
+          <form action={adminAddOrderNoteAction} className="space-y-2">
+            <input type="hidden" name="orderId" value={order.id} />
+            <input type="hidden" name="returnTo" value="/admin/ordenes" />
+            <Textarea
+              name="text"
+              required
+              maxLength={ORDER_NOTE_MAX}
+              rows={3}
+              aria-label="Nueva nota"
+              placeholder="Ej.: esperando guía de Eliecer"
+            />
+            <SaveNoteButton />
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -320,20 +358,16 @@ export function OrdersWorkspace({
 
   const columns: ColumnDef<OrderRow>[] = [
     {
-      // El valor (texto de las notas) es lo que lee el buscador; la celda solo muestra el ícono.
-      accessorKey: "notesText",
-      header: "",
-      enableSorting: false,
-      cell: ({ row }) => <NoteIndicator order={row.original} />,
-    },
-    {
-      // Orden y venta en la misma celda (el buscador encuentra las dos).
+      // Orden y venta en la misma celda; el buscador encuentra las dos y el texto de las notas.
       id: "code",
-      accessorFn: (order) => `${order.code} ${order.saleCode}`,
+      accessorFn: (order) => `${order.code} ${order.saleCode} ${order.notesText}`,
       header: "Orden",
       cell: ({ row }) => (
         <div className="leading-tight">
-          <p className="whitespace-nowrap text-sm font-semibold text-foreground">{displayCode(row.original.code)}</p>
+          <p className="flex items-center gap-1 whitespace-nowrap text-sm font-semibold text-foreground">
+            {displayCode(row.original.code)}
+            <NotesButton order={row.original} />
+          </p>
           <p className="text-xs text-muted-foreground">{displayCode(row.original.saleCode)}</p>
         </div>
       ),
@@ -381,7 +415,7 @@ export function OrdersWorkspace({
           <p className="truncate text-sm font-semibold text-foreground">{nombrePropio(order.clientName)}</p>
           <p className="flex items-center gap-1 text-xs text-muted-foreground">
             {displayCode(order.code)} · {displayCode(order.saleCode)}
-            <NoteIndicator order={order} />
+            <NotesButton order={order} />
           </p>
         </div>
         <StatusBadge order={order} />

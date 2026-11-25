@@ -204,7 +204,6 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
     // Fecha de la orden: en compras es la fecha elegida (releasedAt); si no, la
     // de creacion. Se entrega tambien en ISO para el filtro por rango.
     const orderDate = order.releasedAt ?? order.createdAt;
-    const lastNote = order.noteEntries[0];
     return {
       kind: isPurchase ? ("purchase" as const) : ("order" as const),
       id: order.id,
@@ -240,14 +239,11 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
       orderDateISO: orderDate.toISOString(),
       // Texto de todas las notas: solo para que el buscador las encuentre.
       notesText: order.noteEntries.map((note) => note.text).join(" "),
-      notesCount: order.noteEntries.length,
-      lastNote: lastNote
-        ? {
-            text: lastNote.text,
-            by: lastNote.createdBy.name || lastNote.createdBy.email,
-            date: formatNoteDate(lastNote.createdAt),
-          }
-        : null,
+      notes: order.noteEntries.map((note) => ({
+        text: note.text,
+        by: note.createdBy.name || note.createdBy.email,
+        date: formatNoteDate(note.createdAt),
+      })),
       reversedItems: countReversedItems(reversedLinesByOrder.get(order.id) ?? []),
       devolucion: isPurchase
         ? null

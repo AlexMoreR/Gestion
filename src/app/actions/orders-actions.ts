@@ -386,7 +386,9 @@ export async function adminAddOrderNoteAction(formData: FormData): Promise<void>
   if (!orderId) {
     redirect("/admin/ordenes?error=Orden+invalida");
   }
-  const back = orderDetailPath(orderId);
+  const detail = orderDetailPath(orderId);
+  // Desde la lista de órdenes vuelve a la lista; desde el detalle, al detalle.
+  const back = getReturnTo(formData, detail);
 
   const parsed = parseOrderNoteText(formData.get("text"));
   if (!parsed.ok) {
@@ -414,7 +416,7 @@ export async function adminAddOrderNoteAction(formData: FormData): Promise<void>
   });
 
   revalidatePath("/admin/ordenes");
-  revalidatePath(back);
+  revalidatePath(detail);
   redirect(`${back}?ok=Nota+agregada`);
 }
 
