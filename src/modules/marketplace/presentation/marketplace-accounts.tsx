@@ -35,10 +35,11 @@ export function AccountsSection({ accounts, days }: { accounts: AccountView[]; d
         <p className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground">No hay cuentas registradas.</p>
       ) : (
         <div className="-mx-4 overflow-x-auto px-4">
-          <Table className="min-w-[460px]">
+          <Table className="min-w-[540px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Cuenta</TableHead>
+                <TableHead className="text-right">Publicados</TableHead>
                 <TableHead className="text-right">Entrantes</TableHead>
                 <TableHead className="text-right">Respuestas</TableHead>
                 <TableHead>Última actividad</TableHead>
@@ -56,6 +57,7 @@ export function AccountsSection({ accounts, days }: { accounts: AccountView[]; d
                         <span className="truncate">{account.nombre}</span>
                       </span>
                     </TableCell>
+                    <TableCell className="text-right tabular-nums">{fmt(account.publicados)}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmt(account.entrantes)}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmt(account.respuestas)}</TableCell>
                     <TableCell className="text-muted-foreground">{account.latido}</TableCell>
