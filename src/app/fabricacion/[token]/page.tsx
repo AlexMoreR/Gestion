@@ -58,7 +58,7 @@ function formatCalendarDate(value: Date | null): string {
   if (!value) return "Por confirmar";
   return value.toLocaleDateString("es-CO", {
     day: "2-digit",
-    month: "long",
+    month: "2-digit",
     year: "numeric",
     timeZone: "UTC",
   });
@@ -135,10 +135,10 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
 
   return (
     <div className="min-h-screen bg-slate-50 print:bg-white">
-      <header className="border-b border-slate-200 bg-white">
+      <header className="bg-primary text-white print:bg-white print:text-slate-900">
         {/* Código a la izquierda, logo al centro, fecha de entrega y ciudad a la derecha. */}
         <div className="mx-auto grid max-w-4xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3 md:px-6">
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">{displayCode(manufacturingOrder.code)}</h1>
+          <h1 className="text-xl font-bold tracking-tight">{displayCode(manufacturingOrder.code)}</h1>
           <Image
             src={getPublicAssetUrl(logoPath)}
             alt={brandName}
@@ -147,14 +147,14 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
             className="h-9 w-auto object-contain"
             unoptimized
           />
-          <div className="min-w-0 space-y-0.5 text-right text-xs font-medium leading-tight text-slate-700">
+          <div className="min-w-0 space-y-0.5 text-right text-xs font-medium leading-tight">
             <p className="flex items-center justify-end gap-1" title="Fecha de entrega">
-              <CalendarDays className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+              <CalendarDays className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
               <span className="sr-only">Fecha de entrega: </span>
               {formatCalendarDate(manufacturingOrder.deliveryDate)}
             </p>
             <p className="flex items-center justify-end gap-1" title="Ciudad de destino">
-              <MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+              <MapPin className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
               <span className="sr-only">Ciudad de destino: </span>
               {destinationCityLabel(manufacturingOrder.order.client) ?? "Por confirmar"}
             </p>
