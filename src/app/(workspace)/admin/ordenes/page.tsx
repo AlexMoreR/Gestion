@@ -13,7 +13,6 @@ import { createPrismaInventoryRepository } from "@/modules/inventory/infrastruct
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { responsableDeEtapa } from "@/lib/order-list-view";
-import { listAssignableStaff } from "@/modules/equipo/infrastructure/prisma-team-repository";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -35,7 +34,7 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
   const errorMessage = typeof params.error === "string" ? params.error : "";
 
   const repository = createPrismaInventoryRepository();
-  const [orders, currency, productStocks, bundleProducts, productSupplierRows, allSuppliers, staff] =
+  const [orders, currency, productStocks, bundleProducts, productSupplierRows, allSuppliers] =
     await Promise.all([
     prisma.order.findMany({
       orderBy: { createdAt: "desc" },
@@ -122,8 +121,6 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
-    // Personas para asignar la orden desde la fila (sin las que ya salieron del equipo).
-    listAssignableStaff(),
   ]);
 
   // Productos con la entrega deshecha por orden (etiqueta "Entregado parcial"); solo las líneas reversadas.
@@ -295,7 +292,6 @@ export default async function AdminOrdenesPage({ searchParams }: PageProps) {
         currency={currency}
         stats={stats}
         returnedCount={returnedCount}
-        staff={staff}
         orders={rows}
         purchaseProducts={[
           ...productStocks.map((stock) => ({

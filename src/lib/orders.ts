@@ -77,7 +77,7 @@ export function getOrderStatusLabel(status: OrderStatus): string {
     case "RELEASED":
       return "Liberada";
     case "IN_PRODUCTION":
-      return "En producción";
+      return "Producción";
     case "READY_FOR_DISPATCH":
       return "Lista para despacho";
     case "DISPATCHED":

@@ -24,10 +24,7 @@ import { getOrderDisplayState, getOrderStatusBadgeClassName, getOrderStatusLabel
 import { displayCode } from "@/lib/code-display";
 import { formatNoteCount } from "@/lib/order-notes";
 import type { SeguimientoOrden, TipoEstadoEntrega } from "@/lib/delivery-tracking";
-import { DeliveryStateChip } from "@/components/admin/delivery-state-chip";
-import { adminAssignOrderAction } from "@/app/actions/orders-actions";
 import {
-  alertasDeOrden,
   coincideVista,
   compararPorUrgencia,
   nombrePropio,
@@ -85,75 +82,6 @@ function coincideSeguimiento(order: OrderRow, tipo: TipoEstadoEntrega): boolean 
   return s?.entrega?.peor.tipo === tipo || s?.fabricacion?.peor.tipo === tipo;
 }
 
-// Una sola etiqueta, la más urgente («Entrega: …» o «Fabricación: …»); las demás al pasar el mouse.
-function AlertaChip({ order }: { order: OrderRow }) {
-  const alertas = alertasDeOrden(order.seguimiento);
-  if (alertas.length === 0) return <span className="text-sm text-muted-foreground">—</span>;
-  const chip = (alerta: (typeof alertas)[number]) => (
-    <DeliveryStateChip estado={{ ...alerta.estado, etiqueta: `${alerta.parte}: ${alerta.estado.etiqueta}` }} />
-  );
-  if (alertas.length === 1) return chip(alertas[0]);
-  return (
-    <Popover>
-      <PopoverTrigger
-        openOnHover
-        delay={150}
-        aria-label={`Ver las ${alertas.length} alertas de ${displayCode(order.code)}`}
-        className="inline-flex items-center gap-1 rounded-md text-left"
-      >
-        {chip(alertas[0])}
-        <span className="text-[11px] font-medium text-muted-foreground">+{alertas.length - 1}</span>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="gap-1.5">
-        {alertas.map((alerta, index) => (
-          <div key={index}>{chip(alerta)}</div>
-        ))}
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-// Quién debe mover la orden; sin nadie, «Sin asignar» en rojo y se asigna eligiendo a la persona.
-function ResponsableCell({ order, staff }: { order: OrderRow; staff: { id: string; name: string }[] }) {
-  if (order.kind === "purchase" || ordenCerrada(order.status)) {
-    return <span className="text-sm text-muted-foreground">—</span>;
-  }
-  if (order.responsable) {
-    return (
-      <div className="leading-tight">
-        <p className="text-sm text-foreground">{order.responsable.nombre}</p>
-        {order.responsable.rol !== "Asignada" ? (
-          <p className="text-[11px] text-muted-foreground">{order.responsable.rol}</p>
-        ) : null}
-      </div>
-    );
-  }
-  return (
-    <form action={adminAssignOrderAction}>
-      <input type="hidden" name="orderId" value={order.id} />
-      <input type="hidden" name="returnTo" value="/admin/ordenes" />
-      <select
-        name="assignedToId"
-        defaultValue=""
-        aria-label={`Asignar responsable de ${displayCode(order.code)}`}
-        onChange={(event) => {
-          if (event.currentTarget.value) event.currentTarget.form?.requestSubmit();
-        }}
-        className="h-7 max-w-32 rounded-md border border-red-500/40 bg-red-500/10 px-1.5 text-xs font-medium text-red-600 outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 dark:text-red-400"
-      >
-        <option value="" disabled>
-          Sin asignar
-        </option>
-        {staff.map((person) => (
-          <option key={person.id} value={person.id}>
-            {person.name}
-          </option>
-        ))}
-      </select>
-    </form>
-  );
-}
-
 // Dia local (YYYY-MM-DD) de la fecha de la orden, para comparar con el rango.
 function localDay(iso: string): string {
   const date = new Date(iso);
@@ -189,7 +117,6 @@ type OrdersWorkspaceProps = {
     { childId: string; name: string; code: string | null; quantity: number; thumbnailUrl: string }[]
   >;
   purchaseSuppliers: { id: string; name: string }[];
-  staff: { id: string; name: string }[];
 };
 
 function StatusBadge({ order }: { order: OrderRow }) {
@@ -300,7 +227,6 @@ export function OrdersWorkspace({
   purchaseSuppliersByProduct,
   purchaseComboComponents,
   purchaseSuppliers,
-  staff,
 }: OrdersWorkspaceProps) {
   const defaultRange = React.useMemo(() => currentMonthRange(), []);
   const [fromDate, setFromDate] = React.useState(defaultRange.from);
@@ -335,8 +261,8 @@ export function OrdersWorkspace({
   const dateFilter = (
     <div className="flex flex-wrap items-center gap-1.5 sm:ml-auto">
       <label className="flex w-full items-center gap-1.5 text-xs text-muted-foreground sm:w-auto">
-        <span className="shrink-0">Seguimiento</span>
         <select
+          aria-label="Seguimiento"
           value={seguimiento}
           onChange={(event) => setSeguimiento(event.target.value as TipoEstadoEntrega | "")}
           className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm text-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 sm:w-40"
@@ -420,21 +346,9 @@ export function OrdersWorkspace({
       ),
     },
     {
-      id: "responsable",
-      accessorFn: (order) => order.responsable?.nombre ?? "",
-      header: "Responsable",
-      cell: ({ row }) => <ResponsableCell order={row.original} staff={staff} />,
-    },
-    {
       accessorKey: "status",
       header: "Estado",
       cell: ({ row }) => <StatusBadge order={row.original} />,
-    },
-    {
-      id: "seguimiento",
-      header: "Entrega y fabricación",
-      enableSorting: false,
-      cell: ({ row }) => <AlertaChip order={row.original} />,
     },
     {
       accessorKey: "total",
@@ -472,7 +386,6 @@ export function OrdersWorkspace({
         </div>
         <StatusBadge order={order} />
       </div>
-      <AlertaChip order={order} />
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-semibold text-foreground">{formatMoney(order.total, currency)}</p>
         <div className="flex items-center gap-1">
@@ -502,7 +415,7 @@ export function OrdersWorkspace({
             { label: "Atrasadas", value: String(cuentas.ATRASADAS), icon: AlertTriangle, tone: "danger", onClick: () => elegir("ATRASADAS"), active: vista === "ATRASADAS" },
             { label: "Listas para despacho", value: String(cuentas.LISTAS), icon: PackageCheck, onClick: () => elegir("LISTAS"), active: vista === "LISTAS" },
             { label: "Vencen hoy o mañana", value: String(cuentas.VENCEN), icon: CalendarClock, onClick: () => elegir("VENCEN"), active: vista === "VENCEN" },
-            { label: "En producción", value: String(cuentas.PRODUCCION), icon: Factory, onClick: () => elegir("PRODUCCION"), active: vista === "PRODUCCION" },
+            { label: "Producción", value: String(cuentas.PRODUCCION), icon: Factory, onClick: () => elegir("PRODUCCION"), active: vista === "PRODUCCION" },
           ]}
         />
         <p className="flex flex-wrap items-center gap-x-2 px-1 text-xs text-muted-foreground">
