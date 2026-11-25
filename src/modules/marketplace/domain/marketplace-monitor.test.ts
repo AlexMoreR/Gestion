@@ -195,9 +195,9 @@ describe("¿esta publicando bien hoy?", () => {
 });
 
 describe("tarjetas de hoy", () => {
-  it("siete tarjetas con su comparacion y el tope", () => {
+  it("ocho tarjetas con su comparacion y el tope", () => {
     const { cards, verdict } = buildTodayCards({ resumen: resumen(serie()), cuentas: [cuenta(), cuenta({ id: "300", nombre: "Vieja", habilitada: false, estado: "sin_conexion", entrantes_hoy: 0, clientes_7d: 0, publicados_7d: 0 })], publicador: publicador(), today: "2026-10-27", hour: 12 });
-    expect(cards.map((c) => c.key)).toEqual(["publicados", "renovados", "mensajes", "clientes", "whatsapp", "cuentas", "restricciones"]);
+    expect(cards.map((c) => c.key)).toEqual(["publicados", "renovados", "mensajes", "respuestas", "clientes", "whatsapp", "cuentas", "restricciones"]);
     const by = Object.fromEntries(cards.map((c) => [c.key, c]));
     expect(by.publicados).toMatchObject({ value: "4", sub: "de 10 posibles hoy (tope)", compare: "Ayer 10 · prom. 7 días 10" });
     expect(by.mensajes.value).toBe("17");

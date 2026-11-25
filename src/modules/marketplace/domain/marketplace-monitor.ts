@@ -255,6 +255,7 @@ export function buildTodayCards({ resumen, cuentas, publicador, today, hour, ale
   const published = trend("publicados");
   const renewed = trend("renovadas");
   const messages = trend("entrantes");
+  const replies = trend("respuestas");
   const clients = trend("clientes_nuevos");
   const whatsapp = trend("whatsapp");
   const restrictions = trend("restricciones");
@@ -286,6 +287,15 @@ export function buildTodayCards({ resumen, cuentas, publicador, today, hour, ale
       tone: "neutral",
       compare: compareText(messages),
       reached: messages.reachedYesterday,
+    },
+    {
+      key: "respuestas",
+      label: "Respuestas hoy",
+      value: String(replies.today),
+      sub: "mensajes contestados",
+      tone: "neutral",
+      compare: compareText(replies),
+      reached: replies.reachedYesterday,
     },
     {
       key: "clientes",
