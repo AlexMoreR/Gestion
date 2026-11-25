@@ -7,13 +7,14 @@
 import { colombiaDayKey, colombiaDayRange, colombiaTimeOfDay, todayInColombia } from "../../../lib/colombia-time";
 import { effectiveOrigin } from "../../ventas/domain/sale-origin";
 
-export const RANGE_OPTIONS = [7, 30, 90] as const;
+// 1 = solo hoy (la vista por defecto).
+export const RANGE_OPTIONS = [1, 7, 30, 90] as const;
 export type RangeDays = (typeof RANGE_OPTIONS)[number];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function resolveRangeDays(raw: unknown): RangeDays {
   const value = Number(Array.isArray(raw) ? raw[0] : raw);
-  return (RANGE_OPTIONS as readonly number[]).includes(value) ? (value as RangeDays) : 30;
+  return (RANGE_OPTIONS as readonly number[]).includes(value) ? (value as RangeDays) : 1;
 }
 
 export type BogotaRange = { desde: string; hasta: string; days: number; from: Date; to: Date };

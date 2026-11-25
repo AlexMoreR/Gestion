@@ -401,15 +401,10 @@ describe("alertas de cuentas (T-503)", () => {
     expect(con[1].alertas).toEqual([]);
   });
 
-  it("semaforo de la cuenta: bloqueo o caida en rojo, fuera de Messenger o en pausa en amarillo, en vivo en verde", () => {
-    const bloqueo = { tipo: "bloqueo" as const, etiqueta: "", mensaje: "" };
-    expect(accountTone({ estado: "fuera", pausa: "Pausada", alertas: [bloqueo] })).toBe("bad");
-    expect(accountTone({ estado: "sin_conexion", pausa: "", alertas: [] })).toBe("bad");
-    expect(accountTone({ estado: "fuera", pausa: "", alertas: [] })).toBe("warn");
-    expect(accountTone({ estado: "en_vivo", pausa: "Pausada: 2 fallos", alertas: [] })).toBe("warn");
-    expect(accountTone({ estado: "en_vivo", pausa: "", alertas: [] })).toBe("ok");
-    // Volvio a dar senal y NETMAGI aun no cierra la alerta de caida: no es rojo.
-    expect(accountTone({ estado: "en_vivo", pausa: "", alertas: [{ tipo: "caida", etiqueta: "", mensaje: "" }] })).toBe("warn");
+  it("semaforo de la cuenta: solo el estado de la extension (en vivo verde, fuera amarillo, sin conexion rojo)", () => {
+    expect(accountTone({ estado: "en_vivo" })).toBe("ok");
+    expect(accountTone({ estado: "fuera" })).toBe("warn");
+    expect(accountTone({ estado: "sin_conexion" })).toBe("bad");
   });
 
   it("el tope del dia suma el tope propio de cada cuenta (si lo tiene) y el general en las demas", () => {

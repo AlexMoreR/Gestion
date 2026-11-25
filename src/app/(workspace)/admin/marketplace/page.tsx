@@ -83,7 +83,7 @@ export default async function AdminMarketplacePage({ searchParams }: PageProps) 
 
   // NETMAGI va primero y en serie (ver netmagi-stats.server.ts); las ventas de Gestion, en paralelo.
   const [stats, sales, currency] = await Promise.all([
-    getNetmagiStats(range),
+    getNetmagiStats(range, tableRange),
     listChannelSales({ from: range.from, to: range.to }).catch(() => null),
     getSystemCurrency(),
   ]);

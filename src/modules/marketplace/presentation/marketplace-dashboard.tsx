@@ -88,7 +88,7 @@ export function MarketplaceDashboard({ days, desde, hasta, fetchDesde, now, stat
                   option === days ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
                 )}
               >
-                {option} días
+                {option === 1 ? "Hoy" : `${option} días`}
               </Link>
             ))}
           </div>
@@ -112,7 +112,7 @@ export function MarketplaceDashboard({ days, desde, hasta, fetchDesde, now, stat
           <AlertsStrip alertas={stats.alertas} cuentas={stats.cuentas} now={now} />
           <TodayCards cards={today_.cards} />
 
-          <AccountsSection accounts={accounts} days={Math.max(days, 30)} />
+          <AccountsSection accounts={accounts} days={days} />
 
           <AdsSection
             // Si cambia el periodo (7/30/90) se reinician los filtros de fecha.

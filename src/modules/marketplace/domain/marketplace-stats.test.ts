@@ -21,8 +21,9 @@ describe("rango en hora Bogota", () => {
   it("solo acepta 7, 30 o 90 dias (30 por defecto)", () => {
     expect(resolveRangeDays("7")).toBe(7);
     expect(resolveRangeDays(["90"])).toBe(90);
-    expect(resolveRangeDays("15")).toBe(30);
-    expect(resolveRangeDays(undefined)).toBe(30);
+    expect(resolveRangeDays("1")).toBe(1);
+    expect(resolveRangeDays("15")).toBe(1);
+    expect(resolveRangeDays(undefined)).toBe(1);
   });
 
   it("usa el dia de Bogota, no el UTC", () => {

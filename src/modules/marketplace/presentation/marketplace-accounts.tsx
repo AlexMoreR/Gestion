@@ -7,9 +7,10 @@ import { cn } from "@/lib/utils";
 import { accountTone, type AccountView } from "@/modules/marketplace/domain/marketplace-monitor";
 import { Card, fmt, TONE_DOT } from "./marketplace-ui";
 
-const TONE_LABEL = { ok: "En vivo", warn: "No responde o en pausa", bad: "Posible bloqueo o caída", neutral: "" } as const;
+// Mismo texto que el panel de NETMAGI: el estado sale de la extension (latido, Messenger abierto y Auto ON).
+const STATE_TEXT = { en_vivo: "En vivo", fuera: "Fuera de Messenger o bot apagado", sin_conexion: "Sin conexión" } as const;
 
-// Una fila por cuenta con su semaforo y lo que hizo en el periodo (como la tabla "Por cuenta" de NETMAGI).
+// Una fila por cuenta: ¿esta activa? (semaforo de la extension) y cuanto atendio en el periodo elegido.
 export function AccountsSection({ accounts, days }: { accounts: AccountView[]; days: number }) {
   const [showAll, setShowAll] = React.useState(false);
   const visible = showAll ? accounts : accounts.filter((account) => account.activa);
@@ -17,7 +18,7 @@ export function AccountsSection({ accounts, days }: { accounts: AccountView[]; d
 
   return (
     <Card
-      title={`Cuentas · últimos ${days} días`}
+      title={days === 1 ? "Cuentas · hoy" : `Cuentas · últimos ${days} días`}
       action={
         hidden > 0 ? (
           <button
@@ -34,14 +35,13 @@ export function AccountsSection({ accounts, days }: { accounts: AccountView[]; d
         <p className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground">No hay cuentas registradas.</p>
       ) : (
         <div className="-mx-4 overflow-x-auto px-4">
-          <Table className="min-w-[640px]">
+          <Table className="min-w-[560px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Cuenta</TableHead>
-                <TableHead className="text-right">Publicados</TableHead>
+                <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Entrantes</TableHead>
                 <TableHead className="text-right">Respuestas</TableHead>
-                <TableHead className="text-right">Renovaciones</TableHead>
                 <TableHead>Última actividad</TableHead>
               </TableRow>
             </TableHeader>
@@ -52,15 +52,13 @@ export function AccountsSection({ accounts, days }: { accounts: AccountView[]; d
                   <TableRow key={account.id}>
                     <TableCell>
                       <span className="flex min-w-0 items-center gap-2 font-medium text-foreground">
-                        <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", TONE_DOT[tone])} title={TONE_LABEL[tone]} aria-hidden />
-                        <span className="sr-only">{TONE_LABEL[tone]}:</span>
+                        <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", TONE_DOT[tone])} aria-hidden />
                         <span className="truncate">{account.nombre}</span>
                       </span>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{fmt(account.publicados)}</TableCell>
+                    <TableCell className="text-muted-foreground">{STATE_TEXT[account.estado]}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmt(account.entrantes)}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmt(account.respuestas)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmt(account.renovadas)}</TableCell>
                     <TableCell className="text-muted-foreground">{account.latido}</TableCell>
                   </TableRow>
                 );
@@ -70,7 +68,7 @@ export function AccountsSection({ accounts, days }: { accounts: AccountView[]; d
         </div>
       )}
       <p className="mt-2 text-[11px] text-muted-foreground">
-        Verde = en vivo, responde · Amarillo = fuera de Messenger o en pausa · Rojo = posible bloqueo o caída. Se actualiza cada 2 minutos.
+        Verde = conectada, con Messenger o Marketplace abierto y el bot en «Auto: ON» · Amarillo = conectada pero fuera de Messenger o con el bot apagado · Rojo = sin conexión (más de 75 s sin avisar). Se actualiza cada 2 minutos.
       </p>
     </Card>
   );

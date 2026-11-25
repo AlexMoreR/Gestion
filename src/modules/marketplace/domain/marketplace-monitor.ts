@@ -400,15 +400,11 @@ export function buildAccountViews(cuentas: readonly CuentaRow[], publicador: Pub
     .sort((a, b) => rank(a) - rank(b) || (b.clientes7d ?? 0) - (a.clientes7d ?? 0) || a.nombre.localeCompare(b.nombre, "es"));
 }
 
-// Semaforo de una cuenta: rojo = posible bloqueo o caida (no sirve); amarillo = conectada pero fuera de Messenger,
-// en pausa o con otra alerta (no responde o no publica); verde = en vivo y respondiendo sin problemas.
-export function accountTone(account: Pick<AccountView, "estado" | "pausa" | "alertas">): Tone {
-  // Una alerta de caida vieja no pinta rojo si la cuenta ya volvio a dar senal (NETMAGI tarda en cerrarla).
-  const severe = account.alertas.some((alert) => alert.tipo === "bloqueo" || (alert.tipo === "caida" && account.estado === "sin_conexion"));
-  if (account.estado === "sin_conexion" || severe) return "bad";
-  if (account.estado === "fuera" || account.pausa || account.alertas.length > 0) return "warn";
-  return "ok";
-}
+// Semaforo de una cuenta = la regla de la extension (no el publicador): NETMAGI manda "en_vivo" solo si la cuenta
+// aviso en los ultimos 75 s, tiene Messenger/Marketplace abierto y el bot en "Auto: ON". "fuera" = conectada pero
+// fuera de Messenger o con el bot apagado; "sin_conexion" = no avisa.
+const ACCOUNT_TONE: Readonly<Record<CuentaRow["estado"], Tone>> = { en_vivo: "ok", fuera: "warn", sin_conexion: "bad" };
+export const accountTone = (account: Pick<AccountView, "estado">): Tone => ACCOUNT_TONE[account.estado];
 
 // ── Anuncios ───────────────────────────────────────────────────────────────────
 export type AnuncioFilters = { desde: string; hasta: string; cuenta: string; ciudad: string; estado: string; q: string };

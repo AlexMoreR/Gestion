@@ -53,7 +53,11 @@ async function getJson(baseUrl: string, key: string, path: string, optional = fa
   return response.json();
 }
 
-export async function getNetmagiStats(range: Pick<BogotaRange, "desde" | "hasta">): Promise<NetmagiStats> {
+// `cuentasRange`: periodo de la tabla de cuentas (el elegido en pantalla; el resto pide al menos 30 dias).
+export async function getNetmagiStats(
+  range: Pick<BogotaRange, "desde" | "hasta">,
+  cuentasRange: Pick<BogotaRange, "desde" | "hasta"> = range,
+): Promise<NetmagiStats> {
   const empty: NetmagiStats = {
     ok: false,
     error: null,
@@ -70,7 +74,7 @@ export async function getNetmagiStats(range: Pick<BogotaRange, "desde" | "hasta"
   const config = getNetmagiConfig();
   if (!config) return { ...empty, error: "Falta configurar NETMAGI (NETMAGI_FOTOS_URL y GESTION_FOTOS_KEY)" };
 
-  const query = `?desde=${encodeURIComponent(range.desde)}&hasta=${encodeURIComponent(range.hasta)}`;
+  const queryOf = (r: Pick<BogotaRange, "desde" | "hasta">) => `?desde=${encodeURIComponent(r.desde)}&hasta=${encodeURIComponent(r.hasta)}`;
   const result: NetmagiStats = { ...empty };
   const errors: string[] = [];
   const steps = [
@@ -84,7 +88,7 @@ export async function getNetmagiStats(range: Pick<BogotaRange, "desde" | "hasta"
 
   for (const [name, parse, optional] of steps) {
     try {
-      const body = await getJson(config.baseUrl, config.key, `/gestion/estadisticas/${name}${query}`, optional);
+      const body = await getJson(config.baseUrl, config.key, `/gestion/estadisticas/${name}${queryOf(name === "cuentas" ? cuentasRange : range)}`, optional);
       if (name === "formula" && formulaNoDisponible(body)) {
         result.formulaFaltan = true;
         continue;
