@@ -35,11 +35,10 @@ export function AccountsSection({ accounts, days }: { accounts: AccountView[]; d
         <p className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground">No hay cuentas registradas.</p>
       ) : (
         <div className="-mx-4 overflow-x-auto px-4">
-          <Table className="min-w-[560px]">
+          <Table className="min-w-[460px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Cuenta</TableHead>
-                <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Entrantes</TableHead>
                 <TableHead className="text-right">Respuestas</TableHead>
                 <TableHead>Última actividad</TableHead>
@@ -52,11 +51,11 @@ export function AccountsSection({ accounts, days }: { accounts: AccountView[]; d
                   <TableRow key={account.id}>
                     <TableCell>
                       <span className="flex min-w-0 items-center gap-2 font-medium text-foreground">
-                        <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", TONE_DOT[tone])} aria-hidden />
+                        <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", TONE_DOT[tone])} title={STATE_TEXT[account.estado]} />
+                        <span className="sr-only">{STATE_TEXT[account.estado]}</span>
                         <span className="truncate">{account.nombre}</span>
                       </span>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{STATE_TEXT[account.estado]}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmt(account.entrantes)}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmt(account.respuestas)}</TableCell>
                     <TableCell className="text-muted-foreground">{account.latido}</TableCell>
