@@ -39,6 +39,19 @@ const PRODUCT_SEO_CONTENT: Record<string, ProductSeoContent> = {
       ". Escríbenos por WhatsApp y una asesora te ayuda a elegir.",
     ],
   },
+  "tarima-para-pedicure-tpv01": {
+    title: "Tarima para pedicure de 1 puesto con puf, de fábrica",
+    description:
+      "Tarima para pedicure de 1 puesto con brazos y puf, hecha por Magilus en Cali y Bogotá. Mira fotos, medidas y precio y cotiza por WhatsApp.",
+    h1: "Tarima para pedicure de 1 puesto con puf",
+    paragraph: [
+      "La tarima para pedicure de 1 puesto de Magilus está pensada para salones de uñas, spas y pedicuristas que quieren ofrecer un servicio cómodo y con buena imagen. Tu clienta se sienta en un puesto con brazos, bien apoyada y relajada mientras le atienden los pies, y la pedicurista trabaja sentada en el puf, a la altura de los pies, sin forzar la espalda. Es una tarima de pedicure de fábrica: la hacemos en nuestros talleres de Cali y Bogotá y tú escoges el color que combine con tu salón. Mira las fotos y las medidas en esta página y compárala con las demás ",
+      { text: "tarimas para pedicure", href: "/tarimas-pedicure" },
+      "; si necesitas más asientos para tu equipo, revisa también nuestros ",
+      { text: "butacos mani y pedy", href: "/butacos-mani-y-pedy" },
+      ". Escríbenos por WhatsApp y una asesora te ayuda a elegir.",
+    ],
+  },
 };
 
 export function getProductSeoContent(slug: string | null | undefined): ProductSeoContent | null {

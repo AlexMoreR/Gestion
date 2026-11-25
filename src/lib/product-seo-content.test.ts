@@ -76,3 +76,40 @@ describe("getProductSeoContent — mesa MMV10", () => {
     expect(getProductSeoContent("mesa-manicura-mmv11")).toBeNull();
   });
 });
+
+describe("getProductSeoContent — tarima TPV01", () => {
+  const seo = getProductSeoContent("tarima-para-pedicure-tpv01")!;
+  const text = categorySeoParagraphText(seo.paragraph);
+
+  it("trae el título, la descripción y el H1 fijos", () => {
+    expect(seo.title).toBe("Tarima para pedicure de 1 puesto con puf, de fábrica");
+    expect(seo.description).toBe(
+      "Tarima para pedicure de 1 puesto con brazos y puf, hecha por Magilus en Cali y Bogotá. Mira fotos, medidas y precio y cotiza por WhatsApp.",
+    );
+    expect(seo.description.length).toBeLessThanOrEqual(155);
+    expect(seo.h1).toBe("Tarima para pedicure de 1 puesto con puf");
+  });
+
+  it("párrafo de 80 a 200 palabras con las 2 frases y enlaces a /tarimas-pedicure y /butacos-mani-y-pedy", () => {
+    const words = text.trim().split(/\s+/).length;
+    expect(words).toBeGreaterThanOrEqual(80);
+    expect(words).toBeLessThanOrEqual(200);
+    for (const phrase of ["tarima para pedicure", "tarima de pedicure"]) {
+      expect(text.toLowerCase()).toContain(phrase);
+    }
+    const links = seo.paragraph.filter((s) => typeof s !== "string").map((s) => s.href);
+    expect(links).toEqual(["/tarimas-pedicure", "/butacos-mani-y-pedy"]);
+  });
+
+  it("sin precios, envío gratis, contraentrega, descuentos ni garantías; título sin la marca", () => {
+    const all = `${seo.title} ${seo.description} ${seo.h1} ${text}`.toLowerCase();
+    for (const banned of ["$", "gratis", "contraentrega", "descuento", "garantía"]) {
+      expect(all).not.toContain(banned);
+    }
+    expect(seo.title).not.toContain("Magilus");
+  });
+
+  it("otra tarima no trae textos fijos", () => {
+    expect(getProductSeoContent("tarima-spa")).toBeNull();
+  });
+});
