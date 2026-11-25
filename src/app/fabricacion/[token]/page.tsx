@@ -20,7 +20,6 @@ import {
   getSystemStorefrontLogoPath,
   getSystemWhatsAppPhoneDisplay,
 } from "@/lib/system-settings";
-import { PrintButton } from "./print-button";
 
 // Orden de fabricacion publica para la proveedora. A proposito NO muestra
 // precio de venta, margen ni datos personales del cliente (nombre, telefono,
@@ -137,7 +136,9 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
   return (
     <div className="min-h-screen bg-slate-50 print:bg-white">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-4 md:px-6">
+        {/* Código a la izquierda, logo al centro, fecha de entrega y ciudad a la derecha. */}
+        <div className="mx-auto grid max-w-4xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3 md:px-6">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">{displayCode(manufacturingOrder.code)}</h1>
           <Image
             src={getPublicAssetUrl(logoPath)}
             alt={brandName}
@@ -146,8 +147,17 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
             className="h-9 w-auto object-contain"
             unoptimized
           />
-          <div className="ml-auto flex items-center gap-2">
-            <PrintButton />
+          <div className="min-w-0 space-y-0.5 text-right text-xs font-medium leading-tight text-slate-700">
+            <p className="flex items-center justify-end gap-1" title="Fecha de entrega">
+              <CalendarDays className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+              <span className="sr-only">Fecha de entrega: </span>
+              {formatCalendarDate(manufacturingOrder.deliveryDate)}
+            </p>
+            <p className="flex items-center justify-end gap-1" title="Ciudad de destino">
+              <MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+              <span className="sr-only">Ciudad de destino: </span>
+              {destinationCityLabel(manufacturingOrder.order.client) ?? "Por confirmar"}
+            </p>
           </div>
         </div>
       </header>
@@ -187,32 +197,12 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
           </section>
         ))}
 
-        <section>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{displayCode(manufacturingOrder.code)}</h1>
-          <p className="text-sm text-slate-600">
-            Para <span className="font-semibold text-slate-900">{supplierName}</span> · Pedido{" "}
-            {displayCode(manufacturingOrder.order.code)}
-          </p>
-        </section>
+        <p className="text-sm text-slate-600">
+          Para <span className="font-semibold text-slate-900">{supplierName}</span> · Pedido{" "}
+          {displayCode(manufacturingOrder.order.code)}
+        </p>
 
-        {/* Entrega, destino y pago en una sola tarjeta compacta (etiqueta a la izquierda, dato a la derecha). */}
-        <section className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white px-4 text-sm">
-          <div className="flex items-center justify-between gap-3 py-2.5">
-            <span className="flex shrink-0 items-center gap-1.5 text-slate-500">
-              <CalendarDays className="h-3.5 w-3.5" /> Fecha de entrega
-            </span>
-            <span className="text-right font-semibold text-slate-900">
-              {formatCalendarDate(manufacturingOrder.deliveryDate)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between gap-3 py-2.5">
-            <span className="flex shrink-0 items-center gap-1.5 text-slate-500">
-              <MapPin className="h-3.5 w-3.5" /> Ciudad de destino
-            </span>
-            <span className="text-right font-semibold text-slate-900">
-              {destinationCityLabel(manufacturingOrder.order.client) ?? "Por confirmar"}
-            </span>
-          </div>
+        <section className="rounded-xl border border-slate-200 bg-white px-4 text-sm">
           <div className="flex items-start justify-between gap-3 py-2.5">
             <span className="shrink-0 text-slate-500">Total a pagar</span>
             <span className="text-right">
