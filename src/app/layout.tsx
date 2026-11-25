@@ -117,6 +117,10 @@ export default async function RootLayout({
 
   return (
     <html lang="es-CO" suppressHydrationWarning>
+      {/* Fijo en el <head> (no en generateMetadata, que Next puede mandar después): Facebook lo exige ahí. */}
+      <head>
+        <meta name="facebook-domain-verification" content="vxpr47swfz3w7sombmu0abnntf025o" />
+      </head>
       <body
         suppressHydrationWarning
         className={`${poppins.variable} ${geistMono.variable} antialiased`}
