@@ -18,3 +18,13 @@ Un incidente por bloque, el más nuevo arriba: qué pasó, por qué, cómo se ar
   (foto del build de `que_es_esta_aplicacion`).
 - **Qué cuidar:** quien construye una tarjeta debe correr también `npm run test:db` (con un Postgres
   desechable), no solo `npm test`: las pruebas de base solo corren en GitHub y ahí frenan el despliegue.
+
+### fecha no registrada · T-875 Gestión no arrancó
+<!-- incidente:T-875:fecha no registrada -->
+
+- Repo: gestion (commit c42a476)
+- Qué falló: no arrancó
+- Causa: causa no registrada
+- Qué se intentó: no registrado
+- Cómo se resolvió: no registrado
+- Regla: Leer los registros completos del servidor y anotar la causa cuando se sepa.
