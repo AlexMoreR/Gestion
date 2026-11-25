@@ -76,6 +76,8 @@ export type OrderItemManagerData = {
   observations: string;
   /** Color guardado en la línea (texto). */
   color: string;
+  /** Muestra del color de la carta del CRM (vacío = sin foto). */
+  colorFotoUrl: string;
   /** Venta activa (no cancelada): se puede cambiar solo el color. */
   canChangeColor: boolean;
   /** Imagen subida a mano para la OF (null = usa la del catálogo). */
@@ -341,8 +343,20 @@ export function OrderItemManager({
         <p className="truncate text-sm font-medium text-foreground" title={item.productName}>
           {item.productName}
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground">
           {item.productCode ? `${item.productCode} · ` : ""}x{item.quantity}
+          {/* Color con su muestra al lado de la cantidad; se cambia en "Editar orden" (menú ⋯). */}
+          {item.color || item.canChangeColor ? (
+            <>
+              {" · "}
+              {item.colorFotoUrl ? (
+                // La foto vive en el CRM (carta de colores).
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={item.colorFotoUrl} alt="" className="h-4 w-4 rounded-sm border border-border object-cover" />
+              ) : null}
+              {item.color || "sin color"}
+            </>
+          ) : null}
           {item.stockCostSource && item.purchaseCost !== null ? (
             <> · Costo {formatMoney(item.purchaseCost, currency)} c/u ({item.stockCostSource})</>
           ) : null}
@@ -356,10 +370,6 @@ export function OrderItemManager({
             </button>
           )}
         </p>
-        {/* Color solo como texto: se cambia en "Editar orden" (menú ⋯), igual que la imagen. */}
-        {item.color || item.canChangeColor ? (
-          <p className="text-xs text-muted-foreground">Color: {item.color || "sin color"}</p>
-        ) : null}
       </TableCell>
       <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
         <p>{formatMoney(item.unitPrice, currency)}</p>

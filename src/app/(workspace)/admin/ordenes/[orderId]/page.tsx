@@ -659,6 +659,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       fulfillmentLabel: getFulfillmentModeLabel(item.fulfillmentMode),
       observations,
       color: meta.color.trim(),
+      colorFotoUrl: meta.colorFotoUrl,
       canChangeColor,
       // La imagen que ve la proveedora: la subida a mano o, si no hay, la del catálogo.
       imagenManual: meta.imageUrl.trim() ? getPublicAssetUrl(meta.imageUrl.trim()) : null,
