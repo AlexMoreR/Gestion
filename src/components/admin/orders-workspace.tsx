@@ -8,7 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { StatList } from "@/components/ui/stat-list";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { SaveNoteButton } from "@/components/admin/order-notes-card";
 import { adminAddOrderNoteAction } from "@/app/actions/orders-actions";
@@ -164,7 +164,6 @@ function NotesButton({ order }: { order: OrderRow }) {
         <DialogContent className="max-h-[88vh] max-w-md overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Notas de {code}</DialogTitle>
-            <DialogDescription>Solo la ve el equipo: no le sale a la clienta ni a la proveedora.</DialogDescription>
           </DialogHeader>
           {count ? (
             <ul className="space-y-2">
