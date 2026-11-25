@@ -217,18 +217,8 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
               {lines.map((line) => (
                 <li key={line.id} className="flex flex-col gap-3 px-4 py-4">
                   {line.imageUrl ? (
-                    // Foto a todo el ancho de la tarjeta, arriba del nombre, con la etiqueta de que es solo
-                    // referencia y en qué color se fabrica (26-oct-2026).
-                    <div className="space-y-2">
-                      <p className="rounded-lg bg-amber-100 px-3 py-2 text-center text-sm font-bold text-amber-900 ring-1 ring-amber-300">
-                        {line.color
-                          ? `Foto de referencia, fabricar en color ${colorLabel({
-                              color: line.color.toUpperCase(),
-                              colorCodigo: line.colorCodigo,
-                              colorMaterial: line.colorMaterial,
-                            })}`
-                          : "Foto de referencia"}
-                      </p>
+                    // Foto de borde a borde de la tarjeta (-mx-4), sin marco, arriba del nombre.
+                    <div className="-mx-4 space-y-2">
                       {line.imagenReferenciaUrl ? (
                         // Colores a fabricar y referencia subida a mano lado a lado (también al imprimir); en
                         // celular, apiladas.
@@ -239,7 +229,7 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
                             <img
                               src={getPublicAssetUrl(line.imageUrl)}
                               alt={`${line.productName} con los colores a fabricar`}
-                              className="h-auto w-full rounded-lg border border-slate-100 object-contain"
+                              className="h-auto w-full object-contain"
                             />
                           </div>
                           <div className="space-y-1">
@@ -248,7 +238,7 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
                             <img
                               src={imageVariantUrl(getPublicAssetUrl(line.imagenReferenciaUrl), "large")}
                               alt={`${line.productName}: imagen de referencia`}
-                              className="h-auto w-full rounded-lg border border-slate-100 object-contain"
+                              className="h-auto w-full object-contain"
                             />
                           </div>
                         </div>
@@ -261,7 +251,7 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
                               : imageVariantUrl(getPublicAssetUrl(line.imageUrl), "large")
                           }
                           alt={line.imagenDeColores ? `${line.productName} con los colores a fabricar` : line.productName}
-                          className="h-auto w-full rounded-lg border border-slate-100 object-contain"
+                          className="h-auto w-full object-contain"
                         />
                       )}
                       {line.partesTexto ? (
@@ -299,11 +289,6 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
                           })}
                         </p>
                       </div>
-                    ) : null}
-                    {line.details ? (
-                      <p className="whitespace-pre-line text-sm font-semibold text-slate-900">
-                        Medidas / especificaciones: {line.details}
-                      </p>
                     ) : null}
                     <p className="text-xs text-slate-500">
                       Costo unitario:{" "}
