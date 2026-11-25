@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  accountTone,
   agoText,
   ANUNCIO_CSV_COLUMNS,
   bogotaDate,
@@ -398,6 +399,15 @@ describe("alertas de cuentas (T-503)", () => {
     expect(con.map((v) => v.id)).toEqual(["2", "3"]);
     expect(con[0].alertas).toEqual([{ tipo: "sin_contestar", etiqueta: "Sin contestar", mensaje: "Sin contestar: 2 mensaje(s)" }]);
     expect(con[1].alertas).toEqual([]);
+  });
+
+  it("semaforo de la cuenta: bloqueo o caida en rojo, fuera de Messenger o en pausa en amarillo, en vivo en verde", () => {
+    const bloqueo = { tipo: "bloqueo" as const, etiqueta: "", mensaje: "" };
+    expect(accountTone({ estado: "fuera", pausa: "Pausada", alertas: [bloqueo] })).toBe("bad");
+    expect(accountTone({ estado: "sin_conexion", pausa: "", alertas: [] })).toBe("bad");
+    expect(accountTone({ estado: "fuera", pausa: "", alertas: [] })).toBe("warn");
+    expect(accountTone({ estado: "en_vivo", pausa: "Pausada: 2 fallos", alertas: [] })).toBe("warn");
+    expect(accountTone({ estado: "en_vivo", pausa: "", alertas: [] })).toBe("ok");
   });
 
   it("el tope del dia suma el tope propio de cada cuenta (si lo tiene) y el general en las demas", () => {

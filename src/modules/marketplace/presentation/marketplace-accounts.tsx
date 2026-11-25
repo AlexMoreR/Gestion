@@ -3,10 +3,10 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
-import type { AccountView } from "@/modules/marketplace/domain/marketplace-monitor";
+import { accountTone, type AccountView } from "@/modules/marketplace/domain/marketplace-monitor";
 import { Card, TONE_DOT } from "./marketplace-ui";
 
-const STATE_TONE = { en_vivo: "ok", fuera: "ok", sin_conexion: "bad" } as const;
+const TONE_LABEL = { ok: "En vivo", warn: "No responde o en pausa", bad: "Posible bloqueo o caída", neutral: "" } as const;
 
 function Metric({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -50,7 +50,8 @@ export function AccountsSection({ accounts }: { accounts: AccountView[] }) {
           {visible.map((account) => (
             <li key={account.id} className="grid gap-x-4 gap-y-2 rounded-lg border border-border/70 p-3 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] md:items-center">
               <p className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
-                <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", TONE_DOT[STATE_TONE[account.estado]])} aria-hidden />
+                <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", TONE_DOT[accountTone(account)])} title={TONE_LABEL[accountTone(account)]} aria-hidden />
+                <span className="sr-only">{TONE_LABEL[accountTone(account)]}:</span>
                 <span className="truncate">{account.nombre}</span>
               </p>
               <dl className="grid grid-cols-3 gap-3">
@@ -63,7 +64,7 @@ export function AccountsSection({ accounts }: { accounts: AccountView[] }) {
         </ul>
       )}
       <p className="mt-2 text-[11px] text-muted-foreground">
-        Caída = sin latido hace más de 75 segundos (navegador apagado o extensión sin recargar). El estado se actualiza cada minuto.
+        Verde = en vivo, responde · Amarillo = fuera de Messenger o en pausa · Rojo = posible bloqueo o caída. Se actualiza cada 2 minutos.
       </p>
     </Card>
   );
