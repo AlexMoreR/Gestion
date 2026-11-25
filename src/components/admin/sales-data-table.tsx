@@ -32,6 +32,7 @@ import { useFormStatus } from "react-dom";
 import { saldoAFavor } from "@/lib/sale-item-cancel";
 import {
   adminAddSalePaymentAction,
+  adminChangeSalePaymentAccountAction,
   adminVoidSalePaymentAction,
   adminCancelSaleAction,
   adminHardDeleteSaleAction,
@@ -111,6 +112,11 @@ type SalePaymentRow = {
   paidAt: string | null;
   // Recibo de caja al CRM: "ENVIADO", "FALLIDO" o null (no se mandó).
   reciboCajaEstado: string | null;
+  accountId: string | null;
+  accountName: string | null;
+  isWithholding: boolean;
+  // El mes del abono ya tiene cierre con el banco (cerrar_mes): cambiar la cuenta lo descuadra.
+  mesCerrado: boolean;
 };
 
 type SaleRow = {
@@ -421,11 +427,13 @@ function RowActions({
 function SaleReceiptsSheet({
   sale,
   currency,
+  accounts,
   open,
   onOpenChange,
 }: {
   sale: SaleRow | null;
   currency: SupportedCurrencyCode;
+  accounts: AccountOption[];
   open: boolean;
   onOpenChange: (value: boolean) => void;
 }) {
@@ -444,7 +452,12 @@ function SaleReceiptsSheet({
               receiptName: "Comprobante principal",
               receiptType: sale.paymentReceiptType,
               paidAt: null,
-            },
+              reciboCajaEstado: null,
+              accountId: null,
+              accountName: null,
+              isWithholding: false,
+              mesCerrado: false,
+            } satisfies SalePaymentRow,
           ]
         : []
     : [];
@@ -476,6 +489,9 @@ function SaleReceiptsSheet({
                         <div className="min-w-0 space-y-1">
                           <p className="text-sm font-semibold text-foreground">Abono #{index + 1}</p>
                           <p className="text-xs text-muted-foreground">{getPaymentMethodLabel(receipt.paymentMethod)}</p>
+                          {receipt.id && !receipt.isWithholding ? (
+                            <p className="text-xs text-muted-foreground">Cuenta: {receipt.accountName ?? "Sin cuenta"}</p>
+                          ) : null}
                           {receipt.paidAt ? (
                             <p className="text-xs text-muted-foreground">{receipt.paidAt}</p>
                           ) : null}
@@ -505,6 +521,13 @@ function SaleReceiptsSheet({
                           ) : (
                             <span className="text-xs text-muted-foreground">Sin archivo</span>
                           )}
+                          {receipt.id && !receipt.isWithholding ? (
+                            <ChangePaymentAccountButton
+                              payment={receipt}
+                              accounts={accounts}
+                              amountLabel={formatMoney(receipt.amount, currency)}
+                            />
+                          ) : null}
                           {receipt.id ? (
                             <VoidPaymentButton
                               paymentId={receipt.id}
@@ -600,6 +623,107 @@ function VoidPaymentButton({ paymentId, amountLabel }: { paymentId: string; amou
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// Cambiar la cuenta de un abono: solo la cuenta; monto, fecha y estado de la venta quedan igual.
+function ChangePaymentAccountButton({
+  payment,
+  accounts,
+  amountLabel,
+}: {
+  payment: SalePaymentRow;
+  accounts: AccountOption[];
+  amountLabel: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const otras = accounts.filter((account) => account.id !== payment.accountId);
+  const [accountId, setAccountId] = React.useState(otras[0]?.id ?? "");
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        aria-label={`Cambiar cuenta del abono de ${amountLabel}`}
+      >
+        <ArrowLeftRight className="h-3.5 w-3.5" />
+        Cambiar cuenta
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cambiar cuenta del abono</DialogTitle>
+          </DialogHeader>
+          <form action={adminChangeSalePaymentAccountAction} className="space-y-3">
+            <input type="hidden" name="returnTo" value="/admin/ventas" />
+            <input type="hidden" name="paymentId" value={payment.id} />
+            <p className="text-sm text-muted-foreground">
+              El abono de <span className="font-medium text-foreground">{amountLabel}</span> está en{" "}
+              <span className="font-medium text-foreground">{payment.accountName ?? "Sin cuenta"}</span>. Al cambiarla,
+              esa cuenta baja y la nueva sube el mismo valor. Lo pagado y la venta no cambian.
+            </p>
+            {payment.mesCerrado ? (
+              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                Este mes ya se cuadró con el banco; revisa el cuadre después de cambiarla.
+              </p>
+            ) : null}
+            <div className="space-y-1.5">
+              <label htmlFor={`change-account-${payment.id}`} className="text-sm font-medium text-foreground">
+                Cuenta nueva
+              </label>
+              {otras.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No hay otra cuenta activa. Créala en Balances.</p>
+              ) : (
+                <select
+                  id={`change-account-${payment.id}`}
+                  name="accountId"
+                  required
+                  value={accountId}
+                  onChange={(event) => setAccountId(event.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                >
+                  {otras.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor={`change-account-motivo-${payment.id}`} className="text-sm font-medium text-foreground">
+                Motivo
+              </label>
+              <Textarea
+                id={`change-account-motivo-${payment.id}`}
+                name="motivo"
+                required
+                minLength={3}
+                maxLength={300}
+                placeholder="Ej.: la clienta consignó en otra cuenta"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Volver
+              </Button>
+              <ChangePaymentAccountSubmit disabled={otras.length === 0} />
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function ChangePaymentAccountSubmit({ disabled }: { disabled?: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending || disabled}>
+      <ArrowLeftRight className="h-4 w-4" />
+      {pending ? "Guardando..." : "Cambiar cuenta"}
+    </Button>
   );
 }
 
@@ -910,6 +1034,11 @@ function AddSalePaymentSheet({
                       {payment.paidAt || "Sin fecha"}
                       {payment.note ? ` · ${payment.note}` : ""}
                     </p>
+                    {!payment.isWithholding ? (
+                      <p className="truncate text-xs text-muted-foreground">
+                        Cuenta: {payment.accountName ?? "Sin cuenta"}
+                      </p>
+                    ) : null}
                     {payment.reciboCajaEstado === "ENVIADO" ? (
                       <span className="mt-1 inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
                         Recibo enviado
@@ -921,7 +1050,16 @@ function AddSalePaymentSheet({
                     ) : null}
                   </div>
                   {payment.id ? (
-                    <VoidPaymentButton paymentId={payment.id} amountLabel={formatMoney(payment.amount, currency)} />
+                    <div className="flex shrink-0 flex-col items-stretch gap-1.5 sm:flex-row sm:items-center">
+                      {!payment.isWithholding ? (
+                        <ChangePaymentAccountButton
+                          payment={payment}
+                          accounts={accounts}
+                          amountLabel={formatMoney(payment.amount, currency)}
+                        />
+                      ) : null}
+                      <VoidPaymentButton paymentId={payment.id} amountLabel={formatMoney(payment.amount, currency)} />
+                    </div>
                   ) : null}
                 </div>
               ))}
@@ -1188,6 +1326,7 @@ export function SalesDataTable({
       <SaleReceiptsSheet
         sale={selectedSale}
         currency={currency}
+        accounts={accounts}
         open={Boolean(selectedSale)}
         onOpenChange={(open) => {
           if (!open) {
