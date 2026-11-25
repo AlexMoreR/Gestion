@@ -77,6 +77,39 @@ describe("getProductSeoContent — mesa MMV10", () => {
   });
 });
 
+describe("getProductSeoContent — mesa MMV03", () => {
+  const seo = getProductSeoContent("mesa-manicura-mmv03")!;
+  const text = categorySeoParagraphText(seo.paragraph);
+
+  it("trae el título, la descripción y el H1 fijos", () => {
+    expect(seo.title).toBe("Mesa de manicura sencilla de fábrica");
+    expect(`${seo.title} | Magilus`.length).toBeLessThanOrEqual(60);
+    expect(seo.description).toBe(
+      "Mesa de manicura sencilla, hecha por Magilus en Cali y Bogotá para manicuristas y salones de uñas. Mira fotos, medidas y precio y cotiza por WhatsApp.",
+    );
+    expect(seo.description.length).toBeLessThanOrEqual(155);
+    expect(seo.h1).toBe("Mesa de manicura sencilla");
+  });
+
+  it("párrafo de 120 a 200 palabras con las 3 frases y enlaces a /mesa-manicura y /esmalteros", () => {
+    const words = text.trim().split(/\s+/).length;
+    expect(words).toBeGreaterThanOrEqual(120);
+    expect(words).toBeLessThanOrEqual(200);
+    for (const phrase of ["mesa manicura", "mesa de manicura", "mesa para uñas"]) {
+      expect(text.toLowerCase()).toContain(phrase);
+    }
+    const links = seo.paragraph.filter((s) => typeof s !== "string").map((s) => s.href);
+    expect(links).toEqual(["/mesa-manicura", "/esmalteros"]);
+  });
+
+  it("sin precios, cifras, envío gratis, descuentos ni garantías; título sin la marca", () => {
+    const all = `${seo.title} ${seo.description} ${seo.h1} ${text}`.toLowerCase();
+    for (const banned of ["$", "%", "gratis", "descuento", "garantía"]) expect(all).not.toContain(banned);
+    expect(all).not.toMatch(/\d/);
+    expect(seo.title).not.toContain("Magilus");
+  });
+});
+
 describe("getProductSeoContent — tarima TPV01", () => {
   const seo = getProductSeoContent("tarima-para-pedicure-tpv01")!;
   const text = categorySeoParagraphText(seo.paragraph);

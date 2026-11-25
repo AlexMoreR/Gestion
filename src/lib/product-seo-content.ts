@@ -52,6 +52,19 @@ const PRODUCT_SEO_CONTENT: Record<string, ProductSeoContent> = {
       ". Escríbenos por WhatsApp y una asesora te ayuda a elegir.",
     ],
   },
+  "mesa-manicura-mmv03": {
+    title: "Mesa de manicura sencilla de fábrica",
+    description:
+      "Mesa de manicura sencilla, hecha por Magilus en Cali y Bogotá para manicuristas y salones de uñas. Mira fotos, medidas y precio y cotiza por WhatsApp.",
+    h1: "Mesa de manicura sencilla",
+    paragraph: [
+      "La mesa de manicura sencilla de Magilus es ideal para empezar o para espacios pequeños: te da un puesto de trabajo cómodo y ordenado sin ocupar mucho lugar en tu salón. Es una mesa para uñas de fábrica, hecha en nuestros talleres de Cali y Bogotá para manicuristas independientes, salones de uñas y spas que quieren atender con buena imagen desde el primer día. Como mesa manicura de diseño sencillo, se acomoda fácil en un local, en una habitación o en un rincón de tu casa, y te ayudamos a escoger el color que combine con tu espacio. Mira las fotos y las medidas en esta página y compárala con los demás modelos de nuestras ",
+      { text: "mesas de manicura", href: "/mesa-manicura" },
+      "; si quieres tener tus colores a la vista y bien ordenados, combínala con uno de nuestros ",
+      { text: "esmalteros", href: "/esmalteros" },
+      ". Escríbenos por WhatsApp y una asesora te ayuda a elegir la mesa que mejor se adapta a tu trabajo.",
+    ],
+  },
   "tarima-para-pedicure-tpv01": {
     title: "Tarima para pedicure de 1 puesto con puf, de fábrica",
     description:
