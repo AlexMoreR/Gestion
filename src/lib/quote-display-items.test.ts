@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { QuoteItemMeta } from "./quote-item-meta";
-import { groupQuoteDisplayItems, type QuoteDisplayItemInput } from "./quote-display-items";
+import { groupQuoteDisplayItems, totalAdicionales, totalDeFilaCotizacion, type QuoteDisplayItemInput } from "./quote-display-items";
 
 const emptyMeta: QuoteItemMeta = {
   description: "",
@@ -245,5 +245,56 @@ describe("groupQuoteDisplayItems", () => {
       const [row] = groupQuoteDisplayItems([quoteItem({ id: "l1" })]);
       expect(row.colores).toEqual([]);
     });
+  });
+});
+
+describe("adicionales en la cotización y la factura de la clienta", () => {
+  const adicional = (descripcion: string, precio: number) => ({
+    descripcion,
+    precio,
+    costo: 30000,
+    porId: "u1",
+    porNombre: "Ingrid",
+    en: "2026-11-20T15:00:00.000Z",
+  });
+
+  it("lista cada adicional con su precio y sin el costo", () => {
+    const [fila] = groupQuoteDisplayItems([
+      quoteItem({ id: "silla", meta: { ...emptyMeta, additionalCost: 50000, adicionales: [adicional("Base cromada", 50000)] } }),
+    ]);
+    expect(fila.adicionales).toEqual([{ descripcion: "Base cromada", precio: 50000 }]);
+    expect(totalAdicionales(fila.adicionales)).toBe(50000);
+  });
+
+  it("un combo junta los adicionales de sus piezas", () => {
+    const combo = { ...emptyMeta, comboKey: "c1", comboName: "Combo" };
+    const [fila] = groupQuoteDisplayItems([
+      quoteItem({ id: "a", meta: { ...combo, adicionales: [adicional("Base cromada", 50000)] } }),
+      quoteItem({ id: "b", meta: { ...combo, adicionales: [adicional("Bordado", 20000)] } }),
+    ]);
+    expect(fila.adicionales.map((a) => a.descripcion)).toEqual(["Base cromada", "Bordado"]);
+    expect(totalAdicionales(fila.adicionales)).toBe(70000);
+  });
+
+  it("total de la fila: suma el adicional una sola vez (producto suelto y combo)", () => {
+    const [suelto] = groupQuoteDisplayItems([
+      quoteItem({
+        id: "silla",
+        unitPrice: 500000,
+        lineTotal: 550000,
+        meta: { ...emptyMeta, additionalCost: 50000, adicionales: [adicional("Base cromada", 50000)] },
+      }),
+    ]);
+    expect(totalDeFilaCotizacion(suelto)).toBe(550000);
+    const combo = { ...emptyMeta, comboKey: "c1", comboName: "Combo", comboQuantity: 1 };
+    const [fila] = groupQuoteDisplayItems([
+      quoteItem({ id: "a", unitPrice: 300000, lineTotal: 350000, meta: { ...combo, additionalCost: 50000, adicionales: [adicional("Base cromada", 50000)] } }),
+      quoteItem({ id: "b", unitPrice: 200000, lineTotal: 200000, meta: combo }),
+    ]);
+    expect(totalDeFilaCotizacion(fila)).toBe(550000);
+  });
+
+  it("sin adicionales la lista queda vacía", () => {
+    expect(groupQuoteDisplayItems([quoteItem({ id: "x" })])[0].adicionales).toEqual([]);
   });
 });

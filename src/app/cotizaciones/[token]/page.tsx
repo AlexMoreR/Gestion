@@ -17,8 +17,9 @@ import {
 import { DownloadQuotePdfButton } from "@/components/quotes/download-quote-pdf-button";
 import { displayCode } from "@/lib/code-display";
 import { formatMoney } from "@/lib/currency";
-import { groupQuoteDisplayItems } from "@/lib/quote-display-items";
+import { groupQuoteDisplayItems, totalAdicionales, totalDeFilaCotizacion } from "@/lib/quote-display-items";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
+import { AdicionalesDeLinea } from "@/components/adicionales-de-linea";
 import { prisma } from "@/lib/prisma";
 import { getPublicAssetUrl, getSiteUrl } from "@/lib/site";
 import {
@@ -166,11 +167,15 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
     })),
   );
 
-  const subtotal = itemsWithMeta.reduce(
-    (sum, item) => sum + item.quantity * Number(item.unitPrice),
-    0
+  // Los adicionales con precio (ej. base cromada) ya están dentro de additionalCost: van en la fila de su
+  // producto y en el subtotal, y en «Cargos adicionales» solo queda el resto.
+  const adicionalesTotal = displayItems.reduce((sum, item) => sum + totalAdicionales(item.adicionales), 0);
+  const subtotal =
+    itemsWithMeta.reduce((sum, item) => sum + item.quantity * Number(item.unitPrice), 0) + adicionalesTotal;
+  const additionalCost = Math.max(
+    0,
+    itemsWithMeta.reduce((sum, item) => sum + item.meta.additionalCost, 0) - adicionalesTotal,
   );
-  const additionalCost = itemsWithMeta.reduce((sum, item) => sum + item.meta.additionalCost, 0);
   const discount = itemsWithMeta.reduce((sum, item) => sum + item.meta.discount, 0);
   // El total mostrado se deriva del propio desglose (Subtotal − Descuento +
   // Cargos) para que el recibo siempre cuadre. En el flujo normal coincide con
@@ -364,6 +369,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                             {item.productCode}
                           </p>
                         )}
+                        <AdicionalesDeLinea adicionales={item.adicionales} currency={currency} isPdf={isPdf} />
                       </div>
                     </TableCell>
                     <TableCell
@@ -416,7 +422,7 @@ export default async function QuotePublicPage({ params, searchParams }: PageProp
                           : "text-right font-bold text-slate-900 whitespace-nowrap"
                       }
                     >
-                      {formatMoney(item.quantity * item.unitPrice, currency)}
+                      {formatMoney(totalDeFilaCotizacion(item), currency)}
                     </TableCell>
                   </TableRow>
                 ))}

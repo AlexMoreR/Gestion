@@ -24,6 +24,7 @@ import { formatMoney } from "@/lib/currency";
 import { formatInvoiceNumber } from "@/lib/document-names";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { groupQuoteDisplayItems } from "@/lib/quote-display-items";
+import { AdicionalesDeLinea } from "@/components/adicionales-de-linea";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 import { prisma } from "@/lib/prisma";
@@ -349,6 +350,7 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
                         {item.productCode && (
                           <p className="text-[10px] text-slate-400">{item.productCode}</p>
                         )}
+                        <AdicionalesDeLinea adicionales={item.adicionales} currency={currency} isPdf />
                       </div>
                     </TableCell>
                     <TableCell className="py-1 px-2 text-slate-900 max-w-[160px]">
@@ -538,6 +540,7 @@ export default async function SalePublicPage({ params, searchParams }: PageProps
                           {item.productCode && (
                             <p className="text-xs text-slate-400">{item.productCode}</p>
                           )}
+                          <AdicionalesDeLinea adicionales={item.adicionales} currency={currency} />
                         </div>
                       </TableCell>
                       <TableCell className="text-slate-900 max-w-[240px]">

@@ -35,7 +35,14 @@ export type QuoteDisplayItem = {
   coloresTexto: string;
   /** Un color por entrada para la cotización del cliente; vacío = "Color por confirmar". */
   colores: ColorDeFila[];
+  /** Adicionales con precio que se le sumaron (ej. base cromada); nunca el costo. Un combo junta los de sus piezas. */
+  adicionales: AdicionalDeFila[];
 };
+
+export type AdicionalDeFila = { descripcion: string; precio: number };
+
+const adicionalesDe = (meta: QuoteItemMeta): AdicionalDeFila[] =>
+  meta.adicionales.map((a) => ({ descripcion: a.descripcion, precio: a.precio }));
 
 /** "T12 · Crema (Sintético)" (o "Tapizado: …", "Camilla: …") con la foto de la muestra ("" si no hay). */
 export type ColorDeFila = { texto: string; fotoUrl: string };
@@ -111,6 +118,7 @@ export function groupQuoteDisplayItems(items: QuoteDisplayItemInput[]): QuoteDis
         observation: clean(item.product.description),
         ...coloresDe(item.meta),
         colores: coloresDeLinea(item.meta),
+        adicionales: adicionalesDe(item.meta),
       });
       continue;
     }
@@ -128,6 +136,7 @@ export function groupQuoteDisplayItems(items: QuoteDisplayItemInput[]): QuoteDis
       if (!group.productCode) group.productCode = clean(item.meta.comboCode) || null;
       if (!group.imagenColoresUrl) group.imagenColoresUrl = clean(item.meta.imagenColoresUrl);
       if (!group.coloresTexto) group.coloresTexto = coloresDe(item.meta).coloresTexto;
+      group.adicionales.push(...adicionalesDe(item.meta));
       piezasPorCombo.get(existingIndex)?.push({ pieza: item.product.name, colores: coloresDeLinea(item.meta) });
       continue;
     }
@@ -151,6 +160,7 @@ export function groupQuoteDisplayItems(items: QuoteDisplayItemInput[]): QuoteDis
       observation: clean(item.meta.description) || clean(item.product.description),
       ...coloresDe(item.meta),
       colores: [],
+      adicionales: adicionalesDe(item.meta),
     });
   }
 
@@ -158,3 +168,17 @@ export function groupQuoteDisplayItems(items: QuoteDisplayItemInput[]): QuoteDis
 
   return groups;
 }
+
+/** Suma de los precios de los adicionales de una fila (ya están dentro de additionalCost y de lineTotal). */
+export const totalAdicionales = (adicionales: AdicionalDeFila[]) =>
+  roundMoney(adicionales.reduce((sum, a) => sum + a.precio, 0));
+
+/**
+ * Total de la fila en la cotización de la clienta: cantidad × unitario más sus adicionales. Un combo saca
+ * su unitario de lineTotal, que ya trae los adicionales: no se suman otra vez.
+ */
+export const totalDeFilaCotizacion = (item: QuoteDisplayItem) =>
+  item.key.startsWith("combo:")
+    ? roundMoney(item.quantity * item.unitPrice)
+    : roundMoney(item.quantity * item.unitPrice + totalAdicionales(item.adicionales));
+
