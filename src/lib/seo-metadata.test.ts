@@ -3,7 +3,10 @@ import {
   buildBreadcrumbList,
   buildCategorySeoDescription,
   buildCategorySeoTitle,
+  buildCatalogSeoTitle,
   buildHomeSeoTitle,
+  CATALOG_SEO_DESCRIPTION,
+  catalogCanonicalPath,
   buildProductFallbackDescription,
   buildProductSeoTitle,
   categoryIsIndexable,
@@ -242,5 +245,26 @@ describe("buildBreadcrumbList", () => {
       name: "Silla",
       item: "https://magilus.com/producto/silla",
     });
+  });
+});
+
+describe("catálogo (/catalogo)", () => {
+  it("title propio con la marca, distinto del inicio", () => {
+    expect(buildCatalogSeoTitle("Magilus")).toBe("Catálogo de muebles para peluquería, barbería y spa | Magilus");
+    expect(buildCatalogSeoTitle("Magilus")).not.toBe(buildHomeSeoTitle("Magilus"));
+  });
+
+  it("canonical: /catalogo en la página 1 y /catalogo?page=N desde la 2", () => {
+    expect(catalogCanonicalPath()).toBe("/catalogo");
+    expect(catalogCanonicalPath(1)).toBe("/catalogo");
+    expect(catalogCanonicalPath(0)).toBe("/catalogo");
+    expect(catalogCanonicalPath(-3)).toBe("/catalogo");
+    expect(catalogCanonicalPath(Number.NaN)).toBe("/catalogo");
+    expect(catalogCanonicalPath(2)).toBe("/catalogo?page=2");
+  });
+
+  it("descripción sin precios y de largo para Google", () => {
+    expect(CATALOG_SEO_DESCRIPTION).not.toMatch(/\$|\d/);
+    expect(CATALOG_SEO_DESCRIPTION.length).toBeLessThanOrEqual(155);
   });
 });

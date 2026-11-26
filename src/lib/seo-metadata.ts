@@ -8,6 +8,22 @@ export function buildHomeSeoTitle(brandName: string): string {
   return `${brandName.trim()} | Fábrica de muebles para peluquería, barbería y spa`;
 }
 
+/** H1 de /catalogo (todo el catálogo). Sin precios ni promesas. */
+export const CATALOG_H1 = "Catálogo de muebles para peluquería, barbería y spa";
+
+export const CATALOG_SEO_DESCRIPTION =
+  "Todos los muebles de fábrica Magilus: sillas, camillas, lavacabezas, tocadores, mesas de manicura y más. Cotiza por WhatsApp.";
+
+/** Title de /catalogo: "Catálogo de muebles para peluquería, barbería y spa | <marca>". */
+export function buildCatalogSeoTitle(brandName: string): string {
+  return `${CATALOG_H1} | ${brandName.trim()}`;
+}
+
+/** Canonical de /catalogo: la página 1 es /catalogo; desde la 2, /catalogo?page=N. */
+export function catalogCanonicalPath(page?: number): string {
+  return page && Number.isInteger(page) && page > 1 ? `/catalogo?page=${page}` : "/catalogo";
+}
+
 // Palabras que se dejan como estan (codigos, medidas): tienen digitos o son siglas cortas
 // con digitos, ej. "CAV14", "3", "2x1".
 function keepsOriginalCase(word: string): boolean {

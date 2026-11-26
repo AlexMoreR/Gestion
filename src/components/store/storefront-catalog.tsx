@@ -19,7 +19,11 @@ import {
   buildBreadcrumbList,
   buildCategorySeoDescription,
   buildCategorySeoTitle,
+  buildCatalogSeoTitle,
   buildHomeSeoTitle,
+  CATALOG_H1,
+  CATALOG_SEO_DESCRIPTION,
+  catalogCanonicalPath,
   categoryIsIndexable,
   compactPriceLabel,
 } from "@/lib/seo-metadata";
@@ -216,6 +220,8 @@ const leerCatalogoEnCache = enCacheDeTienda(
 export async function generateStorefrontMetadata({
   query = "",
   categorySlug,
+  showFullCatalog = false,
+  page = 1,
 }: StorefrontCatalogProps): Promise<Metadata> {
   const [brandName, storefrontHeroDescription] = await Promise.all([
     getSystemBrandName(),
@@ -246,8 +252,12 @@ export async function generateStorefrontMetadata({
 
   // Texto SEO fijo en el código (ej. /esmalteros): gana sobre lo escrito en /admin/categorias.
   const fixedSeo = category && !normalizedQuery ? getCategorySeoContent(category.slug) : null;
+  // /catalogo sin búsqueda: título, descripción y canonical propios (no es una copia del inicio).
+  const isFullCatalog = showFullCatalog && !normalizedQuery && !category;
   const title = fixedSeo
     ? { absolute: fixedSeo.title }
+    : isFullCatalog
+    ? { absolute: buildCatalogSeoTitle(brandName) }
     : normalizedQuery
     ? `Resultados para ${normalizedQuery}`
     : category
@@ -259,6 +269,8 @@ export async function generateStorefrontMetadata({
         };
   const description = fixedSeo
     ? fixedSeo.description
+    : isFullCatalog
+    ? CATALOG_SEO_DESCRIPTION
     : normalizedQuery
     ? `Explora en ${brandName} resultados para ${normalizedQuery} en sillas, estaciones y mobiliario profesional para salón y barbería.`
     : category
@@ -276,7 +288,9 @@ export async function generateStorefrontMetadata({
     ? getSiteUrl("/")
     : category
       ? getSiteUrl(`/${category.slug}`)
-      : getSiteUrl("/");
+      : isFullCatalog
+        ? getSiteUrl(catalogCanonicalPath(page))
+        : getSiteUrl("/");
   const socialTitle =
     typeof title === "string" ? `${title} | ${brandName}` : title.absolute;
   const socialImagePath =
@@ -417,7 +431,7 @@ export async function StorefrontCatalog({
     : category
     ? category.description?.trim() || autoCategoryDescription
     : "Catálogo de sillas, estaciones y mobiliario profesional premium para salón de belleza, barbería y espacios de alto nivel.";
-  const baseUrl = category ? `/${category.slug}` : "/";
+  const baseUrl = category ? `/${category.slug}` : basePath;
   // Los mensajes de WhatsApp dicen que vienen de magilus.com (y de que categoria o ficha).
   const storefrontWhatsAppHref = await buildStorefrontQuoteWhatsAppHref(brandName, category?.name);
   const productWhatsAppHrefById = new Map(
@@ -668,9 +682,8 @@ export async function StorefrontCatalog({
           ) : !category ? (
             <div className="flex items-center justify-center gap-2 px-0.5 text-center">
               <span className="text-sm md:text-base">🛍️</span>
-              <h2 className="text-sm font-normal tracking-tight text-foreground md:text-lg">
-                Catálogo de <strong className="font-semibold">tienda</strong>
-              </h2>
+              {/* Solo sale en /catalogo: es su único H1. */}
+              <h1 className="text-sm font-normal tracking-tight text-foreground md:text-lg">{CATALOG_H1}</h1>
             </div>
           ) : null}
 

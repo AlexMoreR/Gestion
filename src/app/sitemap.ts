@@ -46,6 +46,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 1,
     },
+    {
+      url: getSiteUrl("/catalogo"),
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.7,
+    },
     ...sitemapProducts(products).map((product) => ({
       url: getSiteUrl(buildProductPath(product)),
       lastModified: product.updatedAt,

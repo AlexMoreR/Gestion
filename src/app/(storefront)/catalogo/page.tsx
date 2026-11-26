@@ -9,7 +9,8 @@ type PageProps = {
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
   const params = await searchParams;
   const query = typeof params.q === "string" ? params.q.trim() : "";
-  return generateStorefrontMetadata({ query });
+  const page = typeof params.page === "string" ? Number.parseInt(params.page, 10) || 1 : 1;
+  return generateStorefrontMetadata({ query, showFullCatalog: true, page });
 }
 
 export default async function CatalogPage({ searchParams }: PageProps) {
