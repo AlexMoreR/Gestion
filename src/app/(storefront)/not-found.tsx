@@ -4,7 +4,8 @@ import { buildStorefrontQuoteWhatsAppHref, getSystemBrandName } from "@/lib/syst
 
 export const metadata: Metadata = {
   title: "Página no encontrada",
-  robots: { index: false },
+  // null: Next.js ya pone su propio noindex en la 404; con { index: false } salía repetido.
+  robots: null,
 };
 
 export default async function StorefrontNotFound() {

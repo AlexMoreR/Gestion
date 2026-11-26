@@ -6,7 +6,8 @@ import { buildStorefrontQuoteWhatsAppHref, getSystemBrandName } from "@/lib/syst
 // layout raiz no los tiene y necesitan la sesion y la carga del layout de la tienda.
 export const metadata: Metadata = {
   title: "Página no encontrada",
-  robots: { index: false },
+  // null: Next.js ya pone su propio noindex en la 404; con { index: false } salía repetido.
+  robots: null,
 };
 
 export default async function RootNotFound() {
