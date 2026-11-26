@@ -28,27 +28,6 @@ export default auth((req) => {
     return NextResponse.redirect(redirectUrl, 301);
   }
 
-  // El inicio va en cache y no lee la URL: busquedas, paginas y la categoria vieja van a /catalogo
-  // con los mismos parametros. Los utm/fbclid de los anuncios se quedan en el inicio.
-  if (pathname === "/" && ["q", "page", "category"].some((key) => nextUrl.searchParams.has(key))) {
-    const catalogUrl = nextUrl.clone();
-    catalogUrl.pathname = "/catalogo";
-    return NextResponse.redirect(catalogUrl, 308);
-  }
-
-  // El inicio se sirve desde /inicio/portada (ISR, ver esa pagina). La ruta interna no se abre
-  // directo: se devuelve a "/" para que Google no vea dos inicios.
-  if (pathname === "/") {
-    const homeUrl = nextUrl.clone();
-    homeUrl.pathname = "/inicio/portada";
-    return NextResponse.rewrite(homeUrl);
-  }
-  if (pathname === "/inicio" || pathname.startsWith("/inicio/")) {
-    const rootUrl = nextUrl.clone();
-    rootUrl.pathname = "/";
-    return NextResponse.redirect(rootUrl, 308);
-  }
-
   if (authPages.includes(pathname) && role) {
     return NextResponse.redirect(new URL(roleHome[role], nextUrl));
   }
