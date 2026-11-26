@@ -68,9 +68,6 @@ export async function generateMetadata(): Promise<Metadata> {
       ],
     },
     manifest: "/manifest.json",
-    alternates: {
-      canonical: getSiteUrl("/"),
-    },
     robots: {
       index: true,
       follow: true,
