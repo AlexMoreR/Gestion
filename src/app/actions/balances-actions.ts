@@ -677,9 +677,10 @@ export async function adminAssignFreightAccountAction(formData: FormData): Promi
 
 // "Ya esta pagado en Proveedores": enlaza el flete con ese pago. No cambia ningun saldo (el pago
 // ya restaba); el flete solo sale del aviso.
-export async function adminLinkFreightPaymentAction(formData: FormData): Promise<void> {
+// El par "<flete>|<pago>" llega pegado con .bind (React pisa el name del boton con formAction).
+export async function adminLinkFreightPaymentAction(link: unknown): Promise<void> {
   await requireAdminSession();
-  const [shippingCostId = "", paymentId = ""] = getStringField(formData, "link").split("|");
+  const [shippingCostId = "", paymentId = ""] = (typeof link === "string" ? link : "").split("|");
   if (!shippingCostId || !paymentId) {
     redirectWithError(FREIGHT_PATH, "Pago invalido");
   }

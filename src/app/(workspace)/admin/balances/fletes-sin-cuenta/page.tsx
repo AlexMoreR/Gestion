@@ -190,9 +190,8 @@ export default async function FreightWithoutAccountPage({ searchParams }: PagePr
                             type="submit"
                             size="sm"
                             variant="outline"
-                            formAction={adminLinkFreightPaymentAction}
-                            name="link"
-                            value={`${row.id}|${payment.id}`}
+                            // React pisa el name de un boton con formAction: el dato va pegado a la accion.
+                            formAction={adminLinkFreightPaymentAction.bind(null, `${row.id}|${payment.id}`)}
                           >
                             Ya está pagado en Proveedores
                           </Button>
