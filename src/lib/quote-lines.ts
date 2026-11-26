@@ -15,13 +15,17 @@ type Linea = {
   notes?: string | null;
 };
 
-/** Las notas sin la imagen con colores: es derivada (se rehace sola), no un cambio de la línea. */
+/**
+ * Las notas sin la imagen con colores (es derivada, se rehace sola) ni la lista de adicionales (la escribe
+ * «Agregar adicional» en la orden y el editor no la manda; su precio sí cuenta, va en additionalCost).
+ */
 function notasSinImagen(notes: string | null | undefined): string | null {
   if (!notes) return notes ?? null;
   try {
     const meta = JSON.parse(notes) as Record<string, unknown>;
-    if (meta && typeof meta === "object" && "imagenColoresUrl" in meta) {
+    if (meta && typeof meta === "object" && ("imagenColoresUrl" in meta || "adicionales" in meta)) {
       delete meta.imagenColoresUrl;
+      delete meta.adicionales;
       return JSON.stringify(meta);
     }
   } catch {

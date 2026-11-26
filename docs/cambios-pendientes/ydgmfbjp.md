@@ -1,0 +1,3 @@
+## Reglas de negocio
+
+- `agregar_adicional_venta`: a un producto de una venta ya creada se le puede sumar un adicional con precio (ej. base cromada +50.000; nov-2026, parte 1 sin pantalla). En una sola transacción sube la línea de la cotización (el precio va en su costo adicional y queda en la lista `adicionales` de sus notas), la línea de la orden y los totales de cotización, venta y orden; el estado de la venta sale de lo pagado (una venta pagada que ahora debe vuelve a activa). Los abonos no se tocan. Con costo (solo fabricación con proveedora confirmada) sube el costo de la línea y crea un cargo «Adicional: …» a la proveedora. Deja nota en la orden y bitácora de la venta. En un combo va a la primera pieza. Venta o producto cancelado: se rechaza.

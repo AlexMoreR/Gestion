@@ -50,6 +50,8 @@ import {
   type ResultadoCancelar,
   type VistaCancelar,
 } from "@/lib/sale-item-swap.server";
+import { agregarAdicionalAVenta, previsualizarAdicional, type VistaAdicional } from "@/lib/sale-item-extra.server";
+import { validarAdicional } from "@/lib/sale-item-extra";
 import { isRetiredUser } from "@/modules/equipo/infrastructure/prisma-team-repository";
 
 // Mismos mensajes de siempre del formulario de ventas.
@@ -956,4 +958,65 @@ export async function adminCancelSaleItemAction(formData: FormData): Promise<voi
   revalidatePath("/admin/proveedores");
   revalidatePath(back);
   redirect(`${back}?ok=${encodeURIComponent(ok)}`);
+}
+
+// «Agregar adicional» a un producto de una venta (nov-2026; ej. base cromada +50.000). El trabajo lo hace
+// agregarAdicionalAVenta (src/lib/sale-item-extra.server.ts); reglas en src/lib/sale-item-extra.ts.
+const adicionalSchema = z.object({
+  orderItemId: z.string().trim().min(1, "Producto no encontrado."),
+  descripcion: z.string(),
+  precio: z.string(),
+  costo: z.string().optional(),
+});
+
+function leerAdicional(formData: FormData) {
+  const parsed = adicionalSchema.safeParse({
+    orderItemId: formData.get("orderItemId") ?? "",
+    descripcion: formData.get("descripcion") ?? "",
+    precio: formData.get("precio") ?? "",
+    costo: formData.get("costo") ?? undefined,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." } as const;
+  const adicional = validarAdicional(parsed.data);
+  if (!adicional.ok) return { error: adicional.error } as const;
+  return { error: null, orderItemId: parsed.data.orderItemId, adicional: adicional.value } as const;
+}
+
+// Vista previa: total y saldo antes y después, sin guardar.
+export async function adminPreviewSaleItemExtraAction(formData: FormData): Promise<VistaAdicional | { error: string }> {
+  await requireAdminSession();
+  const datos = leerAdicional(formData);
+  if (datos.error !== null) return { error: datos.error };
+  return previsualizarAdicional({ orderItemId: datos.orderItemId, ...datos.adicional });
+}
+
+export async function adminAddSaleItemExtraAction(formData: FormData): Promise<void> {
+  const userId = await requireAdminSession();
+  const datos = leerAdicional(formData);
+  const item = datos.error === null
+    ? await prisma.orderItem.findUnique({
+        where: { id: datos.orderItemId },
+        select: { orderId: true, order: { select: { sale: { select: { quoteId: true } } } } },
+      })
+    : null;
+  const back = item ? orderDetailPath(item.orderId) : "/admin/ordenes";
+  if (datos.error !== null) redirect(`${back}?error=${encodeURIComponent(datos.error)}`);
+
+  let mensaje: string;
+  try {
+    mensaje = await agregarAdicionalAVenta({ orderItemId: datos.orderItemId, userId, ...datos.adicional });
+  } catch (error) {
+    if (error instanceof CancelItemBlockedError) redirect(`${back}?error=${encodeURIComponent(error.message)}`);
+    console.error("Failed to add sale item extra:", error);
+    redirect(`${back}?error=No+se+pudo+agregar+el+adicional`);
+  }
+  revalidatePath("/admin/ordenes");
+  revalidatePath("/admin/ventas");
+  revalidatePath("/admin/cotizaciones");
+  revalidatePath("/admin/proveedores");
+  if (item?.order.sale) {
+    revalidatePath(`/admin/cotizaciones/${item.order.sale.quoteId}`);
+  }
+  revalidatePath(back);
+  redirect(`${back}?ok=${encodeURIComponent(mensaje)}`);
 }

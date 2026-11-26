@@ -24,6 +24,19 @@ export type QuoteItemMeta = {
   partes: ParteElegida[];
   // Imagen con los colores aplicados (la llena la parte 3).
   imagenColoresUrl: string;
+  // Adicionales sumados en una venta ya creada (nov-2026): su precio ya va dentro de additionalCost;
+  // la lista es solo para mostrar qué se sumó, quién y cuándo. Vacía = sin adicionales.
+  adicionales: AdicionalLinea[];
+};
+
+export type AdicionalLinea = {
+  descripcion: string;
+  precio: number;
+  costo: number;
+  porId: string;
+  porNombre: string;
+  /** Momento en ISO. */
+  en: string;
 };
 
 const textoParte = (value: unknown): string => (typeof value === "string" ? value : "");
@@ -46,6 +59,26 @@ function parsePartes(value: unknown): ParteElegida[] {
     .filter((p) => p.parte);
 }
 
+const numero = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
+
+/** Lee los adicionales sin fallar con JSON viejo o mal formado; descarta los que no tienen descripción o precio. */
+function parseAdicionales(value: unknown): AdicionalLinea[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((a) => {
+      const raw = (a ?? {}) as Record<string, unknown>;
+      return {
+        descripcion: textoParte(raw.descripcion).trim(),
+        precio: numero(raw.precio),
+        costo: numero(raw.costo),
+        porId: textoParte(raw.porId).trim(),
+        porNombre: textoParte(raw.porNombre).trim(),
+        en: textoParte(raw.en).trim(),
+      };
+    })
+    .filter((a) => a.descripcion && a.precio > 0);
+}
+
 const EMPTY_QUOTE_ITEM_META: QuoteItemMeta = {
   description: "",
   color: "",
@@ -61,6 +94,7 @@ const EMPTY_QUOTE_ITEM_META: QuoteItemMeta = {
   colorFotoUrl: "",
   partes: [],
   imagenColoresUrl: "",
+  adicionales: [],
 };
 
 export function parseQuoteItemMeta(value: string | null | undefined): QuoteItemMeta {
@@ -87,6 +121,7 @@ export function parseQuoteItemMeta(value: string | null | undefined): QuoteItemM
         colorFotoUrl: typeof parsed.colorFotoUrl === "string" ? parsed.colorFotoUrl : "",
         partes: parsePartes(parsed.partes),
         imagenColoresUrl: typeof parsed.imagenColoresUrl === "string" ? parsed.imagenColoresUrl : "",
+        adicionales: parseAdicionales(parsed.adicionales),
       };
     }
   } catch {
@@ -116,6 +151,7 @@ export function stringifyQuoteItemMeta(meta: Partial<QuoteItemMeta>): string | n
     colorFotoUrl: meta.colorFotoUrl?.trim() ?? "",
     partes,
     imagenColoresUrl: meta.imagenColoresUrl?.trim() ?? "",
+    adicionales: parseAdicionales(meta.adicionales),
   };
   // Con partes, el color es su texto y no hay un color unico de la carta.
   if (partes.length > 0) {
@@ -138,7 +174,7 @@ export function stringifyQuoteItemMeta(meta: Partial<QuoteItemMeta>): string | n
 
   // Los campos de la carta solo se escriben si traen algo: asi una linea vieja guardada otra vez
   // queda con el mismo texto (mismasLineas compara las notas de una cotizacion con venta).
-  const { colorCodigo, colorMaterial, colorFotoUrl, partes: partesGuardadas, imagenColoresUrl, ...rest } = normalized;
+  const { colorCodigo, colorMaterial, colorFotoUrl, partes: partesGuardadas, imagenColoresUrl, adicionales, ...rest } = normalized;
   return JSON.stringify({
     _type: "quote-item-meta",
     ...rest,
@@ -147,6 +183,7 @@ export function stringifyQuoteItemMeta(meta: Partial<QuoteItemMeta>): string | n
     ...(colorFotoUrl ? { colorFotoUrl } : {}),
     ...(partesGuardadas.length > 0 ? { partes: partesGuardadas } : {}),
     ...(imagenColoresUrl ? { imagenColoresUrl } : {}),
+    ...(adicionales.length > 0 ? { adicionales } : {}),
   });
 }
 
