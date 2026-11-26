@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 
 // Buscador del encabezado como icono: al tocarlo abre una caja flotante arriba
-// (con el fondo difuminado y el teclado abierto). Busca en el catalogo: /?q=...
+// (con el fondo difuminado y el teclado abierto). Busca en el catalogo: /catalogo?q=...
 // Se dibuja en <body> porque el encabezado usa backdrop-blur, que "encierra"
 // a los elementos position: fixed dentro de el.
 export function NavbarSearch() {
@@ -28,7 +28,7 @@ export function NavbarSearch() {
     event?.preventDefault();
     if (term.length < 2) return;
     setOpen(false);
-    router.push(`/?q=${encodeURIComponent(term)}`);
+    router.push(`/catalogo?q=${encodeURIComponent(term)}`);
   };
 
   React.useEffect(() => {
