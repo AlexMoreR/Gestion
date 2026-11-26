@@ -7,6 +7,7 @@ vi.mock("@/lib/manufacturing-share-token", async () => await import("./manufactu
 
 import { prisma } from "@/lib/prisma";
 import { todayInColombia } from "./colombia-time";
+import { stringifyQuoteItemMeta } from "./quote-item-meta";
 import { sumarDias } from "./delivery-tracking";
 import {
   destinationCityLabel,
@@ -256,5 +257,40 @@ describe("mensajeOFProveedora", () => {
     expect(texto).toBe(
       "Hola Laura, te mando la orden OF-1 (ORD-2) para fabricar:\n- Camilla diván · Cantidad: 1\nhttps://magilus.com/fabricacion/x",
     );
+  });
+});
+
+describe("toManufacturingLine con adicionales", () => {
+  const notas = stringifyQuoteItemMeta({
+    color: "negro",
+    adicionales: [
+      { descripcion: "Base cromada", precio: 50000, costo: 30000, porId: "u1", porNombre: "Ingrid", en: "2026-11-20T15:00:00.000Z" },
+      { descripcion: "Bordado", precio: 20000, costo: 0, porId: "u1", porNombre: "Ingrid", en: "2026-11-20T15:00:00.000Z" },
+    ],
+  });
+  // purchaseCost ya trae sumado el costo del adicional (parte 1): 550.000 + 30.000 / 2 unidades.
+  const linea = toManufacturingLine({
+    id: "i1",
+    quantity: 2,
+    purchaseCost: 565000,
+    notes: null,
+    quoteItem: { notes: notas },
+    product: { name: "Silla barbera", code: "SB-1", thumbnailUrl: "", description: null },
+  });
+
+  it("muestra la descripción y el costo, nunca el precio al cliente", () => {
+    expect(linea.adicionales).toEqual([
+      { descripcion: "Base cromada", costo: 30000 },
+      { descripcion: "Bordado", costo: 0 },
+    ]);
+    expect(JSON.stringify(linea)).not.toContain("50000");
+  });
+
+  it("el subtotal no suma el adicional otra vez", () => {
+    expect(linea.subtotal).toBe(1130000);
+  });
+
+  it("sin línea de cotización no hay adicionales", () => {
+    expect(toManufacturingLine({ id: "i2", quantity: 1, purchaseCost: null, notes: null, product: { name: "X", code: null, thumbnailUrl: "", description: null } }).adicionales).toEqual([]);
   });
 });

@@ -8,6 +8,7 @@ import { stableShareToken } from "@/lib/manufacturing-share-token";
 import { colombiaDayKey, todayInColombia } from "./colombia-time";
 import { displayCode } from "./code-display";
 import { fechaFabricacionDeDia, resumenCambioFechaOf } from "./delivery-tracking";
+import { adicionalesDeLinea } from "./sale-item-extra";
 import { computeOfBalance, type OfBalance } from "../modules/proveedores/domain/supplier-payment";
 
 // Ordenes de fabricacion (OF-00001): una por orden de venta + proveedora.
@@ -32,6 +33,9 @@ export type ManufacturingLine = {
   colorMaterial: string;
   colorFotoUrl: string;
   comboName: string;
+  // Adicionales de la venta (ej. base cromada) con su costo para la proveedora; nunca el precio al cliente.
+  // Su costo ya va sumado en unitCost (purchaseCost): aquí solo se muestran, no se suman otra vez.
+  adicionales: Array<{ descripcion: string; costo: number }>;
   unitCost: number | null;
   subtotal: number | null;
 };
@@ -41,6 +45,9 @@ type OrderItemForLine = {
   quantity: number;
   purchaseCost: Prisma.Decimal | number | null;
   notes: string | null;
+  // Los adicionales se guardan en la línea de la cotización (sale-item-extra).
+  // shortcut: una pieza de combo sin quoteItemId no muestra el adicional; si pasa, leerlo con lineasDelAdicional.
+  quoteItem?: { notes: string | null } | null;
   product: { name: string; code: string | null; thumbnailUrl: string; description: string | null };
 };
 
@@ -63,6 +70,7 @@ export function toManufacturingLine(item: OrderItemForLine): ManufacturingLine {
     colorMaterial: meta.colorMaterial.trim(),
     colorFotoUrl: meta.colorFotoUrl.trim(),
     comboName: meta.comboName.trim(),
+    adicionales: adicionalesDeLinea(item.quoteItem?.notes).map(({ descripcion, costo }) => ({ descripcion, costo })),
     unitCost,
     subtotal: unitCost == null ? null : unitCost * item.quantity,
   };

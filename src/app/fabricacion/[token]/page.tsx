@@ -105,6 +105,7 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
         quantity: true,
         purchaseCost: true,
         notes: true,
+        quoteItem: { select: { notes: true } },
         product: { select: { name: true, code: true, thumbnailUrl: true, description: true } },
         // Fotos del embalaje aún sin despacho y si ya está despachado (despacho no cancelado ni devuelto).
         embalajeFotos: {
@@ -290,6 +291,15 @@ export default async function ManufacturingOrderPublicPage({ params, searchParam
                         </p>
                       </div>
                     ) : null}
+                    {/* Adicionales: solo descripción y costo para ella (ya va en el costo unitario); nunca el precio al cliente. */}
+                    {line.adicionales.map((adicional, index) => (
+                      <p key={index} className="text-sm font-semibold text-slate-900">
+                        Adicional: {adicional.descripcion}
+                        {adicional.costo > 0 ? (
+                          <span className="ml-1 font-normal text-slate-500">({formatMoney(adicional.costo, currency)})</span>
+                        ) : null}
+                      </p>
+                    ))}
                     <p className="text-xs text-slate-500">
                       Costo unitario:{" "}
                       {line.unitCost == null ? "Por confirmar" : formatMoney(line.unitCost, currency)}
