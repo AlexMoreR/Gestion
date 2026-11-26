@@ -78,6 +78,8 @@ export type OrderItemManagerData = {
   color: string;
   /** Muestra del color de la carta del CRM (vacío = sin foto). */
   colorFotoUrl: string;
+  /** Adicionales con precio sumados a la línea (ej. base cromada). */
+  adicionales: { descripcion: string; precio: number }[];
   /** Venta activa (no cancelada): se puede cambiar solo el color. */
   canChangeColor: boolean;
   /** Imagen subida a mano para la OF (null = usa la del catálogo). */
@@ -370,6 +372,11 @@ export function OrderItemManager({
             </button>
           )}
         </p>
+        {item.adicionales.map((extra, index) => (
+          <p key={index} className="truncate text-xs text-muted-foreground">
+            + {extra.descripcion} {formatMoney(extra.precio, currency)}
+          </p>
+        ))}
       </TableCell>
       <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
         <p>{formatMoney(item.unitPrice, currency)}</p>

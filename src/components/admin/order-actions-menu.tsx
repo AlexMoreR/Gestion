@@ -19,6 +19,7 @@ import { MotivoRetroactivoField } from "@/components/admin/motivo-retroactivo-fi
 import { ChangeItemColorDialog } from "@/components/admin/change-item-color-dialog";
 import { ChangeItemImageDialog } from "@/components/admin/change-item-image-dialog";
 import { ChangeItemModeDialog } from "@/components/admin/change-item-mode-dialog";
+import { AddItemExtraDialog } from "@/components/admin/add-item-extra-dialog";
 import { CONFIRMAR_FECHA_ABONOS_FIELD, avisoFechaAbonos } from "@/lib/order-date-edit";
 import type { ParteElegida, ParteParaCotizar } from "@/lib/product-parts";
 import {
@@ -79,6 +80,8 @@ type OrderEditItem = {
   swapHref?: string;
   /** Ya confirmado: se pasa a Stock o a Fabricación con su cuadro (antes y después), no con el selector. */
   cambioModo?: "A_STOCK" | "A_FABRICACION" | null;
+  /** «Agregar adicional»: el costo solo se pide en fabricación con proveedora confirmada. */
+  puedeCostoAdicional?: boolean;
 };
 
 const pesos = (v: number) => `$${Math.round(v).toLocaleString("es-CO")}`;
@@ -164,6 +167,8 @@ export function OrderActionsMenu({
   }, [cancelItem, soloPieza]);
   // Producto confirmado que se pasa a Stock / Fabricación (cuadro encima de "Editar orden").
   const [modoItem, setModoItem] = useState<OrderEditItem | null>(null);
+  // Producto al que se le suma un adicional con precio (cuadro encima de "Editar orden").
+  const [adicionalItem, setAdicionalItem] = useState<OrderEditItem | null>(null);
   const statusAction = STATUS_ACTIONS[status];
   const canCancel = status !== "CANCELLED" && (isPurchase || status !== "COMPLETED");
   const [editOpen, setEditOpen] = useState(abrirEditar);
@@ -515,8 +520,17 @@ export function OrderActionsMenu({
                         ) : null}
                       </p>
                     ) : null}
-                    {item.swapHref || item.canCancel ? (
+                    {item.swapHref || item.canCancel || item.canChangeColor ? (
                       <p className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                        {item.canChangeColor ? (
+                          <button
+                            type="button"
+                            onClick={() => setAdicionalItem(item)}
+                            className="text-foreground underline hover:opacity-80"
+                          >
+                            Agregar adicional
+                          </button>
+                        ) : null}
                         {item.swapHref ? (
                           <Link href={item.swapHref} className="text-foreground underline hover:opacity-80">
                             Cambiar producto
@@ -678,6 +692,16 @@ export function OrderActionsMenu({
               </form>
             </DialogContent>
           </Dialog>
+          {adicionalItem?.canChangeColor ? (
+            <AddItemExtraDialog
+              key={adicionalItem.id}
+              open
+              onOpenChange={(open) => (open ? null : setAdicionalItem(null))}
+              orderItemId={adicionalItem.id}
+              productName={adicionalItem.name}
+              puedeCosto={Boolean(adicionalItem.puedeCostoAdicional)}
+            />
+          ) : null}
           {modoItem ? (
             <ChangeItemModeDialog
               key={modoItem.id}

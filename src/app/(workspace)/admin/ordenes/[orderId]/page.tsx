@@ -64,6 +64,7 @@ import {
 import { fechaAviso } from "@/lib/color-change";
 import type { ManufacturingCard } from "@/components/admin/order-manufacturing-tab";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
+import { adicionalesDeLinea } from "@/lib/sale-item-extra";
 import { adminCreateShipmentAction } from "@/app/actions/shipment-actions";
 import { Button } from "@/components/ui/button";
 import { phoneLast4 } from "@/modules/guias/domain/lookup";
@@ -629,6 +630,12 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   });
 
   const stockExitCostById = new Map(stockExitCostEntries);
+  const adicionalesPorLinea = new Map(
+    (await quoteItemsPromise).map((q) => [
+      q.id,
+      adicionalesDeLinea(q.notes).map(({ descripcion, precio }) => ({ descripcion, precio })),
+    ]),
+  );
   const orderItemsData = order.items.map((item) => {
     const itemDispatch = dispatchByItemId.get(item.id);
     // Proveedores efectivos: los del producto o, si es un combo (sin proveedor
@@ -660,6 +667,8 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
       observations,
       color: meta.color.trim(),
       colorFotoUrl: meta.colorFotoUrl,
+      // Adicionales con precio («+ Base cromada $50.000»): viven en las notas de la línea de la cotización.
+      adicionales: item.quoteItemId ? (adicionalesPorLinea.get(item.quoteItemId) ?? []) : [],
       canChangeColor,
       // La imagen que ve la proveedora: la subida a mano o, si no hay, la del catálogo.
       imagenManual: meta.imageUrl.trim() ? getPublicAssetUrl(meta.imageUrl.trim()) : null,
@@ -1000,6 +1009,7 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           canCancel: canChangeColor && order.status !== "COMPLETED",
           swapHref: canSwap && order.sale ? `/admin/cotizaciones/${order.sale.quoteId}?cambiar=${item.id}` : undefined,
           cambioModo: canChangeColor ? direccionDeCambio(item) : null,
+          puedeCostoAdicional: item.fulfillmentMode === "MANUFACTURE" && Boolean(item.confirmedSupplierId),
         }))}
         returnDialog={
           returnOptions.length > 0
