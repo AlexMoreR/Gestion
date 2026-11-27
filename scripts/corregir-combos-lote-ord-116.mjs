@@ -13,7 +13,10 @@
 //     sigue saliendo de sus compras (no del catalogo).
 //  3. Cambia el producto de la linea (orden y cotizacion) al de la ORD-00116 y le pone el costo de esa
 //     compra (mas el costo de sus adicionales, si tiene) con origen "ORD-00116".
-// No toca precios, abonos, cuentas, despachos, comisiones ni la deuda con la proveedora.
+// No toca precios, abonos, cuentas, despachos ni comisiones.
+// ORD-00124 (SAL-00114, Sandra Garcia, burdeos corsso, nov-2026): igual, y ademas el corsso suma 50.000 al costo
+// de la pieza divan (combo en 630.000) y se le carga a la proveedora un CHARGE de 50.000 en la ORD-00116
+// (una sola vez: si ya hay un cargo con esa nota en la ORD-00116, no se repite).
 //
 // Por defecto SOLO SIMULA. Escribe unicamente con --aplicar --tarjeta T-xxx (firma en ActivityLog por orden).
 // Se puede correr dos veces: si la orden ya esta corregida, dice "Nada que cambiar".
@@ -27,6 +30,12 @@ export const COMPRA = "ORD-00116";
 export const ORDENES = [
   { orden: "ORD-00119", venta: "SAL-00108" },
   { orden: "ORD-00121", venta: "SAL-00112" },
+  {
+    orden: "ORD-00124",
+    venta: "SAL-00114",
+    costoExtra: 50000,
+    cargoProveedora: { monto: 50000, nota: "Adicional: material burdeos corsso, combo de Sandra García" },
+  },
 ];
 export const PREFIJO_SALIDA = "Salida por orden ";
 
@@ -83,8 +92,11 @@ const ORDEN_ESTADO = { EN_INVENTARIO: 0, FABRICANDO: 1, PENDIENTE: 2 };
  * @param {Map<string, number>} input.salidas Unidades que salieron con "Salida por orden <code>", por producto.
  * @param {string | null} [input.unidadForzada] Id de la unidad escogida a mano.
  * @param {Set<string>} [input.tomadas] Unidades ya escogidas por otra orden en esta corrida.
+ * @param {number} [input.costoExtra] Costo adicional del combo (ej. material corsso). Va sobre la pieza del lote
+ *   que esta en `piezasExtra` y reemplaza el costo de los adicionales de las notas (para no contarlo dos veces).
+ * @param {Set<string>} [input.piezasExtra] Productos del lote que pueden llevar el costoExtra (el divan).
  */
-export function planearOrden({ orden, compra, combo, unidades, salidas, unidadForzada = null, tomadas = new Set() }) {
+export function planearOrden({ orden, compra, combo, unidades, salidas, unidadForzada = null, tomadas = new Set(), costoExtra = 0, piezasExtra = new Set() }) {
   const error = (motivo) => ({ estado: "error", motivo });
   if (orden.status === "CANCELLED") return error(`la ${orden.code} está cancelada`);
   if (orden.devolucionesAbiertas > 0) return error(`la ${orden.code} tiene una devolución abierta`);
@@ -112,6 +124,9 @@ export function planearOrden({ orden, compra, combo, unidades, salidas, unidadFo
   if (lineasLote.some((i) => componenteDe(i.productId) < 0)) {
     return error(`las piezas no cuadran con la ${compra.code}: trae una pieza que no es del ${combo.code}`);
   }
+  if (costoExtra > 0 && piezasLote.filter((p) => piezasExtra.has(p.productId)).length !== 1) {
+    return error(`no se sabe a qué pieza del combo sumarle el adicional de ${money(costoExtra)} (se esperaba una sola pieza diván)`);
+  }
 
   // Lineas del combo en la venta: las marcadas con su codigo; si no hay marca, las piezas del combo.
   const marcadas = orden.items.filter((i) => leerMeta(i.notes).comboCode === combo.code);
@@ -132,7 +147,8 @@ export function planearOrden({ orden, compra, combo, unidades, salidas, unidadFo
       return error(`la ${orden.code} no tiene la salida de inventario de una de sus piezas`);
     }
     const adicionales = leerMeta(linea.notes).adicionales;
-    const costoAdicionales = Array.isArray(adicionales) ? adicionales.reduce((s, a) => s + (Number(a?.costo) || 0), 0) : 0;
+    const costoNotas = Array.isArray(adicionales) ? adicionales.reduce((s, a) => s + (Number(a?.costo) || 0), 0) : 0;
+    const costoAdicionales = costoExtra > 0 ? (piezasExtra.has(lote.productId) ? costoExtra : 0) : costoNotas;
     piezas.push({
       index,
       itemId: linea.id,
@@ -215,6 +231,30 @@ export function planearOrden({ orden, compra, combo, unidades, salidas, unidadFo
   return { estado: "listo", ...base, unidad: { ...base.unidad, necesitaLlegada }, movimientos, avisos };
 }
 
+/**
+ * Regla pura: el cargo adicional a la proveedora en la compra. `entradas` son los movimientos de su cuenta
+ * ligados a la compra (CHARGE/PAYMENT); la deuda pendiente es cargos - abonos, como src/lib/supplier-debt.ts.
+ * Si ya hay un CHARGE con la misma nota, no se crea otro.
+ * @param {{ monto: number, nota: string }} cargo
+ * @param {Array<{ type: string, amount: number, note: string | null }>} entradas
+ */
+export function planearCargo(cargo, entradas) {
+  const pendienteAntes = round2(entradas.reduce((s, e) => s + (e.type === "CHARGE" ? e.amount : -e.amount), 0));
+  const crear = !entradas.some((e) => e.type === "CHARGE" && e.note === cargo.nota);
+  return { crear, monto: cargo.monto, nota: cargo.nota, pendienteAntes, pendienteDespues: round2(pendienteAntes + (crear ? cargo.monto : 0)) };
+}
+
+/** Lineas que se imprimen para el cargo a la proveedora. */
+export function lineasDeCargo(cargo) {
+  if (cargo.estado === "error") return [`  Cargo a la proveedora: NO SE CREA — ${cargo.motivo}.`];
+  return [
+    cargo.crear
+      ? `  Cargo a la proveedora en la ${COMPRA}: CHARGE ${money(cargo.monto)} «${cargo.nota}»`
+      : `  Cargo a la proveedora en la ${COMPRA}: ya existe «${cargo.nota}»; no se repite.`,
+    `  Deuda pendiente de la ${COMPRA}: ${money(cargo.pendienteAntes)} → ${money(cargo.pendienteDespues)}`,
+  ];
+}
+
 /** Lineas que se imprimen para una orden. `nombre(id)` da "CODIGO Nombre" del producto. */
 export function lineasDeOrden(codigo, venta, plan, nombre) {
   if (plan.estado === "error") return [`${codigo} (${venta}): NO SE TOCA — ${plan.motivo}.`];
@@ -274,7 +314,7 @@ async function main() {
   try {
     const compraRow = await prisma.order.findUnique({
       where: { code: COMPRA },
-      select: { id: true, code: true, type: true, purchaseCode: true, items: { select: { productId: true, quantity: true, purchaseCost: true, notes: true } } },
+      select: { id: true, code: true, type: true, purchaseCode: true, supplierId: true, items: { select: { productId: true, quantity: true, purchaseCost: true, notes: true } } },
     });
     if (!compraRow || compraRow.type !== "PURCHASE") throw new Error(`La ${COMPRA} no existe o no es una compra. No se tocó nada.`);
     const combosDelLote = await prisma.compraUnidad.groupBy({ by: ["productId"], where: { orderId: compraRow.id } });
@@ -317,6 +357,18 @@ async function main() {
       })).map((p) => [p.id, `${p.code ?? ""} ${p.name}`.trim()]),
     );
     const nombre = (id) => productos.get(id) ?? id;
+    // La pieza que lleva el tapizado (el divan) es la que suma el costo del material corsso.
+    const piezasExtra = new Set([...productos].filter(([, n]) => palabras(n).includes("divan")).map(([id]) => id));
+
+    // Cargo a la proveedora: cuenta de la compra y su proveedora (la de la orden o la unica de sus cargos).
+    const cargarEntradas = (db) =>
+      db.supplierLedgerEntry.findMany({ where: { orderId: compraRow.id }, select: { type: true, amount: true, note: true, supplierId: true } });
+    const entradasDe = (rows) => rows.map((e) => ({ type: e.type, amount: Number(e.amount), note: e.note }));
+    const entradasCompra = await cargarEntradas(prisma);
+    const proveedorasCargo = [...new Set(entradasCompra.filter((e) => e.type === "CHARGE").map((e) => e.supplierId))];
+    const proveedoraId = compraRow.supplierId ?? (proveedorasCargo.length === 1 ? proveedorasCargo[0] : null);
+    const planCargo = (cargo, rows) =>
+      proveedoraId ? { estado: "ok", ...planearCargo(cargo, entradasDe(rows)) } : { estado: "error", motivo: `no se sabe cuál es la proveedora de la ${COMPRA}` };
 
     const cargarOrden = async (codigo, db) => {
       const row = await db.order.findUnique({
@@ -377,15 +429,18 @@ async function main() {
 
     const planes = [];
     const tomadas = new Set();
-    for (const { orden: codigo, venta } of ORDENES) {
+    for (const { orden: codigo, venta, costoExtra = 0, cargoProveedora = null } of ORDENES) {
       const cargada = await cargarOrden(codigo, prisma);
       let plan;
       if (!cargada) plan = { estado: "error", motivo: `no existe la ${codigo}` };
       else if (cargada.row.type !== "SALE" || cargada.row.sale?.code !== venta) plan = { estado: "error", motivo: `la ${codigo} no es la venta ${venta}` };
-      else plan = planearOrden({ orden: cargada.orden, compra, combo, unidades, salidas: cargada.salidas, unidadForzada: forzadas.get(codigo) ?? null, tomadas });
+      else plan = planearOrden({ orden: cargada.orden, compra, combo, unidades, salidas: cargada.salidas, unidadForzada: forzadas.get(codigo) ?? null, tomadas, costoExtra, piezasExtra });
       if (plan.unidad) tomadas.add(plan.unidad.id);
-      planes.push({ codigo, venta, plan, orderId: cargada?.row.id });
+      // El cargo solo va si la orden se puede corregir (o ya esta corregida).
+      const cargo = cargoProveedora && plan.estado !== "error" ? planCargo(cargoProveedora, entradasCompra) : null;
+      planes.push({ codigo, venta, plan, cargo, cargoProveedora, costoExtra, orderId: cargada?.row.id });
       for (const linea of lineasDeOrden(codigo, venta, plan, nombre)) console.log(linea);
+      if (cargo) for (const linea of lineasDeCargo(cargo)) console.log(linea);
       if (plan.movimientos?.length) {
         for (const m of plan.movimientos) console.log(`      movimiento ${m.type} ${m.change > 0 ? "+" : ""}${m.change} ${nombre(m.productId)} — ${m.note}`);
       }
@@ -395,12 +450,12 @@ async function main() {
       console.log("\nSIMULACIÓN: no se escribió nada. Usa --aplicar --tarjeta T-xxx para escribir.");
       return;
     }
-    const aplicables = planes.filter((p) => p.plan.estado === "listo");
+    const aplicables = planes.filter((p) => p.plan.estado === "listo" || (p.cargo?.estado === "ok" && p.cargo.crear));
     if (aplicables.length === 0) {
       console.log("\nNada que cambiar.");
       return;
     }
-    const conDespacho = aplicables.filter((p) => p.plan.avisos.some((a) => a.despacho));
+    const conDespacho = aplicables.filter((p) => p.plan.avisos?.some((a) => a.despacho));
     if (conDespacho.length > 0 && !enDespacho) {
       console.error(`\nNo se escribió nada: ${conDespacho.map((p) => p.codigo).join(", ")} cambia una pieza que ya va en un despacho. Si Alex dice que sí, corre otra vez con --cambiar-en-despacho.`);
       process.exitCode = 1;
@@ -410,16 +465,41 @@ async function main() {
     if (!actor) throw new Error("No hay un usuario ADMIN para registrar los movimientos. No se escribió nada.");
 
     await prisma.$transaction(async (tx) => {
-      for (const { codigo, venta, plan: simulado } of aplicables) {
+      for (const { codigo, venta, plan: simulado, cargoProveedora, costoExtra } of aplicables) {
         // Candado y se vuelve a planear dentro de la transaccion: si algo cambio desde la simulacion, se frena.
         await tx.$queryRaw`SELECT "id" FROM "CompraUnidad" WHERE "orderId" = ${compraRow.id} FOR UPDATE`;
+        let cargoHecho = null;
+        if (cargoProveedora) {
+          await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${compraRow.id} FOR UPDATE`;
+          const cargo = planCargo(cargoProveedora, await cargarEntradas(tx));
+          if (cargo.estado !== "ok") throw new Error(`${codigo}: ${cargo.motivo}. No se escribió nada.`);
+          if (cargo.crear) {
+            await tx.supplierLedgerEntry.create({
+              data: { supplierId: proveedoraId, type: "CHARGE", amount: cargo.monto, orderId: compraRow.id, note: cargo.nota, createdById: actor.id },
+            });
+            cargoHecho = cargo;
+          }
+        }
+        if (simulado.estado !== "listo") {
+          // Orden ya corregida: solo faltaba el cargo.
+          if (cargoHecho) {
+            await firmar(tx, {
+              script: "corregir-combos-lote-ord-116",
+              tarjeta,
+              entityCode: COMPRA,
+              resumen: `Cargo ${money(cargoHecho.monto)} a la proveedora en la ${COMPRA} (${codigo}): ${cargoHecho.nota}; pendiente ${money(cargoHecho.pendienteAntes)} → ${money(cargoHecho.pendienteDespues)}`,
+              after: { cargo: cargoHecho },
+            });
+          }
+          continue;
+        }
         const cargada = await cargarOrden(codigo, tx);
         const unidadesTx = await tx.compraUnidad.findMany({
           where: { orderId: compraRow.id, productId: combo.id },
           orderBy: [{ createdAt: "asc" }, { id: "asc" }],
           select: { id: true, estado: true, color: true, saleOrderId: true },
         });
-        const plan = planearOrden({ orden: cargada.orden, compra, combo, unidades: unidadesTx, salidas: cargada.salidas, unidadForzada: simulado.unidad.id });
+        const plan = planearOrden({ orden: cargada.orden, compra, combo, unidades: unidadesTx, salidas: cargada.salidas, unidadForzada: simulado.unidad.id, costoExtra, piezasExtra });
         if (plan.estado !== "listo") throw new Error(`${codigo}: cambió desde la simulación (${plan.motivo ?? plan.estado}). No se escribió nada.`);
 
         for (const m of plan.movimientos) {
@@ -444,8 +524,11 @@ async function main() {
           script: "corregir-combos-lote-ord-116",
           tarjeta,
           entityCode: codigo,
-          resumen: `Corrigió ${codigo} (${venta}): sale del lote ${COMPRA} (unidad ${plan.unidad.id}); costo ${money(plan.costoTotalAntes)} → ${money(plan.costoTotalDespues)}; las piezas viejas vuelven al inventario`,
+          resumen:
+            `Corrigió ${codigo} (${venta}): sale del lote ${COMPRA} (unidad ${plan.unidad.id}); costo ${money(plan.costoTotalAntes)} → ${money(plan.costoTotalDespues)}; las piezas viejas vuelven al inventario` +
+            (cargoHecho ? `; cargo ${money(cargoHecho.monto)} a la proveedora en la ${COMPRA} (${cargoHecho.nota})` : ""),
           after: {
+            cargo: cargoHecho,
             unidad: plan.unidad,
             piezas: plan.piezas.map((p) => ({ item: p.itemId, antes: p.productoAntes, despues: p.productoDespues, costoAntes: p.costoAntes, costoDespues: p.costoDespues, origenAntes: p.origenAntes })),
             movimientos: plan.movimientos,

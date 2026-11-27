@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { COMPRA, lineasDeOrden, leerUnidadesForzadas, mismoColor, planearOrden } from "./corregir-combos-lote-ord-116.mjs";
+import { COMPRA, ORDENES, lineasDeCargo, lineasDeOrden, leerUnidadesForzadas, mismoColor, planearCargo, planearOrden } from "./corregir-combos-lote-ord-116.mjs";
 
 const SCRIPT = fileURLToPath(new URL("./corregir-combos-lote-ord-116.mjs", import.meta.url));
 
@@ -143,6 +143,94 @@ test("color: palo rosa = palo de rosa; negro no es palo de rosa", () => {
   assert.equal(mismoColor("negro", "palo de rosa"), false);
   assert.equal(mismoColor(null, "negro"), false);
   assert.deepEqual([...leerUnidadesForzadas(["--unidad=ORD-00119:abc_1"])], [["ORD-00119", "abc_1"]]);
+});
+
+// ORD-00124 (Sandra Garcia, burdeos corsso): piezas viejas a 595.000; el corsso suma 50.000 sobre el divan.
+const burdeos = { notes: meta({ color: "Burdeos corsso" }) };
+const orden124 = (notasDivan = burdeos.notes) =>
+  orden({
+    id: "o124",
+    code: "ORD-00124",
+    items: [
+      item("i1", "carrito", 100000, "ORD-00099", burdeos),
+      item("i2", "escalera", 45000, "ORD-00099", burdeos),
+      item("i3", "divan", 230000, "ORD-00099", { notes: notasDivan }),
+      item("i4", "cuadrado", 220000, "ORD-00092", burdeos),
+    ],
+  });
+const base124 = () => {
+  const input = { ...base(), orden: orden124(), costoExtra: 50000, piezasExtra: new Set(["divan"]) };
+  input.unidades[3] = { ...input.unidades[3], estado: "FABRICANDO", color: "burdeos corsso" };
+  return input;
+};
+const entrada124 = ORDENES.find((o) => o.orden === "ORD-00124");
+
+test("ORD-00124: ORD-119 y ORD-121 siguen en la lista y la 124 trae su costo y su cargo", () => {
+  assert.deepEqual(ORDENES.slice(0, 2), [
+    { orden: "ORD-00119", venta: "SAL-00108" },
+    { orden: "ORD-00121", venta: "SAL-00112" },
+  ]);
+  assert.deepEqual(entrada124, {
+    orden: "ORD-00124",
+    venta: "SAL-00114",
+    costoExtra: 50000,
+    cargoProveedora: { monto: 50000, nota: "Adicional: material burdeos corsso, combo de Sandra García" },
+  });
+});
+
+test("ORD-00124: el costo pasa de 595.000 a 630.000 con la unidad burdeos del lote", () => {
+  const plan = planearOrden(base124());
+  assert.equal(plan.estado, "listo");
+  assert.equal(plan.costoTotalAntes, 595000);
+  assert.equal(plan.costoTotalDespues, 630000);
+  assert.equal(plan.unidad.id, "u4");
+  assert.equal(plan.piezas[2].costoDespues, 280000);
+});
+
+test("ORD-00124: un adicional con costo 50.000 en las notas no se cuenta dos veces", () => {
+  const input = base124();
+  input.orden = orden124(meta({ color: "Burdeos corsso", adicionales: [{ descripcion: "corsso", precio: 80000, costo: 50000 }] }));
+  assert.equal(planearOrden(input).costoTotalDespues, 630000);
+});
+
+test("ORD-00124: sin una sola pieza diván en el lote, no adivina", () => {
+  assert.equal(planearOrden({ ...base124(), piezasExtra: new Set() }).estado, "error");
+});
+
+test("ORD-00124: segunda corrida, ya corregida a 630.000, nada que cambiar", () => {
+  const input = base124();
+  input.orden = orden({
+    id: "o124",
+    code: "ORD-00124",
+    items: [
+      item("i1", "carrito", 90000, COMPRA, burdeos),
+      item("i2", "escalera", 40000, COMPRA, burdeos),
+      item("i3", "divan", 280000, COMPRA, burdeos),
+      item("i4", "corazon", 220000, COMPRA, burdeos),
+    ],
+  });
+  input.salidas = new Map([...salidas, ["corazon", 1]]);
+  input.unidades[3] = { ...input.unidades[3], estado: "VENDIDA", saleOrderId: "o124" };
+  assert.equal(planearOrden(input).estado, "nada");
+});
+
+test("ORD-00124: cargo CHARGE de 50.000 en la ORD-116; deuda 1.740.000 → 1.790.000; no se repite", () => {
+  const entradas = [
+    { type: "CHARGE", amount: 3480000, note: "Compra ORD-116" },
+    { type: "PAYMENT", amount: 1740000, note: "Abono" },
+  ];
+  const cargo = planearCargo(entrada124.cargoProveedora, entradas);
+  assert.deepEqual(cargo, {
+    crear: true,
+    monto: 50000,
+    nota: "Adicional: material burdeos corsso, combo de Sandra García",
+    pendienteAntes: 1740000,
+    pendienteDespues: 1790000,
+  });
+  assert.ok(lineasDeCargo(cargo).some((l) => l.includes("$1.740.000 → $1.790.000")));
+  const yaExiste = planearCargo(entrada124.cargoProveedora, [...entradas, { type: "CHARGE", amount: 50000, note: cargo.nota }]);
+  assert.equal(yaExiste.crear, false);
+  assert.equal(yaExiste.pendienteDespues, yaExiste.pendienteAntes);
 });
 
 test("con --aplicar y sin --tarjeta se niega antes de conectarse", () => {
