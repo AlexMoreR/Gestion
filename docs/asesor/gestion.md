@@ -49,7 +49,7 @@ en las Server Actions y en `src/lib/`.
 - `nomina`: nómina del mes (salario básico de cada persona + comisiones − lo ya pagado) y el dinero de hoy por cuenta. La configuración (básicos, TRM, días trabajados) vive en `AppSetting` (`payrollConfig`); los pagos son gastos de la categoría Nómina.
 - `equipo`: ficha de cada trabajador (ingreso, salida, contacto, forma de pago) y las reglas de estado Activo/Retirado, edad y "¿trabajaba en tal fecha?". La nómina, las comisiones y las asignaciones la usan para incluir a los activos y sacar a los retirados.
 - `revisor`: revisor diario de solo lectura (`GET /api/revisor`, cron de las 7:00 a. m. en aizen1): busca ventas, pagos, stock, compras, borrados, numeración y saldos que no cuadran y devuelve la lista de hallazgos; el script `scripts/revisor` decide si avisa por correo a Sistemas o también al dueño.
-- `asesor`: consultas para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones, nómina, equipo, saldos de cuentas, gastos del mes con la ganancia real (`listar_gastos`), cuánto se le debe a cada proveedora orden por orden (`deuda_con_proveedoras`), pedidos por clienta o ciudad con su estado (`buscar_pedido`, `pedidos_abiertos`), la cobertura de envíos (`listar_cobertura`), los movimientos de una cuenta con su saldo acumulado (`movimientos_de_cuenta`, `registros_sin_cuenta`), la bitácora de quién creó, cambió o borró algo (`historial_de_registro`) y esta radiografía. Lee el WhatsApp de la página (`ver_whatsapp_de_la_pagina`). Es de solo lectura salvo `registrar_gasto`, `registrar_pago_proveedora`, `cerrar_mes` y `cambiar_whatsapp_de_la_pagina` (ver reglas). También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
+- `asesor`: consultas para el asesor de IA (servidor MCP en `/api/mcp`): resumen del mes, ventas, cotizaciones, productos, comisiones, nómina, equipo, saldos de cuentas, gastos del mes con la ganancia real (`listar_gastos`), cuánto se le debe a cada proveedora orden por orden (`deuda_con_proveedoras`), pedidos por clienta o ciudad con su estado (`buscar_pedido`, `pedidos_abiertos`), la cobertura de envíos (`listar_cobertura`), los movimientos de una cuenta con su saldo acumulado (`movimientos_de_cuenta`, `registros_sin_cuenta`), la bitácora de quién creó, cambió o borró algo (`historial_de_registro`) y esta radiografía. Lee el WhatsApp de la página (`ver_whatsapp_de_la_pagina`). Es de solo lectura salvo `registrar_gasto`, `registrar_pago_proveedora`, `cerrar_mes`, `cambiar_whatsapp_de_la_pagina` y `crear_cotizacion` (ver reglas). `crear_cotizacion` crea una cotización dictada por chat o voz (cliente, ciudad de entrega, productos con color y precio, adicionales como el envío, observaciones y asesora) con el mismo guardado de `cotizaciones-crm` y devuelve el código COT, el link público y el PDF. También alimenta la pantalla de Comisiones del panel (`/admin/comisiones`), con el mismo cálculo.
 
 ## Entidades
 
@@ -239,6 +239,16 @@ dos veces el mismo gasto quedan dos: el repetido se borra desde la pantalla de G
 nómina exige persona; una fecha anterior a hoy exige motivo (gasto retroactivo). El gasto queda a nombre
 de `MCP_GASTOS_USUARIO_EMAIL` o, si no existe, del administrador más antiguo, y usa el mismo guardado
 que la pantalla de Gastos (descuenta el saldo de la cuenta y entra a Balances).
+
+**Cotizaciones por voz o chat (`crear_cotizacion`).** Dos pasos como los gastos: con `confirmado=false`
+Claude muestra el resumen (cliente nuevo o existente, productos con precio dictado y el de Gestión, color,
+adicionales, total y asesora) sin crear nada; con el "sí" (`confirmado=true`, una sola vez) crea la cotización
+en Borrador a nombre de la asesora. La **asesora es obligatoria** (si no aparece o hay varias con ese nombre, no
+se crea y se listan las del equipo). El precio dictado manda aunque sea menor que el de Gestión (con aviso); los
+extras sin código (silla auxiliar) van dentro del precio y escritos en el color; el envío va como adicional.
+**Freno de 10 minutos**: la misma cotización (mismo cliente y productos) confirmada otra vez en 10 minutos
+devuelve la misma COT. Si el cliente ya existe (correo, documento o teléfono) **su ficha se actualiza** con los
+datos dictados. No toca dinero: ni ventas, ni abonos, ni saldos.
 
 **Pagos a proveedoras por voz o chat (`registrar_pago_proveedora`).** Dos pasos como los gastos: con
 `confirmado=false` Claude muestra el resumen (OF, proveedora, venta, costo, pagado, falta, cuenta, fecha y

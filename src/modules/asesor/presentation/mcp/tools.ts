@@ -76,11 +76,21 @@ import {
   setSystemWhatsAppPhone,
 } from "@/lib/system-settings";
 import { changeSiteWhatsApp, type SiteWhatsAppDeps } from "../../application/site-whatsapp";
+import { randomUUID } from "node:crypto";
+import { prisma } from "@/lib/prisma";
+import { getSiteUrl } from "@/lib/site";
+import {
+  type ChatQuoteDeps,
+  type ChatQuoteError,
+  confirmChatQuote,
+  prepareChatQuote,
+} from "@/modules/cotizaciones-crm/application/create-quote-by-chat";
+import { createPrismaCrmQuoteRepository } from "@/modules/cotizaciones-crm/infrastructure/prisma-crm-quote-repository";
 import type { McpServerDefinition, McpToolDefinition, McpToolResult } from "./protocol";
 
 // Casi todas las herramientas son de SOLO LECTURA: solo llaman casos de uso de consulta.
-// Solo escriben registrar_gasto, registrar_pago_proveedora, cerrar_mes y cambiar_whatsapp_de_la_pagina:
-// guardan despues de que el dueno diga "si" (en gastos la foto del soporte es opcional y no se revisa).
+// Solo escriben registrar_gasto, registrar_pago_proveedora, cerrar_mes, cambiar_whatsapp_de_la_pagina y
+// crear_cotizacion: guardan despues de que el dueno diga "si" (en gastos la foto del soporte es opcional y no se revisa).
 const READ_ONLY_ANNOTATIONS = {
   readOnlyHint: true,
   destructiveHint: false,
@@ -179,6 +189,23 @@ function loadPayrollBoard(deps: AsesorDependencies, mes: number, anio: number) {
 }
 
 // Une "cambiar el WhatsApp de la pagina" con los ajustes, la cache de Next y la bitacora.
+// Los mismos enlaces y repositorio que POST /api/cotizaciones (el boton del CRM).
+function createChatQuoteDeps(): ChatQuoteDeps {
+  return {
+    repository: createPrismaCrmQuoteRepository(prisma),
+    shareUrl: (token) => getSiteUrl(`/cotizaciones/${token}`),
+    pdfUrl: (token) => getSiteUrl(`/api/generate-quote-pdf?token=${encodeURIComponent(token)}`),
+    newComboKey: () => randomUUID(),
+  };
+}
+
+// Error del caso de uso en una frase: que falta y, si la asesora no aparece, con quien se puede.
+function chatQuoteErrorMessage(error: ChatQuoteError): string {
+  const missing = error.missing?.map((item) => item.mensaje).join("; ");
+  const asesoras = error.asesoras?.length ? `Asesoras posibles: ${error.asesoras.join(", ")}.` : "";
+  return [`${error.error}.`, missing ? `${missing}.` : "", asesoras, "No se creó nada."].filter(Boolean).join(" ");
+}
+
 function createSiteWhatsAppDeps(): SiteWhatsAppDeps {
   return {
     current: () => getSystemWhatsAppPhoneDisplay(),
@@ -570,7 +597,7 @@ export const asesorTools: McpToolDefinition[] = [
     description:
       "SOLO LECTURA. Cobertura de envíos del panel de Transporte (/admin/transporte): el tipo efectivo de envío (GRATIS, ADICIONAL, COTIZAR o NO_LLEGA) por departamento y municipio. Los corregimientos solo salen si su tipo es distinto al de su municipio; los demás solo cuentan en los totales por tipo. pendiente_revision = lugar nuevo que mandó el CRM y aún no se revisa. Filtros opcionales: departamento (con o sin tildes) y tipo. Sirve, por ejemplo, para las exclusiones de campañas (dónde no llegamos o se cotiza).",
     schema: z.object({
-      departamento: z.string().max(80).optional().describe("Nombre del departamento, con o sin tildes (ej. arauca). Si se omite, todos."),
+      departamento: z.string().max(80).optional().optional().describe("Nombre del departamento, con o sin tildes (ej. arauca). Si se omite, todos."),
       tipo: z
         .enum(["gratis", "adicional", "cotizar", "no_llega"])
         .optional()
@@ -843,6 +870,91 @@ export const asesorTools: McpToolDefinition[] = [
     },
   }),
   defineTool({
+    name: "crear_cotizacion",
+    title: "Crear una cotización",
+    description:
+      "Crea una cotizacion en Gestion (Borrador, a nombre de la asesora) con sus productos, colores, adicionales y observaciones, y da el codigo COT, el link publico y el link del PDF. SIEMPRE en dos pasos: (1) llama con confirmado=false (por defecto): NO crea nada y devuelve el resumen (cliente nuevo o existente, productos con precio y color, adicionales, total, asesora y avisos); repitele el resumen al dueno y pregunta '¿La creo?'. (2) SOLO si el dueno dice 'si', llama UNA SOLA VEZ con los MISMOS datos y confirmado=true. La asesora es OBLIGATORIA (si no aparece, la respuesta trae los nombres del equipo para elegir). El precio dictado manda aunque sea menor que el de Gestion (el resumen lo avisa: repiteselo al dueno); sin precio se usa el de Gestion. La silla auxiliar u otros extras sin codigo van DENTRO del precio del producto y escritos en el color o detalle (ej. color 'palo rosa + silla auxiliar'). El envio va como adicional (descripcion 'Envio', valor). Si el cliente ya existe (mismo correo, documento o telefono) se actualizan sus datos con los dictados. La misma cotizacion confirmada dos veces en 10 minutos devuelve la misma COT. No toca ventas, abonos ni saldos. Moneda: COP.",
+    schema: z.object({
+      cliente: z
+        .object({
+          nombre: z.string().max(120).optional().describe("Nombre completo del cliente."),
+          documento: z.string().max(40).optional().describe("Cedula o NIT."),
+          telefono: z.string().max(40).optional().describe("Celular del cliente."),
+          direccion: z.string().max(200).optional().describe("Direccion."),
+          ciudad: z.string().max(80).optional().describe("Ciudad del cliente."),
+          departamento: z.string().max(80).describe("Departamento."),
+          correo: z.string().max(120).optional().describe("Correo (opcional)."),
+          barrio: z.string().max(80).optional().describe("Barrio (opcional)."),
+        })
+        .describe("Datos del cliente: nombre, documento, telefono, direccion, ciudad y departamento son obligatorios (si falta alguno, la respuesta dice cual)."),
+      ciudad_entrega: z.string().max(80).optional().describe("Ciudad de entrega. Si se omite, la del cliente."),
+      productos: z
+        .array(
+          z.object({
+            codigo: z.string().min(1).max(40).describe("Codigo del producto, ej. PSV016 (ver listar_productos)."),
+            cantidad: z.number().int().positive().max(100).describe("Unidades."),
+            color: z.string().max(200).optional().describe("Color o detalle; los extras sin codigo van escritos aqui."),
+            precio: z.number().positive().optional().describe("Precio unitario dictado en COP. Si se omite, el de Gestion."),
+          }),
+        )
+        .min(1)
+        .max(30)
+        .describe("Productos de la cotizacion."),
+      adicionales: z
+        .array(
+          z.object({
+            descripcion: z.string().min(1).max(200).describe("Ej. 'Envio' o 'Base cromada'."),
+            valor: z.number().positive().describe("Valor en COP."),
+            producto: z.string().max(40).optional().describe("Codigo del producto al que va. Si se omite, el primero."),
+          }),
+        )
+        .max(20)
+        .optional()
+        .describe("Adicionales con valor (el envio va aqui)."),
+      observaciones: z.string().max(1000).optional().describe("Observaciones de la cotizacion."),
+      asesora: z.string().min(1).max(80).describe("Nombre de la asesora que vende (obligatorio)."),
+      confirmado: z
+        .boolean()
+        .default(false)
+        .describe("false = solo mostrar el resumen. true = el dueno ya dijo 'si': crear la cotizacion (una sola vez)."),
+    }),
+    writes: true,
+    handler: async (args) => {
+      const deps = createChatQuoteDeps();
+      const input = {
+        cliente: args.cliente,
+        ciudadEntrega: args.ciudad_entrega,
+        productos: args.productos,
+        adicionales: args.adicionales?.map((a) => ({ descripcion: a.descripcion, valor: a.valor, productoCodigo: a.producto })),
+        observaciones: args.observaciones,
+        asesora: args.asesora,
+      };
+      if (!args.confirmado) {
+        const summary = await prepareChatQuote(deps, input);
+        if (!summary.ok) throw new AsesorInputError(chatQuoteErrorMessage(summary));
+        return {
+          guardado: false,
+          ...summary,
+          siguiente_paso:
+            "Repite este resumen al dueno (con los avisos de precio, si hay) y pregunta '¿La creo?'. Si dice si, llama UNA SOLA VEZ mas con los mismos datos y confirmado=true.",
+        };
+      }
+      const created = await confirmChatQuote(deps, input);
+      if (!created.ok) throw new AsesorInputError(chatQuoteErrorMessage(created));
+      return {
+        guardado: true,
+        codigo: created.code,
+        total: created.total,
+        link: created.shareUrl,
+        pdf: created.pdfUrl,
+        ya_existia: created.reused,
+        siguiente_paso: created.reused
+          ? "Esta cotizacion ya se habia creado hace unos minutos: es la misma (no se creo otra). Dale al dueno el codigo y los links."
+          : "La cotizacion YA quedo creada (no la vuelvas a crear). Dale al dueno el codigo, el link y el PDF; se ve en /admin/cotizaciones.",
+      };
+    },
+  }),
+  defineTool({
     name: "que_es_esta_aplicacion",
     title: "Qué es esta aplicación",
     description:
@@ -872,8 +984,8 @@ export const asesorTools: McpToolDefinition[] = [
 
 export const asesorMcpServer: McpServerDefinition = {
   name: "gestion-magilus",
-  version: "1.2.0",
+  version: "1.3.0",
   instructions:
-    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos, pagos a proveedoras y el cierre de mes: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), saldos de cuentas, gastos del mes con la ganancia real (listar_gastos) cuanto se le debe a cada proveedora orden por orden (deuda_con_proveedoras), pedidos por clienta o ciudad con su estado (buscar_pedido, pedidos_abiertos) y la cobertura de envios por departamento y municipio (listar_cobertura). Para entender el sistema completo usa primero que_es_esta_aplicacion. El WhatsApp de la pagina (al que llegan los clientes de magilus.com) se lee con ver_whatsapp_de_la_pagina. Todas las herramientas son de lectura salvo registrar_gasto, registrar_pago_proveedora, cerrar_mes (cierre de mes: el dueno dicta el saldo real de cada cuenta y se crea un ajuste por cuenta) y cambiar_whatsapp_de_la_pagina (cambia a que linea llegan los clientes de la pagina; solo si el dueno lo pide), las unicas que escriben: antes de guardar SIEMPRE repite el resumen al dueno y espera su 'si' (primero con confirmado=false, luego confirmado=true, UNA sola vez: dos llamadas de registrar_gasto crean dos gastos). Un pago a una proveedora por su orden de fabricacion (OF) va con registrar_pago_proveedora, nunca como gasto (contaria el costo dos veces). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
+    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos, pagos a proveedoras, el cierre de mes y cotizaciones: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), saldos de cuentas, gastos del mes con la ganancia real (listar_gastos) cuanto se le debe a cada proveedora orden por orden (deuda_con_proveedoras), pedidos por clienta o ciudad con su estado (buscar_pedido, pedidos_abiertos) y la cobertura de envios por departamento y municipio (listar_cobertura). Para entender el sistema completo usa primero que_es_esta_aplicacion. El WhatsApp de la pagina (al que llegan los clientes de magilus.com) se lee con ver_whatsapp_de_la_pagina. Todas las herramientas son de lectura salvo registrar_gasto, registrar_pago_proveedora, cerrar_mes (cierre de mes: el dueno dicta el saldo real de cada cuenta y se crea un ajuste por cuenta), cambiar_whatsapp_de_la_pagina (cambia a que linea llegan los clientes de la pagina; solo si el dueno lo pide) y crear_cotizacion (crea una cotizacion con productos, colores y adicionales; la asesora es obligatoria; no toca ventas ni saldos), las unicas que escriben: antes de guardar SIEMPRE repite el resumen al dueno y espera su 'si' (primero con confirmado=false, luego confirmado=true, UNA sola vez: dos llamadas de registrar_gasto crean dos gastos). Un pago a una proveedora por su orden de fabricacion (OF) va con registrar_pago_proveedora, nunca como gasto (contaria el costo dos veces). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
   tools: asesorTools,
 };
