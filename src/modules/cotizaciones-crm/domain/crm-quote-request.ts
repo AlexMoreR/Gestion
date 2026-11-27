@@ -13,7 +13,19 @@ import { CRM_ORIGINS, type CrmOriginCode, phoneDigits } from "../../ventas/domai
 
 export type MissingField = { campo: string; mensaje: string };
 
-export type CrmQuoteItemRef = { productCode: string | null; productId: string | null; quantity: number };
+export type CrmQuoteAdicional = { descripcion: string; valor: number };
+
+// unitPrice, color y adicionales son opcionales y por ahora solo los usa quien arma la cotizacion
+// dictada (parte 2); parseCrmQuoteRequest no los lee: el CRM sigue sin poder mandar precios.
+export type CrmQuoteItemRef = {
+  productCode: string | null;
+  productId: string | null;
+  quantity: number;
+  /** Precio dictado por unidad (COP). Sin el, se usa el precio de Gestion. */
+  unitPrice?: number;
+  color?: string;
+  adicionales?: CrmQuoteAdicional[];
+};
 
 export type CrmQuoteRequest = {
   client: {
@@ -202,17 +214,22 @@ function refLabel(ref: CrmQuoteItemRef): string {
   return ref.productCode ?? ref.productId ?? "?";
 }
 
+export type MatchedQuoteItem = { product: ProductForQuote; quantity: number } & Pick<
+  CrmQuoteItemRef,
+  "unitPrice" | "color" | "adicionales"
+>;
+
 // Cruza cada linea con el producto de Gestion (por id o por codigo, sin distinguir mayusculas).
 export function matchProducts(
   items: CrmQuoteItemRef[],
   products: ProductForQuote[],
-): { ok: true; matched: { product: ProductForQuote; quantity: number }[] } | { ok: false; missing: MissingField[] } {
+): { ok: true; matched: MatchedQuoteItem[] } | { ok: false; missing: MissingField[] } {
   const byId = new Map(products.map((product) => [product.id, product]));
   const byCode = new Map(
     products.filter((product) => product.code).map((product) => [product.code!.trim().toUpperCase(), product]),
   );
   const missing: MissingField[] = [];
-  const matched: { product: ProductForQuote; quantity: number }[] = [];
+  const matched: MatchedQuoteItem[] = [];
 
   items.forEach((item, index) => {
     const product =
@@ -230,7 +247,14 @@ export function matchProducts(
       missing.push({ campo: `items[${index}].producto`, mensaje: `El combo ${product.name} no tiene componentes en Gestión` });
       return;
     }
-    matched.push({ product, quantity: item.quantity });
+    // Los campos dictados solo se copian si vienen: sin ellos la salida es la de siempre.
+    matched.push({
+      product,
+      quantity: item.quantity,
+      ...(item.unitPrice !== undefined ? { unitPrice: item.unitPrice } : {}),
+      ...(item.color !== undefined ? { color: item.color } : {}),
+      ...(item.adicionales !== undefined ? { adicionales: item.adicionales } : {}),
+    });
   });
 
   return missing.length > 0 ? { ok: false, missing } : { ok: true, matched };
@@ -242,40 +266,60 @@ export type QuoteLine = {
   unitPrice: number;
   lineTotal: number;
   notes: string | null;
+  // Solo con un precio dictado menor que el de Gestion (en un combo, precioGestion es el del combo).
+  precioMenor?: true;
+  precioGestion?: number;
 };
 
-// Lineas con el precio actual de Gestion. Un combo se expande en sus componentes (como el admin):
-// el precio del combo se reparte y todas las lineas comparten comboKey/nombre/codigo.
+// Lineas con el precio actual de Gestion (o el dictado, por unidad, si vino). Un combo se expande en
+// sus componentes (como el admin): el precio del combo se reparte y todas las lineas comparten
+// comboKey/nombre/codigo. Color y adicionales van en las notas como las guarda la pantalla: la suma
+// de los adicionales en additionalCost (en un combo, completa en la primera pieza) y sus
+// descripciones en description.
 export function buildQuoteLines(
-  matched: { product: ProductForQuote; quantity: number }[],
+  matched: MatchedQuoteItem[],
   newComboKey: () => string,
 ): { lines: QuoteLine[]; subtotal: number; total: number } {
   const lines: QuoteLine[] = [];
-  for (const { product, quantity } of matched) {
+  for (const { product, quantity, unitPrice: dictado, color: colorRaw, adicionales: adicionalesRaw } of matched) {
+    const price = typeof dictado === "number" && Number.isFinite(dictado) && dictado > 0 ? dictado : product.price;
+    const aviso = price < product.price ? { precioMenor: true as const, precioGestion: product.price } : {};
+    const color = colorRaw?.trim() ?? "";
+    const adicionales = (adicionalesRaw ?? []).filter(
+      (a) => a.descripcion?.trim() && Number.isFinite(a.valor) && a.valor > 0,
+    );
+    const additionalCost = Number(adicionales.reduce((sum, a) => sum + a.valor, 0).toFixed(2));
+    const description = adicionales.map((a) => a.descripcion.trim()).join(" · ");
+    const extras = { color, additionalCost, description };
+
     if (product.isBundle) {
       const comboKey = newComboKey();
-      for (const line of expandComboLines(product.components, quantity, product.price)) {
+      expandComboLines(product.components, quantity, price).forEach((line, index) => {
+        const lineExtras = index === 0 ? extras : { color };
         lines.push({
           productId: line.productId,
           quantity: line.quantity,
           unitPrice: line.unitPrice,
-          lineTotal: calculateQuoteLineTotal(line.quantity, line.unitPrice),
+          lineTotal: calculateQuoteLineTotal(line.quantity, line.unitPrice, index === 0 ? additionalCost : 0),
           notes: stringifyQuoteItemMeta({
+            ...lineExtras,
             comboKey,
             comboName: product.name,
             comboCode: product.code ?? "",
             comboQuantity: quantity,
           }),
+          ...aviso,
         });
-      }
+      });
       continue;
     }
     lines.push({
       productId: product.id,
       quantity,
-      unitPrice: product.price,
-      lineTotal: calculateQuoteLineTotal(quantity, product.price),
-      notes: null,
+      unitPrice: price,
+      lineTotal: calculateQuoteLineTotal(quantity, price, additionalCost),
+      notes: stringifyQuoteItemMeta(extras),
+      ...aviso,
     });
   }
   const subtotal = Number(lines.reduce((sum, line) => sum + line.lineTotal, 0).toFixed(2));

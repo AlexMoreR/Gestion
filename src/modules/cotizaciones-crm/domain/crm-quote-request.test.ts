@@ -152,3 +152,77 @@ describe("buildItemsKey", () => {
     expect(buildItemsKey([{ product: { id: "a" }, quantity: 3 }])).not.toBe(a);
   });
 });
+
+describe("buildQuoteLines con precio, color y adicional dictados", () => {
+  const PSV016: ProductForQuote = {
+    id: "psv",
+    code: "PSV016",
+    name: "Poltrona",
+    price: 1_369_000,
+    isBundle: false,
+    components: [],
+  };
+
+  it("(a) PSV016 a 1.369.000, palo rosa y envio Cali–Quibdo de 350.000", () => {
+    const { lines, total } = buildQuoteLines(
+      [
+        {
+          product: PSV016,
+          quantity: 1,
+          unitPrice: 1_369_000,
+          color: "palo rosa",
+          adicionales: [{ descripcion: "Envío Cali–Quibdó", valor: 350_000 }],
+        },
+      ],
+      () => "k",
+    );
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ unitPrice: 1_369_000, lineTotal: 1_719_000 });
+    expect(lines[0].precioMenor).toBeUndefined();
+    const meta = JSON.parse(lines[0].notes!);
+    expect(meta).toMatchObject({ additionalCost: 350_000, color: "palo rosa" });
+    expect(meta.description).toContain("Envío Cali–Quibdó");
+    expect(total).toBe(1_719_000);
+  });
+
+  it("(b) sin precio dictado usa el precio de Gestion y no lleva aviso", () => {
+    const { lines } = buildQuoteLines([{ product: PSV016, quantity: 2, color: "negro" }], () => "k");
+    expect(lines[0]).toMatchObject({ unitPrice: 1_369_000, lineTotal: 2_738_000 });
+    expect(lines[0]).not.toHaveProperty("precioMenor");
+    expect(JSON.parse(lines[0].notes!)).toMatchObject({ color: "negro", additionalCost: 0 });
+  });
+
+  it("(c) precio dictado menor que el de Gestion -> aviso con el precio de Gestion", () => {
+    const { lines, total } = buildQuoteLines([{ product: PSV016, quantity: 1, unitPrice: 1_200_000 }], () => "k");
+    expect(lines[0]).toMatchObject({ unitPrice: 1_200_000, precioMenor: true, precioGestion: 1_369_000 });
+    expect(lines[0].notes).toBeNull();
+    expect(total).toBe(1_200_000);
+  });
+
+  it("(d) combo con precio dictado y adicional: el adicional va completo en la primera pieza", () => {
+    const { lines, total } = buildQuoteLines(
+      [
+        {
+          product: COMBO,
+          quantity: 1,
+          unitPrice: 1_000_000,
+          color: "blanco",
+          adicionales: [
+            { descripcion: "Envío", valor: 200_000 },
+            { descripcion: "Base cromada", valor: 50_000 },
+          ],
+        },
+      ],
+      () => "k2",
+    );
+    expect(lines).toHaveLength(2);
+    expect(lines[0].unitPrice + lines[1].unitPrice).toBe(1_000_000);
+    const first = JSON.parse(lines[0].notes!);
+    const second = JSON.parse(lines[1].notes!);
+    expect(first).toMatchObject({ comboKey: "k2", additionalCost: 250_000, color: "blanco", description: "Envío · Base cromada" });
+    expect(second).toMatchObject({ comboKey: "k2", additionalCost: 0, color: "blanco", description: "" });
+    expect(lines[0].lineTotal).toBe(lines[0].unitPrice + 250_000);
+    expect(lines.every((line) => line.precioMenor === undefined)).toBe(true);
+    expect(total).toBe(1_250_000);
+  });
+});
