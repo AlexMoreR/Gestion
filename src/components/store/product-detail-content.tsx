@@ -173,8 +173,10 @@ export async function ProductDetailContent({
       ...(activePromo ? { priceValidUntil: toBogotaDateOnly(activePromo.endsAt) } : {}),
       // Magilus fabrica sobre pedido: todo producto visible se puede vender aunque no haya existencias.
       availability: "https://schema.org/InStock",
+      // Misma Magilus de la tienda (#organization, con las sedes); el nombre queda de respaldo.
       seller: {
         "@type": "Organization",
+        "@id": `${getSiteUrl("/")}#organization`,
         name: brandName,
       },
     },

@@ -241,3 +241,15 @@ export function buildBreadcrumbList(origin: string, steps: BreadcrumbStep[]) {
     })),
   };
 }
+
+// Lista de productos de una categoría para Google (ItemList): posición y URL completa, máx. 50.
+export function buildProductItemList(origin: string, paths: string[]) {
+  return {
+    "@type": "ItemList",
+    itemListElement: paths.slice(0, 50).map((path, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      url: new URL(path, origin).toString(),
+    })),
+  };
+}

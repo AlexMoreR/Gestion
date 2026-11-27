@@ -17,6 +17,7 @@ import { HARDWARE_PAYMENT_LABEL, hasHydraulicSystem, isCamillasCombo, isReadyMad
 import { buildProductPath } from "@/lib/product-slugs";
 import {
   buildBreadcrumbList,
+  buildProductItemList,
   buildCategorySeoDescription,
   buildCategorySeoTitle,
   buildCatalogSeoTitle,
@@ -490,6 +491,10 @@ export async function StorefrontCatalog({
         url: getSiteUrl(baseUrl),
         name: category ? `${category.name} | ${brandName}` : `Catálogo de ${brandName}`,
         description: collectionDescription,
+        // Lista de productos de esta página, en el orden de la cuadrícula (solo en una categoría).
+        ...(category && !normalizedQuery
+          ? { mainEntity: buildProductItemList(getSiteUrl("/"), pagedProducts.map((product) => buildProductPath(product))) }
+          : {}),
       },
       // Migas de pan solo en una categoría (no en inicio ni búsquedas).
       ...(category && !normalizedQuery

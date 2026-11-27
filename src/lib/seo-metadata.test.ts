@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildBreadcrumbList,
+  buildProductItemList,
   buildCategorySeoDescription,
   buildCategorySeoTitle,
   buildCatalogSeoTitle,
@@ -266,5 +267,21 @@ describe("catálogo (/catalogo)", () => {
   it("descripción sin precios y de largo para Google", () => {
     expect(CATALOG_SEO_DESCRIPTION).not.toMatch(/\$|\d/);
     expect(CATALOG_SEO_DESCRIPTION.length).toBeLessThanOrEqual(155);
+  });
+});
+
+describe("buildProductItemList", () => {
+  it("numera 1..n en el mismo orden, con URL completa y máximo 50", () => {
+    const paths = Array.from({ length: 60 }, (_, i) => `/tarimas-pedicure/producto-${i + 1}`);
+    const list = buildProductItemList("https://magilus.com/", paths);
+    expect(list["@type"]).toBe("ItemList");
+    expect(list.itemListElement).toHaveLength(50);
+    expect(list.itemListElement.map((item) => item.position)).toEqual(Array.from({ length: 50 }, (_, i) => i + 1));
+    expect(list.itemListElement[0]).toEqual({
+      "@type": "ListItem",
+      position: 1,
+      url: "https://magilus.com/tarimas-pedicure/producto-1",
+    });
+    expect(list.itemListElement[49].url).toBe("https://magilus.com/tarimas-pedicure/producto-50");
   });
 });
