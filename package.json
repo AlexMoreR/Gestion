@@ -17,6 +17,7 @@
     "fichas:importar": "vite-node scripts/importar-fichas.ts --",
     "compras:reparar-92": "node scripts/reparar-ord-00092.mjs",
     "stock:costo-95": "node scripts/costo-real-ord-00095.mjs",
+    "stock:combos-116": "node scripts/corregir-combos-lote-ord-116.mjs",
     "ventas:revisar-costos": "vite-node scripts/revisar-ventas-sin-costo.ts --",
     "abonos:revisar-fechas": "vite-node scripts/revisar-abonos-movidos.ts --",
     "ordenes:revisar-despachos": "vite-node scripts/revisar-despachos-incompletos.ts --",
