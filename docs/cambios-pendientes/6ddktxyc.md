@@ -1,0 +1,2 @@
+## Reglas de negocio
+- `ogImageUrl`: al compartir una ficha o una categoría (WhatsApp, Facebook, Twitter) la foto de vista previa es una copia JPEG 1200×630 (foto completa sobre fondo blanco) que arma la ruta pública `/og/products/<archivo>` o `/og/categories/<archivo>` desde la foto subida; solo esas dos carpetas, sin "..", 404 si no existe; caché de un año. El inicio sigue con `/opengraph-image`. Lógica en `src/lib/og-image.ts`.

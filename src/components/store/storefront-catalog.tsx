@@ -32,6 +32,7 @@ import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, siteConfig } fr
 import { enCacheDeTienda } from "@/lib/storefront-cache";
 import { COMBO_SAVINGS_COMPONENTS_SELECT, comboSavingsFromProduct } from "@/lib/storefront-offer";
 import { getActivePromo, getCurrentStorePrice, promoInfoText } from "@/lib/product-promo";
+import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH, ogImageUrl } from "@/lib/og-image";
 import {
   buildStorefrontQuoteWhatsAppHref,
   buildSystemWhatsAppHref,
@@ -296,7 +297,13 @@ export async function generateStorefrontMetadata({
     typeof title === "string" ? `${title} | ${brandName}` : title.absolute;
   const socialImagePath =
     category?.logoUrl?.trim() || category?.products[0]?.thumbnailUrl?.trim() || siteConfig.ogImagePath;
-  const socialImage = socialImagePath.startsWith("http") ? socialImagePath : getSiteUrl(socialImagePath);
+  // Foto de /uploads: copia liviana JPEG 1200x630 para WhatsApp/Facebook.
+  const socialOgPath = ogImageUrl(socialImagePath, siteConfig.domain);
+  const socialImage = socialOgPath
+    ? getSiteUrl(socialOgPath)
+    : socialImagePath.startsWith("http")
+      ? socialImagePath
+      : getSiteUrl(socialImagePath);
   const socialImageAlt = category ? `${category.name} | ${brandName}` : brandName;
 
   return {
@@ -317,6 +324,7 @@ export async function generateStorefrontMetadata({
         {
           url: socialImage,
           alt: socialImageAlt,
+          ...(socialOgPath ? { width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT } : {}),
         },
       ],
     },

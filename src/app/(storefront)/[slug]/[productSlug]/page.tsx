@@ -6,7 +6,8 @@ import { formatMoney } from "@/lib/currency";
 import { prisma } from "@/lib/prisma";
 import { separarImagenes } from "@/lib/product-fichas";
 import { getCurrentStorePrice } from "@/lib/product-promo";
-import { readableDescription } from "@/lib/product-landing";
+import { productDisplayName, readableDescription } from "@/lib/product-landing";
+import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH, ogImageUrl } from "@/lib/og-image";
 import { findRedirectTarget } from "@/lib/product-redirect";
 import { buildProductPath } from "@/lib/product-slugs";
 import { getProductSeoContent } from "@/lib/product-seo-content";
@@ -81,7 +82,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       );
   const canonicalPath = buildProductPath(product);
   const canonical = getSiteUrl(canonicalPath);
-  const imageUrl = getPublicAssetUrl(product.thumbnailUrl);
+  // Vista previa liviana (JPEG 1200x630) si la foto es de /uploads; si no, la de siempre sin medidas.
+  const ogPath = ogImageUrl(product.thumbnailUrl, siteConfig.domain);
+  const imageUrl = ogPath ? getSiteUrl(ogPath) : getPublicAssetUrl(product.thumbnailUrl);
+  const imageAlt = fixedSeo?.h1 ?? productDisplayName(product.name, product.category?.name);
   // Si hay seoTitle se respeta (el layout le agrega "| Marca"). Si no:
   // "<Nombre> | $<precio vigente> | Marca" (mismo precio que muestra la ficha).
   const seoTitle = fixedSeo?.title ?? product.seoTitle?.trim();
@@ -111,7 +115,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       images: [
         {
           url: imageUrl,
-          alt: product.name,
+          alt: imageAlt,
+          ...(ogPath ? { width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT } : {}),
         },
       ],
     },
