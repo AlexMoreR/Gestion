@@ -23,7 +23,12 @@ import {
   productDisplayName,
   readableDescription,
 } from "@/lib/product-landing";
-import { buildBreadcrumbList, buildProductFallbackDescription, compactPriceLabel } from "@/lib/seo-metadata";
+import {
+  buildBreadcrumbList,
+  buildProductFallbackDescription,
+  compactPriceLabel,
+  freeShippingDetailsFor,
+} from "@/lib/seo-metadata";
 import { buildWhatsAppBuyMessage, getPublicAssetUrl, getSiteUrl, sanitizeDescription } from "@/lib/site";
 import { comboSavingsFromProduct, SHIPPING_CHECK_LABEL, SHIPPING_COVERAGE_PATH } from "@/lib/storefront-offer";
 import {
@@ -173,6 +178,8 @@ export async function ProductDetailContent({
       ...(activePromo ? { priceValidUntil: toBogotaDateOnly(activePromo.endsAt) } : {}),
       // Magilus fabrica sobre pedido: todo producto visible se puede vender aunque no haya existencias.
       availability: "https://schema.org/InStock",
+      // Solo camillas y combo de camillas: envío gratis (costo 0) a Colombia.
+      shippingDetails: freeShippingDetailsFor(product.category?.slug, product.code),
       // Misma Magilus de la tienda (#organization, con las sedes); el nombre queda de respaldo.
       seller: {
         "@type": "Organization",

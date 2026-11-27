@@ -13,6 +13,7 @@ import {
   categoryIsIndexable,
   compactPriceLabel,
   expandProductNameForSeo,
+  freeShippingDetailsFor,
   sitemapCategories,
   sitemapProducts,
   toSentenceCase,
@@ -283,5 +284,27 @@ describe("buildProductItemList", () => {
       url: "https://magilus.com/tarimas-pedicure/producto-1",
     });
     expect(list.itemListElement[49].url).toBe("https://magilus.com/tarimas-pedicure/producto-50");
+  });
+});
+
+describe("freeShippingDetailsFor", () => {
+  const gratis = {
+    "@type": "OfferShippingDetails",
+    shippingRate: { "@type": "MonetaryAmount", value: 0, currency: "COP" },
+    shippingDestination: { "@type": "DefinedRegion", addressCountry: "CO" },
+  };
+
+  it("da envío gratis a Colombia a camillas, combos de camillas y al CMB005", () => {
+    expect(freeShippingDetailsFor("camilla", "CAM001")).toEqual(gratis);
+    expect(freeShippingDetailsFor("combo-de-camillas", null)).toEqual(gratis);
+    expect(freeShippingDetailsFor("combos", "CMB005")).toEqual(gratis);
+    expect(freeShippingDetailsFor(null, "cmb005")).toEqual(gratis);
+  });
+
+  it("no da envío a otras categorías ni a productos sin categoría", () => {
+    expect(freeShippingDetailsFor("tocadores", "TOC001")).toBeUndefined();
+    expect(freeShippingDetailsFor("sillas-hidraulicas", null)).toBeUndefined();
+    expect(freeShippingDetailsFor(null, null)).toBeUndefined();
+    expect(freeShippingDetailsFor(undefined, "SIL010")).toBeUndefined();
   });
 });

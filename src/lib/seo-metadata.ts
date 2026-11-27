@@ -1,5 +1,7 @@
 // Reglas puras de SEO (titles, descriptions y sitemap). Sin Prisma ni Next.
 
+import { isCamillasCombo } from "./product-landing";
+
 export const PRODUCT_TITLE_MAX_LENGTH = 60;
 export const META_DESCRIPTION_MAX_LENGTH = 155;
 
@@ -251,5 +253,18 @@ export function buildProductItemList(origin: string, paths: string[]) {
       position: index + 1,
       url: new URL(path, origin).toString(),
     })),
+  };
+}
+
+// Envío gratis a Colombia en los datos para Google (decisión del dueño, 27-nov-2026): solo camillas
+// y combo de camillas. Sin tiempo de entrega ni devoluciones: el dueño no los dio.
+const FREE_SHIPPING_CATEGORY_SLUGS = ["camilla", "combo-de-camillas"];
+
+export function freeShippingDetailsFor(categorySlug: string | null | undefined, code: string | null | undefined) {
+  if (!FREE_SHIPPING_CATEGORY_SLUGS.includes(categorySlug ?? "") && !isCamillasCombo({ code })) return undefined;
+  return {
+    "@type": "OfferShippingDetails",
+    shippingRate: { "@type": "MonetaryAmount", value: 0, currency: "COP" },
+    shippingDestination: { "@type": "DefinedRegion", addressCountry: "CO" },
   };
 }
