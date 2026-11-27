@@ -111,6 +111,7 @@ export function OrderItemsTable({
   const [dispatchDeliveryType, setDispatchDeliveryType] = useState<"COUNTER" | "PICKUP" | "SHIPPING">("SHIPPING");
   const [itemCosts, setItemCosts] = useState<Record<string, string>>({});
   const isDispatchShipping = dispatchDeliveryType === "SHIPPING";
+  const [directDelivery, setDirectDelivery] = useState(false);
 
   const selectableIds = useMemo(
     () => (locked ? [] : items.filter((item) => !item.isDespachado).map((item) => item.id)),
@@ -508,10 +509,24 @@ export function OrderItemsTable({
                     Al transportador se le paga de una: cada envío con valor necesita la cuenta y el comprobante.
                   </p>
 
-                  <div className="space-y-1">
-                    <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Foto de la guia</label>
-                    <Input type="file" name="trackingPhoto" accept="image/*,application/pdf" className="h-8 text-xs" />
-                  </div>
+                  <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border p-3 text-sm text-foreground">
+                    <input
+                      type="checkbox"
+                      name="directDelivery"
+                      value="1"
+                      checked={directDelivery}
+                      onChange={(event) => setDirectDelivery(event.target.checked)}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--primary)]"
+                    />
+                    Entrega directa, sin guía (transportador que no da número de guía)
+                  </label>
+
+                  {!directDelivery ? (
+                    <div className="space-y-1">
+                      <label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Foto de la guia</label>
+                      <Input type="file" name="trackingPhoto" accept="image/*,application/pdf" className="h-8 text-xs" />
+                    </div>
+                  ) : null}
                   {embalajeListo
                     ? dispatchItems.map((item) => <EmbalajeYaSubido key={item.id} fotos={item.embalajeFotos} />)
                     : null}

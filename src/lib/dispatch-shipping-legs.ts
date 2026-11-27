@@ -12,6 +12,14 @@
 //   unico que resta del saldo de la cuenta; el ShippingCost de la venta queda enlazado a el.
 
 export const MAX_EXTRA_SHIPPING_LEGS = 10;
+
+// Transportador directo (ej. don Rafa, Bogota -> punto de Cali) que no da numero de guia: el
+// despacho guarda este texto fijo en la guia y deja de contar como "Sin guia".
+export const DIRECT_DELIVERY_TRACKING = "Entrega directa, sin guía";
+
+export function isDirectDelivery(trackingNumber: string | null | undefined): boolean {
+  return trackingNumber?.trim() === DIRECT_DELIVERY_TRACKING;
+}
 const TRACKING_MAX = 120;
 const NOTE_MAX = 250;
 

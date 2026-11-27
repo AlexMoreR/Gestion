@@ -18,6 +18,7 @@ import { getSystemCurrency } from "@/lib/system-settings";
 import { SHIPMENT_STATUS_BADGE, SHIPMENT_STATUS_LABEL } from "@/modules/guias/domain/statuses";
 import { PaymentMethodBadge } from "@/modules/ventas/presentation/payment-method-badge";
 import { displayCode } from "@/lib/code-display";
+import { isDirectDelivery } from "@/lib/dispatch-shipping-legs";
 
 /*
   Seguimiento con la transportadora: que envios tiene cada proveedor de envios, cuales siguen
@@ -148,7 +149,11 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
     }
     if (pendingDelivery.length) {
       lines.push("", "SIN ENTREGAR:");
-      pendingDelivery.forEach((row) => lines.push(`- ${displayCode(row.code)} · guía ${row.trackingNumber} · hace ${row.days} día(s)`));
+      pendingDelivery.forEach((row) =>
+        lines.push(
+          `- ${displayCode(row.code)} · ${isDirectDelivery(row.trackingNumber) ? "sin guía (entrega directa)" : `guía ${row.trackingNumber}`} · hace ${row.days} día(s)`,
+        ),
+      );
     }
     lines.push("", "¿Me confirmas las guías y cuándo se entregan? Gracias.");
     return lines.join("\n");
@@ -220,19 +225,29 @@ export default async function AdminDespachosTransportadoraPage({ searchParams }:
       {mode !== "done" ? (
         <div className="grid gap-2 md:grid-cols-2">
           {mode === "guide" ? (
-            <form action={adminSetDispatchTrackingAction} className="flex min-w-0 flex-wrap items-center gap-2">
-              <input type="hidden" name="dispatchId" value={row.id} />
-              <input
-                name="trackingNumber"
-                required
-                placeholder="Número de guía"
-                className="h-8 min-w-[8rem] flex-1 rounded-md border border-border bg-background px-2 text-sm"
-              />
-              <TrackingPhotoInput />
-              <Button type="submit" size="sm" className="h-8">
-                Guardar guía
-              </Button>
-            </form>
+            <div className="flex min-w-0 flex-col gap-2">
+              <form action={adminSetDispatchTrackingAction} className="flex min-w-0 flex-wrap items-center gap-2">
+                <input type="hidden" name="dispatchId" value={row.id} />
+                <input
+                  name="trackingNumber"
+                  required
+                  placeholder="Número de guía"
+                  className="h-8 min-w-[8rem] flex-1 rounded-md border border-border bg-background px-2 text-sm"
+                />
+                <TrackingPhotoInput />
+                <Button type="submit" size="sm" className="h-8">
+                  Guardar guía
+                </Button>
+              </form>
+              {/* Transportador directo (ej. don Rafa) que no da guia: sin numero ni foto. */}
+              <form action={adminSetDispatchTrackingAction}>
+                <input type="hidden" name="dispatchId" value={row.id} />
+                <input type="hidden" name="direct" value="1" />
+                <Button type="submit" variant="outline" size="sm" className="h-8">
+                  Entrega directa, sin guía
+                </Button>
+              </form>
+            </div>
           ) : (
             <div />
           )}

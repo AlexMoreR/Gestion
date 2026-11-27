@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildShippingLegs,
   distributeAmount,
+  DIRECT_DELIVERY_TRACKING,
   extraLegShippingReference,
+  isDirectDelivery,
   legacyDispatchLeg,
   legPaymentError,
   MAX_EXTRA_SHIPPING_LEGS,
@@ -211,5 +213,16 @@ describe("pago del flete de cada tramo", () => {
 
   it("efectivo va sin comprobante (misma regla de Gastos)", () => {
     expect(legPaymentError({ amount: 50000, accountId: "c", hasReceipt: false }, cash)).toBeNull();
+  });
+});
+
+describe("isDirectDelivery", () => {
+  it("solo el texto fijo de entrega directa cuenta", () => {
+    expect(isDirectDelivery(DIRECT_DELIVERY_TRACKING)).toBe(true);
+    expect(isDirectDelivery("  Entrega directa, sin guía ")).toBe(true);
+    expect(isDirectDelivery("700123456")).toBe(false);
+    expect(isDirectDelivery(null)).toBe(false);
+    expect(isDirectDelivery(undefined)).toBe(false);
+    expect(isDirectDelivery("")).toBe(false);
   });
 });

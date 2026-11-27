@@ -29,6 +29,7 @@ import { hasUploadedFile, saveShipmentPhoto } from "@/lib/upload-photo";
 import { validarFotosEmbalaje, type EmbalajeTipo } from "@/lib/embalaje-fotos";
 import {
   buildShippingLegs,
+  DIRECT_DELIVERY_TRACKING,
   distributeAmount,
   extraLegShippingReference,
   legacyDispatchLeg,
@@ -831,8 +832,11 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
     redirect(`${returnTo}?error=Este+producto+ya+fue+despachado`);
   }
 
+  // "Entrega directa, sin guía" (transportador que no da guia): texto fijo en la guia y sin foto.
+  const directDelivery = isShipping && formData.get("directDelivery") === "1";
+  const trackingNumber = directDelivery ? DIRECT_DELIVERY_TRACKING : parsed.data.trackingNumber || null;
   const trackingPhotoFile = formData.get("trackingPhoto");
-  const hasTrackingPhoto = trackingPhotoFile instanceof File && trackingPhotoFile.size > 0;
+  const hasTrackingPhoto = !directDelivery && trackingPhotoFile instanceof File && trackingPhotoFile.size > 0;
 
   // Tramos del envio: la transportadora principal + los adicionales (suma = valor del envio).
   const legs =
@@ -842,7 +846,7 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
             carrierSupplierId: carrier.id,
             carrierName: carrier.name,
             amount: parsed.data.shippingCost,
-            trackingNumber: parsed.data.trackingNumber || null,
+            trackingNumber,
           },
           extraLegs,
         )
@@ -877,7 +881,7 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
           shippingCost,
           shippingReceiptUrl: receipt?.url ?? null,
           shippingReceiptName: receipt?.name ?? null,
-          trackingNumber: parsed.data.trackingNumber || null,
+          trackingNumber,
           trackingPhotoUrl: trackingPhoto?.url ?? null,
           trackingPhotoName: trackingPhoto?.name ?? null,
           shippingAddress: parsed.data.shippingAddress || null,
@@ -905,7 +909,7 @@ export async function adminDispatchOrderItemAction(formData: FormData): Promise<
         dispatch,
         order,
         createdById,
-        mainReference: receipt?.name ?? parsed.data.trackingNumber ?? `Despacho ${dispatch.code}`,
+        mainReference: receipt?.name ?? trackingNumber ?? `Despacho ${dispatch.code}`,
       });
 
       // Fecha real de la OF: la proveedora que ya despachó todo queda recibida.
@@ -1078,6 +1082,9 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
   }
 
   const hasPerItemCosts = isShipping && perItemCosts.size > 0;
+  // "Entrega directa, sin guía" (transportador que no da guia): texto fijo en la guia y sin foto.
+  const directDelivery = isShipping && formData.get("directDelivery") === "1";
+  const trackingNumber = directDelivery ? DIRECT_DELIVERY_TRACKING : null;
   const perItemTotal = selectedItems.reduce((sum, item) => sum + (perItemCosts.get(item.id) ?? 0), 0);
   // Tramo principal = la transportadora elegida con su costo (por producto o plano); luego los
   // tramos adicionales. El valor del envio del despacho es la suma de todos.
@@ -1088,7 +1095,7 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
             carrierSupplierId: carrier.id,
             carrierName: carrier.name,
             amount: hasPerItemCosts ? perItemTotal : parsed.data.shippingCost,
-            trackingNumber: null,
+            trackingNumber,
           },
           extraLegs,
         )
@@ -1117,7 +1124,7 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
     : null;
 
   const trackingPhotoFile = formData.get("trackingPhoto");
-  const hasTrackingPhoto = trackingPhotoFile instanceof File && trackingPhotoFile.size > 0;
+  const hasTrackingPhoto = !directDelivery && trackingPhotoFile instanceof File && trackingPhotoFile.size > 0;
   let createdDispatchCode: string | null = null;
   let missingNames: string[] = [];
 
@@ -1144,6 +1151,7 @@ export async function adminBulkDispatchOrderItemsAction(formData: FormData): Pro
           shippingCost,
           shippingReceiptUrl: receipt?.url ?? null,
           shippingReceiptName: receipt?.name ?? null,
+          trackingNumber,
           trackingPhotoUrl: trackingPhoto?.url ?? null,
           trackingPhotoName: trackingPhoto?.name ?? null,
           shippingAddress: parsed.data.shippingAddress || null,
@@ -2125,14 +2133,15 @@ const dispatchTrackingSchema = z.object({
   trackingNumber: z.string().trim().min(1, "Escribe la guia").max(120, "Guia demasiado larga"),
 });
 
-// Registra la guia (y opcionalmente su foto) cuando la transportadora la envia.
-// No cambia el estado del despacho.
+// Registra la guia (y su foto) cuando la transportadora la envia. Con direct=1 ("Entrega
+// directa, sin guía") guarda el texto fijo sin numero ni foto. No cambia el estado del despacho.
 export async function adminSetDispatchTrackingAction(formData: FormData): Promise<void> {
   await requireAdminSession();
 
+  const direct = formData.get("direct") === "1";
   const parsed = dispatchTrackingSchema.safeParse({
     dispatchId: formData.get("dispatchId"),
-    trackingNumber: formData.get("trackingNumber"),
+    trackingNumber: direct ? DIRECT_DELIVERY_TRACKING : formData.get("trackingNumber"),
   });
   if (!parsed.success) {
     redirect(`${CARRIER_FOLLOWUP_PATH}?error=Escribe+el+numero+de+guia`);
@@ -2150,13 +2159,14 @@ export async function adminSetDispatchTrackingAction(formData: FormData): Promis
   }
 
   const photoFile = formData.get("trackingPhoto");
-  // La foto de la guia es obligatoria: sin ella no se guarda el numero.
-  if (!(photoFile instanceof File) || photoFile.size === 0) {
+  // La foto de la guia es obligatoria: sin ella no se guarda el numero (salvo entrega directa).
+  const hasPhoto = photoFile instanceof File && photoFile.size > 0;
+  if (!direct && !hasPhoto) {
     redirect(`${CARRIER_FOLLOWUP_PATH}?error=Sube+la+foto+de+la+guia`);
   }
 
   try {
-    const photo = await saveTrackingPhoto(photoFile, dispatch.orderId);
+    const photo = hasPhoto ? await saveTrackingPhoto(photoFile, dispatch.orderId) : null;
     await prisma.dispatch.update({
       where: { id: dispatch.id },
       data: {
