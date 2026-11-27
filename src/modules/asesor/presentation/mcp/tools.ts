@@ -188,7 +188,6 @@ function loadPayrollBoard(deps: AsesorDependencies, mes: number, anio: number) {
   );
 }
 
-// Une "cambiar el WhatsApp de la pagina" con los ajustes, la cache de Next y la bitacora.
 // Los mismos enlaces y repositorio que POST /api/cotizaciones (el boton del CRM).
 function createChatQuoteDeps(): ChatQuoteDeps {
   return {
@@ -206,6 +205,7 @@ function chatQuoteErrorMessage(error: ChatQuoteError): string {
   return [`${error.error}.`, missing ? `${missing}.` : "", asesoras, "No se creó nada."].filter(Boolean).join(" ");
 }
 
+// Une "cambiar el WhatsApp de la pagina" con los ajustes, la cache de Next y la bitacora.
 function createSiteWhatsAppDeps(): SiteWhatsAppDeps {
   return {
     current: () => getSystemWhatsAppPhoneDisplay(),
@@ -597,7 +597,7 @@ export const asesorTools: McpToolDefinition[] = [
     description:
       "SOLO LECTURA. Cobertura de envíos del panel de Transporte (/admin/transporte): el tipo efectivo de envío (GRATIS, ADICIONAL, COTIZAR o NO_LLEGA) por departamento y municipio. Los corregimientos solo salen si su tipo es distinto al de su municipio; los demás solo cuentan en los totales por tipo. pendiente_revision = lugar nuevo que mandó el CRM y aún no se revisa. Filtros opcionales: departamento (con o sin tildes) y tipo. Sirve, por ejemplo, para las exclusiones de campañas (dónde no llegamos o se cotiza).",
     schema: z.object({
-      departamento: z.string().max(80).optional().optional().describe("Nombre del departamento, con o sin tildes (ej. arauca). Si se omite, todos."),
+      departamento: z.string().max(80).optional().describe("Nombre del departamento, con o sin tildes (ej. arauca). Si se omite, todos."),
       tipo: z
         .enum(["gratis", "adicional", "cotizar", "no_llega"])
         .optional()
@@ -882,7 +882,7 @@ export const asesorTools: McpToolDefinition[] = [
           telefono: z.string().max(40).optional().describe("Celular del cliente."),
           direccion: z.string().max(200).optional().describe("Direccion."),
           ciudad: z.string().max(80).optional().describe("Ciudad del cliente."),
-          departamento: z.string().max(80).describe("Departamento."),
+          departamento: z.string().max(80).optional().describe("Departamento."),
           correo: z.string().max(120).optional().describe("Correo (opcional)."),
           barrio: z.string().max(80).optional().describe("Barrio (opcional)."),
         })
