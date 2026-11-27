@@ -4,10 +4,19 @@ import { logActivityAs } from "@/lib/activity-log";
 import { createQuoteWithNextCode, upsertQuoteClient } from "@/lib/quote-creation";
 
 import type { CrmQuoteRepository, StaffUser } from "../application/create-crm-quote";
+import type { ChatQuoteRepository } from "../application/create-quote-by-chat";
 
 const STAFF_SELECT = { id: true, name: true, email: true } as const;
 
-export function createPrismaCrmQuoteRepository(db: PrismaClient): CrmQuoteRepository {
+// Si el correo es de alguien del equipo (ADMIN/EMPLEADO) no se usa para buscar: la regla del
+// admin lo convertiria en CLIENTE. Se sigue por documento/telefono.
+async function clientEmail(db: PrismaClient, email: string | null): Promise<string | null> {
+  if (!email) return null;
+  const owner = await db.user.findUnique({ where: { email }, select: { role: true } });
+  return owner && owner.role !== "CLIENTE" ? null : email;
+}
+
+export function createPrismaCrmQuoteRepository(db: PrismaClient): CrmQuoteRepository & ChatQuoteRepository {
   return {
     async findProducts({ ids, codes }) {
       if (ids.length === 0 && codes.length === 0) return [];
@@ -93,14 +102,49 @@ export function createPrismaCrmQuoteRepository(db: PrismaClient): CrmQuoteReposi
     },
 
     async upsertClient(client) {
-      // Si el correo es de alguien del equipo (ADMIN/EMPLEADO) no se usa para buscar: la regla del
-      // admin lo convertiria en CLIENTE. Se sigue por documento/telefono.
-      let email = client.email;
-      if (email) {
-        const owner = await db.user.findUnique({ where: { email }, select: { role: true } });
-        if (owner && owner.role !== "CLIENTE") email = null;
+      return upsertQuoteClient(db, { ...client, email: await clientEmail(db, client.email) });
+    },
+
+    // Mismo orden que upsertQuoteClient (correo, documento, telefono), pero solo lee.
+    async findClient(client) {
+      const email = await clientEmail(db, client.email);
+      const select = { id: true } as const;
+      let found = email ? await db.user.findUnique({ where: { email }, select }) : null;
+      if (!found && client.document && /\d/.test(client.document)) {
+        found = await db.user.findFirst({ where: { role: "CLIENTE", document: client.document }, select });
       }
-      return upsertQuoteClient(db, { ...client, email });
+      if (!found && !client.document && client.phone.replace(/\D/g, "").length >= 7) {
+        found = await db.user.findFirst({ where: { role: "CLIENTE", phone: client.phone }, select });
+      }
+      return found;
+    },
+
+    async listStaff() {
+      return db.user.findMany({
+        where: { role: { in: ["ADMIN", "EMPLEADO"] } },
+        orderBy: { name: "asc" },
+        select: STAFF_SELECT,
+        take: 500,
+      });
+    },
+
+    async findRecentChatQuotes(clientId, since) {
+      const quotes = await db.quote.findMany({
+        where: { clientId, createdAt: { gte: since }, originDetail: { path: ["canal"], equals: "MCP" } },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, code: true, total: true, shareToken: true, originDetail: true },
+        take: 10,
+      });
+      return quotes.map((quote) => {
+        const detail = quote.originDetail as Record<string, unknown> | null;
+        return {
+          id: quote.id,
+          code: quote.code,
+          total: Number(quote.total),
+          shareToken: quote.shareToken,
+          itemsKey: typeof detail?.itemsKey === "string" ? detail.itemsKey : null,
+        };
+      });
     },
 
     async hasPreviousSales(clientId) {
@@ -132,13 +176,14 @@ export function createPrismaCrmQuoteRepository(db: PrismaClient): CrmQuoteReposi
       });
     },
 
-    async logCreated(actor, quote) {
+    async logCreated(actor, quote, via) {
       await logActivityAs(actor, {
         action: "CREATE",
         entityType: "QUOTE",
         entityId: quote.id,
-        summary: `Creó la cotización ${quote.code} desde el CRM`,
-        origin: "CRM",
+        entityCode: via === "MCP" ? quote.code : undefined,
+        summary: via === "MCP" ? `Creó la cotización ${quote.code} (por Claude)` : `Creó la cotización ${quote.code} desde el CRM`,
+        origin: via ?? "CRM",
       });
     },
   };

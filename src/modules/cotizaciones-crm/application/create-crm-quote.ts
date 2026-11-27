@@ -56,7 +56,8 @@ export interface CrmQuoteRepository {
     origin: SaleOriginCode | null;
     originDetail: Record<string, string>;
   }): Promise<{ id: string; code: string; shareToken: string }>;
-  logCreated(actor: StaffUser, quote: { id: string; code: string }): Promise<void>;
+  // via "MCP" = creada por chat con Claude; sin valor, desde el CRM.
+  logCreated(actor: StaffUser, quote: { id: string; code: string }, via?: "MCP"): Promise<void>;
 }
 
 export type CrmQuoteDeps = {
