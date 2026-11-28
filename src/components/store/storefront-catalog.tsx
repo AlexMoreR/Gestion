@@ -517,8 +517,9 @@ export async function StorefrontCatalog({
   };
 
   // Seccion "Busca tu categoria": arriba en el inicio y debajo de los
-  // productos en una busqueda o en una categoria. Arriba, la primera fila de
-  // imagenes se carga de una vez; abajo, todas cargan al bajar.
+  // productos en una busqueda o en una categoria. Arriba se cargan de una vez
+  // solo las que caben en la primera pantalla del celular (4: la fila de 3
+  // columnas y una mas); las demas, y todas las de abajo, cargan al bajar.
   const categoriesSection = (eagerCount = 0) => (
     <div className="space-y-2">
       <div className="flex items-center justify-center gap-2 px-0.5 text-center">
@@ -655,7 +656,7 @@ export async function StorefrontCatalog({
 
       {/* En el inicio las categorias van arriba; en una busqueda o una
           categoria van debajo de los productos. */}
-      {!category && !normalizedQuery ? categoriesSection(8) : null}
+      {!category && !normalizedQuery ? categoriesSection(4) : null}
 
       {!showCatalogGrid ? null : products.length === 0 ? (
         <div className="space-y-6">
