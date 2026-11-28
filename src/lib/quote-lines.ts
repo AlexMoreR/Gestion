@@ -1,14 +1,10 @@
 import { expandComboLines, type ComboComponent } from "./combo";
 import type { LineaColores } from "./product-parts";
-import { lineasSinColor, parseQuoteItemMeta } from "./quote-item-meta";
+import { lineasSinColor } from "./quote-item-meta";
 
-// Cotización con venta (nov-2026): se puede agregar, quitar o cambiar productos; lo quitado se cancela en la orden.
+// Una cotización con venta no puede cambiar sus líneas: antes se borraban y se rehacían.
 export const COTIZACION_CON_VENTA_LINEAS =
-  "Esta cotización ya tiene venta: puedes agregar, quitar o cambiar productos. Lo abonado no se toca: el total y el saldo se recalculan al guardar. Si quitas o cambias algo, escribe el motivo.";
-
-// «Cambiar producto»: los demás productos de la venta quedan como estaban.
-export const CAMBIO_SOLO_AGREGA =
-  "En «Cambiar producto» los demás productos no se tocan: solo agrega el producto nuevo.";
+  "Esta cotización ya tiene venta: sus productos no se pueden cambiar, pero puedes agregar productos nuevos. Para quitar uno, cancélalo desde la orden (menú ⋯ → Editar orden → Cancelar producto).";
 
 type Linea = {
   productId: string;
@@ -70,34 +66,6 @@ export function lineasAgregadas<T extends Linea>(existentes: Linea[], nuevas: T[
     par.usada = true;
   }
   return pendientes.filter((p) => !p.usada).map((p) => p.linea);
-}
-
-/**
- * Cotización con venta: qué líneas se agregan y cuáles se quitan al guardar. Cada vieja se empareja con una
- * nueva igual; la que no tiene par se quita y la nueva que sobra se agrega (cambiar una línea = quitarla y
- * agregar la nueva). Un combo va entero: si cambia una pieza se quitan todas sus piezas viejas y se agregan
- * todas las nuevas, porque «Cancelar producto» cancela el combo completo.
- */
-export function cambiosDeLineas<V extends Linea, T extends Linea>(
-  existentes: V[],
-  nuevas: T[],
-): { agregadas: T[]; quitadas: V[] } {
-  const pendientes = nuevas.map((linea) => ({ linea, clave: clave(linea), usada: false }));
-  const sinPar = new Set<V>();
-  for (const vieja of existentes) {
-    const k = clave(vieja);
-    const par = pendientes.find((p) => !p.usada && p.clave === k);
-    if (par) par.usada = true;
-    else sinPar.add(vieja);
-  }
-  const comboDe = (linea: Linea) => parseQuoteItemMeta(linea.notes ?? null).comboKey;
-  const combosTocados = new Set(
-    [...sinPar, ...pendientes.filter((p) => !p.usada).map((p) => p.linea)].map(comboDe).filter(Boolean),
-  );
-  return {
-    agregadas: pendientes.filter((p) => !p.usada || combosTocados.has(comboDe(p.linea))).map((p) => p.linea),
-    quitadas: existentes.filter((vieja) => sinPar.has(vieja) || combosTocados.has(comboDe(vieja))),
-  };
 }
 
 // Reparte un monto (descuento o costo adicional del combo) entre las lineas en
