@@ -53,7 +53,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { imageVariantUrl } from "@/lib/image-variants";
 import { Button } from "../ui/button";
 import { displayCode } from "@/lib/code-display";
-import { CANCEL_ITEM_REASON_MAX, faltaEnCambio } from "@/lib/sale-item-cancel";
+import { CANCEL_ITEM_REASON_MAX, faltaEnCambio, faltaEnEdicion } from "@/lib/sale-item-cancel";
 
 export type QuoteWizardClient = {
   id: string;
@@ -128,6 +128,8 @@ export type QuoteWizardInitialLine = {
   comboName?: string;
   comboCode?: string;
   comboQuantity?: number;
+  /** Con venta: OF con la proveedora donde ya está este producto (al quitarlo o cambiarlo, la OF queda con aviso). */
+  ofs?: { code: string; proveedora: string }[];
 };
 
 // «Cambiar producto» (nov-2026): el producto de la orden que se cambia por lo que se agregue aquí.
@@ -158,7 +160,7 @@ type QuoteWizardModalProps = {
   initialStatus?: QuoteStatus;
   initialValidUntil?: string;
   initialNotes?: string;
-  // Con venta creada las lineas no se cambian (el servidor lo rechaza igual).
+  // Con venta: lo quitado o cambiado se cancela en la orden (pide motivo); el por mayor no se cambia.
   tieneVenta?: boolean;
   cambio?: CambioDeProducto | null;
 };
@@ -275,8 +277,22 @@ export function QuoteWizardModal({
       comboQuantity: item.comboQuantity ?? 0,
     })),
   );
-  // Con venta, los productos que ya tenía quedan fijos (solo se agregan nuevos; quitar = cancelar desde la orden).
-  const [lineasFijas] = useState(() => new Set(tieneVenta ? lines.map((line) => line.uid) : []));
+  // En «Cambiar producto» los productos que ya tenía quedan fijos (solo se agrega el nuevo).
+  const [lineasFijas] = useState(() => new Set(tieneVenta && cambio ? lines.map((line) => line.uid) : []));
+  // Editar con venta (nov-2026): las líneas de antes que se quitaron o cambiaron se cancelan en la orden.
+  const [lineasIniciales] = useState(
+    () => new Map(lines.map((line, index) => [line.uid, { foto: JSON.stringify(line), ofs: initialLines[index]?.ofs ?? [] }])),
+  );
+  const edicionConVenta = tieneVenta && !cambio;
+  const quitadasUi = edicionConVenta
+    ? [...lineasIniciales].filter(([uid, inicial]) => {
+        const actual = lines.find((line) => line.uid === uid);
+        return !actual || JSON.stringify(actual) !== inicial.foto;
+      })
+    : [];
+  const ofsQuitadas = [...new Map(quitadasUi.flatMap(([, inicial]) => inicial.ofs).map((of) => [of.code, of])).values()];
+  const [motivoEdicion, setMotivoEdicion] = useState("");
+  const [aceptaOFEdicion, setAceptaOFEdicion] = useState(false);
   const esFija = (uid: string) => lineasFijas.has(uid);
   const comboFijo = (comboKey: string) => lines.some((line) => line.comboKey === comboKey && esFija(line.uid));
   const [motivoCambio, setMotivoCambio] = useState("");
@@ -291,7 +307,14 @@ export function QuoteWizardModal({
         ordenCancelada: cambio.ordenCancelada,
         reactivar: reactivarCambio,
       })
-    : null;
+    : edicionConVenta
+      ? faltaEnEdicion({
+          motivo: motivoEdicion,
+          quitadas: quitadasUi.length,
+          tieneOF: ofsQuitadas.length > 0,
+          aceptaOF: aceptaOFEdicion,
+        })
+      : null;
   const [isResolvingClient, startResolvingClient] = useTransition();
 
   const [openProductModal, setOpenProductModal] = useState(false);
@@ -1159,6 +1182,42 @@ export function QuoteWizardModal({
                       onChange={(event) => setReactivarCambio(event.target.checked)}
                     />
                     <span>Reactivar la orden {cambio.orderCode} en este mismo paso</span>
+                  </label>
+                ) : null}
+              </div>
+            ) : null}
+            {edicionConVenta && quitadasUi.length > 0 ? (
+              <div className="space-y-2 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/5 p-3 text-sm">
+                <p className="text-xs text-muted-foreground">
+                  Quitaste o cambiaste productos de una venta: al guardar se cancelan en la orden y el total y el saldo se
+                  recalculan. Los abonos no se tocan.
+                </p>
+                <label htmlFor="edicion-motivo" className="block text-xs font-medium text-foreground">
+                  Motivo del cambio
+                </label>
+                <Textarea
+                  id="edicion-motivo"
+                  name="motivoEdicion"
+                  rows={2}
+                  maxLength={CANCEL_ITEM_REASON_MAX}
+                  value={motivoEdicion}
+                  onChange={(event) => setMotivoEdicion(event.target.value)}
+                  placeholder="Ej.: la clienta ya no quiere el butaco"
+                />
+                {ofsQuitadas.length > 0 ? (
+                  <label className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+                    <input
+                      type="checkbox"
+                      name="aceptaOFEdicion"
+                      value="1"
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--primary)]"
+                      checked={aceptaOFEdicion}
+                      onChange={(event) => setAceptaOFEdicion(event.target.checked)}
+                    />
+                    <span>
+                      Ya está en {ofsQuitadas.map((of) => `${displayCode(of.code)} de ${of.proveedora}`).join(", ")}. Entiendo: la OF
+                      mostrará que se canceló.
+                    </span>
                   </label>
                 ) : null}
               </div>
