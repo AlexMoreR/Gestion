@@ -8,7 +8,7 @@ import { syncOrderStatusAfterProduction } from "@/app/actions/orders-actions";
 import { getActivityActor, logActivityTx } from "@/lib/activity-log";
 import { anularVarias, bloqueoPorAbonos } from "@/lib/anulaciones";
 import { displayCode } from "@/lib/code-display";
-import { linesToRecolor, ofsConCambioDeColor } from "@/lib/color-change";
+import { lineaFuente, linesToRecolor, ofsConCambioDeColor } from "@/lib/color-change";
 import { estadoAlReactivar, reactivateStockNote, stockToRetake } from "@/lib/order-cancellation";
 import { prisma } from "@/lib/prisma";
 import { parseQuoteItemMeta, stringifyQuoteItemMeta } from "@/lib/quote-item-meta";
@@ -458,35 +458,198 @@ export async function reactivarOrdenTx(
   return { error: null, toStatus, retaken };
 }
 
-/** OF (sin recibir o recibidas) con la proveedora donde ya está el producto (un combo, sus piezas). */
-export async function ofsDelProducto(orderItemId: string): Promise<{ code: string; proveedora: string }[]> {
-  const item = await prisma.orderItem.findUnique({
-    where: { id: orderItemId },
-    select: {
-      order: {
-        select: {
-          items: { include: { product: { select: { name: true } } } },
-          sale: { select: { quoteId: true } },
-          manufacturingOrders: { select: { id: true, code: true, supplierId: true, supplier: { select: { name: true, displayName: true } } } },
-        },
-      },
-    },
-  });
-  if (!item) return [];
-  const order = item.order;
-  const quoteItems = order.sale
-    ? await prisma.quoteItem.findMany({ where: { quoteId: order.sale.quoteId }, include: { product: { select: { name: true, isBundle: true } } } })
-    : [];
-  const lines = linesToRecolor(
-    orderItemId,
-    quoteItems.map((q) => ({ id: q.id, notes: q.notes, productName: q.product.name, isBundle: q.product.isBundle })),
-    order.items,
+type LineaCot = { id: string; notes: string | null; product: { name: string; isBundle: boolean } };
+type OrdenConOFs = {
+  items: { id: string; quoteItemId: string | null; notes: string | null; confirmedSupplierId: string | null; fulfillmentMode: string }[];
+  manufacturingOrders: { id: string; code: string; supplierId: string; supplier: { name: string; displayName: string | null } }[];
+};
+const comoLineas = (quoteItems: LineaCot[]) =>
+  quoteItems.map((q) => ({ id: q.id, notes: q.notes, productName: q.product.name, isBundle: q.product.isBundle }));
+
+/** El producto de la orden que sale de una línea de la cotización (en un combo sin desglosar, una de sus piezas). */
+function orderItemDeLinea(quoteItemId: string, quoteItems: LineaCot[], orderItems: OrdenConOFs["items"]) {
+  const lineas = comoLineas(quoteItems);
+  return (
+    orderItems.find((o) => o.quoteItemId === quoteItemId) ??
+    orderItems.find((o) => !o.quoteItemId && lineaFuente(o, lineas)?.id === quoteItemId)
   );
+}
+
+function ofsDeItem(orderItemId: string, order: OrdenConOFs, quoteItems: LineaCot[]) {
+  const lines = linesToRecolor(orderItemId, comoLineas(quoteItems), order.items);
   const piezas = order.items.filter((o) => lines?.orderItemIds.includes(o.id));
   const ids = ofsConCambioDeColor(piezas, order.manufacturingOrders);
   return order.manufacturingOrders
     .filter((of) => ids.includes(of.id))
     .map((of) => ({ code: of.code, proveedora: of.supplier.displayName || of.supplier.name }));
+}
+
+const ordenConOFsSelect = {
+  items: { select: { id: true, quoteItemId: true, notes: true, confirmedSupplierId: true, fulfillmentMode: true } },
+  manufacturingOrders: { select: { id: true, code: true, supplierId: true, supplier: { select: { name: true, displayName: true } } } },
+} as const;
+
+/** OF (sin recibir o recibidas) con la proveedora donde ya está el producto (un combo, sus piezas). */
+export async function ofsDelProducto(orderItemId: string): Promise<{ code: string; proveedora: string }[]> {
+  const item = await prisma.orderItem.findUnique({
+    where: { id: orderItemId },
+    select: { order: { select: { ...ordenConOFsSelect, sale: { select: { quoteId: true } } } } },
+  });
+  if (!item) return [];
+  const quoteItems = item.order.sale
+    ? await prisma.quoteItem.findMany({ where: { quoteId: item.order.sale.quoteId }, include: { product: { select: { name: true, isBundle: true } } } })
+    : [];
+  return ofsDeItem(orderItemId, item.order, quoteItems);
+}
+
+/** Por cada línea de la cotización de una venta, las OF con la proveedora donde ya está (para editar la cotización). */
+export async function ofsDeLineas(quoteId: string): Promise<Map<string, { code: string; proveedora: string }[]>> {
+  const [sale, quoteItems] = await Promise.all([
+    prisma.sale.findUnique({ where: { quoteId }, select: { order: { select: ordenConOFsSelect } } }),
+    prisma.quoteItem.findMany({ where: { quoteId }, include: { product: { select: { name: true, isBundle: true } } } }),
+  ]);
+  const order = sale?.order;
+  const resultado = new Map<string, { code: string; proveedora: string }[]>();
+  if (!order) return resultado;
+  for (const q of quoteItems) {
+    const item = orderItemDeLinea(q.id, quoteItems, order.items);
+    if (item) resultado.set(q.id, ofsDeItem(item.id, order, quoteItems));
+  }
+  return resultado;
+}
+
+/**
+ * Editar la cotización de una venta (nov-2026): agrega las líneas nuevas y cancela en la orden las quitadas o
+ * cambiadas (las mismas funciones de «Cambiar producto»), en UNA transacción. Los abonos no se tocan: el total
+ * y el saldo se recalculan (puede quedar saldo a favor). Una sola nota y una sola entrada en la bitácora.
+ */
+export async function editarLineasDeVenta(input: {
+  agregar: Omit<DatosAgregar, "sale">;
+  saleId: string;
+  /** Líneas de la cotización que se quitan (o cambian); un combo, todas sus piezas. */
+  quitadas: string[];
+  motivo: string;
+  createdById: string;
+}): Promise<{ mensaje: string; avisoIds: string[] }> {
+  const actor = await getActivityActor();
+  return prisma.$transaction(async (tx) => {
+    const sale = await tx.sale.findUniqueOrThrow({
+      where: { id: input.saleId },
+      select: {
+        id: true,
+        code: true,
+        status: true,
+        total: true,
+        subtotal: true,
+        downPaymentAmount: true,
+        order: { select: { id: true, code: true, status: true, subtotal: true } },
+      },
+    });
+    const order = sale.order;
+    if (sale.status === "CANCELLED") throw new CancelItemBlockedError("La venta está cancelada.");
+    if (!order) throw new CancelItemBlockedError("Esta venta no tiene orden: no se pueden quitar productos.");
+    if (order.status === "CANCELLED") {
+      throw new CancelItemBlockedError(`La orden ${displayCode(order.code)} está cancelada: reactívala primero.`);
+    }
+    if (order.status === "COMPLETED") throw new CancelItemBlockedError(`La orden ${displayCode(order.code)} ya se entregó.`);
+    const lineasDeLaCotizacion = () =>
+      tx.quoteItem.findMany({
+        where: { quoteId: input.agregar.quoteId },
+        include: { product: { select: { name: true, isBundle: true } } },
+      });
+    const lineasAntes = await lineasDeLaCotizacion();
+
+    // 1) Cancelar lo quitado (stock, cargo a la proveedora, aviso en la OF, RegistroAnulado). Va antes de agregar:
+    // un combo editado conserva su comboKey y «Cancelar producto» cancela todo el comboKey. Un combo se cancela
+    // una sola vez: sus otras piezas ya no están cuando les toca.
+    const quitados: string[] = [];
+    const proveedoras = new Set<string>();
+    const avisoIds: string[] = [];
+    for (const quoteItemId of input.quitadas) {
+      const [quoteItems, orderItems] = await Promise.all([
+        lineasDeLaCotizacion(),
+        tx.orderItem.findMany({ where: { orderId: order.id }, select: ordenConOFsSelect.items.select }),
+      ]);
+      const linea = quoteItems.find((q) => q.id === quoteItemId);
+      if (!linea) continue;
+      const item = orderItemDeLinea(quoteItemId, quoteItems, orderItems);
+      if (!item) {
+        throw new CancelItemBlockedError(`${linea.product.name} no está en la orden ${displayCode(order.code)}: no se puede quitar.`);
+      }
+      const cancelado = await cancelarProductoTx(tx, actor, {
+        orderId: order.id,
+        orderItemId: item.id,
+        motivo: input.motivo,
+        createdById: input.createdById,
+        enCambio: true,
+      });
+      if (cancelado.error !== null) throw new CancelItemBlockedError(`${linea.product.name}: ${cancelado.error}`);
+      quitados.push(cancelado.producto);
+      cancelado.proveedoras.forEach((p) => proveedoras.add(p));
+      avisoIds.push(...cancelado.avisoIds);
+    }
+
+    // 2) Agregar lo nuevo, con la venta como quedó tras cancelar.
+    const despues = await tx.sale.findUniqueOrThrow({
+      where: { id: sale.id },
+      select: {
+        id: true,
+        code: true,
+        status: true,
+        total: true,
+        subtotal: true,
+        downPaymentAmount: true,
+        order: { select: { id: true, code: true, status: true, subtotal: true } },
+      },
+    });
+    const agregado = await agregarLineasTx(tx, actor, { ...input.agregar, sale: despues }, { registrar: false });
+
+    // 3) Una sola nota y una sola entrada en la bitácora, con el total de antes y el de ahora.
+    const final = await tx.sale.findUniqueOrThrow({ where: { id: sale.id }, select: { total: true, status: true } });
+    const antes = Number(sale.total);
+    const total = Number(final.total);
+    const pagado = Number(sale.downPaymentAmount);
+    const saldo = Math.round((total - pagado) * 100) / 100;
+    const saldoTexto = saldo >= 0 ? `Saldo ${formatCop(saldo)}` : `Saldo a favor de la clienta ${formatCop(-saldo)}`;
+    const partes = [
+      `Editó la cotización ${displayCode(input.agregar.quoteCode)}.`,
+      input.motivo ? `Motivo: ${input.motivo}.` : "",
+      quitados.length ? `Quitó: ${quitados.join(", ")}.` : "",
+      agregado.nombres.length ? `Agregó: ${agregado.nombres.join(", ")}.` : "",
+      `Total: antes ${formatCop(antes)} → ahora ${formatCop(total)} · Abonado ${formatCop(pagado)} · ${saldoTexto}`,
+    ];
+    const texto = partes.filter(Boolean).join(" ");
+    const foto = (lineas: Awaited<ReturnType<typeof lineasDeLaCotizacion>>) =>
+      lineas.map((q) => ({
+        producto: q.product.name,
+        quantity: q.quantity,
+        unitPrice: Number(q.unitPrice),
+        lineTotal: Number(q.lineTotal),
+        notes: q.notes,
+      }));
+    await tx.orderNote.create({ data: { orderId: order.id, text: texto, createdById: actor.id } });
+    await logActivityTx(tx, actor, {
+      action: "UPDATE",
+      entityType: "ORDER",
+      entityId: order.id,
+      entityCode: order.code,
+      summary: `${texto} (${sale.code})`,
+      before: { ventaTotal: antes, ventaEstado: sale.status, lineas: foto(lineasAntes) },
+      after: {
+        ventaTotal: total,
+        ventaEstado: final.status,
+        pagado,
+        saldo,
+        motivo: input.motivo,
+        quitado: quitados,
+        agregado: agregado.nombres,
+        lineas: foto(await lineasDeLaCotizacion()),
+      },
+    });
+    const avisar = proveedoras.size ? `. Avísale a ${[...proveedoras].join(" y ")} en la pestaña Fabricación` : "";
+    const mensaje = `Se actualizó la cotización ${displayCode(input.agregar.quoteCode)}. Total: ${formatCop(total)} · ${saldoTexto}${avisar}.`;
+    return { mensaje, avisoIds };
+  }, { timeout: 30_000 }); // varios pasos en una transacción: más que los 5 s de siempre
 }
 
 /**

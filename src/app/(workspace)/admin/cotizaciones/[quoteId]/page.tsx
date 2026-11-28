@@ -7,7 +7,7 @@ import { comboStock } from "@/lib/combo";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { prisma } from "@/lib/prisma";
 import { partesPorProducto } from "@/lib/product-parts.server";
-import { ofsDelProducto } from "@/lib/sale-item-swap.server";
+import { ofsDeLineas, ofsDelProducto } from "@/lib/sale-item-swap.server";
 import { getPublicAssetUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 
@@ -123,6 +123,9 @@ export default async function AdminCotizacionDetallePage({ params, searchParams 
       }
     : null;
 
+  // Con venta: en qué OF está ya cada línea (al quitarla o cambiarla, la OF queda con aviso).
+  const ofsPorLinea = quote.sale && !cambio ? await ofsDeLineas(quote.id) : new Map<string, { code: string; proveedora: string }[]>();
+
   const validUntilValue = quote.validUntil
     ? new Date(quote.validUntil.getTime() - quote.validUntil.getTimezoneOffset() * 60000)
         .toISOString()
@@ -177,6 +180,7 @@ export default async function AdminCotizacionDetallePage({ params, searchParams 
             comboName: meta.comboName,
             comboCode: meta.comboCode,
             comboQuantity: meta.comboQuantity,
+            ofs: ofsPorLinea.get(item.id) ?? [],
           };
         }),
       }}

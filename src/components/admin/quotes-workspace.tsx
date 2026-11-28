@@ -22,6 +22,7 @@ type QuoteRow = {
   createdAtISO: string;
   shareToken: string;
   hasSale: boolean;
+  whatsAppClienta?: string | null;
   hasCamillaCombo?: boolean;
   hasColorParts?: boolean;
   origin?: string | null;
@@ -40,9 +41,10 @@ type QuotesWorkspaceProps = {
   products: QuoteWizardProduct[];
   currency: SupportedCurrencyCode;
   accounts: AccountOption[];
+  enviarId?: string;
 };
 
-export function QuotesWorkspace({ quotes, clients, products, currency, accounts }: QuotesWorkspaceProps) {
+export function QuotesWorkspace({ quotes, clients, products, currency, accounts, enviarId }: QuotesWorkspaceProps) {
   const [openModal, setOpenModal] = useState(false);
 
   return (
@@ -54,7 +56,7 @@ export function QuotesWorkspace({ quotes, clients, products, currency, accounts 
         </Button>
       </div>
 
-      <QuotesDataTable quotes={quotes} currency={currency} accounts={accounts} />
+      <QuotesDataTable quotes={quotes} currency={currency} accounts={accounts} enviarId={enviarId} />
 
       <QuoteWizardModal
         open={openModal}

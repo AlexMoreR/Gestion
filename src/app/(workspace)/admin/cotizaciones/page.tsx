@@ -7,7 +7,8 @@ import { comboStock } from "@/lib/combo";
 import { prisma } from "@/lib/prisma";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
 import { partesPorProducto } from "@/lib/product-parts.server";
-import { getPublicAssetUrl } from "@/lib/site";
+import { enlaceWhatsAppClienta, mensajeCotizacionActualizada } from "@/lib/quote-update-message";
+import { getPublicAssetUrl, getSiteUrl } from "@/lib/site";
 import { getSystemCurrency } from "@/lib/system-settings";
 import {
   COMBO_CHECK_PRODUCT_SELECT,
@@ -34,6 +35,8 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
   const params = await searchParams;
   const okMessage = typeof params.ok === "string" ? params.ok : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
+  // ?enviar=<quoteId>: se acaba de editar una cotización con venta; se resalta «Enviar a la clienta por WhatsApp».
+  const enviarId = typeof params.enviar === "string" ? params.enviar : "";
 
   // El dueño (ADMIN) ve todas las cotizaciones; un empleado solo las que creó.
   const onlyOwnQuotes = session.user.role !== "ADMIN";
@@ -118,6 +121,7 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
       <QuotesWorkspace
         currency={currency}
         accounts={accounts}
+        enviarId={enviarId}
         quotes={quotes.map((quote) => ({
           id: quote.id,
           code: quote.code,
@@ -129,6 +133,20 @@ export default async function AdminCotizacionesPage({ searchParams }: PageProps)
           createdAtISO: quote.createdAt.toISOString(),
           shareToken: quote.shareToken,
           hasSale: Boolean(quote.sale),
+          // Mensaje a la clienta con su documento nuevo (total, abonado, saldo y links); lo manda la vendedora.
+          whatsAppClienta:
+            quote.sale && quote.sale.status !== "CANCELLED"
+              ? enlaceWhatsAppClienta(
+                  quote.client.phone,
+                  mensajeCotizacionActualizada({
+                    code: quote.code,
+                    total: Number(quote.sale.total),
+                    abonado: Number(quote.sale.downPaymentAmount),
+                    linkCotizacion: getSiteUrl(`/cotizaciones/${quote.shareToken}`),
+                    linkFactura: getSiteUrl(`/sales/${quote.sale.invoiceToken}`),
+                  }),
+                )
+              : null,
           origin: quote.origin ?? null,
           originDetail: badgeOriginDetail(quote.originDetail),
           hasCamillaCombo: quote.items.some((item) => isCamillaComboProduct(toComboCheckProduct(item.product))),

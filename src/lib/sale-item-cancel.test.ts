@@ -4,6 +4,7 @@ import {
   AVISO_PRODUCTO_CANCELADO,
   bloqueoCancelarProducto,
   faltaEnCambio,
+  faltaEnEdicion,
   montoACancelar,
   saldoAFavor,
   textoAvisoOF,
@@ -81,5 +82,18 @@ describe("lineasAgregadas", () => {
   it("null si una vieja cambió o se quitó", () => {
     expect(lineasAgregadas([l("a"), l("b")], [l("a"), l("c")])).toBeNull();
     expect(lineasAgregadas([l("a")], [l("a", 2)])).toBeNull();
+  });
+});
+
+describe("faltaEnEdicion", () => {
+  const ok = { motivo: "La clienta cambió de idea", quitadas: 1, tieneOF: false, aceptaOF: false };
+  it("sin quitar nada no pide nada", () => {
+    expect(faltaEnEdicion({ ...ok, quitadas: 0, motivo: "" , tieneOF: true })).toBeNull();
+    expect(faltaEnEdicion(ok)).toBeNull();
+    expect(faltaEnEdicion({ ...ok, tieneOF: true, aceptaOF: true })).toBeNull();
+  });
+  it("al quitar pide motivo y, con OF, la casilla", () => {
+    expect(faltaEnEdicion({ ...ok, motivo: "no" })).toMatch(/mínimo 3/);
+    expect(faltaEnEdicion({ ...ok, tieneOF: true })).toMatch(/OF/);
   });
 });
