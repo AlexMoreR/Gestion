@@ -6,10 +6,16 @@ import { hasAnyModuleAccess } from "@/lib/admin-module-access";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { COTIZACION_CON_VENTA_LINEAS, errorAlGuardarLineas, lineasAgregadas, mismasLineas } from "@/lib/quote-lines";
+import { CAMBIO_SOLO_AGREGA, cambiosDeLineas, errorAlGuardarLineas, lineasAgregadas } from "@/lib/quote-lines";
 import { agregarLineasAVenta } from "@/lib/sale-add-lines.server";
-import { faltaEnCambio } from "@/lib/sale-item-cancel";
-import { CancelItemBlockedError, cambiarProductoDeVenta, ofsDelProducto } from "@/lib/sale-item-swap.server";
+import { faltaEnCambio, faltaEnEdicion } from "@/lib/sale-item-cancel";
+import {
+  CancelItemBlockedError,
+  cambiarProductoDeVenta,
+  editarLineasDeVenta,
+  ofsDeLineas,
+  ofsDelProducto,
+} from "@/lib/sale-item-swap.server";
 import { partesPorProducto } from "@/lib/product-parts.server";
 import { displayCode } from "@/lib/code-display";
 import { Prisma } from "@prisma/client";
@@ -583,7 +589,7 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
 
   const productMap = new Map(products.map((product) => [product.id, product]));
 
-  // Con venta, las líneas quedan fijas (las notas y el estado sí cambian).
+  // Con venta, lo quitado o cambiado se cancela en la orden y lo nuevo se agrega (más abajo).
   const quoteWithSale = await prisma.quote.findUnique({
     where: { id: parsed.data.quoteId },
     select: {
@@ -658,28 +664,50 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
     };
   };
 
-  // Con venta, las líneas que ya tenía quedan iguales y solo se pueden sumar otras (nov-2026).
+  // Con venta (nov-2026): se agregan las líneas nuevas y las quitadas o cambiadas se cancelan en la orden.
+  // En «Cambiar producto» las que ya tenía quedan iguales y solo se suma la nueva.
   let indicesNuevos: number[] = [];
+  let quitadas: string[] = [];
+  const motivoEdicion = String(formData.get("motivoEdicion") ?? "").trim();
   if (linesLocked) {
     const previas = parsed.data.items.map((item) => normalizar(item, ""));
-    const nuevas = lineasAgregadas(quoteWithSale!.items, previas);
-    if (!nuevas) {
-      redirect(`${returnTo}?${new URLSearchParams({ error: COTIZACION_CON_VENTA_LINEAS }).toString()}`);
+    if (cambiarOrderItemId) {
+      const nuevas = lineasAgregadas(quoteWithSale!.items, previas);
+      if (!nuevas) {
+        redirect(`${returnTo}?${new URLSearchParams({ error: CAMBIO_SOLO_AGREGA }).toString()}`);
+      }
+      indicesNuevos = nuevas.map((linea) => previas.indexOf(linea));
+    } else {
+      const cambios = cambiosDeLineas(quoteWithSale!.items, previas);
+      indicesNuevos = cambios.agregadas.map((linea) => previas.indexOf(linea));
+      quitadas = cambios.quitadas.map((linea) => linea.id);
     }
-    indicesNuevos = nuevas.map((linea) => previas.indexOf(linea));
     const sale = quoteWithSale!.sale!;
     const errorAgregar =
-      indicesNuevos.length === 0
+      indicesNuevos.length === 0 && quitadas.length === 0
         ? null
         : sale.status === "CANCELLED"
-          ? "La venta está cancelada: no se le pueden agregar productos."
+          ? "La venta está cancelada: no se le pueden cambiar los productos."
           : sale.order?.status === "CANCELLED" && !cambiarOrderItemId
             ? `La orden ${displayCode(sale.order.code)} está cancelada. Para cambiarle el producto usa «Cambiar producto» en la orden (menú ⋯ → Editar orden).`
             : sale.order?.status === "COMPLETED"
-              ? `La orden ${displayCode(sale.order.code)} ya se entregó: no se le pueden agregar productos.`
+              ? `La orden ${displayCode(sale.order.code)} ya se entregó: no se le pueden cambiar los productos.`
               : null;
     if (errorAgregar) {
       redirect(`${returnTo}?${new URLSearchParams({ error: errorAgregar }).toString()}`);
+    }
+    if (quitadas.length > 0) {
+      // El servidor no confía en la pantalla: motivo y, si lo quitado ya está en una OF, la casilla.
+      const ofs = await ofsDeLineas(parsed.data.quoteId);
+      const falta = faltaEnEdicion({
+        motivo: motivoEdicion,
+        quitadas: quitadas.length,
+        tieneOF: quitadas.some((id) => (ofs.get(id)?.length ?? 0) > 0),
+        aceptaOF: formData.get("aceptaOFEdicion") === "1",
+      });
+      if (falta) {
+        redirect(`${returnTo}?${new URLSearchParams({ error: falta }).toString()}`);
+      }
     }
     if (cambiarOrderItemId) {
       // El servidor no confía en la pantalla: motivo, producto nuevo y las dos casillas.
@@ -794,10 +822,6 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
   const subtotal = Number(normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2));
   const total = subtotal;
 
-  if (linesLocked && indicesNuevos.length === 0 && !mismasLineas(quoteWithSale!.items, normalizedItems)) {
-    redirect(`${returnTo}?${new URLSearchParams({ error: COTIZACION_CON_VENTA_LINEAS }).toString()}`);
-  }
-
   const beforeQuote = await quoteForLog(prisma, parsed.data.quoteId);
   const datosCotizacion = {
     clientId: resolvedClientId,
@@ -836,6 +860,35 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
     revalidatePath(returnTo);
     redirect(`${returnTo}?${new URLSearchParams(mensaje).toString()}`);
   }
+  if (quitadas.length > 0) {
+    let mensaje: { ok: string; enviar: string } | { error: string };
+    try {
+      const edicion = await editarLineasDeVenta({
+        agregar: {
+          quoteId: parsed.data.quoteId,
+          quoteCode: quoteWithSale!.code,
+          lineas: indicesNuevos.map((index) => normalizedItems[index]),
+          datosCotizacion,
+        },
+        saleId: quoteWithSale!.sale!.id,
+        quitadas,
+        motivo: motivoEdicion,
+        createdById: userId,
+      });
+      mensaje = { ok: edicion.mensaje, enviar: parsed.data.quoteId };
+      dispararAvisosCambioOF(edicion.avisoIds, userId);
+    } catch (error) {
+      if (!(error instanceof CancelItemBlockedError)) console.error("Failed to edit sale quote:", error);
+      mensaje = { error: error instanceof CancelItemBlockedError ? error.message : "No se pudo guardar la cotización." };
+    }
+    revalidatePath("/admin/cotizaciones");
+    revalidatePath("/admin/ventas");
+    revalidatePath("/admin/ordenes");
+    revalidatePath("/admin/inventario");
+    revalidatePath("/admin/proveedores");
+    revalidatePath(returnTo);
+    redirect(`${"error" in mensaje ? returnTo : "/admin/cotizaciones"}?${new URLSearchParams(mensaje).toString()}`);
+  }
   if (linesLocked && indicesNuevos.length > 0) {
     const agregado = await agregarLineasAVenta({
       quoteId: parsed.data.quoteId,
@@ -848,7 +901,7 @@ export async function adminUpdateQuoteFullAction(formData: FormData): Promise<vo
     revalidatePath("/admin/ventas");
     revalidatePath("/admin/ordenes");
     revalidatePath(returnTo);
-    redirect(`/admin/cotizaciones?${new URLSearchParams({ ok: agregado }).toString()}`);
+    redirect(`/admin/cotizaciones?${new URLSearchParams({ ok: agregado, enviar: parsed.data.quoteId }).toString()}`);
   }
   const updatedQuote = await prisma.quote.update({
     where: { id: parsed.data.quoteId },

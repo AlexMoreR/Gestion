@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aplicarEdicionCombo, distributeAmount, errorAlGuardarLineas, mismasLineas, resumenCombo } from "./quote-lines";
+import { aplicarEdicionCombo, cambiosDeLineas, distributeAmount, errorAlGuardarLineas, mismasLineas, resumenCombo } from "./quote-lines";
 
 const linea = { productId: "p1", supplierId: null, quantity: 2, unitPrice: 1000, fulfillmentMode: "STOCK", notes: "x" };
 
@@ -106,5 +106,31 @@ describe("distributeAmount", () => {
   it("suma exacta y proporcional", () => {
     expect(distributeAmount(100, [1, 1, 2])).toEqual([25, 25, 50]);
     expect(distributeAmount(10, [0, 0])).toEqual([5, 5]);
+  });
+});
+
+describe("cambiosDeLineas", () => {
+  const l = (productId: string, quantity = 1, comboKey = "") => ({
+    productId,
+    quantity,
+    unitPrice: 100,
+    fulfillmentMode: "STOCK",
+    notes: comboKey ? JSON.stringify({ _type: "quote-item-meta", comboKey }) : null,
+  });
+  it("igual = nada; agregar solo agrega; quitar solo quita", () => {
+    expect(cambiosDeLineas([l("a")], [l("a")])).toEqual({ agregadas: [], quitadas: [] });
+    expect(cambiosDeLineas([l("a")], [l("a"), l("b")])).toEqual({ agregadas: [l("b")], quitadas: [] });
+    expect(cambiosDeLineas([l("a"), l("b")], [l("b")])).toEqual({ agregadas: [], quitadas: [l("a")] });
+  });
+  it("cambiar la cantidad quita la vieja y agrega la nueva", () => {
+    expect(cambiosDeLineas([l("a"), l("b")], [l("a", 2), l("b")])).toEqual({ agregadas: [l("a", 2)], quitadas: [l("a")] });
+  });
+  it("un combo va entero aunque cambie una sola pieza", () => {
+    const viejas = [l("x", 1, "k1"), l("y", 1, "k1"), l("z")];
+    const nuevas = [l("x", 1, "k1"), l("y", 2, "k1"), l("z")];
+    expect(cambiosDeLineas(viejas, nuevas)).toEqual({
+      agregadas: [l("x", 1, "k1"), l("y", 2, "k1")],
+      quitadas: [l("x", 1, "k1"), l("y", 1, "k1")],
+    });
   });
 });

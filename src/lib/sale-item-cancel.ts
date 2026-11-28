@@ -113,3 +113,15 @@ export function faltaEnCambio(input: {
   if (input.ordenCancelada && !input.reactivar) return "La orden está cancelada: marca «Reactivar la orden» para cambiar el producto.";
   return null;
 }
+
+/**
+ * Editar la cotización de una venta (nov-2026): qué falta para guardar, o null. Solo si se quita o se
+ * cambia algo (que se cancela en la orden): motivo y, si ya está en una OF, la casilla. Pantalla y servidor.
+ */
+export function faltaEnEdicion(input: { motivo: string; quitadas: number; tieneOF: boolean; aceptaOF: boolean }): string | null {
+  if (input.quitadas === 0) return null;
+  const motivo = parseCancelItemReason(input.motivo);
+  if (!motivo.ok) return motivo.error;
+  if (input.tieneOF && !input.aceptaOF) return "Marca que entiendes que la OF mostrará el producto cancelado.";
+  return null;
+}
