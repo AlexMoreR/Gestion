@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// tools.ts carga modulos de servidor de Next; en la prueba no hacen falta.
+vi.mock("server-only", () => ({}));
+vi.mock("@/auth", () => ({ auth: async () => null }));
 import { handleMcpPayload, JSON_RPC_ERRORS, type McpServerDefinition } from "./protocol";
 
 const server: McpServerDefinition = {
@@ -88,5 +92,19 @@ describe("protocolo MCP", () => {
     );
     expect(result.status).toBe(200);
     expect(result.body).toEqual([{ jsonrpc: "2.0", id: 1, result: {} }]);
+  });
+});
+
+describe("servidor MCP de Gestion", () => {
+  it("lista ver_inventario como solo lectura", async () => {
+    const { asesorMcpServer } = await import("./tools");
+    const result = await handleMcpPayload({ jsonrpc: "2.0", id: "inv", method: "tools/list" }, asesorMcpServer);
+    const tools = (result.body as { result: { tools: { name: string; description: string; annotations?: unknown }[] } })
+      .result.tools;
+    const tool = tools.find((t) => t.name === "ver_inventario");
+    expect(tool).toBeDefined();
+    expect(tool?.description).toContain("SOLO LECTURA");
+    expect(tool?.annotations).toMatchObject({ readOnlyHint: true });
+    expect(asesorMcpServer.instructions).toContain("ver_inventario");
   });
 });

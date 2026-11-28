@@ -22,6 +22,7 @@ import {
   listExpensesUseCase,
   listRetroactivosUseCase,
   getActivityHistoryUseCase,
+  getInventoryUseCase,
   listQuotesUseCase,
   listSalesUseCase,
 } from "../../application/use-cases";
@@ -309,6 +310,21 @@ export const asesorTools: McpToolDefinition[] = [
         .describe("Incluir productos ocultos de la tienda. Por defecto: si."),
     }),
     handler: (args, deps) => listProductsUseCase(deps, args.busqueda, args.incluir_ocultos),
+  }),
+  defineTool({
+    name: "ver_inventario",
+    title: "Ver inventario",
+    description:
+      "SOLO LECTURA. LLEVA COSTO. Stock por producto = suma de sus movimientos de inventario (igual que /admin/inventario). Costo unitario FIFO de la compra mas antigua que aun tiene existencias, o del catalogo si no hay compra, con su fuente (ej. COM-10 o catalogo). Ubicacion solo de las compras por lote (Cali / taller de la proveedora); el resto sale como 'sin ubicacion registrada'. Con busqueda (codigo como CAV002 o nombre sin tildes como 'divan escualizable'): cada producto con sus movimientos, los mas nuevos primero (max. 100), con fecha en hora Colombia, persona, tipo, cantidad y origen (compra COM, orden/venta, venta anulada, devolucion, ajuste manual o 'sin dato'). Sin busqueda: solo el resumen de todos. Valores en COP.",
+    schema: z.object({
+      busqueda: z
+        .string()
+        .min(1)
+        .max(80)
+        .optional()
+        .describe("Codigo (ej. CAV002) o parte del nombre sin tildes (ej. divan escualizable). Si se omite, el resumen de todos."),
+    }),
+    handler: (args, deps) => getInventoryUseCase(deps.asesor, args),
   }),
   defineTool({
     name: "comisiones_del_mes",
@@ -986,6 +1002,6 @@ export const asesorMcpServer: McpServerDefinition = {
   name: "gestion-magilus",
   version: "1.3.0",
   instructions:
-    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos, pagos a proveedoras, el cierre de mes y cotizaciones: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), saldos de cuentas, gastos del mes con la ganancia real (listar_gastos) cuanto se le debe a cada proveedora orden por orden (deuda_con_proveedoras), pedidos por clienta o ciudad con su estado (buscar_pedido, pedidos_abiertos) y la cobertura de envios por departamento y municipio (listar_cobertura). Para entender el sistema completo usa primero que_es_esta_aplicacion. El WhatsApp de la pagina (al que llegan los clientes de magilus.com) se lee con ver_whatsapp_de_la_pagina. Todas las herramientas son de lectura salvo registrar_gasto, registrar_pago_proveedora, cerrar_mes (cierre de mes: el dueno dicta el saldo real de cada cuenta y se crea un ajuste por cuenta), cambiar_whatsapp_de_la_pagina (cambia a que linea llegan los clientes de la pagina; solo si el dueno lo pide) y crear_cotizacion (crea una cotizacion con productos, colores y adicionales; la asesora es obligatoria; no toca ventas ni saldos), las unicas que escriben: antes de guardar SIEMPRE repite el resumen al dueno y espera su 'si' (primero con confirmado=false, luego confirmado=true, UNA sola vez: dos llamadas de registrar_gasto crean dos gastos). Un pago a una proveedora por su orden de fabricacion (OF) va con registrar_pago_proveedora, nunca como gasto (contaria el costo dos veces). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
+    "Servidor de consulta de Gestion (Magilus) que ademas registra gastos, pagos a proveedoras, el cierre de mes y cotizaciones: ventas (pagadas y con saldo pendiente), abonos, cotizaciones, productos, margenes, comisiones, nomina, equipo (trabajadores activos y retirados), saldos de cuentas, gastos del mes con la ganancia real (listar_gastos) cuanto se le debe a cada proveedora orden por orden (deuda_con_proveedoras), pedidos por clienta o ciudad con su estado (buscar_pedido, pedidos_abiertos), el inventario por producto con su costo FIFO y sus movimientos (ver_inventario) y la cobertura de envios por departamento y municipio (listar_cobertura). Para entender el sistema completo usa primero que_es_esta_aplicacion. El WhatsApp de la pagina (al que llegan los clientes de magilus.com) se lee con ver_whatsapp_de_la_pagina. Todas las herramientas son de lectura salvo registrar_gasto, registrar_pago_proveedora, cerrar_mes (cierre de mes: el dueno dicta el saldo real de cada cuenta y se crea un ajuste por cuenta), cambiar_whatsapp_de_la_pagina (cambia a que linea llegan los clientes de la pagina; solo si el dueno lo pide) y crear_cotizacion (crea una cotizacion con productos, colores y adicionales; la asesora es obligatoria; no toca ventas ni saldos), las unicas que escriben: antes de guardar SIEMPRE repite el resumen al dueno y espera su 'si' (primero con confirmado=false, luego confirmado=true, UNA sola vez: dos llamadas de registrar_gasto crean dos gastos). Un pago a una proveedora por su orden de fabricacion (OF) va con registrar_pago_proveedora, nunca como gasto (contaria el costo dos veces). La foto del soporte es opcional y NO se revisa: se sube despues por un enlace opcional. Moneda: pesos colombianos (COP). Fechas en formato AAAA-MM-DD. Las ventas cuentan cuando quedan pagadas por completo, aunque falte entregarlas, en el mes de ese pago; la contraentrega cuenta al entregarse (igual que la pantalla de Balances).",
   tools: asesorTools,
 };

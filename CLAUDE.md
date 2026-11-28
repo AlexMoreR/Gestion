@@ -395,7 +395,7 @@ Route handlers reales (`route.ts`):
   `registrar_gasto`, `registrar_pago_proveedora`, `cerrar_mes`, `cambiar_whatsapp_de_la_pagina` y `crear_cotizacion` (anotadas sin `readOnlyHint`; ver "Gastos por voz").
 - Herramientas: `resumen_del_mes`, `listar_ventas`, `listar_abonos`, `ver_venta`, `listar_cotizaciones`,
   `listar_productos`, `comisiones_del_mes`, `nomina_del_mes`, `equipo`, `saldos_de_cuentas`, `movimientos_de_cuenta`, `registros_sin_cuenta`,
-  `listar_gastos`, `listar_retroactivos`, `deuda_con_proveedoras`, `buscar_pedido`, `pedidos_abiertos`, `listar_cobertura`, `historial_de_registro`, `registrar_gasto`, `registrar_pago_proveedora`, `cerrar_mes`, `ver_whatsapp_de_la_pagina`, `cambiar_whatsapp_de_la_pagina`, `crear_cotizacion` y `que_es_esta_aplicacion`.
+  `listar_gastos`, `listar_retroactivos`, `deuda_con_proveedoras`, `buscar_pedido`, `pedidos_abiertos`, `listar_cobertura`, `historial_de_registro`, `ver_inventario`, `registrar_gasto`, `registrar_pago_proveedora`, `cerrar_mes`, `ver_whatsapp_de_la_pagina`, `cambiar_whatsapp_de_la_pagina`, `crear_cotizacion` y `que_es_esta_aplicacion`.
 - `ver_whatsapp_de_la_pagina` (solo lectura) da el número de WhatsApp de la página y su enlace wa.me; `cambiar_whatsapp_de_la_pagina` (nov-2026, escribe) lo cambia en dos pasos como `registrar_gasto` (`confirmado=false` solo muestra antes/nuevo; `confirmado=true` guarda con `setSystemWhatsAppPhone`, refresca la tienda y anota en `ActivityLog` con origin MCP). Número inválido → error sin guardar. Lógica en `src/modules/asesor/application/site-whatsapp.ts`.
 - `crear_cotizacion` (nov-2026, escribe, sin migración): cotización dictada por chat/voz en dos pasos como `registrar_gasto` (`confirmado=false` → `prepareChatQuote`, solo resumen; `confirmado=true` una vez → `confirmChatQuote`, devuelve COT, link público y PDF). Reusa `src/modules/cotizaciones-crm` (`create-quote-by-chat.ts` + repositorio Prisma): asesora obligatoria, precio dictado manda (aviso si es menor), envío como adicional, freno de 10 minutos, actualiza la ficha del cliente existente; no toca dinero.
 - `deuda_con_proveedoras` (oct-2026, solo lectura): `proveedora` (nombre, sin tildes) y `desde`/`hasta` (fecha de
@@ -428,6 +428,11 @@ Route handlers reales (`route.ts`):
   hora Colombia, persona, origen (sin dato = "pantalla"), qué hizo, antes/después (solo lo que cambió, ~300
   caracteres) y tarjeta/commit. Por código busca `entityCode`, `entityId` y el resumen (entradas viejas); una orden o
   compra suma su `OrderStatusHistory`. Máx. 500. Regla en `src/modules/asesor/domain/activity-history.ts`.
+- `ver_inventario` (nov-2026, solo lectura, **lleva costo**): `busqueda` opcional (código o nombre sin tildes) → por
+  producto stock = suma de `InventoryMovement.change` (igual que `/admin/inventario`), costo unitario FIFO con su fuente
+  (compra o catálogo) y ubicación solo de las compras por lote (`CompraUnidad`; el resto «sin ubicación registrada»); con
+  `busqueda`, cada movimiento (más nuevos primero, tope 100) con hora Colombia, persona, tipo, cantidad y origen (COM,
+  orden/venta, venta anulada, devolución, ajuste manual o «sin dato»). Reglas en `src/modules/asesor/domain/inventory-view.ts`.
 - `buscar_pedido` y `pedidos_abiertos` (nov-2026, solo lectura): encontrar un pedido (venta no cancelada) por
   clienta, teléfono, ciudad, departamento, producto o código (SAL/ORD/OF/COT, con o sin ceros; máx. 10, el más
   reciente primero) o traer todos los no entregados. Cada uno con ciudad ("sin dato" si la ficha de la clienta no la
