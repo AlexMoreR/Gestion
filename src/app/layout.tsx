@@ -21,6 +21,8 @@ const poppins = Poppins({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  // Solo la usa el admin (font-mono): no se precarga para no competir con la foto principal de la tienda.
+  preload: false,
 });
 
 export const viewport: Viewport = {
