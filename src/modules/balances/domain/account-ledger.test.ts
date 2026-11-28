@@ -84,6 +84,14 @@ describe("buildAccountLedger", () => {
     expect(ledger.lineas.map((l) => l.tipo)).toEqual(["nómina", "gasto"]);
   });
 
+  it("una devolución de dinero a la clienta resta y dice de qué venta es", () => {
+    const ledger = buildAccountLedger(1_000_000, [
+      row("2026-11-28T00:00:00Z", "salida", 637_500, { origen: "movimiento", devolucionDe: "SAL-94" }),
+    ]);
+    expect(ledger.lineas[0].tipo).toBe("devolución a clienta SAL-94");
+    expect(ledger.saldo_final).toBe(362_500);
+  });
+
   it("muestra máximo 500 líneas (las más nuevas) y los totales cuentan todo", () => {
     const rows = Array.from({ length: 502 }, (_, i) => row(new Date(Date.UTC(2026, 0, 1, 15) + i * 86_400_000).toISOString(), "entrada", 1));
     const ledger = buildAccountLedger(0, rows);

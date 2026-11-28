@@ -13,7 +13,8 @@ export type TablaAnulable =
   | "Order"
   | "Sale"
   | "QuoteItem"
-  | "OrderItem";
+  | "OrderItem"
+  | "AccountMovement";
 
 export type AnularInput = {
   tabla: TablaAnulable;
@@ -47,6 +48,7 @@ const ENTIDAD: Record<TablaAnulable, { entityType: string; nombre: string }> = {
   Sale: { entityType: "SALE", nombre: "una venta" },
   QuoteItem: { entityType: "QUOTE", nombre: "un producto de la cotización" },
   OrderItem: { entityType: "ORDER", nombre: "un producto de la orden" },
+  AccountMovement: { entityType: "ACCOUNT", nombre: "un movimiento de cuenta" },
 };
 
 /**
@@ -113,6 +115,7 @@ export async function anularConMotivo(tx: Prisma.TransactionClient, input: Anula
   else if (input.tabla === "Order") await tx.order.delete(where);
   else if (input.tabla === "QuoteItem") await tx.quoteItem.delete(where);
   else if (input.tabla === "OrderItem") await tx.orderItem.delete(where);
+  else if (input.tabla === "AccountMovement") await tx.accountMovement.delete(where);
   else await tx.sale.delete(where);
 
   const { entityType } = ENTIDAD[input.tabla];

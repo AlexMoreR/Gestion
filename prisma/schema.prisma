@@ -1042,6 +1042,8 @@ model AccountMovement {
   amount       Decimal             @db.Decimal(14, 2)
   note         String?
   transferId   String?
+  // Devolución de dinero a la clienta de una venta anulada (sin llave foránea).
+  saleId       String?
   movementDate DateTime            @default(now())
   createdById  String
   createdAt    DateTime            @default(now())
@@ -1050,6 +1052,7 @@ model AccountMovement {
 
   @@index([accountId, movementDate])
   @@index([transferId])
+  @@index([saleId])
 }
 
 model ExpenseCategory {
@@ -1102,6 +1105,8 @@ model InventoryMovement {
   // Código de compra (COM-00001...) que agrupa los movimientos creados en una
   // misma compra directa a proveedor. Nulo para movimientos sueltos.
   purchaseCode  String?
+  // Línea (OrderItem) de una venta anulada que pasó a inventario: al revender, su purchaseCost es el costo.
+  sourceOrderItemId String?
   movementDate  DateTime              @default(now())
   createdById   String
   createdAt     DateTime              @default(now())
@@ -1111,6 +1116,7 @@ model InventoryMovement {
 
   @@index([productId, movementDate])
   @@index([purchaseCode])
+  @@index([sourceOrderItemId])
 }
 
 // Cierre de mes: snapshot del resumen de ventas y ganancia de un periodo, que se

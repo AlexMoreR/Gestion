@@ -16,6 +16,8 @@ export type AccountLedgerInput = {
   categoria?: string | null;
   // Solo movimientos: true si es una pata de un traslado entre cuentas.
   traslado?: boolean;
+  // Solo movimientos: código de la venta anulada cuando es una devolución de dinero a la clienta.
+  devolucionDe?: string | null;
   referencia: string | null;
   nota: string | null;
   registradoPor: string | null;
@@ -56,7 +58,7 @@ function normalize(value: string): string {
     .trim();
 }
 
-export function ledgerTypeLabel(row: Pick<AccountLedgerInput, "origen" | "categoria" | "traslado">): string {
+export function ledgerTypeLabel(row: Pick<AccountLedgerInput, "origen" | "categoria" | "traslado" | "devolucionDe">): string {
   switch (row.origen) {
     case "abono":
       return "abono de cliente";
@@ -67,6 +69,7 @@ export function ledgerTypeLabel(row: Pick<AccountLedgerInput, "origen" | "catego
     case "gasto":
       return row.categoria && normalize(row.categoria) === "nomina" ? "nómina" : "gasto";
     case "movimiento":
+      if (row.devolucionDe) return "devolución a clienta " + row.devolucionDe;
       return row.traslado ? "movimiento manual (traslado)" : "movimiento manual";
   }
 }

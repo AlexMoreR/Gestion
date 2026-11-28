@@ -14,6 +14,8 @@ import { OrderClientCard } from "@/components/admin/order-client-card";
 import { OrderHistoryTabs } from "@/components/admin/order-history-tabs";
 import { EmbalajeFotosCard, gruposEmbalaje } from "@/components/admin/embalaje-fotos-card";
 import { OrderNotesCard } from "@/components/admin/order-notes-card";
+import { CancelledSaleCard } from "@/components/admin/cancelled-sale-card";
+import { ventaAnuladaVista } from "@/lib/cancelled-sale.server";
 import { DispatchEstimateCard, type CambioFechaView } from "@/components/admin/dispatch-estimate-card";
 import { colombiaDateTimeInput, colombiaDayKey, todayInColombia } from "@/lib/colombia-time";
 import { estadoDeEntrega, peorDe, PREFIJO_CAMBIO_FECHA } from "@/lib/delivery-tracking";
@@ -960,6 +962,9 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
   // Orden cancelada: franja roja con la última cancelación y sin botones de Fabricar, Recoger ni Despachar.
   const isCancelled = order.status === "CANCELLED";
   const cancellation = isCancelled ? ultimaCancelacion(order.history) : null;
+  // Venta anulada: pasar productos a inventario y devolver la plata (solo ADMIN, igual que el servidor).
+  const ventaAnulada =
+    isCancelled && !isPurchase && session.user.role === "ADMIN" ? await ventaAnuladaVista(prisma, order.id) : null;
 
 
   // Encabezado: etiqueta de estado y menú ⋯ (con Devolver si aplica), en compras y en ventas.
@@ -1322,6 +1327,20 @@ export default async function AdminOrderDetailPage({ params, searchParams }: Pag
           ) : null}
 
           <DispatchEstimateCard dispatches={dispatchEstimates} returnTo={returnTo} />
+
+          {ventaAnulada ? (
+            <CancelledSaleCard
+              saleId={ventaAnulada.saleId}
+              returnTo={returnTo}
+              today={todayInColombia()}
+              pagado={ventaAnulada.pagado}
+              devuelto={ventaAnulada.devuelto}
+              faltaDevolver={ventaAnulada.faltaDevolver}
+              productos={ventaAnulada.productos}
+              devoluciones={ventaAnulada.devoluciones.map((d) => ({ ...d, fecha: colombiaDayKey(d.fecha) }))}
+              accounts={accounts}
+            />
+          ) : null}
 
           <OrderNotesCard
             orderId={order.id}

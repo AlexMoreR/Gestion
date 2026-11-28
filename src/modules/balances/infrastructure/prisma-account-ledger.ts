@@ -81,9 +81,15 @@ export async function getAccountLedgerRows(accountId: string): Promise<AccountLe
     prisma.accountMovement.findMany({
       // TRANSFER se desglosa en filas IN/OUT al crearse: el saldo solo suma IN y OUT.
       where: { accountId, type: { in: ["IN", "OUT"] } },
-      select: { type: true, amount: true, movementDate: true, note: true, transferId: true, createdBy: who },
+      select: { type: true, amount: true, movementDate: true, note: true, transferId: true, saleId: true, createdBy: who },
     }),
   ]);
+  // Devoluciones a clientas: AccountMovement.saleId no tiene llave foránea, el código se busca aparte.
+  const refundSaleIds = [...new Set(movements.map((row) => row.saleId).filter((id): id is string => Boolean(id)))];
+  const refundSales = refundSaleIds.length
+    ? await prisma.sale.findMany({ where: { id: { in: refundSaleIds } }, select: { id: true, code: true } })
+    : [];
+  const saleCode = new Map(refundSales.map((sale) => [sale.id, sale.code] as const));
 
   const person = (user: { name: string | null; email: string } | null) => (user ? user.name || user.email : null);
 
@@ -136,7 +142,8 @@ export async function getAccountLedgerRows(accountId: string): Promise<AccountLe
       sentido: row.type === "IN" ? ("entrada" as const) : ("salida" as const),
       valor: num(row.amount),
       traslado: Boolean(row.transferId),
-      referencia: null,
+      devolucionDe: row.saleId && saleCode.has(row.saleId) ? displayCode(saleCode.get(row.saleId)!) : null,
+      referencia: row.saleId ? refs(saleCode.get(row.saleId)) : null,
       nota: row.note ?? null,
       registradoPor: person(row.createdBy),
     })),

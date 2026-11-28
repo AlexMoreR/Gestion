@@ -16,7 +16,8 @@ export type StockExitCostInput = {
 /**
  * Costo de las unidades que salen de bodega: lo que cobró la proveedora en la compra que
  * las entró (ORD- de la compra, o el cargo INV- si se entró sin orden); si no hay compra,
- * el costo de catálogo (baseCost + additionalCost).
+ * el costo de catálogo (baseCost + additionalCost). Una entrada que vino de una venta anulada
+ * (sourceOrderItemId) cuesta lo que se le cargó a la proveedora en esa línea, con el código de su orden.
  * Las entradas se ordenan por `movementDate`: editar una compra rehace su entrada pero
  * conserva la fecha de la compra, así que no cambia de lugar en la fila.
  */
@@ -29,6 +30,7 @@ export async function computeStockExitCost(input: StockExitCostInput, db: Db = p
       select: {
         change: true,
         purchaseCode: true,
+        sourceOrderItemId: true,
         ledgerEntries: {
           where: { type: "CHARGE", note: { startsWith: "Compra inventario" } },
           select: { amount: true, code: true },
@@ -52,8 +54,24 @@ export async function computeStockExitCost(input: StockExitCostInput, db: Db = p
       })
     : [];
   const purchaseByCode = new Map(purchases.map((order) => [order.purchaseCode, order] as const));
+  const sourceIds = Array.from(new Set(movements.map((m) => m.sourceOrderItemId).filter((id): id is string => Boolean(id))));
+  const sourceLines = sourceIds.length
+    ? await db.orderItem.findMany({
+        where: { id: { in: sourceIds } },
+        select: { id: true, purchaseCost: true, order: { select: { code: true } } },
+      })
+    : [];
+  const sourceById = new Map(sourceLines.map((line) => [line.id, line] as const));
 
   const entries: FifoStockEntry[] = movements.map((movement) => {
+    const source = movement.sourceOrderItemId ? sourceById.get(movement.sourceOrderItemId) : undefined;
+    if (source) {
+      return {
+        quantity: movement.change,
+        unitCost: source.purchaseCost === null ? null : Number(source.purchaseCost),
+        purchaseCode: source.order.code,
+      };
+    }
     const order = movement.purchaseCode ? purchaseByCode.get(movement.purchaseCode) : undefined;
     if (order) {
       // Costo por unidad de las líneas de esta pieza en la compra (sin el flete del producto).

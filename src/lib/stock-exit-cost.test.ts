@@ -5,7 +5,12 @@ vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 
 import { computeStockExitCost } from "./stock-exit-cost";
 
-type Movement = { change: number; purchaseCode: string | null; ledgerEntries: Array<{ amount: number; code: string | null }> };
+type Movement = {
+  change: number;
+  purchaseCode: string | null;
+  sourceOrderItemId?: string | null;
+  ledgerEntries: Array<{ amount: number; code: string | null }>;
+};
 
 function fakeDb(movements: Movement[], stock: number) {
   return {
@@ -13,6 +18,9 @@ function fakeDb(movements: Movement[], stock: number) {
     inventoryMovement: {
       findMany: async () => movements,
       aggregate: async () => ({ _sum: { change: stock } }),
+    },
+    orderItem: {
+      findMany: async () => [{ id: "oi-anulada", purchaseCost: 650000, order: { code: "ORD-00103" } }],
     },
     order: {
       findMany: async () => [
@@ -41,5 +49,10 @@ describe("computeStockExitCost", () => {
       unitCost: 450000,
       source: "INV-00005",
     });
+  });
+
+  it("una unidad que vino de una venta anulada cuesta lo cargado a la proveedora en esa línea", async () => {
+    const db = fakeDb([{ change: 1, purchaseCode: null, sourceOrderItemId: "oi-anulada", ledgerEntries: [] }], 1);
+    expect(await computeStockExitCost({ productId: "p", quantity: 1 }, db)).toEqual({ unitCost: 650000, source: "ORD-00103" });
   });
 });
