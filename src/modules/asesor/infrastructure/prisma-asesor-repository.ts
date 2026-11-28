@@ -4,6 +4,7 @@ import { storedCodeCandidates } from "@/lib/code-display";
 import { prisma } from "@/lib/prisma";
 import { estaAbierta, estadoDevolucionDeOrden } from "@/lib/order-return";
 import { parseQuoteItemMeta } from "@/lib/quote-item-meta";
+import { computeStockExitCost } from "@/lib/stock-exit-cost";
 import type {
   DayRange,
   ExpenseLine,
@@ -18,6 +19,7 @@ import type {
 import type { SaleLedgerInput } from "../domain/payments";
 import { MAX_HISTORIAL, type ActivityHistoryRow } from "../domain/activity-history";
 import { describeProductSource } from "../domain/product-source";
+import { coincideBusqueda, type InventoryMovementRow } from "../domain/inventory-view";
 import { buildQuoteProductSummary, buildSaleProducts, type SaleProductItemInput } from "../domain/sale-products";
 import type { AsesorReadRepository, SaleLedgerFilter } from "../domain/repository";
 
@@ -564,6 +566,70 @@ export function createPrismaAsesorRepository(): AsesorReadRepository {
         _sum: { quantity: true },
       });
       return new Map(groups.map((group) => [group.productId, group._sum.quantity ?? 0]));
+    },
+    async getInventory({ busqueda, conMovimientos }) {
+      // Solo lectura: findMany/groupBy y computeStockExitCost (que tambien solo lee).
+      const term = busqueda?.trim();
+      const [todos, conStock, conLote] = await Promise.all([
+        prisma.product.findMany({ orderBy: { name: "asc" }, select: { id: true, code: true, name: true } }),
+        prisma.inventoryMovement.groupBy({ by: ["productId"], _sum: { change: true } }),
+        prisma.compraUnidad.groupBy({ by: ["productId"] }),
+      ]);
+      const stockById = new Map(conStock.map((g) => [g.productId, g._sum.change ?? 0] as const));
+      const loteIds = new Set(conLote.map((g) => g.productId));
+      // Sin tildes: el filtro va en codigo (Postgres "insensitive" no quita tildes).
+      const elegidos = term
+        ? todos.filter((p) => coincideBusqueda(p, term))
+        : todos.filter((p) => stockById.has(p.id) || loteIds.has(p.id));
+      const ids = elegidos.map((p) => p.id);
+      if (ids.length === 0) return { productos: [], movimientos: [], unidadesLote: [] };
+
+      const [movs, unidades, costos] = await Promise.all([
+        prisma.inventoryMovement.findMany({
+          where: { productId: { in: ids } },
+          orderBy: [{ movementDate: "desc" }, { createdAt: "desc" }],
+          select: {
+            productId: true,
+            type: true,
+            change: true,
+            note: true,
+            purchaseCode: true,
+            sourceOrderItemId: true,
+            movementDate: true,
+            createdBy: { select: { name: true, email: true } },
+          },
+        }),
+        prisma.compraUnidad.findMany({ where: { productId: { in: ids } }, select: { productId: true, estado: true, ubicacion: true } }),
+        Promise.all(
+          ids.map((productId) => computeStockExitCost({ productId, quantity: 1, stockOnHand: stockById.get(productId) ?? 0 })),
+        ),
+      ]);
+
+      const sourceIds = conMovimientos
+        ? [...new Set(movs.map((m) => m.sourceOrderItemId).filter((id): id is string => Boolean(id)))]
+        : [];
+      const fuentes = sourceIds.length
+        ? await prisma.orderItem.findMany({ where: { id: { in: sourceIds } }, select: { id: true, order: { select: { code: true } } } })
+        : [];
+      const ordenById = new Map(fuentes.map((f) => [f.id, f.order.code] as const));
+
+      const movimientos: InventoryMovementRow[] = movs.map((m) => ({
+        productId: m.productId,
+        type: m.type,
+        change: m.change,
+        note: m.note,
+        purchaseCode: m.purchaseCode,
+        sourceOrderItemId: m.sourceOrderItemId,
+        ordenAnulada: m.sourceOrderItemId ? (ordenById.get(m.sourceOrderItemId) ?? null) : null,
+        movementDate: m.movementDate,
+        persona: m.createdBy.name?.trim() || m.createdBy.email,
+      }));
+
+      return {
+        productos: elegidos.map((p, i) => ({ ...p, costoUnitario: costos[i].unitCost, costoFuente: costos[i].source })),
+        movimientos,
+        unidadesLote: unidades,
+      };
     },
     async listOrderTrackings(filter): Promise<OrderTracking[]> {
       // Solo lectura: un findMany. Abiertos = sin orden o con la orden sin entregar ni cancelar.

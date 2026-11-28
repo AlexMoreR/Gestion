@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getActivityHistoryUseCase, getSaleUseCase, type AsesorDependencies } from "./use-cases";
+import { getActivityHistoryUseCase, getInventoryUseCase, getSaleUseCase, type AsesorDependencies } from "./use-cases";
 import type { SaleLedgerInput } from "../domain/payments";
 
 const input: SaleLedgerInput = {
@@ -66,5 +66,33 @@ describe("historial_de_registro", () => {
     await expect(getActivityHistoryUseCase(historyDeps, {})).rejects.toThrow("uno de los dos");
     await expect(getActivityHistoryUseCase(historyDeps, { codigo: "SAL-1", fecha: "2026-10-30" })).rejects.toThrow("uno de los dos");
     await expect(getActivityHistoryUseCase(historyDeps, { fecha: "2026-02-30" })).rejects.toThrow("no es una fecha valida");
+  });
+});
+
+describe("inventario", () => {
+  const pedidos: unknown[] = [];
+  const repo = {
+    getInventory: async (filter: unknown) => {
+      pedidos.push(filter);
+      return {
+        productos: [{ id: "p1", code: "SIL-01", name: "Silla", costoUnitario: 500_000, costoFuente: "ORD-00092" }],
+        movimientos: [
+          { productId: "p1", type: "IN", change: 2, note: null, purchaseCode: "COM-00004", sourceOrderItemId: null, movementDate: new Date("2026-10-01T15:00:00Z"), persona: "Ingrid" },
+        ],
+        unidadesLote: [],
+      };
+    },
+  } as unknown as AsesorDependencies["asesor"];
+
+  it("con búsqueda trae movimientos; sin ella, solo el resumen", async () => {
+    const conBusqueda = await getInventoryUseCase(repo, { busqueda: "silla" });
+    expect(conBusqueda.total).toBe(1);
+    expect(conBusqueda.productos[0]).toMatchObject({ stock: 2, costo_fuente: "ORD-00092" });
+    expect(conBusqueda.productos[0]).toHaveProperty("movimientos", [
+      expect.objectContaining({ origen: "compra", referencia: "COM-4", persona: "Ingrid" }),
+    ]);
+    const resumen = await getInventoryUseCase(repo, {});
+    expect(resumen.productos[0]).not.toHaveProperty("movimientos");
+    expect(pedidos).toEqual([{ busqueda: "silla", conMovimientos: true }, { busqueda: undefined, conMovimientos: false }]);
   });
 });

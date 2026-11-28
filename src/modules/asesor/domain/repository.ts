@@ -3,6 +3,7 @@ import type { DayRange, ExpenseLine, OrderTracking, ProductRow, QuoteRow, QuoteS
 import type { SaleLedgerInput } from "./payments";
 import type { RetroactivoRow } from "./retroactivos";
 import type { ActivityHistoryRow } from "./activity-history";
+import type { InventoryLotUnitRow, InventoryMovementRow, InventoryProductRow } from "./inventory-view";
 import type { TipoRetroactivo } from "../../retroactivos/domain/retroactivo";
 
 // Filtro opcional de ventas para los abonos; sin filtro = todas las ventas.
@@ -33,6 +34,13 @@ export interface AsesorReadRepository {
   listSupplierLedgers(): Promise<SupplierLedger[]>;
   // Pedidos: ventas no canceladas con orden, despachos y OF. soloAbiertos = sin entregar.
   listOrderTrackings(filter?: { soloAbiertos?: boolean }): Promise<OrderTracking[]>;
+  // Inventario: productos que coinciden con la busqueda (sin ella, los que tienen movimientos o lote),
+  // sus movimientos y sus unidades de compra por lote. Sin conMovimientos no resuelve la orden de la venta anulada.
+  getInventory(filter: { busqueda?: string; conMovimientos: boolean }): Promise<{
+    productos: InventoryProductRow[];
+    movimientos: InventoryMovementRow[];
+    unidadesLote: InventoryLotUnitRow[];
+  }>;
 }
 
 export type PackageManifest = {

@@ -49,6 +49,7 @@ import { buildRetroactivosReport } from "../domain/retroactivos";
 import { buildActivityHistory } from "../domain/activity-history";
 import { findOrders, listOpenOrders, MAX_ORDER_RESULTS } from "../domain/orders";
 import { buildPreciosVigentes } from "../domain/precios-vigentes";
+import { resumirInventario } from "../domain/inventory-view";
 import { rangoMesBogota, type TipoRetroactivo } from "../../retroactivos/domain/retroactivo";
 import { getSiteUrl } from "../../../lib/site";
 import { displayCode, stripCodeZeros } from "../../../lib/code-display";
@@ -766,4 +767,11 @@ export async function preciosVigentesUseCase(repo: AsesorReadRepository, now: Da
   const desde = new Date(now.getTime() - PRECIOS_VIGENTES_DIAS * 24 * 60 * 60 * 1000);
   const [products, unitsSold] = await Promise.all([repo.listProducts(), repo.unitsSoldByProduct(desde)]);
   return buildPreciosVigentes(products, unitsSold, now);
+}
+
+// Inventario de solo lectura: con busqueda trae los movimientos de cada producto; sin ella, solo el resumen.
+export async function getInventoryUseCase(repo: AsesorReadRepository, { busqueda }: { busqueda?: string }) {
+  const conMovimientos = Boolean(busqueda?.trim());
+  const { productos, movimientos, unidadesLote } = await repo.getInventory({ busqueda, conMovimientos });
+  return { total: productos.length, productos: resumirInventario(productos, movimientos, unidadesLote, { conMovimientos }) };
 }
