@@ -14,7 +14,6 @@ import {
   Edit3,
   FileText,
   ImagePlus,
-  MessageCircle,
   MoreHorizontal,
   Plus,
   ShoppingCart,
@@ -29,7 +28,7 @@ import { PaymentMethodField } from "@/modules/ventas/presentation/payment-method
 import { pagoTotalIncompleto, saleFromQuoteMissing, type SalePaymentMethod } from "@/modules/ventas/domain/payment-method";
 import { SaleOriginBadge } from "@/modules/ventas/presentation/sale-origin-badge";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { StatList } from "@/components/ui/stat-list";
 import { Input } from "@/components/ui/input";
@@ -73,8 +72,6 @@ type QuoteRow = {
   createdAtISO: string;
   shareToken: string;
   hasSale: boolean;
-  // Con venta: wa.me a la clienta con su documento nuevo (null sin venta o cancelada).
-  whatsAppClienta?: string | null;
   hasCamillaCombo?: boolean;
   hasColorParts?: boolean;
   // Origen avisado por el CRM al marcar GANADO (null = sin dato todavia).
@@ -94,8 +91,6 @@ type QuotesDataTableProps = {
   quotes: QuoteRow[];
   currency: SupportedCurrencyCode;
   accounts: AccountOption[];
-  /** Cotización recién editada (?enviar=): arriba sale el botón para mandarle el documento a la clienta. */
-  enviarId?: string;
 };
 
 type SaleAttachmentDraft = {
@@ -322,14 +317,6 @@ function RowActions({
             Editar
           </Link>
         </DropdownMenuItem>
-        {quote.whatsAppClienta ? (
-          <DropdownMenuItem asChild>
-            <a href={quote.whatsAppClienta} target="_blank" rel="noopener noreferrer">
-              <MessageCircle className="mr-2 h-4 w-4" />
-              Enviar a la clienta por WhatsApp
-            </a>
-          </DropdownMenuItem>
-        ) : null}
         {quote.hasSale ? (
           <DropdownMenuItem asChild>
             <Link href={`/admin/ventas?q=${encodeURIComponent(quote.code)}`}>
@@ -975,7 +962,7 @@ function SaleInstallmentsModal({
   );
 }
 
-export function QuotesDataTable({ quotes, currency, accounts, enviarId }: QuotesDataTableProps) {
+export function QuotesDataTable({ quotes, currency, accounts }: QuotesDataTableProps) {
   const [statusFilter, setStatusFilter] = React.useState<QuoteStatus[]>(DEFAULT_STATUS_FILTER);
   const [dateFrom, setDateFrom] = React.useState(firstDayOfMonthInput());
   const [dateTo, setDateTo] = React.useState(todayInputValue());
@@ -1269,25 +1256,8 @@ export function QuotesDataTable({ quotes, currency, accounts, enviarId }: Quotes
     [currency, openSaleModal],
   );
 
-  const recienEditada = enviarId ? quotes.find((quote) => quote.id === enviarId && quote.whatsAppClienta) : undefined;
   return (
     <div className="space-y-3">
-      {recienEditada?.whatsAppClienta ? (
-        <div className="flex flex-col gap-2 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/5 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-foreground">
-            {displayCode(recienEditada.code)} de {recienEditada.clientName} quedó actualizada. Mándale su documento nuevo.
-          </p>
-          <a
-            href={recienEditada.whatsAppClienta}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={buttonVariants({ size: "lg", className: "h-11 sm:h-9" })}
-          >
-            <MessageCircle className="h-4 w-4" />
-            Enviar a la clienta por WhatsApp
-          </a>
-        </div>
-      ) : null}
       <StatList
         items={[
           { label: "Cotizaciones", value: String(stats.count), icon: FileText },
